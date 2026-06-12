@@ -170,7 +170,16 @@ export type FieldType =
   // submits via the EXISTING /api/leads lead-capture path (same endpoint the
   // CTA LeadModal / ContactStep use). It carries NO quote answer and is
   // excluded from the formula everywhere the display-only types are.
-  | 'contact_form';
+  | 'contact_form'
+  // PRICING-MODELS — three new pricing-model input types (U0 foundation):
+  //  - `address_distance` — customer address → server-resolved driving
+  //    distance from the business `origin`. Contributes `distanceMiles`
+  //    (×2 when `roundTrip`) to the formula context.
+  //  - `rate_matrix`      — two dropdowns (row × col) resolved CLIENT-side
+  //    against `matrix.rates`; contributes the looked-up lane rate.
+  //  - `photo_upload`     — customer photos of the job. Answer-only (rides
+  //    in lead `answers` like contact_form); contributes 0 to formulas.
+  | 'address_distance' | 'rate_matrix' | 'photo_upload';
 
 export interface TemplateOption {
   id: string;
@@ -304,6 +313,43 @@ export interface TemplateField {
    */
   contactRequire?: Array<'name' | 'email' | 'message'>;
   /**
+   * PRICING-MODELS — `address_distance` field config. The customer types
+   * their address (Places autocomplete with plain-text fallback); the
+   * SERVER resolves driving distance from the business `origin` (see
+   * `AdvancedConfigShape.origin`) — the client never supplies the origin.
+   *  - `distanceUnit`        — display unit ('miles' default | 'km').
+   *  - `roundTrip`           — when true the contributed distance doubles.
+   *  - `maxDistanceMiles`    — beyond this, "outside our service area"
+   *                            (lead still captured, quote_amount null).
+   *  - `allowManualDistance` — fall back to a manual "Distance in miles"
+   *                            input when resolution fails / is rate-capped
+   *                            (default true).
+   * All optional; absent → sensible defaults at render time.
+   */
+  distanceUnit?: 'miles' | 'km';
+  roundTrip?: boolean;
+  maxDistanceMiles?: number;
+  allowManualDistance?: boolean;
+  /**
+   * PRICING-MODELS — `rate_matrix` field config. Rates ship in the config
+   * (no secret — CLIENT-resolved, no network). Two dropdowns labeled
+   * `rowLabel` / `colLabel`; the customer's pick contributes
+   * `rates[rowId][colId]`. `missingCell` controls an absent cell:
+   * 'custom_quote' (default) → "quoted individually" note, lead capture
+   * proceeds with a null amount; 'zero' → contributes 0.
+   * Drayage mapping: rows = ports/ramps, cols = zip zones, rates = lane
+   * rates; surcharges compose in the formula (`[Lane Rate]*1.32+150`).
+   */
+  matrix?: TemplateRateMatrix;
+  /**
+   * PRICING-MODELS — `photo_upload` field config. Immediate server upload;
+   * submit NEVER blocks on photos. Answer-only (contributes 0, like
+   * contact_form). `maxPhotos` default 3 (clamped 1-5 at render time);
+   * `maxPhotoMb` default 8 (server enforces the hard cap).
+   */
+  maxPhotos?: number;
+  maxPhotoMb?: number;
+  /**
    * Wave 61 — per-element inline cosmetic style overrides driven by the
    * floating <InlineStyleToolbar />. Optional; absent → no override (the
    * widget renders with the resolved theme/AdvStyle tokens as before).
@@ -346,6 +392,25 @@ export interface TemplateField {
     op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
     value: string | number;
   };
+}
+
+/**
+ * PRICING-MODELS — the `rate_matrix` field's rate table. Plain serializable
+ * JSON so it round-trips through `toAdvancedConfig` and the persisted
+ * `calculator_settings.advanced` untouched. Single-axis pricing = one col
+ * (the renderer collapses to a single dropdown).
+ */
+export interface TemplateRateMatrix {
+  /** Label over the row dropdown (e.g. "Pickup zone" / "Port"). */
+  rowLabel: string;
+  /** Label over the column dropdown (e.g. "Drop-off zone" / "Zip zone"). */
+  colLabel: string;
+  rows: Array<{ id: string; label: string }>;
+  cols: Array<{ id: string; label: string }>;
+  /** rates[rowId][colId] → lane rate in dollars. Missing cell → `missingCell`. */
+  rates: Record<string, Record<string, number>>;
+  /** Behaviour for an absent cell. Default 'custom_quote'. */
+  missingCell?: 'zero' | 'custom_quote';
 }
 
 /**
@@ -4617,6 +4682,14 @@ export interface AdvancedConfigShape {
    * No backend involvement.
    */
   spamProtection?: boolean;
+  /**
+   * PRICING-MODELS — per-business anchor address for `address_distance`
+   * fields. The server geocodes it ONCE on save (serviceAreaMapRoutes
+   * pattern) and stores lat/lng beside the address; the distance endpoint
+   * reads it server-side (the widget client never supplies the origin).
+   * NOTE: `businessProfile.serviceArea` (free text) is NOT the anchor.
+   */
+  origin?: { address: string; lat?: number; lng?: number };
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───

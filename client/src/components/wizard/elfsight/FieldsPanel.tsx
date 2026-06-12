@@ -115,6 +115,42 @@ export function makeField(publicType: PublicFieldType): TemplateField {
         id, name: 'Contact form', label: 'Get in touch', type: 'contact_form',
         contactRequire: ['name', 'email'],
       };
+    // PRICING-MODELS — U0 foundation factories. Sane defaults per the
+    // pricing-models spec; the dedicated config editors land in U3.
+    case 'address_distance':
+      return {
+        id, name: 'Distance', label: 'Your address', type: 'address_distance',
+        distanceUnit: 'miles', roundTrip: false, allowManualDistance: true,
+      };
+    case 'rate_matrix': {
+      // Seed a filled 2×2 so the widget shows a real rate the instant the
+      // field is dropped in (same convention as the other factories).
+      const rows = [
+        { id: uid('row'), label: 'Zone A' },
+        { id: uid('row'), label: 'Zone B' },
+      ];
+      const cols = [
+        { id: uid('col'), label: 'Zone 1' },
+        { id: uid('col'), label: 'Zone 2' },
+      ];
+      return {
+        id, name: 'Lane Rate', label: 'Select your route', type: 'rate_matrix',
+        matrix: {
+          rowLabel: 'Pickup zone', colLabel: 'Drop-off zone',
+          rows, cols,
+          rates: {
+            [rows[0].id]: { [cols[0].id]: 100, [cols[1].id]: 150 },
+            [rows[1].id]: { [cols[0].id]: 150, [cols[1].id]: 200 },
+          },
+          missingCell: 'custom_quote',
+        },
+      };
+    }
+    case 'photo_upload':
+      return {
+        id, name: 'Photos', label: 'Add photos of the job', type: 'photo_upload',
+        maxPhotos: 3, maxPhotoMb: 8,
+      };
   }
 }
 
