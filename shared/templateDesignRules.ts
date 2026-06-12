@@ -61,17 +61,38 @@ export function categoryIdFromDisplay(category: string | undefined): CategoryId 
   const norm = (category ?? '').trim().toLowerCase();
   if (!norm) return 'default';
   if (norm.startsWith('home')) return 'homeImprovement';
-  if (norm.startsWith('construction')) return 'construction';
+  // 'Renovation' / 'Driveway' are legacy catalogue literals folded into
+  // 'Construction' (taxonomy normalization); keep the aliases so saved
+  // configs that still carry the old strings resolve to the same palette.
+  if (
+    norm.startsWith('construction') ||
+    norm.startsWith('renovation') ||
+    norm.startsWith('driveway')
+  ) return 'construction';
+  // 'HVAC & Mechanical' is the canonical category; 'Mechanical' and
+  // 'Repair Services' are legacy literals folded into it. All three share
+  // the automotive (black + orange) palette — the same visual family
+  // `getCategoryStyle()` / `resolveDerivedCategoryId()` give these trades.
+  if (
+    norm.startsWith('hvac') ||
+    norm.startsWith('mechanical') ||
+    norm.startsWith('repair')
+  ) return 'automotive';
   if (norm.startsWith('automotive')) return 'automotive';
   if (norm.startsWith('cleaning')) return 'cleaning';
   if (norm.startsWith('emergency') || norm.startsWith('restoration')) return 'emergency';
   if (norm.startsWith('outdoor')) return 'outdoor';
+  // Legacy 'Renewable Energy' folded into 'Home Improvement'.
+  if (norm.startsWith('renewable')) return 'homeImprovement';
   if (
     norm.startsWith('professional') ||
     norm.startsWith('photography') ||
     norm.startsWith('moving')
   ) return 'professional';
   if (norm.startsWith('finance')) return 'finance';
+  // NOTE: legacy 'Specialty Services' was split per-template into
+  // 'Cleaning' / 'Emergency' at the catalogue level, so it intentionally
+  // falls through to 'default' here (only stale saved strings hit it).
   return 'default';
 }
 
