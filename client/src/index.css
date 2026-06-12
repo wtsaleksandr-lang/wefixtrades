@@ -4207,4 +4207,9 @@ select:focus {
 }
 .calx-use { background: var(--calx-cta, var(--calx-accent, #0D3CFC)); color: var(--calx-ink, rgba(255, 255, 255, 1)); border: 1.5px solid var(--calx-cta, var(--calx-accent, #0D3CFC)); }
 .calx-use:hover { background: rgba(255, 255, 255, 1); color: var(--calx-cta, var(--calx-accent, #0D3CFC)); }
+/* Touch targets: the solid CTA must hit 44px on touch viewports (desktop keeps
+ * the compact 37px pointer-sized chip). */
+@media (max-width: 640px) {
+  .calx-btn { min-height: 44px; }
+}
 
