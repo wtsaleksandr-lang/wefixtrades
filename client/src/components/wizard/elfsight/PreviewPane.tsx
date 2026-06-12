@@ -171,6 +171,10 @@ interface Props {
   /** Corner the floating launcher docks to (matches BD-3m style config).
    *  Defaults to bottom-right when undefined. */
   floatingLauncherPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  /** Fired whenever the fullscreen TEST-preview modal opens (true) or closes
+   *  (false). Lets a parent (WizardShell) react to the modal state — e.g.
+   *  suppress its own chrome. Optional; PreviewPane owns the state itself. */
+  onFullscreenChange?: (open: boolean) => void;
 }
 
 /**
@@ -522,6 +526,7 @@ export default function PreviewPane({
   floatingLauncherExpanded = false,
   onFloatingLauncherExpandedChange,
   floatingLauncherPosition = 'bottom-right',
+  onFullscreenChange,
 }: Props) {
   const selection = useSelection();
   // Apple-mobile-clean (2026-06-05) — detect a REAL small viewport (≤768px),
@@ -1323,8 +1328,12 @@ export default function PreviewPane({
     setWidgetSelected(false);
     setWidgetHover(false);
     setFullscreenOpen(true);
-  }, []);
-  const closeFullscreen = useCallback(() => setFullscreenOpen(false), []);
+    onFullscreenChange?.(true);
+  }, [onFullscreenChange]);
+  const closeFullscreen = useCallback(() => {
+    setFullscreenOpen(false);
+    onFullscreenChange?.(false);
+  }, [onFullscreenChange]);
   // Live mirror of fullscreenOpen so the once-bound native wheel listener can
   // read it without re-binding (and bailing on zoom while the modal is open).
   const fullscreenOpenRef = useRef(fullscreenOpen);
@@ -1484,11 +1493,12 @@ export default function PreviewPane({
       if (e.key === 'Escape') {
         e.preventDefault();
         setFullscreenOpen(false);
+        onFullscreenChange?.(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [fullscreenOpen]);
+  }, [fullscreenOpen, onFullscreenChange]);
 
   // Ctrl/⌘ + wheel = zoom (anchored at cursor). Without modifier, scroll
   // passes through to the pane. Pinch on Mac trackpads fires wheel with
@@ -4696,7 +4706,7 @@ function DropZonesOverlay({ fields, containerRef, onAddField }: DropZonesOverlay
             data-testid={`preview-dropzone-plus-${z.index}`}
             onClick={(e) => openPicker(z.index, e)}
           >
-            <Plus size={16} aria-hidden="true" strokeWidth={2.5} />
+            <Plus size={12} aria-hidden="true" strokeWidth={2.5} />
           </button>
         </div>
       ))}
@@ -4710,18 +4720,27 @@ function DropZonesOverlay({ fields, containerRef, onAddField }: DropZonesOverlay
       )}
 
       <style>{`
-        /* Wave 59 — widen the inter-row lane inside the wizard preview so
-         * the 28px "+" drop-zone button has its own clean gutter and does
-         * not overlap the field text above/below. The customer-facing
-         * calculator grid uses gap:12px (set inline by AdvancedCalculator
-         * via its dynamic per-instance .qq-widget-<id>-fields class) which
-         * is smaller than the button + bar. Targeting the grid by its
-         * inherent relationship — the direct parent of
-         * [data-component-type="fields-section"], which is the
-         * FlipCard-rendered grid — keeps this override scoped to wizard
-         * preview only; the published widget keeps its tight 12px gap. */
-        .qq-preview-pane :is([data-testid^="preview-bezel"]) div:has(> [data-component-type="fields-section"]) {
-          row-gap: 32px;
+        /* Wave 60 — give the inter-row lane inside the wizard preview just
+         * enough breathing room to host the redesigned (small, left-gutter)
+         * "+" drop-zone affordance without overlapping field text above or
+         * below. The customer-facing calculator grid uses the locked
+         * gap:2px stacked-input rule (set inline by AdvancedCalculator via
+         * its dynamic per-instance .qq-widget-<id>-fields class). 32px was
+         * too large (Alex flagged it); 14px clears the 2px bar + ~18px "+"
+         * with margin while staying tight.
+         *
+         * Robustness: target the grid element ROBUSTLY. The grid is the
+         * FlipCard rendered with the per-instance "...-fields" class; the
+         * [data-component-type="fields-section"] node is a
+         * display:contents wrapper INSIDE it (so it is the grid's
+         * descendant, not a box of its own). Pin to the grid via
+         * [class$="-fields"] (the only *-fields element in the bezel) and
+         * confirm it owns the fields via a DESCENDANT :has (no direct-child
+         * combinator), so the override can't silently no-op if the DOM nests
+         * deeper or display:contents is ever removed. Scoped to the preview
+         * bezel only; the published widget keeps its tight 2px gap. */
+        .qq-preview-pane :is([data-testid^="preview-bezel"]) [class$="-fields"]:has([data-component-type="fields-section"]) {
+          row-gap: 14px;
         }
         .qq-preview-dropzones {
           position: absolute; inset: 0;
@@ -4743,28 +4762,35 @@ function DropZonesOverlay({ fields, containerRef, onAddField }: DropZonesOverlay
           position: absolute;
           left: 0; right: 0;
           top: 50%; transform: translateY(-50%);
-          height: 4px;
+          height: 2px;
           border-radius: 999px;
           background: ${p.colors.accent};
           opacity: 0.55;
           pointer-events: none;
         }
+        /* Wave 60 — the "+" sits ON the centred insertion line but is shoved
+         * into the LEFT GUTTER (translateX(-100%) + a small nudge) so it lives
+         * beside the row lane, never over the column text. Small (18px) so it
+         * fits the slim 14px preview row-gap and can't overlap adjacent field
+         * text at any field count. */
         .qq-preview-dropzone-plus {
-          position: relative; z-index: 1;
-          width: 28px; height: 28px;
+          position: absolute; z-index: 1;
+          left: 0; top: 50%;
+          transform: translate(calc(-100% - 6px), -50%);
+          width: 18px; height: 18px;
           display: inline-flex; align-items: center; justify-content: center;
           background: ${p.colors.accent};
           color: #fff;
-          border: 2px solid #fff;
+          border: 1.5px solid #fff;
           border-radius: 50%;
           cursor: pointer;
           padding: 0;
-          box-shadow: 0 2px 8px rgba(13,60,252,0.35);
+          box-shadow: 0 1px 4px rgba(13,60,252,0.35);
           transition: transform 0.12s ease, background 0.12s ease;
         }
         .qq-preview-dropzone-plus:hover,
         .qq-preview-dropzone-plus:focus-visible {
-          transform: scale(1.08);
+          transform: translate(calc(-100% - 6px), -50%) scale(1.12);
           background: ${p.colors.accentDark};
           outline: none;
         }
