@@ -348,7 +348,9 @@ export function imageTemplateToConfig(t: ImageTemplate): TemplateConfig {
   // Header: prefer the AI-extracted business name over the document title.
   // Use the extracted tagline as the subtitle when available.
   const headerTitle = (styling?.businessName?.trim() || title);
-  const headerSubtitle = styling?.tagline?.trim() ?? 'Powered by your AI assistant';
+  // Customer-facing fallback — keep it about the customer's outcome, not
+  // about "AI" (chat rebrand, 2026-06-12).
+  const headerSubtitle = styling?.tagline?.trim() ?? 'Get your instant quote';
 
   // CTA label — use the AI-derived action phrase when present.
   const ctaLabel = styling?.ctaLabel?.trim() || undefined;

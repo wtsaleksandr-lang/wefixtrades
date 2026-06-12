@@ -185,7 +185,8 @@ function headline(cfg: ReturnType<typeof imageTemplateToConfig>): number {
 
   ok(cfg.theme === 'light', 'no-styling: theme defaults to light', `got ${cfg.theme}`);
   ok(cfg.header.title === 'Gutter cleaning', 'no-styling: title used as header.title', `got ${cfg.header.title}`);
-  ok(cfg.header.subtitle === 'Powered by your AI assistant', 'no-styling: default subtitle', `got ${cfg.header.subtitle}`);
+  // Chat rebrand (2026-06-12): customer-facing fallback subtitle de-AI'd.
+  ok(cfg.header.subtitle === 'Get your instant quote', 'no-styling: default subtitle', `got ${cfg.header.subtitle}`);
   ok(!cfg.results?.cta_label, 'no-styling: no cta_label in results');
   ok(!(cfg as any).trustBadges, 'no-styling: no trustBadges array');
   ok(headline(cfg) === 200, 'no-styling: headline Total = 200', String(headline(cfg)));

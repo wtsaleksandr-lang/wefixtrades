@@ -1150,8 +1150,16 @@ export default function AdminCopilot({
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-2 border-brand-blue shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-brand-blue" />
-          <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
+          {/* Chat rebrand (2026-06-12) — branded mark + "WeFixTrades assistant"
+              instead of generic "AI Copilot". */}
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            className="w-4 h-4 shrink-0"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <span className="text-sm font-semibold text-gray-900">WeFixTrades assistant</span>
           <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
             {pageContext.page.replace(/_/g, " ")}
           </span>

@@ -53,7 +53,7 @@ export default function AdminChatHistoryPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-brand-blue" />
-            AI Copilot — conversation history
+            WeFixTrades assistant — conversation history
           </h1>
           <span className="text-[10px] text-gray-400 uppercase tracking-wide">
             7-day rolling

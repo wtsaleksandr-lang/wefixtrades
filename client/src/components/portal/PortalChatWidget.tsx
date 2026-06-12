@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
-  X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History, Wand2, Sparkles, ArrowLeft,
+  X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History, Wand2, ArrowLeft,
 } from "lucide-react";
 import ChatAttachmentInput, {
   ChatAttachmentChips,
@@ -766,7 +766,7 @@ export default function PortalChatWidget({
         style={{ touchAction: "none" }}
         title="Drag to resize"
         data-testid="chat-resize-handle"
-        aria-label="Resize AI Copilot panel"
+        aria-label="Resize assistant panel"
       >
         {/* Always-visible grip so the resize affordance is discoverable. */}
         <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-brand-blue transition-colors" />
@@ -775,8 +775,17 @@ export default function PortalChatWidget({
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-brand-blue" aria-hidden="true" />
-          <span className="text-sm font-semibold text-foreground">AI Copilot</span>
+          {/* Chat rebrand (2026-06-12) — branded mark + "WeFixTrades assistant"
+              instead of generic "AI Copilot". /favicon.svg is the locked
+              all-blue brand mark (works on light AND dark surfaces). */}
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            className="w-4 h-4 shrink-0"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <span className="text-sm font-semibold text-foreground">WeFixTrades assistant</span>
           {isOnboarding && (
             <span className="text-[10px] text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">setup</span>
           )}
@@ -807,7 +816,7 @@ export default function PortalChatWidget({
             type="button"
             onClick={onClose}
             className="p-1.5 rounded text-muted-foreground/70 hover:bg-muted/50 hover:text-muted-foreground"
-            aria-label="Close AI Copilot"
+            aria-label="Close assistant"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>

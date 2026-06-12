@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
@@ -212,6 +212,41 @@ function uid(): string {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/* ─── Brand mark (chat rebrand, 2026-06-12) ─────────────────────────────────
+ * The QuoteQuick builder is branded with the canonical checkmark mark — the
+ * same locked asset the editor top bar uses (`/favicon.svg`, all-blue so it
+ * survives light AND dark surfaces; see client/public/brand/README.md).
+ * Used in the panel header and as the small avatar beside assistant
+ * messages. Decorative only — hidden from AT. */
+function BrandMark({ size = 14 }: { size?: number }) {
+  return (
+    <img
+      src="/favicon.svg"
+      alt=""
+      aria-hidden="true"
+      style={{ width: size, height: size, display: 'block' }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
+/** A message with nothing visible inside would render as a bare gray bubble
+ *  (the "empty placeholders" bug: a streaming placeholder keeps `content: ''`
+ *  when the stream errors/aborts before the first token, and those husks were
+ *  also persisted to localStorage). Skip them at render AND at save time. */
+function hasVisibleContent(m: ChatMessage): boolean {
+  return Boolean(
+    m.content
+    || m.imageThumb
+    || m.pendingLabel
+    || m.buildingTemplate
+    || m.imageError
+    || m.clarification
+    || (m.toolChips && m.toolChips.length > 0)
+    || (m.pendingConfirms && m.pendingConfirms.length > 0),
+  );
+}
+
 function loadHistory(convId: string): ChatMessage[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY_PREFIX + convId);
@@ -223,7 +258,9 @@ function loadHistory(convId: string): ChatMessage[] {
 }
 
 function saveHistory(convId: string, msgs: ChatMessage[]): void {
-  try { localStorage.setItem(HISTORY_KEY_PREFIX + convId, JSON.stringify(msgs.slice(-40))); } catch {}
+  // Drop invisible husks (empty streamed placeholders) so they never pile up
+  // in localStorage and re-render as empty gray bubbles on reopen.
+  try { localStorage.setItem(HISTORY_KEY_PREFIX + convId, JSON.stringify(msgs.filter(hasVisibleContent).slice(-40))); } catch {}
 }
 
 /** Client-side resize a data URL down to <= MAX_IMAGE_WIDTH and JPEG-encode. */
@@ -268,7 +305,7 @@ function describePendingConfirm(call: AiToolCall): { title: string; body: string
   if (call.name === 'apply_template') {
     const name = String(i.preset_id ?? 'a template');
     return {
-      title: `AI wants to apply "${name}"`,
+      title: `Apply "${name}"?`,
       body: 'Your current fields and calculations will be replaced.',
     };
   }
@@ -278,7 +315,7 @@ function describePendingConfirm(call: AiToolCall): { title: string; body: string
   const calcCount = Array.isArray(cfg.calculations) ? cfg.calculations.length : 0;
   const title = (cfg.header?.title && String(cfg.header.title).trim()) || 'a new calculator';
   return {
-    title: `AI wants to build "${title}"`,
+    title: `Build "${title}"?`,
     body: `Your current fields will be replaced with ${fieldCount} new field${fieldCount === 1 ? '' : 's'}` +
       (calcCount ? ` and ${calcCount} calculation${calcCount === 1 ? '' : 's'}.` : '.'),
   };
@@ -651,7 +688,7 @@ export default function AIBubble(props: AIBubbleProps) {
         try { body = await res.json(); } catch {}
         const message =
           body?.message ||
-          (res.status === 401 ? 'Sign in to use the AI assistant.' :
+          (res.status === 401 ? 'Sign in to use the builder.' :
            res.status === 429 ? 'You can only generate 5 templates per hour. Try again later.' :
            res.status === 413 ? 'File is too large — keep images under 5 MB and PDFs/Excel/email under 15 MB.' :
            'Sorry, I couldn\'t read that file. Try a clearer copy or paste your details as text.');
@@ -1173,18 +1210,18 @@ export default function AIBubble(props: AIBubbleProps) {
         onClick={() => setOpen(true)}
         className="qq-ai-bubble"
         data-testid="aibubble-toggle"
-        aria-label="Open AI assistant"
+        aria-label="Open the QuoteQuick builder"
         data-open={open ? 'true' : 'false'}
       >
         <Sparkles className="w-4 h-4" />
-        <span className="qq-ai-bubble-label">AI</span>
+        <span className="qq-ai-bubble-label">Builder</span>
       </button>
 
       {open && (
         <div
           className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}`}
           role="dialog"
-          aria-label="AI assistant"
+          aria-label="QuoteQuick builder"
           data-testid="aibubble-panel"
           data-collapsed={collapsed ? 'true' : 'false'}
         >
@@ -1196,7 +1233,7 @@ export default function AIBubble(props: AIBubbleProps) {
             type="button"
             className="qq-ai-panel-fold"
             onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? 'Expand AI assistant' : 'Collapse AI assistant'}
+            aria-label={collapsed ? 'Expand the builder panel' : 'Collapse the builder panel'}
             aria-pressed={collapsed}
             data-collapsed={collapsed ? 'true' : 'false'}
             data-testid="aibubble-fold"
@@ -1210,15 +1247,15 @@ export default function AIBubble(props: AIBubbleProps) {
           </button>
           <div className="qq-ai-panel-header">
             <div className="qq-ai-panel-title">
-              <Bot className="w-3.5 h-3.5" />
-              <span>AI assistant</span>
+              <span className="qq-ai-title-mark" aria-hidden="true"><BrandMark size={14} /></span>
+              <span>QuoteQuick builder</span>
             </div>
             {budgetMeter}
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="qq-ai-panel-min"
-              aria-label="Minimize AI assistant"
+              aria-label="Minimize the builder panel"
               title="Minimize"
               data-testid="aibubble-minimize"
             >
@@ -1228,7 +1265,7 @@ export default function AIBubble(props: AIBubbleProps) {
               type="button"
               onClick={() => setOpen(false)}
               className="qq-ai-panel-close"
-              aria-label="Close AI assistant"
+              aria-label="Close the builder panel"
               data-testid="aibubble-close"
             >
               <X className="w-3.5 h-3.5" />
@@ -1238,12 +1275,12 @@ export default function AIBubble(props: AIBubbleProps) {
           {warn && !capExceeded && (
             <div className="qq-ai-warn" data-testid="aibubble-warn">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>You're close to your AI budget cap.</span>
+              <span>You're close to your included usage limit.</span>
             </div>
           )}
 
           <div className="qq-ai-msgs" ref={scrollerRef} data-testid="aibubble-msgs">
-            {messages.length === 0 && (
+            {messages.filter(hasVisibleContent).length === 0 && (
               <div className="qq-ai-empty" data-testid="aibubble-empty">
                 <p className="qq-ai-empty-title" style={{ margin: 0, fontWeight: 700 }}>Hi — I can build your calculator with you.</p>
                 <p className="qq-ai-empty-sub" style={{ margin: '6px 0 0' }}>
@@ -1252,8 +1289,17 @@ export default function AIBubble(props: AIBubbleProps) {
                 </p>
               </div>
             )}
-            {messages.map(m => (
-              <div key={m.id} className={`qq-ai-msg qq-ai-msg-${m.role}`} data-testid={`aibubble-msg-${m.role}`}>
+            {messages.filter(hasVisibleContent).map(m => (
+              <div key={m.id} className={`qq-ai-row qq-ai-row-${m.role}`}>
+                {/* Branded avatar beside assistant messages — same mark as the
+                    panel header so the speaker is "QuoteQuick", not a generic
+                    gray placeholder. User messages stay avatar-free. */}
+                {m.role === 'assistant' && (
+                  <span className="qq-ai-avatar" aria-hidden="true" data-testid="aibubble-avatar">
+                    <BrandMark size={14} />
+                  </span>
+                )}
+              <div className={`qq-ai-msg qq-ai-msg-${m.role}`} data-testid={`aibubble-msg-${m.role}`}>
                 {m.imageThumb && (
                   <img src={m.imageThumb} alt="" className="qq-ai-msg-thumb" data-testid="aibubble-msg-thumb" />
                 )}
@@ -1388,7 +1434,7 @@ export default function AIBubble(props: AIBubbleProps) {
                           data-testid="aibubble-confirm-card"
                           data-state={resolved ?? 'pending'}
                           role="group"
-                          aria-label="Confirm destructive AI action"
+                          aria-label="Confirm this change"
                         >
                           <div className="qq-ai-confirm-title" data-testid="aibubble-confirm-title">
                             <AlertTriangle className="w-3.5 h-3.5" />
@@ -1431,24 +1477,25 @@ export default function AIBubble(props: AIBubbleProps) {
                   </div>
                 )}
               </div>
+              </div>
             ))}
           </div>
 
           {streamErr && (
             <div className="qq-ai-err" data-testid="aibubble-error" role="alert">
               {streamErr.startsWith('budget:')
-                ? 'AI budget reached for this calculator.'
+                ? 'Usage limit reached for this calculator.'
                 : streamErr === 'auth:required'
-                  ? 'Sign in to use the AI assistant. Open this calculator from your dashboard, or refresh the page.'
+                  ? 'Sign in to use the builder. Open this calculator from your dashboard, or refresh the page.'
                   : `Something went wrong: ${streamErr}`}
             </div>
           )}
 
           {capExceeded ? (
             <div className="qq-ai-capped" data-testid="aibubble-cap-reached">
-              <p style={{ margin: 0, fontWeight: 700 }}>AI budget reached</p>
+              <p style={{ margin: 0, fontWeight: 700 }}>Usage limit reached</p>
               <p style={{ margin: '6px 0 0', color: p.colors.muted, fontSize: 12 }}>
-                You've used your AI assistant budget for this account. Upgrade your plan to unlock more.
+                You've used this account's included builder budget. Upgrade your plan to unlock more.
               </p>
             </div>
           ) : (
@@ -1514,7 +1561,7 @@ export default function AIBubble(props: AIBubbleProps) {
                       onSend();
                     }
                   }}
-                  placeholder="Ask the AI to build or change anything…"
+                  placeholder="Ask me to build or change anything…"
                   rows={3}
                   data-testid="aibubble-input"
                   disabled={sending}
@@ -1725,6 +1772,24 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         .qq-ai-empty { font-size: 13px; line-height: 1.5; color: #0f172a; }
         .qq-ai-empty-sub { color: #6b7280; }
+        /* Chat rebrand — each message renders inside a row so assistant
+           messages can carry the small branded avatar on the left. */
+        .qq-ai-row {
+          display: flex; align-items: flex-end; gap: 6px;
+          max-width: 100%;
+        }
+        .qq-ai-row-user { justify-content: flex-end; }
+        .qq-ai-avatar {
+          flex-shrink: 0;
+          width: 22px; height: 22px;
+          border-radius: 8px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: #fff;
+          border: 1px solid rgba(15, 23, 42, 0.12);
+        }
+        .qq-ai-title-mark {
+          display: inline-flex; align-items: center; justify-content: center;
+        }
         .qq-ai-msg {
           max-width: 86%; padding: 8px 11px;
           border-radius: 12px; font-size: 13px; line-height: 1.45;
@@ -1732,11 +1797,11 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         .qq-ai-msg-user {
           background: #0d3cfc; color: #fff;
-          align-self: flex-end; border-bottom-right-radius: 4px;
+          border-bottom-right-radius: 4px;
         }
         .qq-ai-msg-assistant {
           background: #f1f5f9; color: #0f172a;
-          align-self: flex-start; border-bottom-left-radius: 4px;
+          border-bottom-left-radius: 4px;
         }
         .qq-ai-msg-thumb {
           display: block; max-width: 180px; border-radius: 6px;
@@ -2099,6 +2164,7 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-empty { color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-empty-sub { color: #94a3b8; }
         [data-theme="dark"] .qq-ai-msg-assistant { background: #1e293b; color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-avatar { background: #1e293b; border-color: rgba(255,255,255,0.12); }
         [data-theme="dark"] .qq-ai-compose { background: #0f172a; border-color: rgba(255,255,255,0.06); }
         [data-theme="dark"] .qq-ai-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
         [data-theme="dark"] .qq-ai-iconbtn { background: #1e293b; color: #94a3b8; }
