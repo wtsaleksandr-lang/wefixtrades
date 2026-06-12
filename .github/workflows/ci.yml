@@ -74,6 +74,8 @@ jobs:
         run: npm run check:seo-original-data
       - name: SEO article-generator guard (below-floor skips, in_review never auto-publishes, cites real data + CTA + internal links, flag-off inert, deliberate-failure fixture)
         run: npm run check:seo-generator
+      - name: SEO programmatic-matrix guard (k-anonymity skip → no page, in_review never auto-publishes, dedup, limit respected, flag-off inert, deliberate-failure fixture)
+        run: npm run check:seo-matrix
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
