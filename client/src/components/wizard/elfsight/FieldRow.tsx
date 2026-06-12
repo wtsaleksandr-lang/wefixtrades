@@ -24,13 +24,14 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronUp, ChevronDown, X, Trash2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, X, Trash2, Minus, Plus } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { TemplateField, TemplateOption } from '@shared/templatePresets';
+import type { TemplateField, TemplateOption, TemplateRateMatrix } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
 import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
+import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import RichTextField from './RichTextField';
 import RowKebab from './RowKebab';
@@ -203,13 +204,20 @@ export default function FieldRow({
   // block; submits via the existing /api/leads path. Full-width like the other
   // content components, so it gets no Width toggle.
   const isContactForm = field.type === 'contact_form';
+  // PRICING-MODELS (U3) — distance / rate-matrix / photo-upload pricing
+  // inputs. All three render as full-width blocks in the widget (address
+  // autocomplete + chip, dropdown pair, thumb grid), so no Width toggle.
+  const isAddressDistance = field.type === 'address_distance';
+  const isRateMatrix = field.type === 'rate_matrix';
+  const isPhotoUpload = field.type === 'photo_upload';
   // COMPONENTS-1 — display-only field types (heading / paragraph / divider
   // / image) don't read the customer-facing `label` the same way an input
   // does — heading uses it as the rendered title, paragraph stores body in
   // `content`, divider/image don't render the label at all. Suppress the
   // Width toggle for display-only types since they always span full row.
   // BUILDER-COMPONENTS — button / link are inline content too: no Width toggle.
-  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink && !isVideo && !isContactForm;
+  const showsWidthToggle = !isDivider && !isImage && !isParagraph && !isButton && !isLink && !isVideo && !isContactForm
+    && !isAddressDistance && !isRateMatrix && !isPhotoUpload;
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
@@ -838,6 +846,183 @@ export default function FieldRow({
             </div>
           )}
 
+          {/* PRICING-MODELS (U3) — address_distance config. Default surface
+              keeps the ≤3-decision rule: unit + round-trip segmented toggles
+              (the Label input above is the customer-facing title). Max
+              distance + the manual-entry fallback live behind the shared
+              AdvancedSection expander. The origin hint is static text —
+              FieldRow can't see ShellSettings, so we point at the Settings
+              card instead of live-checking whether the origin is set. */}
+          {isAddressDistance && (
+            <>
+              <div className="qq-field-grid-3" data-testid={`field-distance-config-${field.id}`}>
+                <div className="qq-field-required-cluster">
+                  <span className="qq-field-width-label">Unit</span>
+                  <div className="qq-field-width-segmented" role="group" aria-label="Distance unit">
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${(field.distanceUnit ?? 'miles') === 'miles' ? ' is-active' : ''}`}
+                      aria-pressed={(field.distanceUnit ?? 'miles') === 'miles'}
+                      onClick={() => update({ distanceUnit: 'miles' })}
+                      data-testid={`field-distance-unit-miles-${field.id}`}
+                    >Miles</button>
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${field.distanceUnit === 'km' ? ' is-active' : ''}`}
+                      aria-pressed={field.distanceUnit === 'km'}
+                      onClick={() => update({ distanceUnit: 'km' })}
+                      data-testid={`field-distance-unit-km-${field.id}`}
+                    >Km</button>
+                  </div>
+                </div>
+                <div className="qq-field-required-cluster" style={{ gridColumn: '2 / 4' }}>
+                  <span className="qq-field-width-label">Trip</span>
+                  <div className="qq-field-width-segmented" role="group" aria-label="Trip type">
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${!field.roundTrip ? ' is-active' : ''}`}
+                      aria-pressed={!field.roundTrip}
+                      onClick={() => update({ roundTrip: false })}
+                      data-testid={`field-distance-trip-oneway-${field.id}`}
+                    >One-way</button>
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${field.roundTrip ? ' is-active' : ''}`}
+                      aria-pressed={!!field.roundTrip}
+                      onClick={() => update({ roundTrip: true })}
+                      data-testid={`field-distance-trip-round-${field.id}`}
+                    >Round trip ×2</button>
+                  </div>
+                </div>
+              </div>
+              <p className="qq-field-hint" data-testid={`field-distance-origin-hint-${field.id}`}>
+                Distance is measured from your <strong>Business location</strong>.
+                Set it in Settings → Advanced settings → Business location so
+                quotes can price by distance.
+              </p>
+              <AdvancedSection id={`field-distance-${field.id}`} label="Advanced">
+                <FloatField
+                  label="Max distance (miles)"
+                  htmlFor={`field-distance-max-${field.id}`}
+                  infoText="Beyond this, customers see “outside our service area”. Their details are still captured as a lead — only the instant price is withheld. Leave blank for no limit."
+                  infoTestid={`field-distance-max-${field.id}-info`}
+                >
+                  <input
+                    id={`field-distance-max-${field.id}`}
+                    type="number"
+                    min={1}
+                    className="premium-input qq-field-input"
+                    placeholder=" "
+                    value={field.maxDistanceMiles ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      update({ maxDistanceMiles: v === '' ? undefined : Math.max(1, Number(v) || 0) });
+                    }}
+                    data-testid={`field-distance-max-${field.id}`}
+                  />
+                </FloatField>
+                <div className="qq-field-required-cluster">
+                  <span className="qq-field-width-label">Manual fallback</span>
+                  <div className="qq-field-width-segmented" role="group" aria-label="Manual distance fallback">
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${field.allowManualDistance !== false ? ' is-active' : ''}`}
+                      aria-pressed={field.allowManualDistance !== false}
+                      onClick={() => update({ allowManualDistance: true })}
+                      data-testid={`field-distance-manual-on-${field.id}`}
+                    >Allow</button>
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${field.allowManualDistance === false ? ' is-active' : ''}`}
+                      aria-pressed={field.allowManualDistance === false}
+                      onClick={() => update({ allowManualDistance: false })}
+                      data-testid={`field-distance-manual-off-${field.id}`}
+                    >Off</button>
+                  </div>
+                  <p className="qq-field-hint">
+                    When an address can’t be resolved, customers type the
+                    distance themselves instead of getting stuck.
+                  </p>
+                </div>
+              </AdvancedSection>
+            </>
+          )}
+
+          {/* PRICING-MODELS (U3) — rate_matrix config. Default surface = row
+              label + column label + the editable rate grid (3 decisions).
+              Missing-cell behaviour + the TSV “Paste from spreadsheet” import
+              sit behind the AdvancedSection expander. */}
+          {isRateMatrix && (
+            <RateMatrixConfig
+              fieldId={field.id}
+              matrix={normalizedMatrix(field.matrix)}
+              onChange={(matrix) => update({ matrix })}
+            />
+          )}
+
+          {/* PRICING-MODELS (U3) — photo_upload config. Default surface = the
+              max-photos stepper (1-5). Per-photo size cap (server hard cap
+              8 MB) lives behind the expander. */}
+          {isPhotoUpload && (
+            <>
+              <div className="qq-field-required-cluster" data-testid={`field-photo-config-${field.id}`}>
+                <span className="qq-field-width-label">Max photos</span>
+                <div className="qq-field-stepper" role="group" aria-label="Maximum photos">
+                  <button
+                    type="button"
+                    className="qq-iconbtn"
+                    onClick={() => update({ maxPhotos: Math.max(1, (field.maxPhotos ?? 3) - 1) })}
+                    disabled={(field.maxPhotos ?? 3) <= 1}
+                    aria-label="Fewer photos"
+                    data-testid={`field-photo-max-dec-${field.id}`}
+                  >
+                    <Minus aria-hidden="true" width={14} height={14} strokeWidth={2} />
+                  </button>
+                  <span className="qq-field-stepper-value" data-testid={`field-photo-max-value-${field.id}`}>
+                    {Math.min(5, Math.max(1, field.maxPhotos ?? 3))}
+                  </span>
+                  <button
+                    type="button"
+                    className="qq-iconbtn"
+                    onClick={() => update({ maxPhotos: Math.min(5, (field.maxPhotos ?? 3) + 1) })}
+                    disabled={(field.maxPhotos ?? 3) >= 5}
+                    aria-label="More photos"
+                    data-testid={`field-photo-max-inc-${field.id}`}
+                  >
+                    <Plus aria-hidden="true" width={14} height={14} strokeWidth={2} />
+                  </button>
+                </div>
+                <p className="qq-field-hint">
+                  Photos upload as soon as the customer adds them and arrive
+                  with the lead — a failed upload never blocks the quote.
+                </p>
+              </div>
+              <AdvancedSection id={`field-photo-${field.id}`} label="Advanced">
+                <FloatField
+                  label="Max size per photo (MB)"
+                  htmlFor={`field-photo-maxmb-${field.id}`}
+                  infoText="Per-photo size limit. The server enforces a hard 8 MB cap — values above that are clamped."
+                  infoTestid={`field-photo-maxmb-${field.id}-info`}
+                >
+                  <input
+                    id={`field-photo-maxmb-${field.id}`}
+                    type="number"
+                    min={1}
+                    max={8}
+                    className="premium-input qq-field-input"
+                    placeholder=" "
+                    value={field.maxPhotoMb ?? 8}
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      update({ maxPhotoMb: v === '' ? undefined : Math.min(8, Math.max(1, Number(v) || 1)) });
+                    }}
+                    data-testid={`field-photo-maxmb-${field.id}`}
+                  />
+                </FloatField>
+              </AdvancedSection>
+            </>
+          )}
+
           {/* COMPONENTS-1 — multi_select selection-count guardrails. Pure
               numeric min / max; the renderer locks further selections once
               max is hit. Lives above the existing options editor so the
@@ -1345,6 +1530,87 @@ export default function FieldRow({
           .qq-field-showif-rule { grid-template-columns: 1fr; }
         }
 
+        /* ── PRICING-MODELS (U3) — distance / rate-matrix / photo-upload ──
+         * Shared 2-col pair (row/col labels), the rate grid, the photo
+         * stepper, the muted hint line and the TSV import feedback. All
+         * tones come from platformTheme so the new blocks track the same
+         * light editor surface as the rest of the row body. */
+        .qq-field-grid-2 {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        @media (max-width: 480px) {
+          .qq-field-grid-2 { grid-template-columns: 1fr; }
+        }
+        .qq-field-hint {
+          margin: 0; padding: 0 2px;
+          font-size: 11px; line-height: 1.45;
+          color: ${p.colors.subtle};
+        }
+        .qq-field-hint strong { color: ${p.colors.muted}; }
+        .qq-field-matrix {
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .qq-field-matrix-scroll {
+          overflow-x: auto;
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 8px;
+          padding: 6px;
+          background: ${p.colors.surfaceRaised};
+        }
+        .qq-field-matrix-table {
+          border-collapse: separate; border-spacing: 4px;
+          width: 100%;
+        }
+        .qq-field-matrix-table th,
+        .qq-field-matrix-table td { padding: 0; }
+        .qq-field-matrix-corner {
+          min-width: 72px;
+          font-size: 11px; font-weight: 700; text-align: center;
+          color: ${p.colors.subtle};
+        }
+        .qq-field-matrix-headcell {
+          display: flex; align-items: center; gap: 2px;
+        }
+        .qq-field-matrix-headinput {
+          min-width: 72px; font-weight: 600;
+        }
+        .qq-field-matrix-rate {
+          min-width: 64px; text-align: right;
+        }
+        /* Hide the number spinners — the dense grid cells are too small for
+         * them and they obscure the typed rate. */
+        .qq-field-matrix-rate::-webkit-outer-spin-button,
+        .qq-field-matrix-rate::-webkit-inner-spin-button {
+          -webkit-appearance: none; margin: 0;
+        }
+        .qq-field-matrix-rate { -moz-appearance: textfield; appearance: textfield; }
+        .qq-field-matrix-rowactions { vertical-align: middle; }
+        .qq-field-matrix-actions {
+          display: flex; align-items: center; gap: 6px;
+        }
+        .qq-field-stepper {
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .qq-field-stepper-value {
+          min-width: 24px; text-align: center;
+          font-size: 13px; font-weight: 700;
+          color: ${p.colors.heading};
+        }
+        .qq-field-tsv {
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        .qq-field-tsv-errors {
+          margin: 0; padding-left: 16px;
+          display: flex; flex-direction: column; gap: 2px;
+          font-size: 11px; line-height: 1.45; font-weight: 600;
+          color: ${p.colors.danger};
+        }
+        .qq-field-tsv-success {
+          margin: 0;
+          font-size: 11px; line-height: 1.45; font-weight: 600;
+          color: ${p.colors.success};
+        }
+
         /* ── Premium-SaaS icon button (shared)
          *
          * Mirror of the rules in CalculationRow's style block. Defined here
@@ -1605,5 +1871,367 @@ function Label({ children }: { children: React.ReactNode }) {
       fontSize: 11, fontWeight: 700, color: platformTheme.colors.heading,
       letterSpacing: '0.02em', textTransform: 'uppercase',
     }}>{children}</span>
+  );
+}
+
+/* ── PRICING-MODELS (U3) — rate-matrix editor ──────────────────────────── */
+
+function matrixUid(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** A `rate_matrix` field minted by the AI / an older payload may arrive
+ *  without its `matrix` slot — normalize to an empty-but-labeled table so
+ *  the editor always has a stable shape to patch. */
+function normalizedMatrix(m?: TemplateRateMatrix): TemplateRateMatrix {
+  return m ?? {
+    rowLabel: 'Pickup zone', colLabel: 'Drop-off zone',
+    rows: [], cols: [], rates: {},
+  };
+}
+
+/** TSV import sanity caps — a 50×50 grid is already 2 500 cells; anything
+ *  bigger is almost certainly a paste mistake, not a price list. */
+const TSV_MAX_AXIS = 50;
+
+type ParsedTsv =
+  | { rows: TemplateRateMatrix['rows']; cols: TemplateRateMatrix['cols']; rates: TemplateRateMatrix['rates'] }
+  | { errors: string[] };
+
+/**
+ * Parse spreadsheet-copied TSV into matrix parts.
+ *
+ * Contract (mirrors what Excel / Google Sheets put on the clipboard):
+ *   - First row    → corner cell (ignored) + column labels.
+ *   - Other rows   → row label + one rate per column.
+ *   - Blank cell   → missing rate (follows the missing-cell rule).
+ *   - Rates accept "$1,200" / " 85 " — currency symbols, commas and spaces
+ *     are stripped before the number check.
+ * Every problem is reported with its row/column position — the import only
+ * applies when the whole paste parses clean (no silent partial imports).
+ */
+export function parseRateMatrixTsv(text: string): ParsedTsv {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
+  if (lines.length < 2) {
+    return { errors: ['Need a header row of column labels plus at least one data row.'] };
+  }
+  const grid = lines.map((l) => l.split('\t'));
+  if (grid[0].length < 2) {
+    return { errors: ['No tab-separated columns found — copy the cells directly from Excel or Google Sheets.'] };
+  }
+
+  const errors: string[] = [];
+  // Header row: first cell = corner (ignored), the rest = column labels.
+  const colLabels = grid[0].slice(1).map((s) => s.trim());
+  colLabels.forEach((label, i) => {
+    if (label === '') errors.push(`Column ${i + 1} label (header row) is empty.`);
+  });
+  if (colLabels.length > TSV_MAX_AXIS) {
+    errors.push(`Too many columns (${colLabels.length}) — the limit is ${TSV_MAX_AXIS}.`);
+  }
+  if (grid.length - 1 > TSV_MAX_AXIS) {
+    errors.push(`Too many rows (${grid.length - 1}) — the limit is ${TSV_MAX_AXIS}.`);
+  }
+
+  const cols = colLabels.map((label) => ({ id: matrixUid('col'), label }));
+  const rows: TemplateRateMatrix['rows'] = [];
+  const rates: TemplateRateMatrix['rates'] = {};
+
+  for (let r = 1; r < grid.length; r++) {
+    const cells = grid[r];
+    const rowLabel = (cells[0] ?? '').trim();
+    if (rowLabel === '') errors.push(`Row ${r} label (first column) is empty.`);
+    if (cells.length - 1 > colLabels.length) {
+      errors.push(`Row ${r} has ${cells.length - 1} rate cells but the header has ${colLabels.length} column labels.`);
+    }
+    const row = { id: matrixUid('row'), label: rowLabel };
+    rows.push(row);
+    const byCol: Record<string, number> = {};
+    for (let c = 0; c < colLabels.length; c++) {
+      const raw = (cells[c + 1] ?? '').trim();
+      if (raw === '') continue; // blank = missing cell, by design
+      const cleaned = raw.replace(/[$,\s]/g, '');
+      const n = Number(cleaned);
+      if (cleaned === '' || !Number.isFinite(n)) {
+        errors.push(`Row ${r}, column ${c + 1}: "${raw}" is not a number.`);
+      } else if (n < 0) {
+        errors.push(`Row ${r}, column ${c + 1}: rates can't be negative (${raw}).`);
+      } else {
+        byCol[cols[c].id] = n;
+      }
+    }
+    rates[row.id] = byCol;
+  }
+
+  if (errors.length > 0) return { errors };
+  return { rows, cols, rates };
+}
+
+interface RateMatrixConfigProps {
+  fieldId: string;
+  matrix: TemplateRateMatrix;
+  onChange: (next: TemplateRateMatrix) => void;
+}
+
+function RateMatrixConfig({ fieldId, matrix, onChange }: RateMatrixConfigProps) {
+  const [tsvText, setTsvText] = useState('');
+  const [tsvErrors, setTsvErrors] = useState<string[]>([]);
+  const [tsvSuccess, setTsvSuccess] = useState('');
+
+  const patch = (next: Partial<TemplateRateMatrix>) => onChange({ ...matrix, ...next });
+
+  const addRow = () => {
+    patch({
+      rows: [...matrix.rows, {
+        id: matrixUid('row'),
+        label: `${(matrix.rowLabel || 'Row').trim()} ${matrix.rows.length + 1}`,
+      }],
+    });
+  };
+  const addCol = () => {
+    patch({
+      cols: [...matrix.cols, {
+        id: matrixUid('col'),
+        label: `${(matrix.colLabel || 'Column').trim()} ${matrix.cols.length + 1}`,
+      }],
+    });
+  };
+  const removeRow = (id: string) => {
+    const { [id]: _gone, ...rest } = matrix.rates;
+    patch({ rows: matrix.rows.filter((r) => r.id !== id), rates: rest });
+  };
+  const removeCol = (id: string) => {
+    const rates: TemplateRateMatrix['rates'] = {};
+    for (const [rowId, byCol] of Object.entries(matrix.rates)) {
+      const { [id]: _gone, ...rest } = byCol;
+      rates[rowId] = rest;
+    }
+    patch({ cols: matrix.cols.filter((c) => c.id !== id), rates });
+  };
+  const setRowLabel = (id: string, label: string) =>
+    patch({ rows: matrix.rows.map((r) => (r.id === id ? { ...r, label } : r)) });
+  const setColLabel = (id: string, label: string) =>
+    patch({ cols: matrix.cols.map((c) => (c.id === id ? { ...c, label } : c)) });
+  const setRate = (rowId: string, colId: string, raw: string) => {
+    const byCol = { ...(matrix.rates[rowId] ?? {}) };
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      delete byCol[colId];
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return;
+      byCol[colId] = n;
+    }
+    patch({ rates: { ...matrix.rates, [rowId]: byCol } });
+  };
+
+  const applyTsv = () => {
+    const result = parseRateMatrixTsv(tsvText);
+    if ('errors' in result) {
+      setTsvErrors(result.errors);
+      setTsvSuccess('');
+      return;
+    }
+    onChange({ ...matrix, rows: result.rows, cols: result.cols, rates: result.rates });
+    setTsvErrors([]);
+    setTsvText('');
+    setTsvSuccess(
+      `Imported ${result.rows.length} row${result.rows.length === 1 ? '' : 's'} × ${result.cols.length} column${result.cols.length === 1 ? '' : 's'} — the grid above was replaced.`,
+    );
+  };
+
+  return (
+    <div className="qq-field-matrix" data-testid={`field-matrix-${fieldId}`}>
+      <div className="qq-field-grid-2">
+        <FloatField
+          label="Row label"
+          htmlFor={`field-matrix-rowlabel-${fieldId}`}
+          infoText='Title over the FIRST dropdown customers see — e.g. "Pickup zone" or "Port".'
+          infoTestid={`field-matrix-rowlabel-${fieldId}-info`}
+        >
+          <input
+            id={`field-matrix-rowlabel-${fieldId}`}
+            type="text"
+            className="premium-input qq-field-input"
+            placeholder=" "
+            value={matrix.rowLabel}
+            onChange={(e) => patch({ rowLabel: e.target.value })}
+            data-testid={`field-matrix-rowlabel-${fieldId}`}
+          />
+        </FloatField>
+        <FloatField
+          label="Column label"
+          htmlFor={`field-matrix-collabel-${fieldId}`}
+        >
+          <input
+            id={`field-matrix-collabel-${fieldId}`}
+            type="text"
+            className="premium-input qq-field-input"
+            placeholder=" "
+            value={matrix.colLabel}
+            onChange={(e) => patch({ colLabel: e.target.value })}
+            data-testid={`field-matrix-collabel-${fieldId}`}
+          />
+        </FloatField>
+      </div>
+
+      <div className="qq-field-matrix-scroll">
+        <table className="qq-field-matrix-table" data-testid={`field-matrix-grid-${fieldId}`}>
+          <thead>
+            <tr>
+              <th className="qq-field-matrix-corner" scope="col" aria-label="Rates table corner">$</th>
+              {matrix.cols.map((c, ci) => (
+                <th key={c.id} scope="col">
+                  <div className="qq-field-matrix-headcell">
+                    <input
+                      type="text"
+                      className="qq-field-input qq-field-matrix-headinput"
+                      value={c.label}
+                      onChange={(e) => setColLabel(c.id, e.target.value)}
+                      aria-label={`Column ${ci + 1} label`}
+                      data-testid={`field-matrix-col-${fieldId}-${ci}`}
+                    />
+                    <button
+                      type="button"
+                      className="qq-iconbtn is-danger"
+                      onClick={() => removeCol(c.id)}
+                      disabled={matrix.cols.length <= 1}
+                      aria-label={`Remove column ${c.label || ci + 1}`}
+                      data-testid={`field-matrix-removecol-${fieldId}-${ci}`}
+                    >
+                      <X aria-hidden="true" width={12} height={12} strokeWidth={2} />
+                    </button>
+                  </div>
+                </th>
+              ))}
+              {/* Spacer over the per-row remove column so the grid lines up. */}
+              <th className="qq-field-matrix-rowactions" aria-hidden="true" />
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.rows.map((r, ri) => (
+              <tr key={r.id}>
+                <th scope="row">
+                  <input
+                    type="text"
+                    className="qq-field-input qq-field-matrix-headinput"
+                    value={r.label}
+                    onChange={(e) => setRowLabel(r.id, e.target.value)}
+                    aria-label={`Row ${ri + 1} label`}
+                    data-testid={`field-matrix-row-${fieldId}-${ri}`}
+                  />
+                </th>
+                {matrix.cols.map((c, ci) => (
+                  <td key={c.id}>
+                    <input
+                      type="number"
+                      className="qq-field-input qq-field-matrix-rate"
+                      value={matrix.rates[r.id]?.[c.id] ?? ''}
+                      onChange={(e) => setRate(r.id, c.id, e.target.value)}
+                      placeholder="—"
+                      aria-label={`Rate for ${r.label || `row ${ri + 1}`} × ${c.label || `column ${ci + 1}`}`}
+                      data-testid={`field-matrix-rate-${fieldId}-${ri}-${ci}`}
+                    />
+                  </td>
+                ))}
+                <td className="qq-field-matrix-rowactions">
+                  <button
+                    type="button"
+                    className="qq-iconbtn is-danger"
+                    onClick={() => removeRow(r.id)}
+                    disabled={matrix.rows.length <= 1}
+                    aria-label={`Remove row ${r.label || ri + 1}`}
+                    data-testid={`field-matrix-removerow-${fieldId}-${ri}`}
+                  >
+                    <X aria-hidden="true" width={12} height={12} strokeWidth={2} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="qq-field-matrix-actions">
+        <button
+          type="button"
+          className="qq-field-add-option"
+          onClick={addRow}
+          data-testid={`field-matrix-addrow-${fieldId}`}
+        >+ Add row</button>
+        <button
+          type="button"
+          className="qq-field-add-option"
+          onClick={addCol}
+          data-testid={`field-matrix-addcol-${fieldId}`}
+        >+ Add column</button>
+      </div>
+      <p className="qq-field-hint">
+        Blank cells follow the “when a cell is blank” rule under Advanced
+        (quoted individually by default — the lead is still captured).
+      </p>
+
+      <AdvancedSection id={`field-matrix-${fieldId}`} label="Advanced" hint="blank cells & spreadsheet import">
+        <div className="qq-field-required-cluster">
+          <span className="qq-field-width-label">When a cell is blank</span>
+          <div className="qq-field-width-segmented" role="group" aria-label="Missing-cell behavior">
+            <button
+              type="button"
+              className={`qq-field-width-btn${(matrix.missingCell ?? 'custom_quote') === 'custom_quote' ? ' is-active' : ''}`}
+              aria-pressed={(matrix.missingCell ?? 'custom_quote') === 'custom_quote'}
+              onClick={() => patch({ missingCell: 'custom_quote' })}
+              data-testid={`field-matrix-missing-custom-${fieldId}`}
+            >Quote individually</button>
+            <button
+              type="button"
+              className={`qq-field-width-btn${matrix.missingCell === 'zero' ? ' is-active' : ''}`}
+              aria-pressed={matrix.missingCell === 'zero'}
+              onClick={() => patch({ missingCell: 'zero' })}
+              data-testid={`field-matrix-missing-zero-${fieldId}`}
+            >Treat as $0</button>
+          </div>
+        </div>
+
+        <div className="qq-field-tsv" data-testid={`field-matrix-tsv-${fieldId}`}>
+          <FloatField
+            label="Paste from spreadsheet"
+            htmlFor={`field-matrix-tsv-${fieldId}`}
+            infoText="Copy cells straight from Excel or Google Sheets and paste here. First row = column labels, first column = row labels, the rest = rates. Applying REPLACES the whole grid above."
+            infoTestid={`field-matrix-tsv-${fieldId}-info`}
+          >
+            <textarea
+              id={`field-matrix-tsv-${fieldId}`}
+              className="premium-input qq-field-input qq-field-textarea"
+              placeholder=" "
+              rows={5}
+              value={tsvText}
+              onChange={(e) => {
+                setTsvText(e.target.value);
+                if (tsvSuccess) setTsvSuccess('');
+              }}
+              data-testid={`field-matrix-tsv-input-${fieldId}`}
+            />
+          </FloatField>
+          <button
+            type="button"
+            className="qq-field-add-option"
+            onClick={applyTsv}
+            disabled={tsvText.trim() === ''}
+            data-testid={`field-matrix-tsv-apply-${fieldId}`}
+          >Apply to grid</button>
+          {tsvErrors.length > 0 && (
+            <ul className="qq-field-tsv-errors" data-testid={`field-matrix-tsv-errors-${fieldId}`}>
+              {tsvErrors.slice(0, 8).map((err, i) => <li key={i}>{err}</li>)}
+              {tsvErrors.length > 8 && <li>…and {tsvErrors.length - 8} more.</li>}
+            </ul>
+          )}
+          {tsvSuccess && (
+            <p className="qq-field-tsv-success" data-testid={`field-matrix-tsv-success-${fieldId}`}>
+              {tsvSuccess}
+            </p>
+          )}
+        </div>
+      </AdvancedSection>
+    </div>
   );
 }

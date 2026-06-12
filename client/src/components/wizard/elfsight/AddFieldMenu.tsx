@@ -22,6 +22,7 @@ import { useDraggable } from '@dnd-kit/core';
 import {
   Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
   Type as TypeIcon, ToggleLeft as ToggleIcon, Layers, Mail as MailIcon,
+  MapPin, Table, Camera,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -129,6 +130,31 @@ const TYPES: ReadonlyArray<TypeMeta> = [
     description: 'An inline contact block. Submissions arrive as leads, just like the quote form.',
     recommendedFor: 'extra enquiries',
     Icon: MailIcon,
+  },
+  // PRICING-MODELS (U3) — distance / rate-matrix / photo-upload inputs.
+  {
+    id: 'address_distance',
+    label: 'Distance',
+    hint: 'Job-site address → driving distance',
+    description: 'Customer types their address; we calculate driving distance from your business location.',
+    recommendedFor: 'per-mile pricing',
+    Icon: MapPin,
+  },
+  {
+    id: 'rate_matrix',
+    label: 'Rate matrix',
+    hint: 'Zone / lane pricing table',
+    description: 'Customer picks a pickup and drop-off zone; the matching lane rate feeds the quote.',
+    recommendedFor: 'zone / lane rates',
+    Icon: Table,
+  },
+  {
+    id: 'photo_upload',
+    label: 'Photo upload',
+    hint: 'Customer photos of the job',
+    description: 'Customer attaches photos of the job. Photos arrive with the lead — no price impact.',
+    recommendedFor: 'job scoping',
+    Icon: Camera,
   },
 ];
 

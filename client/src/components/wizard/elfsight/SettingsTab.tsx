@@ -748,6 +748,56 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
+      {/* ── PRICING-MODELS (U3) — Business location ───────────────────
+       *  Single anchor address for `address_distance` fields. Writes
+       *  settings.origin.address; typing a new address drops any stale
+       *  lat/lng — the server re-geocodes once on save (other unit), so the
+       *  coordinates always belong to the address shown here. Compact card:
+       *  one input, BP 2px-gap conventions, one help cue (Rule 5). */}
+      <fieldset className="qq-style-group" data-testid="settings-group-business-location">
+        <legend className="qq-style-legend">
+          {/* The card's single help cue rides the FloatField below (infoText)
+           *  — one cue per block, matching the in-field cue pattern the
+           *  deposit / number-format fields already use. */}
+          <span>Business location</span>
+        </legend>
+        <div className="qq-style-group-body">
+          <div className="qq-bp-fieldlist">
+            <FloatField
+              label="Business address"
+              htmlFor="qq-settings-origin-address"
+              infoText="Used to calculate distance-based pricing — we measure driving distance from here to the customer's address. Required for any Distance field; never shown to customers."
+              infoTestid="settings-origin-address-info"
+            >
+              <input
+                id="qq-settings-origin-address"
+                type="text"
+                className="premium-input"
+                placeholder=" "
+                value={settings.origin?.address ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  // Blank clears the anchor entirely; any edit invalidates the
+                  // previously geocoded lat/lng (server re-geocodes on save).
+                  patch({ origin: v.trim() === '' ? undefined : { address: v } });
+                }}
+                data-testid="settings-input-origin-address"
+              />
+            </FloatField>
+            <p
+              style={{
+                fontSize: 11, color: p.colors.subtle, margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Add a Distance field in Build to charge by the mile — quotes
+              measure from this address to the customer's. We look up the
+              coordinates once when you save.
+            </p>
+          </div>
+        </div>
+      </fieldset>
+
       {/* ── Business profile (trust signals) ─────────────────────── */}
       <BusinessProfileSection
         profile={settings.businessProfile}
