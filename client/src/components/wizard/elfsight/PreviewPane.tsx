@@ -2243,6 +2243,18 @@ export default function PreviewPane({
     // (subtitle → header, results-heading/footnote → results). A section whose
     // commit prop isn't wired no-ops in openSectionEditor (stays safe).
     const inlineSpot: { sel: string; section: SectionKey }[] = [
+      // fix/rtf-toolbar-and-titles-tabs — the HEADER title must route through the
+      // SAME inlineSpot path as the other text spots so its preview→tab sync is
+      // symmetric with results-heading. Previously the title relied on the
+      // fragile `headerBlock` (`.closest('div')`) fall-through near the end of
+      // this handler, which fired AFTER the control-match / result-panel
+      // branches and could be intercepted — so `selection.select({kind:'header'})`
+      // didn't reliably flip `headerSelected`, and HeaderResultsPanel never
+      // retargeted to a header tab. Routing the title here (BEFORE those
+      // branches) calls openSectionEditor('title') + fireSpotEdit(), and
+      // fireSpotEdit maps data-component-type="title" → targetKey 'header' →
+      // selection.select({kind:'header'}), exactly mirroring the results path.
+      { sel: '[data-testid="advanced-title-edit-hint"], [data-testid="advanced-title"]', section: 'title' },
       { sel: '[data-testid="advanced-subtitle-edit-hint"], [data-testid="advanced-subtitle"]', section: 'subtitle' },
       { sel: '[data-testid="advanced-result-heading-edit-hint"], [data-testid="advanced-result-heading"]', section: 'results-heading' },
       { sel: '[data-testid="advanced-footnote-edit-hint"], [data-testid="advanced-footnote"]', section: 'footnote' },
