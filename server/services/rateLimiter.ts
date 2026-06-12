@@ -385,3 +385,28 @@ export const vapiRateLimiter = new RateLimiter(
   120,
   60_000,
 );
+
+/**
+ * PRICING-MODELS U1 — public distance-resolve endpoint
+ * (POST /api/quote-widget/distance). Every uncached call is a billed Google
+ * Distance Matrix element (~½¢), so two layers bound the spend:
+ *   - `distanceResolvePerMinLimiter`        → per-IP, 10 / min. Bounds a
+ *     single client hammering the endpoint (incl. cache-hit floods).
+ *   - `distanceResolvePerCalcPerDayLimiter` → per-calculator, 500 / day.
+ *     The per-widget-owner daily Maps budget; cache hits do NOT count
+ *     (they cost nothing upstream).
+ * Over-cap returns `{ok:false, reason:'quota'}` — the widget soft-fails to
+ * its manual "Distance in miles" input, never an error page. Both caps are
+ * env-overridable so they can be tuned without a redeploy.
+ */
+export const distanceResolvePerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("DISTANCE_RESOLVE_PER_MIN", 10),
+  60_000,
+);
+
+export const distanceResolvePerCalcPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("DISTANCE_RESOLVE_PER_CALC_PER_DAY", 500),
+  DAY_MS,
+);

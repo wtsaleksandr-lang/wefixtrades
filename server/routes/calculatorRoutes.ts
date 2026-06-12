@@ -18,6 +18,7 @@ import {
   deliverSignedWebhook,
 } from "../services/quotequickLeadWebhook";
 import { webhookTestRateLimiter } from "../services/rateLimiter";
+import { applyOriginGeocodeOnSave } from "../services/originGeocode";
 
 const log = createLogger("Calculator");
 
@@ -162,6 +163,13 @@ export function registerCalculatorRoutes(app: Express): void {
         } catch (err: any) {
           return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
         }
+      }
+
+      // PRICING-MODELS U1 — geocode advanced.origin once at create time so
+      // the public distance endpoint reads a server-trusted anchor. Soft:
+      // a geocode failure never blocks the save (coords backfill lazily).
+      if (validatedSettings) {
+        await applyOriginGeocodeOnSave(null, validatedSettings);
       }
 
       // Ensure publish.status is 'published' for new live calculators
@@ -504,6 +512,11 @@ export function registerCalculatorRoutes(app: Express): void {
         } catch (err: any) {
           return res.status(400).json({ error: "Invalid calculator_settings", details: err?.message });
         }
+        // PRICING-MODELS U1 — geocode advanced.origin ONCE when its address
+        // changed (the deep merge would otherwise carry STALE coords from the
+        // old address) or when coords are missing. Server-trusted anchor for
+        // the public distance endpoint; failures log + never block the save.
+        await applyOriginGeocodeOnSave(currentSettings, updates.calculator_settings as Record<string, any>);
       }
 
       let updated = await storage.updateCalculator(calculator.id, updates);
