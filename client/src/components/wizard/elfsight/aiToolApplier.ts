@@ -14,7 +14,7 @@
 import { makeField } from './FieldsPanel';
 import type { ShellState, ShellHeader, ShellResults, ShellStyle, ShellSettings, PublicFieldType } from './types';
 import { THEME_COMBOS, comboToStyleColors } from '@shared/templatePresets';
-import type { TemplateField, TemplateCalculation, TemplateConfig, TemplateOption, FieldType, TrustBadge } from '@shared/templatePresets';
+import type { TemplateField, TemplateCalculation, TemplateConfig, TemplateOption, TemplateRateMatrix, FieldType, TrustBadge } from '@shared/templatePresets';
 import { QUOTEQUICK_ICONS } from '@/data/quoteQuickIcons';
 
 export interface AiToolCall {
@@ -125,6 +125,114 @@ function coerceOptions(raw: any): TemplateOption[] | undefined {
   return out.length ? out : undefined;
 }
 
+/* ── PRICING-MODELS (U5) — validated freedom on the new field types'
+ *    optional params, mirroring the U6 style-sanitiser policy: known keys
+ *    are checked, invalid values are DROPPED (console.warn, never throw),
+ *    the valid remainder applies. An incoherent `matrix` is dropped whole —
+ *    the field still creates with the seeded default from makeField. */
+
+function coerceBoolean(raw: any): boolean | undefined {
+  if (typeof raw === 'boolean') return raw;
+  if (raw === 'true' || raw === 1 || raw === '1') return true;
+  if (raw === 'false' || raw === 0 || raw === '0') return false;
+  return undefined;
+}
+
+function slugify(label: string): string {
+  return label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+/** rows/cols: non-empty array of { id, label }. Missing ids are derived by
+ *  slugifying the label (the prompt tells the model to do exactly that). */
+function coerceMatrixAxis(raw: any): Array<{ id: string; label: string }> | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const out: Array<{ id: string; label: string }> = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const label = String(entry.label ?? '').trim();
+    if (!label) continue;
+    let id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : slugify(label);
+    if (!id) id = uid('m');
+    if (seen.has(id)) id = `${id}_${out.length}`;
+    seen.add(id);
+    out.push({ id, label });
+  }
+  return out.length ? out : null;
+}
+
+/** Validate a `rate_matrix` config from the model. Returns null (drop whole
+ *  matrix) when rows/cols are incoherent; numeric rate cells are coerced
+ *  (strings accepted), NaN cells dropped — `missingCell` covers the holes. */
+function sanitiseRateMatrix(raw: any): TemplateRateMatrix | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rows = coerceMatrixAxis(raw.rows);
+  const cols = coerceMatrixAxis(raw.cols);
+  if (!rows || !cols) return null;
+  const rates: Record<string, Record<string, number>> = {};
+  const rawRates = raw.rates && typeof raw.rates === 'object' ? raw.rates : {};
+  for (const row of rows) {
+    rates[row.id] = {};
+    // The model addresses rates by id; tolerate label-keyed cells too.
+    const rawRow = rawRates[row.id] ?? rawRates[row.label];
+    if (!rawRow || typeof rawRow !== 'object') continue;
+    for (const col of cols) {
+      const cell = rawRow[col.id] ?? rawRow[col.label];
+      const n = typeof cell === 'string' ? Number(cell) : cell;
+      if (typeof n === 'number' && Number.isFinite(n)) rates[row.id][col.id] = n;
+    }
+  }
+  const matrix: TemplateRateMatrix = {
+    rowLabel: String(raw.rowLabel ?? '').trim() || 'Pickup zone',
+    colLabel: String(raw.colLabel ?? '').trim() || 'Drop-off zone',
+    rows,
+    cols,
+    rates,
+  };
+  if (raw.missingCell === 'zero' || raw.missingCell === 'custom_quote') matrix.missingCell = raw.missingCell;
+  return matrix;
+}
+
+const PRICING_PARAM_KEYS = ['distanceUnit', 'roundTrip', 'allowManualDistance', 'maxDistanceMiles', 'matrix', 'maxPhotos'] as const;
+
+/** Sanitise the pricing-model params present on `src` (add_field input or an
+ *  edit_field patch). Only keys present on `src` are considered — strictly
+ *  additive; absent keys leave the field's factory defaults untouched. */
+function sanitisePricingParams(src: Record<string, any>): { clean: Partial<TemplateField>; dropped: string[] } {
+  const clean: Partial<TemplateField> = {};
+  const dropped: string[] = [];
+  if ('distanceUnit' in src) {
+    if (src.distanceUnit === 'miles' || src.distanceUnit === 'km') clean.distanceUnit = src.distanceUnit;
+    else dropped.push('distanceUnit');
+  }
+  if ('roundTrip' in src) {
+    const b = coerceBoolean(src.roundTrip);
+    if (b !== undefined) clean.roundTrip = b;
+    else dropped.push('roundTrip');
+  }
+  if ('allowManualDistance' in src) {
+    const b = coerceBoolean(src.allowManualDistance);
+    if (b !== undefined) clean.allowManualDistance = b;
+    else dropped.push('allowManualDistance');
+  }
+  if ('maxDistanceMiles' in src) {
+    const n = Number(src.maxDistanceMiles);
+    if (Number.isFinite(n) && n > 0) clean.maxDistanceMiles = n;
+    else dropped.push('maxDistanceMiles');
+  }
+  if ('matrix' in src) {
+    const m = sanitiseRateMatrix(src.matrix);
+    if (m) clean.matrix = m;
+    else dropped.push('matrix');
+  }
+  if ('maxPhotos' in src) {
+    const n = Number(src.maxPhotos);
+    if (Number.isFinite(n)) clean.maxPhotos = Math.min(5, Math.max(1, Math.round(n)));
+    else dropped.push('maxPhotos');
+  }
+  return { clean, dropped };
+}
+
 /* ─── Tool implementations ─── */
 
 function applyAddField(input: any, ctx: AiApplierContext): void {
@@ -147,6 +255,13 @@ function applyAddField(input: any, ctx: AiApplierContext): void {
   if (typeof input.on_value === 'number') base.on_value = input.on_value;
   const opts = coerceOptions(input.options);
   if (opts) base.options = opts;
+
+  // PRICING-MODELS — validated freedom on distance / matrix / photo params.
+  const { clean: pricingParams, dropped } = sanitisePricingParams(input);
+  Object.assign(base, pricingParams);
+  if (dropped.length) {
+    console.warn(`[quotequick-ai] add_field ignored invalid values: ${dropped.join(', ')}`);
+  }
 
   ctx.setFields([...ctx.state.fields, base]);
 }
@@ -171,6 +286,15 @@ function applyEditField(input: any, ctx: AiApplierContext): void {
     const opts = coerceOptions(patch.options);
     if (opts) sanitisedPatch.options = opts;
     else delete sanitisedPatch.options;
+  }
+  // PRICING-MODELS — validated freedom on distance / matrix / photo params:
+  // strip every pricing key from the raw patch, re-apply only the validated
+  // remainder (invalid values are dropped, not merged).
+  const { clean: pricingParams, dropped } = sanitisePricingParams(patch as Record<string, any>);
+  for (const key of PRICING_PARAM_KEYS) delete (sanitisedPatch as Record<string, any>)[key];
+  Object.assign(sanitisedPatch, pricingParams);
+  if (dropped.length) {
+    console.warn(`[quotequick-ai] edit_field ignored invalid values: ${dropped.join(', ')}`);
   }
   ctx.setFields(ctx.state.fields.map(f => f.id === id ? { ...f, ...sanitisedPatch, id: f.id } : f));
 }
@@ -303,7 +427,24 @@ function applySetStyle(input: any, ctx: AiApplierContext): void {
 function applySetSettings(input: any, ctx: AiApplierContext): void {
   const patch = (input.patch ?? input) as Partial<ShellSettings>;
   if (!patch || typeof patch !== 'object') throw new Error('patch required');
-  ctx.setSettings({ ...(ctx.state.settings ?? {}), ...patch });
+  const clean: Record<string, any> = { ...patch };
+  // PRICING-MODELS — `origin` is the business anchor for address_distance.
+  // Keep only a sane { address } (trimmed, ≤200 chars); the server geocodes
+  // on save, so AI-supplied lat/lng are dropped (never trust hallucinated
+  // coordinates). Invalid shapes are dropped, the rest of the patch applies.
+  if ('origin' in clean) {
+    const o = clean.origin;
+    const address = o && typeof o === 'object' && typeof o.address === 'string'
+      ? o.address.trim().slice(0, 200)
+      : '';
+    if (address) {
+      clean.origin = { address };
+    } else {
+      delete clean.origin;
+      console.warn('[quotequick-ai] set_settings ignored invalid origin (need { address: string })');
+    }
+  }
+  ctx.setSettings({ ...(ctx.state.settings ?? {}), ...(clean as Partial<ShellSettings>) });
 }
 
 function applySetLogo(input: any, ctx: AiApplierContext): void {
