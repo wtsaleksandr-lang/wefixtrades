@@ -10,7 +10,8 @@ import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { validateFormula } from "@shared/formulaEngine";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { createLogger } from "../lib/logger";
-import { aiChatRateLimiter } from "../services/rateLimiter";
+import { aiChatRateLimiter, widgetAiConvsPerCalcPerDayLimiter } from "../services/rateLimiter";
+import { checkClientChatAccess } from "../services/clientChatAccess";
 import { aiGateAllowed, recordAiSpend } from "../services/aiSystemGate";
 import { logUsage } from "../services/usageTracker";
 import { estimateCostMicroCents } from "../services/aiPricing";
@@ -915,24 +916,23 @@ Return ONLY the JSON object.`;
       const settings = (calculator.calculator_settings as any) || {};
       const aiEmployee = settings.ai_employee || {};
 
-      if (!aiEmployee.enabled) {
-        return res.status(403).json({ error: "AI Employee is not enabled for this calculator" });
-      }
-
-      const subscriptionStatus = aiEmployee.subscription_status || "inactive";
-      if (subscriptionStatus === "trial" && aiEmployee.trial_started_at) {
-        const trialDays = (Date.now() - aiEmployee.trial_started_at) / (1000 * 60 * 60 * 24);
-        if (trialDays > 14) {
-          // Wire code keeps its legacy value — cached embed-widget bundles
-          // in the wild still match on "trial_expired". The human-readable
-          // message is the honest Pro-preview phrasing.
-          return res.status(403).json({
-            error: "trial_expired",
-            message: "The AI assistant's Pro preview has ended — upgrade to Pro to turn it back on",
-          });
-        }
-      } else if (subscriptionStatus === "inactive") {
-        return res.status(403).json({ error: "AI Employee subscription is not active" });
+      /* Access gate — enabled flag, subscription/trial status, and the NEW
+       * per-calculator daily conversation cap (free-included activation).
+       * Logic extracted to checkClientChatAccess() so it is unit-testable
+       * (server/services/clientChatAccess.test.ts). The cap only counts
+       * conversation STARTS (first user message) — follow-ups in an ongoing
+       * session are never cut off. Runs BEFORE the SSE headers so an over-cap
+       * conversation gets an honest JSON 503 the bubble renders gracefully. */
+      const gateResult = await checkClientChatAccess(
+        { convsPerCalcPerDayLimiter: widgetAiConvsPerCalcPerDayLimiter },
+        {
+          aiEmployee,
+          calculatorId: calculator_id,
+          isConversationStart: messages.length === 1,
+        },
+      );
+      if (!gateResult.allowed) {
+        return res.status(gateResult.status).json(gateResult.body);
       }
 
       /* ─── W-BB-1: multi-step agent loop branch ───
@@ -975,6 +975,14 @@ Return ONLY the JSON object.`;
             surface: AI_SURFACES.quotequick_widget_ai,
             actionSurface: "customer-widget",
             sessionId: session_id,
+            // Free-included assistant: PIN the cheapest capable Claude model
+            // for this customer-facing surface. Previously the loop followed
+            // the global default (`process.env.CLAUDE_MODEL || CLAUDE_HAIKU`),
+            // so a platform-wide CLAUDE_MODEL upgrade would silently move this
+            // free surface onto a pricier model. The pin only fixes the
+            // primary Anthropic model — circuit breaker + provider failover
+            // behaviour are unchanged.
+            modelOverride: CLAUDE_HAIKU,
             costCapCents: 25, // 25¢ per conversation
             maxSteps: 8,
             onStep: (step) => {

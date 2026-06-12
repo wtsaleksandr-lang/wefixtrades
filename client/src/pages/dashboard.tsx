@@ -1681,16 +1681,55 @@ function AiEmployeeSettingsCard({ token, data, smsStatus }: { token: string; dat
   const [consentText, setConsentText] = useState<string>(consent.consent_text || 'I agree to receive text messages about my quote and booking from this business.');
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    setSaving(true);
+  // Free-included AI assistant master switch. The published widget shows the
+  // chat bubble when enabled === true AND subscription_status is
+  // 'active' | 'trial' (calculator.tsx gate), so the one-click toggle writes
+  // exactly that state. plan:'free_included' records that activation came
+  // from the free toggle, not a paid subscription — the dormant 14-day-trial
+  // machinery (future premium tier) is never touched here.
+  const assistantOn =
+    aiEmployee.enabled === true &&
+    (aiEmployee.subscription_status === 'active' || aiEmployee.subscription_status === 'trial');
+  const [assistantEnabled, setAssistantEnabled] = useState<boolean>(assistantOn);
+  const [togglingAssistant, setTogglingAssistant] = useState(false);
+
+  const handleAssistantToggle = async (next: boolean) => {
+    setAssistantEnabled(next); // optimistic — reverted on failure below
+    setTogglingAssistant(true);
     try {
+      // Minimal nested patch — the server deep-merges calculator_settings,
+      // so sending only the changed ai_employee keys can't clobber
+      // channels/consent/training_profile edits made elsewhere.
       await apiRequest('PATCH', '/api/calculators', {
         token,
         updates: {
           calculator_settings: {
-            ...settings,
+            ai_employee: next
+              ? { enabled: true, subscription_status: 'active', plan: 'free_included' }
+              : { enabled: false },
+          },
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/overview'] });
+    } catch (err) {
+      console.error('Failed to toggle AI assistant', err);
+      setAssistantEnabled(!next);
+    } finally {
+      setTogglingAssistant(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Minimal nested patch (deep-merged server-side) — deliberately does
+      // NOT spread the stale aiEmployee prop, so a just-flipped assistant
+      // toggle is never overwritten by a channels save.
+      await apiRequest('PATCH', '/api/calculators', {
+        token,
+        updates: {
+          calculator_settings: {
             ai_employee: {
-              ...aiEmployee,
               channels: { web_chat: webChat, sms, whatsapp },
               consent: { ...consent, consent_text: consentText },
             },
@@ -1724,8 +1763,28 @@ function AiEmployeeSettingsCard({ token, data, smsStatus }: { token: string; dat
   const planTier = data?.plan_tier || data?.calculator?.plan_tier || 'free';
 
   return (
-    <SettingsCard title="AI Employee" badge="Beta">
+    <SettingsCard title="AI Employee" badge="Free">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* ── Master switch — free included assistant ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ ...p.typography.bodySm, fontWeight: 600 }}>AI assistant — Free</span>
+            <span style={{ ...p.typography.captionSm, color: p.colors.muted }}>
+              Included with your calculator at no cost.
+            </span>
+          </div>
+          <ToggleSwitch
+            checked={assistantEnabled}
+            onChange={(v) => { if (!togglingAssistant) handleAssistantToggle(v); }}
+            testId="toggle-ai-assistant-free"
+          />
+        </div>
+        <div style={{ ...p.typography.captionSm, color: p.colors.muted }}>
+          Answers your customers' questions on the published calculator, helps them finish a quote,
+          and hands off to you when a human is needed. It appears with smart timing — only when a
+          visitor looks stuck. You can change that under the wizard's Style tab → "AI chat visibility".
+        </div>
+
         <div style={{ ...p.typography.captionSm, color: p.colors.muted }}>Control which channels your AI Employee responds on.</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

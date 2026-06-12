@@ -410,3 +410,27 @@ export const distanceResolvePerCalcPerDayLimiter = new RateLimiter(
   envInt("DISTANCE_RESOLVE_PER_CALC_PER_DAY", 500),
   DAY_MS,
 );
+
+/**
+ * AI-employee free activation — per-calculator daily CONVERSATION cap for the
+ * customer widget assistant (POST /api/ai/client-chat). The assistant is a
+ * free included feature pinned to the cheapest Claude model, so the spend
+ * ceiling per calculator is: 50 conversations/day × 25¢ per-conversation cap
+ * (worst case ~$12.50/day/calc, in practice pennies) under the existing
+ * $20/day `quotequick_widget_ai` surface budget, which stays the hard backstop.
+ *
+ * A "conversation" is counted at conversation START (first user message —
+ * `messages.length === 1`); follow-up messages in an ongoing session are NOT
+ * re-counted, so a customer mid-chat is never cut off by the cap. The
+ * theoretical bypass (hand-crafting a >1-length history) is bounded by the
+ * per-IP 20/min limiter, the 50-message body cap, the 25¢/conversation cap,
+ * and the surface budget. Over-cap → graceful 503 "assistant unavailable"
+ * (same honest path the budget gate uses), never a silent fail.
+ *
+ * Env-overridable so it can be tuned without a redeploy.
+ */
+export const widgetAiConvsPerCalcPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("WIDGET_AI_CONVS_PER_CALC_PER_DAY", 50),
+  DAY_MS,
+);
