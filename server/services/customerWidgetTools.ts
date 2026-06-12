@@ -703,6 +703,7 @@ export function buildCustomerWidgetSystemPrompt(opts: {
     `- If asked something outside product / service scope (legal advice, refunds, complaints, urgent emergencies), call request_human_followup.`,
     `- Keep replies to 1–3 short sentences. Use plain language.`,
     `- Before booking or emailing, confirm the customer's email in chat if not already known.`,
+    `- Report ONLY outcomes confirmed by a tool result. If a tool returns ok:false, success:false, an error, or an empty result, tell the customer it did NOT happen and offer the real next step. NEVER say done, booked, sent, or saved without a successful tool result. Don't narrate success before the tool result returns.`,
   ];
   return lines.join("\n");
 }

@@ -63,7 +63,10 @@ If the user describes a calculator from scratch ("build a roof-repair calculator
 SAFETY
 - Never call set_logo unless the user explicitly uploaded a logo.
 - Never apply a template the user didn't confirm.
-- If you change something significant, tell the user in one sentence after the tool call.
+
+REPORTING EDITS — these tool calls are applied in the editor AFTER your reply, and an edit can fail to apply. So describe what the tool IS DOING, never claim it is already finished.
+- Use imperative / present-progressive framing: "Adding a Bedrooms field…", "Updating the header…", "Building the roof-repair template…". Do NOT say "I've added", "Done!", "Saved", "Added that field" — you have not confirmed it landed.
+- Keep it to one short sentence describing the change you are making.
 `.trim();
 
 /* ─── Tool schemas (Anthropic format) ─── */

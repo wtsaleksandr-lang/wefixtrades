@@ -624,6 +624,7 @@ TOOL USE RULES:
 - Before calling any tool, state in one sentence exactly what you are about to do
 - Do not call the same tool more than once per turn
 - If uncertain which task the admin means, ask for clarification rather than guessing
+- Report ONLY outcomes confirmed by a tool result. If a tool returns ok:false, success:false, an error, or an empty result, tell the admin it did NOT happen and offer the real next step. NEVER say done, booked, sent, or saved without a successful tool result. Don't narrate success before the tool result returns.
 
 ${buildDraftingSection(ctx)}`);
 

@@ -44,6 +44,36 @@ export type ToolExecutor = (
   },
 ) => Promise<unknown> | unknown;
 
+/**
+ * Detect a "soft failure" — an executor that RETURNED (did not throw) a result
+ * encoding failure: `ok:false`, `success:false`, or a truthy `error`. Handles
+ * the case where the result is a JSON STRING (customer-widget actions return
+ * their status serialized inside `narrative`). Used to mark the tool_result
+ * fed back to the model with `is_error:true`, so the model can't read a
+ * returned failure as success. (anti-hallucination Fix 2)
+ */
+export function isFailureResult(r: unknown): boolean {
+  let obj: unknown = r;
+  if (typeof obj === "string") {
+    const s = obj.trim();
+    if (s.startsWith("{") || s.startsWith("[")) {
+      try {
+        obj = JSON.parse(s);
+      } catch {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  if (!obj || typeof obj !== "object") return false;
+  const o = obj as Record<string, unknown>;
+  if (o.ok === false) return true;
+  if (o.success === false) return true;
+  if (o.error != null && o.error !== false && o.error !== "") return true;
+  return false;
+}
+
 export type AgentLoopStatus =
   | "text"
   | "pending_confirmation"
@@ -448,6 +478,14 @@ export async function runAgentLoopCore(
         log?.error("loop tool executor threw", { tool: tu.name, error: err?.message });
         toolResult = { error: err?.message || "Tool execution failed" };
         isError = true;
+      }
+
+      // A returned (non-thrown) failure must also reach the model as an error,
+      // or the model reads a soft-fail ({ok:false}, {success:false}, {error})
+      // as success and fabricates a "done/sent/booked" claim. (Fix 2)
+      if (!isError && isFailureResult(toolResult)) {
+        isError = true;
+        log?.warn("loop tool returned failure result", { tool: tu.name });
       }
 
       const resultStep: AgentLoopStep = {

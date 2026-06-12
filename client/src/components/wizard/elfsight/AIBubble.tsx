@@ -280,6 +280,11 @@ function describePendingConfirm(call: AiToolCall): { title: string; body: string
   };
 }
 
+/* Sentinel prefix marking a toolChip as a FAILED apply (rendered ⚠, not ✓).
+ * toolChips is a string[]; we encode failure in-band so we don't widen the
+ * Message type just for one flag. (anti-hallucination Fix 4) */
+const TOOL_CHIP_FAIL_PREFIX = ' fail:';
+
 /* ─── Tool-chip label (one-liner the user sees) ─── */
 function describeTool(call: AiToolCall): string {
   const i: any = call.input || {};
@@ -960,16 +965,26 @@ export default function AIBubble(props: AIBubbleProps) {
               ));
               return;
             }
-            try { applyAiToolCall(call, props); } catch (err: any) {
-              // Even on apply failure, surface the attempt to the user.
+            let applyFailed = false;
+            try {
+              applyAiToolCall(call, props);
+            } catch (err: any) {
+              // Even on apply failure, surface the attempt to the user — both as
+              // a stream error AND as a visible failure chip, so the chip (the
+              // real source of truth the user reads) never claims a success the
+              // edit didn't achieve. (anti-hallucination Fix 4)
+              applyFailed = true;
               setStreamErr(`tool ${call.name} failed: ${err?.message ?? err}`);
             }
+            const chip = applyFailed
+              ? `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${call.name}`
+              : describeTool(call);
             setMessages(prev => prev.map(m =>
               m.id === assistantId
                 ? {
                   ...m,
                   pendingLabel: undefined,
-                  toolChips: [...(m.toolChips ?? []), describeTool(call)],
+                  toolChips: [...(m.toolChips ?? []), chip],
                 }
                 : m
             ));
@@ -1089,8 +1104,16 @@ export default function AIBubble(props: AIBubbleProps) {
       try {
         applyAiToolCall(pending.call, props);
       } catch (err: any) {
+        // Surface the failed apply as a warning chip, and mark the card itself
+        // 'cancelled' (not 'applied') so the UI never claims it landed. (Fix 4)
         setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
-        return m;
+        return {
+          ...m,
+          pendingConfirms: (m.pendingConfirms ?? []).map(p =>
+            p.key === confirmKey ? { ...p, resolved: 'cancelled' as const } : p,
+          ),
+          toolChips: [...(m.toolChips ?? []), `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${pending.call.name}`],
+        };
       }
       return {
         ...m,
@@ -1331,9 +1354,22 @@ export default function AIBubble(props: AIBubbleProps) {
                 {m.content && <div className="qq-ai-msg-text">{m.content}</div>}
                 {m.toolChips && m.toolChips.length > 0 && (
                   <div className="qq-ai-chips">
-                    {m.toolChips.map((chip, i) => (
-                      <span key={i} className="qq-ai-chip" data-testid="aibubble-tool-chip">✓ {chip}</span>
-                    ))}
+                    {m.toolChips.map((chip, i) => {
+                      // A chip prefixed with the failure sentinel is an edit that
+                      // failed to apply — render it as a warning, not a ✓.
+                      const failed = chip.startsWith(TOOL_CHIP_FAIL_PREFIX);
+                      const label = failed ? chip.slice(TOOL_CHIP_FAIL_PREFIX.length) : chip;
+                      return (
+                        <span
+                          key={i}
+                          className={`qq-ai-chip${failed ? ' qq-ai-chip-failed' : ''}`}
+                          data-testid={failed ? 'aibubble-tool-chip-failed' : 'aibubble-tool-chip'}
+                          data-failed={failed ? 'true' : undefined}
+                        >
+                          {failed ? '⚠' : '✓'} {label}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
                 {m.pendingConfirms && m.pendingConfirms.length > 0 && (
@@ -1887,6 +1923,10 @@ export default function AIBubble(props: AIBubbleProps) {
           padding: 2px 8px; border-radius: 999px;
           background: rgba(13, 60, 252, 0.08);
           color: #0d3cfc;
+        }
+        .qq-ai-chip-failed {
+          background: rgba(220, 38, 38, 0.10);
+          color: #b91c1c;
         }
 
         /* Inline confirmation card for destructive AI actions
