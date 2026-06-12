@@ -56,7 +56,6 @@ const PANEL_DEFAULTS: Record<string, boolean> = {
   'style-group-brand-kit': false,
   'style-group-brand-studio': false,
   // Settings tab — keep functional panels open, secondary collapsed
-  'settings-group-trade': true,
   'settings-group-lead-email': true,
   'settings-group-business-profile': false,
   'settings-group-pricing': true,
