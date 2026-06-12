@@ -34,6 +34,7 @@ import {
   GitBranch, Calculator as CalcIcon, MousePointerClick, Link as LinkIcon,
   Mail as MailIcon, X as XIcon, Search as SearchIcon,
   ChevronRight, ChevronDown as ChevronDownToggle,
+  MapPin, Table, Camera,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -101,7 +102,13 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
       { id: 'multi-select', label: 'Multi-select', hint: 'Pick several from a list', Icon: Layers, publicType: 'multiSelect' },
       // FIELD-PALETTE — toggle went live (publicType wired). Yes/no switch.
       { id: 'toggle', label: 'Toggle', hint: 'Yes / no switch', Icon: ToggleIcon, publicType: 'toggle' },
-      { id: 'file', label: 'File upload', hint: 'Image / document attach', Icon: FileText, disabled: true },
+      // PRICING-MODELS (U3) — the formerly-disabled `file` coming-soon pill is
+      // now the real photo-upload field (server-backed in U4; answers ride the
+      // lead's `answers` jsonb). Same slot in the list, new id/label/icon.
+      { id: 'photo', label: 'Photo upload', hint: 'Customer photos of the job', Icon: Camera, publicType: 'photo_upload' },
+      // PRICING-MODELS (U3) — distance + rate-matrix pricing inputs.
+      { id: 'distance', label: 'Distance', hint: 'Job-site address → driving distance', Icon: MapPin, publicType: 'address_distance' },
+      { id: 'rateMatrix', label: 'Rate matrix', hint: 'Zone / lane pricing table', Icon: Table, publicType: 'rate_matrix' },
       { id: 'slider', label: 'Slider', hint: 'Numeric range input', Icon: Sliders, publicType: 'slider' },
       { id: 'choice', label: 'Choice', hint: 'Radio-style options', Icon: CircleDot, publicType: 'choice' },
       { id: 'imageChoice', label: 'Image choice', hint: 'Visual option cards', Icon: ImageIcon, publicType: 'imageChoice' },
