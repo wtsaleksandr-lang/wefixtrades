@@ -8,6 +8,7 @@ import { CopilotFormProvider } from "@/context/CopilotFormContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
+import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 import NotFound from "@/pages/not-found";
 import { hostedSlugFromHost } from "@shared/slugUtils";
 
@@ -804,6 +805,15 @@ function App() {
                   so it appears above every route's chrome. */}
               <ImpersonateBanner />
               <Router />
+              {/* IA-1 (2026-06-12) — global "resume minimized wizard"
+                  badge. Mounted at the app root (not per-dashboard) so the
+                  reopen affordance is present on EVERY route the user lands
+                  on after clicking Minimize — handleMinimize's returnPath can
+                  resolve to any /admin/* or /portal/* sub-route, not just the
+                  two dashboards that used to host the badge. Self-gates: it
+                  renders null unless a minimized-wizard stash exists in
+                  sessionStorage, and hides itself on /wizard. */}
+              <MinimizedWizardBadge />
             </CopilotFormProvider>
           </TooltipProvider>
         </QueryClientProvider>

@@ -647,6 +647,12 @@ export default function WizardShell({ embed = false }: Props) {
   const [paneWidth, setPaneWidth] = useState<number>(() => loadPaneWidth());
   const [isResizing, setIsResizing] = useState(false);
 
+  // fix/wizardshell-resize-and-minimize (2026-06-12) — fullscreen-preview
+  // state is owned by PreviewPane; we mirror it here (via onFullscreenChange)
+  // so WizardShell can hide its own chrome — specifically the .qq-editor-resize
+  // splitter, which otherwise floats over the fullscreen calculator (Issue 3).
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+
   useEffect(() => {
     try { localStorage.setItem(PANE_WIDTH_KEY, String(paneWidth)); } catch {}
   }, [paneWidth]);
@@ -1803,6 +1809,9 @@ export default function WizardShell({ embed = false }: Props) {
       };
       try {
         sessionStorage.setItem('qq-wizard-minimized-from', JSON.stringify(payload));
+        // Same-tab SPA navigation fires no storage/focus event, so the App-root
+        // MinimizedWizardBadge won't re-read the stash on its own — notify it directly.
+        window.dispatchEvent(new Event('qq-wizard-minimized-change'));
       } catch { /* sessionStorage blocked — badge won't show but minimize still navigates */ }
 
       setOpenPhase('leaving');
@@ -1975,11 +1984,26 @@ export default function WizardShell({ embed = false }: Props) {
                 </button>
               </nav>
               )}
+              {/* fix/wizardshell-resize-and-minimize (2026-06-12) — the resize
+                  splitter used to live INSIDE .qq-editor-left, which is the
+                  scrolling container (overflow-y:auto). An absolutely-positioned
+                  top:0/bottom:0 child of a scroller is sized against the CONTENT
+                  box, so the splitter only spanned the first viewport-height and
+                  scrolled away — Alex saw "only the top". We now wrap the pane in
+                  a NON-scrolling, position:relative column (.qq-editor-left-col)
+                  that owns the layout box (width / flex / order / mobile hide),
+                  and mount the splitter as a sibling of the scroll area so its
+                  top:0/bottom:0 resolve against this stable box → full height at
+                  any scroll position. */}
+              <div
+                className="qq-editor-left-col"
+                data-testid="editor-left-col"
+                style={{ width: paneWidth }}
+                aria-hidden={isMobile || undefined}
+              >
               <div
                 className="qq-editor-left"
                 data-testid="editor-left-panel"
-                style={{ width: paneWidth }}
-                aria-hidden={isMobile || undefined}
               >
                 <div className="qq-editor-left-inner">
                   {!isMobile && (activeTab === 'build' ? (
@@ -2087,7 +2111,16 @@ export default function WizardShell({ embed = false }: Props) {
                     </div>
                   )}
                 </div>
-                {/* Resize handle (d). Hidden on mobile via CSS. */}
+              </div>
+              {/* Resize handle (d). Hidden on mobile via CSS. Now a sibling of
+                  .qq-editor-left (the scroll area) inside the non-scrolling
+                  .qq-editor-left-col wrapper, so top:0/bottom:0 span the full
+                  pane height regardless of scroll position (Issue 4). Hidden
+                  entirely while the preview is in fullscreen mode so the blue
+                  splitter never floats over the fullscreen calculator (Issue 3
+                  — fullscreen state is lifted from PreviewPane via
+                  onFullscreenChange below). */}
+              {!isPreviewFullscreen && (
                 <button
                   type="button"
                   className={`qq-editor-resize${isResizing ? ' is-resizing' : ''}`}
@@ -2109,6 +2142,7 @@ export default function WizardShell({ embed = false }: Props) {
                 >
                   <span aria-hidden="true" />
                 </button>
+              )}
               </div>
 
               <div
@@ -2183,6 +2217,10 @@ export default function WizardShell({ embed = false }: Props) {
                   floatingLauncherExpanded={floatingLauncherExpanded}
                   onFloatingLauncherExpandedChange={setFloatingLauncherExpanded}
                   floatingLauncherPosition={state.style?.floatingLauncher?.position}
+                  /* fix/wizardshell-resize-and-minimize (2026-06-12) — lift the
+                     fullscreen-preview flag up so WizardShell can hide its resize
+                     splitter while the calculator is fullscreen (Issue 3). */
+                  onFullscreenChange={setIsPreviewFullscreen}
                 />
               </div>
             </div>
@@ -3116,7 +3154,7 @@ export default function WizardShell({ embed = false }: Props) {
               pointer-events: none;
               border-left: 0;
             }
-            .qq-editor-body.is-preview-collapsed .qq-editor-left {
+            .qq-editor-body.is-preview-collapsed .qq-editor-left-col {
               flex: 1 1 auto;
               width: auto !important;
             }
@@ -3140,7 +3178,7 @@ export default function WizardShell({ embed = false }: Props) {
                 pointer-events: auto !important;
                 border-left: 1px solid ${AE.color.hairline} !important;
               }
-              .qq-editor-body.is-preview-collapsed .qq-editor-left {
+              .qq-editor-body.is-preview-collapsed .qq-editor-left-col {
                 flex: 0 0 auto;
                 width: var(--qq-editor-pane-width, 420px) !important;
               }
@@ -3149,9 +3187,22 @@ export default function WizardShell({ embed = false }: Props) {
               }
             }
 
-            .qq-editor-left {
+            /* fix/wizardshell-resize-and-minimize (2026-06-12) — the
+               NON-scrolling layout column. Owns the pane's box (width / flex /
+               order) and is the positioning context for the resize splitter, so
+               the splitter's top:0/bottom:0 span the full pane height regardless
+               of how far .qq-editor-left has scrolled (Issue 4). */
+            .qq-editor-left-col {
               position: relative;
               flex-shrink: 0;
+              display: flex;
+              min-height: 0;
+            }
+            .qq-editor-left {
+              /* Fills the .qq-editor-left-col box; this is the SCROLL area. */
+              flex: 1 1 auto;
+              width: 100%;
+              min-height: 0;
               background: ${AE.color.bg};
               border-right: 1px solid ${AE.color.hairline};
               overflow-y: auto;
@@ -3465,10 +3516,13 @@ export default function WizardShell({ embed = false }: Props) {
                  bottom sheet (MobileBottomSheet) owns section navigation, so
                  the rail is hidden entirely at this breakpoint. */
               .qq-editor-rail { display: none !important; }
-              .qq-editor-left {
-                width: 100% !important; border-right: none;
-                border-bottom: 1px solid ${AE.color.hairline};
+              .qq-editor-left-col {
+                width: 100% !important;
                 order: 1;
+              }
+              .qq-editor-left {
+                border-right: none;
+                border-bottom: 1px solid ${AE.color.hairline};
               }
               /* Wave N — trim wasted side-padding on the editor pane so field
                  row titles (e.g. "Local Incentives", "Professional
@@ -3498,7 +3552,7 @@ export default function WizardShell({ embed = false }: Props) {
                * widget visible when the sheet is collapsed (56px) — and the
                * scrollable preview still reaches all the way to just above
                * the sheet handle. */
-              .qq-editor-body.is-mobile-sheet .qq-editor-left {
+              .qq-editor-body.is-mobile-sheet .qq-editor-left-col {
                 display: none !important;
               }
               /* Keep the sticky editor topbar above the docked sheet (9998)

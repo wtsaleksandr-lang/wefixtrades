@@ -16,8 +16,6 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 // Premium polish — smooth-count animation on KPI numbers (respects reduced motion).
 import AnimatedNumber from "@/components/AnimatedNumber";
-// IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
-import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 // First-visit progressive-disclosure tooltip — one-time hint per browser/profile.
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
@@ -795,9 +793,6 @@ function PortalDashboardInner() {
           </AdvancedOnly>
         </div>
       )}
-      {/* IA-1 — floating "resume editing" badge. Renders only when a
-         minimized-wizard session exists in sessionStorage. */}
-      <MinimizedWizardBadge />
     </PortalLayout>
   );
 }
