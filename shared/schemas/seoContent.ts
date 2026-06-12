@@ -123,3 +123,36 @@ export const seoEngineSettings = pgTable("seo_engine_settings", {
 export const insertSeoEngineSettingsSchema = createInsertSchema(seoEngineSettings).omit({ updated_at: true });
 export type InsertSeoEngineSettings = z.infer<typeof insertSeoEngineSettingsSchema>;
 export type SeoEngineSettings = typeof seoEngineSettings.$inferSelect;
+
+/* ─── seo_content_approvals — append-only human-review audit ───────────────
+   Mirrors content_approvals (shared/schemas/contentflow.ts) but for the
+   owned-domain SEO engine, whose drafts live directly in seo_content_pages
+   (status='in_review') rather than content_drafts. We cannot reuse
+   content_approvals because its draft_id FK is bound to content_drafts.id —
+   so this is the same append-only audit pattern, FK'd to seo_content_pages.
+
+   Every review action (submitted on generation, approved → published,
+   edited, rejected → archived) appends one immutable row. This is the
+   human-review gate's audit trail: who did what, when, and why. */
+export const SEO_APPROVAL_ACTIONS = ["submitted", "approved", "edited", "rejected"] as const;
+export type SeoApprovalAction = (typeof SEO_APPROVAL_ACTIONS)[number];
+
+export const seoContentApprovals = pgTable("seo_content_approvals", {
+  id: serial("id").primaryKey(),
+  // The seo_content_pages row this action applies to (plain integer; FK
+  // enforced in the migration to avoid a cross-file circular import).
+  page_id: integer("page_id").notNull(),
+  // 'admin' (a reviewer) | 'system' (the generator submitting for review).
+  actor_type: varchar("actor_type", { length: 20 }).notNull(),
+  actor_id: integer("actor_id"),
+  // 'submitted' | 'approved' | 'edited' | 'rejected'
+  action: varchar("action", { length: 30 }).notNull(),
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  pageIdx: index("seo_content_approvals_page_idx").on(table.page_id, table.created_at),
+}));
+export const insertSeoContentApprovalSchema = createInsertSchema(seoContentApprovals).omit({ id: true, created_at: true });
+export type InsertSeoContentApproval = z.infer<typeof insertSeoContentApprovalSchema>;
+export type SeoContentApproval = typeof seoContentApprovals.$inferSelect;

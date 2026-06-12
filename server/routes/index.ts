@@ -140,6 +140,7 @@ import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
 import { registerFreeToolsRoutes } from "./freeToolsRoutes";
 import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
+import { registerAdminSeoReviewRoutes } from "./adminSeoReviewRoutes";
 import { registerRumIngestRoutes } from "./rumIngestRoutes";
 import { registerHealthzRoute } from "./healthz";
 import { registerAiInsightsRoutes } from "./aiInsightsRoutes";
@@ -329,6 +330,10 @@ export async function registerRoutes(
   // Claude-powered prioritized actions from MapGuard / CT signals.
   registerAiInsightsRoutes(app);
   registerAdminSeoIntegrationsRoutes(app);
+  // Owned-domain SEO content engine — admin human-review queue (list /
+  // preview / edit / approve→publish / reject→archive). Drafts arrive from
+  // seoArticleGenerator as status='in_review'; nothing auto-publishes.
+  registerAdminSeoReviewRoutes(app);
   // SEO Wave D — public RUM ingest (Core Web Vitals from real users).
   registerRumIngestRoutes(app);
 
