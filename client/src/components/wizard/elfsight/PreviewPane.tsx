@@ -43,6 +43,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { useSelection } from './selection';
 import { DND_CONTAINERS } from './dnd';
 import PreviewOverlay from './PreviewOverlay';
+import PreviewChatBubbleSim from './PreviewChatBubbleSim';
 import AddFieldMenu from './AddFieldMenu';
 import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
@@ -2865,6 +2866,21 @@ export default function PreviewPane({
     </div>
   );
 
+  // feat/ai-visibility-preview-sim — make the Style tab's "AI chat
+  // visibility" setting PREVIEWABLE. The real <AIChatBubble/> mounts only on
+  // the published calculator page (calculator.tsx) and is position:fixed +
+  // network/event-driven, so the editor preview never showed what the
+  // setting does. This lightweight visual sim renders inside both device
+  // bezels, driven by the live `style.aiChatVisibility` value:
+  //   'always' → static full chat FAB;  'rescue' → "Need help?" pill with a
+  //   one-click "Simulate stuck visitor" reveal (≈5s, then resets).
+  // Preview-only — never part of the published widget path. The accent
+  // fallback matches the renderer's DEFAULT_ADV_STYLE.accent so the sim
+  // colour always equals the widget's resolved accent.
+  const chatSimVisibility: 'rescue' | 'always' =
+    style?.aiChatVisibility === 'always' ? 'always' : 'rescue';
+  const chatSimAccent = style?.accent || '#0d3cfc';
+
   // P2 UX — Floating-launcher preview gating. The mode is a transient
   // overlay lens; when it's active and the bubble is collapsed, the user
   // sees a 56×56 chat circle in the corner over a dimmed canvas, and the
@@ -3185,6 +3201,19 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
+              {/* feat/ai-visibility-preview-sim — chat-bubble sim pinned to
+                  the phone frame's corner (sibling of the scrolling screen,
+                  so it stays docked like the real position:fixed bubble).
+                  Hidden while the floating-launcher lens is active — that
+                  mode shows its own corner bubble and two would conflict. */}
+              {!flpActive && (
+                <PreviewChatBubbleSim
+                  visibility={chatSimVisibility}
+                  accentColor={chatSimAccent}
+                  bottom={24}
+                  right={18}
+                />
+              )}
             </div>
             {resizeHandles}
             </div>
@@ -3313,6 +3342,17 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
+              {/* feat/ai-visibility-preview-sim — chat-bubble sim pinned to
+                  the desktop/tablet browser-frame corner (sibling of the
+                  scrolling screen so it stays docked, matching the real
+                  bubble's position:fixed behaviour). Hidden while the
+                  floating-launcher lens shows its own corner bubble. */}
+              {!flpActive && (
+                <PreviewChatBubbleSim
+                  visibility={chatSimVisibility}
+                  accentColor={chatSimAccent}
+                />
+              )}
             </div>
             {resizeHandles}
             </div>
