@@ -279,6 +279,15 @@ export default function MobileBottomSheet({
     return Math.min(openHeightPx, maxPx || openHeightPx);
   }, [open, dragHeight, peeked, openHeightPx]);
 
+  // Remember the last OPEN rendered height. On close we keep the sheet pinned
+  // to this height so the close is a pure `transform` slide-down — without it,
+  // dropping the inline `height` lets the flex column snap to its full content
+  // height for the 240ms transition, which reads as a brief full-screen UNFOLD
+  // right before the panel slides away (the glitch Alex flagged). We never want
+  // the height to animate UP while closing, only the transform to play.
+  const lastOpenHeightRef = useRef<number>(0);
+  if (open && currentHeightPx > 0) lastOpenHeightRef.current = currentHeightPx;
+
   // Sync the CSS var whenever the rendered height changes; zero on close.
   useEffect(() => {
     if (!open) {
@@ -435,7 +444,15 @@ export default function MobileBottomSheet({
         role="dialog"
         aria-label={`${activeTabLabel} settings`}
         aria-hidden={open ? undefined : true}
-        style={open ? { height: `${Math.round(currentHeightPx)}px` } : undefined}
+        /* Keep an explicit pixel height even while closed (pinned to the last
+           open height) so closing is a pure transform slide-down. Leaving it
+           unset would let the flex column snap to full content height for the
+           transition — the momentary full-screen "unfold" before the panel
+           closes. The closed sheet is translated fully off-screen, so this
+           pinned height is never visible; it only prevents the height jump. */
+        style={{
+          height: `${Math.round(open ? currentHeightPx : lastOpenHeightRef.current)}px`,
+        }}
       >
         {/* ── Drag handle row — grabber + title + close chevron ───────── */}
         <div className="qq-sheet-header">
