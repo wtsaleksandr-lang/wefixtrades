@@ -596,7 +596,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
         </span>
         <span style={{ fontSize: 14, fontWeight: 500, color: TEXT_STRONG, marginLeft: 4 }}>/mo</span>
         {yearly && (
-          <div style={{ fontSize: 12, color: TEXT_STRONG, marginTop: 3 }}>billed annually</div>
+          <div style={{ fontSize: 12, color: TEXT_STRONG, marginTop: 5, lineHeight: 1.3 }}>billed annually</div>
         )}
         {!yearly && <div style={{ height: 17 }} />}
       </div>
@@ -1481,7 +1481,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
         <V7Hero
           productName="Pricing"
           eyebrow="Pick what you need. Cancel any month."
-          headline={<>One job pays for the system.<br/><span style={{ color: mkt.accentOnDark }}>Pick what you need — cancel any month.</span></>}
+          headline={<>One job pays for the system.{" "}<span style={{ color: mkt.accentOnDark, display: "block" }}>Pick what you need — cancel any month.</span></>}
           sub="No contracts. No setup gotchas. You own everything you build with us."
         />
       <div style={{ paddingBottom: 80 }}>
@@ -1746,6 +1746,8 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
         .pricing-section { padding-left: ${SECTION_PAD_X}px; padding-right: ${SECTION_PAD_X}px; }
         /* Hide scrollbar on tabs row */
         .pricing-cat-tabs-row::-webkit-scrollbar { display: none; }
+        /* Defensive: no page-level horizontal overflow on any section/container */
+        .pricing-section, .pricing-max-w { max-width: 100%; overflow-x: clip; }
         @media (max-width: 640px) {
           .pricing-section { padding-left: 5px !important; padding-right: 5px !important; }
           .pricing-max-w { padding-left: 3px !important; padding-right: 3px !important; }
@@ -1788,6 +1790,11 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           .pricing-plans-mobile {
             display: none !important;
           }
+        }
+        /* Ultra-narrow guard (<=400px): minimal gutters so scrollWidth == viewport */
+        @media (max-width: 400px) {
+          .pricing-section { padding-left: 4px !important; padding-right: 4px !important; }
+          .pricing-max-w { padding-left: 2px !important; padding-right: 2px !important; }
         }
       `}</style>
       </V7PageShell>
