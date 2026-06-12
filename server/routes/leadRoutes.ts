@@ -7,6 +7,7 @@ import { captureIntakeEvent } from "../services/intakeService";
 import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
 import { noisyCatch } from "../lib/silentFailureGuard";
+import { trackEvent, calculatorDistinctId } from "../lib/analytics";
 import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
 import { fireLeadWebhook } from "../services/quotequickLeadWebhook";
 import {
@@ -443,6 +444,17 @@ export function registerLeadRoutes(app: Express): void {
       }), {
         op: "lead.trackEvent.created",
         meta: { calculatorId: parsed.data.calculator_id, leadId: lead.id, quoteAmount: safeQuoteAmount },
+      });
+
+      // Funnel analytics — lead_captured (activation). Keyed to the calculator
+      // (the owner's funnel). Fire-and-forget; trackEvent no-ops/swallows
+      // internally so it can never block lead capture. No PII in props. We
+      // omit first_lead deliberately: determining it would require an
+      // unbounded getLeadsByCalculatorId() load on this hot path, and there is
+      // no cheap count helper — quote_amount carries the useful signal instead.
+      trackEvent(calculatorDistinctId(parsed.data.calculator_id), "lead_captured", {
+        calculator_id: parsed.data.calculator_id,
+        quote_amount: safeQuoteAmount,
       });
 
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {

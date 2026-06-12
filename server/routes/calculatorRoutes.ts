@@ -10,6 +10,7 @@ import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/sl
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { noisyCatch } from "../lib/silentFailureGuard";
 import { createLogger } from "../lib/logger";
+import { trackEvent, calculatorDistinctId } from "../lib/analytics";
 import {
   readWebhookConfig,
   generateLeadWebhookSecret,
@@ -194,6 +195,17 @@ export function registerCalculatorRoutes(app: Express): void {
         status: 'live',
         last_published_at: new Date(),
         auto_republish: true,
+      });
+
+      // Funnel analytics — calculator_published (activation). A new calculator
+      // is created already 'published' + deployed live, so this is the
+      // goes-live signal. Fire-and-forget; trackEvent no-ops/swallows
+      // internally so it can never block calculator creation. This route is
+      // token-authed (no req.user), so distinct_id keys to the calculator id.
+      // template_used is omitted — the create body carries no template marker.
+      trackEvent(calculatorDistinctId(calculator.id), "calculator_published", {
+        calculator_id: calculator.id,
+        trade_type: calculator.trade_type,
       });
 
       // Slug is non-null at create time (we just assigned it via

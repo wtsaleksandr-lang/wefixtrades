@@ -34,6 +34,21 @@ export function initAnalytics(): void {
   log.info("PostHog initialised", { host: POSTHOG_HOST });
 }
 
+/**
+ * Stable PostHog distinct_id helpers. Keyed to internal ids (never PII —
+ * no email/phone) and namespaced so user/client/calculator identities don't
+ * collide. Mirrors the convention established in tradelineSetupRoutes.ts.
+ */
+export function userDistinctId(userId: number): string {
+  return `user_${userId}`;
+}
+export function clientDistinctId(clientId: number): string {
+  return `client_${clientId}`;
+}
+export function calculatorDistinctId(calculatorId: number): string {
+  return `calculator_${calculatorId}`;
+}
+
 export function trackEvent(
   distinctId: string,
   event: string,
