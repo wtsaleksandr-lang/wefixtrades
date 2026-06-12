@@ -120,7 +120,9 @@ async function run(): Promise<void> {
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  // Force-exit on success too: importing the route module opens a handle
+  // (SSE/AI deps) so the event loop never drains; the CI step would hang otherwise.
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 run();

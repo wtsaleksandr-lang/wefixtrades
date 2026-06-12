@@ -15,7 +15,10 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npx tsc --noEmit
+      - name: Typecheck (raised heap — repo is large, default 4GB OOMs)
+        run: npx tsc --noEmit
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - run: npm run check:copilot-forms
       - name: Hardcoded color guard
         run: npm run check:hardcoded-colors
