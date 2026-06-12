@@ -7,14 +7,15 @@
 # White-on-brand-color (buttons + brand-gradient KPI hero) surfaced when
 # PortalDashboard welcome/error cards were de-forced from data-theme="light"
 # to be theme-aware (#audit). White text on fixed brand colors is correct.
-# (Line numbers re-pinned by the activation-onboarding first-run hero pass —
-#  same 5 pre-existing white-on-brand entries, shifted down by the inserted
-#  zero-calculator CTA card; content unchanged.)
+# (Line numbers re-pinned by the activation-onboarding first-run hero pass,
+#  then again by the zero-services-signup wizard-CTA pass — same 5 pre-existing
+#  white-on-brand entries, shifted down by the restructured zero-services
+#  welcome card; content unchanged.)
 client/src/pages/portal/PortalDashboard.tsx:42:91	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:423:85	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:438:62	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:446:64	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:679:103	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:456:85	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:471:62	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:479:64	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:712:103	tailwind	text-white
 # White text on the fixed bg-brand-blue support CTA in the public onboarding
 # invalid-token shell (night P-C: dead-end fix). Same white-on-brand pattern.
 client/src/pages/OnboardingForm.tsx:307:89	tailwind	text-white

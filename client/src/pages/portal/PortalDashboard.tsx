@@ -372,28 +372,61 @@ function PortalDashboardInner() {
       )}
       {data && data.active_services === 0 && (
         /* New-customer welcome flow — zero active services. Replaces
-           StatCards + Recent Activity with a focused first-action prompt. */
+           StatCards + Recent Activity with a focused first-action prompt.
+           Activation fix: QuoteQuick (the free wizard) is the product's front
+           door, so for a brand-new signup that owns NO calculator yet the
+           PRIMARY action is "build your first quote calculator → /wizard"
+           (free, no card). "Browse services"/catalog is demoted to a secondary
+           link. A zero-services user who ALREADY built a calculator (free
+           QuoteQuick signup) instead leads with "Browse services" — no point
+           pushing them to build a second one. */
         <div className="max-w-3xl" data-testid="dashboard-new-customer-welcome">
           <Card className="p-8 text-center">
-            <Sparkles className="mx-auto text-muted-foreground mb-4" size={32} aria-hidden="true" />
+            <Sparkles className="mx-auto text-brand-blue mb-4" size={32} aria-hidden="true" />
             <h2 className="text-xl font-bold text-foreground mb-2">Welcome to WeFixTrades</h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Pick your first service to get started. We'll guide you through setup and connect everything for you.
-            </p>
-            <Link
-              href="/portal/catalog"
-              data-testid="dashboard-welcome-browse"
-              className="btn-primary-premium inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
-            >
-              Browse services
-            </Link>
-            <Link
-              href="/tools/free-audit"
-              className="block mt-3 text-sm text-muted-foreground hover:underline"
-              data-testid="dashboard-welcome-free-audit"
-            >
-              Or run a free audit first →
-            </Link>
+            {hasNoCalculator ? (
+              <>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Start with a free quote calculator — describe your job and the
+                  AI drafts the whole thing. Live in ~5 minutes, no card needed.
+                </p>
+                <Link
+                  href="/wizard"
+                  data-testid="dashboard-welcome-build-calculator"
+                  className="btn-primary-premium inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
+                >
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  Build your first quote calculator
+                </Link>
+                <Link
+                  href="/portal/catalog"
+                  data-testid="dashboard-welcome-browse"
+                  className="block mt-3 text-sm text-muted-foreground hover:underline"
+                >
+                  Or browse done-for-you services →
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Pick your first service to get started. We'll guide you through setup and connect everything for you.
+                </p>
+                <Link
+                  href="/portal/catalog"
+                  data-testid="dashboard-welcome-browse"
+                  className="btn-primary-premium inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
+                >
+                  Browse services
+                </Link>
+                <Link
+                  href="/tools/free-audit"
+                  className="block mt-3 text-sm text-muted-foreground hover:underline"
+                  data-testid="dashboard-welcome-free-audit"
+                >
+                  Or run a free audit first →
+                </Link>
+              </>
+            )}
           </Card>
         </div>
       )}
