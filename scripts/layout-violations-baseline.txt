@@ -31,7 +31,7 @@ client/src/components/ui/pagination.tsx:100:5	rule-c	square w-9 h-9
 client/src/components/ui/radio-group.tsx:35:17	rule-c	square w-2.5 h-2.5
 client/src/components/ui/resizable.tsx:39:23	rule-c	square w-2.5 h-2.5
 client/src/components/ui/sidebar.tsx:269:7	rule-c	square w-7 h-7
-client/src/components/wizard/elfsight/AIBubble.tsx:1392:42	rule-c	size={36}
+client/src/components/wizard/elfsight/AIBubble.tsx:1416:42	rule-c	size={36}
 client/src/components/wizard/elfsight/InstallTab.tsx:218:57	rule-b	<div> contains 4 cues
 client/src/components/wizard/elfsight/InstallTab.tsx:394:27	rule-c	size={11}
 client/src/components/wizard/elfsight/InstallTab.tsx:481:29	rule-c	size={13}
@@ -42,8 +42,8 @@ client/src/components/wizard/elfsight/StyleTab.tsx:1289:31	rule-c	size={10}
 client/src/components/wizard/elfsight/StyleTab.tsx:4557:30	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4567:32	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4580:26	rule-c	size={13}
-client/src/components/wizard/elfsight/TemplateGallery.tsx:283:5	rule-b	<div> contains 2 cues
-client/src/components/wizard/elfsight/TemplateGallery.tsx:848:16	rule-c	size={18}
+client/src/components/wizard/elfsight/TemplateGallery.tsx:237:5	rule-b	<div> contains 2 cues
+client/src/components/wizard/elfsight/TemplateGallery.tsx:802:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
 client/src/pages/Blog.tsx:240:19	rule-c	size={120}
 client/src/pages/Blog.tsx:359:17	rule-c	size={84}

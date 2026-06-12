@@ -1,30 +1,38 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { ensureReadableText } from "@/lib/contrastGuard";
 import { getCategoryStyle } from "@/lib/categoryStyles";
-import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
+import TemplateThumbnail from "@/components/shared/TemplateThumbnail";
 import type { TemplateConfig } from "@shared/templatePresets";
 
 /**
- * Compact (~30% smaller) calculator template card — same design language as
- * the AI-receptionist card (.calx-* mirrors .airx-* in index.css): the
- * category-coloured thumbnail recedes + dims on hover while the trade
- * calculator icon (the "character") zooms forward, the badge merges to just
- * its icon, and the Try/Use CTAs cross-swap colours. Per-category colour is
- * passed via the --calx-accent / --calx-ink CSS variables.
+ * Compact calculator template card (.calx-* mirrors the AI-receptionist
+ * .airx-* design language in index.css). The thumb now shows a REAL preview
+ * of the calculator via the shared `<TemplateThumbnail>` (PNG-first →
+ * `<TemplateMockup>` data-driven mini render → category icon tile) instead
+ * of the old lone trade icon / 4-template screenshot hack — every card gets
+ * an actual title/fields/CTA preview in the template's own palette. The 4:5
+ * portrait preview is top-cropped into the wide 116px thumb as a "peek"
+ * (header + step dots + field rows emerge from the category-coloured panel
+ * and run off the bottom edge), which is the deliberate crop treatment.
  *
- * Reused on the public /templates gallery, the portal, and the admin preview.
+ * CTA pattern (templates-page audit, batch PR-3): the WHOLE card is
+ * clickable → /templates/{id} (low-commitment preview/landing page) via a
+ * stretched link on the heading, with ONE primary button — "Use template →"
+ * (→ /wizard?template={id}) — layered above the stretched link. Replaces the
+ * old near-synonymous Try/Use chip pair.
+ *
+ * Reused on the public /templates gallery, the portal, and the admin
+ * preview. `tryHref` keeps its name for caller compatibility: it is the
+ * whole-card (preview) destination.
  */
-
-// The four templates that have real captured calculator screenshots.
-const SHOT_IDS = new Set(["car_towing", "driveway_paving", "property_cleaning", "energy_upgrade"]);
 
 export interface CalculatorTemplateCardProps {
   template: TemplateConfig;
-  /** Primary "Try" target. Defaults to the public landing /templates/{id}. */
+  /** Whole-card (preview) target. Defaults to the public landing /templates/{id}. */
   tryHref?: string;
-  /** Secondary "Use" target. Defaults to /wizard?template={id}. */
+  /** Primary "Use template" target. Defaults to /wizard?template={id}. */
   useHref?: string;
   /** New tab for both links (used inside the portal). */
   newTab?: boolean;
@@ -32,9 +40,6 @@ export interface CalculatorTemplateCardProps {
 
 export default function CalculatorTemplateCard({ template, tryHref, useHref, newTab }: CalculatorTemplateCardProps) {
   const cat = getCategoryStyle(template.category);
-  const Icon = getQuoteQuickIcon(template.defaultIcon);
-  const [shotFailed, setShotFailed] = useState(false);
-  const hasShot = SHOT_IDS.has(template.id) && !shotFailed;
 
   const tabProps = newTab ? { target: "_blank", rel: "noopener noreferrer" } : {};
 
@@ -44,43 +49,53 @@ export default function CalculatorTemplateCard({ template, tryHref, useHref, new
       data-testid={`template-card-${template.id}`}
       style={{
         ["--calx-accent" as string]: cat.heroAccent,
-        /* --calx-ink paints the "Try" chip label on a --calx-cta fill (and
-         * the "Use" chip on hover). ctaText is tuned for the mockup's
-         * bright gradient CTA — on dark ctaOnWhite tiles (construction:
-         * slate #1e293b on amber-800 #92400e) it read 2.06:1. Derive the
-         * ink from the actual tile colour so it always clears WCAG
-         * (night-audit P-A: templates "Try" chip). */
+        /* --calx-ink paints the "Use template" label on a --calx-cta fill.
+         * ctaText is tuned for the mockup's bright gradient CTA — on dark
+         * ctaOnWhite tiles (construction: slate #1e293b on amber-800
+         * #92400e) it read 2.06:1. Derive the ink from the actual tile
+         * colour so it always clears WCAG (night-audit P-A). */
         ["--calx-ink" as string]: ensureReadableText(cat.ctaText, cat.ctaOnWhite),
         ["--calx-cta" as string]: cat.ctaOnWhite,
       } as CSSProperties}
     >
       <div className="calx-thumb">
         <div className="calx-bg" />
-        {Icon ? <div className="calx-badge"><Icon size={14} strokeWidth={2.2} /></div> : null}
-        {hasShot ? (
-          <img
-            className="calx-shot"
-            src={`/ai-thumbnails/templates/${encodeURIComponent(template.id)}.png`}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={() => setShotFailed(true)}
-          />
-        ) : Icon ? (
-          <Icon className="calx-ico" size={32} strokeWidth={1.8} />
-        ) : null}
+        {/* Real calculator preview — 4:5 portrait, top-anchored and cropped
+         * by the 116px thumb so the form portion (title, steps, fields)
+         * reads as a card peeking out of the category panel. The shared
+         * component guarantees a non-empty render (PNG → mockup → icon). */}
+        <div className="calx-mini" aria-hidden="true">
+          <TemplateThumbnail template={template} />
+        </div>
       </div>
 
       <div className="calx-content">
         <div className="calx-tags"><span className="calx-tag">{template.category}</span></div>
-        <h3 className="calx-heading">{template.name}</h3>
+        <h3 className="calx-heading">
+          {/* Stretched link — its ::after covers the card, making the whole
+           * card click → the template preview page. Real <a>: tabbable,
+           * Enter-activates, focus ring drawn by .calx-card-link::after. */}
+          <Link
+            className="calx-card-link"
+            href={tryHref ?? `/templates/${template.id}`}
+            {...tabProps}
+            aria-label={`Preview ${template.name} template`}
+            data-testid={`preview-cta-${template.id}`}
+          >
+            {template.name}
+          </Link>
+        </h3>
         <p className="calx-desc">{template.description}</p>
         <div className="calx-cta">
-          <Link className="calx-btn calx-try" href={tryHref ?? `/templates/${template.id}`} {...tabProps} data-testid={`preview-cta-${template.id}`}>
-            Try
-          </Link>
-          <Link className="calx-btn calx-use" href={useHref ?? `/wizard?template=${template.id}`} {...tabProps} aria-label={`Use ${template.name} template`} data-testid={`use-cta-${template.id}`}>
-            Use <ArrowRight size={14} />
+          <Link
+            className="calx-btn calx-use"
+            href={useHref ?? `/wizard?template=${template.id}`}
+            {...tabProps}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Use ${template.name} template`}
+            data-testid={`use-cta-${template.id}`}
+          >
+            Use template <ArrowRight size={14} aria-hidden="true" />
           </Link>
         </div>
       </div>

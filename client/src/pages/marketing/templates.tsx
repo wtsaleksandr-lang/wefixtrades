@@ -17,7 +17,7 @@ import { Search, Upload } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { mkt } from "@/theme/tokens";
+import { colors, mkt, shadows } from "@/theme/tokens";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import {
   TEMPLATE_PRESETS,
@@ -105,7 +105,7 @@ export default function TemplatesPage() {
         canonical="/templates"
         keywords={["quote calculator templates", "trades calculator templates", "instant quote templates"]}
       />
-      <V7PageShell data-theme="light">
+      <V7PageShell>
         <V7Hero
           productName={`${totalCount} Templates`}
           headline={
@@ -208,7 +208,7 @@ export default function TemplatesPage() {
                 padding: "11px 22px",
                 borderRadius: 10,
                 background: mkt.accent,
-                color: "#FFFFFF",
+                color: colors.brand.onDark,
                 border: "none",
                 fontSize: 14,
                 fontWeight: 700,
@@ -224,13 +224,18 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-        {/* Filter + search strip */}
+        {/* Filter + search strip — LIGHT surface so it reads as part of the
+            light template-browsing area below (theme-contrast rule), using
+            the canonical dashboard light palette from theme/tokens. Sticks
+            flush under the fixed 68px nav — the previous top:72 left a 4px
+            see-through slit. */}
         <div
           style={{
-            background: mkt.bg,
-            borderBottom: `1px solid ${mkt.onDarkBorder}`,
+            background: colors.dashboard.panel,
+            borderBottom: `1px solid ${colors.dashboard.border}`,
+            boxShadow: shadows.sm,
             position: "sticky",
-            top: 72,
+            top: 68,
             zIndex: 20,
           }}
         >
@@ -259,7 +264,7 @@ export default function TemplatesPage() {
                   left: 12,
                   top: "50%",
                   transform: "translateY(-50%)",
-                  color: mkt.onDarkMuted,
+                  color: colors.dashboard.muted,
                   pointerEvents: "none",
                 }}
               />
@@ -274,9 +279,9 @@ export default function TemplatesPage() {
                   width: "100%",
                   padding: "8px 12px 8px 34px",
                   borderRadius: 10,
-                  border: `1.5px solid ${mkt.onDarkBorder}`,
-                  background: mkt.surfaceAlt,
-                  color: mkt.onDark,
+                  border: `1.5px solid ${colors.dashboard.border}`,
+                  background: colors.dashboard.card,
+                  color: colors.dashboard.heading,
                   fontSize: 13,
                   outline: "none",
                   fontFamily: "inherit",
@@ -325,9 +330,12 @@ export default function TemplatesPage() {
                       flex: "0 0 auto",
                       padding: "4px 11px",
                       borderRadius: 999,
-                      border: `1px solid ${active ? mkt.accent : mkt.onDarkBorder}`,
-                      background: active ? "rgba(13,60,252,0.14)" : "transparent",
-                      color: active ? mkt.onDark : mkt.onDarkMuted,
+                      // Selected = accent OUTLINE + subtle tint (locked rule:
+                      // never a bright fill); dark-on-light text for the
+                      // light bar surface.
+                      border: `1px solid ${active ? mkt.accent : colors.dashboard.border}`,
+                      background: active ? colors.dashboard.accentTint : "transparent",
+                      color: active ? colors.dashboard.heading : colors.dashboard.body,
                       fontSize: 12,
                       fontWeight: 600,
                       lineHeight: 1.5,
@@ -351,7 +359,10 @@ export default function TemplatesPage() {
         <div
           id="template-grid"
           className="templates-grid-section"
-          style={{ background: "#C2D0D6", padding: "40px 16px 80px", borderRadius: "28px 28px 0 0" }}
+          // scrollMarginTop ≈ fixed nav (68) + sticky filter bar, so the
+          // "Browse Templates ↓" hero anchor lands below the fixed chrome
+          // instead of underneath it (same pattern as ApiDocsPage.tsx).
+          style={{ background: "#C2D0D6", padding: "40px 16px 80px", borderRadius: "28px 28px 0 0", scrollMarginTop: 140 }}
         >
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
             <p
@@ -424,7 +435,7 @@ export default function TemplatesPage() {
               style={{
                 fontSize: "clamp(26px, 3vw, 40px)",
                 fontWeight: 800,
-                color: "#FFFFFF",
+                color: colors.brand.onDark,
                 margin: "0 0 14px",
                 letterSpacing: "-0.02em",
               }}
@@ -456,7 +467,7 @@ export default function TemplatesPage() {
                   display: "inline-block",
                   padding: "14px 32px",
                   borderRadius: 10,
-                  background: "#FFFFFF",
+                  background: colors.platform.surface,
                   color: mkt.accent,
                   fontSize: 16,
                   fontWeight: 800,
@@ -475,7 +486,7 @@ export default function TemplatesPage() {
                   padding: "14px 24px",
                   borderRadius: 10,
                   background: "transparent",
-                  color: "#FFFFFF",
+                  color: colors.brand.onDark,
                   fontSize: 15,
                   fontWeight: 600,
                   textDecoration: "none",
