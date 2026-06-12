@@ -70,14 +70,15 @@ export function categoryIdFromDisplay(category: string | undefined): CategoryId 
     norm.startsWith('driveway')
   ) return 'construction';
   // 'HVAC & Mechanical' is the canonical category; 'Mechanical' and
-  // 'Repair Services' are legacy literals folded into it. All three share
-  // the automotive (black + orange) palette — the same visual family
-  // `getCategoryStyle()` / `resolveDerivedCategoryId()` give these trades.
+  // 'Repair Services' are legacy literals folded into it. All three map to
+  // the home-improvement (teal) palette — the same visual family
+  // `getCategoryStyle()` gives these trades since the mechanical-before-hvac
+  // ordering fix (#1741).
   if (
     norm.startsWith('hvac') ||
     norm.startsWith('mechanical') ||
     norm.startsWith('repair')
-  ) return 'automotive';
+  ) return 'homeImprovement';
   if (norm.startsWith('automotive')) return 'automotive';
   if (norm.startsWith('cleaning')) return 'cleaning';
   if (norm.startsWith('emergency') || norm.startsWith('restoration')) return 'emergency';
