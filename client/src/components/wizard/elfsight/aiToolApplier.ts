@@ -207,10 +207,82 @@ function applySetResults(input: any, ctx: AiApplierContext): void {
   }
 }
 
+/* ── U6 restyle integrity — validate the AI's style patch before merging.
+ *
+ * The human style menu validates hex via StyleTab's safeHex; the AI path
+ * previously merged a bare object with zero validation, so a bad colour
+ * (`"blue"`, `"rgb(0,0,0)"`) or an out-of-range radius landed in ShellStyle
+ * verbatim. Policy: VALIDATED FREEDOM — known keys are checked (invalid
+ * values are DROPPED, not merged), every other key passes through untouched
+ * so lesser-known valid ShellStyle keys keep working. */
+
+/** Mirrors HEX_RE in StyleTab.tsx — 3- or 6-digit hex. */
+const STYLE_HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/** ShellStyle colour-token keys (see AdvStyle in shared/templatePresets.ts). */
+const STYLE_COLOR_KEYS = [
+  'accent', 'ctaColor', 'background', 'text', 'resultsBg',
+  'secondary', 'surface', 'border', 'success', 'error',
+] as const;
+
+/** The 9 AdvFontFamily ids (shared/templatePresets.ts). */
+const STYLE_FONT_FAMILIES = new Set([
+  'system', 'inter', 'manrope', 'satoshi', 'geist', 'jakarta', 'plex', 'outfit', 'sora',
+]);
+
+/** Mirrors StyleTab's safeHex: accept `#abc`/`#aabbcc` with or without `#`. */
+function safeStyleHex(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (STYLE_HEX_RE.test(v)) return v.toLowerCase();
+  if (STYLE_HEX_RE.test('#' + v)) return ('#' + v).toLowerCase();
+  return null;
+}
+
+/** Validate known keys; return the cleaned patch + the keys we dropped. */
+function sanitiseStylePatch(patch: Record<string, any>): { clean: Partial<ShellStyle>; dropped: string[] } {
+  const clean: Record<string, any> = { ...patch };
+  const dropped: string[] = [];
+  for (const key of STYLE_COLOR_KEYS) {
+    if (!(key in clean)) continue;
+    const hex = safeStyleHex(clean[key]);
+    if (hex) clean[key] = hex;
+    else { delete clean[key]; dropped.push(key); }
+  }
+  if ('radius' in clean) {
+    const n = Number(clean.radius);
+    if (Number.isFinite(n)) clean.radius = Math.min(24, Math.max(0, n));
+    else { delete clean.radius; dropped.push('radius'); }
+  }
+  if ('fontFamily' in clean && (typeof clean.fontFamily !== 'string' || !STYLE_FONT_FAMILIES.has(clean.fontFamily))) {
+    delete clean.fontFamily;
+    dropped.push('fontFamily');
+  }
+  if ('customCss' in clean) {
+    if (typeof clean.customCss !== 'string') {
+      delete clean.customCss;
+      dropped.push('customCss');
+    } else {
+      // @import pulls in an external stylesheet whose rules cannot be scoped
+      // to the widget root — strip it (defense in depth with scopeCustomCss
+      // in AdvancedCalculator.tsx, which also strips it at render).
+      clean.customCss = clean.customCss.replace(/@import\b[^;]*(;|$)/gi, '');
+    }
+  }
+  return { clean: clean as Partial<ShellStyle>, dropped };
+}
+
 function applySetStyle(input: any, ctx: AiApplierContext): void {
-  const patch = (input.patch ?? input) as Partial<ShellStyle>;
+  const patch = (input.patch ?? input) as Record<string, any>;
   if (!patch || typeof patch !== 'object') throw new Error('patch required');
-  ctx.setStyle({ ...(ctx.state.style ?? {}), ...patch });
+  const { clean, dropped } = sanitiseStylePatch(patch);
+  if (dropped.length) {
+    // No return channel to the chat — applyAiToolCall is void and the tool
+    // chip text comes from describeTool(call) in AIBubble.tsx. Apply the
+    // valid remainder and make the drop observable in the console.
+    console.warn(`[quotequick-ai] set_style ignored invalid values: ${dropped.join(', ')}`);
+  }
+  ctx.setStyle({ ...(ctx.state.style ?? {}), ...clean });
 }
 
 function applySetSettings(input: any, ctx: AiApplierContext): void {
