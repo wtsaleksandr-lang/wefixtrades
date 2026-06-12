@@ -989,29 +989,53 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         .qq-tg-modal-cat-select:focus {
           border-color: ${p.colors.accent};
         }
+        /* W-TG-GRID-FIX — responsive auto-fill grid that never clips the
+         * right column when the vertical scrollbar appears. Previously a
+         * rigid repeat(4, 1fr) inside an overflow:hidden modal: once the
+         * scrollbar (~17px) showed up it shrank the content width but the
+         * 4 fixed columns didn't reflow, so the 4th column was clipped.
+         *  - auto-fill + minmax lets columns reflow (3–4 desktop, fewer
+         *    on narrow widths) instead of overflowing.
+         *  - justify-content: center keeps a short final row centered.
+         *  - scrollbar-gutter: stable reserves the scrollbar space so its
+         *    appearance can't steal column width.
+         *  - box-sizing + width:100% + overflow-x:hidden guarantee no
+         *    horizontal overflow at any width. */
         .qq-tg-modal-grid {
           padding: 16px 18px 24px;
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-          grid-auto-rows: 1fr;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 12px;
+          align-content: start;
+          justify-content: center;
+          width: 100%;
+          box-sizing: border-box;
           overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-gutter: stable;
         }
-        /* Wave R-pre W-CARDS — force equal card heights per row.
-         * grid-auto-rows: 1fr above makes every row in the modal grid
-         * stretch to the tallest cell. W-AP-1 bumped from 178 → 250 to
-         * make room for the new 150px mockup (vs 76px before) plus the
-         * 2-line description + name. */
+        /* W-TG-GRID-FIX — cards stay proportional (4:5, inherited from the
+         * base .qq-tg-card) instead of being force-stretched to a rigid
+         * 250px row. The old height:100% + grid-auto-rows:1fr + min-height
+         * 250px left tall dead space under short mockups. align-self:start
+         * stops a tall neighbour from stretching shorter cards. */
         .qq-tg-modal-grid .qq-tg-card,
         .qq-tg-modal-grid .qq-tg-card--with-desc {
-          height: 100%;
-          min-height: 250px;
+          align-self: start;
+          min-height: 0;
+          box-sizing: border-box;
         }
-        /* W-AO-2 — modal card body now hosts BOTH the name (centered,
-         * bold) and a 2-line clamped description below (11px, muted).
-         * Switched from center-aligned name to top-aligned stack so
-         * 1-line and 2-line titles still share a row baseline via the
-         * fixed body min-height. */
+        .qq-tg-modal-grid .qq-tg-card-hover-wrap {
+          align-self: start;
+        }
+        /* W-AO-2 — modal card body hosts the centered, bold name. The
+         * description was moved to the hover pop (v2), so the body only
+         * needs a single title row — W-TG-GRID-FIX trims the old 64px
+         * reservation (held space for a description that no longer renders
+         * here) to a 1-line-friendly 34px, removing residual dead space
+         * under the mockup while keeping titles row-aligned. */
         .qq-tg-card--with-desc .qq-tg-card-body {
-          min-height: 64px;
+          min-height: 34px;
           padding: 6px 6px 8px;
           display: flex;
           flex-direction: column;
@@ -1053,7 +1077,14 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         @media (max-width: 768px) {
           .qq-tg-modal-backdrop { padding: 8px; }
           .qq-tg-modal { max-height: 96vh; }
-          .qq-tg-modal-grid { grid-template-columns: repeat(2, 1fr); }
+          /* W-TG-GRID-FIX — narrower minmax so two columns fit cleanly at
+           * 375px (grid padding 12px each side) without the right column
+           * being clipped; auto-fill still reflows to one column on very
+           * narrow screens. */
+          .qq-tg-modal-grid {
+            padding: 12px 12px 18px;
+            grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+          }
           .qq-tg-modal-close { min-width: 44px; min-height: 44px; }
           .qq-tg-modal-search { padding: 10px 12px 4px; }
           .qq-tg-modal-search-input { padding: 11px 12px; min-height: 44px; }

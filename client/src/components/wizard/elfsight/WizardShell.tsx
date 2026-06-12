@@ -929,6 +929,36 @@ export default function WizardShell({ embed = false }: Props) {
     });
   }, []);
 
+  // ── W-TG-SELECT-FIX — interactive template pick (Build strip + Browse-all
+  // modal). Picking a template means "load THIS calculator", so it must do a
+  // full structural replace (forceStructure: true) — the old wiring called
+  // `applyTemplate(t)` with no force, so when the user had any edits it fell
+  // into the theme-only branch and the template's fields/pricing never loaded
+  // (the bug Alex hit). We still protect real work: if the calculator has
+  // genuine user-authored content we confirm BEFORE replacing; otherwise
+  // (blank / default seed / metadata-only) we apply immediately.
+  const [pendingTemplate, setPendingTemplate] = useState<TemplateConfig | null | undefined>(undefined);
+  // Read the latest state inside the (stable) callback without re-creating it
+  // on every keystroke — a ref mirrors `state` for the authored-content check.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const requestApplyTemplate = useCallback((preset: TemplateConfig | null) => {
+    if (hasUserAuthoredContent(stateRef.current)) {
+      // Defer to the confirm dialog — store the pending pick (null = blank).
+      setPendingTemplate(preset);
+      return;
+    }
+    // No real work to protect → apply with full structural replace now.
+    applyTemplate(preset, undefined, true);
+  }, [applyTemplate]);
+  const confirmApplyTemplate = useCallback(() => {
+    setPendingTemplate((pending) => {
+      if (pending !== undefined) applyTemplate(pending, undefined, true);
+      return undefined;
+    });
+  }, [applyTemplate]);
+  const cancelApplyTemplate = useCallback(() => setPendingTemplate(undefined), []);
+
   // ── Wave I (f): in-preview remove / add ──────────────────────────────
   const removeField = useCallback((fieldId: string) => {
     setState((s) => ({ ...s, fields: s.fields.filter((f) => f.id !== fieldId) }));
@@ -1969,7 +1999,7 @@ export default function WizardShell({ embed = false }: Props) {
                       results={state.results ?? {}}
                       onResultsChange={setResults}
                       activeTemplateId={state.activeTemplateId}
-                      onApplyTemplate={applyTemplate}
+                      onApplyTemplate={requestApplyTemplate}
                       /* BG-7 Item 4 — per-step rich-text descriptions.
                          The StepContentPanel renders only when the active
                          template ships explicit `steps[]`. */
@@ -2216,7 +2246,7 @@ export default function WizardShell({ embed = false }: Props) {
                     results={state.results ?? {}}
                     onResultsChange={setResults}
                     activeTemplateId={state.activeTemplateId}
-                    onApplyTemplate={applyTemplate}
+                    onApplyTemplate={requestApplyTemplate}
                     steps={state.steps}
                     onStepsChange={setSteps}
                     onGenerateWithAI={handleAIGenerate}
@@ -2454,6 +2484,59 @@ export default function WizardShell({ embed = false }: Props) {
                     logoUrl={state.logo}
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                   />
+                </div>
+              </div>,
+              document.body,
+            )}
+
+            {/* W-TG-SELECT-FIX — confirm before replacing genuine work with a
+                picked template. Only shown when hasUserAuthoredContent() is
+                true at pick time; a blank/seed calculator applies directly.
+                Reuses the wizard's native .qq-editor-help overlay + card so it
+                inherits the theme + z-order (no admin-UI Radix dialog, which
+                this embed never imports). */}
+            {pendingTemplate !== undefined && typeof document !== 'undefined' && createPortal(
+              <div
+                className="qq-editor-help"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Replace calculator with template"
+                data-theme={editorTheme}
+                onClick={cancelApplyTemplate}
+                data-testid="template-replace-confirm-overlay"
+              >
+                <div
+                  className="qq-editor-help-card"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: p.colors.heading }}>
+                    {pendingTemplate === null
+                      ? 'Start from a blank calculator?'
+                      : 'Replace your current calculator?'}
+                  </p>
+                  <p style={{ fontSize: 13, lineHeight: 1.45, margin: '0 0 16px', color: p.colors.muted }}>
+                    {pendingTemplate === null
+                      ? 'Your current fields and pricing will be cleared so you can start fresh. This can’t be undone from here.'
+                      : 'Your current fields and pricing will be replaced with this template’s setup. Everything stays editable afterwards.'}
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="qq-editor-btn qq-editor-btn--ghost"
+                      onClick={cancelApplyTemplate}
+                      data-testid="template-replace-cancel"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="qq-editor-btn"
+                      onClick={confirmApplyTemplate}
+                      data-testid="template-replace-confirm"
+                    >
+                      {pendingTemplate === null ? 'Start blank' : 'Replace'}
+                    </button>
+                  </div>
                 </div>
               </div>,
               document.body,
@@ -3208,6 +3291,15 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .qq-editor-btn:hover:not(:disabled) { background: ${AE.color.accentHover}; }
             .qq-editor-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+            /* W-TG-SELECT-FIX — ghost (secondary) variant for the template
+               replace-confirm Cancel button. Outlined, not filled, per the
+               selected=outline UI rule; theme-aware via AE tokens. */
+            .qq-editor-btn--ghost {
+              background: ${AE.color.surface};
+              color: ${AE.color.text};
+              border: 1px solid ${AE.color.hairline};
+            }
+            .qq-editor-btn--ghost:hover:not(:disabled) { background: ${AE.color.accentTint}; }
             .qq-editor-save-error { font-size: 11.5px; color: ${p.colors.danger}; font-weight: 600; }
             .qq-editor-right {
               flex: 1; min-width: 0;
