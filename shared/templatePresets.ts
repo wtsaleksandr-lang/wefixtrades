@@ -1144,7 +1144,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 2. Driveway paving ── */
   {
-    id: 'driveway_paving', name: 'Driveway Paving', description: 'Area-based driveway paving estimate.',
+    id: 'driveway_paving', name: 'Driveway Paving — Multi-Surface', description: 'Driveway quote across asphalt, concrete, block and resin surfaces, priced by area.',
     category: 'Construction', trades: ['concrete_driveway', 'concrete_patio'],
     trustBadges: BADGES.driveway_concrete,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
@@ -1329,7 +1329,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 8. Roof repair ── */
   {
-    id: 'roof_repair', name: 'Roof Repair', description: 'Area + material roof repair estimate.',
+    id: 'roof_repair', name: 'Roof Repair — Quick Estimate', description: 'Fast roof repair ballpark by size, material and pitch.',
     category: 'Construction', trades: ['roofing'],
     trustBadges: BADGES.roofing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
@@ -1361,7 +1361,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 9. Solar panels ── */
   {
-    id: 'solar_panels', name: 'Solar Panels', description: 'Solar install cost from system size.',
+    id: 'solar_panels', name: 'Solar — Quick Panel Estimate', description: 'Fast ballpark solar price from panel count, capacity and roof orientation.',
     category: 'Home Improvement', trades: ['hvac_services'],
     trustBadges: BADGES.solar,
     layout: 'multi-column', theme: 'light', defaultIcon: 'Sun',
@@ -1492,10 +1492,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Contact Us',
     };
     const base = {
-      name: 'Wedding Photography', description: 'Premium wedding photography quote with album & travel options.',
-      category: 'Photography & Events', trades: ['photographer'],
+      name: 'Wedding Photography', description: 'Wedding-specialist photography quote with album, second-photographer and travel options.',
+      category: 'Professional', trades: ['photographer'],
       trustBadges: BADGES.photography,
-      theme: 'light', fields, calculations, result_calc: 'Total Cost', header, results,
+      theme: 'light', defaultIcon: 'Gem', fields, calculations, result_calc: 'Total Cost', header, results,
     };
     return [
       { id: 'wedding_photography_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1530,7 +1530,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'House Renovation Pro', description: 'Premium whole-home renovation estimate with material & labour breakdown.',
       category: 'Construction', trades: ['general_contractor', 'handyman'],
       trustBadges: BADGES.renovation,
-      theme: 'forest', fields, calculations, result_calc: 'Total Renovation Cost', header, results,
+      theme: 'forest', defaultIcon: 'HardHat', fields, calculations, result_calc: 'Total Renovation Cost', header, results,
     };
     return [
       { id: 'house_renovation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1559,10 +1559,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     };
     const results: TemplateResults = { footnote: 'Fresh, deep-cleaned carpets — book in minutes with an instant, all-in price.', cta_label: 'Book Now' };
     const base = {
-      name: 'Carpet Cleaning Pro', description: 'Premium room-based carpet cleaning quote with optional treatments.',
+      name: 'Carpet Cleaning — Room Packages', description: 'Room-based carpet cleaning packages with stain, deodorising and protection treatments.',
       category: 'Cleaning', trades: ['house_cleaning'],
       trustBadges: BADGES.generic,
-      theme: 'mint', fields, calculations, result_calc: 'Total Cost', header, results,
+      theme: 'mint', defaultIcon: 'SprayCan', fields, calculations, result_calc: 'Total Cost', header, results,
     };
     return [
       { id: 'carpet_cleaning_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1592,10 +1592,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     };
     const results: TemplateResults = { footnote: 'A protected, watertight roof — get a transparent estimate with material and labour itemised.', cta_label: 'Schedule Now' };
     const base = {
-      name: 'Roof Repair Pro', description: 'Premium roof repair estimate by area, material and job complexity.',
+      name: 'Roof Repair — Itemized Quote', description: 'Itemised roof repair estimate by area, material and job complexity, with material/labour breakdown.',
       category: 'Construction', trades: ['roofing'],
       trustBadges: BADGES.roofing,
-      theme: 'forest', fields, calculations, result_calc: 'Total Roof Repair Cost', header, results,
+      theme: 'forest', defaultIcon: 'Hammer', fields, calculations, result_calc: 'Total Roof Repair Cost', header, results,
     };
     return [
       { id: 'roof_repair_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1627,10 +1627,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     };
     const results: TemplateResults = { footnote: 'One clear price for your whole move — transport, packing and extras itemised.', cta_label: 'Get a Quote Now' };
     const base = {
-      name: 'Moving Cost Pro', description: 'Premium end-to-end moving quote with packing and add-on services.',
-      category: 'Moving', trades: ['moving_services'],
+      name: 'Moving — Flat-Rate Package', description: 'Flat-rate moving quote by home size with packing service and add-ons — one all-in price.',
+      category: 'Professional', trades: ['moving_services'],
       trustBadges: BADGES.generic,
-      theme: 'light', fields, calculations, result_calc: 'Total Moving Cost', header, results,
+      theme: 'light', defaultIcon: 'Package', fields, calculations, result_calc: 'Total Moving Cost', header, results,
     };
     return [
       { id: 'moving_cost_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1680,7 +1680,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'HVAC Repair & Replace', description: 'Per-trade HVAC quote covering diagnostics, repairs and full system replacement.',
       category: 'HVAC & Mechanical', trades: ['hvac_repair', 'hvac_installation', 'furnace_replacement', 'emergency_hvac', 'hvac_services'],
       trustBadges: BADGES.generic,
-      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'midnight', defaultIcon: 'AirVent', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'hvac_repair_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1714,10 +1714,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Book a Plumber',
     };
     const base = {
-      name: 'Plumbing Services', description: 'Per-trade plumbing quote covering common repairs, installs and emergency calls.',
+      name: 'Plumbing — Service Calls & Emergency', description: 'Multi-job plumbing quote — repairs, installs and after-hours emergencies, with urgency tiers and travel fee.',
       category: 'HVAC & Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
       trustBadges: BADGES.plumbing,
-      theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'light', defaultIcon: 'ShowerHead', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'plumbing_services_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1752,10 +1752,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Schedule Service',
     };
     const base = {
-      name: 'Electrical Services', description: 'Per-trade electrical quote covering common installs, upgrades and emergencies.',
+      name: 'Electrical — Installs & Emergency', description: 'Room-by-room electrical quote — installs, panel upgrades and same-day emergencies, with permit handling.',
       category: 'HVAC & Mechanical', trades: ['electrical_services', 'emergency_electrical', 'ev_charger'],
       trustBadges: BADGES.electrical,
-      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'midnight', defaultIcon: 'PlugZap', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'electrical_services_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1789,10 +1789,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Book a Repair',
     };
     const base = {
-      name: 'Appliance Repair', description: 'Per-appliance repair quote with severity-based pricing and same-day options.',
-      category: 'Repair Services', trades: ['appliance_repair'],
+      name: 'Appliance Repair — Same-Day Service', description: 'Severity-priced appliance repair with service-call fee and same-day options.',
+      category: 'HVAC & Mechanical', trades: ['appliance_repair'],
       trustBadges: BADGES.applianceRepair,
-      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'coral', defaultIcon: 'WashingMachine', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'appliance_repair_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1828,7 +1828,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Drywall & Plaster', description: 'Square-foot drywall and plaster quote with finish-level pricing.',
       category: 'Construction', trades: ['drywall_plaster'],
       trustBadges: BADGES.drywall,
-      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'mint', defaultIcon: 'Paintbrush', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'drywall_plaster_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1866,7 +1866,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Tile Installation', description: 'Tile install quote by area, type, pattern and location.',
       category: 'Construction', trades: ['tile_installation', 'flooring_installation'],
       trustBadges: BADGES.flooring,
-      theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'light', defaultIcon: 'Layers', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'tile_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1901,10 +1901,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Schedule a Measurement',
     };
     const base = {
-      name: 'Window Replacement', description: 'Per-window replacement quote with glass packages and trim add-ons.',
+      name: 'Window Replacement — Whole-Home', description: 'Whole-home window replacement for up to 30 windows, with glass packages and per-window trim add-ons.',
       category: 'Home Improvement', trades: ['window_replacement'],
       trustBadges: BADGES.windows,
-      theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'light', defaultIcon: 'AppWindow', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'window_replacement_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1942,7 +1942,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Door Installation', description: 'Per-door install quote covering interior, exterior and patio doors.',
       category: 'Home Improvement', trades: ['door_installation'],
       trustBadges: BADGES.doors,
-      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'mint', defaultIcon: 'DoorOpen', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'door_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -1979,7 +1979,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Siding Installation', description: 'Whole-home siding quote by area, material and number of stories.',
       category: 'Construction', trades: ['siding_installation'],
       trustBadges: BADGES.siding,
-      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'forest', defaultIcon: 'Home', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'siding_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2017,7 +2017,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Deck Construction', description: 'Custom deck build quote by area, material, height and railing style.',
       category: 'Outdoor', trades: ['deck_construction', 'deck_building'],
       trustBadges: BADGES.deck,
-      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'forest', defaultIcon: 'Fence', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'deck_construction_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2054,7 +2054,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Insulation Installation', description: 'Insulation quote by area, type and location with energy-audit add-on.',
       category: 'Home Improvement', trades: ['insulation_installation'],
       trustBadges: BADGES.insulation,
-      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'mint', defaultIcon: 'Snowflake', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'insulation_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2087,10 +2087,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Schedule a Treatment',
     };
     const base = {
-      name: 'Pest Control', description: 'Per-pest treatment quote with home-size sizing and recurring plan options.',
-      category: 'Specialty Services', trades: ['pest_control'],
+      name: 'Pest Control — Per-Pest Treatment', description: 'Targeted treatment pricing per pest — bed bugs, termites, rodents, wildlife — with home-size sizing.',
+      category: 'Cleaning', trades: ['pest_control'],
       trustBadges: BADGES.pestControl,
-      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'forest', defaultIcon: 'Bug', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'pest_control_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2126,10 +2126,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Request a Site Visit',
     };
     const base = {
-      name: 'Tree Service', description: 'Per-tree trimming, removal and stump-grinding quote with access-difficulty sizing.',
+      name: 'Tree Service — Removal & Storm', description: 'Per-tree quote for trimming, removal, stump grinding and storm response, with crane-access and cabling add-ons.',
       category: 'Outdoor', trades: ['tree_trimming', 'tree_service'],
       trustBadges: BADGES.treeService,
-      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'forest', defaultIcon: 'TreePine', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'tree_service_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2162,10 +2162,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Book a Pickup',
     };
     const base = {
-      name: 'Junk Removal', description: 'Junk pickup quote by load size, item category and access difficulty.',
-      category: 'Specialty Services', trades: ['junk_removal'],
+      name: 'Junk Removal — Loads & Special Items', description: 'Load-size pickup quote with item-category surcharges and e-waste / hazardous disposal options.',
+      category: 'Cleaning', trades: ['junk_removal'],
       trustBadges: BADGES.junkRemoval,
-      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'coral', defaultIcon: 'Trash2', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'junk_removal_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2198,10 +2198,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Schedule Pool Service',
     };
     const base = {
-      name: 'Pool Cleaning & Maintenance', description: 'Pool service quote by size, type and visit frequency.',
+      name: 'Pool Cleaning — One-Time & Seasonal', description: 'One-time deep cleans, opening/closing and green-to-clean rescues, sized by pool volume.',
       category: 'Outdoor', trades: ['pool_cleaning', 'pool_service'],
       trustBadges: BADGES.generic,
-      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'mint', defaultIcon: 'Droplets', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'pool_cleaning_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2234,10 +2234,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Book a Technician',
     };
     const base = {
-      name: 'Garage Door Service', description: 'Garage door repair and replacement quote with same-day options.',
-      category: 'Repair Services', trades: ['garage_door'],
+      name: 'Garage Door — Repairs & Same-Day', description: 'Repair-first garage door quote — springs, openers, cables and panels — with same-day and after-hours tiers.',
+      category: 'HVAC & Mechanical', trades: ['garage_door'],
       trustBadges: BADGES.generic,
-      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'midnight', defaultIcon: 'Warehouse', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'garage_door_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2273,10 +2273,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Request a Locksmith',
     };
     const base = {
-      name: 'Locksmith Services', description: 'Locksmith quote covering lockouts, re-keying and lock installs.',
-      category: 'Specialty Services', trades: ['locksmith'],
+      name: 'Locksmith — Locks & Security', description: 'Full locksmith quote — re-keying, lock installs, smart locks and master-key systems, with travel fee.',
+      category: 'Emergency', trades: ['locksmith'],
       trustBadges: BADGES.generic,
-      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'midnight', defaultIcon: 'Lock', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'locksmith_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2312,7 +2312,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       name: 'Chimney Sweep', description: 'Chimney sweep and inspection quote with cap and liner options.',
       category: 'Cleaning', trades: ['chimney_sweep'],
       trustBadges: BADGES.chimneySweep,
-      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'coral', defaultIcon: 'Flame', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'chimney_sweep_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2347,10 +2347,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Get Emergency Help',
     };
     const base = {
-      name: 'Water Damage Restoration', description: 'Restoration quote by affected area, water category and damage class.',
-      category: 'Restoration', trades: ['water_damage', 'water_damage_restoration'],
+      name: 'Water Damage — Insurance-Grade Scope', description: 'Insurance-grade restoration scope by IICRC water category (1–3) and damage class (1–4), with rapid-response tiers.',
+      category: 'Emergency', trades: ['water_damage', 'water_damage_restoration'],
       trustBadges: BADGES.generic,
-      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'coral', defaultIcon: 'Waves', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'water_damage_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2384,10 +2384,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_label: 'Book an Inspection',
     };
     const base = {
-      name: 'Mold Remediation', description: 'Mold remediation quote by affected area, severity and location.',
-      category: 'Restoration', trades: ['mold_remediation'],
+      name: 'Mold Removal — Area & Severity', description: 'Mold removal priced by affected area and severity — bathroom to HVAC and attic — with independent lab testing.',
+      category: 'Emergency', trades: ['mold_remediation'],
       trustBadges: BADGES.moldRemediation,
-      theme: 'magenta', fields, calculations, result_calc: 'Estimated Total', header, results,
+      theme: 'magenta', defaultIcon: 'AlertTriangle', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
       { id: 'mold_remediation_single_col', layout: 'single-column' as TemplateLayout, ...base },
@@ -2541,7 +2541,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'kitchen_renovation', name: 'Kitchen Renovation',
     description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
-    category: 'Renovation', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
+    category: 'Construction', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
     trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'ChefHat',
     header: { title: 'Design Your Dream Kitchen — Free Estimate', subtitle: 'NKBA-certified designers · Licensed contractors · 3D rendering with every consultation', align: 'left' },
@@ -2576,7 +2576,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'bathroom_renovation', name: 'Bathroom Renovation',
     description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
-    category: 'Renovation', trades: ['bathroom_remodel', 'general_renovation'],
+    category: 'Construction', trades: ['bathroom_remodel', 'general_renovation'],
     trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'light', defaultIcon: 'Bath',
     header: { title: 'Get Your Bathroom Renovation Quote', subtitle: 'Licensed plumbers & tile pros · 5-year leak guarantee · Most baths done in 7–10 days', align: 'left' },
@@ -2609,7 +2609,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'basement_finishing', name: 'Basement Finishing',
     description: 'Per-sqft basement finish estimate with ceiling + scope modifiers.',
-    category: 'Renovation', trades: ['basement_finishing', 'general_renovation'],
+    category: 'Construction', trades: ['basement_finishing', 'general_renovation'],
     trustBadges: BADGES.renovation,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     header: { title: 'Turn Your Basement Into Living Space — Free Quote', subtitle: 'Licensed general contractor · Permit handling included · Adds avg. 70% ROI at resale', align: 'left' },
@@ -2645,7 +2645,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'interior_painting_pro', name: 'Interior Painting (Pro)',
     description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
-    category: 'Renovation', trades: ['painting', 'interior_painting'],
+    category: 'Construction', trades: ['painting', 'interior_painting'],
     trustBadges: BADGES.painting,
     layout: 'two-column', theme: 'light', defaultIcon: 'Paintbrush2',
     header: { title: 'Get a Professional Painting Quote', subtitle: 'Sherwin-Williams certified · Lead-safe certified · 3-year workmanship warranty', align: 'left' },
@@ -2681,7 +2681,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'hvac_installation', name: 'HVAC Installation',
     description: 'New HVAC system estimate by home size and equipment tier.',
-    category: 'Mechanical', trades: ['hvac_services', 'hvac_installation'],
+    category: 'HVAC & Mechanical', trades: ['hvac_services', 'hvac_installation'],
     trustBadges: BADGES.hvac,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Thermometer',
     requireAddress: true,
@@ -2717,9 +2717,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 24. Plumbing service ── */
   {
-    id: 'plumbing_service', name: 'Plumbing Service',
-    description: 'Per-job plumbing estimate by service type + urgency.',
-    category: 'Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
+    id: 'plumbing_service', name: 'Plumbing — Per-Fixture Estimate',
+    description: 'Single-job plumbing estimate priced per fixture, with urgency surcharge.',
+    category: 'HVAC & Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
     trustBadges: BADGES.plumbing,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     requireAddress: true,
@@ -2755,9 +2755,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 25. Electrical work ── */
   {
-    id: 'electrical_work', name: 'Electrical Work',
-    description: 'Per-job electrical estimate covering common residential scopes.',
-    category: 'Mechanical', trades: ['electrical_services', 'emergency_electrical'],
+    id: 'electrical_work', name: 'Electrical — Per-Job Estimate',
+    description: 'Per-job electrical estimate by quantity and wiring-access difficulty.',
+    category: 'HVAC & Mechanical', trades: ['electrical_services', 'emergency_electrical'],
     trustBadges: BADGES.electrical,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Zap',
     requireAddress: true,
@@ -2794,7 +2794,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'ev_charger_install', name: 'EV Charger Installation',
     description: 'Level-2 EV charger install with electrical-scope modifiers.',
-    category: 'Mechanical', trades: ['ev_charger', 'electrical_services'],
+    category: 'HVAC & Mechanical', trades: ['ev_charger', 'electrical_services'],
     trustBadges: BADGES.evCharger,
     layout: 'two-column', theme: 'forest', defaultIcon: 'BatteryCharging',
     header: { title: 'Charge at Home — EV Install Quote in 60 Seconds', subtitle: 'Tesla & ChargePoint certified · Licensed electricians · Most installs done same-day', align: 'left' },
@@ -2861,7 +2861,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'concrete_driveway_replacement', name: 'Concrete Driveway',
     description: 'New concrete driveway with finish + removal modifiers.',
-    category: 'Driveway', trades: ['concrete_driveway', 'concrete_patio', 'concrete_slab'],
+    category: 'Construction', trades: ['concrete_driveway', 'concrete_patio', 'concrete_slab'],
     trustBadges: BADGES.driveway_concrete,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
     header: { title: 'Get Your New Concrete Driveway Quote', subtitle: 'ACI-certified concrete pros · 25-year structural warranty · Free on-site measurement', align: 'left' },
@@ -2993,8 +2993,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 32. Locksmith service ── */
   {
-    id: 'locksmith_service', name: 'Locksmith Service',
-    description: 'Per-service locksmith pricing with urgency modifier.',
+    id: 'locksmith_service', name: 'Locksmith — Emergency Call-Out',
+    description: 'Lockout-first locksmith pricing with within-the-hour and after-hours response tiers.',
     category: 'Emergency', trades: ['locksmith'],
     trustBadges: BADGES.locksmith,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'KeyRound',
@@ -3126,7 +3126,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 36. Photography package ── */
   {
     id: 'photography_package', name: 'Photography Package',
-    description: 'Event or session photography quote by type, hours and deliverables.',
+    description: 'General photography quote — portraits, corporate events, real estate and weddings — by hours and deliverables.',
     category: 'Professional', trades: ['photography'],
     trustBadges: BADGES.photography,
     layout: 'two-column', theme: 'magenta', defaultIcon: 'Camera',
@@ -3157,8 +3157,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 37. Moving service ── */
   {
-    id: 'moving_service', name: 'Moving Service',
-    description: 'Local or long-distance moving quote by home size, distance and crew.',
+    id: 'moving_service', name: 'Moving — Crew & Distance Quote',
+    description: 'Itemised local or long-distance moving quote by home size, crew size, distance and moving-day pricing.',
     category: 'Professional', trades: ['moving_services'],
     trustBadges: BADGES.moving,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Truck',
@@ -3228,7 +3228,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'solar_panel_install', name: 'Solar Panel Installation',
     description: 'Rooftop solar quote by system size, roof type and battery storage.',
-    category: 'Renewable Energy', trades: ['solar_panel', 'solar_battery'],
+    category: 'Home Improvement', trades: ['solar_panel', 'solar_battery'],
     trustBadges: BADGES.solar,
     layout: 'two-column', theme: 'forest', defaultIcon: 'Sun',
     header: { title: 'Go Solar — Free Install Quote + Tax Credit', subtitle: 'NABCEP-certified installers · 25-year production guarantee · 30% federal tax credit', align: 'left' },
@@ -3259,8 +3259,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
 
   /* ── 40. Pool service ── */
   {
-    id: 'pool_service_quote', name: 'Pool Service',
-    description: 'Recurring pool maintenance by pool size and visit cadence.',
+    id: 'pool_service_quote', name: 'Pool Service — Recurring Plan',
+    description: 'Recurring per-visit pool maintenance by pool size and weekly / bi-weekly / monthly cadence.',
     category: 'Outdoor', trades: ['pool_service', 'pool_cleaning'],
     trustBadges: BADGES.pool,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Waves',
@@ -3366,7 +3366,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'garage_door_service', name: 'Garage Door Service',
     description: 'Install, repair or replace by door size and opener.',
-    category: 'Mechanical', trades: ['garage_door'],
+    category: 'HVAC & Mechanical', trades: ['garage_door'],
     trustBadges: BADGES.garageDoor,
     layout: 'single-column', theme: 'forest', defaultIcon: 'DoorOpen',
     requireAddress: true,
@@ -3406,7 +3406,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'appliance_repair', name: 'Appliance Repair',
     description: 'Per-appliance repair estimate with diagnostic + parts modifiers.',
-    category: 'Mechanical', trades: ['appliance_repair'],
+    category: 'HVAC & Mechanical', trades: ['appliance_repair'],
     trustBadges: BADGES.applianceRepair,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Refrigerator',
     header: { title: 'Get an Appliance Repair Quote in 60 Seconds', subtitle: 'Factory-trained technicians · Flat-rate pricing · 90-day parts & labor warranty', align: 'left' },
@@ -3665,7 +3665,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
    * single-step flow (3 fields < 4, per `recommendStepperMode`). Result
    * panel collapses below inputs at ≤768px (renderer-handled). */
   {
-    id: 'carpet_cleaning_quote', name: 'Carpet Cleaning Cost',
+    id: 'carpet_cleaning_quote', name: 'Carpet Cleaning — Per Square Foot',
     description: 'Per-square-foot + per-room cleaning pricing with add-ons. Mint-green result panel, dark-green CTA. Inspired by Elfsight\'s Carpet Cleaning calc with our trust badges + sticky shell.',
     category: 'Cleaning', trades: ['house_cleaning'],
     matchingTrades: ['carpet-cleaning', 'residential-cleaning', 'commercial-cleaning', 'janitorial', 'general-cleaning'],
