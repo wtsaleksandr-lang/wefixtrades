@@ -263,16 +263,27 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
 export function getCategoryStyle(category: string | undefined): CategoryStyle {
   if (!category) return STYLES.default;
   const c = category.toLowerCase();
-  if (c.includes('automotive') || c.includes('moving') || c.includes('mechanical')) {
+  // Building-systems trades (HVAC / plumbing / electrical / 'Mechanical',
+  // incl. 'HVAC & Mechanical') belong to the home-improvement family. This
+  // MUST be tested before the automotive branch: 'HVAC & Mechanical'
+  // contains 'mechanical', and an earlier automotive test on 'mechanical'
+  // made this branch unreachable (every HVAC/plumbing/electrical card
+  // rendered automotive orange and counted under the Automotive filter).
+  // 'Mechanical' and 'HVAC & Mechanical' will be merged taxonomically in a
+  // follow-up PR.
+  if (
+    c.includes('home improvement') || c.includes('hvac') ||
+    c.includes('mechanical') || c.includes('plumbing') || c.includes('electrical')
+  ) {
+    return STYLES['home-improvement'];
+  }
+  if (c.includes('automotive') || c.includes('moving')) {
     return STYLES.automotive;
   }
   if (c.includes('construction') || c.includes('driveway') || c.includes('renovation')) {
     return STYLES.construction;
   }
   if (c.includes('cleaning')) return STYLES.cleaning;
-  if (c.includes('home improvement') || c.includes('hvac')) {
-    return STYLES['home-improvement'];
-  }
   if (c.includes('emergency') || c.includes('restoration') || c.includes('repair')) {
     return STYLES.emergency;
   }
