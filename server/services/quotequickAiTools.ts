@@ -45,7 +45,7 @@ TOOLS — call by name, never invent new ones.
 - set_settings(patch)                                         — partial ShellSettings
 - set_logo(data_url)
 - apply_template(preset_id)                                   — loads a TEMPLATE_PRESETS entry
-- replace_template(template_config)                           — replaces the whole shell
+- replace_template(template_config, business_name?, palette?, default_icon?, trustBadges?) — replaces the whole shell
 - prefill_fields(values)                                      — { fieldId: number } map
 
 FORMULA LANGUAGE
@@ -60,6 +60,22 @@ When the user provides BOTH a text description AND a screenshot/image in the sam
 BUILDING FROM A DESCRIPTION
 If the user describes a calculator from scratch ("build a roof-repair calculator..."), call replace_template with a complete TemplateConfig. Use sensible defaults (rates, surcharges) for the trade.
 
+CUSTOMER INPUTS vs BUSINESS CONFIG — CRITICAL
+FIELDS ARE WHAT THE CUSTOMER ANSWERS. Every field must be a question a buyer can answer: quantity, size, options, add-ons, date. NEVER create a field for base prices, unit rates, margins, fees, or any number the business owner sets — bake those into calculation formulas as numeric constants (e.g. "[Bouquets] * 45 + [Delivery] * 15") or into option values. If the user states their prices, use them as the constants.
+
+BUSINESS NAME
+When the user states their business name, set business_name on replace_template AND use it as (or within) header.title. Never invent a business name — omit business_name when the user hasn't given one.
+
+PALETTE
+Always set palette on replace_template when building from scratch — pick the combo matching the business vibe: florist / bakery / beauty → "cake"; landscaping / lawn → "profit" or "bmi"; emergency / towing → "black-yellow" or "loan"; professional services / finance → "mortgage" or "fees"; weddings / events → "wedding"; eco / green → "carbon"; auto → "car-rental"; renovation / construction → "reno"; creative / apparel → "tshirt"; pools / HVAC / marine → "emi".
+
+DEFAULT ICON
+Set default_icon on replace_template to the icon matching the trade (e.g. florist → Flower2, cleaning → Sparkles, plumbing → Wrench, electrician → Zap). Choose ONLY from this list:
+AirVent, AlertTriangle, AppWindow, Axe, Bath, BatteryCharging, Biohazard, Bolt, Bug, Building2, Cake, Calendar, Camera, Car, ChefHat, ClipboardCheck, Clock, Construction, CreditCard, DollarSign, DoorOpen, Drill, Droplet, Droplets, Fence, Flame, Flower2, Gem, Globe, Hammer, HardHat, Home, KeyRound, Lamp, Layers, Leaf, Lightbulb, Lock, Mail, MessageCircle, Microwave, Mountain, Package, PackageOpen, PaintBucket, Paintbrush, Paintbrush2, Phone, Pickaxe, Plug, PlugZap, Receipt, RectangleHorizontal, Refrigerator, Scissors, Settings, Shield, ShowerHead, Snowflake, Sparkles, SprayCan, Sun, Thermometer, Trash2, TreeDeciduous, TreePine, Trees, Truck, Wand2, Warehouse, WashingMachine, Waves, Wind, Wrench, Zap.
+
+TRUST BADGES
+Include 3-4 niche-relevant trustBadges on replace_template (florist: "Same-Day Delivery" truck, "Freshness Guarantee" leaf, "Locally Grown" heart). Labels short (≤30 chars); icons ONLY from the enum in the tool schema.
+
 SAFETY
 - Never call set_logo unless the user explicitly uploaded a logo.
 - Never apply a template the user didn't confirm.
@@ -73,7 +89,7 @@ REPORTING EDITS — these tool calls are applied in the editor AFTER your reply,
 export const QUOTEQUICK_AI_TOOLS = [
   {
     name: "add_field",
-    description: "Add a new input field to the calculator's fields list.",
+    description: "Add a new input field to the calculator's fields list. Customer-facing inputs only — never a field for a base price, unit rate, margin, or fee the business owner sets; bake those into formulas as numeric constants.",
     input_schema: {
       type: "object",
       properties: {
@@ -238,7 +254,44 @@ export const QUOTEQUICK_AI_TOOLS = [
       properties: {
         template_config: {
           type: "object",
-          description: "Full TemplateConfig: { layout, fields[], calculations[], header, results?, result_calc }.",
+          description: "Full TemplateConfig: { layout, fields[], calculations[], header, results?, result_calc }. Pair it with the optional business_name / palette / default_icon / trustBadges params below for a complete, branded build.",
+        },
+        business_name: {
+          type: "string",
+          description: "The business name exactly as the user stated it. Only set when the user provided one — never invent.",
+        },
+        palette: {
+          type: "string",
+          enum: ["black-yellow", "car-rental", "mortgage", "loan", "emi", "bmi", "profit", "fees", "reno", "tshirt", "wedding", "carbon", "cake"],
+          description: "Curated theme combo matching the business vibe (see PALETTE in the system prompt). Always set when building from scratch.",
+        },
+        default_icon: {
+          type: "string",
+          description: "Trade-matching icon name from the curated list in the DEFAULT ICON section of the system prompt.",
+        },
+        trustBadges: {
+          type: "array",
+          maxItems: 4,
+          description: "3-4 short niche-relevant trust badges displayed on the calculator.",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", maxLength: 30 },
+              icon: {
+                type: "string",
+                enum: [
+                  "shield", "shield-check", "check-circle", "check-circle-2",
+                  "award", "lock", "star", "thumbs-up",
+                  "badge-check", "verified",
+                  "clipboard-check", "clock", "leaf", "file-badge",
+                  "wrench", "hammer", "hard-hat", "truck", "phone",
+                  "map-pin", "calendar", "credit-card", "heart", "users",
+                  "zap", "handshake",
+                ],
+              },
+            },
+            required: ["label", "icon"],
+          },
         },
         confirm_required: {
           type: "boolean",
