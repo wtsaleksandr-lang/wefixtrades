@@ -1125,11 +1125,13 @@ export default function FieldRow({
          * place of the (untappable-behind-sheet) kebab on mobile. ≥40px touch
          * targets. The delete button shows its destructive token color at rest
          * (not only on hover) so "delete" reads clearly on touch. */
-        .qq-field-row-mobilebtn {
-          width: 40px; height: 40px; border-radius: 8px;
+        .qq-field-row-actions .qq-field-row-mobilebtn {
+          width: 40px; height: 40px;
+          min-width: 40px; min-height: 40px;
+          border-radius: 8px;
         }
-        .qq-field-row-mobilebtn svg { width: 18px; height: 18px; }
-        .qq-field-row-mobilebtn.is-danger {
+        .qq-field-row-actions .qq-field-row-mobilebtn svg { width: 18px; height: 18px; }
+        .qq-field-row-actions .qq-field-row-mobilebtn.is-danger {
           color: ${p.colors.danger};
         }
         /* Premium-SaaS icon button (shared) — Linear / Stripe / Vercel
