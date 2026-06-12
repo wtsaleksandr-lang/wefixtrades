@@ -714,12 +714,13 @@ export default function HomePage() {
 
               <div className="hero-enter hero-cta-row">
                 <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
-                  {/* Canonical /wizard CTA label — standardized to one string
-                   * across nav, hero, and product pages. On ≤640px the warm CTA
-                   * row already clamps with white-space:nowrap + ellipsis, so a
-                   * longer label degrades cleanly instead of breaking layout;
-                   * the "no card" promise is also reinforced by hero-cta-note. */}
-                  <span>Start free — no card</span>
+                  {/* Hero /wizard CTA label — intentionally made explicit so it's
+                   * obvious the click opens the calculator builder. The compact nav
+                   * pills + product-page CTAs keep the shorter "Start free — no card"
+                   * (nowrap, fixed width). On ≤640px the warm CTA row clamps with
+                   * white-space:nowrap + ellipsis, so a longer label degrades cleanly;
+                   * the "no card" promise is reinforced by hero-cta-note below. */}
+                  <span>Build your free calculator</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
                 <Link href="/demo" className="hero-cta-secondary-warm" data-testid="hero-cta-secondary">
