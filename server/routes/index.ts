@@ -141,6 +141,7 @@ import { registerFreeToolsRoutes } from "./freeToolsRoutes";
 import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
 import { registerAdminSeoReviewRoutes } from "./adminSeoReviewRoutes";
+import { registerAdminSeoMatrixRoutes } from "./adminSeoMatrixRoutes";
 import { registerRumIngestRoutes } from "./rumIngestRoutes";
 import { registerHealthzRoute } from "./healthz";
 import { registerAiInsightsRoutes } from "./aiInsightsRoutes";
@@ -334,6 +335,10 @@ export async function registerRoutes(
   // preview / edit / approve→publish / reject→archive). Drafts arrive from
   // seoArticleGenerator as status='in_review'; nothing auto-publishes.
   registerAdminSeoReviewRoutes(app);
+  // Owned-domain SEO programmatic [trade]×[city]×[job] matrix — admin-triggered
+  // hard-limited batch (NEVER a cron). Produces in_review drafts gated by
+  // k-anonymity + dedup + unique-data-score; nothing auto-publishes.
+  registerAdminSeoMatrixRoutes(app);
   // SEO Wave D — public RUM ingest (Core Web Vitals from real users).
   registerRumIngestRoutes(app);
 
