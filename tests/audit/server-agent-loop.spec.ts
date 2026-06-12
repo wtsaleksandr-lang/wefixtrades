@@ -13,6 +13,10 @@
  *   4. The `low`-tier short-circuit (pending_confirmation handoff).
  */
 
+// MUST be first: sets a dummy DATABASE_URL before server/db.ts is evaluated,
+// so the Fix-1 envelope test below can import aiAgentLoop.ts (which transitively
+// pulls server/db via the gate/usage chain) in the DB-less audit CI.
+import './_failover-env-setup';
 import { test, expect } from '@playwright/test';
 import {
   runAgentLoopCore,
@@ -21,6 +25,11 @@ import {
   type AgentLoopDeps,
   type AgentLoopInput,
 } from '../../server/services/aiAgentLoopCore';
+import { executorFromCustomerWidgetAction } from '../../server/services/aiAgentLoop';
+import {
+  registerCopilotAction,
+  type CopilotAction,
+} from '../../server/services/copilotActionRegistry';
 
 /* ─── Helpers ─── */
 
@@ -204,5 +213,106 @@ test.describe('server — W-BA-0 agent loop core', () => {
   test('defaults: max 8 steps + $1.00 cost cap', () => {
     expect(DEFAULT_MAX_STEPS).toBe(8);
     expect(DEFAULT_COST_CAP_CENTS).toBe(100);
+  });
+
+  /* ─── Anti-hallucination guards ─── */
+
+  // Test A (proves Fix 2): a tool whose executor RETURNS a failure result
+  // ({ok:false}) — not throws — must reach the model as is_error:true, and the
+  // failure must be recorded in the step log. Reverting Fix 2 (the
+  // isFailureResult check in aiAgentLoopCore) turns this red: the returned
+  // failure would be fed back with is_error:false and the model could read it
+  // as success.
+  test('returned failure ({ok:false}) reaches the model as is_error and is logged', async () => {
+    const client = {
+      messages: {
+        create: async (params: any) => {
+          // After the first round the conversation carries the tool_result.
+          // Step 0 emits the tool_use; step 1 wraps up with text.
+          const sawToolResult = JSON.stringify(params.messages ?? []).includes('tool_result');
+          if (!sawToolResult) {
+            return {
+              content: [{ type: 'tool_use', id: 'tu_fail', name: 'send_quote_email', input: {} }],
+              stop_reason: 'tool_use',
+              usage: { input_tokens: 10, output_tokens: 5 },
+            };
+          }
+          return {
+            content: [{ type: 'text', text: 'I could not send that.' }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 10, output_tokens: 5 },
+          };
+        },
+      },
+    };
+
+    // Capture the tool_result block actually fed back to the model.
+    const feedbackBlocks: any[] = [];
+    const capturingClient = {
+      messages: {
+        create: async (params: any) => {
+          for (const msg of params.messages ?? []) {
+            if (Array.isArray(msg.content)) {
+              for (const b of msg.content) {
+                if (b?.type === 'tool_result') feedbackBlocks.push(b);
+              }
+            }
+          }
+          return client.messages.create(params);
+        },
+      },
+    };
+
+    const result = await runAgentLoopCore(
+      baseDeps({ client: capturingClient }),
+      baseInput({
+        tools: [{ name: 'send_quote_email', description: 's', input_schema: { type: 'object' } } as any],
+        toolExecutors: {
+          // RETURNS a soft failure — does NOT throw.
+          send_quote_email: async () => ({ ok: false, reason: 'email_not_configured' }),
+        },
+      }),
+    );
+
+    expect(result.status).toBe('text');
+    // The tool_result fed back to the model is flagged is_error.
+    expect(feedbackBlocks.length).toBe(1);
+    expect(feedbackBlocks[0].is_error).toBe(true);
+    // The step log records the failure on the tool_result step.
+    const resultStep = result.steps.find((s) => s.type === 'tool_result');
+    expect(resultStep).toBeTruthy();
+    expect(resultStep!.payload.is_error).toBe(true);
+  });
+
+  // Test B (proves Fix 1): executorFromCustomerWidgetAction must return the
+  // action's narrative RAW. With a fake action returning
+  // { narrative: '{"ok":false}' }, the executor's returned value must parse to
+  // ok:false — NOT be re-wrapped in a hardcoded { ok:true } envelope. Restoring
+  // the old `return { ok: true, narrative }` turns this red.
+  test('executorFromCustomerWidgetAction returns the raw narrative (no ok:true envelope)', async () => {
+    const fake: CopilotAction = {
+      name: 'fake_widget_action',
+      surface: 'customer-widget',
+      riskTier: 'auto',
+      tool: { name: 'fake_widget_action', description: 'f', input_schema: { type: 'object', properties: {} } },
+      execute: async () => ({ narrative: '{"ok":false,"reason":"email_not_configured"}' }),
+    };
+    registerCopilotAction(fake);
+
+    const executor = executorFromCustomerWidgetAction('fake_widget_action', {});
+    const raw = await executor({}, {
+      surface: 'customer-widget',
+      loopRunId: 'test_run',
+      stepIndex: 0,
+    });
+
+    // The executor returns the narrative string verbatim — no envelope.
+    expect(typeof raw).toBe('string');
+    const parsed = JSON.parse(raw as string);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.reason).toBe('email_not_configured');
+    // Guard against the old behavior: the returned value must NOT be an object
+    // with a hardcoded ok:true.
+    expect((raw as any).ok).toBeUndefined();
   });
 });

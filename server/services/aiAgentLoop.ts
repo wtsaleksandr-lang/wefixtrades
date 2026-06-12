@@ -154,7 +154,11 @@ export function executorFromCopilotAction(
       expires: Date.now() + 5 * 60 * 1000,
     };
     const result = await action.execute(pending, ctx.userId);
-    return { ok: true, narrative: result.narrative };
+    // Return the action's real narrative raw. Do NOT wrap in a hardcoded
+    // { ok: true } envelope — customer/admin actions encode true status
+    // (e.g. {"ok":false,...}) inside the narrative, and a success stamp here
+    // would make the model report fabricated success. (anti-hallucination Fix 1)
+    return result.narrative;
   };
 }
 
@@ -193,6 +197,9 @@ export function executorFromCustomerWidgetAction(
       metadata,
     };
     const result = await action.execute(pending, 0);
-    return { ok: true, narrative: result.narrative };
+    // Return the action's real narrative raw — see executorFromCopilotAction.
+    // The { ok: true } envelope would mask a returned {"ok":false,...} status
+    // and let the model claim success it never achieved. (anti-hallucination Fix 1)
+    return result.narrative;
   };
 }
