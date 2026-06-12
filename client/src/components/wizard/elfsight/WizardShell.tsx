@@ -48,10 +48,10 @@ import {
 } from '@shared/templatePresets';
 import {
   SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
-  LifeBuoy, Lightbulb,
 } from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
+import HelpModal from './HelpModal';
 // 2026-05-22 (revert of PR #535) — EditorBottomBar was deleted; the tab
 // strip lives back in the top chrome again. See EditorTopBar.tsx.
 import MobileBottomSheet from './MobileBottomSheet';
@@ -524,20 +524,9 @@ export default function WizardShell({ embed = false }: Props) {
   const canUndo = histLen.u > 0;
   const canRedo = histLen.r > 0;
 
-  // Bug A — Escape-to-close for the in-shell Help overlay. On mobile the
-  // overlay portals above the bottom sheet, so backdrop/"Got it" are reachable;
-  // Escape is the keyboard escape hatch and matches the top-bar help modal.
-  useEffect(() => {
-    if (!showHelp) return;
-    const onHelpKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        ev.stopPropagation();
-        setShowHelp(false);
-      }
-    };
-    window.addEventListener('keydown', onHelpKey);
-    return () => window.removeEventListener('keydown', onHelpKey);
-  }, [showHelp]);
+  // Bug A (2026-06-12) — Escape-to-close for the Help overlay now lives in
+  // the shared <HelpModal> itself (capture-phase listener), so no local
+  // keydown effect is needed here anymore.
 
   // BD-3a fix 1 — keyboard shortcuts. Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z
   // (or Cmd/Ctrl+Y) = redo. We skip when the user is typing in a real text
@@ -2402,110 +2391,14 @@ export default function WizardShell({ embed = false }: Props) {
               openForUploadNonce={aiUploadNonce}
             />
 
-            {showHelp && typeof document !== 'undefined' && createPortal(
-              <div
-                className="qq-editor-help"
-                role="dialog"
-                aria-label="Editor help"
-                data-theme={editorTheme}
-                onClick={() => setShowHelp(false)}
-                data-testid="editor-help-overlay"
-              >
-                <div className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
-                  <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
-                    Need a hand?
-                  </p>
-                  <p style={{ fontSize: 13, color: AE.color.secondary, margin: '6px 0 0', lineHeight: 1.5 }}>
-                    Build on the left, preview on the right. Esc or click outside to close.
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-                    <a
-                      href="mailto:support@wefixtrades.com"
-                      data-testid="help-action-get-help"
-                      aria-label="Get help — email our support team"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: 12,
-                        borderRadius: AE.radius.md,
-                        border: `1px solid ${AE.color.hairline}`,
-                        background: AE.color.surface,
-                        textDecoration: 'none',
-                        color: AE.color.text,
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          flexShrink: 0,
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 32, height: 32,
-                          borderRadius: AE.radius.sm,
-                          background: AE.color.accentTint,
-                          color: AE.color.accent,
-                        }}
-                      >
-                        <LifeBuoy style={{ width: 20, height: 20 }} />
-                      </span>
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
-                          Get help
-                        </span>
-                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
-                          Questions or stuck? Our team replies fast.
-                        </span>
-                      </span>
-                    </a>
-
-                    <a
-                      href="mailto:support@wefixtrades.com?subject=Feature%20request"
-                      data-testid="help-action-request-feature"
-                      aria-label="Request a feature — email us your idea"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: 12,
-                        borderRadius: AE.radius.md,
-                        border: `1px solid ${AE.color.hairline}`,
-                        background: AE.color.surface,
-                        textDecoration: 'none',
-                        color: AE.color.text,
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          flexShrink: 0,
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 32, height: 32,
-                          borderRadius: AE.radius.sm,
-                          background: AE.color.accentTint,
-                          color: AE.color.accent,
-                        }}
-                      >
-                        <Lightbulb style={{ width: 20, height: 20 }} />
-                      </span>
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: AE.color.text }}>
-                          Request a feature
-                        </span>
-                        <span style={{ fontSize: 12.5, color: AE.color.secondary, lineHeight: 1.4 }}>
-                          Tell us what would make QuoteQuick better.
-                        </span>
-                      </span>
-                    </a>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowHelp(false)}
-                    className="qq-editor-btn"
-                    style={{ marginTop: 14 }}
-                  >
-                    Got it
-                  </button>
-                </div>
-              </div>,
-              document.body,
+            {/* 2026-06-12 — shared Help modal (HelpModal.tsx). Replaces the
+                 inline mailto: card duplicated here and in EditorTopBar. The
+                 modal portals itself to <body>, owns Escape/backdrop
+                 dismissal, and offers two in-app actions: open the builder
+                 chat (AIBubble launcher) or message support without leaving
+                 the editor. */}
+            {showHelp && (
+              <HelpModal editorTheme={editorTheme} onClose={() => setShowHelp(false)} />
             )}
 
             {/* Publish flow (Elfsight-parity) — embed/hosted-link/install folded
