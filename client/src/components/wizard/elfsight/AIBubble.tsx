@@ -1176,22 +1176,46 @@ export default function AIBubble(props: AIBubbleProps) {
 
   /* ─── Destructive-tool confirmation ─── */
 
-  /** User clicked [Apply] on a queued replace_template / apply_template card. */
+  /** User clicked [Apply] on a queued replace_template / apply_template card.
+   *
+   *  fix/wizard-same-tick-state-clobber (2026-06-12) — `applyAiToolCall` used
+   *  to run INSIDE the setMessages updater. Side-effects in a state updater
+   *  are illegal (this was the source of React's "Cannot update a component
+   *  (WizardShell) while rendering a different component (AIBubble)" warning)
+   *  and StrictMode double-invokes updaters, double-firing the apply. The
+   *  flow is now: (1) decide from the current messages snapshot, (2) run the
+   *  apply HERE in the event handler, (3) call setMessages purely to record
+   *  the outcome. `appliedConfirmKeysRef` keeps the apply idempotent on a
+   *  same-tick double-click, before `resolved` re-renders the button away. */
+  const appliedConfirmKeysRef = useRef<Set<string>>(new Set());
   const onConfirmApply = useCallback((messageId: string, confirmKey: string) => {
+    // (1) Decide. `messages` is the latest committed snapshot — the [Apply]
+    // button can only be clicked once the pendingConfirm card has rendered,
+    // so the queued call is guaranteed to be present here.
+    const msg = messages.find(m => m.id === messageId);
+    const pending = (msg?.pendingConfirms ?? []).find(p => p.key === confirmKey);
+    if (!pending || pending.resolved || appliedConfirmKeysRef.current.has(confirmKey)) return;
+    appliedConfirmKeysRef.current.add(confirmKey);
+    // (2) Side-effect — outside any updater, so WizardShell state updates fire
+    // from a plain event handler, never mid-render.
+    let appliedOk = true;
+    try {
+      applyAiToolCall(pending.call, props);
+    } catch (err: any) {
+      // Surface the failed apply as a warning chip, and mark the card itself
+      // 'cancelled' (not 'applied') so the UI never claims it landed. (Fix 4)
+      appliedOk = false;
+      setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
+    }
+    // (3) Pure state update from the outcome. Safe under StrictMode
+    // double-invocation: no side-effects, and the `resolved` re-check makes
+    // the map idempotent against an already-resolved card.
     setMessages(prev => {
-      // Gap 6 — flips true only on the success branch below; gates the
-      // scripted follow-up question appended after the map.
-      let appliedOk = false;
       const next = prev.map(m => {
         if (m.id !== messageId) return m;
-        const pending = (m.pendingConfirms ?? []).find(p => p.key === confirmKey);
-        if (!pending || pending.resolved) return m;
-        try {
-          applyAiToolCall(pending.call, props);
-        } catch (err: any) {
-          // Surface the failed apply as a warning chip, and mark the card itself
-          // 'cancelled' (not 'applied') so the UI never claims it landed. (Fix 4)
-          setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
+        const stillPending = (m.pendingConfirms ?? []).find(p => p.key === confirmKey);
+        if (!stillPending || stillPending.resolved) return m;
+        if (!appliedOk) {
           return {
             ...m,
             pendingConfirms: (m.pendingConfirms ?? []).map(p =>
@@ -1200,7 +1224,6 @@ export default function AIBubble(props: AIBubbleProps) {
             toolChips: [...(m.toolChips ?? []), `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${pending.call.name}`],
           };
         }
-        appliedOk = true;
         return {
           ...m,
           pendingConfirms: (m.pendingConfirms ?? []).map(p =>
@@ -1209,6 +1232,7 @@ export default function AIBubble(props: AIBubbleProps) {
           toolChips: [...(m.toolChips ?? []), describeTool(pending.call)],
         };
       });
+      // Failure → cancelled card + fail chip, NO follow-up question.
       if (!appliedOk) return next;
       // Gap 6 — scripted LOCAL follow-up (no model round-trip). The apply DID
       // succeed (green "Applied" card just landed), so "Your calculator is in
@@ -1226,7 +1250,7 @@ export default function AIBubble(props: AIBubbleProps) {
         },
       ];
     });
-  }, [props]);
+  }, [messages, props]);
 
   /** User clicked [Cancel] — drop the queued call. We don't send a follow-up
    *  tool_result here because the chat stream has already completed; the
