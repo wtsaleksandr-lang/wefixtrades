@@ -18,10 +18,10 @@ const log = createLogger("Marketing");
 
 export function registerMarketingRoutes(app: Express): void {
   const contactSchema = z.object({
-    name: z.string().min(1),
+    name: z.string().min(1).max(120),
     email: z.string().email(),
-    subject: z.string().optional(),
-    message: z.string().min(1),
+    subject: z.string().max(200).optional(),
+    message: z.string().min(1).max(10_000),
   });
 
   app.post("/api/contact", async (req, res) => {
