@@ -244,6 +244,41 @@ export interface ShellNumberFormat {
   currency: string;
 }
 
+/**
+ * LEAD-FORM-FIELDS — owner-defined custom lead-form field. The Action tab's
+ * "Add field" affordance appends these; on save they map 1:1 onto the server
+ * schema's `calculator_settings.lead_form.custom_fields[]`
+ * (shared/schemas/calculator.ts) and the published widget's LeadCaptureStep
+ * renders them below the standard Name / Email / Phone inputs. Their submitted
+ * values ride in the /api/leads `answers` jsonb (keyed by label) — no DB schema
+ * change required.
+ *
+ * Type names are the exact subset the widget + server already accept; `options`
+ * is only meaningful when `type === 'select'`.
+ */
+export type LeadFieldType =
+  | 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox';
+
+export interface LeadCustomField {
+  /** Stable client-generated id (used as React key + dedupe key). */
+  id: string;
+  type: LeadFieldType;
+  label: string;
+  required: boolean;
+  /** Only used when type === 'select'. */
+  options: string[];
+}
+
+export const LEAD_FIELD_TYPE_OPTIONS: ReadonlyArray<{ value: LeadFieldType; label: string }> = [
+  { value: 'text', label: 'Text' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'number', label: 'Number' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'textarea', label: 'Long text' },
+  { value: 'checkbox', label: 'Checkbox' },
+];
+
 export const DEFAULT_SHELL_NUMBER_FORMAT: Readonly<ShellNumberFormat> = {
   thousands: 'comma',
   decimal: 'dot',
@@ -291,6 +326,14 @@ export interface ShellSettings {
    *   'no-action'           — show the result only; no follow-up step.
    */
   actionMode?: 'redirect' | 'lead-form' | 'no-action';
+  /**
+   * LEAD-FORM-FIELDS — owner-defined extra lead-form fields, edited in the
+   * Action tab's "Lead form fields" card. Maps to
+   * `calculator_settings.lead_form.custom_fields` on save (see
+   * buildLeadFormConfig). Absent/empty → only the standard Name / Email /
+   * Phone fields render.
+   */
+  leadFields?: LeadCustomField[];
   /** Action tab — lead-form CTA card heading shown above the open-form button. */
   ctaHeading?: string;
   /** Action tab — lead-form CTA card caption shown under the heading. */

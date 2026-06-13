@@ -39,6 +39,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { AE } from './appleEditor';
 import { buildAdvancedConfig } from './buildAdvancedConfig';
+import { buildLeadFormConfig } from './buildLeadFormConfig';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
@@ -1420,6 +1421,13 @@ export default function WizardShell({ embed = false }: Props) {
           // calculator_settings (the schema's .catchall(z.any()) accepts it).
           ...(state.logo ? { logo: state.logo } : {}),
           shell_settings: { ...settings, logo: state.logo ?? null },
+          // LEAD-FORM-FIELDS — owner-defined custom lead fields. Mapped from
+          // settings.leadFields onto the server schema's
+          // lead_form.custom_fields so the published widget's LeadCaptureStep
+          // renders them (values flow into the /api/leads `answers` jsonb).
+          // Omitted entirely when there are none, keeping the payload
+          // byte-identical to before for existing calculators.
+          ...(buildLeadFormConfig(settings) ? { lead_form: buildLeadFormConfig(settings) } : {}),
           language,
           // Wave R-pre D — map brandBadge (wizard) to appearance
           // .show_powered_by (server schema). The server-side gate
