@@ -23,6 +23,20 @@ export interface AiToolCall {
   input: Record<string, any>;
 }
 
+/**
+ * U6 restyle-integrity return channel — when an applier DROPS invalid values
+ * from the model's input (keeping the valid remainder), it reports the dropped
+ * keys here so the chat can tell the user honestly what did NOT take, instead
+ * of the success chip silently claiming the whole change landed.
+ *
+ * `undefined` (or an empty `droppedKeys`) means a clean apply — caller treats
+ * it exactly as before (normal success chip). Currently only `set_style`
+ * surfaces drops; other tools console.warn internally and return void.
+ */
+export interface AiApplyResult {
+  droppedKeys?: string[];
+}
+
 export interface AiApplierContext {
   state: ShellState;
   setFields: (next: TemplateField[]) => void;
@@ -411,17 +425,44 @@ function sanitiseStylePatch(patch: Record<string, any>): { clean: Partial<ShellS
   return { clean: clean as Partial<ShellStyle>, dropped };
 }
 
-function applySetStyle(input: any, ctx: AiApplierContext): void {
+/** Friendly word for each droppable style key, for the chat "couldn't apply"
+ *  note. Colour-token keys collapse to "color value" so the user sees plain
+ *  language rather than internal token names (`ctaColor`, `resultsBg`, …). */
+const STYLE_KEY_LABELS: Record<string, string> = {
+  radius: 'corner radius',
+  fontFamily: 'font',
+  customCss: 'custom CSS',
+};
+
+/** Build the honest, non-alarming note shown when set_style dropped values.
+ *  e.g. ["accent"] → "Couldn't apply: invalid color value"
+ *       ["accent","radius"] → "Ignored 2 values that weren't valid" */
+export function describeDroppedStyleKeys(dropped: string[]): string {
+  if (dropped.length === 0) return '';
+  if (dropped.length === 1) {
+    const key = dropped[0];
+    const label =
+      STYLE_KEY_LABELS[key]
+      ?? ((STYLE_COLOR_KEYS as readonly string[]).includes(key) ? 'color value' : key);
+    return `Couldn't apply: invalid ${label}`;
+  }
+  return `Ignored ${dropped.length} values that weren't valid`;
+}
+
+function applySetStyle(input: any, ctx: AiApplierContext): AiApplyResult {
   const patch = (input.patch ?? input) as Record<string, any>;
   if (!patch || typeof patch !== 'object') throw new Error('patch required');
   const { clean, dropped } = sanitiseStylePatch(patch);
   if (dropped.length) {
-    // No return channel to the chat — applyAiToolCall is void and the tool
-    // chip text comes from describeTool(call) in AIBubble.tsx. Apply the
-    // valid remainder and make the drop observable in the console.
+    // The valid remainder still applies; the drop is also logged for debugging.
+    // The dropped keys are RETURNED so AIBubble can append an honest "couldn't
+    // apply" note alongside the success chip — otherwise the chip would claim
+    // the whole restyle landed when an invalid colour/radius/font was silently
+    // discarded here.
     console.warn(`[quotequick-ai] set_style ignored invalid values: ${dropped.join(', ')}`);
   }
   ctx.setStyle({ ...(ctx.state.style ?? {}), ...clean });
+  return dropped.length ? { droppedKeys: dropped } : {};
 }
 
 function applySetSettings(input: any, ctx: AiApplierContext): void {
@@ -538,22 +579,29 @@ function applyPrefill(input: any, ctx: AiApplierContext): void {
 
 /* ─── Dispatcher ─── */
 
-export function applyAiToolCall(call: AiToolCall, ctx: AiApplierContext): void {
+/**
+ * Apply a tool call. Returns an {@link AiApplyResult} so the caller can surface
+ * dropped-value information (currently only `set_style` populates it); every
+ * other tool returns an empty result, which the caller treats as a clean apply.
+ * Throws on hard failures (unknown tool, missing required input) exactly as
+ * before — AIBubble already catches those and renders a failure chip.
+ */
+export function applyAiToolCall(call: AiToolCall, ctx: AiApplierContext): AiApplyResult {
   switch (call.name) {
-    case 'add_field': return applyAddField(call.input, ctx);
-    case 'remove_field': return applyRemoveField(call.input, ctx);
-    case 'edit_field': return applyEditField(call.input, ctx);
-    case 'add_calculation': return applyAddCalc(call.input, ctx);
-    case 'remove_calculation': return applyRemoveCalc(call.input, ctx);
-    case 'edit_calculation': return applyEditCalc(call.input, ctx);
-    case 'set_header': return applySetHeader(call.input, ctx);
-    case 'set_results': return applySetResults(call.input, ctx);
+    case 'add_field': applyAddField(call.input, ctx); return {};
+    case 'remove_field': applyRemoveField(call.input, ctx); return {};
+    case 'edit_field': applyEditField(call.input, ctx); return {};
+    case 'add_calculation': applyAddCalc(call.input, ctx); return {};
+    case 'remove_calculation': applyRemoveCalc(call.input, ctx); return {};
+    case 'edit_calculation': applyEditCalc(call.input, ctx); return {};
+    case 'set_header': applySetHeader(call.input, ctx); return {};
+    case 'set_results': applySetResults(call.input, ctx); return {};
     case 'set_style': return applySetStyle(call.input, ctx);
-    case 'set_settings': return applySetSettings(call.input, ctx);
-    case 'set_logo': return applySetLogo(call.input, ctx);
-    case 'apply_template': return applyApplyTemplate(call.input, ctx);
-    case 'replace_template': return applyReplaceTemplate(call.input, ctx);
-    case 'prefill_fields': return applyPrefill(call.input, ctx);
+    case 'set_settings': applySetSettings(call.input, ctx); return {};
+    case 'set_logo': applySetLogo(call.input, ctx); return {};
+    case 'apply_template': applyApplyTemplate(call.input, ctx); return {};
+    case 'replace_template': applyReplaceTemplate(call.input, ctx); return {};
+    case 'prefill_fields': applyPrefill(call.input, ctx); return {};
     default: throw new Error(`unknown tool ${call.name}`);
   }
 }
