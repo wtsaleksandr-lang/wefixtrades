@@ -24,8 +24,12 @@ export type ChatSurface =
   | "admin"        // Admin/internal operations copilot
   | "vapi"         // Voice assistant via Vapi (future)
   | "portal"       // Authenticated client portal assistant
-  | "tradeline_demo"; // Public demo on /products/tradeline — roleplay as the
+  | "tradeline_demo"  // Public demo on /products/tradeline — roleplay as the
                       // customer's TradeLine dispatcher, no per-client config
+  | "tradeline_widget_chat"; // Embeddable chat widget on the OWNER'S website
+                             // (/api/widget/chat). Per-client prompt is built
+                             // by the route (systemOverride) — never falls
+                             // through to buildSurfaceContext().
 
 export interface AuditContext {
   businessName?: string;

@@ -47,6 +47,13 @@ export const AI_SURFACES = {
   // qualification + product recommendation + lead capture. Per-IP rate-
   // limited (20 msgs/min); per-session message cap enforced server-side.
   wft_marketing_chat: "wft_marketing_chat",
+  // unified-AI U3 — the embeddable TradeLine website chat widget on the
+  // OWNER'S site (/widget/v1.js → /api/widget/chat). Previously mislogged
+  // under the tradeline_demo ChatSurface (spend rolled into tradeline_voice);
+  // now a first-class surface so the owner-site chat has its own budget +
+  // kill switch. Demo traffic on /products/tradeline stays on tradeline_demo.
+  // Gate row lazy-creates on first call via ensureGateRow().
+  tradeline_widget_chat: "tradeline_widget_chat",
 } as const;
 
 export type AiSurface = (typeof AI_SURFACES)[keyof typeof AI_SURFACES];
@@ -87,6 +94,11 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   // session 30-message cap keeps abuse contained. $20/mo soft cap pauses
   // the surface if it ever runs hot before launch.
   wft_marketing_chat: 2000,
+  // unified-AI U3 — anonymous customer chat on owner sites. Mirrors the
+  // quotequick_widget_ai shape: higher abuse risk (anonymous visitors), so
+  // a $20/mo soft cap on top of the per-IP rate limiter. Gate-blocked
+  // requests degrade to lead capture, never silence.
+  tradeline_widget_chat: 2000,
 };
 
 /** Human-readable display label used in the admin gates dashboard. */
@@ -113,4 +125,5 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   demo: "Public Demos",
   ai_insights: "AI Insights (MapGuard)",
   wft_marketing_chat: "Marketing Chat Widget (Anonymous)",
+  tradeline_widget_chat: "TradeLine Website Chat (Owner Sites)",
 };
