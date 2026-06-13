@@ -20,6 +20,7 @@
 
 import { getTwilioClient, isTwilioConfigured } from "../../twilioClient";
 import { createLogger } from "../../lib/logger";
+import { VAPI_TWILIO_INBOUND_VOICE_URL } from "../vapiService";
 
 const log = createLogger("ProvisionNumber");
 
@@ -43,10 +44,17 @@ function getPublicBaseUrl(): string {
  * so the live provision (Fix 1) and the one-shot patch script (Fix 2) can
  * agree on the exact URLs without drift.
  *
- * /api/twilio/voice/inbound      — primary voice handler (Wave 77+ lands the route)
+ * voiceUrl  → api.vapi.ai/twilio/inbound_call — the SAME Vapi-native inbound
+ *             URL the working platform number uses (verified live, see
+ *             twilio-vapi-integration-audit-2026-05-24.md). This REPLACES the
+ *             never-registered `/api/twilio/voice/inbound` route, which 404'd
+ *             every inbound call to a client number. The client number must be
+ *             IMPORTED into Vapi + attached to the client's assistant for this
+ *             to resolve to the right tenant (see provisionVapiPhoneNumber's
+ *             import mode + unifyClientNumberWithVapi).
  * /api/twilio/voice-fallback     — already live; surfaces Vapi outages
  * /api/twilio/inbound            — already live; inbound SMS dispatcher
- * /api/twilio/sms-status         — status callbacks (Wave 78 lands the route)
+ * /api/twilio/sms-status         — status callbacks
  */
 export function buildTwilioWebhookConfig(): {
   voiceUrl: string;
@@ -60,7 +68,7 @@ export function buildTwilioWebhookConfig(): {
 } {
   const base = getPublicBaseUrl();
   return {
-    voiceUrl: `${base}/api/twilio/voice/inbound`,
+    voiceUrl: VAPI_TWILIO_INBOUND_VOICE_URL,
     voiceMethod: "POST",
     voiceFallbackUrl: `${base}/api/twilio/voice-fallback`,
     voiceFallbackMethod: "POST",

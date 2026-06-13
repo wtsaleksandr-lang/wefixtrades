@@ -54,6 +54,8 @@ jobs:
         run: npm run check:client-chat-access
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)
         run: npm run check:tradeline-route-order
+      - name: TradeLine number-unification guard (client's Twilio number → Vapi inbound URL not the dead route; Vapi import payload carries number+creds+assistant not a fresh BUY; readiness honest when assistant absent)
+        run: npm run check:tradeline-unify
       - name: Matrix-rate guard (resolveMatrixRate — full cell / unselected undefined / missing-cell null both rules / single-axis / formula composition)
         run: npm run check:matrix-rate
       - name: Style-drop integrity guard (set_style RETURNS dropped invalid colour/radius/font keys so the chat surfaces them honestly; all-valid patch reports nothing)

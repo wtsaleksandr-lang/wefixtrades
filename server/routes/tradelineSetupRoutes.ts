@@ -28,6 +28,7 @@ import {
 import { eq } from "drizzle-orm";
 import { dualWriteSetup, getSetupRow } from "../services/tradelineSetup/dualWrite";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
+import { unifyClientNumberWithVapi } from "../services/tradelineSetup/unifyNumber";
 import { lookupCarrier } from "../services/tradelineSetup/carrierLookup";
 import { placeTestCall, checkTestCallStatus } from "../services/tradelineSetup/forwardingVerifier";
 import { submitPort } from "../services/tradelineSetup/portRequest";
@@ -121,6 +122,34 @@ function secondsBetween(start: Date | null, end: Date): number | null {
 /** distinctId for PostHog: WeFixTrades user id, prefixed for namespace clarity. */
 function distinctId(userId: number): string {
   return `user_${userId}`;
+}
+
+/**
+ * Forward-mode completion (Option B): the customer's existing number forwards
+ * to the hidden WeFixTrades number we provisioned at lookup-carrier. The AI
+ * answers on THAT hidden number, so it too must be imported into Vapi +
+ * attached to the client's assistant before we report "ready_for_testing".
+ *
+ * Returns the unify verdict so callers can choose the honest setupStage:
+ * "ready_for_testing" only when the AI can actually answer, else "configuring".
+ * Best-effort — a throw here returns { ready:false } so the caller keeps the
+ * stage at "configuring" rather than falsely advancing.
+ */
+async function unifyForwardAssignedNumber(
+  clientId: number,
+  assignedNumber: string | null | undefined,
+  assignedNumberSid: string | null | undefined,
+): Promise<{ ready: boolean; notReadyReason?: string }> {
+  if (!assignedNumber) {
+    return { ready: false, notReadyReason: "No WeFixTrades number is assigned yet — finish carrier setup first." };
+  }
+  try {
+    const unify = await unifyClientNumberWithVapi(clientId, assignedNumber, assignedNumberSid ?? null);
+    return { ready: unify.ready, notReadyReason: unify.notReadyReason };
+  } catch (err) {
+    log.error("forward unification threw", { clientId, err: (err as Error).message });
+    return { ready: false, notReadyReason: "Finalizing your AI assistant — your forwarding is set and will be live shortly." };
+  }
 }
 
 /* ─── Routes ─── */
@@ -387,6 +416,28 @@ export function registerTradelineSetupRoutes(app: Express) {
         if (result.ok && !result.queued) {
           const existing = await getSetupRow(clientId);
           const elapsed = secondsBetween(existing?.started_at ?? null, new Date());
+
+          // UNIFY (GAP 1+2): import THIS Twilio number into Vapi and attach it
+          // to the client's assistant (building the assistant if needed). This
+          // is what makes "the number the client picked = the number the AI
+          // answers on" true. Without it the number's voice_url pointed at a
+          // dead route and no assistant existed for the wizard path.
+          let unify: Awaited<ReturnType<typeof unifyClientNumberWithVapi>> | null = null;
+          try {
+            unify = await unifyClientNumberWithVapi(clientId, result.number, result.sid);
+          } catch (err) {
+            log.error("provision-new unification threw (number purchased, wiring incomplete)", {
+              clientId,
+              err: (err as Error).message,
+            });
+          }
+
+          // HONEST STATUS (GAP 4): only advance to "ready_for_testing" when the
+          // AI can actually answer (assistant built + number imported+wired).
+          // Otherwise the number is provisioned but NOT live — keep the stage
+          // at "configuring" so no surface tells the owner it's live while the
+          // AI can't pick up. The number purchase is recorded either way.
+          const unified = unify?.ready === true;
           const row = await dualWriteSetup({
             clientId,
             setupPatch: {
@@ -395,22 +446,26 @@ export function registerTradelineSetupRoutes(app: Express) {
               assigned_number_sid: result.sid,
               provisioning_status: "provisioned",
               provisioned_at: new Date(),
-              completed_at: new Date(),
-              last_step: "new_provisioned",
+              ...(unified ? { completed_at: new Date() } : {}),
+              last_step: unified ? "new_provisioned" : "new_provisioned_pending_assistant",
             },
             tradelineConfigPatch: {
-              setupStage: "configuring",
+              setupStage: unified ? "ready_for_testing" : "configuring",
               phoneRouting: { primaryBusinessNumber: result.number },
             },
           });
-          trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
-            client_id: clientId,
-            mode: "new",
-            time_elapsed_seconds: elapsed,
-          });
+          if (unified) {
+            trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
+              client_id: clientId,
+              mode: "new",
+              time_elapsed_seconds: elapsed,
+            });
+          }
           return res.json({
             setup: row,
             queued: false,
+            live: unified,
+            ...(unified ? {} : { notLiveReason: unify?.notReadyReason ?? "Finalizing your AI assistant — your number is reserved and will be live shortly." }),
             ...(result.warning ? { warning: result.warning } : {}),
           });
         }
@@ -555,21 +610,29 @@ export function registerTradelineSetupRoutes(app: Express) {
         const verifiedAt = verifyMethod ? new Date() : null;
         const completed = !!verifyMethod;
 
+        // UNIFY (GAP): on verified forwarding, wire the hidden assigned number
+        // to the assistant before advancing the stage. Honest status: only
+        // "ready_for_testing" when the AI can actually answer the forward.
+        const unify = completed
+          ? await unifyForwardAssignedNumber(clientId, existing.assigned_number, existing.assigned_number_sid)
+          : { ready: false };
+        const live = completed && unify.ready;
+
         const row = await dualWriteSetup({
           clientId,
           setupPatch: {
             forwarding_activation_attempted_at: new Date(),
             forwarding_test_call_sid: placed.callSid ?? null,
             ...(verifyMethod && { forwarding_verified_method: verifyMethod, forwarding_verified_at: verifiedAt }),
-            ...(completed && { completed_at: verifiedAt }),
-            last_step: completed ? "forward_verified" : "forward_test_call_placed",
+            ...(live && { completed_at: verifiedAt }),
+            last_step: live ? "forward_verified" : completed ? "forward_verified_pending_assistant" : "forward_test_call_placed",
           },
           ...(completed && {
-            tradelineConfigPatch: { setupStage: "ready_for_testing" },
+            tradelineConfigPatch: { setupStage: live ? "ready_for_testing" : "configuring" },
           }),
         });
 
-        if (completed) {
+        if (live) {
           const elapsed = secondsBetween(existing?.started_at ?? null, new Date());
           trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
             client_id: clientId,
@@ -579,7 +642,13 @@ export function registerTradelineSetupRoutes(app: Express) {
           });
         }
 
-        return res.json({ setup: row, callSid: placed.callSid, verified: completed });
+        return res.json({
+          setup: row,
+          callSid: placed.callSid,
+          verified: completed,
+          live,
+          ...(completed && !live ? { notLiveReason: (unify as any).notReadyReason } : {}),
+        });
       } catch (err) {
         log.error("verify-test-call failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Test call failed" });
@@ -602,23 +671,28 @@ export function registerTradelineSetupRoutes(app: Express) {
 
         const status = await checkTestCallStatus(existing.forwarding_test_call_sid);
         if (status.verified && !existing.forwarding_verified_at) {
+          // UNIFY (GAP): wire the hidden assigned number to the assistant
+          // before advancing the stage. Honest status as in verify-test-call.
+          const unify = await unifyForwardAssignedNumber(clientId, existing.assigned_number, existing.assigned_number_sid);
           await dualWriteSetup({
             clientId,
             setupPatch: {
               forwarding_verified_method: "twilio_test_call",
               forwarding_verified_at: new Date(),
-              completed_at: new Date(),
-              last_step: "forward_verified",
+              ...(unify.ready ? { completed_at: new Date() } : {}),
+              last_step: unify.ready ? "forward_verified" : "forward_verified_pending_assistant",
             },
-            tradelineConfigPatch: { setupStage: "ready_for_testing" },
+            tradelineConfigPatch: { setupStage: unify.ready ? "ready_for_testing" : "configuring" },
           });
-          const elapsed = secondsBetween(existing.started_at ?? null, new Date());
-          trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
-            client_id: clientId,
-            mode: "forward",
-            verified_method: "twilio_test_call",
-            time_elapsed_seconds: elapsed,
-          });
+          if (unify.ready) {
+            const elapsed = secondsBetween(existing.started_at ?? null, new Date());
+            trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
+              client_id: clientId,
+              mode: "forward",
+              verified_method: "twilio_test_call",
+              time_elapsed_seconds: elapsed,
+            });
+          }
         }
 
         return res.json({
@@ -644,25 +718,34 @@ export function registerTradelineSetupRoutes(app: Express) {
         const existing = await getSetupRow(clientId);
         if (!existing) return res.status(400).json({ error: "No setup row" });
 
+        // UNIFY (GAP): wire the hidden assigned number to the assistant before
+        // advancing the stage. Honest status as in verify-test-call.
+        const unify = await unifyForwardAssignedNumber(clientId, existing.assigned_number, existing.assigned_number_sid);
         const row = await dualWriteSetup({
           clientId,
           setupPatch: {
             forwarding_verified_method: "manual_user_confirmation",
             forwarding_verified_at: new Date(),
-            completed_at: new Date(),
-            last_step: "forward_manual_confirmed",
+            ...(unify.ready ? { completed_at: new Date() } : {}),
+            last_step: unify.ready ? "forward_manual_confirmed" : "forward_manual_confirmed_pending_assistant",
           },
-          tradelineConfigPatch: { setupStage: "ready_for_testing" },
+          tradelineConfigPatch: { setupStage: unify.ready ? "ready_for_testing" : "configuring" },
         });
-        const elapsed = secondsBetween(existing.started_at ?? null, new Date());
-        trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
-          client_id: clientId,
-          mode: "forward",
-          verified_method: "manual_user_confirmation",
-          time_elapsed_seconds: elapsed,
-        });
+        if (unify.ready) {
+          const elapsed = secondsBetween(existing.started_at ?? null, new Date());
+          trackEvent(distinctId(req.user!.id), "tradeline_setup_completed", {
+            client_id: clientId,
+            mode: "forward",
+            verified_method: "manual_user_confirmation",
+            time_elapsed_seconds: elapsed,
+          });
+        }
 
-        return res.json({ setup: row });
+        return res.json({
+          setup: row,
+          live: unify.ready,
+          ...(unify.ready ? {} : { notLiveReason: unify.notReadyReason }),
+        });
       } catch (err) {
         log.error("manual-confirm failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Manual confirmation failed" });

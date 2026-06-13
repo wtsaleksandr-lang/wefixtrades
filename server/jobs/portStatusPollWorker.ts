@@ -212,6 +212,52 @@ export async function processPortStatusPolls(): Promise<PollResult> {
         metadata: { sid, twilioStatus: fetched.twilioStatus },
       });
 
+      // GAP 3 — on PORT COMPLETE, wire the ported number end-to-end: set its
+      // Twilio voice_url → Vapi, attach it to the A2P messaging service for
+      // SMS, import it into Vapi and attach the client's assistant. Without
+      // this the ported number lands with NO voice/SMS/assistant wiring and
+      // the AI can never answer it. setupStage is set honestly by the unify
+      // verdict (ready_for_testing only when the AI can actually answer).
+      if (next === "port_complete" && row.customer_number) {
+        try {
+          const { completePortedNumberWiring } = await import(
+            "../services/tradelineSetup/unifyNumber"
+          );
+          const { dualWriteSetup } = await import(
+            "../services/tradelineSetup/dualWrite"
+          );
+          const unify = await completePortedNumberWiring(
+            row.client_id,
+            row.customer_number,
+          );
+          await dualWriteSetup({
+            clientId: row.client_id,
+            setupPatch: {
+              assigned_number: row.customer_number,
+              ...(unify.ready ? { completed_at: new Date() } : {}),
+              last_step: unify.ready
+                ? "port_complete_wired"
+                : "port_complete_pending_assistant",
+            },
+            tradelineConfigPatch: {
+              setupStage: unify.ready ? "ready_for_testing" : "configuring",
+              phoneRouting: { primaryBusinessNumber: row.customer_number },
+            },
+          });
+          if (!unify.ready) {
+            log.warn("port complete but AI not yet live", {
+              rowId: row.id,
+              reason: unify.notReadyReason,
+            });
+          }
+        } catch (err: any) {
+          log.error("port-complete wiring failed (number ported, AI not live)", {
+            rowId: row.id,
+            err: err?.message,
+          });
+        }
+      }
+
       // Outbound SMS + email for milestone updates.
       const tplId = templateForTransition(next);
       if (tplId && isTwilioConfigured() && row.customer_number) {
