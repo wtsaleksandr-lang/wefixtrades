@@ -46,6 +46,8 @@ jobs:
         run: npm run check:quote-widget-distance
       - name: Quote-widget upload guard (magic-byte allowlist not filename; 8MB/field cap; per-IP min+day quota; cheap authz; junk never burns daily budget)
         run: npm run check:quote-widget-upload
+      - name: Client-chat access guard (free-activated widget AI proceeds on pinned Haiku; disabled → 403; per-calc daily conv cap → graceful 503; trial machinery dormant)
+        run: npm run check:client-chat-access
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
         run: npm run check:demo-persona
       - name: ContentFlow generate-source guard (saved custom prompts can drive generation — not template-bound)
