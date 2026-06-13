@@ -19,7 +19,7 @@
  *   GET   /api/portal/tradeline/:clientServiceId/widget-config
  */
 
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { and, eq } from "drizzle-orm";
 import { requireClient } from "../../auth";
 import { storage } from "../../storage";
@@ -84,10 +84,14 @@ export function registerPortalTradelineRoutes(app: Express) {
    * GET /api/portal/tradeline/:clientServiceId
    * Returns TradeLine config, latest usage, and recent calls.
    */
-  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
+  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+      // Non-numeric path segment → this isn't the param route's job. Fall through
+      // so literal sub-routes (/setup, /knowledge, /voices, /settings, …) reach
+      // their own handlers regardless of registration order. (Express 5 removed
+      // inline-regex constraints, so the guard lives here, not in the path.)
+      if (isNaN(csId)) return next();
 
       const ownership = await verifyTradeLineOwnership(req, res, csId);
       if (!ownership) return;
