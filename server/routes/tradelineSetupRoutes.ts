@@ -45,8 +45,18 @@ import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 import * as crypto from "crypto";
 import { getTwilioClient, isTwilioConfigured } from "../twilioClient";
 import { RateLimiter, MemoryRateLimitStore } from "../services/rateLimiter";
+import { storage } from "../storage";
+import { isTradelineEntitled } from "../services/tradelineSetup/entitlement";
 
 const log = createLogger("TradelineSetup");
+
+/**
+ * Entitlement gate for the PAID provisioning routes — see entitlement.ts. Buys
+ * a real Twilio number only for accounts with an active TradeLine subscription.
+ */
+async function clientHasTradelineService(clientId: number): Promise<boolean> {
+  return isTradelineEntitled(await storage.listClientServices(clientId));
+}
 
 /* ─── Wave 85 — available-numbers cache + rate limit ─── */
 
@@ -385,6 +395,16 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
+
+        // ENTITLEMENT GATE (P1 money): block a real paid Twilio purchase for any
+        // account without an active TradeLine subscription.
+        if (!(await clientHasTradelineService(clientId))) {
+          return res.status(403).json({
+            error: "no_tradeline_subscription",
+            message: "An active TradeLine subscription is required to provision a phone number.",
+          });
+        }
+
         const parsed = provisionBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -510,6 +530,17 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
+
+        // ENTITLEMENT GATE (P1 money): this route provisions a hidden
+        // WeFixTrades number (a real paid Twilio purchase) for Option-B
+        // forwarding, so gate it behind an active TradeLine subscription.
+        if (!(await clientHasTradelineService(clientId))) {
+          return res.status(403).json({
+            error: "no_tradeline_subscription",
+            message: "An active TradeLine subscription is required to provision a phone number.",
+          });
+        }
+
         const parsed = lookupBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 

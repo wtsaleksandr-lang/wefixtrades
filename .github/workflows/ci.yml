@@ -56,6 +56,8 @@ jobs:
         run: npm run check:tradeline-route-order
       - name: TradeLine number-unification guard (client's Twilio number → Vapi inbound URL not the dead route; Vapi import payload carries number+creds+assistant not a fresh BUY; readiness honest when assistant absent)
         run: npm run check:tradeline-unify
+      - name: TradeLine provisioning entitlement gate (a paid Twilio number purchase requires an active tradeline subscription; existence-only so a paying client is never blocked mid-setup)
+        run: npm run check:tradeline-entitlement
       - name: Matrix-rate guard (resolveMatrixRate — full cell / unselected undefined / missing-cell null both rules / single-axis / formula composition)
         run: npm run check:matrix-rate
       - name: Style-drop integrity guard (set_style RETURNS dropped invalid colour/radius/font keys so the chat surfaces them honestly; all-valid patch reports nothing)
