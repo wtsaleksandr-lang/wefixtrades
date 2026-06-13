@@ -170,16 +170,22 @@ export default function Calculator() {
     );
   }
 
-  const aiEmployee = calculator?.calculator_settings?.ai_employee;
   // BD-2c-fix — previously `!isEmbed` excluded the bubble from the embedded
   // calculator widget (the most common customer-facing path), so the AI chat
   // was completely missing from QuickQuote embeds. Removed that gate. The
   // bubble uses `position: fixed`, so on iframe embeds it anchors to the
   // iframe viewport; the rescue-mode pill (see AIChatBubble.tsx) keeps it
   // out of the way until the user asks for help.
-  const showChatBubble =
-    aiEmployee?.enabled === true &&
-    (aiEmployee?.subscription_status === 'trial' || aiEmployee?.subscription_status === 'active');
+  //
+  // U6 — hide-on-inactive. The bubble mounts ONLY when the server says the
+  // assistant is live (`aiAssistantActive`), computed server-side from the
+  // SAME predicate the chat route gates on (shared isAiAssistantActive →
+  // mirrors checkClientChatAccess). A never-activated or trial-lapsed
+  // assistant resolves to false here → no bubble, no pill, and the visitor
+  // never sees the amber "upgrade to Pro" card. The old client-side trial
+  // math is gone: the server boolean is the single gate, so the trial/active
+  // STATE never has to ride in the public payload's billing fields.
+  const showChatBubble = calculator?.aiAssistantActive === true;
 
   // BD-2c — AI chat visibility mode. Free tier ALWAYS uses `'rescue'` (the
   // new BD-0 stuck-customer-rescue default). Pro/Business can opt back to

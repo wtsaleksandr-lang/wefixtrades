@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import Stripe from "stripe";
 import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
-import { calculatorSettingsSchema } from "@shared/schema";
+import { calculatorSettingsSchema, isAiAssistantActive } from "@shared/schema";
 import { BRAND_STUDIO_STYLE_KEYS, FLOATING_LAUNCHER_PRO_KEYS } from "@shared/templatePresets";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
@@ -367,6 +367,20 @@ export function registerCalculatorRoutes(app: Express): void {
         });
       }
 
+      // U6 — single boolean the public widget needs to decide whether to mount
+      // the AI chat bubble. Computed server-side from the SAME predicate the
+      // chat route gates on (shared isAiAssistantActive → mirrors
+      // checkClientChatAccess) so a never-activated or trial-lapsed assistant
+      // resolves to false and calculator.tsx renders NOTHING (no bubble, no
+      // upgrade card). Only the boolean is exposed — no subscription_status,
+      // trial timestamps, plan, or any other billing internal leaves the
+      // server. The widget's existing `calculator_settings.ai_employee` is what
+      // currently carries those internals client-side; this new field lets the
+      // client gate without that math (calculator.tsx no longer needs it).
+      const aiAssistantActive = isAiAssistantActive(
+        (calculator.calculator_settings as any)?.ai_employee,
+      );
+
       // Preview access via slug + preview token
       if (preview) {
         const previewCalc = await storage.getCalculatorByToken(preview);
@@ -374,7 +388,7 @@ export function registerCalculatorRoutes(app: Express): void {
           const previewExpired = new Date() > new Date(previewCalc.token_expires_at);
           if (!previewExpired) {
             return res.json({
-              calculator: { ...calculator, is_token_expired: false, is_preview: true },
+              calculator: { ...calculator, is_token_expired: false, is_preview: true, aiAssistantActive },
             });
           }
         }
@@ -388,7 +402,7 @@ export function registerCalculatorRoutes(app: Express): void {
       }
 
       res.json({
-        calculator: { ...calculator, is_token_expired: isExpired, is_preview: false },
+        calculator: { ...calculator, is_token_expired: isExpired, is_preview: false, aiAssistantActive },
       });
     } catch (error: any) {
       log.error("Get calculator error:", error);

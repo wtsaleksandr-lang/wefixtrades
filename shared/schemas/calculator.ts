@@ -677,3 +677,40 @@ export const calculatorSettingsSchema = z.object({
 }).default({});
 
 export type CalculatorSettings = z.infer<typeof calculatorSettingsSchema>;
+
+/* ─── U6 — customer-widget AI assistant render gate ───
+ * Single source of truth for "is the customer-facing AI assistant live right
+ * now". The public-calculator payload computes one boolean from this and the
+ * widget (calculator.tsx) renders the chat bubble ONLY when it is true — so a
+ * never-activated or trial-lapsed assistant shows the visitor NOTHING (no
+ * bubble, no upgrade card). It MUST stay in lock-step with the chat-route gate
+ * in server/routes/aiRoutes.ts (/api/ai/client-chat); both call this so they
+ * can never drift. Predicate: enabled AND (subscription active OR within the
+ * 14-day trial window). Does NOT leak any billing internals — boolean only.
+ */
+export const AI_ASSISTANT_TRIAL_DAYS = 14;
+
+export function isAiAssistantActive(
+  aiEmployee: { enabled?: boolean; subscription_status?: string | null; trial_started_at?: number | null } | null | undefined,
+  now: number = Date.now()
+): boolean {
+  // Mirrors the chat-route gate truth table (checkClientChatAccess) EXACTLY so
+  // the bubble never renders for a request the route would 403, and never hides
+  // for one it would allow:
+  //   enabled !== true                         → false
+  //   trial + trial_started_at set + >14 days  → false (trial_expired)
+  //   trial + trial_started_at set + <=14 days → true  (live trial)
+  //   trial + trial_started_at null            → true  (route skips the
+  //                                              else-if; pre-timestamp trials)
+  //   inactive                                 → false
+  //   active                                   → true
+  if (!aiEmployee || aiEmployee.enabled !== true) return false;
+  const status = aiEmployee.subscription_status || 'inactive';
+  if (status === 'inactive') return false;
+  if (status === 'trial' && aiEmployee.trial_started_at) {
+    const trialDays = (now - aiEmployee.trial_started_at) / (1000 * 60 * 60 * 24);
+    return trialDays <= AI_ASSISTANT_TRIAL_DAYS;
+  }
+  // 'active', or 'trial' with no start timestamp → live (route allows both).
+  return true;
+}

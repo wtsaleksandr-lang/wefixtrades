@@ -33,6 +33,7 @@
 import assert from "node:assert/strict";
 
 const { checkClientChatAccess, convsCapKey, TRIAL_DAYS } = await import("./clientChatAccess");
+const { isAiAssistantActive } = await import("../../shared/schemas/calculator");
 const { RateLimiter, MemoryRateLimitStore } = await import("./rateLimiter");
 const { runAgentLoopCore } = await import("./aiAgentLoopCore");
 const { CLAUDE_HAIKU } = await import("./aiModels");
@@ -282,6 +283,59 @@ await check("DELIBERATE-FAILURE fixture — gate that skips `enabled` turns the 
     caught = err;
   }
   assert.ok(caught, "case-1 assertion must fail red against the regressed gate");
+});
+
+/* ═══ 7. U6 — isAiAssistantActive() agrees with the gate (drift guard) ══
+ * The public-calculator payload computes one boolean (`aiAssistantActive`)
+ * from shared `isAiAssistantActive()` so calculator.tsx renders the chat
+ * bubble ONLY when the assistant is live — never the broken/upgrade state.
+ * That predicate MUST agree with this route gate's allow/deny verdict on the
+ * enabled/subscription/trial axis (the daily cap is server-only, so we test
+ * with the cap open). If they ever drift, a deactivated assistant either
+ * renders a bubble that then 403s, or hides a working one. This section pins
+ * them together across the full truth table — incl. a deliberate-failure
+ * fixture proving the agreement assertion can go red.
+ */
+
+const NOW = Date.now();
+type AiCase = { label: string; ai: any };
+const GATE_CASES: AiCase[] = [
+  { label: "never activated (defaults)", ai: {} },
+  { label: "enabled:false", ai: { enabled: false, subscription_status: "active" } },
+  { label: "enabled + inactive", ai: { enabled: true, subscription_status: "inactive" } },
+  { label: "free-activated (enabled + active)", ai: { enabled: true, subscription_status: "active", plan: "free_included" } },
+  { label: "in-window trial", ai: { enabled: true, subscription_status: "trial", trial_started_at: NOW - 3 * DAY_MS } },
+  { label: "expired trial", ai: { enabled: true, subscription_status: "trial", trial_started_at: NOW - (TRIAL_DAYS + 1) * DAY_MS } },
+  { label: "trial w/o start timestamp", ai: { enabled: true, subscription_status: "trial", trial_started_at: null } },
+];
+
+for (const c of GATE_CASES) {
+  await check(`U6 drift guard — isAiAssistantActive matches gate verdict: ${c.label}`, async () => {
+    // Cap open so we isolate the enabled/subscription/trial axis.
+    const gate = await checkClientChatAccess(makeGateDeps(), makeGateInput({ aiEmployee: c.ai }));
+    const predicate = isAiAssistantActive(c.ai, NOW);
+    assert.equal(
+      predicate,
+      gate.allowed,
+      `bubble-render predicate (${predicate}) must equal route allow verdict (${gate.allowed}) for ${c.label}`,
+    );
+  });
+}
+
+await check("U6 DELIBERATE-FAILURE — a predicate that ignores `enabled` disagrees with the gate (red)", async () => {
+  // Regressed predicate: forgets the enabled flag → would render a bubble for
+  // a disabled assistant the route 403s.
+  const regressed = (ai: any) => (ai.subscription_status || "inactive") !== "inactive";
+  const ai = { enabled: false, subscription_status: "active" };
+  const gate = await checkClientChatAccess(makeGateDeps(), makeGateInput({ aiEmployee: ai }));
+
+  let caught: unknown = null;
+  try {
+    assert.equal(regressed(ai), gate.allowed); // would be true vs false → red
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, "agreement assertion must fail red against the regressed predicate");
 });
 
 /* ═══ Verdict ═════════════════════════════════════════════════════════ */
