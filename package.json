@@ -72,6 +72,7 @@
     "check:client-knowledge": "tsx server/services/clientKnowledge.test.ts",
     "check:tradeline-parity": "tsx tests/tradeline-chat-voice-parity.test.ts",
     "check:tradeline-safety": "tsx tests/tradeline-safety-floor.test.ts",
+    "check:tradeline-unify": "tsx server/services/tradelineSetup/unifyNumber.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

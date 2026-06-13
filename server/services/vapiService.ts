@@ -1124,6 +1124,19 @@ export async function buildTradeLineAssistantConfig(resolved: ResolvedTradeLineC
 
 const VAPI_API_BASE = "https://api.vapi.ai";
 
+/**
+ * Vapi's inbound-call ingest URL. This is the value the WORKING WeFixTrades
+ * platform number sets as its Twilio `voice_url` (verified live —
+ * docs/operations/twilio-vapi-integration-audit-2026-05-24.md §1/§3): a PSTN
+ * caller hits Twilio, Twilio fetches this URL, Vapi accepts the SIP leg and
+ * looks up the assistant for the imported number. Client numbers MUST route
+ * here too — the previously-configured `/api/twilio/voice/inbound` route was
+ * never registered (Wave 77 admitted "lands the route" but it never did), so
+ * inbound calls to client numbers 404'd → Twilio fallback voicemail. Centralized
+ * here so the wizard provision path and the Vapi-import path can't drift.
+ */
+export const VAPI_TWILIO_INBOUND_VOICE_URL = "https://api.vapi.ai/twilio/inbound_call";
+
 export async function upsertVapiAssistant(
   clientServiceId: number, systemPrompt: string, firstMessage: string, assistantName: string,
   voiceConfig?: { provider: string; voiceId: string }, transcriberLanguage?: string,
@@ -1242,7 +1255,19 @@ export async function reprovisionTradeLineVoiceForClient(clientId: number): Prom
   }
 }
 
-export async function provisionTradeLineAssistant(clientServiceId: number): Promise<{ assistantId: string | null; skipped: boolean; skipReason?: string; definition?: import("./tradelineTemplates").AssistantDefinition; error?: string; status: "live" | "partial" | "failed"; phoneNumberId?: string | null; phoneNumber?: string | null; notLiveReason?: string }> {
+/**
+ * Options for provisionTradeLineAssistant.
+ *
+ * `importNumber` — when supplied, the internal phone-provision step IMPORTS
+ * this existing Twilio number into Vapi and attaches the assistant to it,
+ * instead of BUYING a fresh Vapi number. This is the unification path: the
+ * client's wizard/ported/forwarded number becomes the number the AI answers on.
+ */
+export interface ProvisionTradeLineAssistantOptions {
+  importNumber?: string;
+}
+
+export async function provisionTradeLineAssistant(clientServiceId: number, options: ProvisionTradeLineAssistantOptions = {}): Promise<{ assistantId: string | null; skipped: boolean; skipReason?: string; definition?: import("./tradelineTemplates").AssistantDefinition; error?: string; status: "live" | "partial" | "failed"; phoneNumberId?: string | null; phoneNumber?: string | null; notLiveReason?: string }> {
   const { buildTradeLineAssistant } = await import("./tradelineTemplates");
   let result;
   try { result = await buildTradeLineAssistant(clientServiceId); } catch (err: any) {
@@ -1301,7 +1326,7 @@ export async function provisionTradeLineAssistant(clientServiceId: number): Prom
   let phoneNumber: string | null = null;
   let phoneError: string | undefined;
   try {
-    const prov = await provisionVapiPhoneNumber(clientServiceId, assistantId);
+    const prov = await provisionVapiPhoneNumber(clientServiceId, assistantId, options.importNumber ? { importNumber: options.importNumber } : {});
     phoneNumberId = prov.phoneNumberId;
     phoneNumber = prov.number;
   } catch (err) {
@@ -1328,7 +1353,25 @@ export async function provisionTradeLineAssistant(clientServiceId: number): Prom
 
 /* ─── Per-Client Vapi Phone Number Provisioning ─── */
 
-export async function provisionVapiPhoneNumber(clientServiceId: number, assistantId?: string): Promise<{ phoneNumberId: string | null; number: string | null }> {
+/**
+ * Options for provisionVapiPhoneNumber.
+ *
+ * IMPORT MODE (the unification fix): when `importNumber` is supplied, Vapi
+ * IMPORTS the client's EXISTING Twilio number and attaches the assistant to
+ * it — instead of BUYING a brand-new Vapi number. This is what makes "the
+ * number the client picked/ported = the number the AI answers on" true. The
+ * import payload shape is verified against the Vapi server SDK
+ * `CreateTwilioPhoneNumberDto` (POST /phone-number, provider:"twilio"):
+ * `number` (E.164 digits the client owns on Twilio), `twilioAccountSid`,
+ * `twilioAuthToken`, plus `assistantId`/`name`. Omitting `number` is exactly
+ * the legacy bug that made Vapi buy a fresh number.
+ */
+export interface VapiPhoneProvisionOptions {
+  /** E.164 number already owned on Twilio. Triggers IMPORT (not buy). */
+  importNumber?: string;
+}
+
+export async function provisionVapiPhoneNumber(clientServiceId: number, assistantId?: string, options: VapiPhoneProvisionOptions = {}): Promise<{ phoneNumberId: string | null; number: string | null }> {
   const config = getVapiConfig();
   if (!config.apiKey) { log.warn("VAPI_API_KEY not configured — cannot provision phone number"); return { phoneNumberId: null, number: null }; }
   if (!assistantId) {
@@ -1339,22 +1382,51 @@ export async function provisionVapiPhoneNumber(clientServiceId: number, assistan
   const existingConfig = await storage.getTradeLineConfig(clientServiceId);
   const existingPhoneId = (existingConfig?.assistant as Record<string, any>)?.vapiPhoneNumberId;
   if (existingPhoneId) { return { phoneNumberId: existingPhoneId, number: null }; }
+
+  // Build the POST /phone-number body. Import vs buy is decided by whether the
+  // caller handed us an existing Twilio number to attach.
+  const importNumber = options.importNumber?.trim() || undefined;
+  let body: Record<string, unknown>;
+  if (importNumber) {
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+    if (!twilioAccountSid || !twilioAuthToken) {
+      // We can't import without Twilio creds — never silently fall through to
+      // BUYING a number (that would spend money AND give the AI a different
+      // number than the client's). Fail honestly.
+      log.error("Cannot import Twilio number into Vapi — TWILIO_ACCOUNT_SID/AUTH_TOKEN not configured", { clientServiceId });
+      throw new Error("Twilio credentials not configured — cannot import the client's number into Vapi.");
+    }
+    body = {
+      provider: "twilio",
+      // `number` = the digits the client owns on Twilio. Verified field name
+      // against Vapi server SDK CreateTwilioPhoneNumberDto.
+      number: importNumber,
+      twilioAccountSid,
+      twilioAuthToken,
+      assistantId,
+      name: `TradeLine #${clientServiceId}`,
+    };
+  } else {
+    body = { assistantId, provider: "twilio", name: `TradeLine #${clientServiceId}` };
+  }
+
   try {
-    const resp = await fetch(`${VAPI_API_BASE}/phone-number`, { method: "POST", headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ assistantId, provider: "twilio", name: `TradeLine #${clientServiceId}` }) });
-    if (!resp.ok) { const body = await resp.text(); throw new Error(`Vapi phone provisioning failed (${resp.status}): ${body}`); }
+    const resp = await fetch(`${VAPI_API_BASE}/phone-number`, { method: "POST", headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!resp.ok) { const respBody = await resp.text(); throw new Error(`Vapi phone ${importNumber ? "import" : "provisioning"} failed (${resp.status}): ${respBody}`); }
     const data = await resp.json();
     const phoneNumberId = data.id;
-    const number = data.number || data.phoneNumber || null;
+    const number = data.number || data.phoneNumber || importNumber || null;
     if (phoneNumberId) {
       const latestConfig = await storage.getTradeLineConfig(clientServiceId);
       const ca = latestConfig?.assistant;
       await storage.updateTradeLineConfig(clientServiceId, { assistant: { ...ca!, vapiPhoneNumberId: phoneNumberId } } as any);
-      await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Phone Provisioner", action: "tradeline.phone_provisioned", entity_type: "client_service", entity_id: clientServiceId, summary: `Provisioned Vapi phone number: ${number || phoneNumberId}`, metadata: { vapiPhoneNumberId: phoneNumberId, number } });
-      log.info("Provisioned Vapi phone number", { clientServiceId, phoneNumberId, number });
+      await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Phone Provisioner", action: importNumber ? "tradeline.phone_imported" : "tradeline.phone_provisioned", entity_type: "client_service", entity_id: clientServiceId, summary: `${importNumber ? "Imported client's Twilio number into" : "Provisioned"} Vapi phone number: ${number || phoneNumberId}`, metadata: { vapiPhoneNumberId: phoneNumberId, number, imported: Boolean(importNumber) } });
+      log.info(importNumber ? "Imported client Twilio number into Vapi" : "Provisioned Vapi phone number", { clientServiceId, phoneNumberId, number });
     }
     return { phoneNumberId: phoneNumberId || null, number };
   } catch (err) {
-    log.error("Vapi phone number provisioning failed", { clientServiceId, error: (err as Error).message });
+    log.error(importNumber ? "Vapi phone number import failed" : "Vapi phone number provisioning failed", { clientServiceId, error: (err as Error).message });
     await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Phone Provisioner", action: "tradeline.phone_provision_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Phone provisioning failed: ${(err as Error).message}` });
     return { phoneNumberId: null, number: null };
   }

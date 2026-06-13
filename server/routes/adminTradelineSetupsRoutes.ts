@@ -568,7 +568,49 @@ export function registerAdminTradelineSetupsRoutes(app: Express) {
           req,
         });
 
-        return res.json({ ok: true });
+        // GAP 3 — wire the ported number end-to-end (voice_url → Vapi, SMS
+        // messaging service, Vapi import + assistant attach) and set setupStage
+        // honestly. Without this the admin flips status to "port_complete" but
+        // the AI can never answer the ported number. Best-effort.
+        let live = false;
+        let notLiveReason: string | undefined;
+        if (row.customer_number) {
+          try {
+            const { completePortedNumberWiring } = await import(
+              "../services/tradelineSetup/unifyNumber"
+            );
+            const { dualWriteSetup } = await import(
+              "../services/tradelineSetup/dualWrite"
+            );
+            const unify = await completePortedNumberWiring(
+              row.client_id,
+              row.customer_number,
+            );
+            live = unify.ready;
+            notLiveReason = unify.notReadyReason;
+            await dualWriteSetup({
+              clientId: row.client_id,
+              setupPatch: {
+                assigned_number: row.customer_number,
+                ...(live ? { completed_at: new Date() } : {}),
+                last_step: live
+                  ? "port_complete_wired"
+                  : "port_complete_pending_assistant",
+              },
+              tradelineConfigPatch: {
+                setupStage: live ? "ready_for_testing" : "configuring",
+                phoneRouting: { primaryBusinessNumber: row.customer_number },
+              },
+            });
+          } catch (err) {
+            log.error("force-complete wiring failed (ported, AI not live)", {
+              id,
+              err: (err as Error).message,
+            });
+          }
+        }
+
+        return res.json({ ok: true, live, ...(live ? {} : { notLiveReason }) });
       } catch (err) {
         log.error("force-complete failed", { err: (err as Error).message });
         res.status(500).json({ error: "Force complete failed" });
