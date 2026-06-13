@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download } from "lucide-react";
-import { SERVICES, getServicesForIssues } from '@shared/services';
+import { SERVICES, getServicesForIssues, getServiceBillingMeta, type Service } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
@@ -13,11 +13,39 @@ import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShe
 // These five tools are themselves backed by per-tool API endpoints under
 // /api/audit/*. Lazy-mounting keeps the audit landing fast and avoids
 // firing 5 extra backend calls when the visitor opens the report.
-const SeoChecklistTab = lazy(() => import("@/components/marketing/audit-tabs/SeoChecklistTab"));
-const SiteSpeedComparisonTab = lazy(() => import("@/components/marketing/audit-tabs/SiteSpeedComparisonTab"));
-const NapConsistencyTab = lazy(() => import("@/components/marketing/audit-tabs/NapConsistencyTab"));
-const MarketSizerTab = lazy(() => import("@/components/marketing/audit-tabs/MarketSizerTab"));
-const TrustInspectorTab = lazy(() => import("@/components/marketing/audit-tabs/TrustInspectorTab"));
+// Named import factories so we can BOTH lazy-mount and prefetch the chunk.
+const importSeoChecklistTab = () => import("@/components/marketing/audit-tabs/SeoChecklistTab");
+const importSiteSpeedComparisonTab = () => import("@/components/marketing/audit-tabs/SiteSpeedComparisonTab");
+const importNapConsistencyTab = () => import("@/components/marketing/audit-tabs/NapConsistencyTab");
+const importMarketSizerTab = () => import("@/components/marketing/audit-tabs/MarketSizerTab");
+const importTrustInspectorTab = () => import("@/components/marketing/audit-tabs/TrustInspectorTab");
+const SeoChecklistTab = lazy(importSeoChecklistTab);
+const SiteSpeedComparisonTab = lazy(importSiteSpeedComparisonTab);
+const NapConsistencyTab = lazy(importNapConsistencyTab);
+const MarketSizerTab = lazy(importMarketSizerTab);
+const TrustInspectorTab = lazy(importTrustInspectorTab);
+
+/**
+ * Task 7 — lazy-tab payload + chunk prefetch.
+ * Each lazy tab fetches `/api/audit/<slug>?reportId=` and session-caches the
+ * result under `<slug>:<reportId>`. We warm BOTH the JS chunk and that cache on
+ * report render (during idle) so opening a tab is instant (cache hit) instead
+ * of a fresh spinner. Endpoint+key list mirrors the tab components exactly.
+ */
+const LAZY_TAB_PREFETCH: { slug: string; importFn: () => Promise<unknown> }[] = [
+  { slug: 'seo-checklist', importFn: importSeoChecklistTab },
+  { slug: 'speed-compare', importFn: importSiteSpeedComparisonTab },
+  { slug: 'nap-consistency', importFn: importNapConsistencyTab },
+  { slug: 'market-sizer', importFn: importMarketSizerTab },
+  { slug: 'trust-inspector', importFn: importTrustInspectorTab },
+];
+const PREFETCH_SLUG_TO_API: Record<string, string> = {
+  'seo-checklist': '/api/audit/seo-checklist',
+  'speed-compare': '/api/audit/speed-vs-competitor',
+  'nap-consistency': '/api/audit/nap-consistency',
+  'market-sizer': '/api/audit/market-sizer',
+  'trust-inspector': '/api/audit/trust-inspector',
+};
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
 import { SemiGauge } from "@/components/ui/visual-primitives";
@@ -140,6 +168,72 @@ const AUDIT_SERVICE_TO_CATALOG_SKU: Record<string, string> = {
 };
 function toCatalogSku(auditServiceId: string): string {
   return AUDIT_SERVICE_TO_CATALOG_SKU[auditServiceId] ?? auditServiceId;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Per-issue → service resolution for the in-modal "fix this" CTAs.
+ *
+ * CRO P0: the four "Let WeFixTrades fix this →" buttons (issue / breakdown /
+ * metric / visual-analysis modals) were dead-ends — they only closed the modal
+ * and switched to the Plan tab. We wire each to the matched service so one
+ * click goes from "fix this problem" straight to checkout. Plan items and
+ * breakdown/metric keys don't carry a service id, so we map their context to
+ * the @shared/services issue vocabulary, then resolve via getServicesForIssues.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Score-breakdown / metric key → the audit issue-keys it implies. */
+const CONTEXT_KEY_TO_ISSUES: Record<string, string[]> = {
+  // scoreRows / BREAKDOWN_EXPLANATIONS keys
+  googleMaps: ['not-in-maps-pack', 'low-visibility', 'no-gbp-description', 'low-search-ranking'],
+  websiteQuality: ['no-website', 'slow-website'],
+  searchVisibility: ['low-search-ranking', 'low-visibility', 'not-in-maps-pack'],
+  competitorPosition: ['low-reviews', 'low-visibility', 'bad-rating'],
+  adOpportunity: ['low-visibility', 'low-search-ranking'],
+  demandCoverage: ['no-after-hours', 'low-demand-coverage', 'no-quote-tool'],
+  // speed-metric keys (fcp/lcp/tbt/cls) all point at the website fix
+  fcp: ['slow-website', 'no-website'],
+  lcp: ['slow-website', 'no-website'],
+  tbt: ['slow-website', 'no-website'],
+  cls: ['slow-website', 'no-website'],
+};
+
+/** Derive likely issue-keys from a free-text Action-Plan item title. */
+function issuesForPlanTitle(title?: string | null): string[] {
+  const t = (title || '').toLowerCase();
+  if (t.includes('review') || t.includes('rating')) return ['low-reviews', 'bad-rating'];
+  if (t.includes('speed') || t.includes('slow') || t.includes('mobile') || t.includes('website') || t.includes('site')) return ['slow-website', 'no-website'];
+  if (t.includes('visib') || t.includes('rank') || t.includes('search') || t.includes('local')) return ['low-visibility', 'low-search-ranking', 'not-in-maps-pack'];
+  if (t.includes('hour') || t.includes('evening') || t.includes('weekend') || t.includes('demand') || t.includes('after')) return ['no-after-hours', 'low-demand-coverage'];
+  if (t.includes('ad') || t.includes('ppc') || t.includes('paid')) return ['low-visibility', 'low-search-ranking'];
+  if (t.includes('profile') || t.includes('description') || t.includes('categor') || t.includes('photo') || t.includes('post') || t.includes('fresh')) return ['not-in-maps-pack', 'low-visibility', 'no-gbp-description'];
+  if (t.includes('quote') || t.includes('booking')) return ['no-quote-tool'];
+  return [];
+}
+
+/**
+ * Resolve the single best purchasable service for a set of candidate issues,
+ * falling back to the report's recommended services so a CTA is never dead.
+ */
+function resolveServiceForIssues(
+  candidateIssues: string[],
+  detectedIssues: string[],
+  recommended: any[],
+): Service | null {
+  // Prefer issues the business actually has; else use the raw candidates.
+  const present = candidateIssues.filter(i => detectedIssues.includes(i));
+  const pool = present.length ? present : candidateIssues;
+  const matched = getServicesForIssues(pool);
+  if (matched.length) return matched[0];
+  // Fallback: first recommended service (always a real, purchasable id).
+  const rec = recommended?.[0];
+  if (rec?.id) return (SERVICES.find(s => s.id === rec.id) || rec) as Service;
+  return null;
+}
+
+/** "$397 one-time" / "From $49/mo" style label for a CTA button. */
+function ctaPriceText(service: Service): string {
+  const meta = getServiceBillingMeta(service);
+  return `$${service.price}${meta.priceSuffix}`;
 }
 
 // ─── Design tokens ───────────────────
@@ -272,6 +366,58 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
 /** Light-themed "?" trigger for the audit report (light bg context) */
 function Tooltip({ text }: { text: string }) {
   return <InfoTooltip text={text} theme="light" />;
+}
+
+/**
+ * Task 5 — numeric before→after twin-bar. Shows "Now X/max → Potential Y/max"
+ * with two stacked progress bars so the gap is visible, not just asserted. Used
+ * on score-breakdown rows and the Action-Plan card. Real numbers only.
+ */
+function TwinBar({ now, potential, max, unit = '', label }: { now: number; potential: number; max: number; unit?: string; label?: string }) {
+  const pct = (v: number) => max > 0 ? Math.min(100, Math.max(0, (v / max) * 100)) : 0;
+  const GREEN_T = '#22C55E';
+  const GREY_T = '#9CA3AF';
+  const BORDER_T = '#E5E7EB';
+  return (
+    <div style={{ margin: '0 0 4px' }}>
+      {label && <div style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: '#6B7280', width: 64, flexShrink: 0 }}>Now</span>
+        <div style={{ flex: 1, height: 7, borderRadius: 4, background: BORDER_T, overflow: 'hidden' }}>
+          <div style={{ width: `${pct(now)}%`, height: '100%', background: GREY_T, borderRadius: 4 }} />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', width: 56, textAlign: 'right', flexShrink: 0 }}>{now}{unit}{max ? `/${max}` : ''}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, color: GREEN_T, fontWeight: 700, width: 64, flexShrink: 0 }}>Potential</span>
+        <div style={{ flex: 1, height: 7, borderRadius: 4, background: BORDER_T, overflow: 'hidden' }}>
+          <div style={{ width: `${pct(potential)}%`, height: '100%', background: GREEN_T, borderRadius: 4 }} />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: GREEN_T, width: 56, textAlign: 'right', flexShrink: 0 }}>{potential}{unit}{max ? `/${max}` : ''}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Task 7 — determinate skeleton for the lazy-tab chunk load (replaces a blank
+ * `fallback={null}` flash). Shows a fixed set of placeholder rows + a labelled
+ * progress hint so the wait is bounded and explained, never an endless spinner.
+ */
+function LazyTabSkeleton() {
+  return (
+    <div data-theme="light" data-testid="lazy-tab-skeleton" style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
+      <style>{`@keyframes lazyShimmer { 0% { opacity: 0.45; } 50% { opacity: 0.8; } 100% { opacity: 0.45; } }`}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 8, background: GREY_BG, animation: 'lazyShimmer 1.2s ease-in-out infinite' }} />
+        <div style={{ width: 160, height: 14, borderRadius: 6, background: GREY_BG, animation: 'lazyShimmer 1.2s ease-in-out infinite' }} />
+      </div>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} style={{ height: 12, borderRadius: 6, background: GREY_BG, marginBottom: 12, width: `${100 - i * 8}%`, animation: 'lazyShimmer 1.2s ease-in-out infinite', animationDelay: `${i * 90}ms` }} />
+      ))}
+      <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>Loading this tool…</div>
+    </div>
+  );
 }
 
 /* ─── Screenshot Lightbox with pinch-zoom & scroll-zoom ─── */
@@ -517,6 +663,55 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const detectedIssues: string[] = report?.detectedIssues || [];
   const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
 
+  // Task 7 — prefetch lazy-tab chunks + payloads once the report is unlocked,
+  // during browser idle, so a tab open is instant (chunk + sessionStorage cache
+  // already warm) instead of showing a fresh loading state. Each request is
+  // best-effort: failures are swallowed so the live fetch on tab-open still runs
+  // and surfaces its own error state.
+  useEffect(() => {
+    if (!unlocked || !reportId) return;
+    let cancelled = false;
+    const warm = () => {
+      LAZY_TAB_PREFETCH.forEach(({ slug, importFn }) => {
+        // Warm the JS chunk.
+        importFn().catch(() => { /* chunk prefetch is best-effort */ });
+        // Warm the payload into the same sessionStorage key the tab reads.
+        const cacheKey = `${slug}:${reportId}`;
+        try { if (sessionStorage.getItem(cacheKey)) return; } catch { /* noop */ }
+        const api = PREFETCH_SLUG_TO_API[slug];
+        if (!api) return;
+        fetch(`${api}?reportId=${encodeURIComponent(reportId)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => {
+            if (cancelled || !json || json.ok === false) return;
+            try { sessionStorage.setItem(cacheKey, JSON.stringify(json)); } catch { /* quota — fine */ }
+          })
+          .catch(() => { /* tab's own fetch will retry + show error state */ });
+      });
+    };
+    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void, opts?: { timeout: number }) => number);
+    const handle = ric ? ric(warm, { timeout: 3000 }) : window.setTimeout(warm, 1200);
+    return () => {
+      cancelled = true;
+      const cic = (window as any).cancelIdleCallback as undefined | ((h: number) => void);
+      if (ric && cic) cic(handle as number); else clearTimeout(handle as number);
+    };
+  }, [unlocked, reportId]);
+
+  /**
+   * CRO P0 — one-click "fix this problem → checkout". Preselects the matched
+   * service (without un-toggling anything already chosen) and opens the
+   * checkout modal directly, so a per-issue CTA goes straight to Stripe instead
+   * of dead-ending on a tab switch. Returns the resolved service so callers can
+   * render its real price/period on the button.
+   */
+  const fixWithService = useCallback((service: Service | null, source: string) => {
+    if (!service?.id) { setActiveTab('plan'); return; }
+    setSelected(prev => prev.includes(service.id) ? prev : [...prev, service.id]);
+    trackEvent('audit_fix_this_clicked', { service: service.id, source });
+    setCheckoutOpen(true);
+  }, []);
+
   // RankFlow recommendation
   const [rfRec, setRfRec] = useState<{ recommended_tier: string; reason: string; highlights: string[]; cta_text: string; prefill: any; headline?: string; specific_findings?: string[]; urgency_text?: string } | null>(null);
   useEffect(() => {
@@ -531,6 +726,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     const s = SERVICES.find(sv => sv.id === id);
     return sum + (s?.price || 0);
   }, 0);
+
+  // CRO P0 — price one-time vs /mo. Selected services can mix billing periods,
+  // so the card and checkout must agree. We split the total into a recurring
+  // sum (gets "/mo") and a one-time sum (no suffix) and render an honest label
+  // instead of a blanket "/mo" that contradicts a one-time service card.
+  const selectedServices = selected
+    .map(id => SERVICES.find(sv => sv.id === id))
+    .filter(Boolean) as Service[];
+  const recurringTotal = selectedServices
+    .filter(s => getServiceBillingMeta(s).isRecurring)
+    .reduce((sum, s) => sum + (s.price || 0), 0);
+  const oneTimeTotal = selectedServices
+    .filter(s => !getServiceBillingMeta(s).isRecurring)
+    .reduce((sum, s) => sum + (s.price || 0), 0);
+  const billingAwarePriceLabel = (() => {
+    const parts: string[] = [];
+    if (recurringTotal > 0) parts.push(`$${recurringTotal.toLocaleString()}/mo`);
+    if (oneTimeTotal > 0) parts.push(`$${oneTimeTotal.toLocaleString()} one-time`);
+    if (!parts.length) return `$${totalPrice.toLocaleString()}`;
+    return parts.join(' + ');
+  })();
 
   // ─── Shared chat state (synced via localStorage with SiteChatWidget) ───
   const MESSAGES_KEY = 'wft_chat_messages';
@@ -923,6 +1139,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const competitorDataMissing = dataQuality.competitorDataAvailable === false;
   const keywords = report?.keywords || [];
   const loss = report?.estimatedRevenueLoss || {};
+  // CRO P0 — honest offer copy (guarantee + soft urgency) authored server-side
+  // as data (report.offer). Surfaced near the CTAs; never hardcoded here.
+  const offer: { guarantee?: string; urgency?: string } = report?.offer || {};
   const speed = liveSpeedData || report?.speedData || {};
   const gaps = report?.contentGaps || ai?.contentGaps || [];
 
@@ -955,6 +1174,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const noWebsiteCount = competitors.filter((c: any) => !c.hasWebsite).length;
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
+
+  // ── Honest revenue-loss (CRO P0) ──────────────────────────────────────────
+  // The backend now derives `estimatedRevenueLoss = {low, high, isReal, ...}`.
+  // isReal=true  → render the business-specific $low–$high/mo band.
+  // isReal=false → low/high are 0; positive-frame ("capturing demand well"),
+  //                NEVER a fake/hardcoded loss. We keep ONE source of truth here
+  //                and feed it to the hero, the revenue section, and AuditGate.
+  const revLossReal = loss.isReal === true && ((loss.low || 0) > 0 || (loss.high || 0) > 0);
+  const avgTicket = typeof loss.avgTicket === 'number' && loss.avgTicket > 0
+    ? loss.avgTicket
+    : avgTicketForTrade(report?.trade);
+  const missedJobsMonthly =
+    (typeof loss.monthlyMissedLeads === 'number' && loss.monthlyMissedLeads > 0
+      ? loss.monthlyMissedLeads
+      : report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth) || 0;
+  // Single monthly figure for the hero + AuditGate loss-framed copy.
+  const lostRevenueMonthly = revLossReal
+    ? Math.round(((loss.low || 0) + (loss.high || 0)) / 2)
+    : 0;
 
   const METRIC_EXPLANATIONS: Record<string, { title: string; what: string; why: string; diy: string; timeline: string; thresholds: { label: string; value: string; color: string }[] }> = {
     fcp: {
@@ -1284,26 +1522,21 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           $250). AnimatedNumber count-up respects prefers-reduced-motion.
       */}
       {unlocked && (() => {
-        const missedJobsMonthly =
-          report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth ||
-          Math.round(((loss.low || 0) + (loss.high || 0)) / 2 / avgTicketForTrade(report?.trade)) ||
-          0;
-        const avgTicket = avgTicketForTrade(report?.trade);
-        const lostRevenueMonthly =
-          loss.low || loss.high
-            ? Math.round(((loss.low || 0) + (loss.high || 0)) / 2)
-            : missedJobsMonthly * avgTicket;
+        // Uses the honest, component-scope revenue values (revLossReal /
+        // lostRevenueMonthly / missedJobsMonthly / avgTicket) so the hero never
+        // shows an invented loss. When the loss isn't real we positive-frame.
         const noun = callNounForTrade(report?.trade);
         const rankLine =
           totalInMarket > 1
             ? `You rank #${businessRank} of ${totalInMarket} in your area.`
             : `Here's where you stand in your area.`;
-        const showRevenue = lostRevenueMonthly > 0 && businessRank > 3;
+        const showRevenue = revLossReal && lostRevenueMonthly > 0 && businessRank > 3;
 
-        // City fallback for the second-line phrasing.
+        // City fallback for the second-line phrasing. Only quote a missed-jobs
+        // count when we genuinely have one; otherwise keep it qualitative.
         const movingLine =
           businessRank > 3
-            ? `Moving to the top 3 would mean roughly ${missedJobsMonthly > 0 ? missedJobsMonthly : '5–15'} more ${noun} per month`
+            ? `Moving to the top 3 would mean ${missedJobsMonthly > 0 ? `roughly ${missedJobsMonthly} more` : 'more'} ${noun} per month`
             : `You're already in the top 3 — small wins could push you to #1`;
 
         return (
@@ -1412,7 +1645,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>({business?.reviewsCount?.toLocaleString()} reviews)</span>
                 </div>
               </div>
-              <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+              {/* Task 9 — locked teaser score is now explained: tap opens the
+                  score-explanation modal (same one the unlocked view uses) so the
+                  hero number isn't an unexplained black box. */}
+              <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
             </div>
           </div>
 
@@ -1445,12 +1681,14 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             businessName={business?.name}
             reportId={reportId}
             score={liveTotal}
+            grade={scores.grade}
             trade={report?.trade}
             city={report?.city}
             placeId={business?.placeId}
             issueCount={detectedIssues.length}
             detectedIssues={detectedIssues}
             recommendedServices={recommendedServices?.slice(0, 3)}
+            lostRevenueMonthly={lostRevenueMonthly}
             onUnlock={() => onUnlock?.()}
           />
 
@@ -1508,27 +1746,27 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           tool's own skeleton via AuditTabFrame state="loading".
       */}
       {unlocked && activeTab === 'seo' && visitedLazyTabs.has('seo') && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LazyTabSkeleton />}>
           <SeoChecklistTab reportId={reportId} />
         </Suspense>
       )}
       {unlocked && activeTab === 'speed' && visitedLazyTabs.has('speed') && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LazyTabSkeleton />}>
           <SiteSpeedComparisonTab reportId={reportId} />
         </Suspense>
       )}
       {unlocked && activeTab === 'nap' && visitedLazyTabs.has('nap') && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LazyTabSkeleton />}>
           <NapConsistencyTab reportId={reportId} />
         </Suspense>
       )}
       {unlocked && activeTab === 'market' && visitedLazyTabs.has('market') && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LazyTabSkeleton />}>
           <MarketSizerTab reportId={reportId} />
         </Suspense>
       )}
       {unlocked && activeTab === 'trust' && visitedLazyTabs.has('trust') && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LazyTabSkeleton />}>
           <TrustInspectorTab reportId={reportId} />
         </Suspense>
       )}
@@ -1595,7 +1833,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             .breakdown-info-icon { animation: none !important; }
           }
         `}</style>
-        <div data-testid="score-breakdown" style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 20 }}>Your Score Breakdown</div>
+        <div data-testid="score-breakdown" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
+          <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Your Score Breakdown</span>
+          {/* Task 10 — jargon cue: explain GBP / Google Business Profile, the
+              foundation of the Google Maps Profile category below. */}
+          <Tooltip text="Your Google Business Profile (GBP) is the free listing that shows your business on Google Maps and in local search — name, hours, photos, reviews and NAP (your Name, Address and Phone). How complete and consistent it is drives most of your local visibility." />
+        </div>
 
         {/* Wave 73b — SemiGauge headline for the overall audit score with
             verdict + advice. Hover the arc for the exact value. */}
@@ -1937,11 +2180,35 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* SECTION 5 — REVENUE */}
+      {/* SECTION 5 — REVENUE
+          CRO P0: honest revenue-loss. When the backend says the loss is REAL
+          (revLossReal) we show the business-specific band built from the trade
+          avg ticket + measured demand gap. When it ISN'T real we positive-frame
+          ("you're capturing demand well") instead of a fabricated number. */}
       {activeTab === 'maps' && (() => {
-        const missedJobs = report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth || 0;
         const revLow = loss.low || 0;
         const revHigh = loss.high || 0;
+        if (!revLossReal) {
+          // No measurable loss → defend-the-lead framing, never an invented number.
+          return (
+            <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center', position: 'relative' }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Your Demand Capture
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: GREEN, lineHeight: 1.25, maxWidth: 460, margin: '0 auto' }}>
+                You're capturing local demand well
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 10, maxWidth: 480, margin: '10px auto 0', lineHeight: 1.6 }}>
+                We didn't find a measurable revenue gap from missed searches — so the play is defence: keep your profile, reviews and speed ahead of competitors so you hold this position.
+              </div>
+              {ai.demandGapInsight && (
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 16, maxWidth: 560, margin: '16px auto 0', lineHeight: 1.6 }}>
+                  {ai.demandGapInsight}
+                </div>
+              )}
+            </div>
+          );
+        }
         return (
           <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center', position: 'relative' }}>
             <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
@@ -1951,7 +2218,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   Potential Missed Jobs / Month
                 </div>
                 <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 8, lineHeight: 1 }}>
-                  {missedJobs > 0 ? missedJobs : '5\u201315'}
+                  {missedJobsMonthly > 0 ? missedJobsMonthly : Math.max(1, Math.round(revLow / avgTicket))}
                 </div>
               </div>
               {/* Divider */}
@@ -1962,7 +2229,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   Est. Monthly Revenue Opportunity
                 </div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: CYAN, marginTop: 8, lineHeight: 1 }}>
-                  {revHigh > 0 ? `$${revLow.toLocaleString()} \u2013 $${revHigh.toLocaleString()}` : '$800 \u2013 $2,400'}
+                  {`$${revLow.toLocaleString()} \u2013 $${revHigh.toLocaleString()}`}
                 </div>
               </div>
             </div>
@@ -2103,6 +2370,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                       {data?.score != null ? data.score : speedLoading ? '...' : '—'}
                     </span>
                     <span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
+                    {/* Task 10 — jargon cue: explain the 0–100 speed score. */}
+                    <span style={{ alignSelf: 'center' }}>
+                      <Tooltip text="Google's PageSpeed score, 0–100. It rates how fast your site loads on this device — 90+ is fast, 50–89 needs work, under 50 is slow. Slow sites lose visitors and rank lower in local search." />
+                    </span>
                   </div>
 
                   {/* Plain-English score interpretation — surfaced FIRST,
@@ -2467,7 +2738,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* SECTION 8 — CONTENT GAPS */}
       {unlocked && activeTab === 'website' && gaps.length > 0 && (
         <div style={card()}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 4 }}>Pages You Should Create</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Pages You Should Create</span>
+            {/* Task 10 — jargon cue for "searches/mo". */}
+            <Tooltip text="Monthly searches — roughly how many people in your area type this term into Google each month. More searches per month means more potential customers you could reach with a page targeting it." />
+          </div>
           <div style={{ fontSize: 12, color: GREY, marginBottom: 16 }}>These missing pages are leaving search traffic on the table</div>
           {gaps.map((g: any, i: number) => (
             <div key={i} style={{ background: GREY_BG, borderRadius: 10, padding: 12, marginBottom: 8 }}>
@@ -2508,6 +2783,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', alignSelf: 'center' }}>+{detectedIssues.length - 4} more</span>
                 )}
               </div>
+              {/* Task 5 — overall before→after twin-bar + honest urgency. The
+                  potential is a realistic ~90 once the listed gaps are closed. */}
+              <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 16px' }}>
+                <TwinBar now={liveTotal} potential={Math.max(liveTotal, 90)} max={100} label="Your overall score, once these are fixed" />
+              </div>
+              {offer.urgency && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12 }}>
+                  <Clock size={14} color={AMBER} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>{offer.urgency}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -2817,7 +3103,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, padding: '0 16px 16px', pointerEvents: 'none' }}>
           <div style={{ maxWidth: 960, margin: '0 auto', background: DARK, borderRadius: 14, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 -2px 24px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: WHITE }}>
-              {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>${totalPrice}/mo</span>
+              {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>{billingAwarePriceLabel}</span>
             </span>
             <button
               onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); setCheckoutOpen(true); }}
@@ -2839,7 +3125,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         bundleName={selected.length === 1
           ? (SERVICES.find(s => s.id === selected[0])?.name ?? "your services")
           : `${selected.length} services`}
-        priceLabel={`$${totalPrice}/mo`}
+        priceLabel={billingAwarePriceLabel}
       />
 
       {/* Secondary CTA — tools-consolidation removed the missed-call funnel
@@ -3137,6 +3423,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         };
         const prioColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : GREEN;
         const prioBg = item.priority === 'HIGH' ? RED_BG : item.priority === 'MEDIUM' ? AMBER_BG : GREEN_BG;
+        // CRO P0 — resolve the purchasable service for THIS issue so the CTA
+        // goes straight to checkout (preselected) and can show a real price.
+        const svc = resolveServiceForIssues(issuesForPlanTitle(item.title), detectedIssues, recommendedServices);
+        // Task 8 — render the DISTINCT problem vs fix the backend now guarantees.
+        const problemText = (item.problem || item.estimatedImpact || item.detail || '').trim();
+        const fixText = (item.fix || item.detail || '').trim();
+        const showFix = fixText && fixText !== problemText;
         return (
           <>
             <div onClick={() => setIssueModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
@@ -3151,37 +3444,47 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 )}
               </div>
               <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>What it means</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.detail}</p>
+                {/* Task 8 — distinct PROBLEM (the diagnosis) and FIX (the action),
+                    never the same text echoed twice. */}
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>The problem</div>
+                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{problemText}</p>
 
-                {item.estimatedImpact && (
+                {showFix && (
                   <>
-                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Why it matters</div>
-                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.estimatedImpact}</p>
+                    <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>How to fix it</div>
+                    <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{fixText}</p>
                   </>
                 )}
 
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 6px' }}>
-                  {getDiyAdvice(item.title)}{item.estimatedCost ? ` Budget around ${item.estimatedCost}.` : ''}
-                </p>
-                {(item.estimatedCost || item.timeToResult) && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                    {item.estimatedCost && (
-                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>💰 {item.estimatedCost}</span>
-                    )}
-                    {item.timeToResult && (
-                      <span style={{ padding: '4px 12px', borderRadius: 8, background: GREY_BG, color: GREY, fontSize: 12 }}>⏱ {item.timeToResult}</span>
-                    )}
+                {/* Task 6 — DIY-vs-us effort gap. Two cards make the value obvious:
+                    the DIY grind vs. "we do it, fast, for $X". */}
+                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Two ways to fix this</div>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+                  {/* DIY card */}
+                  <div style={{ flex: 1, minWidth: 140, background: GREY_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 14px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: DARK, marginBottom: 6 }}>Do it yourself</div>
+                    <p style={{ fontSize: 12, color: GREY, lineHeight: 1.55, margin: '0 0 10px' }}>
+                      {getDiyAdvice(item.title)}
+                    </p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: AMBER }}>
+                      ⏱ ~8–12 hrs · needs SEO know-how{item.estimatedCost ? ` · ~${item.estimatedCost}` : ''}
+                    </div>
                   </div>
-                )}
+                  {/* We-do-it card */}
+                  <div style={{ flex: 1, minWidth: 140, background: DARK, borderRadius: 12, padding: '14px 14px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: WHITE, marginBottom: 6 }}>We do it for you</div>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, margin: '0 0 10px' }}>
+                      We handle the whole fix end-to-end — no learning curve, no time sink.
+                    </p>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: CYAN }}>
+                      ✓ Done in 48 hrs{svc ? ` · ${ctaPriceText(svc)}` : ''}
+                    </div>
+                  </div>
+                </div>
 
-                <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
-                <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{item.timeToResult || '2–4 weeks'} depending on scope and execution.</p>
-
-                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
+                {/* CRO P0 — one-click "fix this → checkout" (preselected service). */}
                 <button
-                  onClick={() => { setIssueModal(null); setActiveTab('plan'); }}
+                  onClick={() => { setIssueModal(null); fixWithService(svc, 'issue-modal'); }}
                   style={{
                     width: '100%', padding: '12px 20px',
                     background: CYAN, color: DARK, border: 'none', borderRadius: 10,
@@ -3191,8 +3494,14 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
                 >
-                  Let WeFixTrades fix this →
+                  {svc ? `Let WeFixTrades fix this — ${ctaPriceText(svc)} →` : 'Let WeFixTrades fix this →'}
                 </button>
+                {/* Honest guarantee under the CTA. */}
+                {offer.guarantee && (
+                  <div style={{ fontSize: 11, color: GREY, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>
+                    {offer.guarantee}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -3204,6 +3513,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         const bd = BREAKDOWN_EXPLANATIONS[breakdownModal];
         const bdRow = scoreRows.find(r => r.key === breakdownModal);
         const bdColor = bdRow ? scoreColor(bdRow.score, bdRow.max) : CYAN;
+        const bdSvc = resolveServiceForIssues(CONTEXT_KEY_TO_ISSUES[breakdownModal] || [], detectedIssues, recommendedServices);
+        // Task 5 — numeric before→after for this category (now vs a realistic
+        // potential ~90% of max once the gap is closed).
+        const bdNow = bdRow?.score ?? 0;
+        const bdMax = bdRow?.max ?? 0;
+        const bdPotential = bdMax ? Math.max(bdNow, Math.round(bdMax * 0.9)) : 0;
         return (
           <>
             <div onClick={() => setBreakdownModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
@@ -3227,11 +3542,16 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.why}</p>
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>DIY solution</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.diy}</p>
+                {/* Task 5 — numeric before→after for this score category. */}
+                {bdMax > 0 && (
+                  <div style={{ background: GREY_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px', marginBottom: 18 }}>
+                    <TwinBar now={bdNow} potential={bdPotential} max={bdMax} label="What this becomes once fixed" />
+                  </div>
+                )}
                 <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Timeline</div>
                 <p style={{ fontSize: 13, color: DARK, lineHeight: 1.6, margin: '0 0 18px' }}>{bd.timeline}</p>
-                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
                 <button
-                  onClick={() => { setBreakdownModal(null); setActiveTab('plan'); }}
+                  onClick={() => { setBreakdownModal(null); fixWithService(bdSvc, 'breakdown-modal'); }}
                   style={{
                     width: '100%', padding: '12px 20px',
                     background: CYAN, color: DARK, border: 'none', borderRadius: 10,
@@ -3241,8 +3561,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
                 >
-                  Let WeFixTrades fix this →
+                  {bdSvc ? `Let WeFixTrades fix this — ${ctaPriceText(bdSvc)} →` : 'Let WeFixTrades fix this →'}
                 </button>
+                {offer.guarantee && (
+                  <div style={{ fontSize: 11, color: GREY, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>{offer.guarantee}</div>
+                )}
               </div>
             </div>
           </>
@@ -3251,6 +3574,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
       {metricModal && METRIC_EXPLANATIONS[metricModal] && (() => {
         const exp = METRIC_EXPLANATIONS[metricModal];
+        const mSvc = resolveServiceForIssues(CONTEXT_KEY_TO_ISSUES[metricModal] || ['slow-website', 'no-website'], detectedIssues, recommendedServices);
         return (
           <>
             <div onClick={() => setMetricModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200 }} />
@@ -3276,9 +3600,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>WeFixTrades can handle this for you</div>
                 <button
-                  onClick={() => { setMetricModal(null); setActiveTab('plan'); }}
+                  onClick={() => { setMetricModal(null); fixWithService(mSvc, 'metric-modal'); }}
                   style={{
                     width: '100%', padding: '12px 20px',
                     background: CYAN, color: DARK, border: 'none', borderRadius: 10,
@@ -3288,8 +3611,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
                 >
-                  Let WeFixTrades fix this →
+                  {mSvc ? `Let WeFixTrades fix this — ${ctaPriceText(mSvc)} →` : 'Let WeFixTrades fix this →'}
                 </button>
+                {offer.guarantee && (
+                  <div style={{ fontSize: 11, color: GREY, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>{offer.guarantee}</div>
+                )}
               </div>
             </div>
           </>
@@ -3301,6 +3627,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         const aiAnalysis = liveWebsiteAIAnalysis || report?.websiteAIAnalysis;
         const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
         if (!aiAnalysis?.findings?.length) return null;
+        const vaSvc = resolveServiceForIssues(['slow-website', 'no-website'], detectedIssues, recommendedServices);
         const findings: Array<{ label: string; status: string; note: string }> = aiAnalysis.findings;
         const passCount = findings.filter(f => f.status === 'pass').length;
         const total = findings.length;
@@ -3384,7 +3711,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <div style={{ padding: '0 24px 20px' }}>
                   <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>Need help improving your website?</div>
                   <button
-                    onClick={() => { setVisualAnalysisModal(false); setActiveTab('plan'); }}
+                    onClick={() => { setVisualAnalysisModal(false); fixWithService(vaSvc, 'visual-analysis-modal'); }}
                     style={{
                       width: '100%', padding: '12px 20px',
                       background: CYAN, color: DARK, border: 'none', borderRadius: 10,
@@ -3394,8 +3721,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#00BFB8')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = CYAN)}
                   >
-                    Let WeFixTrades fix this →
+                    {vaSvc ? `Let WeFixTrades fix this — ${ctaPriceText(vaSvc)} →` : 'Let WeFixTrades fix this →'}
                   </button>
+                  {offer.guarantee && (
+                    <div style={{ fontSize: 11, color: GREY, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>{offer.guarantee}</div>
+                  )}
                 </div>
               </div>
             </div>
