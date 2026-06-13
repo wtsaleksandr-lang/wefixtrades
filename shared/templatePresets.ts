@@ -1046,7 +1046,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 1. Car towing ── */
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
-    category: 'Automotive', trades: ['auto_detailing'],
+    // BATCH 0 — was dangling on `auto_detailing`; now maps to the real
+    // `towing` trade id (added to trades.ts in the same PR).
+    category: 'Automotive', trades: ['towing'],
     // TWO-ZONE black + yellow + two-column (inputs left, single result panel
     // right), no trust-badge row, no line-item breakdown — minimal and bold.
     trustBadges: [],
@@ -1205,7 +1207,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 4. Energy efficiency upgrade ── */
   {
     id: 'energy_upgrade', name: 'Energy Upgrade', description: 'Home efficiency upgrade estimate.',
-    category: 'Home Improvement', trades: ['hvac_services'],
+    // BATCH 0 — covers a Solar upgrade option; map the solar registry ids.
+    category: 'Home Improvement', trades: ['hvac_services', 'solar_panel', 'insulation_installation'],
     trustBadges: BADGES.hvac,
     layout: 'multi-column', theme: 'midnight', defaultIcon: 'Leaf',
     header: { title: 'Cut Your Energy Bill — Get a Free Upgrade Quote', subtitle: 'BPI-certified · ENERGY STAR partner · Most homeowners save 20–30% on monthly bills', align: 'left' },
@@ -1267,7 +1270,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 6. Gutter cleaning ── */
   {
     id: 'gutter_cleaning', name: 'Gutter Cleaning', description: 'Length-based gutter cleaning quote.',
-    category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
+    // BATCH 0 — the registry's own `gutter_cleaning` trade was missing here.
+    category: 'Cleaning', trades: ['gutter_cleaning', 'window_cleaning', 'pressure_washing'],
     trustBadges: BADGES.gutterCleaning,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
     requireAddress: true,
@@ -1330,7 +1334,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 8. Roof repair ── */
   {
     id: 'roof_repair', name: 'Roof Repair — Quick Estimate', description: 'Fast roof repair ballpark by size, material and pitch.',
-    category: 'Construction', trades: ['roofing'],
+    category: 'Construction', trades: ['roofing', 'roofing_installation'],
     trustBadges: BADGES.roofing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     header: { title: 'Get Your Roof Repair Quote in 60 Seconds', subtitle: 'Licensed & insured roofers · 4.9★ from 1,200+ jobs · Free written estimate', align: 'left' },
@@ -1362,7 +1366,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 9. Solar panels ── */
   {
     id: 'solar_panels', name: 'Solar — Quick Panel Estimate', description: 'Fast ballpark solar price from panel count, capacity and roof orientation.',
-    category: 'Home Improvement', trades: ['hvac_services'],
+    // BATCH 0 — was mapped to `hvac_services`; this is a solar template
+    // (with a battery-storage toggle) → map the real solar registry ids.
+    category: 'Home Improvement', trades: ['solar_panel', 'solar_battery'],
     trustBadges: BADGES.solar,
     layout: 'multi-column', theme: 'light', defaultIcon: 'Sun',
     header: { title: 'Get Your Solar Install Quote — Plus Your Tax Credit', subtitle: 'NABCEP-certified installers · 25-year panel warranty · 30% federal tax credit eligible', align: 'left' },
@@ -1432,7 +1438,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 11. House renovation ── */
   {
     id: 'house_renovation', name: 'House Renovation', description: 'Area + labour renovation estimate.',
-    category: 'Construction', trades: ['general_renovation', 'kitchen_remodel', 'bathroom_remodel', 'flooring_installation'],
+    // BATCH 0 — registry near-dupe ids (`kitchen_remodeling` /
+    // `bathroom_remodeling`) added alongside the original ids.
+    category: 'Construction', trades: ['general_renovation', 'kitchen_remodel', 'kitchen_remodeling', 'bathroom_remodel', 'bathroom_remodeling', 'flooring_installation'],
     trustBadges: BADGES.renovation,
     layout: 'multi-column', theme: 'light', defaultIcon: 'Hammer',
     header: { title: 'Start Your Home Renovation — Free Itemised Estimate', subtitle: 'Licensed general contractor · Bonded crews · Transparent material + labor breakdown', align: 'left' },
@@ -1560,7 +1568,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const results: TemplateResults = { footnote: 'Fresh, deep-cleaned carpets — book in minutes with an instant, all-in price.', cta_label: 'Book Now' };
     const base = {
       name: 'Carpet Cleaning — Room Packages', description: 'Room-based carpet cleaning packages with stain, deodorising and protection treatments.',
-      category: 'Cleaning', trades: ['house_cleaning'],
+      // BATCH 0 — the registry's own `carpet_cleaning` trade was missing.
+      category: 'Cleaning', trades: ['carpet_cleaning', 'house_cleaning'],
       trustBadges: BADGES.generic,
       theme: 'mint', defaultIcon: 'SprayCan', fields, calculations, result_calc: 'Total Cost', header, results,
     };
@@ -1593,7 +1602,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const results: TemplateResults = { footnote: 'A protected, watertight roof — get a transparent estimate with material and labour itemised.', cta_label: 'Schedule Now' };
     const base = {
       name: 'Roof Repair — Itemized Quote', description: 'Itemised roof repair estimate by area, material and job complexity, with material/labour breakdown.',
-      category: 'Construction', trades: ['roofing'],
+      category: 'Construction', trades: ['roofing', 'roofing_installation'],
       trustBadges: BADGES.roofing,
       theme: 'forest', defaultIcon: 'Hammer', fields, calculations, result_calc: 'Total Roof Repair Cost', header, results,
     };
@@ -2541,7 +2550,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'kitchen_renovation', name: 'Kitchen Renovation',
     description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
-    category: 'Construction', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
+    // BATCH 0 — registry near-dupe id `kitchen_remodeling` added.
+    category: 'Construction', trades: ['kitchen_remodel', 'kitchen_remodeling', 'general_renovation', 'general_contractor'],
     trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'ChefHat',
     header: { title: 'Design Your Dream Kitchen — Free Estimate', subtitle: 'NKBA-certified designers · Licensed contractors · 3D rendering with every consultation', align: 'left' },
@@ -2576,7 +2586,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'bathroom_renovation', name: 'Bathroom Renovation',
     description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
-    category: 'Construction', trades: ['bathroom_remodel', 'general_renovation'],
+    // BATCH 0 — registry near-dupe id `bathroom_remodeling` added.
+    category: 'Construction', trades: ['bathroom_remodel', 'bathroom_remodeling', 'general_renovation'],
     trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'light', defaultIcon: 'Bath',
     header: { title: 'Get Your Bathroom Renovation Quote', subtitle: 'Licensed plumbers & tile pros · 5-year leak guarantee · Most baths done in 7–10 days', align: 'left' },
@@ -2645,7 +2656,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'interior_painting_pro', name: 'Interior Painting (Pro)',
     description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
-    category: 'Construction', trades: ['painting', 'interior_painting'],
+    // BATCH 0 — dropped the dangling `painting` id (not in the registry);
+    // `interior_painting` is the real id for this trade.
+    category: 'Construction', trades: ['interior_painting'],
     trustBadges: BADGES.painting,
     layout: 'two-column', theme: 'light', defaultIcon: 'Paintbrush2',
     header: { title: 'Get a Professional Painting Quote', subtitle: 'Sherwin-Williams certified · Lead-safe certified · 3-year workmanship warranty', align: 'left' },
@@ -3326,7 +3339,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'roof_replacement', name: 'Roof Replacement',
     description: 'Full roof replacement by sqft, material and complexity.',
-    category: 'Construction', trades: ['roofing'],
+    category: 'Construction', trades: ['roofing', 'roofing_installation'],
     trustBadges: BADGES.roofing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     requireAddress: true,
@@ -3667,7 +3680,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'carpet_cleaning_quote', name: 'Carpet Cleaning — Per Square Foot',
     description: 'Per-square-foot + per-room cleaning pricing with add-ons. Mint-green result panel, dark-green CTA. Inspired by Elfsight\'s Carpet Cleaning calc with our trust badges + sticky shell.',
-    category: 'Cleaning', trades: ['house_cleaning'],
+    // BATCH 0 — the registry's own `carpet_cleaning` trade was missing.
+    category: 'Cleaning', trades: ['carpet_cleaning', 'house_cleaning'],
     matchingTrades: ['carpet-cleaning', 'residential-cleaning', 'commercial-cleaning', 'janitorial', 'general-cleaning'],
     trustBadges: [
       b('Licensed & Insured', 'lock'),
@@ -4112,6 +4126,630 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       cta_sub: 'Same-week delivery in all three zones — driveway-safe placement on every drop.',
       submit_success: 'Booked! Dispatch will text your delivery window within the hour.',
       footnote: 'Weight limits: 10yd = 2 tons, 20yd = 3 tons, 30yd = 4 tons, 40yd = 5 tons. Overage billed at $65/ton.',
+    },
+  },
+
+  /* ════ TEMPLATES BATCH 1 — "Mechanical money" (template-inventory spec) ════
+   *
+   * Five showcase-tier templates for the highest-purchase-intent mechanical
+   * trades (TOP-15 #1 water heater, #11 generator, #10 security+cctv,
+   * #6 septic, bench duct cleaning). Every entry ships the FULL showcase
+   * tier (mirrors the two U7 exemplars above): explicit niche style block,
+   * defaultIcon + trade-true trustBadges, per-field help + option
+   * descriptions, ≥1 show_if branch, an image-card radio on the highest-
+   * uncertainty question, calc captions + a `resultMode: 'primary'` total,
+   * results CTA block + submit_success, explicit 3-step grouping with step
+   * help, and animations + premium countUp/staggerReveal (no cardFlip /
+   * confetti). Image cards use curated `images.unsplash.com/photo-<id>`
+   * direct URLs (the non-deprecated convention — each ID verified live;
+   * the `source.unsplash.com` keyword redirector is ORB-blocked).
+   */
+
+  /* ── 50. Water Heater Replacement (BATCH 1 #1) ──
+   * Tank vs tankless image cards; venting/gas-line upgrade only surfaces on
+   * the tankless branch (show_if). Deposit + booking fit this trade (urgent,
+   * schedule-driven replacements) so both are enabled in the style block. */
+  {
+    id: 'water_heater_replacement', name: 'Water Heater Replacement',
+    description: 'Tank vs tankless replacement pricing by capacity and fuel, with haul-away, code upgrades and same-day booking.',
+    category: 'HVAC & Mechanical', trades: ['water_heater'],
+    trustBadges: [
+      b('Licensed Master Plumber', 'badge-check'),
+      b('Tank & Tankless Certified', 'verified'),
+      b('Permit & Inspection Handled', 'clipboard-check'),
+      b('Same-Day Replacement', 'clock'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Flame',
+    requireAddress: true,
+    // Showcase niche style — warm copper/flame palette, deep-rust result
+    // panel, amber CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#c2410c',
+      background: '#faf7f2',
+      surface: '#ffffff',
+      border: '#eadfd2',
+      text: '#1c1917',
+      resultsBg: '#7c2d12',
+      ctaColor: '#f59e0b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'outfit',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Replacements carry venting/code variance found on site — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+      // BD-3k — deposit + booking fit this trade: urgent, schedule-driven
+      // replacements where locking an install slot is the whole sale.
+      deposit: {
+        enabled: true,
+        amount: 75,
+        label: '$75 deposit reserves your install slot',
+        iconName: 'Calendar',
+      },
+      booking: { enabled: true, source: 'wefixtrades-default' },
+    },
+    header: { title: 'Water Heater Out? Price the Replacement Now', subtitle: 'Licensed master plumbers · Same-day swaps · Tank & tankless certified', align: 'left' },
+    steps: [
+      { id: 'step_heater', label: 'Your heater', help: 'Pick a heater style and the right capacity for your household.', fields: ['wh_type', 'wh_capacity'] },
+      { id: 'step_fuel', label: 'Fuel & code work', help: 'Fuel type sets the hookup; tankless may need venting upgrades.', fields: ['wh_fuel', 'wh_venting'] },
+      { id: 'step_extras', label: 'Haul-away & extras', help: 'Optional — add only what your install needs.', fields: ['wh_removal', 'wh_addons'] },
+    ],
+    fields: [
+      // Image-card radio on the highest-uncertainty question (tank vs tankless).
+      { id: 'wh_type', name: 'Heater Type', label: 'Which style of water heater?', type: 'radio',
+        help: 'Not sure? Most replacements swap like-for-like — tank for tank.',
+        options: [
+          { ...optImg('Standard tank', 1150, 'https://images.unsplash.com/photo-1585129777188-94600bc7b4b3?w=300&h=300&fit=crop'),
+            description: 'Familiar 40–75 gal storage tank — lowest installed cost.' },
+          { ...optImg('Tankless on-demand', 2950, 'https://images.unsplash.com/photo-1611270629569-8b357cb88da9?w=300&h=300&fit=crop'),
+            description: 'Endless hot water and ~30% lower fuel bills — higher install cost.' },
+        ] },
+      { id: 'wh_capacity', name: 'Capacity', label: 'What size does your household need?', type: 'select',
+        help: 'Match capacity to people, not square footage.',
+        options: [
+          opt('40 gallon — 1-2 people', 0),
+          { ...opt('50 gallon — 2-4 people', 140), description: 'The most-installed size in US homes.' },
+          opt('75 gallon or high-flow tankless', 420),
+        ] },
+      { id: 'wh_fuel', name: 'Fuel Type', label: 'What fuel does your current heater use?', type: 'select',
+        help: 'Check the label on the old unit — gas heaters have a vent pipe on top.',
+        options: [
+          opt('Natural gas', 0),
+          { ...opt('Electric', -120), description: 'No venting needed — usually the cheapest swap.' },
+          opt('Propane', 130),
+        ] },
+      // show_if — venting/gas-line code work only applies to tankless installs.
+      { id: 'wh_venting', name: 'Venting & Gas Upgrade', label: 'Add venting & gas-line upgrade', type: 'toggle',
+        help: 'Most tankless conversions need a larger gas line and stainless venting.',
+        on_value: 600,
+        show_if: { field: 'wh_type', op: 'eq', value: 'tankless_on_demand' } },
+      { id: 'wh_removal', name: 'Old Heater Haul-Away', label: 'Haul away the old heater', type: 'toggle',
+        help: 'We drain, disconnect and recycle the old unit the same visit.',
+        on_value: 95 },
+      { id: 'wh_addons', name: 'Add-ons', label: 'Code & protection add-ons', type: 'multi_select',
+        help: 'Your installer will confirm which of these your local code requires.',
+        options: [
+          { ...opt('Expansion tank', 175), description: 'Required by code on closed plumbing systems.' },
+          opt('Smart leak detector & auto-shutoff', 240),
+          opt('Drain pan & new supply lines', 85),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Unit & Installation', '[Heater Type] + [Capacity]'), caption: 'New unit, standard install labor and basic fittings.' },
+      { ...calc('Fuel & Code Work', '[Fuel Type] + [Venting & Gas Upgrade]'), caption: 'Fuel-type difference plus any venting / gas-line code work.' },
+      { ...calc('Haul-Away & Add-ons', '[Old Heater Haul-Away] + [Add-ons]'), caption: 'Old-unit recycling and optional protection add-ons.' },
+      { ...calc('Total Installed Price', '[Unit & Installation] + [Fuel & Code Work] + [Haul-Away & Add-ons]'),
+        resultMode: 'primary', caption: 'Installed price incl. permit — confirmed before any work starts.' },
+    ],
+    result_calc: 'Total Installed Price',
+    results: {
+      heading: 'Your Installed Price',
+      show_breakdown: true,
+      cta_label: 'Book My Replacement',
+      cta_heading: 'No hot water is an emergency',
+      cta_sub: 'Reserve a same-day slot — your plumber arrives with the unit on the truck.',
+      submit_success: 'Slot reserved! Your install coordinator will call within 30 minutes to confirm the unit and arrival window.',
+      footnote: 'Includes permit, new shut-off valve and standard fittings. 6-year tank warranty / 15-year tankless warranty.',
+    },
+  },
+
+  /* ── 51. Generator Installation (BATCH 1 #2) ──
+   * kW tiers as image cards (the spec's image-choice question); propane tank
+   * sizing only surfaces on the propane fuel branch (show_if). */
+  {
+    id: 'generator_install_quote', name: 'Generator Installation',
+    description: 'Standby generator pricing by kW tier, transfer switch and fuel source, with site prep and cold-weather extras.',
+    category: 'HVAC & Mechanical', trades: ['generator_installation'],
+    trustBadges: [
+      b('Licensed Master Electrician', 'badge-check'),
+      b('Factory-Certified Installer', 'verified'),
+      b('Permit & Inspection Handled', 'clipboard-check'),
+      b('24/7 Storm Response', 'zap'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Zap',
+    requireAddress: true,
+    // Showcase niche style — graphite body, near-black result panel,
+    // storm-amber CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#d97706',
+      background: '#f6f7f9',
+      surface: '#ffffff',
+      border: '#e2e5ea',
+      text: '#111827',
+      resultsBg: '#111827',
+      ctaColor: '#fbbf24',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'geist',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Trenching / gas-run variance is found at the site survey — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Never Lose Power — Price Your Standby Generator', subtitle: 'Factory-certified installers · Permits handled · 10-year warranty available', align: 'left' },
+    steps: [
+      { id: 'step_size', label: 'Generator size', help: 'Pick the kW tier that matches what you want to keep running.', fields: ['gen_kw'] },
+      { id: 'step_power', label: 'Power & fuel', help: 'The switch decides which circuits stay live; fuel sets the hookup.', fields: ['gen_switch', 'gen_fuel', 'gen_tank'] },
+      { id: 'step_site', label: 'Site & extras', help: 'Pad, weather and monitoring options for your install.', fields: ['gen_pad', 'gen_extras'] },
+    ],
+    fields: [
+      // Image-card radio on the highest-uncertainty question (kW tier).
+      { id: 'gen_kw', name: 'Generator Size', label: 'How much of the house should it run?', type: 'radio',
+        help: 'Sized by what stays on during an outage — not by home size alone.',
+        options: [
+          { ...optImg('10 kW — essentials', 6400, 'https://images.unsplash.com/photo-1610563166150-b34df4f3bcd6?w=300&h=300&fit=crop'),
+            description: 'Fridge, furnace, well pump and lights.' },
+          { ...optImg('14 kW — most homes', 8200, 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=300&h=300&fit=crop'),
+            description: 'Adds AC and kitchen circuits — our most-installed size.' },
+          { ...optImg('22 kW — whole home', 10900, 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=300&h=300&fit=crop'),
+            description: 'Runs everything, including central air.' },
+          { ...optImg('26 kW plus — large home', 13600, 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=300&h=300&fit=crop'),
+            description: 'Multiple AC units, pool gear, large square footage.' },
+        ] },
+      { id: 'gen_switch', name: 'Transfer Switch', label: 'Which transfer switch?', type: 'select',
+        help: 'The switch flips your home to generator power automatically.',
+        options: [
+          opt('Automatic 100A — essential circuits', 0),
+          { ...opt('Automatic 200A — whole panel', 450), description: 'Backs up every breaker in the panel.' },
+          opt('Smart load-management switch', 900),
+        ] },
+      { id: 'gen_fuel', name: 'Fuel Source', label: 'What will fuel it?', type: 'select',
+        help: 'Natural gas is cheapest if you have a meter; propane works anywhere.',
+        options: [
+          { ...opt('Natural gas hookup', 0), description: 'Ties into your existing gas meter — no tank to fill.' },
+          opt('Propane with new tank', 1350),
+          opt('Diesel standby', 2100),
+        ] },
+      // show_if — tank sizing only matters on the propane branch.
+      { id: 'gen_tank', name: 'Propane Tank Size', label: 'Propane tank size', type: 'select',
+        help: 'Bigger tanks run longer between fills — most homes pick 500 gal.',
+        options: [
+          opt('250 gallon', 0),
+          { ...opt('500 gallon', 650), description: 'Roughly a week of continuous backup for most homes.' },
+          opt('1,000 gallon', 1500),
+        ],
+        show_if: { field: 'gen_fuel', op: 'eq', value: 'propane_with_new_tank' } },
+      { id: 'gen_pad', name: 'Concrete Pad & Site Prep', label: 'Add concrete pad & site prep', type: 'toggle',
+        help: 'A level pad with gravel skirt — required where soil shifts or floods.',
+        on_value: 480 },
+      { id: 'gen_extras', name: 'Extras', label: 'Climate & monitoring extras', type: 'multi_select',
+        help: 'Popular add-ons — all installable later, cheapest at install time.',
+        options: [
+          { ...opt('Cold-weather kit', 320), description: 'Battery warmer + crankcase heater for sub-freezing starts.' },
+          opt('Wi-Fi smart monitoring', 280),
+          opt('Extended 10-year warranty', 1100),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Generator & Install Labor', '[Generator Size]'), caption: 'Unit, rigging, electrical hookup and startup test.' },
+      { ...calc('Switching & Fuel Setup', '[Transfer Switch] + [Fuel Source] + [Propane Tank Size]'), caption: 'Transfer switch, fuel hookup and tank where needed.' },
+      { ...calc('Site Prep & Extras', '[Concrete Pad & Site Prep] + [Extras]'), caption: 'Pad, cold-weather kit, monitoring and warranty options.' },
+      { ...calc('Total Installed Cost', '[Generator & Install Labor] + [Switching & Fuel Setup] + [Site Prep & Extras]'),
+        resultMode: 'primary', caption: 'Turn-key installed price — confirmed at the free site survey.' },
+    ],
+    result_calc: 'Total Installed Cost',
+    results: {
+      heading: 'Your Generator Quote',
+      show_breakdown: true,
+      cta_label: 'Schedule My Free Site Survey',
+      cta_heading: 'Install before the next storm season',
+      cta_sub: 'Survey takes 45 minutes — we confirm gas, panel and placement, then lock your install date.',
+      submit_success: 'Survey requested! Our project manager will call within one business day to schedule your visit.',
+      footnote: 'Includes permit, electrical and fuel hookup, startup and county inspection. Financing available on installs over $5,000.',
+    },
+  },
+
+  /* ── 52. Security & Camera Installation (BATCH 1 #3) ──
+   * One template covering security_system + cctv_installation. Doorbell
+   * wiring only surfaces when the video doorbell add-on is picked
+   * (show_if contains). Monitoring select carries per-option descriptions. */
+  {
+    id: 'security_camera_install', name: 'Security & Camera Installation',
+    description: 'Home security and camera system pricing by system type and camera count, with smart add-ons and monitoring plans.',
+    category: 'HVAC & Mechanical', trades: ['security_system', 'cctv_installation'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('UL-Listed Equipment', 'verified'),
+      b('Background-Checked Techs', 'users'),
+      b('1-Year Workmanship Warranty', 'award'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'ShieldCheck',
+    requireAddress: true,
+    // Showcase niche style — steel-indigo palette, deep-indigo result panel.
+    // Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#4338ca',
+      background: '#f5f6fa',
+      surface: '#ffffff',
+      border: '#dfe2ee',
+      text: '#111827',
+      resultsBg: '#1e1b4b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'plex',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Component pricing is per-device exact — no estimate band.
+        range_mode: { enabled: false, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Protect Your Home — Price a Camera & Security System', subtitle: 'UL-listed equipment · Background-checked installers · No long contracts', align: 'left' },
+    steps: [
+      { id: 'step_system', label: 'Your system', help: 'Pick a system style and how many cameras you need.', fields: ['sec_type', 'sec_cameras'] },
+      { id: 'step_smart', label: 'Smart add-ons', help: 'Doorbells, locks and lights that tie into the same app.', fields: ['sec_addons', 'sec_doorbell_wiring'] },
+      { id: 'step_monitoring', label: 'Monitoring', help: 'Who responds when something trips — you or a 24/7 center.', fields: ['sec_monitoring'] },
+    ],
+    fields: [
+      // Image-card radio on the highest-uncertainty question (system type).
+      { id: 'sec_type', name: 'System Type', label: 'Which system style fits your home?', type: 'radio',
+        help: 'Wired records 24/7; wireless installs fastest — mixed covers both.',
+        options: [
+          { ...optImg('Wired 4K PoE', 420, 'https://images.unsplash.com/photo-1558002038-1055907df827?w=300&h=300&fit=crop'),
+            description: 'Sharpest video, 24/7 local recording — needs cable runs.' },
+          { ...optImg('Wireless Wi-Fi', 180, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?w=300&h=300&fit=crop'),
+            description: 'Fastest install and easy to expand — battery or plug-in.' },
+          { ...optImg('Mixed wired + wireless', 320, 'https://images.unsplash.com/photo-1558036117-15d82a90b9b1?w=300&h=300&fit=crop'),
+            description: 'Wired where it matters, wireless where it’s hard to reach.' },
+        ] },
+      { id: 'sec_cameras', name: 'Cameras', label: 'How many cameras?', type: 'slider',
+        help: 'Most homes cover doors, driveway and yard with 4–6 cameras.',
+        min: 1, max: 16, step: 1, default_value: 4, unit: 'cameras' },
+      { id: 'sec_addons', name: 'Smart Add-ons', label: 'Smart security add-ons', type: 'multi_select',
+        help: 'Everything controls from one app — add what you’ll actually use.',
+        options: [
+          { ...opt('Video doorbell', 230), description: 'See and talk to anyone at the door from your phone.' },
+          opt('Smart locks — 2 doors', 310),
+          opt('Motion floodlight cams', 260),
+          opt('Indoor siren & keypad', 180),
+        ] },
+      // show_if — chime wiring only applies when the video doorbell is picked.
+      { id: 'sec_doorbell_wiring', name: 'Doorbell Wiring & Chime', label: 'Add doorbell wiring & chime setup', type: 'toggle',
+        help: 'For homes without existing doorbell wiring — includes transformer.',
+        on_value: 90,
+        show_if: { field: 'sec_addons', op: 'contains', value: 'video_doorbell' } },
+      { id: 'sec_monitoring', name: 'Monitoring Plan', label: 'Who should respond to alerts?', type: 'select',
+        help: 'Pro monitoring dispatches police/fire even when your phone is off.',
+        options: [
+          { ...opt('Self-monitored — app alerts', 0), description: 'Free push alerts to your phone; you decide what to do.' },
+          { ...opt('24/7 pro monitoring — first year', 300), description: '$25/mo billed annually — live agents dispatch police & fire.' },
+          { ...opt('Pro monitoring + cellular backup — first year', 420), description: 'Keeps protecting you through internet and power outages.' },
+        ] },
+    ],
+    calculations: [
+      { ...calc('Cameras & Installation', '[Cameras] * 165 + [System Type]'), caption: '$165 per camera installed, plus the system wiring base.' },
+      { ...calc('Smart Devices', '[Smart Add-ons] + [Doorbell Wiring & Chime]'), caption: 'Doorbell, locks, lights and any wiring they need.' },
+      { ...calc('Monitoring — First Year', '[Monitoring Plan]'), caption: 'Renews at the same monthly rate after year one.' },
+      { ...calc('Total System Price', '[Cameras & Installation] + [Smart Devices] + [Monitoring — First Year]'),
+        resultMode: 'primary', caption: 'Equipment, professional install and first-year monitoring.' },
+    ],
+    result_calc: 'Total System Price',
+    results: {
+      heading: 'Your Security Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Install',
+      cta_heading: 'Most installs done in one visit',
+      cta_sub: 'Pick a day — your installer walks the property with you, mounts every device and sets up the app before leaving.',
+      submit_success: 'You’re booked! We’ll text your install window and a pre-visit checklist within the hour.',
+      footnote: 'No long-term contracts — monitoring is month-to-month after the first year. All video stays yours.',
+    },
+  },
+
+  /* ── 53. Septic Pumping & Service (BATCH 1 #4) ──
+   * Pumping vs inspection vs repair as image cards, with TWO show_if
+   * branches: tank size only on the pumping branch, repair picker only on
+   * the repair branch. */
+  {
+    id: 'septic_service_quote', name: 'Septic Pumping & Service',
+    description: 'Septic tank pumping, inspection and repair pricing by tank size, with lid locating and effluent filter service.',
+    category: 'HVAC & Mechanical', trades: ['septic_services'],
+    trustBadges: [
+      b('State-Licensed Septic Contractor', 'badge-check'),
+      b('Fully Insured', 'shield'),
+      b('Compliant Waste Disposal', 'leaf'),
+      b('Same-Week Scheduling', 'calendar'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Droplets',
+    requireAddress: true,
+    // Showcase niche style — earthy field-green palette, deep-green result
+    // panel, lime CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#15803d',
+      background: '#f5f7f2',
+      surface: '#ffffff',
+      border: '#e1e7d8',
+      text: '#1a2e1a',
+      resultsBg: '#14532d',
+      ctaColor: '#a3e635',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'manrope',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Repairs vary until the lid is open — show a ±10% band.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Septic Pumping & Service — Instant Price', subtitle: 'State-licensed · Same-week service · Compliant disposal on every load', align: 'left' },
+    steps: [
+      { id: 'step_service', label: 'Service', help: 'What does your system need today?', fields: ['sep_service'] },
+      { id: 'step_tank', label: 'Your tank', help: 'Size and access set the pump-out time on site.', fields: ['sep_tank_size', 'sep_locate'] },
+      { id: 'step_repairs', label: 'Repairs & extras', help: 'Only pick what applies — we confirm everything on site.', fields: ['sep_repair', 'sep_filter'] },
+    ],
+    fields: [
+      // Image-card radio on the highest-uncertainty question (service type).
+      { id: 'sep_service', name: 'Service Needed', label: 'What does your septic system need?', type: 'radio',
+        help: 'Not sure? Slow drains or odors usually start with a pump-out.',
+        options: [
+          { ...optImg('Tank pumping', 345, 'https://images.unsplash.com/photo-1599696848652-f0ff23bc911f?w=300&h=300&fit=crop'),
+            description: 'Full pump-out & licensed disposal — recommended every 3–5 years.' },
+          { ...optImg('Inspection with camera', 425, 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&h=300&fit=crop'),
+            description: 'Point-of-sale or routine — written report with photos.' },
+          { ...optImg('Repair visit', 285, 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=300&h=300&fit=crop'),
+            description: 'Diagnostic plus the first hour of repair labor on site.' },
+        ] },
+      // show_if — tank size prices the pump-out volume (pumping branch only).
+      { id: 'sep_tank_size', name: 'Tank Size', label: 'How big is your tank?', type: 'select',
+        help: 'Check your county septic record if unsure — we can look it up too.',
+        options: [
+          { ...opt('Up to 1,000 gallons', 0), description: 'Most 2–3 bedroom homes.' },
+          opt('1,250 gallons', 65),
+          opt('1,500 gallons or larger', 145),
+        ],
+        show_if: { field: 'sep_service', op: 'eq', value: 'tank_pumping' } },
+      { id: 'sep_locate', name: 'Locate & Uncover Lid', label: 'Locate & uncover the lid', type: 'toggle',
+        help: 'We locate the tank and hand-dig up to 12 inches to expose the lid.',
+        on_value: 125 },
+      // show_if — repair picker only surfaces on the repair branch.
+      { id: 'sep_repair', name: 'Repair Needed', label: 'What needs repairing?', type: 'select',
+        help: 'Pick the closest match — the diagnostic confirms it before work starts.',
+        options: [
+          opt('Baffle replacement', 420),
+          opt('Lid or riser replacement', 380),
+          opt('Inlet / outlet line jetting', 350),
+          { ...opt('Not sure — diagnose on site', 0), description: 'The repair-visit rate covers diagnosis; parts quoted on site.' },
+        ],
+        show_if: { field: 'sep_service', op: 'eq', value: 'repair_visit' } },
+      { id: 'sep_filter', name: 'Effluent Filter Clean', label: 'Clean the effluent filter', type: 'toggle',
+        help: 'A clogged filter is the #1 cause of slow drains between pump-outs.',
+        on_value: 55 },
+    ],
+    calculations: [
+      { ...calc('Service Visit', '[Service Needed]'), caption: 'Truck, technician and the base service you picked.' },
+      { ...calc('Tank & Access', '[Tank Size] + [Locate & Uncover Lid]'), caption: 'Pump-out volume plus locating / digging to the lid.' },
+      { ...calc('Repairs & Extras', '[Repair Needed] + [Effluent Filter Clean]'), caption: 'Repair parts & labor and filter service.' },
+      { ...calc('Total Service Cost', '[Service Visit] + [Tank & Access] + [Repairs & Extras]'),
+        resultMode: 'primary', caption: 'All-in price — no disposal or fuel surcharges added later.' },
+    ],
+    result_calc: 'Total Service Cost',
+    results: {
+      heading: 'Your Septic Quote',
+      show_breakdown: true,
+      cta_label: 'Schedule My Service',
+      cta_heading: 'Catch it before it backs up',
+      cta_sub: 'Same-week appointments — most pump-outs take under an hour once we’re on site.',
+      submit_success: 'Scheduled! Dispatch will text your arrival window and a gate/access checklist shortly.',
+      footnote: 'Licensed disposal included on every load. If we pump and find a repair, the visit fee credits toward the fix.',
+    },
+  },
+
+  /* ── 54. Air Duct & Dryer Vent Cleaning (BATCH 1 #5) ──
+   * Per-register pricing with a condition image-card radio; rooftop dryer
+   * vent access only surfaces when dryer vent cleaning is toggled on
+   * (show_if against a toggle: value 1 = on). */
+  {
+    id: 'duct_vent_cleaning', name: 'Air Duct & Dryer Vent Cleaning',
+    description: 'Whole-home duct cleaning priced per register, with furnace deep-clean, sanitizing and dryer vent service.',
+    category: 'HVAC & Mechanical', trades: ['duct_cleaning', 'dryer_vent_cleaning'],
+    trustBadges: [
+      b('NADCA Certified', 'badge-check'),
+      b('Licensed & Insured', 'shield-check'),
+      b('HEPA-Filtered Equipment', 'verified'),
+      b('Before & After Photos', 'clipboard-check'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Wind',
+    requireAddress: true,
+    // Showcase niche style — clean-air teal palette, deep-teal result panel.
+    // Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#0e7490',
+      background: '#f2f8fa',
+      surface: '#ffffff',
+      border: '#d9e8ee',
+      text: '#0f172a',
+      resultsBg: '#164e63',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'sora',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Per-register pricing is deterministic — no estimate band.
+        range_mode: { enabled: false, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Breathe Easier — Price Your Duct Cleaning', subtitle: 'NADCA-certified techs · HEPA-filtered trucks · Before/after photos every job', align: 'left' },
+    steps: [
+      { id: 'step_home', label: 'Your home', help: 'Count your registers and tell us the duct condition.', fields: ['duct_vents', 'duct_condition'] },
+      { id: 'step_system', label: 'System add-ons', help: 'The furnace cabinet and coil collect the most buildup.', fields: ['duct_furnace', 'duct_sanitize'] },
+      { id: 'step_dryer', label: 'Dryer vent', help: 'Lint-clogged dryer vents are a top cause of house fires.', fields: ['duct_dryer', 'duct_rooftop'] },
+    ],
+    fields: [
+      { id: 'duct_vents', name: 'Supply Vents', label: 'How many vents (registers)?', type: 'slider',
+        help: 'Count every floor, wall and ceiling register — returns included free.',
+        min: 6, max: 40, step: 1, default_value: 12, unit: 'vents' },
+      // Image-card radio on the highest-uncertainty question (duct condition).
+      { id: 'duct_condition', name: 'Duct Condition', label: 'How dirty are the ducts?', type: 'radio',
+        help: 'Pull a register and peek — your best guess is fine.',
+        options: [
+          { ...optImg('Routine refresh', 0, 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=300&h=300&fit=crop'),
+            description: 'Cleaned within ~5 years — standard agitation pass.' },
+          { ...optImg('Heavy buildup', 110, 'https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=300&h=300&fit=crop'),
+            description: 'Never cleaned, pets, or visible dust plumes from vents.' },
+          { ...optImg('Post-renovation dust', 190, 'https://images.unsplash.com/photo-1523217582562-09d0def993a6?w=300&h=300&fit=crop'),
+            description: 'Drywall and sawdust need a HEPA double-pass.' },
+        ] },
+      { id: 'duct_furnace', name: 'Furnace & Blower Deep Clean', label: 'Add furnace & blower deep clean', type: 'toggle',
+        help: 'Opens the cabinet to clean the blower wheel and coil face.',
+        on_value: 130 },
+      { id: 'duct_sanitize', name: 'Sanitizing Fog Treatment', label: 'Add sanitizing fog treatment', type: 'toggle',
+        help: 'EPA-registered antimicrobial fog — recommended after heavy buildup.',
+        on_value: 95 },
+      { id: 'duct_dryer', name: 'Dryer Vent Cleaning', label: 'Add dryer vent cleaning', type: 'toggle',
+        help: 'Clears lint from the dryer to the exterior cap — takes ~30 minutes.',
+        on_value: 129 },
+      // show_if — rooftop access only matters when the dryer vent is added.
+      { id: 'duct_rooftop', name: 'Rooftop Dryer Vent Access', label: 'Dryer vents through the roof', type: 'toggle',
+        help: 'Roof terminations need ladder access and a cap clean-out.',
+        on_value: 75,
+        show_if: { field: 'duct_dryer', op: 'eq', value: 1 } },
+    ],
+    calculations: [
+      { ...calc('Ducts & Registers', '120 + [Supply Vents] * 28'), caption: 'Trunk-line clean plus $28 per supply register.' },
+      { ...calc('Condition Surcharge', '[Duct Condition]'), caption: 'Extra agitation passes for heavier buildup.' },
+      { ...calc('Add-on Services', '[Furnace & Blower Deep Clean] + [Sanitizing Fog Treatment] + [Dryer Vent Cleaning] + [Rooftop Dryer Vent Access]'), caption: 'Furnace, sanitizing and dryer vent options.' },
+      { ...calc('Total Cleaning Price', '[Ducts & Registers] + [Condition Surcharge] + [Add-on Services]'),
+        resultMode: 'primary', caption: 'Flat price — includes before/after photos of every trunk line.' },
+    ],
+    result_calc: 'Total Cleaning Price',
+    results: {
+      heading: 'Your Duct Cleaning Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Cleaning',
+      cta_heading: 'Allergy season is coming',
+      cta_sub: 'Most homes are done in 2–3 hours — you get before/after photos of every line we clean.',
+      submit_success: 'Booked! We’ll text your arrival window and a quick prep checklist (clear access to registers).',
+      footnote: 'NADCA-standard source-removal cleaning — negative-pressure HEPA truck, not a shop-vac. Returns cleaned free.',
     },
   },
 ];

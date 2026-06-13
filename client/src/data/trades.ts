@@ -94,6 +94,10 @@ export const TRADES: Trade[] = [
   { id: "cctv_installation", categoryId: "mechanical", label: "CCTV Installation" },
   { id: "garage_door", categoryId: "mechanical", label: "Garage Door Installation" },
   { id: "appliance_repair", categoryId: "mechanical", label: "Appliance Repair" },
+  // TEMPLATES BATCH 1 — "mechanical money" trades (template-inventory TOP-15
+  // #6 septic; bench duct cleaning, pairs with cleaning's dryer_vent_cleaning).
+  { id: "septic_services", categoryId: "mechanical", label: "Septic Pumping & Service" },
+  { id: "duct_cleaning", categoryId: "mechanical", label: "Air Duct Cleaning" },
 
   { id: "emergency_plumbing", categoryId: "emergency", label: "Emergency Plumbing" },
   { id: "water_damage", categoryId: "emergency", label: "Water Damage Restoration" },
@@ -111,6 +115,9 @@ export const TRADES: Trade[] = [
   { id: "mobile_mechanic", categoryId: "auto", label: "Mobile Mechanic" },
   { id: "vehicle_wrap", categoryId: "auto", label: "Vehicle Wrap" },
   { id: "paint_protection_film", categoryId: "auto", label: "Paint Protection Film" },
+  // TEMPLATES BATCH 0 — Car Towing template previously dangled on
+  // `auto_detailing`; towing is its own purchase-intent trade.
+  { id: "towing", categoryId: "auto", label: "Towing" },
 
   { id: "landscaping", categoryId: "outdoor", label: "Landscaping" },
   { id: "lawn_mowing", categoryId: "outdoor", label: "Lawn Mowing" },
