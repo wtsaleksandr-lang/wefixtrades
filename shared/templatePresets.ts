@@ -4752,6 +4752,651 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       footnote: 'NADCA-standard source-removal cleaning — negative-pressure HEPA truck, not a shop-vac. Returns cleaned free.',
     },
   },
+
+  /* ════ TEMPLATES BATCH 2 — "Surfaces" (template-inventory spec) ════
+   *
+   * Five showcase-tier templates for high-intent surface trades (TOP-15 #2
+   * garage floor coating, #3 asphalt paving+sealcoat, bench paver patio, #12
+   * countertops, plus retaining wall). Every entry ships the FULL showcase
+   * tier identical to the Batch 1 exemplars above: explicit niche style block,
+   * defaultIcon + trade-true trustBadges, per-field help + option
+   * descriptions, ≥1 show_if branch validated against real option ids, an
+   * image-card radio / image_choice on the highest-uncertainty (material/
+   * finish) question, calc captions + exactly one `resultMode: 'primary'`
+   * total, results CTA block (cta_heading/cta_sub/submit_success), explicit
+   * 3-step grouping with step help covering every input, and animations +
+   * premium countUp/staggerReveal (no cardFlip / confetti). All four
+   * material-card image URLs use curated `images.unsplash.com/photo-<id>`
+   * direct URLs (each ID verified live → HTTP 200).
+   */
+
+  /* ── 55. Garage Floor Coating / Epoxy (BATCH 2 #1) ──
+   * sqft × finish-tier image cards (flake / metallic / solid). Prep level
+   * select; show_if surfaces the moisture-barrier upgrade only on the
+   * "Heavy grinding" prep branch (failed concrete needs sealing first).
+   * Range mode — slab condition isn't fully known until grinding starts. */
+  {
+    id: 'garage_floor_coating_quote', name: 'Garage Floor Coating — Epoxy & Polyaspartic',
+    description: 'Garage floor coating priced by square footage and finish tier, with prep level, bay count and high-traffic add-ons.',
+    category: 'Home Improvement', trades: ['garage_floor_coating'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Manufacturer-Certified Installers', 'verified'),
+      b('15-Year Coating Warranty', 'award'),
+      b('1-Day Polyaspartic Cure', 'clock'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'LayoutGrid',
+    requireAddress: true,
+    // Showcase niche style — slate-graphite body, near-black result panel,
+    // electric-blue CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#2563eb',
+      background: '#f5f6f8',
+      surface: '#ffffff',
+      border: '#e0e3e9',
+      text: '#111827',
+      resultsBg: '#0f172a',
+      ctaColor: '#38bdf8',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'geist',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Slab condition (cracks, oil, moisture) is found at grinding — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Price Your Garage Floor Coating in 60 Seconds', subtitle: 'Manufacturer-certified installers · 15-year warranty · Drive on it in 24 hours', align: 'left' },
+    steps: [
+      { id: 'step_floor', label: 'Your floor', help: 'Garage size and the finish you want underfoot.', fields: ['gfc_size', 'gfc_finish'] },
+      { id: 'step_prep', label: 'Prep & condition', help: 'How the slab is prepped sets adhesion and warranty.', fields: ['gfc_prep', 'gfc_moisture'] },
+      { id: 'step_extras', label: 'Coverage & extras', help: 'Bay count and optional high-traffic upgrades.', fields: ['gfc_bays', 'gfc_addons'] },
+    ],
+    fields: [
+      { id: 'gfc_size', name: 'Floor Area', label: 'Garage floor area (sq ft)', type: 'slider',
+        help: 'A standard 2-car garage is about 400–480 sq ft.',
+        min: 200, max: 1400, step: 20, default_value: 440, unit: 'sq ft' },
+      // image_choice on the highest-uncertainty question (finish tier).
+      { id: 'gfc_finish', name: 'Finish Tier', label: 'Which finish do you want?', type: 'image_choice',
+        help: 'Flake hides imperfections; metallic is a showroom look; solid is clean and simple.',
+        options: [
+          { ...optImg('Solid color', 3, 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=300&h=300&fit=crop'),
+            description: 'One-coat solid epoxy — clean, budget-friendly garage finish.' },
+          { ...optImg('Decorative flake', 5, 'https://images.unsplash.com/photo-1632759145351-1d592919f522?w=300&h=300&fit=crop'),
+            description: 'Broadcast color flake in a clear topcoat — hides cracks, best-seller.' },
+          { ...optImg('Metallic epoxy', 8, 'https://images.unsplash.com/photo-1604014237800-1c9102c219da?w=300&h=300&fit=crop'),
+            description: 'Marbled metallic pigment — high-gloss showroom look.' },
+        ] },
+      { id: 'gfc_prep', name: 'Surface Prep', label: 'How is the slab now?', type: 'select',
+        help: 'Diamond grinding is the gold standard — it opens the concrete for a permanent bond.',
+        options: [
+          { ...opt('Good — light diamond grind', 0), description: 'Clean, sound slab — standard mechanical prep.' },
+          { ...opt('Stained / oily — degrease + grind', 220), description: 'Oil-soaked slabs need degreasing before coating.' },
+          { ...opt('Heavy grinding + crack repair', 480), description: 'Pitted or cracked slab — fill, patch and aggressive grind.' },
+        ] },
+      // show_if — moisture barrier only matters on heavily-ground / failed slabs.
+      { id: 'gfc_moisture', name: 'Moisture Barrier Primer', label: 'Add moisture-barrier primer', type: 'toggle',
+        help: 'Older slabs without a vapor barrier can push moisture and delaminate — this seals it first.',
+        on_value: 1.5,
+        show_if: { field: 'gfc_prep', op: 'eq', value: 'heavy_grinding_crack_repair' } },
+      { id: 'gfc_bays', name: 'Garage Bays', label: 'How many bays?', type: 'select',
+        help: 'Bay count sets crew size and mix volume for the day.',
+        options: [
+          opt('1 bay', 0),
+          { ...opt('2 bays', 150), description: 'The most common garage — single-day install.' },
+          opt('3+ bays', 350),
+        ] },
+      { id: 'gfc_addons', name: 'Add-ons', label: 'High-traffic upgrades', type: 'multi_select',
+        help: 'Optional — all installable now, cheapest while the crew is on site.',
+        options: [
+          { ...opt('Anti-slip aggregate', 120), description: 'Fine grit in the topcoat — grippy when wet, garage-safe.' },
+          opt('Extra-thick polyaspartic topcoat', 260),
+          opt('Cove base / wall trim', 180),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Coating & Material', '[Floor Area] * [Finish Tier]'), caption: 'Per-square-foot coating cost at your chosen finish tier.' },
+      { ...calc('Prep Work', '[Surface Prep] + [Floor Area] * [Moisture Barrier Primer]'), caption: 'Grinding, repairs and any moisture-barrier sealing.' },
+      { ...calc('Coverage & Extras', '[Garage Bays] + [Add-ons]'), caption: 'Bay coverage and optional high-traffic upgrades.' },
+      { ...calc('Total Coating Price', '[Coating & Material] + [Prep Work] + [Coverage & Extras]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed at a quick on-site slab check.' },
+    ],
+    result_calc: 'Total Coating Price',
+    results: {
+      heading: 'Your Garage Floor Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Garage Floor',
+      cta_heading: 'Most garages coat in a single day',
+      cta_sub: 'Pick a date — we grind, coat and topcoat, and you drive on it within 24 hours.',
+      submit_success: 'Booked! Your project lead will call within one business day to confirm color, prep and your install date.',
+      footnote: 'Includes diamond grinding, base coat, color and clear topcoat. 15-year manufacturer warranty on the coating system.',
+    },
+  },
+
+  /* ── 56. Asphalt Paving & Sealcoating (BATCH 2 #2) ──
+   * Service-type radio (new paving vs sealcoat) drives TWO show_if branches:
+   * paving reveals depth/base prep, sealcoat reveals coat count. Distinct by
+   * NAME + id from the existing "Driveway Paving — Multi-Surface" template
+   * (collapse is name-keyed). Range mode — sub-base condition varies. */
+  {
+    id: 'asphalt_paving_sealcoat', name: 'Asphalt Paving & Sealcoating',
+    description: 'Asphalt driveway pricing for new paving or sealcoating, by square footage, depth, base prep and crack repair.',
+    category: 'Construction', trades: ['asphalt_driveway', 'driveway_sealing'],
+    trustBadges: BADGES.driveway_concrete,
+    layout: 'two-column', theme: 'light', defaultIcon: 'Construction',
+    requireAddress: true,
+    // Showcase niche style — warm-asphalt charcoal body, near-black result
+    // panel, safety-amber CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#374151',
+      background: '#f6f6f5',
+      surface: '#ffffff',
+      border: '#e3e3e1',
+      text: '#1c1917',
+      resultsBg: '#1f2937',
+      ctaColor: '#f59e0b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 10,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Sub-base condition is found once the old surface is up — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Asphalt Driveway — Paving or Sealcoat Price Now', subtitle: 'Licensed paving crews · 10-year workmanship warranty · Free on-site measure', align: 'left' },
+    steps: [
+      { id: 'step_service', label: 'Service', help: 'New asphalt, or refresh and protect what you have.', fields: ['asp_service', 'asp_area'] },
+      { id: 'step_paving', label: 'Build-up', help: 'Depth and base prep set the life of new asphalt.', fields: ['asp_depth', 'asp_base'] },
+      { id: 'step_finish', label: 'Sealcoat & extras', help: 'Coats, crack repair and edging options.', fields: ['asp_coats', 'asp_extras'] },
+    ],
+    fields: [
+      // image_choice on the branching question (the whole quote forks here).
+      { id: 'asp_service', name: 'Service Type', label: 'What does your driveway need?', type: 'image_choice',
+        help: 'New paving rebuilds the surface; sealcoating protects asphalt that’s still sound.',
+        options: [
+          { ...optImg('New asphalt paving', 7, 'https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?w=300&h=300&fit=crop'),
+            description: 'Tear-out and fresh hot-mix asphalt — priced per square foot.' },
+          { ...optImg('Sealcoat & protect', 0.35, 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop'),
+            description: 'Refresh and protect existing asphalt — extends its life 3–5 years.' },
+        ] },
+      { id: 'asp_area', name: 'Driveway Area', label: 'Driveway area (sq ft)', type: 'slider',
+        help: 'A typical 2-car driveway is around 600 sq ft. Pace it off if unsure.',
+        min: 200, max: 4000, step: 50, default_value: 600, unit: 'sq ft' },
+      // show_if — depth only matters for NEW paving.
+      { id: 'asp_depth', name: 'Asphalt Depth', label: 'Asphalt thickness', type: 'select',
+        help: 'Thicker mats carry heavier loads — 3" suits most residential driveways.',
+        options: [
+          { ...opt('2" residential', 0), description: 'Light-use cars only — minimum residential depth.' },
+          { ...opt('3" standard', 1.5), description: 'The most-paved residential depth — cars and light trucks.' },
+          opt('4" heavy-duty / RV', 3),
+        ],
+        show_if: { field: 'asp_service', op: 'eq', value: 'new_asphalt_paving' } },
+      // show_if — base prep only matters for NEW paving.
+      { id: 'asp_base', name: 'Base Preparation', label: 'Base / sub-grade prep', type: 'select',
+        help: 'A compacted stone base is what keeps new asphalt from cracking.',
+        options: [
+          { ...opt('Re-pave over solid base', 0), description: 'Existing base is sound — overlay only.' },
+          { ...opt('New 4" crushed-stone base', 2), description: 'Standard for a full rebuild — graded and compacted.' },
+          opt('Excavate + rebuild soft sub-grade', 3.5),
+        ],
+        show_if: { field: 'asp_service', op: 'eq', value: 'new_asphalt_paving' } },
+      // show_if — coat count only matters for SEALCOATING.
+      { id: 'asp_coats', name: 'Sealcoat Coats', label: 'How many sealcoat coats?', type: 'select',
+        help: 'Two coats last longer on older or porous asphalt.',
+        options: [
+          { ...opt('One coat', 0), description: 'Good for asphalt sealed within the last 2–3 years.' },
+          { ...opt('Two coats', 0.18), description: 'Recommended for older or never-sealed driveways.' },
+        ],
+        show_if: { field: 'asp_service', op: 'eq', value: 'sealcoat_protect' } },
+      { id: 'asp_extras', name: 'Extras', label: 'Repairs & finishing', type: 'multi_select',
+        help: 'Crack filling and edging — cheapest done with the crew on site.',
+        options: [
+          { ...opt('Crack filling & pothole patch', 180), description: 'Rout and hot-rubber fill before the surface coat.' },
+          opt('Paver / Belgian-block edging', 420),
+          opt('Re-stripe lines & numbers', 95),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Surface Work', '[Driveway Area] * ([Service Type] + [Asphalt Depth] + [Sealcoat Coats])'), caption: 'Per-square-foot paving or sealcoat at your chosen build-up.' },
+      { ...calc('Base Preparation', '[Driveway Area] * [Base Preparation]'), caption: 'Stone base and sub-grade work for new asphalt.' },
+      { ...calc('Repairs & Finishing', '[Extras]'), caption: 'Crack repair, edging and striping options.' },
+      { ...calc('Total Driveway Price', '[Surface Work] + [Base Preparation] + [Repairs & Finishing]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed at a free on-site measure.' },
+    ],
+    result_calc: 'Total Driveway Price',
+    results: {
+      heading: 'Your Driveway Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Measure',
+      cta_heading: 'Paving season books up fast',
+      cta_sub: 'We measure on site, confirm depth and base, then lock your install or sealcoat date.',
+      submit_success: 'Requested! Our estimator will call within one business day to schedule your free measure.',
+      footnote: 'New paving includes tear-out, base, hot-mix asphalt and compaction. 10-year workmanship warranty on paving.',
+    },
+  },
+
+  /* ── 57. Paver Patio & Walkway (BATCH 2 #3) ──
+   * Paver-style image cards; sqft slider; base-prep select. show_if surfaces
+   * the firepit kit picker only when "Firepit" is chosen in the add-ons
+   * multi_select (contains). Range mode — excavation/grade varies on site. */
+  {
+    id: 'paver_patio_walkway', name: 'Paver Patio & Walkway',
+    description: 'Paver patio and walkway pricing by square footage and paver style, with base prep, borders and firepit add-ons.',
+    category: 'Outdoor', trades: ['interlocking_pavers', 'patio_installation', 'stamped_concrete'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('ICPI-Certified Installers', 'verified'),
+      b('Lifetime Paver Warranty', 'award'),
+      b('Free 3D Design Preview', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Grid3x3',
+    requireAddress: true,
+    // Showcase niche style — sandstone-warm body, deep-stone result panel,
+    // terracotta CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#b45309',
+      background: '#f8f5f0',
+      surface: '#ffffff',
+      border: '#eae3d7',
+      text: '#1c1917',
+      resultsBg: '#3f3326',
+      ctaColor: '#f59e0b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'outfit',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Excavation depth and grade vary until the layout is staked — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Design Your Paver Patio — Instant Price', subtitle: 'ICPI-certified installers · Lifetime paver warranty · Free 3D design preview', align: 'left' },
+    steps: [
+      { id: 'step_layout', label: 'Size & style', help: 'How big, and which paver look you’re after.', fields: ['ppw_area', 'ppw_style'] },
+      { id: 'step_base', label: 'Base & border', help: 'The base is what keeps pavers level for decades.', fields: ['ppw_base', 'ppw_border'] },
+      { id: 'step_extras', label: 'Features', help: 'Optional living-space features for your patio.', fields: ['ppw_addons', 'ppw_firepit'] },
+    ],
+    fields: [
+      { id: 'ppw_area', name: 'Paved Area', label: 'Patio / walkway area (sq ft)', type: 'slider',
+        help: 'A comfortable dining patio is about 250–400 sq ft.',
+        min: 60, max: 1200, step: 10, default_value: 300, unit: 'sq ft' },
+      // image_choice on the highest-uncertainty question (paver style).
+      { id: 'ppw_style', name: 'Paver Style', label: 'Which paver style?', type: 'image_choice',
+        help: 'Style sets the per-square-foot material cost — premium pavers cost more but last a lifetime.',
+        options: [
+          { ...optImg('Standard concrete paver', 14, 'https://images.unsplash.com/photo-1597047084897-51e81819a499?w=300&h=300&fit=crop'),
+            description: 'Classic interlocking pavers — durable and budget-friendly.' },
+          { ...optImg('Tumbled / cobble', 18, 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=300&h=300&fit=crop'),
+            description: 'Old-world tumbled edges — soft, rounded, premium look.' },
+          { ...optImg('Large-format porcelain', 24, 'https://images.unsplash.com/photo-1556909211-36987daf7b4d?w=300&h=300&fit=crop'),
+            description: 'Modern oversized slabs — sleek, stain-proof, top-tier.' },
+        ] },
+      { id: 'ppw_base', name: 'Base Preparation', label: 'Base build-up', type: 'select',
+        help: 'A deep compacted base is the #1 factor in a patio that never heaves.',
+        options: [
+          { ...opt('Standard 6" base', 0), description: 'Right for foot-traffic patios and walkways.' },
+          { ...opt('Heavy 8–10" base (clay / frost)', 4), description: 'For clay soils or freeze-thaw climates.' },
+          opt('Permeable base (drainage)', 7),
+        ] },
+      { id: 'ppw_border', name: 'Border / Soldier Course', label: 'Decorative border', type: 'select',
+        help: 'A contrasting border frames the patio and locks the field pavers.',
+        options: [
+          opt('No border', 0),
+          { ...opt('Single soldier course', 6), description: 'One row of contrasting pavers around the edge.' },
+          opt('Double border + inlay', 11),
+        ] },
+      { id: 'ppw_addons', name: 'Features', label: 'Outdoor living features', type: 'multi_select',
+        help: 'Add the features you want — each is cheapest built with the patio.',
+        options: [
+          { ...opt('Firepit', 0), description: 'Adds a paver firepit — pick a kit on the next question.' },
+          opt('Seat wall (per 10 ft)', 1400),
+          opt('Step / landing', 650),
+          opt('Landscape lighting', 480),
+        ] },
+      // show_if — firepit kit picker only surfaces when "Firepit" is ticked.
+      { id: 'ppw_firepit', name: 'Firepit Kit', label: 'Which firepit kit?', type: 'select',
+        help: 'Wood-burning is simplest; gas adds a plumbed line and burner.',
+        options: [
+          { ...opt('Wood-burning paver kit', 900), description: 'Round or square modular kit — no gas line needed.' },
+          opt('Gas firepit + burner', 2200),
+        ],
+        show_if: { field: 'ppw_addons', op: 'contains', value: 'firepit' } },
+    ],
+    calculations: [
+      { ...calc('Pavers & Installation', '[Paved Area] * ([Paver Style] + [Base Preparation] + [Border / Soldier Course])'), caption: 'Per-square-foot pavers, base build-up and border course.' },
+      { ...calc('Outdoor Features', '[Features] + [Firepit Kit]'), caption: 'Seat walls, steps, lighting and any firepit kit.' },
+      { ...calc('Total Patio Price', '[Pavers & Installation] + [Outdoor Features]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed after a free on-site design visit.' },
+    ],
+    result_calc: 'Total Patio Price',
+    results: {
+      heading: 'Your Paver Patio Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Design Visit',
+      cta_heading: 'See it in 3D before you commit',
+      cta_sub: 'We measure, stake the layout and send a free 3D design preview before any work begins.',
+      submit_success: 'Requested! Our designer will call within one business day to schedule your free on-site visit.',
+      footnote: 'Includes excavation, compacted base, paver installation, polymeric sand and edge restraint. Lifetime paver warranty.',
+    },
+  },
+
+  /* ── 58. Retaining Wall Installation (BATCH 2 #4) ──
+   * Wall material image cards (block / natural stone / timber); the
+   * high-uncertainty driver is linear feet × height. show_if surfaces the
+   * tiered-engineering note when height ≥ 4 ft (code/permit threshold).
+   * Range mode — excavation + drainage depth vary on site. */
+  {
+    id: 'retaining_wall_quote', name: 'Retaining Wall Installation',
+    description: 'Retaining wall pricing by material, linear feet and height, with drainage, geo-grid reinforcement and step-downs.',
+    category: 'Outdoor', trades: ['retaining_wall'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Engineered for Walls Over 4 ft', 'verified'),
+      b('Lifetime Block Warranty', 'award'),
+      b('Free On-Site Survey', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'BrickWall',
+    requireAddress: true,
+    // Showcase niche style — stone-grey body, deep-slate result panel,
+    // moss-green CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#57534e',
+      background: '#f5f5f4',
+      surface: '#ffffff',
+      border: '#e2e1de',
+      text: '#1c1917',
+      resultsBg: '#292524',
+      ctaColor: '#84cc16',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'manrope',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Excavation, drainage depth and soil retention vary on site — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Price Your Retaining Wall in 60 Seconds', subtitle: 'Engineered builds · Lifetime block warranty · Free on-site survey', align: 'left' },
+    steps: [
+      { id: 'step_wall', label: 'Material & size', help: 'The material and the wall’s footprint drive most of the price.', fields: ['rw_material', 'rw_length', 'rw_height'] },
+      { id: 'step_engineering', label: 'Drainage & structure', help: 'Taller walls need drainage and reinforcement to last.', fields: ['rw_drainage', 'rw_geogrid'] },
+      { id: 'step_extras', label: 'Finishing', help: 'Optional steps, caps and lighting.', fields: ['rw_addons'] },
+    ],
+    fields: [
+      // image_choice on the highest-uncertainty driver (wall material).
+      { id: 'rw_material', name: 'Wall Material', label: 'Which wall material?', type: 'image_choice',
+        help: 'Material sets the per-square-foot face cost and the look of the finished wall.',
+        options: [
+          { ...optImg('Segmental block', 32, 'https://images.unsplash.com/photo-1615529182904-14819c35db37?w=300&h=300&fit=crop'),
+            description: 'Engineered interlocking block — most popular, fastest to build.' },
+          { ...optImg('Natural stone', 52, 'https://images.unsplash.com/photo-1556912173-3bb406ef7e77?w=300&h=300&fit=crop'),
+            description: 'Hand-laid quarried stone — premium, organic look.' },
+          { ...optImg('Pressure-treated timber', 24, 'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=300&h=300&fit=crop'),
+            description: 'Treated timber ties — budget option for shorter walls.' },
+        ] },
+      { id: 'rw_length', name: 'Wall Length', label: 'Wall length (linear ft)', type: 'slider',
+        help: 'Measure along the base of where the wall will run.',
+        min: 10, max: 200, step: 5, default_value: 40, unit: 'ft' },
+      { id: 'rw_height', name: 'Wall Height', label: 'Average wall height (ft)', type: 'slider',
+        help: 'Height is the biggest cost driver — taller walls need engineering. Measure at the tallest point.',
+        min: 2, max: 10, step: 1, default_value: 3, unit: 'ft' },
+      { id: 'rw_drainage', name: 'Drainage System', label: 'Drainage build-up', type: 'select',
+        help: 'Gravel backfill and a drain pipe are what keep a wall from bowing — skip at your own risk.',
+        options: [
+          { ...opt('Standard gravel + drain pipe', 0), description: 'Included on every wall we build — the right default.' },
+          { ...opt('Heavy drainage (wet / clay site)', 12), description: 'Extra gravel chimney and outlets for saturated soils.' },
+        ] },
+      // show_if — geo-grid reinforcement only matters once height ≥ 4 ft.
+      { id: 'rw_geogrid', name: 'Geo-Grid Reinforcement', label: 'Add engineered geo-grid reinforcement', type: 'toggle',
+        help: 'Walls 4 ft and taller need geo-grid tied back into the soil — usually code-required.',
+        on_value: 14,
+        show_if: { field: 'rw_height', op: 'gte', value: 4 } },
+      { id: 'rw_addons', name: 'Finishing', label: 'Finishing touches', type: 'multi_select',
+        help: 'Optional finishing — cheapest built with the wall.',
+        options: [
+          { ...opt('Capstones', 9), description: 'Finished cap course — per linear foot of wall top.' },
+          opt('Steps / tiered transition', 850),
+          opt('Integrated wall lighting', 520),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Wall Face & Material', '[Wall Length] * [Wall Height] * ([Wall Material] + [Drainage System] + [Geo-Grid Reinforcement])'), caption: 'Square-foot wall face × material, drainage and reinforcement.' },
+      { ...calc('Capstones & Finishing', '[Wall Length] * 0 + [Finishing]'), caption: 'Caps, steps and lighting options.' },
+      { ...calc('Total Wall Price', '[Wall Face & Material] + [Capstones & Finishing]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed at a free on-site survey.' },
+    ],
+    result_calc: 'Total Wall Price',
+    results: {
+      heading: 'Your Retaining Wall Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Survey',
+      cta_heading: 'Walls over 4 ft need engineering',
+      cta_sub: 'We survey grade and soil on site, confirm drainage and reinforcement, then lock your build date.',
+      submit_success: 'Requested! Our project lead will call within one business day to schedule your free site survey.',
+      footnote: 'Includes excavation, base, drainage gravel, drain pipe and block installation. Engineering quoted for walls over 4 ft.',
+    },
+  },
+
+  /* ── 59. Countertop Installation (BATCH 2 #5) ──
+   * The image_choice materials showcase (laminate / quartz / granite /
+   * marble) — the per-square-foot driver. Edge-profile select with
+   * per-option descriptions; sink-cutout count; show_if surfaces the
+   * waterfall-edge upgrade only for the premium stone branches (quartz /
+   * granite / marble). */
+  {
+    id: 'countertop_installation', name: 'Countertop Installation',
+    description: 'Countertop pricing by material and square footage, with edge profile, sink cutouts and backsplash.',
+    category: 'Home Improvement', trades: ['countertops'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Certified Stone Fabricators', 'verified'),
+      b('Digital Laser Templating', 'badge-check'),
+      b('Lifetime Sealant Warranty', 'award'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Square',
+    requireAddress: true,
+    // Showcase niche style — warm-marble cream body, deep-espresso result
+    // panel, brass CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#9a3412',
+      background: '#f9f6f1',
+      surface: '#ffffff',
+      border: '#ece4d8',
+      text: '#1c1917',
+      resultsBg: '#292018',
+      ctaColor: '#d97706',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'jakarta',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Slab pricing is per-sq-ft exact once material is picked — no band.
+        range_mode: { enabled: false, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Price Your New Countertops in 60 Seconds', subtitle: 'Certified fabricators · Laser-templated · Lifetime sealant warranty', align: 'left' },
+    steps: [
+      { id: 'step_material', label: 'Material & size', help: 'Pick a material and tell us roughly how much surface you have.', fields: ['ctp_material', 'ctp_area'] },
+      { id: 'step_edge', label: 'Edges & cutouts', help: 'Edge profile and how many sinks or cooktops drop in.', fields: ['ctp_edge', 'ctp_cutouts', 'ctp_waterfall'] },
+      { id: 'step_finish', label: 'Backsplash & extras', help: 'Optional backsplash and demo of the old tops.', fields: ['ctp_backsplash', 'ctp_demo'] },
+    ],
+    fields: [
+      // image_choice — the materials showcase, per-sq-ft pricing driver.
+      { id: 'ctp_material', name: 'Material', label: 'Which countertop material?', type: 'image_choice',
+        help: 'Material is the biggest cost driver — quartz is the most popular for its durability.',
+        options: [
+          { ...optImg('Laminate', 28, 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=300&h=300&fit=crop'),
+            description: 'Budget-friendly, hundreds of patterns — great for rentals and laundry rooms.' },
+          { ...optImg('Quartz (engineered)', 70, 'https://images.unsplash.com/photo-1600210492493-0946911123ea?w=300&h=300&fit=crop'),
+            description: 'Non-porous, no sealing, most consistent look — our best-seller.' },
+          { ...optImg('Granite', 60, 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=300&h=300&fit=crop'),
+            description: 'Natural stone, each slab unique — heat-proof, needs periodic sealing.' },
+          { ...optImg('Marble', 95, 'https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=300&h=300&fit=crop'),
+            description: 'Classic luxury veining — softest stone, best for baking and baths.' },
+        ] },
+      { id: 'ctp_area', name: 'Counter Area', label: 'Countertop area (sq ft)', type: 'slider',
+        help: 'An average kitchen runs 40–55 sq ft including the island.',
+        min: 15, max: 150, step: 5, default_value: 45, unit: 'sq ft' },
+      { id: 'ctp_edge', name: 'Edge Profile', label: 'Which edge profile?', type: 'select',
+        help: 'The edge is the detail you’ll touch every day — fancier profiles take more fabrication time.',
+        options: [
+          { ...opt('Eased / straight', 0), description: 'Clean square edge with a softened top — included.' },
+          { ...opt('Beveled', 6), description: 'A 45° angled cut — subtle, modern detail.' },
+          { ...opt('Bullnose (rounded)', 9), description: 'Fully rounded edge — soft and family-friendly.' },
+          { ...opt('Ogee (decorative)', 16), description: 'Carved S-curve — the premium, traditional look.' },
+        ] },
+      { id: 'ctp_cutouts', name: 'Sink & Cooktop Cutouts', label: 'How many sink / cooktop cutouts?', type: 'select',
+        help: 'Each undermount sink, drop-in cooktop or faucet hole is cut and polished by hand.',
+        options: [
+          opt('1 cutout', 0),
+          { ...opt('2 cutouts', 150), description: 'Typical kitchen — one sink plus a cooktop.' },
+          opt('3+ cutouts', 320),
+        ] },
+      // show_if — waterfall edge only offered on premium stone materials.
+      { id: 'ctp_waterfall', name: 'Waterfall Island Edge', label: 'Add a waterfall island edge', type: 'toggle',
+        help: 'The slab runs vertically down the island sides — a high-end stone feature.',
+        on_value: 1200,
+        show_if: { field: 'ctp_material', op: 'ne', value: 'laminate' } },
+      { id: 'ctp_backsplash', name: 'Matching Backsplash', label: 'Add a matching slab backsplash', type: 'select',
+        help: 'A slab backsplash in the same material — no grout lines to clean.',
+        options: [
+          opt('No slab backsplash', 0),
+          { ...opt('4" standard backsplash', 14), description: 'Per linear foot — the classic short backsplash.' },
+          opt('Full-height backsplash', 38),
+        ] },
+      { id: 'ctp_demo', name: 'Remove Old Countertops', label: 'Remove & dispose of old countertops', type: 'toggle',
+        help: 'We tear out and haul away the existing tops the day we template-install.',
+        on_value: 220 },
+    ],
+    calculations: [
+      { ...calc('Material & Fabrication', '[Counter Area] * ([Material] + [Edge Profile] + [Matching Backsplash])'), caption: 'Per-square-foot material, edge fabrication and any slab backsplash.' },
+      { ...calc('Cutouts & Features', '[Sink & Cooktop Cutouts] + [Waterfall Island Edge]'), caption: 'Hand-cut sink/cooktop openings and any waterfall edge.' },
+      { ...calc('Removal', '[Remove Old Countertops]'), caption: 'Tear-out and disposal of the old countertops.' },
+      { ...calc('Total Countertop Price', '[Material & Fabrication] + [Cutouts & Features] + [Removal]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed after free laser templating.' },
+    ],
+    result_calc: 'Total Countertop Price',
+    results: {
+      heading: 'Your Countertop Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Templating',
+      cta_heading: 'See real slabs before you decide',
+      cta_sub: 'We laser-template your kitchen and help you pick the exact slab — install is usually one week later.',
+      submit_success: 'Booked! Your design consultant will call within one business day to schedule your free templating visit.',
+      footnote: 'Includes laser templating, fabrication, professional installation and seam finishing. Lifetime sealant warranty on stone.',
+    },
+  },
 ];
 
 /* ─── Lookups ─── */

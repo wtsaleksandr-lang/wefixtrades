@@ -69,6 +69,10 @@ export const TRADES: Trade[] = [
   { id: "siding_installation", categoryId: "reno", label: "Siding Installation" },
   { id: "window_replacement", categoryId: "reno", label: "Window Replacement" },
   { id: "door_installation", categoryId: "reno", label: "Door Installation" },
+  // TEMPLATES BATCH 2 — "Surfaces" (template-inventory TOP-15 #12). Countertop
+  // installation — the image_choice materials showcase (laminate/quartz/
+  // granite/marble); a finish/surface reno trade.
+  { id: "countertops", categoryId: "reno", label: "Countertop Installation" },
 
   { id: "asphalt_driveway", categoryId: "driveway", label: "Asphalt Driveway Paving" },
   { id: "driveway_sealing", categoryId: "driveway", label: "Driveway Sealing" },
@@ -78,6 +82,9 @@ export const TRADES: Trade[] = [
   { id: "concrete_slab", categoryId: "driveway", label: "Concrete Slab Installation" },
   { id: "concrete_patio", categoryId: "driveway", label: "Concrete Patio" },
   { id: "retaining_wall", categoryId: "driveway", label: "Retaining Wall Construction" },
+  // TEMPLATES BATCH 2 — "Surfaces" (template-inventory TOP-15 #2). Epoxy /
+  // polyaspartic garage-floor coatings — a concrete-surface finish trade.
+  { id: "garage_floor_coating", categoryId: "driveway", label: "Garage Floor Coating / Epoxy" },
 
   { id: "hvac_installation", categoryId: "mechanical", label: "HVAC Installation" },
   { id: "hvac_repair", categoryId: "mechanical", label: "HVAC Repair" },
