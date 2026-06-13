@@ -26,14 +26,17 @@ import {
   CreditCard, BellRing, CalendarDays,
   MousePointerClick, Plug, ShieldCheck,
   Lock, Shield, Check, CheckCircle, Calendar, Clock, BadgeCheck, FileCheck, Award,
-  Copy, RefreshCw, Send, ExternalLink,
+  Copy, RefreshCw, Send, ExternalLink, Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 import type {
   ShellSettings,
   ShellStyle,
+  LeadCustomField,
+  LeadFieldType,
 } from './types';
+import { LEAD_FIELD_TYPE_OPTIONS } from './types';
 import type {
   AdvDeposit, AdvDepositIconName, AdvBooking, AdvBookingSource,
 } from '@shared/templatePresets';
@@ -56,14 +59,20 @@ const MODE_OPTIONS: ReadonlyArray<{ value: ActionMode; label: string; hint: stri
   { value: 'no-action', label: 'No action', hint: 'Just show the result.' },
 ];
 
-/* The fields our lead capture collects today. The form isn't field-configurable
-   yet — this list is presentational (type-icon + name rows) so the LAYOUT
-   matches; the "Add field" affordance is disabled with a Pro hint. */
-const LEAD_FIELDS: ReadonlyArray<{ icon: LucideIcon; name: string; type: string }> = [
+/* The always-on standard fields every lead form collects. These are fixed
+   (the widget renders Email / Phone / Name unconditionally) — they're shown
+   here as locked rows so the owner sees the baseline before their custom
+   fields. Custom fields (settings.leadFields) render below and ARE editable. */
+const STANDARD_LEAD_FIELDS: ReadonlyArray<{ icon: LucideIcon; name: string; type: string }> = [
   { icon: User,  name: 'Name',  type: 'Text' },
   { icon: Mail,  name: 'Email', type: 'Email' },
   { icon: Phone, name: 'Phone', type: 'Phone' },
 ];
+
+/** Short, collision-resistant id for a new custom lead field. */
+function newLeadFieldId(): string {
+  return `lf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
 
 /* P2 UX — deposit-badge icon picker. Mirrors the whitelist used elsewhere so a
    saved name resolves back to its lucide component. */
@@ -114,6 +123,31 @@ export default function ActionTab({
   // absent honeypot flag is treated as enabled).
   const submitSuccessText = settings.submitSuccessText ?? '';
   const spamProtection = settings.spamProtection !== false;
+
+  // ── LEAD-FORM-FIELDS — owner-defined custom lead fields ──────────────
+  const leadFields: LeadCustomField[] = Array.isArray(settings.leadFields)
+    ? settings.leadFields
+    : [];
+  const setLeadFields = useCallback(
+    (next: LeadCustomField[]) => patch({ leadFields: next }),
+    [patch],
+  );
+  const addLeadField = useCallback(() => {
+    setLeadFields([
+      ...leadFields,
+      { id: newLeadFieldId(), type: 'text', label: '', required: false, options: [] },
+    ]);
+  }, [leadFields, setLeadFields]);
+  const updateLeadField = useCallback(
+    (id: string, next: Partial<LeadCustomField>) => {
+      setLeadFields(leadFields.map((f) => (f.id === id ? { ...f, ...next } : f)));
+    },
+    [leadFields, setLeadFields],
+  );
+  const removeLeadField = useCallback(
+    (id: string) => setLeadFields(leadFields.filter((f) => f.id !== id)),
+    [leadFields, setLeadFields],
+  );
 
   // ── Payment (relocated from StyleTab — style.deposit, AdvDeposit) ──
   const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
@@ -285,12 +319,13 @@ export default function ActionTab({
               <span className="qq-action-card-title">Lead form fields</span>
               <InfoCue
                 testid="action-section-fields"
-                text="The details we collect from the customer. Field configuration is on the roadmap — today we capture name, email and phone."
+                text="The details we collect from the customer. Name, email and phone are always collected; add your own fields below (e.g. budget, preferred timeframe) and they'll appear on the customer's form and arrive with every lead."
               />
             </div>
             <div className="qq-action-card-body">
+              {/* Standard, always-on fields — locked rows. */}
               <ul className="qq-action-fieldlist" data-testid="action-fieldlist">
-                {LEAD_FIELDS.map((f) => {
+                {STANDARD_LEAD_FIELDS.map((f) => {
                   const Icon = f.icon;
                   return (
                     <li
@@ -307,18 +342,31 @@ export default function ActionTab({
                   );
                 })}
               </ul>
-              {/* "+ Add field" — disabled; field config isn't shipped yet. */}
+
+              {/* Custom owner-defined fields — fully editable. */}
+              {leadFields.length > 0 && (
+                <div className="qq-leadfield-list" data-testid="action-custom-fieldlist">
+                  {leadFields.map((f, i) => (
+                    <LeadFieldEditor
+                      key={f.id}
+                      field={f}
+                      index={i}
+                      onChange={(next) => updateLeadField(f.id, next)}
+                      onRemove={() => removeLeadField(f.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* "+ Add field" — functional. */}
               <button
                 type="button"
-                className="qq-action-addfield"
+                className="qq-action-addfield is-enabled"
                 data-testid="action-add-field"
-                disabled
-                aria-disabled="true"
-                title="Configurable lead fields are coming soon"
+                onClick={addLeadField}
               >
                 <Plus size={16} aria-hidden="true" />
                 <span>Add field</span>
-                <span className="qq-action-soon">Coming soon</span>
               </button>
             </div>
           </div>
@@ -773,7 +821,86 @@ export default function ActionTab({
           border-radius: ${AE.radius.sm};
           cursor: not-allowed;
         }
+        .qq-action-addfield.is-enabled {
+          cursor: pointer;
+          color: ${AE.color.accent};
+          transition: background 0.12s ease, border-color 0.12s ease;
+        }
+        .qq-action-addfield.is-enabled:hover {
+          background: ${AE.color.accentTint};
+          border-color: ${AE.color.accent};
+        }
+        .qq-action-addfield.is-enabled:focus-visible {
+          outline: none; box-shadow: ${AE.shadow.focus};
+        }
         .qq-action-addfield .qq-action-soon { margin-left: auto; }
+
+        /* Custom lead-field editor rows. */
+        .qq-leadfield-list {
+          margin-top: 10px;
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .qq-leadfield {
+          background: ${AE.color.surface};
+          border: 1px solid ${AE.color.hairline};
+          border-radius: ${AE.radius.md};
+          overflow: clip;
+        }
+        .qq-leadfield-head {
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 10px;
+          border-bottom: 1px solid ${AE.color.hairline};
+        }
+        .qq-leadfield-num {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 20px; height: 20px; flex: 0 0 auto;
+          font-size: 11px; font-weight: 700;
+          color: ${AE.color.accent};
+          background: ${AE.color.accentTint};
+          border-radius: ${AE.radius.pill};
+        }
+        .qq-leadfield-headlabel {
+          flex: 1 1 auto; min-width: 0;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-size: ${AE.type.label.size};
+          font-weight: 600;
+          color: ${AE.color.text};
+        }
+        .qq-leadfield-remove {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; flex: 0 0 auto;
+          background: transparent; border: none;
+          border-radius: ${AE.radius.sm};
+          color: ${AE.color.secondary};
+          cursor: pointer;
+          transition: background 0.12s ease, color 0.12s ease;
+        }
+        .qq-leadfield-remove:hover {
+          background: ${AE.color.bg};
+          color: ${AE.color.danger};
+        }
+        .qq-leadfield-remove:focus-visible {
+          outline: 2px solid ${AE.color.accent}; outline-offset: 1px;
+        }
+        .qq-leadfield-body {
+          padding: 12px 12px 14px;
+          display: flex; flex-direction: column; gap: 12px;
+        }
+        .qq-leadfield-required { margin-top: 2px; }
+        .qq-editor-shell[data-theme="dark"] .qq-leadfield,
+        .qq-editor-shell[data-theme="dark"] .qq-leadfield-num {
+          background: rgba(255, 255, 255, 0.04);
+          border-color: var(--qq-border);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-leadfield-head {
+          border-bottom-color: var(--qq-border);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-leadfield-headlabel {
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-leadfield-remove:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
         .qq-action-soon {
           font-size: 11px; font-weight: 600;
           letter-spacing: 0.03em;
@@ -1055,6 +1182,113 @@ export default function ActionTab({
         }
       `}</style>
     </section>
+  );
+}
+
+/* ── Lead field editor ──────────────────────────────────────────────────
+   One editable custom lead-form field row: label, type, required toggle, and
+   (for `select`) a comma-separated options input. Follows the input-field
+   rules — title-in-field via FloatField, help cue top-left, 2px gaps. */
+function LeadFieldEditor({
+  field, index, onChange, onRemove,
+}: {
+  field: LeadCustomField;
+  index: number;
+  onChange: (next: Partial<LeadCustomField>) => void;
+  onRemove: () => void;
+}) {
+  const labelId = `qq-leadfield-label-${field.id}`;
+  const typeId = `qq-leadfield-type-${field.id}`;
+  const optionsId = `qq-leadfield-options-${field.id}`;
+  const optionsText = (field.options ?? []).join(', ');
+
+  return (
+    <div className="qq-leadfield" data-testid={`action-custom-field-${index}`}>
+      <div className="qq-leadfield-head">
+        <span className="qq-leadfield-num" aria-hidden="true">{index + 1}</span>
+        <span className="qq-leadfield-headlabel">
+          {field.label.trim() || 'Untitled field'}
+        </span>
+        <button
+          type="button"
+          className="qq-leadfield-remove"
+          onClick={onRemove}
+          title="Remove field"
+          aria-label={`Remove field ${index + 1}`}
+          data-testid={`action-custom-field-remove-${index}`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="qq-leadfield-body">
+        <FloatField
+          label="Field label"
+          htmlFor={labelId}
+          infoText="The label shown to the customer (e.g. “Estimated budget”). Lead values arrive keyed by this label."
+          infoTestid={`action-custom-field-label-${index}`}
+        >
+          <input
+            id={labelId}
+            type="text"
+            className="premium-input"
+            placeholder=" "
+            maxLength={80}
+            value={field.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            data-testid={`action-custom-field-label-input-${index}`}
+          />
+        </FloatField>
+
+        <FloatField label="Field type" htmlFor={typeId} variant="select">
+          <StyledSelect
+            value={field.type}
+            onChange={(next) => onChange({ type: next as LeadFieldType })}
+            options={LEAD_FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            title="Field type"
+            ariaLabel="Field type"
+            testId={`action-custom-field-type-${index}`}
+          />
+        </FloatField>
+
+        {field.type === 'select' && (
+          <FloatField
+            label="Options (comma separated)"
+            htmlFor={optionsId}
+            infoText="The choices in the dropdown, separated by commas (e.g. “Under $1k, $1k–$5k, $5k+”)."
+            infoTestid={`action-custom-field-options-${index}`}
+          >
+            <input
+              id={optionsId}
+              type="text"
+              className="premium-input"
+              placeholder=" "
+              value={optionsText}
+              onChange={(e) =>
+                onChange({
+                  options: e.target.value
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                })
+              }
+              data-testid={`action-custom-field-options-input-${index}`}
+            />
+          </FloatField>
+        )}
+
+        <label className="qq-action-toggle qq-leadfield-required">
+          <input
+            type="checkbox"
+            checked={field.required === true}
+            onChange={(e) => onChange({ required: e.target.checked })}
+            data-testid={`action-custom-field-required-${index}`}
+            aria-label="Required field"
+          />
+          <span className="qq-action-toggle-title">Required</span>
+        </label>
+      </div>
+    </div>
   );
 }
 

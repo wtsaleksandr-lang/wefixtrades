@@ -48,6 +48,7 @@ import AddFieldMenu from './AddFieldMenu';
 import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
 import { buildAdvancedConfig } from './buildAdvancedConfig';
+import { buildLeadFormConfig } from './buildLeadFormConfig';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, PublicFieldType, EditorTab,
@@ -1897,6 +1898,11 @@ export default function PreviewPane({
         calculator_type: 'estimate_only',
         ui_template: { template_id: 'classic_single' },
         advanced: merged,
+        // LEAD-FORM-FIELDS — surface owner-defined custom lead fields into the
+        // live preview's lead-capture step (same shape the published widget
+        // reads), so what the owner authors in the Action tab appears in the
+        // preview immediately. Omitted when there are none.
+        ...(buildLeadFormConfig(settings) ? { lead_form: buildLeadFormConfig(settings) } : {}),
       },
     } as CalculatorData;
   }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category]);
