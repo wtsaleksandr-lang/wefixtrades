@@ -42,6 +42,8 @@ jobs:
         run: npm run check:serp-country
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
         run: npm run check:calculator-schema
+      - name: Template formula-ref guard (every bracketed [ref] + result_calc in a preset resolves to a real field/calc name; unknown ref silently → 0 wrong quote, the door_installation class)
+        run: npm run check:template-formula-refs
       - name: Quote-widget distance guard (cache hit = 1 upstream call; no-key/quota soft-fail not 500; DM mapping; origin geocode-on-save)
         run: npm run check:quote-widget-distance
       - name: Quote-widget upload guard (magic-byte allowlist not filename; 8MB/field cap; per-IP min+day quota; cheap authz; junk never burns daily budget)
