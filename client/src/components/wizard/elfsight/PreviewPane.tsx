@@ -2098,23 +2098,27 @@ export default function PreviewPane({
     const sel = selection.selected;
     if (!host || !sel) return null;
     if (sel.kind === 'field') {
-      // fix/preview-selection-rect — resolve by the STABLE shell-field id the
-      // widget stamps on each rendered cell (`data-shell-field-id`, Wave 60).
-      // The old positional `cells[idx]` lookup indexed the FULL shellFields
-      // list into the RENDERED cells — but the multi-step renderer filters
-      // `visibleFields → renderedFields` (only the current step's fields are
-      // in the DOM), so the persistent `.qq-selected` outline + the
-      // centre-scroll could land on the WRONG cell. Same contract fix
-      // PreviewOverlay.measureFields already uses. Positional lookup is kept
-      // strictly as a fallback for render paths that predate the attribute.
+      // fix/preview-selection-rect — resolve STRICTLY by the stable shell-field
+      // id the widget stamps on every rendered cell (`data-shell-field-id`,
+      // Wave 60). AdvancedCalculator emits that attribute UNCONDITIONALLY on
+      // each rendered field wrapper, so a successful id match is the only
+      // correct resolution.
+      //
+      // fix/preview-stray-selection-rect — the previous positional `cells[idx]`
+      // fallback was the source of the founder's "stray rectangle" bug. When a
+      // selected field is NOT in the rendered DOM (e.g. a `show_if`-gated field
+      // like the plumbing template's `afterhours`, which only renders when
+      // urgency === emergency, or a field on a non-visible step), the id lookup
+      // misses. The old fallback then indexed the FULL `shellFields` array
+      // (`idx`) into the SHORTER list of RENDERED `[data-colspan]` cells — two
+      // misaligned arrays — and painted the `.qq-selected` outline onto an
+      // unrelated cell (a stray box, often near the top of the preview). A
+      // hidden field has no preview node by definition, so the correct
+      // behaviour is to draw NO outline — exactly what PreviewOverlay already
+      // does (it only decorates rendered-by-id nodes). Return null on a miss.
       let esc = sel.id;
       try { esc = CSS.escape(sel.id); } catch { /* older engines — raw id */ }
-      const byId = host.querySelector<HTMLElement>(`[data-shell-field-id="${esc}"]`);
-      if (byId) return byId;
-      const idx = shellFields.findIndex((f) => f.id === sel.id);
-      if (idx < 0) return null;
-      const cells = Array.from(host.querySelectorAll<HTMLElement>('[data-colspan]'));
-      return cells[idx] ?? null;
+      return host.querySelector<HTMLElement>(`[data-shell-field-id="${esc}"]`);
     }
     if (sel.kind === 'results') {
       return (
@@ -2139,7 +2143,10 @@ export default function PreviewPane({
       return null;
     }
     return null;
-  }, [selection.selected, shellFields]);
+    // No longer reads `shellFields` — resolution is now purely id-based against
+    // the live DOM. The outer selection effect still lists `shellFields` so a
+    // reorder/add re-runs resolution against the freshly rendered nodes.
+  }, [selection.selected]);
 
   // Centre a target within the VISIBLE preview band. On mobile the bottom sheet
   // covers `--qq-sheet-h` px of the screen, so naive scrollIntoView({block:
