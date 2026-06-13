@@ -1,9 +1,13 @@
 // AddFieldMenu — type picker for Build > Fields > "Add field".
 //
-// Shows 6 field types matching Elfsight's Build tab: slider, number, dropdown,
-// choice (radio), imageChoice, heading. The trigger button toggles a popover;
-// clicking a type fires `onPick` with the public type id and the parent
-// (`FieldsPanel`) maps it to the canonical TemplateField and appends it.
+// Surfaces the FULL component palette — input, display, and CTA types — so an
+// owner working only in the Build tab can reach every component the in-preview
+// ComponentPicker offers (no Build-tab-only gaps). The trigger button toggles a
+// popover; clicking a type fires `onPick` with the public type id and the parent
+// (`FieldsPanel`) maps it to the canonical TemplateField via makeField() and
+// appends it. The TYPES list below is kept label-for-label in sync with
+// ComponentPicker's CATEGORIES so the two menus describe the same components
+// identically.
 //
 // Wave I:
 //  - (e) Renders into a React PORTAL on document.body, positioned via the
@@ -23,6 +27,7 @@ import {
   Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
   Type as TypeIcon, ToggleLeft as ToggleIcon, Layers, Mail as MailIcon,
   MapPin, Table, Camera,
+  FileText, Minus, Video as VideoIcon, MousePointerClick, Link as LinkIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -121,6 +126,58 @@ const TYPES: ReadonlyArray<TypeMeta> = [
     description: 'Customer picks several options. Each chosen option adds its own price.',
     recommendedFor: 'add-on bundles',
     Icon: Layers,
+  },
+  // COMPONENT-PARITY — display + CTA content components. These already exist
+  // in the in-preview ComponentPicker and the makeField() factory; surface them
+  // in the Build-tab Add-field menu too so an owner working only in the Build
+  // tab can reach every component type (paragraph / divider / image / video /
+  // button / link). Labels + hints mirror ComponentPicker so the two menus
+  // describe the same component identically.
+  {
+    id: 'paragraph',
+    label: 'Paragraph',
+    hint: 'Block of body copy',
+    description: 'A block of body copy that gives customers context. Has no price impact.',
+    recommendedFor: 'context / notes',
+    Icon: FileText,
+  },
+  {
+    id: 'divider',
+    label: 'Divider',
+    hint: 'Horizontal rule',
+    description: 'A horizontal rule that visually separates sections. Has no price impact.',
+    Icon: Minus,
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    hint: 'Inline image',
+    description: 'An inline image shown in the form — a photo, diagram, or banner. No price impact.',
+    recommendedFor: 'photos / diagrams',
+    Icon: ImageIcon,
+  },
+  {
+    id: 'video',
+    label: 'Video embed',
+    hint: 'YouTube / Vimeo',
+    description: 'Embeds a YouTube or Vimeo video in the form. Has no price impact.',
+    recommendedFor: 'how-it-works clips',
+    Icon: VideoIcon,
+  },
+  {
+    id: 'button',
+    label: 'Button',
+    hint: 'Tappable call / link button',
+    description: 'A tappable button that calls you or opens a link. Has no price impact.',
+    recommendedFor: 'call / book now',
+    Icon: MousePointerClick,
+  },
+  {
+    id: 'link',
+    label: 'Link',
+    hint: 'Inline text link',
+    description: 'An inline text link to any URL — your site, terms, or a booking page. No price impact.',
+    Icon: LinkIcon,
   },
   // WIZARD-GAPS — contact form content component. Submits via /api/leads.
   {

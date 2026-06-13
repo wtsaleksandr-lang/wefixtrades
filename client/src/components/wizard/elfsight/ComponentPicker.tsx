@@ -142,12 +142,18 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
         detail: 'Add any field, then open its settings and switch Visibility to "Show only when…" to reveal it based on another answer.',
         Icon: GitBranch, info: true,
       },
-      // BUILDER-COMPONENTS — `calc` stays disabled by design: adding a
-      // calculation is already fully supported by the Build > Pricing
-      // (Calculations) panel + FormulaEditor. Surfacing a second insert
-      // path here would create a parallel calc system. The hint now points
-      // owners to the canonical location instead.
-      { id: 'calc', label: 'Calculation formula', hint: 'Add these in the Pricing panel →', Icon: CalcIcon, disabled: true },
+      // BUILDER-COMPONENTS — `calc` is NOT a dead "coming soon" item: adding a
+      // calculation already ships today via the Build > Pricing (Calculations)
+      // panel + FormulaEditor. Surfacing a second insert path here would create
+      // a parallel calc system, so this is an INFORMATIONAL entry (same pattern
+      // as "Conditional visibility" above) that points owners at the canonical
+      // location instead of a dead disabled "SOON" affordance.
+      {
+        id: 'calc', label: 'Calculation formula',
+        hint: 'Combine fields into a price',
+        detail: 'Calculations already ship today — open the Build › Pricing panel and choose "Add calculation" to build a formula from your fields.',
+        Icon: CalcIcon, info: true,
+      },
     ],
   },
   {
