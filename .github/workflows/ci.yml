@@ -8,6 +8,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Fail fast on a hung step instead of stalling indefinitely. The full job
+    # (npm ci + ~40 guards + build) runs in ~5 min; 25 is a generous ceiling.
+    # A guard that forgot process.exit(0) once hung this job 55+ min before it
+    # was manually cancelled — this caps that class of failure.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
