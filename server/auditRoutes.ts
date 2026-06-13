@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { getServicesForIssues, SERVICES } from "@shared/services";
+import { getServicesForIssues, SERVICES, computeRevenueLoss, avgTicketForTrade, type RevenueLossEstimate } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
@@ -1916,21 +1916,35 @@ function buildTemplatedNarrative(ctx: {
   // Action plan — derived from detected issues + recommended services, max 3,
   // HIGH→LOW, at least one free.
   const svcByIssue = (recommendedServices || []).map((s: any) => s?.name || s?.title || String(s)).filter(Boolean);
-  const candidates: Array<{ priority: string; title: string; detail: string; estimatedImpact: string }> = [];
+  // Each candidate carries DISTINCT problem (diagnosis) and fix (action) so the
+  // Action-Plan card's two halves never echo (design M4). `detail` is kept for
+  // backward-compat consumers; ensureProblemFix() backfills any gaps.
+  const candidates: Array<{ priority: string; title: string; problem: string; fix: string; detail: string; estimatedImpact: string }> = [];
   if (detectedIssues.includes("low-reviews") || detectedIssues.includes("bad-rating")) {
-    candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", detail: `Ask your last 20 happy ${trade} customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`, estimatedImpact: "Higher Maps ranking + more calls" });
+    const fix = `Ask your last 20 happy ${trade} customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`;
+    candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", problem: `Your review count is behind the bar to win the Maps pack, so you're being out-ranked on the searches that drive calls.`, fix, detail: fix, estimatedImpact: "Higher Maps ranking + more calls" });
   }
   if (detectedIssues.includes("no-website") || detectedIssues.includes("slow-website")) {
-    candidates.push({ priority: "HIGH", title: hasWebsite ? "Fix your mobile site speed" : "Get a fast, simple website live", detail: hasWebsite ? `Most customers reach you on mobile${mobileScore != null ? ` and your mobile speed score is ${mobileScore}/100` : ""}. Every 1-second delay reduces conversions by ~7%. Compress images and trim heavy scripts to recover visitors who leave before contacting you.` : "Without a linked website you lose trust and conversions from your Maps listing. Even a fast 1-page site with your services, area and a call button materially lifts conversions.", estimatedImpact: "15–25% more visitors contact you" });
+    const problem = hasWebsite
+      ? `Most customers reach you on mobile${mobileScore != null ? `, and your mobile speed score is ${mobileScore}/100` : ""}. A slow site means visitors leave before they contact you — every 1-second delay drops conversions ~7%.`
+      : "Without a linked website you lose trust and conversions from your Maps listing — many customers won't call a business they can't vet online.";
+    const fix = hasWebsite
+      ? "Compress images, trim heavy scripts, and tighten Core Web Vitals to recover the visitors who currently bounce before contacting you."
+      : "Stand up a fast 1-page site with your services, service area and a tap-to-call button — even a simple one materially lifts conversions from Maps.";
+    candidates.push({ priority: "HIGH", title: hasWebsite ? "Fix your mobile site speed" : "Get a fast, simple website live", problem, fix, detail: fix, estimatedImpact: "15–25% more visitors contact you" });
   }
   if (detectedIssues.includes("low-visibility") || detectedIssues.includes("not-in-maps-pack")) {
-    candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", detail: `You're not consistently visible for the searches ${trade} customers in ${city || "your area"} actually use. Tightening your profile categories, services and city-relevant content lifts you into the local pack where the clicks are.`, estimatedImpact: "More local-pack appearances" });
+    const problem = `You're not consistently visible for the searches ${trade} customers in ${city || "your area"} actually use, so competitors are capturing demand that should be yours.`;
+    const fix = `Tighten your profile categories, services and city-relevant content to lift you into the local pack where the clicks are.`;
+    candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", problem, fix, detail: fix, estimatedImpact: "More local-pack appearances" });
   }
   if (svcByIssue.length && candidates.length < 3) {
-    candidates.push({ priority: "LOW", title: "Close remaining gaps", detail: `Based on your audit, ${svcByIssue.slice(0, 3).join(", ")} target the remaining gaps WeFixTrades can fix for you.`, estimatedImpact: "Compounding visibility gains" });
+    const fix = `Based on your audit, ${svcByIssue.slice(0, 3).join(", ")} target the remaining gaps WeFixTrades can fix for you.`;
+    candidates.push({ priority: "LOW", title: "Close remaining gaps", problem: "A few smaller gaps are still leaving leads on the table month after month.", fix, detail: fix, estimatedImpact: "Compounding visibility gains" });
   }
   if (candidates.length === 0) {
-    candidates.push({ priority: "HIGH", title: "Keep your profile fresh (free)", detail: `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${trade} visibility in ${city || "your area"}.`, estimatedImpact: "Sustained ranking" });
+    const fix = `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${trade} visibility in ${city || "your area"}.`;
+    candidates.push({ priority: "HIGH", title: "Keep your profile fresh (free)", problem: "Even a strong profile slips when it goes quiet — inactivity slowly cedes ranking to more active competitors.", fix, detail: fix, estimatedImpact: "Sustained ranking" });
   }
   const actionPlan = candidates.slice(0, 3);
 
@@ -1951,6 +1965,113 @@ function buildTemplatedNarrative(ctx: {
     quickWin,
     // Marks this as the deterministic fallback (not AI-authored) for debugging.
     _templatedFallback: true,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Free-Audit Wave 2 (Agent D) — report-assembly helpers.
+ * These run AFTER the narrative is built (AI or templated) and BEFORE save,
+ * so they apply identically on both narrative paths.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Task 2 — derive an honest per-business revenue-loss estimate.
+ *
+ * Takes the measured demand-gap loss (already trade-aware) and, when that is
+ * zero, computes a conservative floor from the trade's average ticket using a
+ * small missed-lead count inferred from the business's real capture gaps. When
+ * there is no demand gap AND no capture gap, returns isReal:false so the UI
+ * positive-frames instead of inventing a loss.
+ *
+ * The floor missed-lead count is intentionally conservative: 1 per relevant
+ * gap (no-after-hours / low-demand-coverage / low-visibility / not-in-maps-pack)
+ * capped at 3 — a defensible "at least this much" floor, never a hype number.
+ */
+function deriveRevenueLoss(
+  trade: string,
+  detectedIssues: string[],
+  measuredLoss: { low?: number; high?: number; monthlyMissedLeads?: number } | null,
+): RevenueLossEstimate {
+  const CAPTURE_GAP_ISSUES = [
+    "no-after-hours",
+    "low-demand-coverage",
+    "low-visibility",
+    "not-in-maps-pack",
+    "no-quote-tool",
+  ];
+  const floorMissedLeads = Math.min(
+    3,
+    detectedIssues.filter((i) => CAPTURE_GAP_ISSUES.includes(i)).length,
+  );
+  return computeRevenueLoss({ trade, demandLoss: measuredLoss, floorMissedLeads });
+}
+
+/**
+ * Task 3 — guarantee that every action-plan item carries DISTINCT `problem`
+ * and `fix` strings.
+ *
+ * Design M4: the Action-Plan card rendered identical text for "The Problem"
+ * and "How to Fix It" because items only carried a single `detail` field. The
+ * AI prompt now asks for both, but older narratives + the templated fallback
+ * only have `detail`/`estimatedImpact`. This normalizes each item:
+ *   - problem ← item.problem || derived from detail (the "why it hurts" half)
+ *   - fix     ← item.fix || item.detail (the "what to do" half)
+ * If only one is present we keep them distinct by sourcing `problem` from the
+ * impact/title and `fix` from the detail, so the two card halves never echo.
+ */
+function ensureProblemFix(narrative: any): void {
+  if (!narrative || !Array.isArray(narrative.actionPlan)) return;
+  narrative.actionPlan = narrative.actionPlan.map((item: any) => {
+    if (!item || typeof item !== "object") return item;
+    const detail = typeof item.detail === "string" ? item.detail.trim() : "";
+    const impact = typeof item.estimatedImpact === "string" ? item.estimatedImpact.trim() : "";
+    const title = typeof item.title === "string" ? item.title.trim() : "";
+
+    let problem = typeof item.problem === "string" ? item.problem.trim() : "";
+    let fix = typeof item.fix === "string" ? item.fix.trim() : "";
+
+    // Fill the fix from detail if absent (detail is "how to fix it" prose).
+    if (!fix) fix = detail;
+    // Fill the problem from the impact/title if absent — never reuse `fix`.
+    if (!problem) {
+      problem = impact
+        ? `${title ? title + ": " : ""}${impact}`.trim()
+        : title || "This gap is costing you visibility and leads.";
+    }
+    // Last-resort: if problem and fix still collide, split honestly so the two
+    // card halves are never identical.
+    if (problem && fix && problem === fix) {
+      problem = impact || (title ? `${title} is holding you back.` : "This is holding you back.");
+      if (problem === fix) problem = "This gap is reducing the leads you capture.";
+    }
+    return { ...item, problem, fix };
+  });
+}
+
+/**
+ * Task 4 — guarantee + soft honest urgency copy, as DATA (not hardcoded in the
+ * component). Surfaced by Agent A/B near the CTA.
+ *
+ * NEEDS-ALEX: confirm the exact guarantee wording is contractually safe. The
+ * string below is phrased as Alex's roadmap requested ("30-day results
+ * guarantee or we keep working free"). If legal/ops can't honor that, swap the
+ * `text` only — the field name `offer.guarantee` is the contract Agent A/B read.
+ */
+function buildOfferCopy(trade: string, marketLeader: any): {
+  guarantee: string;
+  urgency: string;
+} {
+  const reviewsLeader =
+    marketLeader?.name && typeof marketLeader?.reviewsCount === "number"
+      ? marketLeader.name
+      : null;
+  const urgency = reviewsLeader
+    ? `Every week this sits, competitors like ${reviewsLeader} add ~1–2 reviews and pull further ahead. The gap compounds — closing it sooner costs less.`
+    : `Competitors in your area gain ~1–2 reviews every week while this sits. The gap compounds — the sooner you close it, the cheaper it is to catch up.`;
+  return {
+    // NEEDS-ALEX: verify wording is safe/true before launch.
+    guarantee: "30-day results guarantee — if you don't see measurable progress, we keep working free until you do.",
+    urgency,
   };
 }
 
@@ -2814,6 +2935,8 @@ STRICT RULES — NEVER VIOLATE:
     {
       "priority": "HIGH"|"MEDIUM"|"LOW",
       "title": string,
+      "problem": string,
+      "fix": string,
       "detail": string,
       "estimatedImpact": string,
       "estimatedCost": string,
@@ -2852,7 +2975,7 @@ STRICT RULES — NEVER VIOLATE:
   }
 }
 
-Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap.
+Rules for actionPlan: Exactly 3 items, HIGH to LOW. One must be free. Base each on a real gap. For each item, "problem" describes WHAT is wrong and why it costs leads/revenue (the diagnosis); "fix" describes HOW to fix it (the action). These two MUST be distinct sentences — never repeat the same text in both. "detail" may expand on the fix with ROI math.
 Rules for contentGaps: Exactly 3 items, ordered by search volume desc. Format pageTitle as "{Service} {City} — {Benefit}".
 Rules for executiveSummary: 2-3 sentences. S1: score, grade, one genuine strength with number. S2: single biggest gap with specific number. S3: what fixing it is worth in dollars.
 Rules for demandGapInsight: Always provide a string (never null). If demand gaps exist, explain what they mean. If the business has full coverage (open 24hrs, evenings, weekends), say so positively — e.g. "Your 24/7 availability means you're capturing evening and weekend demand that competitors miss."
@@ -3007,6 +3130,33 @@ ${JSON.stringify(auditData, null, 2)}`;
       });
       log.info('[audit] contentGaps enriched with volume data');
     }
+
+    // ─── Free-Audit Wave 2 (Agent D): honest revenue-loss + problem/fix split + offer copy ───
+    // Runs on BOTH the AI and templated-narrative paths (after both have set
+    // auditData.narrative), so every report carries the same honest shapes.
+
+    // Task 2 — replace any placeholder loss with a real per-business estimate.
+    // `auditData.estimatedRevenueLoss` here is the measured demand-gap loss
+    // (from calculateDemandGaps) or null; deriveRevenueLoss promotes it to the
+    // typed {low,high,isReal,...} contract, computing a conservative floor from
+    // the trade avg ticket when the measured loss is zero but capture gaps exist.
+    auditData.estimatedRevenueLoss = deriveRevenueLoss(
+      trade,
+      auditData.detectedIssues || [],
+      auditData.estimatedRevenueLoss || null,
+    );
+    log.info('[audit] revenue-loss derived', {
+      isReal: auditData.estimatedRevenueLoss.isReal,
+      basis: auditData.estimatedRevenueLoss.basis,
+      low: auditData.estimatedRevenueLoss.low,
+      high: auditData.estimatedRevenueLoss.high,
+    });
+
+    // Task 3 — guarantee distinct problem/fix on every action-plan item.
+    ensureProblemFix(auditData.narrative);
+
+    // Task 4 — guarantee + soft honest urgency copy, as data near the CTA.
+    auditData.offer = buildOfferCopy(trade, compData?.marketLeader || null);
 
     // ─── Save report to database ───
     let reportId: string | null = null;
