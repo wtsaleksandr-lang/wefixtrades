@@ -111,6 +111,12 @@ function buildNavItems(active: Set<string>): NavItem[] {
   const items: NavItem[] = [
     { label: "Overview", href: "/portal", icon: LayoutDashboard },
     { label: "Services", href: "/portal/services", icon: Wrench },
+    /* Unified owner-facing AI control — ONE assistant across every placement
+       (calculator / website / phone). Top-level + ungated: it explains the
+       placements and shows "Build one" / "Set up" when nothing is configured,
+       so it's useful to every account, not just those who already own a
+       calculator or TradeLine. */
+    { label: "Your AI assistant", href: "/portal/ai-assistant", icon: Sparkles },
     /* Service-gated product tabs — only shown when the client has the matching
        subscription (Q17). Labels use the canonical product brand name (premium
        SaaS brand consistency) — customers see these brand names in billing,

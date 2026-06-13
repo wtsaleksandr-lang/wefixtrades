@@ -126,6 +126,7 @@ import { registerPortalApiKeysRoutes } from "./portalApiKeysRoutes";
 import { registerPortalBrandKitsRoutes } from "./portalBrandKitsRoutes";
 import { registerAdminTradelineVoicesRoutes } from "./adminTradelineVoicesRoutes";
 import { registerPortalTradelineKnowledgeRoutes } from "./portalTradelineKnowledgeRoutes";
+import { registerPortalAiAssistantRoutes } from "./portalAiAssistantRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
 import { registerAdminFileRetentionRoutes } from "./adminFileRetentionRoutes";
 import { registerAdminImpersonateRoutes } from "./adminImpersonateRoutes";
@@ -311,6 +312,7 @@ export async function registerRoutes(
   registerPortalBrandKitsRoutes(app);
   registerAdminTradelineVoicesRoutes(app);
   registerPortalTradelineKnowledgeRoutes(app);
+  registerPortalAiAssistantRoutes(app);
   registerAdminAuditLogRoutes(app);
   registerAdminFileRetentionRoutes(app);
   registerAdminImpersonateRoutes(app);
