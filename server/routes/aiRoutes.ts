@@ -957,13 +957,24 @@ Return ONLY the JSON object.`;
        * (server/services/clientChatAccess.test.ts). The cap only counts
        * conversation STARTS (first user message) — follow-ups in an ongoing
        * session are never cut off. Runs BEFORE the SSE headers so an over-cap
-       * conversation gets an honest JSON 503 the bubble renders gracefully. */
+       * conversation gets an honest JSON 503 the bubble renders gracefully.
+       *
+       * Conversation START is keyed on the FIRST USER turn, not messages.length.
+       * The widget seeds an auto-greeting ASSISTANT message on open
+       * (AIChatBubble.tsx), so a real customer's first send arrives as
+       * [assistant-greeting, user] → messages.length === 2. Using
+       * messages.length === 1 only counted single-message API callers and let
+       * genuine widget conversations bypass the daily cap entirely (free-AI
+       * spend ceiling unenforced). Counting user messages === 1 marks the first
+       * real user turn as the start regardless of a leading greeting, while
+       * mid-conversation follow-ups (user count ≥ 2) never re-count or cut off. */
+      const userMessageCount = messages.filter((m) => m.role === "user").length;
       const gateResult = await checkClientChatAccess(
         { convsPerCalcPerDayLimiter: widgetAiConvsPerCalcPerDayLimiter },
         {
           aiEmployee,
           calculatorId: calculator_id,
-          isConversationStart: messages.length === 1,
+          isConversationStart: userMessageCount === 1,
         },
       );
       if (!gateResult.allowed) {

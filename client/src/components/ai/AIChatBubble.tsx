@@ -785,6 +785,19 @@ export default function AIChatBubble({
             />
           )}
         </button>
+        {/* Mobile (≤480px / 375px) — lift the always-visible "Need help?" pill
+            clear of the sticky "Get My Quote" CTA at the bottom of the widget.
+            At 375px the pill (bottom:20px) sat over the CTA. Raise its bottom
+            offset above the CTA band + safe-area, and bump z-index a notch so
+            it sits above the sticky footer. Desktop offsets are untouched. */}
+        <style>{`
+          @media (max-width: 480px) {
+            [data-testid="button-chat-help-pill"] {
+              bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+              z-index: 9999 !important;
+            }
+          }
+        `}</style>
       </>
     );
   }
@@ -1098,6 +1111,15 @@ export default function AIChatBubble({
           }
           @keyframes qq-ai-bubble-bump {
             0%, 50%, 100% { transform: none; }
+          }
+        }
+        /* Mobile (≤480px / 375px) — lift the FAB clear of the sticky
+           "Get My Quote" CTA so it floats above, not over it. Matches the
+           pill's mobile offset. Desktop (bottom:24px) is untouched. */
+        @media (max-width: 480px) {
+          [data-testid="button-chat-bubble"] {
+            bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+            z-index: 9999 !important;
           }
         }
       `}</style>
