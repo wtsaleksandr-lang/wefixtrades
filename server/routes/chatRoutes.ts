@@ -59,7 +59,11 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
     };
 
     if (typeof data.overallScore === "number") ctx.score = data.overallScore;
-    if (typeof data.scores?.overall === "number") ctx.score = data.scores.overall;
+    // The scoring engine returns the headline as `total`; `overall` never exists
+    // on fresh reports (only legacy caches might). Prefer total so the audit chat
+    // assistant cites the real score, not 0/undefined.
+    if (typeof data.scores?.total === "number") ctx.score = data.scores.total;
+    else if (typeof data.scores?.overall === "number") ctx.score = data.scores.overall;
     if (data.grade || data.scores?.grade) ctx.grade = data.grade || data.scores.grade;
     if (data.estimatedRevenueLoss) ctx.estimatedRevenueLoss = data.estimatedRevenueLoss;
 

@@ -919,7 +919,9 @@ router.post("/speed", async (req: Request, res: Response) => {
       const existingRows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
       const existingData = existingRows[0]?.audit_data as any;
       const qaScoreVal = typeof existingData?.websiteQualityCheckScore === "number" ? existingData.websiteQualityCheckScore : 0;
-      const qaPointsCalc = Math.round((qaScoreVal / 18) * 8);
+      // qaMax = 24 (sum of analyzeWebsiteQuality weights); clamp ratio at 1.0 so
+      // the QA contribution can never exceed its 8-pt cap. (Mirror of calculateScores.)
+      const qaPointsCalc = Math.round(Math.min(qaScoreVal / 24, 1) * 8);
 
       let aiVisualPts = 0;
       if (websiteAIAnalysis?.findings && Array.isArray(websiteAIAnalysis.findings)) {
@@ -964,6 +966,36 @@ router.post("/speed", async (req: Request, res: Response) => {
         },
       };
       log.info('[speed-bg] recalculated websiteQuality:', { arg0: newWebsiteScore, arg1: '(speed:', arg2: speedPts, arg3: 'qa:', arg4: qaPointsCalc, arg5: 'aiVisual:', arg6: aiVisualPts, arg7: ') total:', arg8: newTotal });
+
+      // ─── Re-derive the slow-website issue from the REAL measurement ───
+      // /generate cannot assert slow-website (speed runs here, in the background),
+      // so it never adds it. Now that PageSpeed has actually run, decide truthfully:
+      // only flag slow-website when the business has a website AND the measured
+      // mobile speed is < 50. Strip any stale slow-website too, so a no-website or
+      // fast business never ships a false "your site is slow on mobile" claim.
+      const hasWebsite = !!existingData?.business?.website;
+      const measuredSlow = hasWebsite && typeof mobileVal === "number" && mobileVal < 50;
+      const prevIssues: string[] = Array.isArray(existingData?.detectedIssues) ? existingData.detectedIssues : [];
+      const nextIssues = prevIssues.filter((iss) => iss !== "slow-website");
+      if (measuredSlow) nextIssues.push("slow-website");
+      const issuesChanged =
+        nextIssues.length !== prevIssues.length ||
+        nextIssues.some((iss, i) => iss !== prevIssues[i]);
+      if (issuesChanged) {
+        const deduped = Array.from(new Set(nextIssues));
+        mergeData.detectedIssues = deduped;
+        mergeData.recommendedServices = getServicesForIssues(deduped);
+        log.info('[speed-bg] re-derived detectedIssues:', { before: prevIssues, after: deduped, measuredSlow });
+        // The AI narrative was authored before the real speed was known. If it
+        // asserted slow-website but the measurement says otherwise, the prose is
+        // now stale. We do NOT regenerate the narrative here (it's an extra LLM
+        // round-trip in a background job); the structured detectedIssues/scores —
+        // which drive the report's scores, action plan, and chat context — are
+        // corrected. Narrative-text regen on speed-land is a tracked follow-up.
+        if (!measuredSlow && prevIssues.includes("slow-website")) {
+          log.warn('[speed-bg] narrative may still mention slow-website though measurement cleared it — follow-up: regen narrative on speed-land');
+        }
+      }
 
       await db.update(auditReports)
         .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb` })
@@ -1404,7 +1436,7 @@ async function calculateDemandGaps(
 }
 
 /* ─── E6: Scoring Engine ─── */
-function calculateScores(auditData: any) {
+export function calculateScores(auditData: any) {
   const bd = auditData.business || {};
   const kws = auditData.keywords || [];
   const comp = auditData.competitors || [];
@@ -1456,8 +1488,12 @@ function calculateScores(auditData: any) {
 
   // QA checks contribution (max 8)
   const qaScore = typeof auditData.websiteQualityCheckScore === "number" ? auditData.websiteQualityCheckScore : null;
-  const qaMax = 18; // sum of all weights
-  const qaPoints = qaScore !== null ? Math.round((qaScore / qaMax) * 8) : 0;
+  // Sum of all analyzeWebsiteQuality weights (3+1+2+3+2+2+1+2+2+3+3). The prior
+  // value of 18 was stale: a perfect QA score is 24, so (24/18)*8 = 10.7 → 11,
+  // blowing past the 8-pt component cap. Clamp the ratio at 1.0 as well so this
+  // can never exceed the cap even if the weights drift again.
+  const qaMax = 24;
+  const qaPoints = qaScore !== null ? Math.round(Math.min(qaScore / qaMax, 1) * 8) : 0;
 
   // AI visual analysis contribution (max 4)
   const aiAnalysis = auditData.websiteAIAnalysis;
@@ -2005,10 +2041,19 @@ async function analyzeScreenshot(
 }
 
 /* ─── Website Quality Analysis (cheerio) ─── */
-async function analyzeWebsiteQuality(url: string): Promise<{
+export async function analyzeWebsiteQuality(url: string): Promise<{
   checks: Record<string, boolean>;
   score: number;
   maxScore: number;
+  // false when the page couldn't be fetched (network error, timeout, or a
+  // non-2xx response such as a 403/WAF bot-block). In that case the per-feature
+  // `checks` are all-absent NOT because the features are missing but because we
+  // never saw the HTML — so the caller must NOT score the website category from
+  // this fabricated-zero, and should instead exclude it from the denominator.
+  fetchOk: boolean;
+  // HTTP status of the fetch attempt (null on network error/timeout). Lets the
+  // UI tell "we couldn't reach it" from "it blocked our bot (403)".
+  httpStatus: number | null;
 }> {
   const checks: Record<string, boolean> = {
     hasPhone: false,
@@ -2027,6 +2072,9 @@ async function analyzeWebsiteQuality(url: string): Promise<{
   // SSL check (free, instant)
   checks.hasSSL = url.startsWith("https");
 
+  let fetchOk = false;
+  let httpStatus: number | null = null;
+
   try {
     const cleanUrl = (u: string) => {
       try { const p = new URL(u); return p.origin + p.pathname; } catch { return u; }
@@ -2038,7 +2086,17 @@ async function analyzeWebsiteQuality(url: string): Promise<{
       signal: AbortSignal.timeout(15000),
       headers: { "User-Agent": "Mozilla/5.0 (compatible; WeFixTrades Audit Bot/1.0)" },
     });
+    httpStatus = res.status;
+    if (!res.ok) {
+      // Non-2xx (e.g. 403/429 from a WAF/bot-block, or 5xx). We can't read the
+      // real page, so every content check would be a false negative. Bail out
+      // with fetchOk=false so the caller excludes the website category instead
+      // of fabricating a low score.
+      log.warn("[website-qa] non-OK response — treating as unreachable:", { status: res.status, url: fetchUrl });
+      throw new Error(`non-OK status ${res.status}`);
+    }
     const html = await res.text();
+    fetchOk = true;
     const { load } = await import("cheerio");
     const $ = load(html);
 
@@ -2134,7 +2192,7 @@ async function analyzeWebsiteQuality(url: string): Promise<{
     if (checks[key]) score += weight;
   }
 
-  return { checks, score, maxScore };
+  return { checks, score, maxScore, fetchOk, httpStatus };
 }
 
 /* ─── Trade Context for AI ─── */
@@ -2518,6 +2576,11 @@ router.post("/generate", async (req: Request, res: Response) => {
         keywordDataAvailable,
         reviewDataAvailable,
         gatherTimedOut,
+        // True when the business HAS a website but we couldn't fetch it (network
+        // error, timeout, or a WAF/bot-block such as 403). The website category
+        // is excluded from the score and the report discloses we couldn't reach it.
+        websiteFetchBlocked: !!website && !!websiteQaData && websiteQaData.fetchOk === false,
+        websiteFetchHttpStatus: websiteQaData ? (websiteQaData.httpStatus ?? null) : null,
       },
       speedData: { mobile: resolvedSpeedData?.mobile || null, desktop: resolvedSpeedData?.desktop || null },
       competitors,
@@ -2541,8 +2604,15 @@ router.post("/generate", async (req: Request, res: Response) => {
       estimatedRevenueLoss: demandData?.estimatedRevenueLoss || null,
       isOpenEvenings: demandData?.isOpenEvenings ?? false,
       isOpenWeekends: demandData?.isOpenWeekends ?? false,
-      websiteQualityChecks: websiteQaData?.checks || null,
-      websiteQualityCheckScore: websiteQaData?.score ?? null,
+      // When the QA fetch failed/was blocked (fetchOk === false), the per-feature
+      // checks are fabricated zeros — do NOT feed that score into the website
+      // category. Persist it as null (excluded from the denominator) and record
+      // the reason so the report can disclose "we couldn't reach your site".
+      websiteQualityChecks: websiteQaData?.fetchOk ? (websiteQaData?.checks || null) : null,
+      websiteQualityCheckScore: websiteQaData?.fetchOk ? (websiteQaData?.score ?? null) : null,
+      websiteFetch: websiteQaData
+        ? { ok: !!websiteQaData.fetchOk, httpStatus: websiteQaData.httpStatus ?? null }
+        : null,
       businessNiche: businessNiche.primary ? {
         primary: businessNiche.primary,
         secondary: businessNiche.secondary,
@@ -2596,7 +2666,15 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
-    if (!resolvedSpeedData?.mobile?.score || resolvedSpeedData.mobile.score < 50) detectedIssues.push("slow-website");
+    // slow-website can ONLY be asserted once PageSpeed has actually measured the
+    // site AND it scored poorly. At this point in /generate, speed runs in the
+    // background (/speed job) so resolvedSpeedData is always {mobile:null}, which
+    // previously fired this for EVERY business — including ones with no website.
+    // The /speed job re-derives slow-website from the real measurement (see below).
+    const genMobileSpeed = resolvedSpeedData?.mobile?.score;
+    if (auditData.business?.website && typeof genMobileSpeed === "number" && genMobileSpeed < 50) {
+      detectedIssues.push("slow-website");
+    }
     const dedupedIssues = Array.from(new Set(detectedIssues));
     const recommendedServices = getServicesForIssues(dedupedIssues);
     auditData.detectedIssues = dedupedIssues;

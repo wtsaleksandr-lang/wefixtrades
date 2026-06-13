@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/visual-primitives";
 import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
-  Check, X as XIcon, Zap, ExternalLink,
+  Check, X as XIcon, Zap, ExternalLink, Download, Link2, Mail,
 } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 
@@ -108,7 +108,7 @@ function categoryAdvice(key: string, pct: number): string {
     googleMaps: "Complete your profile + collect more reviews.",
     websiteQuality: "Speed + mobile fixes will lift this fastest.",
     searchVisibility: "Add location-targeted SEO content.",
-    competitorPosition: "Differentiate on reviews + response time.",
+    competitorPositioning: "Differentiate on reviews + response time.",
   };
   return tips[key] ?? "Address the high-priority items below.";
 }
@@ -119,6 +119,73 @@ export default function SharedAuditReport() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Share / download controls (PDF + email + copy-link). Backend endpoints
+  // (/report/:id/pdf, /report/:id/send-email) are public, so the shared
+  // prospect-facing view can use them directly.
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [emailValue, setEmailValue] = useState("");
+  const [emailState, setEmailState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailErr, setEmailErr] = useState("");
+
+  const handlePdfDownload = async () => {
+    if (!id || pdfDownloading) return;
+    setPdfDownloading(true);
+    try {
+      const resp = await fetch(`/api/audit/report/${id}/pdf`);
+      if (!resp.ok || !(resp.headers.get("content-type") || "").includes("application/pdf")) {
+        setPdfDownloading(false);
+        return;
+      }
+      const blob = await resp.blob();
+      const nm = ((data?.auditData?.business?.name as string) || "Report").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 60);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `WeFixTrades-Audit-${nm}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      /* surfaced via disabled state reset below */
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable — no-op */
+    }
+  };
+
+  const handleEmailReport = async () => {
+    if (!id || emailState === "sending" || !emailValue.includes("@")) return;
+    setEmailState("sending");
+    setEmailErr("");
+    try {
+      const resp = await fetch(`/api/audit/report/${id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientEmail: emailValue.trim() }),
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setEmailErr(j?.message || j?.error || "Couldn't send — please try again.");
+        setEmailState("error");
+        return;
+      }
+      setEmailState("sent");
+    } catch {
+      setEmailErr("Something went wrong. Please try again.");
+      setEmailState("error");
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -165,7 +232,16 @@ export default function SharedAuditReport() {
     const what = missing.length ? `${missing.join(" and ")} data` : "some data";
     return `We couldn't load ${what} this run, so it's excluded from the score above — refresh to retry.`;
   })();
-  const overall = scores?.overall ?? 0;
+  // P1-4 disclosure: the business has a website but our crawler couldn't reach
+  // it (network error or a bot-block such as HTTP 403). We exclude the website
+  // category from the score rather than fabricating a low one — say so plainly.
+  const websiteBlockedNote: string | null = dataQuality.websiteFetchBlocked === true
+    ? `We couldn't reach your website${dataQuality.websiteFetchHttpStatus ? ` (it returned HTTP ${dataQuality.websiteFetchHttpStatus})` : ""} — it may block automated tools. We've left website quality out of the score rather than guess.`
+    : null;
+  // The scoring engine returns the headline as `total`; older cached reports may
+  // carry `overall`. Read total first so the hero ring/gauge/competitor bar show
+  // the real score instead of a constant 0.
+  const overall = scores?.total ?? scores?.overall ?? 0;
   const grade = scores?.grade || "D";
   const maxVol = Math.max(...keywords.map((k: any) => k.monthlySearches || 0), 1);
 
@@ -173,7 +249,7 @@ export default function SharedAuditReport() {
     { key: "googleMaps", label: "Google Maps", desc: "How complete and trusted your Google profile is", icon: <MapPin size={20} /> },
     { key: "websiteQuality", label: "Website", desc: "How fast and professional your website is", icon: <Globe size={20} /> },
     { key: "searchVisibility", label: "Search Visibility", desc: "How easily customers find you on Google", icon: <Search size={20} /> },
-    { key: "competitorPosition", label: "Competitor Position", desc: "How you compare to local competitors", icon: <Trophy size={20} /> },
+    { key: "competitorPositioning", label: "Competitor Position", desc: "How you compare to local competitors", icon: <Trophy size={20} /> },
     { key: "adOpportunity", label: "Ad Opportunity", desc: "The paid search market available in your area", icon: <Megaphone size={20} /> },
     { key: "demandCoverage", label: "Demand Coverage", desc: "Whether you're visible when customers search", icon: <Clock size={20} /> },
   ];
@@ -189,7 +265,7 @@ export default function SharedAuditReport() {
     { key: "googleMaps", label: "Google Maps" },
     { key: "websiteQuality", label: "Website" },
     { key: "searchVisibility", label: "Search Visibility" },
-    { key: "competitorPosition", label: "Competitor Position" },
+    { key: "competitorPositioning", label: "Competitor Position" },
   ];
 
   // Issue breakdown by priority (DonutChart segments)
@@ -289,8 +365,95 @@ export default function SharedAuditReport() {
           </div>
           {narrative.executiveSummary && <div className={s.heroSummary}>{narrative.executiveSummary}</div>}
           {missingDataNote && <div className={s.calloutAmber} data-testid="audit-missing-data-note">{missingDataNote}</div>}
+          {websiteBlockedNote && <div className={s.calloutAmber} data-testid="audit-website-blocked-note">{websiteBlockedNote}</div>}
           <div className={s.heroFooter}>
             Generated on {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A"} · Powered by WeFixTrades AI · Viewed {data.viewCount || 1} times
+          </div>
+        </div>
+
+        {/* Share / download controls — prospect-facing actions */}
+        <div className={s.sectionCard} data-testid="shared-report-controls">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+            <button
+              data-testid="shared-download-pdf"
+              onClick={handlePdfDownload}
+              disabled={pdfDownloading}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "10px 18px", borderRadius: 10, border: "none",
+                background: pdfDownloading ? "#E5E7EB" : mkt.accent,
+                color: pdfDownloading ? "#6B7280" : "#FFFFFF",
+                fontWeight: 700, fontSize: 14,
+                cursor: pdfDownloading ? "default" : "pointer",
+              }}
+            >
+              <Download size={16} /> {pdfDownloading ? "Preparing PDF…" : "Download PDF"}
+            </button>
+            <button
+              data-testid="shared-print"
+              onClick={() => window.print()}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "10px 18px", borderRadius: 10,
+                border: "1px solid #E5E7EB", background: "#FFFFFF",
+                color: "#1A1A2E", fontWeight: 600, fontSize: 14, cursor: "pointer",
+              }}
+            >
+              Print
+            </button>
+            <button
+              data-testid="shared-copy-link"
+              onClick={handleCopyLink}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "10px 18px", borderRadius: 10,
+                border: "1px solid #E5E7EB", background: "#FFFFFF",
+                color: "#1A1A2E", fontWeight: 600, fontSize: 14, cursor: "pointer",
+              }}
+            >
+              <Link2 size={16} /> {copied ? "Link copied" : "Copy link"}
+            </button>
+          </div>
+
+          {/* Email me this report */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Email me this report</div>
+            {emailState === "sent" ? (
+              <div data-testid="shared-email-sent" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Check size={16} /> Sent — check your inbox.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
+                <input
+                  type="email"
+                  value={emailValue}
+                  onChange={(e) => { setEmailValue(e.target.value); if (emailState === "error") setEmailState("idle"); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleEmailReport(); }}
+                  placeholder="you@business.com"
+                  aria-label="Email address for report"
+                  data-testid="shared-email-input"
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#FFFFFF", color: "#1A1A2E", fontSize: 13, outline: "none", fontFamily: "inherit" }}
+                />
+                <button
+                  data-testid="shared-email-send"
+                  onClick={handleEmailReport}
+                  disabled={emailState === "sending" || !emailValue.includes("@")}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "10px 16px", borderRadius: 10, border: "none",
+                    background: (emailState === "sending" || !emailValue.includes("@")) ? "#E5E7EB" : mkt.accent,
+                    color: (emailState === "sending" || !emailValue.includes("@")) ? "#6B7280" : "#FFFFFF",
+                    fontWeight: 700, fontSize: 13, flexShrink: 0,
+                    cursor: (emailState === "sending" || !emailValue.includes("@")) ? "default" : "pointer",
+                  }}
+                >
+                  <Mail size={16} /> {emailState === "sending" ? "Sending…" : "Send"}
+                </button>
+              </div>
+            )}
+            {emailState === "error" && emailErr && (
+              <div data-testid="shared-email-error" style={{ fontSize: 12, color: "#DC2626", marginTop: 6 }}>{emailErr}</div>
+            )}
           </div>
         </div>
 
