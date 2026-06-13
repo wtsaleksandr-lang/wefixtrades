@@ -46,6 +46,8 @@ jobs:
         run: npm run check:quote-widget-distance
       - name: Quote-widget upload guard (magic-byte allowlist not filename; 8MB/field cap; per-IP min+day quota; cheap authz; junk never burns daily budget)
         run: npm run check:quote-widget-upload
+      - name: Client-chat access guard (free-activated widget AI proceeds on pinned Haiku; disabled → 403; per-calc daily conv cap → graceful 503; trial machinery dormant)
+        run: npm run check:client-chat-access
       - name: Matrix-rate guard (resolveMatrixRate — full cell / unselected undefined / missing-cell null both rules / single-axis / formula composition)
         run: npm run check:matrix-rate
       - name: Wizard field-types guard (public↔engine round-trip, makeField factories, SSR of distance/matrix/photo runtime fields)
