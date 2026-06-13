@@ -3834,6 +3834,286 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       footnote: 'Lab analysis + EPA-protocol removal included. Written clearance on every job. Insurance documentation provided on request.',
     },
   },
+
+  /* ── 48. Moving — Live Distance Quote (PRICING-MODELS U7 showcase) ──
+   *
+   * The `address_distance` proof template: the customer types their NEW
+   * address, the server resolves real driving miles from the business
+   * origin (manual-miles fallback stays on), and the mileage feeds the
+   * formula directly — `120 + [Distance] * 2.5`. Distinct by NAME from the
+   * two existing moving templates ("Moving — Flat-Rate Package",
+   * "Moving — Crew & Distance Quote" — #1753 renames; collapse is
+   * name-keyed). Full showcase tier: explicit niche style, steps[] w/ help,
+   * per-field help, option descriptions, image-card radio, show_if,
+   * calc captions + primary resultMode, results CTA block + submit_success,
+   * animations + premium countUp/staggerReveal.
+   */
+  {
+    id: 'moving_live_distance', name: 'Moving — Live Distance Quote',
+    description: 'Type the destination address — real driving miles price the move live, plus crew, hours, packing and specialty items.',
+    category: 'Professional', trades: ['moving_services'],
+    trustBadges: BADGES.moving,
+    layout: 'two-column', theme: 'light', defaultIcon: 'Truck',
+    // Showcase niche style — trust-navy body, deep-navy result panel,
+    // amber CTA (contrast guard renders dark text on the bright amber).
+    // Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#1d4ed8',
+      background: '#f4f7fb',
+      surface: '#ffffff',
+      border: '#dbe4f0',
+      text: '#0f172a',
+      resultsBg: '#13294b',
+      ctaColor: '#fbbf24',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'manrope',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Moving quotes carry real walkthrough variance — show a ±10% band.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      // Premium pack — count-up on the live total + stagger reveal per
+      // step. cardFlip/confetti intentionally off (showcase-tier rule).
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Price Your Move From Your Real Address', subtitle: 'Licensed & insured movers · Live mileage pricing · 4.8★ from 2,500+ moves', align: 'left' },
+    steps: [
+      { id: 'step_move', label: 'Your move', help: 'Home size and where you’re headed.', fields: ['move_size', 'distance'] },
+      { id: 'step_crew', label: 'Crew & time', help: 'We suggest 3 movers for most 2–3 bedroom homes.', fields: ['crew', 'hours'] },
+      { id: 'step_extras', label: 'Packing & extras', help: 'Optional services — add only what you need.', fields: ['packing', 'fragile', 'hoist'] },
+    ],
+    fields: [
+      // Image-card radio on the highest-uncertainty question (home size).
+      { id: 'move_size', name: 'Move Size', label: 'How big is your move?', type: 'radio',
+        help: 'Pick the closest match — it sets prep, pads and materials.',
+        options: [
+          { ...optImg('Studio / 1 bedroom', 0, 'https://source.unsplash.com/300x300/?studio,apartment'),
+            description: 'Up to ~600 sqft — fits a single truck load.' },
+          { ...optImg('2 bedroom', 150, 'https://source.unsplash.com/300x300/?apartment,living-room'),
+            description: 'Typical apartment or small house.' },
+          { ...optImg('3 bedroom', 320, 'https://source.unsplash.com/300x300/?house,family-home'),
+            description: 'Full household — most popular size.' },
+          { ...optImg('4+ bedroom', 540, 'https://source.unsplash.com/300x300/?large,house'),
+            description: 'Large home — may need a second truck.' },
+        ] },
+      // PRICING-MODELS — the live mileage field. One-way miles (roundTrip
+      // false), manual "Distance in miles" fallback stays on.
+      { id: 'distance', name: 'Distance', label: 'Your new address', type: 'address_distance',
+        help: 'Type the destination — we calculate real driving miles automatically.',
+        distanceUnit: 'miles', roundTrip: false, allowManualDistance: true },
+      { id: 'crew', name: 'Crew Size', label: 'How many movers?', type: 'select',
+        help: 'Bigger crews finish faster — total labor often evens out.',
+        options: [
+          { ...opt('2 movers', 2), description: 'Best for studios and 1-beds.' },
+          { ...opt('3 movers', 3), description: 'Our most-booked crew for 2–3 bedrooms.' },
+          { ...opt('4 movers', 4), description: 'Large homes, stairs, or tight timelines.' },
+        ] },
+      { id: 'hours', name: 'Estimated Hours', label: 'Estimated hours on site', type: 'slider',
+        help: 'Loading + unloading time. A 3-bedroom usually takes 5–7 hours.',
+        min: 2, max: 12, step: 1, default_value: 5, unit: 'hours' },
+      { id: 'packing', name: 'Full Packing Service', label: 'Add full packing service', type: 'toggle',
+        help: 'We bring boxes, paper and wrap — and pack everything the day before.',
+        on_value: 480 },
+      { id: 'fragile', name: 'Specialty Items', label: 'Any specialty items?', type: 'multi_select',
+        help: 'These need extra crew, equipment or crating.',
+        options: [
+          { ...opt('Piano', 320), description: 'Upright or baby grand — includes skid board & straps.' },
+          opt('Gun safe', 280),
+          opt('Artwork & antiques', 120),
+          opt('Pool table', 350),
+        ] },
+      // show_if — only surfaces when the customer ticked "Piano" above.
+      { id: 'hoist', name: 'Piano Hoisting', label: 'Piano needs stairs / hoisting', type: 'toggle',
+        help: 'Tight stairwells or balcony hoists need a third specialist.',
+        on_value: 250,
+        show_if: { field: 'fragile', op: 'contains', value: 'piano' } },
+    ],
+    calculations: [
+      { ...calc('Transport & Mileage', '120 + [Distance] * 2.5'), caption: 'Truck, fuel & $2.50 per driving mile from your address.' },
+      { ...calc('Crew Labor', '[Crew Size] * [Estimated Hours] * 55'), caption: '$55 per mover, per hour.' },
+      { ...calc('Packing & Home Size', '[Move Size] + [Full Packing Service]'), caption: 'Home-size prep plus optional full packing.' },
+      { ...calc('Specialty Handling', '[Specialty Items] + [Piano Hoisting]'), caption: 'Pianos, safes & oversized pieces.' },
+      { ...calc('Total Moving Estimate', '[Transport & Mileage] + [Crew Labor] + [Packing & Home Size] + [Specialty Handling]'),
+        resultMode: 'primary', caption: 'Estimate — confirmed after a quick walkthrough call.' },
+    ],
+    result_calc: 'Total Moving Estimate',
+    results: {
+      heading: 'Your Moving Estimate',
+      show_breakdown: true,
+      cta_label: 'Reserve My Move Date',
+      cta_heading: 'Moving dates fill fast',
+      cta_sub: 'Lock your crew now — free cancellation up to 72 hours before moving day.',
+      submit_success: 'You’re on the schedule! Our move coordinator will call within one business hour to confirm details.',
+      footnote: 'Includes truck, fuel, pads & shrink-wrap. Final price confirmed after walkthrough — no hidden fees.',
+    },
+  },
+
+  /* ── 49. Dumpster Rental — Size & Zone (PRICING-MODELS U7 showcase) ──
+   *
+   * The `rate_matrix` proof template — and the drayage-pattern proof:
+   * rows = container sizes, cols = delivery zones, rates = lane prices,
+   * with the 40yd × Zone C cell intentionally ABSENT so the
+   * `custom_quote` missing-cell path ("quoted individually", lead still
+   * captured) is exercised out of the box. Also carries the optional
+   * `photo_upload` ("photo of the pile") — answer-only, never blocks
+   * submit. Full showcase tier (see template-inventory spec).
+   */
+  {
+    id: 'dumpster_rental_quote', name: 'Dumpster Rental — Size & Zone',
+    description: 'Roll-off dumpster quote by container size and delivery zone, with debris surcharges, extra days and a photo of the pile.',
+    category: 'Cleaning', trades: ['dumpster_rental', 'junk_removal'],
+    trustBadges: BADGES.junkRemoval,
+    layout: 'two-column', theme: 'light', defaultIcon: 'Trash2',
+    requireAddress: true,
+    // Showcase niche style — work-site warm neutral body, near-black
+    // result panel, safety-orange accents. Never the category fallback.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#ea580c',
+      background: '#f7f5f1',
+      surface: '#ffffff',
+      border: '#e7e1d6',
+      text: '#1c1917',
+      resultsBg: '#1c1917',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 10,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Matrix rates are exact lane prices — no estimate band.
+        range_mode: { enabled: false, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Get a Dumpster Price in 30 Seconds', subtitle: 'Same-week delivery · Flat zone pricing · 7-day rental included', align: 'left' },
+    steps: [
+      { id: 'step_size', label: 'Size & zone', help: 'Pick a container and your delivery zone.', fields: ['size_zone'] },
+      { id: 'step_debris', label: 'Your debris', help: 'What goes in sets the disposal rate.', fields: ['debris', 'tonnage', 'placement'] },
+      { id: 'step_schedule', label: 'Schedule & photos', help: 'Extra days and an optional photo of the pile.', fields: ['days_extra', 'photos'] },
+    ],
+    fields: [
+      // PRICING-MODELS — the rate-matrix field. Size × zone lane pricing;
+      // 40yd in Zone C is intentionally unpriced → custom_quote note.
+      { id: 'size_zone', name: 'Base Rental Rate', label: 'Container size & delivery zone', type: 'rate_matrix',
+        help: 'Zone is the driving distance from our yard — check the map on our site.',
+        matrix: {
+          rowLabel: 'Dumpster size',
+          colLabel: 'Delivery zone',
+          rows: [
+            { id: 'yd10', label: '10 yard — small cleanout' },
+            { id: 'yd20', label: '20 yard — remodel / roofing' },
+            { id: 'yd30', label: '30 yard — construction' },
+            { id: 'yd40', label: '40 yard — major demo' },
+          ],
+          cols: [
+            { id: 'zone_a', label: 'Zone A — in town (0–10 mi)' },
+            { id: 'zone_b', label: 'Zone B — 10–25 mi' },
+            { id: 'zone_c', label: 'Zone C — 25–40 mi' },
+          ],
+          rates: {
+            yd10: { zone_a: 295, zone_b: 325, zone_c: 365 },
+            yd20: { zone_a: 395, zone_b: 430, zone_c: 470 },
+            yd30: { zone_a: 495, zone_b: 535, zone_c: 580 },
+            // 40yd × Zone C intentionally absent → "quoted individually".
+            yd40: { zone_a: 595, zone_b: 640 },
+          },
+          missingCell: 'custom_quote',
+        } },
+      { id: 'debris', name: 'Debris Type', label: 'What are you tossing?', type: 'select',
+        help: 'Material sets the disposal rate at the transfer station.',
+        options: [
+          { ...opt('Household & furniture', 0), description: 'General junk, furniture, boxes — standard rate.' },
+          { ...opt('Construction & demo', 45), description: 'Mixed C&D — drywall, lumber, fixtures.' },
+          { ...opt('Concrete & dirt', 120), description: 'Heavy inert loads — fill limits apply.' },
+          { ...opt('Roofing shingles', 85), description: 'Asphalt shingles — billed by the square over 20.' },
+        ] },
+      // show_if — tonnage only matters for heavy inert loads.
+      { id: 'tonnage', name: 'Estimated Tonnage', label: 'Roughly how many tons?', type: 'select',
+        help: 'Concrete & dirt loads are weight-limited — pick your best guess.',
+        options: [
+          opt('Under 2 tons (included)', 0),
+          { ...opt('2–4 tons', 90), description: 'Most partial-slab and patio tear-outs.' },
+          opt('4+ tons', 220),
+        ],
+        show_if: { field: 'debris', op: 'eq', value: 'concrete_dirt' } },
+      // Image-card radio on the highest-uncertainty question (placement).
+      { id: 'placement', name: 'Placement', label: 'Where should it go?', type: 'radio',
+        help: 'Street placement usually needs a city permit — we pull it for you.',
+        options: [
+          { ...optImg('Driveway', 0, 'https://source.unsplash.com/300x300/?driveway,house'),
+            description: 'Boards under the rails protect your surface.' },
+          optImg('Street / curb (permit)', 75, 'https://source.unsplash.com/300x300/?street,curb'),
+          optImg('Yard or lot', 40, 'https://source.unsplash.com/300x300/?backyard,lot'),
+        ] },
+      { id: 'days_extra', name: 'Extra Days', label: 'Days beyond the included week', type: 'slider',
+        help: 'First 7 days are included — slide for a longer project.',
+        min: 0, max: 21, step: 1, default_value: 0, unit: 'days' },
+      // PRICING-MODELS — optional photo of the pile. Answer-only: rides in
+      // the lead, contributes $0, and submit never blocks on it.
+      { id: 'photos', name: 'Photos', label: 'Add a photo of the pile (optional)', type: 'photo_upload',
+        help: 'A quick photo helps us confirm you picked the right size.',
+        maxPhotos: 3, maxPhotoMb: 8 },
+    ],
+    calculations: [
+      { ...calc('Base Rental', '[Base Rental Rate]'), caption: 'Includes 7-day rental, delivery, pickup & disposal to the weight limit.' },
+      { ...calc('Extended Days', '[Extra Days] * 10'), caption: '$10 per day beyond the included week.' },
+      { ...calc('Debris & Placement', '[Debris Type] + [Estimated Tonnage] + [Placement]'), caption: 'Material surcharge, overweight tonnage & placement.' },
+      { ...calc('Total Rental Cost', '[Base Rental] + [Extended Days] + [Debris & Placement]'),
+        resultMode: 'primary', caption: 'All-in price — confirmed at booking, no fuel surcharges.' },
+    ],
+    result_calc: 'Total Rental Cost',
+    results: {
+      heading: 'Your Dumpster Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Dumpster',
+      cta_heading: 'Lock in your delivery date',
+      cta_sub: 'Same-week delivery in all three zones — driveway-safe placement on every drop.',
+      submit_success: 'Booked! Dispatch will text your delivery window within the hour.',
+      footnote: 'Weight limits: 10yd = 2 tons, 20yd = 3 tons, 30yd = 4 tons, 40yd = 5 tons. Overage billed at $65/ton.',
+    },
+  },
 ];
 
 /* ─── Lookups ─── */

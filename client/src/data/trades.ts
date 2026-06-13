@@ -38,6 +38,9 @@ export const TRADES: Trade[] = [
   { id: "chimney_sweep", categoryId: "cleaning", label: "Chimney Sweep" },
   { id: "dryer_vent_cleaning", categoryId: "cleaning", label: "Dryer Vent Cleaning" },
   { id: "junk_removal", categoryId: "cleaning", label: "Junk Removal" },
+  // PRICING-MODELS U7 — dumpster rental (template-inventory TOP-15 #4; the
+  // rate_matrix showcase trade — sizes × delivery zones lane pricing).
+  { id: "dumpster_rental", categoryId: "cleaning", label: "Dumpster Rental" },
   { id: "pest_control", categoryId: "cleaning", label: "Pest Control" },
 
   { id: "kitchen_remodeling", categoryId: "reno", label: "Kitchen Remodeling" },
