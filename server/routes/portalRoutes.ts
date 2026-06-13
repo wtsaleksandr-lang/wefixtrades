@@ -521,10 +521,12 @@ export function registerPortalRoutes(app: Express) {
    * server/lib/objectStorage.ts, or set LOGO_UPLOAD_BUCKET) so customer
    * logos survive deploys. Paste-URL logos are unaffected.
    */
-  // The global express.json() parser defaults to a 100 KB body limit, which
-  // is far too small for a base64-encoded image. Mount a route-scoped parser
-  // with a raised limit (5 MB binary -> ~6.8 MB base64, +slack) ahead of the
-  // handler so the upload body is accepted.
+  // NOTE: a route-scoped parser CANNOT raise the global 100 KB limit — the
+  // global express.json() in server/index.ts runs first and would 413 the
+  // body before this ever executes. The real raised limit for this path is
+  // mounted ahead of the global parser via server/lib/bodyLimits.ts
+  // ("/api/portal/logo/upload" → 8mb). This parser is kept only as a no-op
+  // backstop (body arrives already parsed, so it skips).
   const logoUploadBodyParser = express.json({ limit: "8mb" });
 
   app.post("/api/portal/logo/upload", requireClientStrict, logoUploadBodyParser, async (req: Request, res: Response) => {
@@ -574,7 +576,9 @@ export function registerPortalRoutes(app: Express) {
 
       const prevUrl = prev?.logo_url;
       if (prevUrl && prevUrl.startsWith("/uploads/logos/") && prevUrl !== url) {
-        await deleteFile(prevUrl).catch(() => {});
+        // Best-effort cleanup of the replaced logo file — boolean-return
+        // shape per check:no-silent-catch (fs cleanup is non-critical).
+        await deleteFile(prevUrl).catch(() => false);
       }
 
       log.info("[portal/logo/upload] uploaded", { clientId, size: buffer.length });

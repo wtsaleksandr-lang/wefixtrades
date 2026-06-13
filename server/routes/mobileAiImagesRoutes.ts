@@ -128,6 +128,11 @@ export function registerMobileAiImagesRoutes(app: Express): void {
    *     "sizeBytes": 245678
    *   }
    */
+  // NOTE: the base64 body runs up to ~13.4 MB (10 MB decoded MAX_BYTES). The
+  // global express.json() parser in server/index.ts has a 100 KB limit and
+  // runs first — the raised limit for this path is mounted ahead of it via
+  // server/lib/bodyLimits.ts ("/api/mobile/ai/upload-image" → 14mb). Do NOT
+  // add a route-scoped parser here; it would be dead code (see bodyLimits.ts).
   app.post(
     "/api/mobile/ai/upload-image",
     requireSessionOrBearer,
