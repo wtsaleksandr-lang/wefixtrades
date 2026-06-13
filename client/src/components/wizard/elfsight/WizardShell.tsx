@@ -891,10 +891,27 @@ export default function WizardShell({ embed = false }: Props) {
           resultCalcId: undefined,
         };
       }
-      // Clone deep enough that mutation in the editor doesn't reach back
-      // into the catalogue object (the preset is shared across tabs).
-      const nextFields = preset.fields.map((f) => ({ ...f }));
-      const nextCalcs = preset.calculations.map((c) => ({ ...c }));
+      // BLANK-CANVAS FIX (fix/wizard-template-blank-canvas) — a chosen template
+      // must NEVER blank the editor preview. Static catalogue presets always
+      // ship fields + calculations, but the MERGED list the gallery applies
+      // can also include admin-created / admin-overridden templates whose
+      // `fields` (or `calculations`) blob is missing or empty. Those flowed
+      // straight into a structural replace below: `preset.fields.map(...)`
+      // THREW on an undefined array (apply silently failed → blank), and an
+      // empty `[]` produced a 0-field canvas (PreviewPane renders `fields ?? []`
+      // → blank white widget). Both are the founder's reported "I picked a
+      // template but the canvas stayed blank" bug. Guard here: when a template
+      // carries no usable fields/calcs, fall back to the layout's blank seed so
+      // the user always lands on a real, editable starter calculator — never a
+      // dead canvas. Well-formed templates (every static preset) are untouched.
+      const presetFields = Array.isArray(preset.fields) ? preset.fields : [];
+      const presetCalcs = Array.isArray(preset.calculations) ? preset.calculations : [];
+      const nextFields = presetFields.length > 0
+        ? presetFields.map((f) => ({ ...f }))
+        : seedFields(preset.layout ?? s.layout);
+      const nextCalcs = presetCalcs.length > 0
+        ? presetCalcs.map((c) => ({ ...c }))
+        : seedCalculations(preset.layout ?? s.layout);
       // Find the headline calc id (if the preset names a specific one).
       const headlineCalc = nextCalcs.find((c) => c.name === preset.result_calc);
       // W-AS-1b — when a template ships with a `style` block (W-AS-1 sample
@@ -947,7 +964,9 @@ export default function WizardShell({ embed = false }: Props) {
         ...s,
         activeTemplateId: preset.id,
         settings: nextSettings,
-        layout: preset.layout,
+        // Fall back to the current layout when an admin-created template omits
+        // one — keeps `fields`/`calculations` (seeded above) on a valid layout.
+        layout: preset.layout ?? s.layout,
         fields: nextFields,
         calculations: nextCalcs,
         header: {

@@ -126,6 +126,54 @@ test('fresh blank seed is pristine → first pick applies with no confirm', () =
   }
 });
 
+/* ── fix/wizard-template-blank-canvas — the BLANK-CANVAS guard. ──
+ *
+ * The gallery applies the MERGED template list (code defaults + admin
+ * overrides + admin-created templates), not only the static catalogue. An
+ * admin-created/overridden template can carry a missing or empty `fields`
+ * (or `calculations`) blob. `applyTemplate` used to do `preset.fields.map(...)`
+ * straight into a structural replace, which THREW on undefined (apply failed →
+ * blank) or produced a 0-field canvas on `[]` (PreviewPane renders `fields ??
+ * []` → blank white widget) — the founder's "picked a template, canvas stayed
+ * blank" report.
+ *
+ * `applyFieldsForPreview` mirrors the fixed apply rule: a template's fields are
+ * used when present and non-empty, ELSE the blank-seed fields for its layout.
+ * The invariant is simply "apply never yields zero preview fields". */
+function applyFieldsForPreview(
+  preset: { fields?: unknown; layout?: TemplateConfig['layout'] },
+  fallbackLayout: TemplateConfig['layout'],
+): number {
+  const fields = Array.isArray(preset.fields) ? preset.fields : [];
+  if (fields.length > 0) return fields.length;
+  return buildBlankPreviewConfig(preset.layout ?? fallbackLayout).fields.length;
+}
+
+// 5 — a template with MISSING `fields` never blanks the canvas (seed fallback).
+test('applying a template with undefined fields falls back to the blank seed', () => {
+  const n = applyFieldsForPreview({ fields: undefined, layout: 'two-column' }, 'single-column');
+  assert.ok(n > 0, 'undefined fields must fall back to a non-empty seed, not a blank canvas');
+});
+
+// 6 — a template with an EMPTY `fields` array never blanks the canvas.
+test('applying a template with empty fields[] falls back to the blank seed', () => {
+  const n = applyFieldsForPreview({ fields: [], layout: 'multi-column' }, 'single-column');
+  assert.ok(n > 0, 'empty fields[] must fall back to a non-empty seed, not a blank canvas');
+});
+
+// 7 — a template with MISSING layout still seeds on the fallback layout.
+test('applying a fields-less, layout-less template seeds on the fallback layout', () => {
+  const n = applyFieldsForPreview({ fields: [], layout: undefined }, 'single-column');
+  assert.ok(n > 0, 'missing layout must not break the seed fallback');
+});
+
+// 8 — a well-formed template is untouched (uses its own fields, not the seed).
+test('a well-formed template keeps its own fields (no seed substitution)', () => {
+  const rep = collapseLayoutVariants(TEMPLATE_PRESETS)[0];
+  const n = applyFieldsForPreview(rep, 'single-column');
+  assert.equal(n, rep.fields.length, 'well-formed template must keep its own field count');
+});
+
 // eslint-disable-next-line no-console
 console.log(`\ntemplateApply: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
