@@ -73,6 +73,11 @@ export const TRADES: Trade[] = [
   // installation — the image_choice materials showcase (laminate/quartz/
   // granite/marble); a finish/surface reno trade.
   { id: "countertops", categoryId: "reno", label: "Countertop Installation" },
+  // TEMPLATES BATCH 3 — "Outdoor / Seasonal" (template-inventory TOP-15 #5).
+  // Foundation repair + basement waterproofing — one showcase template, two
+  // canonical reno/construction trade ids (problem-type show_if branches).
+  { id: "foundation_repair", categoryId: "reno", label: "Foundation Repair" },
+  { id: "basement_waterproofing", categoryId: "reno", label: "Basement Waterproofing" },
 
   { id: "asphalt_driveway", categoryId: "driveway", label: "Asphalt Driveway Paving" },
   { id: "driveway_sealing", categoryId: "driveway", label: "Driveway Sealing" },
@@ -131,6 +136,12 @@ export const TRADES: Trade[] = [
   { id: "garden_maintenance", categoryId: "outdoor", label: "Garden Maintenance" },
   { id: "tree_service", categoryId: "outdoor", label: "Tree Service" },
   { id: "tree_trimming", categoryId: "outdoor", label: "Tree Trimming" },
+  // TEMPLATES BATCH 3 — "Outdoor / Seasonal" (template-inventory TOP-15
+  // #7 irrigation, #8 snow removal, #9 holiday lighting, #14 artificial turf).
+  { id: "irrigation_sprinklers", categoryId: "outdoor", label: "Irrigation / Sprinkler Systems" },
+  { id: "snow_removal", categoryId: "outdoor", label: "Snow Removal" },
+  { id: "holiday_lighting", categoryId: "outdoor", label: "Holiday / Christmas Light Installation" },
+  { id: "artificial_turf", categoryId: "outdoor", label: "Artificial Turf Installation" },
 
   { id: "web_design", categoryId: "pro", label: "Web Design" },
   { id: "it_services", categoryId: "pro", label: "IT Services" },

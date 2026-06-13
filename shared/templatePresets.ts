@@ -5397,6 +5397,635 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       footnote: 'Includes laser templating, fabrication, professional installation and seam finishing. Lifetime sealant warranty on stone.',
     },
   },
+
+  /* ════ TEMPLATES BATCH 3 — "Outdoor / Seasonal" (template-inventory spec) ════
+   *
+   * Five showcase-tier templates for high-intent outdoor / seasonal trades
+   * (TOP-15 #7 irrigation, #8 snow removal — the dual-branch show_if showcase,
+   * #9 holiday lighting, #14 artificial turf, #5 foundation repair + basement
+   * waterproofing — one template, two canonical reno trade ids). Every entry
+   * ships the FULL showcase tier identical to the Batch 1–2 exemplars above:
+   * explicit niche style block, defaultIcon + trade-true trustBadges, per-field
+   * help on every input + ≥1 option description, ≥1 show_if branch validated
+   * against real option ids, an image-card radio / image_choice on the highest-
+   * uncertainty question, calc captions + exactly one `resultMode: 'primary'`
+   * total, results CTA block (cta_heading/cta_sub/submit_success), explicit
+   * 3-step grouping with step help covering every input, and animations +
+   * premium countUp/staggerReveal (no cardFlip / confetti). All image-card URLs
+   * reuse curated `images.unsplash.com/photo-<id>` direct URLs already proven
+   * live in the production catalogue (Batch 0–2).
+   */
+
+  /* ── 60. Irrigation / Sprinkler System (BATCH 3 #1) ──
+   * zones count is the driver; system-type image cards (new install vs repair);
+   * smart vs standard controller; backflow add-on. show_if forks the build:
+   * a NEW install reveals trenching/heads-per-zone, a REPAIR reveals the
+   * zone-count being serviced. */
+  {
+    id: 'irrigation_sprinkler_system', name: 'Irrigation & Sprinkler System',
+    description: 'Sprinkler system pricing by zone count and job type, with smart-controller, backflow and per-zone trenching options.',
+    category: 'Outdoor', trades: ['irrigation_sprinklers'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Certified Backflow Testers', 'verified'),
+      b('Water-Sense Partner', 'leaf'),
+      b('Free On-Site Design', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Droplets',
+    requireAddress: true,
+    // Showcase niche style — fresh irrigation green body, deep-evergreen
+    // result panel, sky-blue CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#0e7490',
+      background: '#f3f8f6',
+      surface: '#ffffff',
+      border: '#d9e8e2',
+      text: '#14211c',
+      resultsBg: '#103b30',
+      ctaColor: '#0891b2',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'outfit',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Trenching distance and soil vary until the site walk — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Sprinkler System — Price Your Install or Repair', subtitle: 'Licensed irrigation pros · Certified backflow testing · Free on-site design', align: 'left' },
+    steps: [
+      { id: 'step_job', label: 'Job type', help: 'A brand-new system, or service for one you already have.', fields: ['irr_job', 'irr_zones'] },
+      { id: 'step_install', label: 'Build details', help: 'Trenching and controller choices for a new install.', fields: ['irr_trenching', 'irr_controller'] },
+      { id: 'step_extras', label: 'Compliance & extras', help: 'Backflow testing and finishing add-ons.', fields: ['irr_backflow', 'irr_extras'] },
+    ],
+    fields: [
+      // image_choice on the branching question (the whole quote forks here).
+      { id: 'irr_job', name: 'Job Type', label: 'What do you need done?', type: 'image_choice',
+        help: 'New systems are priced per zone; repairs are priced per zone serviced.',
+        options: [
+          { ...optImg('New system install', 850, 'https://images.unsplash.com/photo-1599696848652-f0ff23bc911f?w=300&h=300&fit=crop'),
+            description: 'Full design and install — heads, valves, controller and backflow.' },
+          { ...optImg('Repair / tune-up', 120, 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=300&h=300&fit=crop'),
+            description: 'Diagnose and fix broken heads, leaks or valves on an existing system.' },
+        ] },
+      { id: 'irr_zones', name: 'Number of Zones', label: 'How many watering zones?', type: 'slider',
+        help: 'A typical quarter-acre lawn runs 4–6 zones. Unsure? We confirm on site.',
+        min: 1, max: 16, step: 1, default_value: 5, unit: 'zones' },
+      // show_if — trenching only matters for a NEW install.
+      { id: 'irr_trenching', name: 'Trenching Difficulty', label: 'Yard / trenching conditions', type: 'select',
+        help: 'Rocky or root-bound soil takes longer to trench and lay pipe.',
+        options: [
+          { ...opt('Open lawn — easy trenching', 0), description: 'Soft, clear soil — standard pipe-pulling.' },
+          opt('Some obstacles / hardpan', 35),
+          opt('Rocky or heavy roots', 75),
+        ],
+        show_if: { field: 'irr_job', op: 'eq', value: 'new_system_install' } },
+      // show_if — controller upgrade is a new-install choice.
+      { id: 'irr_controller', name: 'Controller', label: 'Which controller?', type: 'radio',
+        help: 'Smart controllers adjust to weather and cut water bills 20–30%.',
+        options: [
+          { ...optImg('Standard timer', 0, 'https://images.unsplash.com/photo-1558002038-1055907df827?w=300&h=300&fit=crop'),
+            description: 'Reliable fixed-schedule timer — lowest up-front cost.' },
+          { ...optImg('Smart Wi-Fi controller', 240, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?w=300&h=300&fit=crop'),
+            description: 'App-controlled, weather-aware — qualifies for many water rebates.' },
+        ],
+        show_if: { field: 'irr_job', op: 'eq', value: 'new_system_install' } },
+      { id: 'irr_backflow', name: 'Backflow Preventer', label: 'Add backflow preventer & test', type: 'toggle',
+        help: 'Required by code on most municipal water connections.',
+        on_value: 320 },
+      { id: 'irr_extras', name: 'Extras', label: 'Finishing add-ons', type: 'multi_select',
+        help: 'Optional — pick only what your yard needs.',
+        options: [
+          { ...opt('Drip line for beds & borders', 280), description: 'Low-flow drip tubing for planting beds.' },
+          opt('Rain / soil-moisture sensor', 130),
+          opt('Winterization (first blow-out)', 95),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Zones & Heads', '[Number of Zones] * ([Job Type] + [Trenching Difficulty])'), caption: 'Per-zone heads, valves and pipe at your job type and soil.' },
+      { ...calc('Controller & Backflow', '[Controller] + [Backflow Preventer]'), caption: 'Controller choice plus code-required backflow protection.' },
+      { ...calc('Finishing Add-ons', '[Extras]'), caption: 'Drip lines, sensors and winterization.' },
+      { ...calc('Total System Price', '[Zones & Heads] + [Controller & Backflow] + [Finishing Add-ons]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed at a free on-site design walk.' },
+    ],
+    result_calc: 'Total System Price',
+    results: {
+      heading: 'Your Sprinkler Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Design',
+      cta_heading: 'Green lawn, lower water bill',
+      cta_sub: 'We map your zones on site, confirm head placement and lock your install date.',
+      submit_success: 'Requested! Our irrigation designer will call within one business day to schedule your free site walk.',
+      footnote: 'New installs include design, heads, valves, controller and backflow. One-year workmanship warranty on all parts.',
+    },
+  },
+
+  /* ── 61. Snow Removal (BATCH 3 #2) — the dual-branch show_if showcase ──
+   * A per-visit vs seasonal-contract radio forks the whole quote: per-visit
+   * reveals driveway size + estimated visits; seasonal reveals season length +
+   * service level. Two show_if branches against the SAME controller id, each
+   * gated on a different option value. Range mode — snowfall is unpredictable. */
+  {
+    id: 'snow_removal_service', name: 'Snow Removal Service',
+    description: 'Snow removal pricing for per-visit plowing or a full seasonal contract, by driveway size, service level and season length.',
+    category: 'Outdoor', trades: ['snow_removal'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('24/7 Storm Response', 'clock'),
+      b('Salt & De-Ice Certified', 'verified'),
+      b('Locally Owned', 'map-pin'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Snowflake',
+    requireAddress: true,
+    // Showcase niche style — cold winter-blue body, deep-navy result panel,
+    // ice-blue CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#1d4ed8',
+      background: '#f2f6fc',
+      surface: '#ffffff',
+      border: '#dbe5f5',
+      text: '#101828',
+      resultsBg: '#0f1f3d',
+      ctaColor: '#2563eb',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Snowfall is unpredictable — seasonal pricing carries a ±15% band.
+        range_mode: { enabled: true, band_pct: 15 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Snow Removal — Per Visit or Seasonal Price', subtitle: '24/7 storm response · Licensed & insured · Salt and de-icing included', align: 'left' },
+    steps: [
+      { id: 'step_plan', label: 'Plan & size', help: 'Pay per storm, or lock one seasonal price. Then your driveway size.', fields: ['snow_plan', 'snow_drive_size'] },
+      { id: 'step_pervisit', label: 'Per-visit details', help: 'How often we plow per storm event.', fields: ['snow_visits'] },
+      { id: 'step_seasonal', label: 'Seasonal details', help: 'Season length and how thoroughly we clear.', fields: ['snow_season_length', 'snow_service_level', 'snow_extras'] },
+    ],
+    fields: [
+      // The branching controller — per-visit vs seasonal forks the quote.
+      { id: 'snow_plan', name: 'Plan Type', label: 'How do you want to pay?', type: 'radio',
+        help: 'Per-visit suits light winters; seasonal caps your cost no matter the snowfall.',
+        options: [
+          { ...optImg('Per visit per storm', 75, 'https://images.unsplash.com/photo-1457269449834-928af64c684d?w=300&h=300&fit=crop'),
+            description: 'Pay only when it snows — billed per plow visit.' },
+          { ...optImg('Seasonal contract', 0, 'https://images.unsplash.com/photo-1547754980-3df97fed72a8?w=300&h=300&fit=crop'),
+            description: 'One flat price for the whole season — unlimited storms.' },
+        ] },
+      { id: 'snow_drive_size', name: 'Driveway Size', label: 'How big is your driveway?', type: 'select',
+        help: 'Count the cars that fit end-to-end if unsure.',
+        options: [
+          { ...opt('1-2 car (short)', 0), description: 'A standard single or double driveway.' },
+          opt('3-4 car / extended', 40),
+          opt('Long rural / commercial', 95),
+        ] },
+      // show_if BRANCH A — per-visit only: how many visits we estimate.
+      { id: 'snow_visits', name: 'Estimated Visits', label: 'Estimated plow visits this winter', type: 'slider',
+        help: 'A typical northern winter runs 12–20 plowable storms. We bill only actual visits.',
+        min: 1, max: 40, step: 1, default_value: 15, unit: 'visits',
+        show_if: { field: 'snow_plan', op: 'eq', value: 'per_visit_per_storm' } },
+      // show_if BRANCH B — seasonal only: season length.
+      { id: 'snow_season_length', name: 'Season Length', label: 'How long is your snow season?', type: 'select',
+        help: 'Pick the closest match for your region — sets the contract base.',
+        options: [
+          { ...opt('Short (3 months)', 450), description: 'Milder regions — Nov through Jan.' },
+          { ...opt('Standard (4 months)', 650), description: 'Most northern markets — Nov through Feb.' },
+          opt('Long (5+ months)', 900),
+        ],
+        show_if: { field: 'snow_plan', op: 'eq', value: 'seasonal_contract' } },
+      // show_if BRANCH B — seasonal only: service level.
+      { id: 'snow_service_level', name: 'Service Level', label: 'How thoroughly should we clear?', type: 'radio',
+        help: 'Higher tiers trigger at a lower snow depth and include hand-work.',
+        options: [
+          { ...opt('Driveway plow only', 0), description: 'Clears the driveway after each qualifying storm.' },
+          { ...opt('Driveway + walkways', 120), description: 'Adds shoveled walkways and front steps.' },
+          opt('Full property + priority response', 280),
+        ],
+        show_if: { field: 'snow_plan', op: 'eq', value: 'seasonal_contract' } },
+      // show_if BRANCH B — seasonal only: de-icing add-ons.
+      { id: 'snow_extras', name: 'De-Icing Add-ons', label: 'Salt & de-icing options', type: 'multi_select',
+        help: 'Optional — keeps surfaces safe between plow visits.',
+        options: [
+          { ...opt('Salt driveway each visit', 110), description: 'Rock salt applied after every plow.' },
+          opt('Walkway ice-melt service', 70),
+          opt('Eco / pet-safe de-icer upgrade', 60),
+        ],
+        show_if: { field: 'snow_plan', op: 'eq', value: 'seasonal_contract' } },
+    ],
+    calculations: [
+      { ...calc('Per-Visit Cost', '([Plan Type] + [Driveway Size]) * [Estimated Visits]'), caption: 'Per-storm plow rate at your driveway size, across the winter.' },
+      { ...calc('Seasonal Base', '[Season Length] + [Driveway Size] + [Service Level]'), caption: 'Flat seasonal contract at your length and service level.' },
+      { ...calc('De-Icing Add-ons', '[De-Icing Add-ons]'), caption: 'Salt and ice-melt service on the seasonal plan.' },
+      { ...calc('Total Estimated Cost', '[Per-Visit Cost] + [Seasonal Base] + [De-Icing Add-ons]'),
+        resultMode: 'primary', caption: 'Your winter estimate — seasonal locks the price regardless of snowfall.' },
+    ],
+    result_calc: 'Total Estimated Cost',
+    results: {
+      heading: 'Your Snow Removal Quote',
+      show_breakdown: true,
+      cta_label: 'Reserve My Spot',
+      cta_heading: 'Routes fill before the first storm',
+      cta_sub: 'Lock your driveway on our plow route now — seasonal customers get priority dispatch.',
+      submit_success: 'Reserved! Dispatch will confirm your route and storm-response details before the season starts.',
+      footnote: 'Seasonal contracts include unlimited plow visits at the chosen depth trigger. Per-visit billing is per actual storm only.',
+    },
+  },
+
+  /* ── 62. Holiday / Christmas Light Installation (BATCH 3 #3) ──
+   * Linear roofline feet is the driver; design-tier image cards (classic /
+   * premium / luxury); trees & wraps add-ons. show_if surfaces the wrap-count
+   * picker only when "Tree & shrub wraps" is chosen (contains on a
+   * multi_select). Takedown-included toggle. */
+  {
+    id: 'holiday_light_installation', name: 'Holiday Light Installation',
+    description: 'Christmas & holiday lighting priced by roofline footage and design tier, with tree wraps, walkway lighting and takedown.',
+    category: 'Outdoor', trades: ['holiday_lighting'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Commercial-Grade LED', 'verified'),
+      b('Install + Takedown + Storage', 'calendar'),
+      b('Locally Owned', 'map-pin'),
+    ],
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Sparkles',
+    requireAddress: true,
+    // Showcase niche style — festive deep-evergreen body, midnight result
+    // panel, warm-gold CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#b91c1c',
+      background: '#0f2a1f',
+      surface: '#14352a',
+      border: '#1f4a3a',
+      text: '#f4f7f4',
+      resultsBg: '#08160f',
+      ctaColor: '#f59e0b',
+      success: '#22c55e',
+      error: '#f87171',
+      fontFamily: 'sora',
+      fieldStyle: 'filled',
+      radius: 14,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Peak height and roofline complexity vary — show a ±10% band.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Holiday Lights — Price Your Display Now', subtitle: 'Commercial-grade LED · Install, takedown & storage included · Fully insured', align: 'left' },
+    steps: [
+      { id: 'step_roofline', label: 'Roofline', help: 'How much roofline to light, and the look you want.', fields: ['hol_feet', 'hol_tier'] },
+      { id: 'step_features', label: 'Features', help: 'Trees, wraps and walkway accents.', fields: ['hol_addons', 'hol_wraps'] },
+      { id: 'step_service', label: 'Service', help: 'Takedown and storage options.', fields: ['hol_takedown'] },
+    ],
+    fields: [
+      { id: 'hol_feet', name: 'Roofline Feet', label: 'Roofline footage to light', type: 'slider',
+        help: 'A typical single-story home is around 150–200 ft of roofline.',
+        min: 50, max: 600, step: 10, default_value: 180, unit: 'ft' },
+      // image_choice on the highest-uncertainty question (design tier).
+      { id: 'hol_tier', name: 'Design Tier', label: 'Which design tier?', type: 'image_choice',
+        help: 'Tier sets the per-foot price — premium adds color-matched clips and warm-white runs.',
+        options: [
+          { ...optImg('Classic warm white', 4, 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=300&h=300&fit=crop'),
+            description: 'Clean single-color roofline — the timeless look.' },
+          { ...optImg('Premium multi-element', 6, 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=300&h=300&fit=crop'),
+            description: 'Roofline plus accents and color-matched clips.' },
+          { ...optImg('Luxury full display', 9, 'https://images.unsplash.com/photo-1576919228236-a097c32a5cd4?w=300&h=300&fit=crop'),
+            description: 'Designer display — roofline, trees, wraps and walkway in one look.' },
+        ] },
+      { id: 'hol_addons', name: 'Features', label: 'Add display features', type: 'multi_select',
+        help: 'Pick the accents you want — each is priced as a flat add.',
+        options: [
+          { ...opt('Tree & shrub wraps', 0), description: 'Wrapped trunks and shrubs — pick a count on the next question.' },
+          opt('Walkway / pathway lights', 180),
+          opt('Wreaths & garland (per entry)', 140),
+        ] },
+      // show_if — wrap count only surfaces when wraps are selected (contains).
+      { id: 'hol_wraps', name: 'Tree Wraps', label: 'How many trees / shrubs to wrap?', type: 'slider',
+        help: 'Each wrapped trunk or shrub is priced per unit, lights and labor included.',
+        min: 1, max: 20, step: 1, default_value: 3, unit: 'wraps',
+        show_if: { field: 'hol_addons', op: 'contains', value: 'tree_shrub_wraps' } },
+      { id: 'hol_takedown', name: 'Takedown & Storage', label: 'Add takedown & off-season storage', type: 'toggle',
+        help: 'We remove everything in January and store your lights until next year.',
+        on_value: 150 },
+    ],
+    calculations: [
+      { ...calc('Roofline Lighting', '[Roofline Feet] * [Design Tier]'), caption: 'Per-foot commercial LED at your chosen design tier.' },
+      { ...calc('Features & Wraps', '[Features] + ([Tree Wraps] * 65)'), caption: 'Walkway lights, wreaths and per-tree wraps.' },
+      { ...calc('Takedown & Storage', '[Takedown & Storage]'), caption: 'January removal and off-season storage.' },
+      { ...calc('Total Display Price', '[Roofline Lighting] + [Features & Wraps] + [Takedown & Storage]'),
+        resultMode: 'primary', caption: 'All-in seasonal price — install, energy-safe wiring and warranty included.' },
+    ],
+    result_calc: 'Total Display Price',
+    results: {
+      heading: 'Your Holiday Display Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Install',
+      cta_heading: 'Holiday calendars fill by November',
+      cta_sub: 'Reserve your install week now — our crews book solid right after Thanksgiving.',
+      submit_success: 'Booked! Your lighting designer will call within one business day to confirm your display and install week.',
+      footnote: 'Includes commercial-grade LED, professional install, in-season service calls and full warranty. Takedown optional.',
+    },
+  },
+
+  /* ── 63. Artificial Turf Installation (BATCH 3 #4) ──
+   * sqft × turf-grade is the high-uncertainty driver (image_choice cards:
+   * landscape / pet / putting); base prep select; pet-system add-on. show_if
+   * surfaces the pet-drainage system only when the pet-grade turf is chosen.
+   * Range mode — sub-base condition isn't known until excavation. */
+  {
+    id: 'artificial_turf_installation', name: 'Artificial Turf Installation',
+    description: 'Artificial turf pricing by square footage and turf grade, with base prep, pet-drainage system and edging options.',
+    category: 'Outdoor', trades: ['artificial_turf'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('15-Year Turf Warranty', 'award'),
+      b('Drainage-Certified Install', 'verified'),
+      b('Free On-Site Measure', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Trees',
+    requireAddress: true,
+    // Showcase niche style — fresh turf-green body, deep-field result panel,
+    // lime CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#15803d',
+      background: '#f3f8f1',
+      surface: '#ffffff',
+      border: '#dcebd6',
+      text: '#14241a',
+      resultsBg: '#10341f',
+      ctaColor: '#65a30d',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'outfit',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Sub-base condition is found at excavation — show a ±12% band.
+        range_mode: { enabled: true, band_pct: 12 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Artificial Turf — Instant Per-Square-Foot Price', subtitle: '15-year turf warranty · Drainage-certified installs · Free on-site measure', align: 'left' },
+    steps: [
+      { id: 'step_area', label: 'Area & grade', help: 'How much turf, and which grade fits your use.', fields: ['turf_area', 'turf_grade'] },
+      { id: 'step_base', label: 'Base prep', help: 'The compacted base is what keeps turf flat for years.', fields: ['turf_base', 'turf_pet'] },
+      { id: 'step_extras', label: 'Edging & extras', help: 'Borders and finishing options.', fields: ['turf_extras'] },
+    ],
+    fields: [
+      { id: 'turf_area', name: 'Turf Area', label: 'Area to cover (sq ft)', type: 'slider',
+        help: 'A typical backyard lawn is 500–1,200 sq ft. Pace it off if unsure.',
+        min: 100, max: 5000, step: 50, default_value: 600, unit: 'sq ft' },
+      // image_choice on the highest-uncertainty driver (turf grade).
+      { id: 'turf_grade', name: 'Turf Grade', label: 'Which turf grade?', type: 'image_choice',
+        help: 'Grade sets the per-square-foot material cost — pet and putting grades cost more.',
+        options: [
+          { ...optImg('Landscape grade', 9, 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=300&h=300&fit=crop'),
+            description: 'Soft, natural-looking lawn turf — best all-round value.' },
+          { ...optImg('Pet grade antimicrobial', 12, 'https://images.unsplash.com/photo-1556909211-36987daf7b4d?w=300&h=300&fit=crop'),
+            description: 'Tighter weave with antimicrobial backing — built for pets.' },
+          { ...optImg('Putting / sport grade', 15, 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=300&h=300&fit=crop'),
+            description: 'Dense, true-roll surface for putting greens and play areas.' },
+        ] },
+      { id: 'turf_base', name: 'Base Preparation', label: 'Base / sub-grade prep', type: 'select',
+        help: 'A compacted aggregate base is what stops turf from rippling.',
+        options: [
+          { ...opt('Standard 3" base', 0), description: 'Crushed aggregate, graded and compacted — most yards.' },
+          opt('Heavy 4" base / poor soil', 2.5),
+          opt('Excavate + rebuild soft sub-grade', 4),
+        ] },
+      // show_if — pet drainage system only matters on the pet-grade turf.
+      { id: 'turf_pet', name: 'Pet Drainage System', label: 'Add pet-drainage & deodorizer layer', type: 'toggle',
+        help: 'A drainage core plus deodorizing infill keeps pet areas odor-free.',
+        on_value: 480,
+        show_if: { field: 'turf_grade', op: 'eq', value: 'pet_grade_antimicrobial' } },
+      { id: 'turf_extras', name: 'Edging & Extras', label: 'Borders & finishing', type: 'multi_select',
+        help: 'Optional — clean edges and accents that lift the finished look.',
+        options: [
+          { ...opt('Bender-board / paver border', 320), description: 'Crisp contained edge around the turf field.' },
+          opt('Cool-touch infill upgrade', 240),
+          opt('Old sod removal & haul-away', 380),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Turf & Installation', '[Turf Area] * ([Turf Grade] + [Base Preparation])'), caption: 'Per-square-foot turf and compacted base at your grade.' },
+      { ...calc('Pet System', '[Pet Drainage System]'), caption: 'Drainage core and deodorizing infill for pet areas.' },
+      { ...calc('Edging & Extras', '[Edging & Extras]'), caption: 'Borders, infill upgrades and old-sod removal.' },
+      { ...calc('Total Turf Price', '[Turf & Installation] + [Pet System] + [Edging & Extras]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed at a free on-site measure.' },
+    ],
+    result_calc: 'Total Turf Price',
+    results: {
+      heading: 'Your Turf Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Measure',
+      cta_heading: 'Never mow again',
+      cta_sub: 'We measure on site, confirm base prep and drainage, then lock your install date.',
+      submit_success: 'Requested! Our turf estimator will call within one business day to schedule your free measure.',
+      footnote: 'Includes excavation, compacted base, premium turf, infill and edge fastening. 15-year manufacturer turf warranty.',
+    },
+  },
+
+  /* ── 64. Foundation Repair & Basement Waterproofing (BATCH 3 #5) ──
+   * One template, TWO canonical reno trade ids. A problem-type radio
+   * (cracks / bowing / water) forks the quote via show_if: cracks & bowing
+   * reveal affected linear feet; water reveals the waterproofing method.
+   * Sump-pump add-on. Range mode — soil and structural variance is high. */
+  {
+    id: 'foundation_repair_waterproofing', name: 'Foundation Repair & Waterproofing',
+    description: 'Foundation repair and basement waterproofing priced by problem type, affected footage and method, with sump-pump and warranty options.',
+    category: 'Construction', trades: ['foundation_repair', 'basement_waterproofing'],
+    trustBadges: [
+      b('Licensed & Insured', 'shield-check'),
+      b('Structural Engineer On Staff', 'badge-check'),
+      b('Transferable Lifetime Warranty', 'award'),
+      b('Free Inspection', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'light', defaultIcon: 'Building2',
+    requireAddress: true,
+    // Showcase niche style — solid concrete-grey body, deep-bedrock result
+    // panel, structural-blue CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#475569',
+      background: '#f5f6f7',
+      surface: '#ffffff',
+      border: '#e2e5e9',
+      text: '#1c1f24',
+      resultsBg: '#1e293b',
+      ctaColor: '#2563eb',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 10,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Soil and structural variance is high — show a ±15% band.
+        range_mode: { enabled: true, band_pct: 15 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Foundation & Basement — Price Your Repair', subtitle: 'Structural engineer on staff · Transferable lifetime warranty · Free inspection', align: 'left' },
+    steps: [
+      { id: 'step_problem', label: 'The problem', help: 'What you are seeing — this sets the repair approach.', fields: ['fnd_problem', 'fnd_feet'] },
+      { id: 'step_water', label: 'Waterproofing', help: 'How we keep the water out (water-intrusion jobs).', fields: ['fnd_method'] },
+      { id: 'step_extras', label: 'Protection & extras', help: 'Sump pump and warranty add-ons.', fields: ['fnd_sump', 'fnd_extras'] },
+    ],
+    fields: [
+      // The branching controller — problem type forks the whole quote.
+      { id: 'fnd_problem', name: 'Problem Type', label: 'What are you seeing?', type: 'radio',
+        help: 'Not sure? Our free inspection confirms the cause before any quote is final.',
+        options: [
+          { ...optImg('Foundation cracks', 90, 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=300&h=300&fit=crop'),
+            description: 'Vertical or stair-step cracks — sealed and reinforced per linear foot.' },
+          { ...optImg('Bowing / settling walls', 320, 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=300&h=300&fit=crop'),
+            description: 'Inward-bowing or settling walls — stabilized with piers or anchors.' },
+          { ...optImg('Water intrusion / damp basement', 0, 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=300&h=300&fit=crop'),
+            description: 'Leaks, seepage or musty damp — solved with a waterproofing system.' },
+        ] },
+      // show_if — linear feet prices crack-sealing and bowing-wall jobs.
+      { id: 'fnd_feet', name: 'Affected Feet', label: 'Affected length (linear feet)', type: 'slider',
+        help: 'Estimate the run of cracked or bowing wall — we verify at inspection.',
+        min: 4, max: 120, step: 2, default_value: 20, unit: 'ft',
+        show_if: { field: 'fnd_problem', op: 'ne', value: 'water_intrusion_damp_basement' } },
+      // show_if — waterproofing method only surfaces on the water branch.
+      { id: 'fnd_method', name: 'Waterproofing Method', label: 'Which waterproofing approach?', type: 'select',
+        help: 'Interior drainage is least disruptive; exterior is the most thorough.',
+        options: [
+          { ...opt('Interior drain + sealant', 4200), description: 'Interior perimeter drain tied to a sump — minimal yard disruption.' },
+          opt('Exterior membrane excavation', 8500),
+          { ...opt('Crack injection only', 1200), description: 'Polyurethane injection for isolated wall leaks.' },
+        ],
+        show_if: { field: 'fnd_problem', op: 'eq', value: 'water_intrusion_damp_basement' } },
+      { id: 'fnd_sump', name: 'Sump Pump System', label: 'Add a sump pump with battery backup', type: 'toggle',
+        help: 'A battery-backup sump keeps pumping through power outages and heavy storms.',
+        on_value: 1450 },
+      { id: 'fnd_extras', name: 'Protection Add-ons', label: 'Protection & finishing', type: 'multi_select',
+        help: 'Optional — long-term protection and warranty upgrades.',
+        options: [
+          { ...opt('Dehumidifier system', 1800), description: 'Sealed-basement dehumidifier — controls humidity year-round.' },
+          opt('Vapor barrier wall liner', 1600),
+          opt('Transferable lifetime warranty', 650),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Structural Repair', '[Problem Type] * [Affected Feet]'), caption: 'Per-linear-foot crack sealing or wall stabilization.' },
+      { ...calc('Waterproofing System', '[Waterproofing Method]'), caption: 'Interior or exterior waterproofing for water-intrusion jobs.' },
+      { ...calc('Protection & Pump', '[Sump Pump System] + [Protection Add-ons]'), caption: 'Sump pump, dehumidifier and warranty add-ons.' },
+      { ...calc('Total Project Price', '[Structural Repair] + [Waterproofing System] + [Protection & Pump]'),
+        resultMode: 'primary', caption: 'Estimated price — confirmed at a free structural inspection.' },
+    ],
+    result_calc: 'Total Project Price',
+    results: {
+      heading: 'Your Foundation Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Free Inspection',
+      cta_heading: 'Small cracks get expensive fast',
+      cta_sub: 'Our engineer inspects on site, confirms the cause and prices the fix with a transferable warranty.',
+      submit_success: 'Requested! Our foundation specialist will call within one business day to schedule your free inspection.',
+      footnote: 'Includes structural inspection, engineered repair and code-compliant waterproofing. Transferable lifetime warranty available.',
+    },
+  },
 ];
 
 /* ─── Lookups ─── */
