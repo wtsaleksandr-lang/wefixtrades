@@ -29,7 +29,7 @@
 // [data-theme="dark"] overrides so the form is theme-aware in both modes.
 // Dismissal: Escape (capture phase), backdrop click, or the explicit button.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, LifeBuoy, Sparkles } from 'lucide-react';
 import { AE } from './appleEditor';
@@ -98,6 +98,9 @@ export default function HelpModal({ editorTheme, onClose }: Props) {
   const [ticketId, setTicketId] = useState<number | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  // Dialog card element — scopes the focus-trap query (a11y).
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
   // Prefill the reply-to email for signed-in non-client users (admins).
   useEffect(() => {
     if (!isClient && user?.email) {
@@ -117,6 +120,45 @@ export default function HelpModal({ editorTheme, onClose }: Props) {
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
+
+  // Restore focus to whatever opened the modal (the "?" trigger) on unmount,
+  // so keyboard users aren't dumped back at the top of the document.
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    return () => prev?.focus?.();
+  }, []);
+
+  // Keyboard focus-trap scoped to the dialog card: Tab past the last focusable
+  // wraps to the first; Shift+Tab past the first wraps to the last. Self-
+  // contained (no new dependency); coexists with the capture-phase Escape
+  // handler and the autoFocus on the primary control.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const card = cardRef.current;
+      if (!card) return;
+      const focusables = Array.from(
+        card.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || !card.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !card.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, []);
 
   const onAskAssistant = useCallback(() => {
     onClose();
@@ -191,7 +233,7 @@ export default function HelpModal({ editorTheme, onClose }: Props) {
       data-testid="editor-help-overlay"
       onClick={onClose}
     >
-      <div className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
+      <div ref={cardRef} className="qq-editor-help-card" onClick={(e) => e.stopPropagation()}>
         {view === 'menu' && (
           <>
             <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: AE.color.text }}>
