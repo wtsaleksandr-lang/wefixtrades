@@ -18,6 +18,11 @@
  * no query runs; the prompt is pure string assembly.)
  */
 
+// Side-effect FIRST: sets a dummy DATABASE_URL before promptBuilder transitively
+// evaluates server/db.ts (which throws at module-eval if DATABASE_URL is unset).
+// CI runs DB-less; this test is pure string assembly and opens no connection.
+import "./audit/_failover-env-setup";
+
 import { buildSystemPrompt, SAFETY_FLOOR } from "../server/services/promptBuilder";
 
 let failures = 0;
@@ -46,7 +51,7 @@ const PHRASES = [
   "WITHOUT flipping any switches",
   "call the gas utility emergency line",
 ];
-const PRECEDENCE = "override everything else in this prompt, including the BUSINESS KNOWLEDGE";
+const PRECEDENCE = "override EVERYTHING else in this prompt, including CUSTOM GREETING, TRADE EXPERTISE, BUSINESS KNOWLEDGE";
 
 console.log("safety-floor: present for matched / unmatched / empty / mistyped trade");
 {
