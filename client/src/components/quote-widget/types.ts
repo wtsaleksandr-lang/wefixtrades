@@ -108,6 +108,7 @@ export interface WidgetState {
 
 export type WidgetAction =
   | { type: 'SET_ANSWER'; questionId: string; value: string | number | boolean | string[] }
+  | { type: 'CLEAR_ANSWER'; questionId: string }
   | { type: 'GO_TO_STEP'; index: number }
   | { type: 'CLEAR_HIDDEN_ANSWERS'; questionIds: string[] }
   | { type: 'SET_ESTIMATE'; estimate: EstimateResult }

@@ -346,13 +346,13 @@ function WidgetCard({
         .eff-widget-progress { padding: 20px 28px 0; }
         .eff-widget-body { padding: 28px; }
         .eff-widget-nav { padding: 20px 28px; }
-        .eff-widget-help { top: 28px; right: 28px; }
+        .eff-widget-help { top: 28px; left: 28px; }
         @media (max-width: 480px) {
           .eff-widget-header { padding: 16px 20px; }
           .eff-widget-progress { padding: 16px 20px 0; }
           .eff-widget-body { padding: 20px; }
           .eff-widget-nav { padding: 16px 20px; }
-          .eff-widget-help { top: 20px; right: 20px; }
+          .eff-widget-help { top: 20px; left: 20px; }
         }
       `}</style>
 
@@ -442,7 +442,14 @@ function WidgetCard({
       )}
 
       {/* ─── Step Content ─── */}
-      <div className="eff-widget-body" style={{ position: 'relative' }}>
+      {/* When a step-level help cue is present it anchors top-LEFT (locked
+          help-cue rule). Reserve left space on the content so the 32px icon
+          doesn't overlap the left-aligned step title. */}
+      <div
+        className="eff-widget-body"
+        style={{ position: 'relative' }}
+        data-has-help={currentStep.help ? 'true' : undefined}
+      >
         {currentStep.help && (
           <div className="eff-widget-help" style={{
             position: 'absolute',
@@ -451,7 +458,9 @@ function WidgetCard({
             <StepHelp help={currentStep.help} />
           </div>
         )}
-        <StepRenderer step={currentStep} accentColor={accentColor} />
+        <div style={currentStep.help ? { paddingLeft: 40 } : undefined}>
+          <StepRenderer step={currentStep} accentColor={accentColor} />
+        </div>
       </div>
 
       {/* ─── Navigation ─── */}

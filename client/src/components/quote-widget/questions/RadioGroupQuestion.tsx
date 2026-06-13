@@ -37,8 +37,11 @@ export default function RadioGroupQuestion({ question, value, onChange }: Questi
                 style={{
                   ...optionRowStyle,
                   ...(isInline ? { flex: '1 1 140px', minWidth: 140 } : {}),
-                  borderColor: isActive ? eff.buttonBg : eff.buttonBorder,
-                  background: isActive ? eff.bgSecondary : '#fff',
+                  // Selected = accent OUTLINE only (locked rule: outline, not
+                  // fill). Background stays the row default (#fff) from
+                  // optionRowStyle — no tint fill on selection.
+                  border: isActive ? `2px solid ${eff.buttonBg}` : `1px solid ${eff.buttonBorder}`,
+                  boxShadow: isActive ? `0 0 0 1px ${eff.buttonBg}` : 'none',
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.borderColor = eff.textBody; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.borderColor = eff.buttonBorder; }}

@@ -32,7 +32,7 @@ const QUESTION_COMPONENTS: Record<QuestionType, React.ComponentType<QuestionComp
 interface QuestionRendererProps {
   question: QuestionDefinition;
   value: string | number | boolean | string[] | undefined;
-  onChange: (value: string | number | boolean | string[]) => void;
+  onChange: (value: string | number | boolean | string[] | undefined) => void;
   accentColor?: string;
 }
 
