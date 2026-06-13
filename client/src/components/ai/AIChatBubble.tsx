@@ -372,8 +372,16 @@ export default function AIChatBubble({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [trialExpired, setTrialExpired] = useState(false);
+  /**
+   * UNIFIED-AI U5 — warm hand-off. When the server emits a `done` frame with
+   * `handoff.captureLead`, the assistant text renders as a NORMAL bubble and
+   * we show an inline mini lead-capture form (name / phone / email) beneath
+   * it. This REPLACES the old amber owner-facing upgrade card + red error
+   * boxes for every blocked/limit state — a blocked customer never sees a
+   * broken assistant or an upgrade prompt, only a friendly "leave your
+   * details".
+   */
+  const [handoff, setHandoff] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState(false);
   /** Current in-progress step label for the typing indicator tooltip. */
   const [stepStatus, setStepStatus] = useState<string | null>(null);
@@ -457,7 +465,7 @@ export default function AIChatBubble({
   }, [messages, calculatorId, isOpen]);
 
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading || trialExpired) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: 'user', content: input.trim(), ts: Date.now() };
     const nextMessages = [...messages, userMessage];
@@ -465,7 +473,9 @@ export default function AIChatBubble({
     setInput('');
     setIsLoading(true);
     setStepStatus(null);
-    setError(null);
+    // A fresh send clears any prior hand-off form (the customer is engaging
+    // again — don't keep a stale lead form above the new exchange).
+    setHandoff(false);
 
     try {
       const res = await fetch('/api/ai/client-chat', {
@@ -502,15 +512,32 @@ export default function AIChatBubble({
             if (line === '[DONE]') continue;
             try {
               const evt = JSON.parse(line);
-              if (evt.error) {
-                setError(evt.error);
-              } else if (evt.text) {
+              if (evt.text) {
+                // Text can arrive alongside a hand-off frame (warm copy) — so
+                // append it before checking `done`/`handoff` below.
                 assistantText += evt.text;
                 setMessages(prev => {
                   const copy = [...prev];
                   copy[copy.length - 1] = { role: 'assistant', content: assistantText, ts: Date.now() };
                   return copy;
                 });
+              }
+              // UNIFIED-AI U5 — terminal hand-off frame: render the inline
+              // mini lead-capture form beneath the (already-shown) assistant
+              // bubble. NEVER a red box / upgrade card — every blocked/limit
+              // state lands here as a warm capture.
+              if (evt.done && evt.handoff?.captureLead) {
+                setHandoff(true);
+              } else if (evt.error) {
+                // Mid-stream server error — friendly assistant bubble, not a
+                // red box (U5). Offer the lead-capture path too.
+                setMessages(prev => {
+                  const copy = [...prev];
+                  const friendly = `I'm having a little trouble right now — leave your details and ${businessName} will follow up.`;
+                  copy[copy.length - 1] = { role: 'assistant', content: assistantText || friendly, ts: Date.now() };
+                  return copy;
+                });
+                setHandoff(true);
               } else if (evt.step) {
                 if (evt.step.type === 'tool_use') {
                   const label = TOOL_STATUS_LABELS[evt.step.payload?.name] || 'Working on it';
@@ -527,25 +554,42 @@ export default function AIChatBubble({
         return;
       }
 
-      // Legacy JSON branch — single-call behavior.
-      const data = await res.json();
+      // Non-SSE branch (legacy single-call, or any JSON response — e.g. a
+      // blocked state that didn't stream). UNIFIED-AI U5: customer-facing
+      // failures NEVER render as a red box or an owner-facing upgrade card. Every
+      // blocked/limit/error state becomes a warm assistant bubble + the inline
+      // lead-capture form.
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.error === 'trial_expired') {
-          setTrialExpired(true);
-          setMessages(prev => [...prev, { role: 'assistant', content: data.message || 'Assistant paused — upgrade to continue.', ts: Date.now() }]);
-        } else {
-          setError(data.error || 'Something went wrong. Please try again.');
+        if (res.status === 429) {
+          // Rate limit — playful, transient, no lead form needed.
+          setMessages(prev => [...prev, { role: 'assistant', content: "You're quick! Give me a second to catch up.", ts: Date.now() }]);
+          return;
         }
+        // 403/503/500 (trial expired, gate, daily cap, server error) → warm
+        // hand-off. Prefer the server's warm message when it sent one;
+        // otherwise the canonical "leave your details" line.
+        const warm = (typeof data.message === 'string' && data.message)
+          || `Thanks for reaching out! Leave your details and ${businessName} will get right back to you.`;
+        setMessages(prev => [...prev, { role: 'assistant', content: warm, ts: Date.now() }]);
+        setHandoff(true);
         return;
       }
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply, ts: Date.now() }]);
     } catch (err) {
-      setError('Unable to connect. Please check your connection and try again.');
+      // Network/transport failure — friendly assistant bubble + lead capture,
+      // NOT a red error box (U5).
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `I'm having a little trouble connecting — leave your details and ${businessName} will follow up.`,
+        ts: Date.now(),
+      }]);
+      setHandoff(true);
     } finally {
       setIsLoading(false);
       setStepStatus(null);
     }
-  }, [input, isLoading, trialExpired, messages, calculatorId, useAgentLoop, customerEmail, customerPhone, customerName]);
+  }, [input, isLoading, messages, calculatorId, businessName, useAgentLoop, customerEmail, customerPhone, customerName]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -563,7 +607,7 @@ export default function AIChatBubble({
       content: `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`,
       ts: Date.now(),
     }]);
-    setError(null);
+    setHandoff(false);
   }, [calculatorId, businessName]);
 
   // BD-3c Feature 3 — drag-handle move. Pointer-based (works for mouse +
@@ -874,17 +918,20 @@ export default function AIChatBubble({
               </div>
             )}
 
-            {error && (
-              <div style={{ background: '#fff3f3', border: '1px solid #fca5a5', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#dc2626' }} data-testid="chat-error-message">
-                {error}
-              </div>
-            )}
-
-            {trialExpired && (
-              <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#92400e', textAlign: 'center' }} data-testid="chat-trial-expired">
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Assistant unavailable</div>
-                <div>The Pro preview of the chat assistant has ended. Upgrading to Pro turns it back on.</div>
-              </div>
+            {/* UNIFIED-AI U5 — warm hand-off lead capture. Replaces BOTH the
+                old red error box AND the amber owner-facing upgrade card. The
+                assistant's warm message renders as a normal bubble above
+                (streamed by the server); this inline form lets the customer
+                leave their details. */}
+            {handoff && (
+              <HandoffLeadForm
+                calculatorId={calculatorId}
+                accentColor={accentColor}
+                businessName={businessName}
+                defaultName={customerName}
+                defaultEmail={customerEmail}
+                defaultPhone={customerPhone}
+              />
             )}
 
             <div ref={messagesEndRef} />
@@ -904,8 +951,8 @@ export default function AIChatBubble({
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder={trialExpired ? 'Assistant unavailable' : 'Type your message...'}
-                disabled={isLoading || trialExpired}
+                placeholder={'Type your message...'}
+                disabled={isLoading}
                 rows={inputExpanded ? 6 : 3}
                 style={{
                   flex: 1,
@@ -915,7 +962,7 @@ export default function AIChatBubble({
                   outline: 'none',
                   fontSize: '15px',
                   lineHeight: 1.45,
-                  background: trialExpired ? '#f9f9f9' : '#fff',
+                  background: '#fff',
                   color: '#1a1a1a',
                   resize: 'none',
                   height: `${inputHeight}px`,
@@ -929,14 +976,14 @@ export default function AIChatBubble({
               />
               <button
                 onClick={sendMessage}
-                disabled={!input.trim() || isLoading || trialExpired}
+                disabled={!input.trim() || isLoading}
                 style={{
                   width: '38px',
                   height: '38px',
                   borderRadius: '50%',
-                  background: (!input.trim() || isLoading || trialExpired) ? '#e5e7eb' : accentColor,
+                  background: (!input.trim() || isLoading) ? '#e5e7eb' : accentColor,
                   border: 'none',
-                  cursor: (!input.trim() || isLoading || trialExpired) ? 'not-allowed' : 'pointer',
+                  cursor: (!input.trim() || isLoading) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1124,5 +1171,197 @@ function ProactiveToast({ copy, accentColor, anchorBottom, onAccept, onDismiss, 
         <X size={12} />
       </button>
     </div>
+  );
+}
+
+/**
+ * UNIFIED-AI U5 — inline mini lead-capture form shown beneath the assistant's
+ * warm hand-off bubble (every blocked / limit / error state). Posts to the
+ * SAME /api/leads endpoint + payload shape the calculator's CTA / ContactStep
+ * already use: { calculator_id, name, email, phone, quote_amount, answers }.
+ * The endpoint accepts email OR phone, so one of the two is required.
+ *
+ * Input-field rules (DESIGN-SYSTEM.md): title-in-field (placeholder-as-label),
+ * stacked inputs at a tight 2px gap, brand-accent primary action. No red
+ * boxes — a soft inline note on validation failure.
+ */
+interface HandoffLeadFormProps {
+  calculatorId: number;
+  accentColor: string;
+  businessName: string;
+  defaultName?: string;
+  defaultEmail?: string;
+  defaultPhone?: string;
+}
+
+function HandoffLeadForm({
+  calculatorId,
+  accentColor,
+  businessName,
+  defaultName,
+  defaultEmail,
+  defaultPhone,
+}: HandoffLeadFormProps) {
+  const [name, setName] = useState(defaultName || '');
+  const [email, setEmail] = useState(defaultEmail || '');
+  const [phone, setPhone] = useState(defaultPhone || '');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
+  const [note, setNote] = useState('');
+
+  const emailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+  const onSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (status === 'submitting') return;
+    // /api/leads accepts email OR phone — require at least one.
+    const hasEmail = email.trim() !== '' && emailValid(email);
+    const hasPhone = phone.trim() !== '';
+    if (!hasEmail && !hasPhone) {
+      setNote('Add your email or phone so we can reach you.');
+      setStatus('error');
+      return;
+    }
+    if (email.trim() !== '' && !emailValid(email)) {
+      setNote('Please enter a valid email.');
+      setStatus('error');
+      return;
+    }
+    if (!Number.isFinite(calculatorId) || calculatorId <= 0) {
+      setNote('Something went wrong on our end — please try again later.');
+      setStatus('error');
+      return;
+    }
+    setStatus('submitting');
+    setNote('');
+    try {
+      const resp = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculator_id: calculatorId,
+          name: name.trim() || null,
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          quote_amount: null,
+          answers: { source: 'ai_assistant_handoff' },
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.error || `Request failed (${resp.status})`);
+      }
+      setStatus('done');
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setStatus('error');
+    }
+  }, [status, email, phone, name, calculatorId]);
+
+  if (status === 'done') {
+    return (
+      <div
+        data-testid="chat-handoff-done"
+        style={{
+          background: '#fff',
+          border: '1px solid #e5e7eb',
+          borderRadius: '12px',
+          padding: '12px 14px',
+          fontSize: '13px',
+          color: '#1a1a1a',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+        }}
+      >
+        <strong style={{ fontWeight: 700 }}>Thanks — you&apos;re all set.</strong>
+        <div style={{ color: '#6b7280', marginTop: '2px' }}>
+          {businessName} will be in touch shortly.
+        </div>
+      </div>
+    );
+  }
+
+  const fieldStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '9px 12px',
+    borderRadius: '10px',
+    border: '1px solid #e5e7eb',
+    outline: 'none',
+    fontSize: '14px',
+    color: '#1a1a1a',
+    background: '#fff',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      data-testid="chat-handoff-lead-form"
+      style={{
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        padding: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px', // input-field rule: max 2px gap between stacked inputs
+      }}
+    >
+      {/* Title IS the field (placeholder-as-label) per input-field rules. */}
+      <input
+        type="text"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="Your name"
+        autoComplete="name"
+        style={fieldStyle}
+        data-testid="input-handoff-name"
+        aria-label="Your name"
+      />
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Email"
+        autoComplete="email"
+        style={fieldStyle}
+        data-testid="input-handoff-email"
+        aria-label="Email"
+      />
+      <input
+        type="tel"
+        value={phone}
+        onChange={e => setPhone(e.target.value)}
+        placeholder="Phone"
+        autoComplete="tel"
+        style={fieldStyle}
+        data-testid="input-handoff-phone"
+        aria-label="Phone"
+      />
+      {note && (
+        <div style={{ fontSize: '12px', color: '#6b7280', padding: '2px 2px 0' }} data-testid="chat-handoff-note">
+          {note}
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={status === 'submitting'}
+        style={{
+          marginTop: '6px',
+          padding: '10px 12px',
+          borderRadius: '10px',
+          border: 'none',
+          background: status === 'submitting' ? '#e5e7eb' : accentColor,
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: 600,
+          cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
+          fontFamily: 'inherit',
+        }}
+        data-testid="button-handoff-submit"
+      >
+        {status === 'submitting' ? 'Sending…' : 'Send my details'}
+      </button>
+    </form>
   );
 }

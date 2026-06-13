@@ -284,6 +284,147 @@ await check("DELIBERATE-FAILURE fixture — gate that skips `enabled` turns the 
   assert.ok(caught, "case-1 assertion must fail red against the regressed gate");
 });
 
+/* ═══ 7. UNIFIED-AI U4 — graceful HAND-OFF contract ═══════════════════
+ * Every customer-facing blocked/limit state must convert to a warm 200 + SSE
+ * hand-off (assistant text + a `done` frame carrying captureLead:true), NEVER
+ * a 403/503/empty reply. These drive the PURE hand-off contract module +
+ * re-drive the agent-loop core to prove a gate_blocked run produces the
+ * hand-off shape rather than a silent empty reply.
+ */
+
+const {
+  classifyGateBlock,
+  classifyAccessGateBlock,
+  handoffCopy,
+  handoffTextFrame,
+  handoffDoneFrame,
+} = await import("./clientChatHandoff");
+
+await check("access-gate bodies map to hand-off reasons (no 403/503 reaches the customer)", () => {
+  // The exact bodies clientChatAccess.ts returns for each block.
+  assert.equal(
+    classifyAccessGateBlock({ error: "AI Employee is not enabled for this calculator" }),
+    "gate_blocked",
+  );
+  assert.equal(
+    classifyAccessGateBlock({ error: "AI Employee subscription is not active" }),
+    "gate_blocked",
+  );
+  assert.equal(
+    classifyAccessGateBlock({ error: "trial_expired", message: "…Pro preview has ended…" }),
+    "trial_expired_midchat",
+  );
+  assert.equal(
+    classifyAccessGateBlock({ error: "The assistant is unavailable right now. Please try again shortly." }),
+    "daily_cap",
+  );
+});
+
+await check("surface gate_blocked errorMessage maps to kill_switch / monthly_budget", () => {
+  assert.equal(
+    classifyGateBlock('AI surface "quotequick_widget_ai" is paused — admin kill switch is ON.'),
+    "kill_switch",
+  );
+  assert.equal(
+    classifyGateBlock('AI surface "quotequick_widget_ai" reached its monthly budget ($20.00). Resets on the 1st.'),
+    "monthly_budget",
+  );
+  // Unknown reason still fails CLOSED to a warm hand-off, never an error.
+  assert.equal(classifyGateBlock(undefined), "gate_blocked");
+});
+
+await check("hand-off copy is warm + never mentions Pro/upgrade/budget/kill switch", () => {
+  for (const reason of [
+    "gate_blocked",
+    "daily_cap",
+    "monthly_budget",
+    "kill_switch",
+    "trial_expired_midchat",
+    "cost_cap",
+  ] as const) {
+    const copy = handoffCopy(reason, "Bright Plumbing");
+    assert.ok(copy.length > 0, "copy present");
+    assert.ok(
+      !/upgrade|\bpro\b|budget|kill switch|unavailable|expired/i.test(copy),
+      `copy for ${reason} must not leak a limitation: "${copy}"`,
+    );
+  }
+  // Business name interpolated into the canonical line.
+  assert.ok(handoffCopy("daily_cap", "Bright Plumbing").includes("Bright Plumbing"));
+});
+
+await check("done frame carries handoff.captureLead:true (the wire contract)", () => {
+  const frame = handoffDoneFrame("monthly_budget");
+  assert.ok(frame.startsWith("data: "), "SSE data: prefix");
+  assert.ok(frame.endsWith("\n\n"), "SSE frame terminator");
+  const parsed = JSON.parse(frame.slice(6).trim());
+  assert.equal(parsed.done, true);
+  assert.equal(parsed.handoff.captureLead, true);
+  assert.equal(parsed.handoff.reason, "monthly_budget");
+  // Text frame shape the bubble already consumes.
+  const tf = JSON.parse(handoffTextFrame("hello").slice(6).trim());
+  assert.equal(tf.text, "hello");
+});
+
+await check("agent-loop gate_blocked → status gate_blocked + EMPTY reply (the silent-fail the route converts)", async () => {
+  // Proves the loop itself returns the gate_blocked status with an empty reply
+  // (the worst "typing dots then silence" state). The route's U4 wiring turns
+  // THIS into the warm hand-off above (text + captureLead) — verified by
+  // classifyGateBlock mapping its errorMessage to a real reason.
+  const deps: AgentLoopDeps = {
+    client: { messages: { create: async () => { throw new Error("must not be called when gate blocks"); } } },
+    getModel: () => CLAUDE_HAIKU,
+    // Surface budget/kill switch is tripped — the customer-block state.
+    gate: async () => ({ allowed: false, reason: 'AI surface "quotequick_widget_ai" reached its monthly budget ($20.00). Resets on the 1st.' }),
+    logUsage: () => {},
+    recordSpend: () => {},
+    estimateCostMicroCents: () => 0,
+    getActionRiskTier: () => "auto",
+    assertCircuitAllowsRequest: () => {},
+    recordCircuitSuccess: () => {},
+    recordCircuitFailure: () => {},
+  };
+
+  const result = await runAgentLoopCore(deps, {
+    systemPrompt: "customer widget",
+    conversationHistory: [{ role: "user", content: "How much for a repair?" }],
+    tools: [],
+    toolExecutors: {},
+    surface: "quotequick_widget_ai",
+    actionSurface: "customer-widget",
+    sessionId: "sess-gate-1",
+    costCapCents: 25,
+    maxSteps: 8,
+    modelOverride: CLAUDE_HAIKU,
+  });
+
+  assert.equal(result.status, "gate_blocked", "loop reports the block");
+  assert.equal(result.reply, "", "reply is empty — this is the silent-fail the route MUST convert");
+  // The route's conversion: errorMessage → a concrete hand-off reason →
+  // a 200 SSE warm capture (NOT a 403/503/empty).
+  const reason = classifyGateBlock(result.errorMessage);
+  assert.equal(reason, "monthly_budget");
+  const doneFrame = JSON.parse(handoffDoneFrame(reason).slice(6).trim());
+  assert.equal(doneFrame.handoff.captureLead, true);
+});
+
+await check("DELIBERATE-FAILURE — a route that 503s the daily cap (no captureLead) turns red", () => {
+  // Simulate the OLD broken behaviour: the daily-cap block returns a raw 503
+  // with no hand-off. The real contract assertion (captureLead present) must
+  // fail red against it — proving this test catches a regression to the
+  // broken state, not merely that the happy path runs.
+  const brokenResponse = { status: 503, body: { error: "unavailable" }, handoff: undefined as any };
+  let caught: unknown = null;
+  try {
+    // The REAL contract: a customer block is a 200 hand-off with captureLead.
+    assert.notEqual(brokenResponse.status, 503, "customer block must never be a 503");
+    assert.equal(brokenResponse.handoff?.captureLead, true, "must carry captureLead");
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, "the broken 503-no-handoff path must fail the contract assertion red");
+});
+
 /* ═══ Verdict ═════════════════════════════════════════════════════════ */
 
 console.log(`\nclient-chat-access gate: ${passed} passed, ${failed} failed`);

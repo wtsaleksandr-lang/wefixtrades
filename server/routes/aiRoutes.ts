@@ -28,11 +28,46 @@ import {
 } from "../services/customerWidgetTools";
 import { runAgentLoop, executorFromCustomerWidgetAction } from "../services/aiAgentLoop";
 import { AI_SURFACES } from "../services/aiSurfaces";
+// UNIFIED-AI U2 — customer-tier business knowledge for the widget prompt.
+import { assembleClientKnowledge } from "../services/clientKnowledge";
+// UNIFIED-AI U4 — graceful blocked-state hand-off contract (shared with the
+// AIChatBubble UI). Every customer-facing block becomes a warm lead capture.
+import {
+  classifyGateBlock,
+  classifyAccessGateBlock,
+  handoffCopy,
+  handoffTextFrame,
+  handoffDoneFrame,
+  type HandoffReason,
+} from "../services/clientChatHandoff";
 
 const log = createLogger("AIRoutes");
 
 function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
+
+/**
+ * UNIFIED-AI U4 — emit a complete warm hand-off over SSE for a PRE-STREAM
+ * customer-widget block (the access gate fires before the agent loop runs, so
+ * the SSE headers aren't set yet). Sends 200 + the assistant text frame + the
+ * terminal `done` hand-off frame (captureLead) + [DONE], then ends. Used only
+ * on the agent-loop branch — the legacy single-call branch keeps its honest
+ * JSON status. Always responds 200; never a 403/503 to the customer.
+ */
+function sendClientChatHandoff(
+  res: Response,
+  reason: HandoffReason,
+  businessName: string,
+): void {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.write(handoffTextFrame(handoffCopy(reason, businessName)));
+  res.write(handoffDoneFrame(reason));
+  res.write("data: [DONE]\n\n");
+  res.end();
 }
 
 let _openai: OpenAI | null = null;
@@ -932,6 +967,18 @@ Return ONLY the JSON object.`;
         },
       );
       if (!gateResult.allowed) {
+        /* UNIFIED-AI U4 — for the SSE agent-loop branch, a blocked/limit
+         * state must NEVER reach the customer as a 403/503. Convert it to a
+         * warm 200 + SSE hand-off: a normal assistant bubble + the inline
+         * lead-capture form. The honest JSON status is preserved ONLY for the
+         * legacy single-call branch (no customer bubble renders it as an
+         * upgrade card). enabled:false also flows here (handoff over silence)
+         * — the bubble is normally hidden upstream, but if a stale embed
+         * reaches the route we still capture the lead. */
+        if (useAgentLoop) {
+          const reason = classifyAccessGateBlock(gateResult.body);
+          return sendClientChatHandoff(res, reason, calculator.business_name);
+        }
         return res.status(gateResult.status).json(gateResult.body);
       }
 
@@ -948,11 +995,30 @@ Return ONLY the JSON object.`;
         res.setHeader("Connection", "keep-alive");
         res.setHeader("X-Accel-Buffering", "no");
 
+        /* UNIFIED-AI U2 — inject the CUSTOMER-tier business knowledge so the
+         * widget assistant is actually useful (pricing-as-displayed, fields,
+         * hours, service area, trust badges, owner-written customer FAQ).
+         * audience MUST be 'customer': the service hard-filters out formula
+         * internals / margins / cost structure / internal notes / lead PII.
+         * Fail-open — if assembly throws or returns empty, the prompt builds
+         * exactly as it did before (businessName + tradeType only). */
+        let knowledgeBlock = "";
+        try {
+          const knowledge = await assembleClientKnowledge({
+            calculatorId: String(calculator_id),
+            audience: "customer",
+          });
+          knowledgeBlock = knowledge.block;
+        } catch (err) {
+          log.warn("Customer knowledge assembly failed (fail-open):", { error: String(err) });
+        }
+
         const widgetSystemPrompt = buildCustomerWidgetSystemPrompt({
           businessName: calculator.business_name,
           tradeType: calculator.trade_type,
           customer_email,
           customer_name,
+          knowledgeBlock,
         });
 
         const ctxMetadata = {
@@ -997,14 +1063,23 @@ Return ONLY the JSON object.`;
             },
           });
 
-          // Cost-cap fallback: if the loop hit the 25¢ ceiling, escalate to
-          // a human teammate via the support_tickets table (one of the 6
-          // auto-tier tools, called server-side so we don't need a model
-          // round-trip).
-          if (result.status === "cost_cap_exceeded") {
-            res.write(`data: ${JSON.stringify({
-              text: "I'd love to keep helping — let me grab a human teammate. They'll follow up shortly.",
-            })}\n\n`);
+          /* UNIFIED-AI U4 — terminal-state hand-offs. The loop can finish in a
+           * customer-block state that must become a warm lead capture, NOT a
+           * silent/empty reply or a raw status:
+           *   - gate_blocked   → surface kill switch / monthly budget tripped
+           *                      at loop start (empty reply → would be typing
+           *                      dots then SILENCE) or mid-run.
+           *   - cost_cap       → the 25¢/conversation ceiling (already warm;
+           *                      now also flags captureLead so the form shows).
+           * Both emit the warm assistant text + a `done` hand-off frame with
+           * captureLead:true. */
+          let handoffReason: HandoffReason | null = null;
+          if (result.status === "gate_blocked") {
+            handoffReason = classifyGateBlock(result.errorMessage);
+          } else if (result.status === "cost_cap_exceeded") {
+            handoffReason = "cost_cap";
+            // Escalate to a human teammate via support_tickets (server-side,
+            // no extra model round-trip) — preserved cost-cap behaviour.
             try {
               await toolExecutors.request_human_followup(
                 { reason: "Customer chat exceeded the per-conversation cost cap" },
@@ -1018,6 +1093,15 @@ Return ONLY the JSON object.`;
             } catch (escErr) {
               log.warn("Failed to escalate on cost cap:", { error: String(escErr) });
             }
+          }
+
+          if (handoffReason) {
+            // Only add the warm text if the loop produced nothing (gate at
+            // start = empty reply). If it already streamed text (mid-run
+            // block / cost cap after some turns), the bubble keeps that and
+            // just appends the hand-off copy line so the intent is explicit.
+            res.write(handoffTextFrame(handoffCopy(handoffReason, calculator.business_name)));
+            res.write(handoffDoneFrame(handoffReason));
           }
 
           res.write(`data: ${JSON.stringify({
