@@ -46,6 +46,10 @@ jobs:
         run: npm run check:quote-widget-distance
       - name: Quote-widget upload guard (magic-byte allowlist not filename; 8MB/field cap; per-IP min+day quota; cheap authz; junk never burns daily budget)
         run: npm run check:quote-widget-upload
+      - name: Matrix-rate guard (resolveMatrixRate — full cell / unselected undefined / missing-cell null both rules / single-axis / formula composition)
+        run: npm run check:matrix-rate
+      - name: Wizard field-types guard (public↔engine round-trip, makeField factories, SSR of distance/matrix/photo runtime fields)
+        run: npm run check:wizard-field-types
       - name: Body-limit preemption guard (every raised-limit path mounted AHEAD of the global 100KB parser; big bodies reach routes; over-limit 413s; untouched paths stay strict)
         run: npm run check:body-limit-preemption
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
