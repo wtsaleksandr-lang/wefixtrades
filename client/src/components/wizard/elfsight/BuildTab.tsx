@@ -137,14 +137,25 @@ export default function BuildTab({
   const buildPanelRef = useRef<HTMLDivElement | null>(null);
   useLayoutGuard(buildPanelRef, { maxGapPx: 24, label: 'editor-tabpanel-build' });
 
+  // EDITOR-POLISH — surface an inline error when the dropped logo is rejected
+  // (previously a bare `return` left an oversize file silently ignored, with
+  // the owner getting no feedback). Mirrors the AI reference-image error line.
+  const [logoError, setLogoError] = useState<string | null>(null);
   const onLogoFile = useCallback((file: File | null) => {
-    if (!file) { onLogoChange(null); return; }
-    if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint below
+    if (!file) { setLogoError(null); onLogoChange(null); return; }
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError('Logo must be under 1 MB. Try a smaller or compressed image.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      if (typeof result === 'string') onLogoChange(result);
+      if (typeof result === 'string') {
+        setLogoError(null);
+        onLogoChange(result);
+      }
     };
+    reader.onerror = () => setLogoError('Could not read that image. Try another file.');
     reader.readAsDataURL(file);
   }, [onLogoChange]);
 
@@ -351,6 +362,13 @@ export default function BuildTab({
             />
           </FloatField>
         </div>
+        {/* EDITOR-POLISH — inline feedback when a dropped logo is rejected
+            (oversize / unreadable). Reuses the shared inline-error treatment. */}
+        {logoError && (
+          <p className="qq-buildai-referror qq-logo-error" role="alert" data-testid="editor-logo-error">
+            {logoError}
+          </p>
+        )}
       </section>
 
       <div className="qq-build-divider" />
@@ -547,6 +565,9 @@ export default function BuildTab({
           color: ${AE.color.danger};
           line-height: 1.4;
         }
+        /* EDITOR-POLISH — logo rejection notice sits just under the
+           logo + business-name composite. */
+        .qq-logo-error { margin-top: 8px; }
         /* Primary Generate button — accent fill (this is the primary action,
            per AE.color.accent/publish). */
         .qq-buildai-generate {
