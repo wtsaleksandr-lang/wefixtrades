@@ -131,7 +131,13 @@ async function main() {
   console.log("auditScoring.test.ts — all assertions passed");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Exit explicitly: a side-effect import (./audit/_failover-env-setup → server/db)
+// can leave an open handle, so a resolved main() would otherwise hang the
+// process forever — which stalled the CI build job indefinitely. Standalone
+// tsx guards MUST exit(0) on success / exit(1) on failure.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
