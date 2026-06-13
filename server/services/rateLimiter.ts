@@ -437,3 +437,16 @@ export const photoUploadPerDayLimiter = new RateLimiter(
   envInt("QUOTE_PHOTO_UPLOAD_PER_DAY", 30),
   DAY_MS,
 );
+
+/**
+ * AI-assistant free activation — per-calculator daily CONVERSATION cap for the
+ * customer widget assistant (POST /api/ai/client-chat). Counted at conversation
+ * START only (first user message) so a mid-chat customer is never cut off.
+ * Bypass bounded by per-IP limits + 25¢/conversation cap + surface budget.
+ * Env-overridable so it can be tuned without a redeploy.
+ */
+export const widgetAiConvsPerCalcPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("WIDGET_AI_CONVS_PER_CALC_PER_DAY", 50),
+  DAY_MS,
+);

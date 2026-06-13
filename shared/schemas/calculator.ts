@@ -599,6 +599,13 @@ export const calculatorSettingsSchema = z.object({
     enabled: z.boolean().default(false),
     trial_started_at: z.number().nullable().default(null),
     subscription_status: z.enum(['inactive', 'trial', 'active']).default('inactive'),
+    // 2026-06 — AI assistant is a FREE included feature (Alex's decision).
+    // `plan` records WHY subscription_status is 'active' so a future paid
+    // tier (the dormant 14-day-trial machinery above) can coexist honestly:
+    //   'free_included' → activated via the one-click dashboard toggle, $0.
+    //   'pro'           → reserved for the future premium tier (Stripe).
+    // Nullable for pre-existing rows that never set it.
+    plan: z.enum(['free_included', 'pro']).nullable().default(null),
     chat_enabled: z.boolean().default(true),
     voice_enabled: z.boolean().default(false),
     training_profile: z.object({
