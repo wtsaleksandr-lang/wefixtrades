@@ -924,6 +924,12 @@ const STAGE_ORDER: TradelineConfig["setupStage"][] = [
   "configuring",
   "awaiting_website_access",
   "awaiting_client_action",
+  // Wave 86 — port flow occupies the same "client action pending" tier as
+  // awaiting_client_action but is distinct: the port is submitted to Twilio
+  // and we're waiting on the carrier. It must live in STAGE_ORDER or
+  // advanceSetupStage() can never advance to OR away from it (indexOf → -1),
+  // leaving any port-mode setup permanently stuck at this stage.
+  "port_in_progress",
   "ready_for_testing",
   "live",
 ];
