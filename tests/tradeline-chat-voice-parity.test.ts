@@ -24,6 +24,11 @@
  * assembly; DATABASE_URL may be a dummy.)
  */
 
+// Side-effect FIRST: sets a dummy DATABASE_URL before promptBuilder transitively
+// evaluates server/db.ts (which throws at module-eval if DATABASE_URL is unset).
+// CI audit runs DB-less; this test is pure string assembly and opens no connection.
+import "./audit/_failover-env-setup";
+
 import {
   buildSystemPrompt,
   tradeLineSafetyTail,
