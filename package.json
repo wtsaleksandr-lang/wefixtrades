@@ -45,6 +45,7 @@
     "check:client-chat-access": "tsx server/services/clientChatAccess.test.ts",
     "check:matrix-rate": "tsx client/src/components/quote-widget/MatrixField.resolveRate.test.ts",
     "check:wizard-field-types": "tsx client/src/components/wizard/elfsight/__tests__/fieldTypes.test.tsx",
+    "check:wizard-template-apply": "tsx client/src/components/wizard/elfsight/__tests__/templateApply.test.tsx",
     "check:body-limit-preemption": "tsx server/lib/bodyLimits.test.ts",
     "check:demo-persona": "tsx shared/prompts/tradelineDemoPrompt.test.ts",
     "check:contentflow-generate-source": "tsx server/routes/portal/contentflow.generateSource.test.ts",
