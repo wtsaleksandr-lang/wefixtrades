@@ -40,6 +40,8 @@ jobs:
         run: npm run check:funnel-analytics
       - name: SERP-country guard (location string derives the country index)
         run: npm run check:serp-country
+      - name: Audit-scoring guard (no false slow-website; blocked-fetch excludes website from denominator not zero-scores it; htmlChecks capped at 8)
+        run: npm run check:audit-scoring
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
         run: npm run check:calculator-schema
       - name: Template formula-ref guard (every bracketed [ref] + result_calc in a preset resolves to a real field/calc name; unknown ref silently → 0 wrong quote, the door_installation class)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
@@ -2884,6 +2884,72 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>{btn.label}</span>
             </div>
           ))}
+        </div>
+
+        {/* Download PDF + email-me-this-report — backend endpoints exist; these
+            were previously dead (handlers defined, no triggers). */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 18, paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          <button
+            data-testid="report-download-pdf"
+            onClick={handlePdfDownload}
+            disabled={pdfDownloading}
+            {...hoverProps('pdf-download')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '11px 20px', borderRadius: 12, border: 'none',
+              background: pdfDownloading ? 'rgba(255,255,255,0.18)' : WHITE,
+              color: DARK, fontWeight: 700, fontSize: 14,
+              cursor: pdfDownloading ? 'default' : 'pointer',
+              transform: hovered === 'pdf-download' && !pdfDownloading ? 'translateY(-2px)' : 'translateY(0)',
+              boxShadow: hovered === 'pdf-download' && !pdfDownloading ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Download size={16} />
+            {pdfDownloading ? 'Preparing PDF…' : 'Download PDF'}
+          </button>
+
+          {emailSubmitted ? (
+            <div data-testid="report-email-sent" style={{ fontSize: 12, color: '#22C55E', fontWeight: 600 }}>
+              Sent — check your inbox.
+            </div>
+          ) : (
+            <div style={{ width: '100%', maxWidth: 380 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 6, textAlign: 'left' }}>
+                Email me this report
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); if (emailError) setEmailError(''); }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleEmailSubmit(); }}
+                  placeholder="you@business.com"
+                  aria-label="Email address for report"
+                  data-testid="report-email-input"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.06)', color: WHITE, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button
+                  data-testid="report-email-send"
+                  onClick={handleEmailSubmit}
+                  disabled={emailLoading || !email.includes('@')}
+                  {...hoverProps('email-send')}
+                  style={{
+                    padding: '10px 16px', borderRadius: 10, border: 'none',
+                    background: (emailLoading || !email.includes('@')) ? 'rgba(255,255,255,0.18)' : CYAN,
+                    color: DARK, fontWeight: 700, fontSize: 13,
+                    cursor: (emailLoading || !email.includes('@')) ? 'default' : 'pointer',
+                    transition: 'all 0.15s ease', flexShrink: 0,
+                  }}
+                >
+                  {emailLoading ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+              {emailError && (
+                <div data-testid="report-email-error" style={{ fontSize: 11, color: '#FCA5A5', marginTop: 6, textAlign: 'left' }}>{emailError}</div>
+              )}
+            </div>
+          )}
         </div>
       </div>}
 
