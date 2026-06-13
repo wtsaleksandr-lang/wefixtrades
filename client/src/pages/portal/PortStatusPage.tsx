@@ -7,8 +7,12 @@
  *   - estimated completion date
  *   - last update timestamp
  *   - rejection title + fix instructions when port_failed
- *   - "Resend status SMS" button
  *   - "Cancel port request" button (with confirmation modal)
+ *
+ * NOTE: status-update SMS is sent automatically by portStatusPollWorker on
+ * each milestone transition — there is no on-demand "resend" control here by
+ * design (a resend would need its own rate-limited route + non-transition
+ * template resolution; out of scope for the live tracker).
  *
  * Theme-aware, semantic tokens only, 2px gaps. Mirrors the design rules
  * locked into DESIGN-SYSTEM.md.
