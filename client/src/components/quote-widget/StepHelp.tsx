@@ -115,7 +115,7 @@ export default function StepHelp({ help }: StepHelpProps) {
             style={{
               position: 'absolute',
               top: '40px',
-              right: 0,
+              left: 0,
               zIndex: 100,
               width: '304px',
               background: '#fff',
@@ -127,7 +127,7 @@ export default function StepHelp({ help }: StepHelpProps) {
               opacity: visible ? 1 : 0,
               transform: visible ? 'translateY(0) scale(1)' : 'translateY(-4px) scale(0.98)',
               transition: 'opacity 0.18s ease, transform 0.18s ease',
-              transformOrigin: 'top right',
+              transformOrigin: 'top left',
             }}
           >
             {/* Mobile drag handle (visible only on mobile via CSS) */}

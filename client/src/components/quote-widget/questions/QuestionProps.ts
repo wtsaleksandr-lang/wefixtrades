@@ -8,6 +8,11 @@ import type { QuestionDefinition } from '@shared/wizardSchema';
 export interface QuestionComponentProps {
   question: QuestionDefinition;
   value: string | number | boolean | string[] | undefined;
-  onChange: (value: string | number | boolean | string[]) => void;
+  /**
+   * Emit a new value, or `undefined` to clear the answer entirely.
+   * Clearing removes the answer so pricing falls back to its default
+   * (used by number inputs when the field is blanked for re-entry).
+   */
+  onChange: (value: string | number | boolean | string[] | undefined) => void;
   accentColor?: string;
 }

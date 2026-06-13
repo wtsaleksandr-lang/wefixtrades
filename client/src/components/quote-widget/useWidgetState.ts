@@ -24,7 +24,11 @@ export function useWidgetState() {
   /* ─── Answer Helpers ─── */
 
   const setAnswer = useCallback(
-    (questionId: string, value: string | number | boolean | string[]) => {
+    (questionId: string, value: string | number | boolean | string[] | undefined) => {
+      if (value === undefined) {
+        dispatch({ type: 'CLEAR_ANSWER', questionId });
+        return;
+      }
       dispatch({ type: 'SET_ANSWER', questionId, value });
     },
     [dispatch],

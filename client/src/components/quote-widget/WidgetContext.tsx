@@ -154,6 +154,17 @@ function createWidgetReducer(flow: WizardFlow) {
           ),
         };
 
+      case 'CLEAR_ANSWER': {
+        if (state.answers[action.questionId] === undefined) return state;
+        const newAnswers = { ...state.answers };
+        delete newAnswers[action.questionId];
+        return {
+          ...state,
+          answers: newAnswers,
+          estimateInputs: rebuildEstimateInputs(flow, newAnswers),
+        };
+      }
+
       case 'GO_TO_STEP':
         return {
           ...state,

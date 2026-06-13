@@ -141,12 +141,12 @@ export default function BookNowInlineWidget({ calculatorId, quoteAmount }: BookN
         <p style={{ fontSize: '13px', fontWeight: 600, color: eff.text, margin: 0, fontFamily: eff.font }}>{formatDate(selectedDate)} at {formatTime(selectedTime)}</p>
       </div>
       <p style={{ fontSize: '14px', fontWeight: 600, color: eff.text, margin: 0, fontFamily: eff.font }}>Confirm your details</p>
-      <input placeholder="Name *" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
-      <input placeholder="Phone *" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+      <input placeholder="Name *" aria-label="Name" aria-required="true" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+      <input placeholder="Phone *" type="tel" aria-label="Phone" aria-required="true" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
       <SmsConsentDisclosure variant="inline" />
-      <input placeholder="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
-      <textarea placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, height: 'auto', padding: '12px 16px', resize: 'none' as const }} onFocus={onFocus as any} onBlur={onBlur as any} />
-      {error && <p style={{ fontSize: '13px', color: eff.error, margin: 0 }}>{error}</p>}
+      <input placeholder="Email (optional)" type="email" aria-label="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+      <textarea placeholder="Notes (optional)" aria-label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, height: 'auto', padding: '12px 16px', resize: 'none' as const }} onFocus={onFocus as any} onBlur={onBlur as any} />
+      {error && <p role="alert" style={{ fontSize: '13px', color: eff.error, margin: 0 }}>{error}</p>}
       <button type="button" onClick={handleSubmit} disabled={!name.trim() || !phone.trim() || submitting} style={{ ...primaryButtonStyle, opacity: (!name.trim() || !phone.trim() || submitting) ? 0.5 : 1 }} onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }} onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}>
         {submitting ? <><Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />Booking...</> : <><CalendarDays style={{ width: 16, height: 16 }} />Confirm Booking</>}
       </button>

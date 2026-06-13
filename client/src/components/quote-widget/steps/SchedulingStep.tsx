@@ -256,6 +256,8 @@ export default function SchedulingStep({ step }: SchedulingStepProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input
             placeholder="Full name"
+            aria-label="Full name"
+            aria-required="true"
             value={customer.name}
             onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))}
             style={inputStyle}
@@ -264,6 +266,8 @@ export default function SchedulingStep({ step }: SchedulingStepProps) {
           <input
             placeholder="Email"
             type="email"
+            aria-label="Email"
+            aria-required="true"
             value={customer.email}
             onChange={(e) => setCustomer((c) => ({ ...c, email: e.target.value }))}
             style={inputStyle}
@@ -272,6 +276,7 @@ export default function SchedulingStep({ step }: SchedulingStepProps) {
           <input
             placeholder="Phone (optional)"
             type="tel"
+            aria-label="Phone (optional)"
             value={customer.phone}
             onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))}
             style={inputStyle}
