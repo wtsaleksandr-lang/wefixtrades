@@ -6026,6 +6026,633 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       footnote: 'Includes structural inspection, engineered repair and code-compliant waterproofing. Transferable lifetime warranty available.',
     },
   },
+
+  /* ══════════════════════════════════════════════════════════════════
+   * BATCH 4 — "Auto + Niche" (template-inventory build-spec Batch 4).
+   * 5 showcase-tier templates. Every item carries the full 9-point
+   * showcase kit (niche style block, defaultIcon, ≥3 trade-true badges,
+   * per-field help, ≥1 option description, ≥1 validated show_if,
+   * image_choice on the highest-uncertainty driver, calc captions +
+   * one resultMode:'primary', results cta_heading/cta_sub/submit_success,
+   * steps[], animations + premiumAnimations). dumpster_rental is SKIPPED
+   * to avoid duplicating #49 ("Dumpster Rental — Size & Zone"); a Land
+   * Surveying template stands in, plus a Mobile Mechanic 5th.
+   * ══════════════════════════════════════════════════════════════════ */
+
+  /* ── 65. Vehicle Wrap & Paint Protection Film (BATCH 4 #1) ──
+   * A coverage image_choice forks the quote: the two wrap options reveal a
+   * finish picker (gloss / matte / colour-shift); the PPF option reveals a
+   * coverage-zone select instead. Vehicle size scales the wrap area; design
+   * service is an optional add-on. */
+  {
+    id: 'vehicle_wrap_ppf', name: 'Vehicle Wrap & Paint Protection Film',
+    description: 'Vinyl vehicle wraps and paint protection film priced by coverage, vehicle size and finish, with design service and ceramic-coating add-ons.',
+    category: 'Automotive', trades: ['vehicle_wrap', 'paint_protection_film'],
+    trustBadges: [
+      b('3M & Avery Certified Installers', 'badge-check'),
+      b('Wrap Lifetime Warranty', 'award'),
+      b('Paint-Safe Removal Guaranteed', 'shield-check'),
+      b('Free Design Proof', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Car',
+    // Showcase niche style — deep graphite body, near-black result panel,
+    // electric-cyan CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#06b6d4',
+      background: '#14181f',
+      surface: '#1d232d',
+      border: '#2c333f',
+      text: '#f1f5f9',
+      resultsBg: '#0b0e13',
+      ctaColor: '#06b6d4',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'sora',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Final wrap area is confirmed when the vehicle is on the lift — ±10%.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Vehicle Wrap & PPF — Instant Price', subtitle: '3M & Avery certified · Lifetime wrap warranty · Free design proof', align: 'left' },
+    steps: [
+      { id: 'step_coverage', label: 'Coverage & vehicle', help: 'What you want covered, and how big the vehicle is.', fields: ['vw_coverage', 'vw_size'] },
+      { id: 'step_finish', label: 'Finish & zones', help: 'The film finish (wraps) or coverage zones (PPF).', fields: ['vw_finish', 'vw_ppf_zone'] },
+      { id: 'step_extras', label: 'Design & extras', help: 'Custom design and protection add-ons.', fields: ['vw_design', 'vw_extras'] },
+    ],
+    fields: [
+      // image_choice on the highest-uncertainty driver — what coverage type.
+      { id: 'vw_coverage', name: 'Coverage', label: 'What are you wrapping?', type: 'image_choice',
+        help: 'A full wrap recolours the whole vehicle; PPF is clear film that shields the paint.',
+        options: [
+          { ...optImg('Full vehicle wrap', 2400, 'https://images.unsplash.com/photo-1604014237800-1c9102c219da?w=300&h=300&fit=crop'),
+            description: 'Bumper-to-bumper colour change — the whole exterior in vinyl.' },
+          { ...optImg('Partial / accent wrap', 1100, 'https://images.unsplash.com/photo-1632759145351-1d592919f522?w=300&h=300&fit=crop'),
+            description: 'Hood, roof, mirrors or racing stripes — accent panels only.' },
+          { ...optImg('Paint protection film front', 1600, 'https://images.unsplash.com/photo-1494526585095-c41746248156?w=300&h=300&fit=crop'),
+            description: 'Clear self-healing film over hood, fenders and mirrors.' },
+        ] },
+      { id: 'vw_size', name: 'Vehicle Size', label: 'Vehicle size', type: 'radio',
+        help: 'Bigger vehicles take more film and more labor hours.',
+        options: [
+          opt('Coupe / sedan', 1.0),
+          opt('Crossover / small SUV', 1.25),
+          opt('Truck / full-size SUV', 1.5),
+          opt('Van / commercial', 1.8),
+        ] },
+      // show_if — finish picker only matters for the two wrap options (ne PPF).
+      { id: 'vw_finish', name: 'Finish', label: 'Which vinyl finish?', type: 'select',
+        help: 'Specialty finishes use premium cast vinyl and cost more per panel.',
+        options: [
+          { ...opt('Gloss color', 0), description: 'Standard gloss cast vinyl — the broadest colour range.' },
+          opt('Satin / matte', 350),
+          opt('Color-shift / chrome', 900),
+        ],
+        show_if: { field: 'vw_coverage', op: 'ne', value: 'paint_protection_film_front' } },
+      // show_if — coverage zones only surface on the PPF option (eq PPF).
+      { id: 'vw_ppf_zone', name: 'PPF Zones', label: 'How much PPF coverage?', type: 'select',
+        help: 'More coverage means more clear film — full-front is the popular choice.',
+        options: [
+          { ...opt('Partial front bumper & hood strip', 0), description: 'High-impact zones only — bumper and a hood leading edge.' },
+          opt('Full front hood fenders mirrors', 600),
+          opt('Track pack full front plus rockers', 1400),
+        ],
+        show_if: { field: 'vw_coverage', op: 'eq', value: 'paint_protection_film_front' } },
+      { id: 'vw_design', name: 'Design Service', label: 'Add custom design service', type: 'toggle',
+        help: 'Our designers build a print-ready proof from your logo or concept.',
+        on_value: 450 },
+      { id: 'vw_extras', name: 'Add-ons', label: 'Protection & finishing', type: 'multi_select',
+        help: 'Optional — extra protection and finishing touches.',
+        options: [
+          { ...opt('Ceramic coating over film', 650), description: 'Hydrophobic ceramic top-coat — easier washing, deeper gloss.' },
+          opt('Chrome delete trim blackout', 480),
+          opt('Window tint package', 320),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Coverage & Size', '[Coverage] * [Vehicle Size]'), caption: 'Base film and labor, scaled to your vehicle size.' },
+      { ...calc('Finish & Zones', '[Finish] + [PPF Zones]'), caption: 'Specialty wrap finish or extra PPF coverage zones.' },
+      { ...calc('Design & Add-ons', '[Design Service] + [Add-ons]'), caption: 'Custom design proof, ceramic, chrome delete and tint.' },
+      { ...calc('Total Install Price', '[Coverage & Size] + [Finish & Zones] + [Design & Add-ons]'),
+        resultMode: 'primary', caption: 'Installed price — confirmed once we measure the vehicle.' },
+    ],
+    result_calc: 'Total Install Price',
+    results: {
+      heading: 'Your Wrap / PPF Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Install',
+      cta_heading: 'Turn heads — and protect the paint',
+      cta_sub: 'We confirm panels and finish in person, send a free design proof, then lock your install slot.',
+      submit_success: 'Requested! Our wrap specialist will call within one business day to confirm your design and schedule the install.',
+      footnote: 'Includes premium cast vinyl or self-healing PPF, professional install and a paint-safe removal guarantee. Lifetime wrap warranty available.',
+    },
+  },
+
+  /* ── 66. Window Tinting (BATCH 4 #2) ──
+   * Vehicle type scales the window count; a film-tier image_choice drives the
+   * per-window price; a windshield-strip toggle adds a fixed line. The ceramic
+   * and IR-ceramic tiers carry upsell descriptions. */
+  {
+    id: 'window_tinting', name: 'Window Tinting',
+    description: 'Automotive window tinting priced by vehicle type, film tier and window count, with an optional windshield sun-strip.',
+    category: 'Automotive', trades: ['window_tinting'],
+    trustBadges: [
+      b('Lifetime Tint Warranty', 'award'),
+      b('Bubble & Peel Guarantee', 'shield-check'),
+      b('Legal-Limit Compliant', 'badge-check'),
+      b('Computer-Cut Precision', 'verified'),
+    ],
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Car',
+    // Showcase niche style — smoked-charcoal body, near-black result panel,
+    // amber CTA (sun / heat-rejection cue). Never falls back to derive.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#f59e0b',
+      background: '#15171c',
+      surface: '#1e2129',
+      border: '#2d313b',
+      text: '#f1f5f9',
+      resultsBg: '#0c0e12',
+      ctaColor: '#f59e0b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'geist',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Window count is confirmed at the bay — small ±8% band.
+        range_mode: { enabled: true, band_pct: 8 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Window Tint — Price in 30 Seconds', subtitle: 'Lifetime tint warranty · No bubble, no peel · Legal-limit compliant', align: 'left' },
+    steps: [
+      { id: 'step_vehicle', label: 'Vehicle', help: 'Vehicle type sets how many windows we tint.', fields: ['wt_vehicle'] },
+      { id: 'step_film', label: 'Film & windows', help: 'Pick the film tier and how many windows.', fields: ['wt_film', 'wt_windows'] },
+      { id: 'step_extras', label: 'Extras', help: 'Windshield strip and finishing options.', fields: ['wt_strip', 'wt_extras'] },
+    ],
+    fields: [
+      { id: 'wt_vehicle', name: 'Vehicle Type', label: 'Vehicle type', type: 'radio',
+        help: 'Coupes have fewer side windows than SUVs and vans — it changes the count.',
+        options: [
+          opt('2-door coupe', 0),
+          opt('Sedan', 0),
+          opt('SUV / crossover', 0),
+          opt('Truck crew cab', 0),
+        ] },
+      // image_choice on the highest-uncertainty driver — which film tier.
+      { id: 'wt_film', name: 'Film Tier', label: 'Which film tier?', type: 'image_choice',
+        help: 'Higher tiers reject more heat and UV — ceramic stays cooler without going darker.',
+        options: [
+          { ...optImg('Dyed film', 28, 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=300&h=300&fit=crop'),
+            description: 'Classic look and glare control — the budget-friendly tier.' },
+          { ...optImg('Ceramic film', 48, 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=300&h=300&fit=crop'),
+            description: 'Blocks far more heat and 99% UV without interfering with signals.' },
+          { ...optImg('IR ceramic film', 65, 'https://images.unsplash.com/photo-1576919228236-a097c32a5cd4?w=300&h=300&fit=crop'),
+            description: 'Top-tier infrared rejection — noticeably cooler cabin, crystal clarity.' },
+        ] },
+      { id: 'wt_windows', name: 'Windows', label: 'How many windows?', type: 'slider',
+        help: 'Count the windows you want tinted — most sedans do 5 (4 doors + rear).',
+        min: 1, max: 9, step: 1, default_value: 5, unit: 'windows' },
+      // show_if — the matching ceramic sun-strip is offered on the heat-rejecting
+      // tiers (ceramic / IR ceramic), not on basic dyed film.
+      { id: 'wt_strip', name: 'Windshield Strip', label: 'Add a matching windshield sun-strip', type: 'toggle',
+        help: 'A legal-height ceramic tint band across the top of the windshield cuts sun glare.',
+        on_value: 45,
+        show_if: { field: 'wt_film', op: 'ne', value: 'dyed_film' } },
+      { id: 'wt_extras', name: 'Extras', label: 'Finishing options', type: 'multi_select',
+        help: 'Optional — removal of old film and protection add-ons.',
+        options: [
+          { ...opt('Old film removal', 90), description: 'Strip and clean bubbled or purple old tint before re-tinting.' },
+          opt('Windshield full ceramic tint', 180),
+          opt('Sunroof tint', 70),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Film & Windows', '[Film Tier] * [Windows]'), caption: 'Per-window price for your chosen film tier.' },
+      { ...calc('Windshield Strip', '[Windshield Strip]'), caption: 'Optional legal-height sun-strip across the windshield.' },
+      { ...calc('Extras', '[Extras]'), caption: 'Old-film removal, windshield tint and sunroof.' },
+      { ...calc('Total Tint Price', '[Film & Windows] + [Windshield Strip] + [Extras]'),
+        resultMode: 'primary', caption: 'Out-the-door price — confirmed when we count the glass.' },
+    ],
+    result_calc: 'Total Tint Price',
+    results: {
+      heading: 'Your Tint Quote',
+      show_breakdown: true,
+      cta_label: 'Book My Tint',
+      cta_heading: 'Cooler cabin, zero glare',
+      cta_sub: 'We confirm the window count and your legal limit, then tint it computer-cut in one visit.',
+      submit_success: 'Requested! Our tint shop will call within one business day to schedule your appointment.',
+      footnote: 'Includes computer-cut film, professional install and a lifetime no-bubble, no-peel warranty. State legal-limit compliant.',
+    },
+  },
+
+  /* ── 67. Short-Term Rental (Airbnb) Turnover Cleaning (BATCH 4 #3) ──
+   * Recurring per-turnover cleaning, distinct from one-off move-out cleaning.
+   * Bedrooms/baths drive the base; a turnover-frequency select prices the
+   * recurring plan; a linen-service toggle reveals a restock add-on (show_if).
+   * countUp + range mode on the per-turnover headline. */
+  {
+    id: 'str_turnover_cleaning', name: 'Short-Term Rental Turnover Cleaning',
+    description: 'Airbnb / short-term-rental turnover cleaning priced per turnover by bedrooms, baths and frequency, with hotel-style linen service and guest-restock options.',
+    category: 'Cleaning', trades: ['str_turnover_cleaning'],
+    trustBadges: [
+      b('Insured & Bonded', 'shield-check'),
+      b('Same-Day Turnover Guarantee', 'award'),
+      b('Photo-Verified Checklist', 'verified'),
+      b('5-Star Host Rated', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'coral', defaultIcon: 'Sparkles',
+    // Showcase niche style — warm hospitality body, deep-plum result panel,
+    // coral CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#e11d48',
+      background: '#fdf3f4',
+      surface: '#ffffff',
+      border: '#f4dadd',
+      text: '#241418',
+      resultsBg: '#3b1722',
+      ctaColor: '#e11d48',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'outfit',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Actual mess between guests varies — show a ±10% per-turnover band.
+        range_mode: { enabled: true, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'STR Turnover Cleaning — Price Per Turn', subtitle: 'Same-day turnover guarantee · Photo-verified checklist · 5-star host rated', align: 'left' },
+    steps: [
+      { id: 'step_size', label: 'Property size', help: 'Bedrooms and baths set the base turnover time.', fields: ['str_beds', 'str_baths'] },
+      { id: 'step_plan', label: 'Turnover plan', help: 'How often the property turns between guests.', fields: ['str_freq', 'str_linen'] },
+      { id: 'step_extras', label: 'Add-ons', help: 'Restock and finishing options.', fields: ['str_restock', 'str_extras'] },
+    ],
+    fields: [
+      { id: 'str_beds', name: 'Bedrooms', label: 'Bedrooms', type: 'slider',
+        help: 'Count sleeping rooms — each bedroom adds beds to strip and remake.',
+        min: 1, max: 8, step: 1, default_value: 2, unit: 'bd' },
+      { id: 'str_baths', name: 'Bathrooms', label: 'Bathrooms', type: 'slider',
+        help: 'Bathrooms are the most time-intensive part of a turnover.',
+        min: 1, max: 6, step: 1, default_value: 2, unit: 'ba' },
+      // image_choice on the highest-uncertainty driver — how busy the listing is
+      // (it also forks the restock add-on via the linen toggle below).
+      { id: 'str_freq', name: 'Turnover Frequency', label: 'How often does it turn over?', type: 'image_choice',
+        help: 'Higher-frequency listings get a lower per-turnover rate.',
+        options: [
+          { ...optImg('Occasional a few turns a month', 1.0, 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=300&h=300&fit=crop'),
+            description: 'Pay-as-you-go per turnover — no commitment.' },
+          { ...optImg('Weekly turnovers', 0.92, 'https://images.unsplash.com/photo-1523217582562-09d0def993a6?w=300&h=300&fit=crop'),
+            description: 'Recurring weekly slot — 8% off every turnover.' },
+          { ...optImg('High-volume multiple per week', 0.85, 'https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=300&h=300&fit=crop'),
+            description: 'Priority recurring crew — 15% off every turnover.' },
+        ] },
+      // show_if — linen service is the gateway to the restock add-on below.
+      { id: 'str_linen', name: 'Linen Service', label: 'Add hotel-style linen service', type: 'toggle',
+        help: 'We bring fresh laundered linens and towels each turn — no on-site laundry wait.',
+        on_value: 35 },
+      // show_if — restock only surfaces once linen service is on.
+      { id: 'str_restock', name: 'Guest Restock', label: 'Restock guest consumables', type: 'select',
+        help: 'We replenish the essentials so the next guest walks into a stocked place.',
+        options: [
+          { ...opt('Essentials paper soap coffee', 18), description: 'Toilet paper, hand soap, dish soap, coffee and trash bags.' },
+          opt('Welcome pack with snacks', 32),
+        ],
+        show_if: { field: 'str_linen', op: 'eq', value: 'true' } },
+      { id: 'str_extras', name: 'Add-ons', label: 'Finishing options', type: 'multi_select',
+        help: 'Optional — deeper-clean and host-protection add-ons.',
+        options: [
+          { ...opt('Inside fridge & oven', 25), description: 'Wipe-down inside the fridge and oven between guests.' },
+          opt('Patio / balcony tidy', 20),
+          opt('Damage-check photo report', 15),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Base Turnover', '(45 + ([Bedrooms] * 18) + ([Bathrooms] * 22)) * [Turnover Frequency]'), caption: 'Per-turnover base by bedrooms and baths, at your frequency rate.' },
+      { ...calc('Linen & Restock', '[Linen Service] + [Guest Restock]'), caption: 'Hotel-style linens and guest-consumable restock.' },
+      { ...calc('Add-ons', '[Add-ons]'), caption: 'Inside appliances, outdoor tidy and damage-check report.' },
+      { ...calc('Price Per Turnover', '[Base Turnover] + [Linen & Restock] + [Add-ons]'),
+        resultMode: 'primary', caption: 'Per-turnover price — billed each time we turn the property.' },
+    ],
+    result_calc: 'Price Per Turnover',
+    results: {
+      heading: 'Your Per-Turnover Price',
+      show_breakdown: true,
+      cta_label: 'Set Up My Turnovers',
+      cta_heading: 'Never miss a checkout window',
+      cta_sub: 'We sync to your booking calendar, turn the place same-day and send a photo-verified checklist after every clean.',
+      submit_success: 'Requested! Our STR coordinator will call within one business day to connect your calendar and schedule your first turnover.',
+      footnote: 'Per-turnover pricing with a same-day turnover guarantee and a photo-verified checklist after every clean. Linen service and restocking optional.',
+    },
+  },
+
+  /* ── 68. Land Surveying (BATCH 4 #4 — dumpster substitute) ──
+   * Substituted for dumpster_rental to avoid duplicating #49's size×zone
+   * matrix. Survey-type select drives the per-acre rate and carries
+   * descriptions (boundary / topographic / ALTA); acreage scales it; a
+   * corner-count slider reveals only on a boundary survey (show_if); a rush
+   * toggle adds expedited turnaround. */
+  {
+    id: 'land_surveying', name: 'Land Surveying',
+    description: 'Professional land surveying priced by survey type and acreage, with monument corner-marking and rush-turnaround options.',
+    category: 'Professional', trades: ['land_surveying'],
+    trustBadges: [
+      b('Licensed PLS On Staff', 'badge-check'),
+      b('State-Recorded Plats', 'verified'),
+      b('Stamped & Sealed Drawings', 'award'),
+      b('Free Scope Consultation', 'thumbs-up'),
+    ],
+    layout: 'two-column', theme: 'royal', defaultIcon: 'Map',
+    requireAddress: true,
+    // Showcase niche style — clean professional body, deep-navy result panel,
+    // royal-blue CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#1d4ed8',
+      background: '#f5f8fc',
+      surface: '#ffffff',
+      border: '#dbe4f0',
+      text: '#0f172a',
+      resultsBg: '#172554',
+      ctaColor: '#1d4ed8',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'inter',
+      fieldStyle: 'filled',
+      radius: 10,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Terrain, vegetation and records research vary the field hours — ±15%.
+        range_mode: { enabled: true, band_pct: 15 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Land Survey — Get a Scoped Quote', subtitle: 'Licensed PLS on staff · State-recorded plats · Stamped & sealed drawings', align: 'left' },
+    steps: [
+      { id: 'step_type', label: 'Survey type', help: 'The survey type sets the standard and the per-acre rate.', fields: ['srv_type', 'srv_acres'] },
+      { id: 'step_detail', label: 'Detail', help: 'Corner marking and other scope detail.', fields: ['srv_corners'] },
+      { id: 'step_extras', label: 'Turnaround & extras', help: 'Rush turnaround and deliverable add-ons.', fields: ['srv_rush', 'srv_extras'] },
+    ],
+    fields: [
+      // image_choice on the highest-uncertainty driver — the survey type sets
+      // the per-acre rate AND forks corner-marking via show_if below.
+      { id: 'srv_type', name: 'Survey Type', label: 'Which survey do you need?', type: 'image_choice',
+        help: 'Lenders and title companies usually specify the type — ask if unsure.',
+        options: [
+          { ...optImg('Boundary survey', 110, 'https://images.unsplash.com/photo-1457269449834-928af64c684d?w=300&h=300&fit=crop'),
+            description: 'Locates and marks your legal property lines and corners.' },
+          { ...optImg('Topographic survey', 145, 'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=300&h=300&fit=crop'),
+            description: 'Maps elevations and contours for design and grading.' },
+          { ...optImg('ALTA NSPS survey', 220, 'https://images.unsplash.com/photo-1547754980-3df97fed72a8?w=300&h=300&fit=crop'),
+            description: 'The comprehensive standard lenders require for commercial deals.' },
+        ] },
+      { id: 'srv_acres', name: 'Acreage', label: 'Parcel size (acres)', type: 'slider',
+        help: 'A typical suburban lot is well under an acre — estimate if unsure.',
+        min: 0.1, max: 40, step: 0.1, default_value: 1, unit: 'ac' },
+      // show_if — corner monumentation only applies to a boundary survey.
+      { id: 'srv_corners', name: 'Corner Markers', label: 'Property corners to monument', type: 'slider',
+        help: 'We set a recorded iron monument at each property corner you need marked.',
+        min: 0, max: 12, step: 1, default_value: 4, unit: 'corners',
+        show_if: { field: 'srv_type', op: 'eq', value: 'boundary_survey' } },
+      { id: 'srv_rush', name: 'Rush Turnaround', label: 'Rush turnaround (5 business days)', type: 'toggle',
+        help: 'Expedites field crew scheduling and drafting ahead of the standard queue.',
+        on_value: 400 },
+      { id: 'srv_extras', name: 'Deliverables', label: 'Deliverable add-ons', type: 'multi_select',
+        help: 'Optional — extra deliverables your title company or designer may need.',
+        options: [
+          { ...opt('Elevation certificate', 350), description: 'FEMA elevation certificate for flood-zone insurance.' },
+          opt('CAD file for designer', 180),
+          opt('Recorded plat filing', 220),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Survey Fieldwork', '600 + ([Survey Type] * [Acreage])'), caption: 'Mobilization plus per-acre field and research time at your survey standard.' },
+      { ...calc('Corner Monuments', '[Corner Markers] * 65'), caption: 'Recorded iron monument set at each property corner.' },
+      { ...calc('Turnaround & Deliverables', '[Rush Turnaround] + [Deliverables]'), caption: 'Rush scheduling and extra recorded deliverables.' },
+      { ...calc('Total Survey Fee', '[Survey Fieldwork] + [Corner Monuments] + [Turnaround & Deliverables]'),
+        resultMode: 'primary', caption: 'Surveying fee — confirmed after a free scope consultation.' },
+    ],
+    result_calc: 'Total Survey Fee',
+    results: {
+      heading: 'Your Survey Quote',
+      show_breakdown: true,
+      cta_label: 'Request My Survey',
+      cta_heading: 'Know exactly where your lines are',
+      cta_sub: 'Our licensed surveyor confirms the scope, pulls the records and schedules the field crew.',
+      submit_success: 'Requested! Our survey coordinator will call within one business day to confirm scope and schedule the field crew.',
+      footnote: 'Includes records research, field survey and stamped, sealed drawings by a licensed PLS. Recorded plat filing optional.',
+    },
+  },
+
+  /* ── 69. Mobile Mechanic / Diagnostic (BATCH 4 #5) ──
+   * Service-type select drives the job; a diagnostic-first image_choice
+   * captures the highest-uncertainty case (warning light vs known repair);
+   * vehicle age and after-hours surcharge; a mobile-trip toggle reveals a
+   * distance band (show_if) only when the customer wants come-to-you service. */
+  {
+    id: 'mobile_mechanic', name: 'Mobile Mechanic & Diagnostic',
+    description: 'Come-to-you mobile mechanic pricing by service type and vehicle, with on-site diagnostics, after-hours response and a mobile trip charge.',
+    category: 'Automotive', trades: ['mobile_mechanic'],
+    trustBadges: [
+      b('ASE-Certified Technicians', 'badge-check'),
+      b('12-Month / 12k-Mile Warranty', 'award'),
+      b('We Come to You', 'truck'),
+      b('Upfront, No-Surprise Pricing', 'shield-check'),
+    ],
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Wrench',
+    requireAddress: true,
+    // Showcase niche style — deep slate body, near-black result panel,
+    // safety-green CTA. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#22c55e',
+      background: '#15181e',
+      surface: '#1e222b',
+      border: '#2c313c',
+      text: '#f1f5f9',
+      resultsBg: '#0b0e12',
+      ctaColor: '#22c55e',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'jakarta',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        // Parts and labor confirm after the on-site diagnostic — ±12%.
+        range_mode: { enabled: true, band_pct: 12 },
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 250,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
+    header: { title: 'Mobile Mechanic — We Come to You', subtitle: 'ASE-certified techs · 12-month / 12k-mile warranty · Upfront pricing', align: 'left' },
+    steps: [
+      { id: 'step_service', label: 'What you need', help: 'Pick the service — a diagnostic if you are not sure.', fields: ['mm_service', 'mm_vehicle'] },
+      { id: 'step_when', label: 'When & where', help: 'Timing and whether we drive to you.', fields: ['mm_timing', 'mm_mobile'] },
+      { id: 'step_extras', label: 'Trip & extras', help: 'Distance band and add-on services.', fields: ['mm_distance', 'mm_extras'] },
+    ],
+    fields: [
+      // image_choice on the highest-uncertainty driver — what kind of service.
+      { id: 'mm_service', name: 'Service', label: 'What do you need?', type: 'image_choice',
+        help: 'Not sure what is wrong? Start with a diagnostic — the fee credits toward the repair.',
+        options: [
+          { ...optImg('Diagnostic warning light', 95, 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&h=300&fit=crop'),
+            description: 'On-site scan and inspection — the fee credits toward any repair we do.' },
+          { ...optImg('Brakes pads & rotors', 320, 'https://images.unsplash.com/photo-1494526585095-c41746248156?w=300&h=300&fit=crop'),
+            description: 'Front or rear pads and rotors replaced in your driveway.' },
+          { ...optImg('Battery alternator or starter', 260, 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=300&h=300&fit=crop'),
+            description: 'No-start diagnosis and charging-system part replacement.' },
+        ] },
+      { id: 'mm_vehicle', name: 'Vehicle Age', label: 'Vehicle age', type: 'radio',
+        help: 'Older and luxury vehicles take more labor time and pricier parts.',
+        options: [
+          opt('Newer under 5 years', 1.0),
+          opt('Typical 5 to 12 years', 1.15),
+          opt('Older luxury or European', 1.4),
+        ] },
+      { id: 'mm_timing', name: 'Timing', label: 'How soon?', type: 'radio',
+        help: 'After-hours and weekend visits carry a small dispatch surcharge.',
+        options: [
+          opt('Scheduled next few days', 0),
+          opt('Same-day', 40),
+          opt('After-hours or weekend', 90),
+        ] },
+      { id: 'mm_mobile', name: 'Mobile Visit', label: 'Come to me (mobile visit)', type: 'toggle',
+        help: 'We bring the shop to your home or office — toggle off for shop drop-off.',
+        on_value: 0 },
+      // show_if — distance band only surfaces when a mobile visit is requested.
+      { id: 'mm_distance', name: 'Trip Distance', label: 'Distance from our shop', type: 'select',
+        help: 'A small trip charge covers the drive to you — the first 15 miles are free.',
+        options: [
+          { ...opt('Within 15 miles', 0), description: 'No trip charge — you are in our free service radius.' },
+          opt('15-30 miles', 35),
+          opt('30-50 miles', 70),
+        ],
+        show_if: { field: 'mm_mobile', op: 'eq', value: 'true' } },
+      { id: 'mm_extras', name: 'Add-ons', label: 'Add-on services', type: 'multi_select',
+        help: 'Optional — common services worth bundling into one visit.',
+        options: [
+          { ...opt('Oil & filter change', 75), description: 'Full-synthetic oil and a new filter while we are there.' },
+          opt('Multi-point inspection', 45),
+          opt('Wiper & cabin-filter refresh', 40),
+        ] },
+    ],
+    calculations: [
+      { ...calc('Service & Vehicle', '[Service] * [Vehicle Age]'), caption: 'Base service labor and parts, scaled to your vehicle.' },
+      { ...calc('Timing & Trip', '[Timing] + [Trip Distance]'), caption: 'After-hours dispatch and the come-to-you trip charge.' },
+      { ...calc('Add-ons', '[Add-ons]'), caption: 'Oil change, inspection and filter refresh bundled in.' },
+      { ...calc('Total Estimate', '[Service & Vehicle] + [Timing & Trip] + [Add-ons]'),
+        resultMode: 'primary', caption: 'Estimate — confirmed after the on-site diagnostic.' },
+    ],
+    result_calc: 'Total Estimate',
+    results: {
+      heading: 'Your Mobile Repair Estimate',
+      show_breakdown: true,
+      cta_label: 'Book My Mobile Mechanic',
+      cta_heading: 'Skip the shop — we come to you',
+      cta_sub: 'Our ASE tech confirms the diagnosis on site, prices the parts upfront, then fixes it in your driveway.',
+      submit_success: 'Requested! Our dispatcher will call within one business day to schedule your mobile visit.',
+      footnote: 'Includes ASE-certified mobile technician, parts and a 12-month / 12,000-mile warranty. Diagnostic fee credits toward any repair.',
+    },
+  },
 ];
 
 /* ─── Lookups ─── */
