@@ -504,6 +504,19 @@ export const calculatorSettingsSchema = z.object({
       // Label for the call-to-action button in the result panel. Blank hides
       // the button; defaults to a quote CTA.
       cta_label: z.string().default('Get My Quote'),
+      // Results-CTA copy block (mirrors the `TemplateResults` interface in
+      // `shared/templatePresets.ts` / `AdvResults` in AdvancedCalculator.tsx).
+      // `cta_heading` is the bold marketing line above the CTA button,
+      // `cta_sub` the short paragraph beneath it, `submit_success` the
+      // success line shown in the lead modal after submit (absent → the
+      // modal's built-in default copy). Without these explicit fields,
+      // Zod's strip-unknown-keys behaviour silently dropped them on the
+      // owner-save `parse()` round-trip even though the renderer and the
+      // showcase templates carry them — same data-loss class as the H6
+      // `advanced.numberFormat` strip below.
+      cta_heading: z.string().max(200).optional(),
+      cta_sub: z.string().max(500).optional(),
+      submit_success: z.string().max(500).optional(),
     }).default({}),
     // Visual theme id — recolours the widget (see client widgetThemes.ts:
     // light | midnight | coral | forest | mint | magenta).

@@ -170,6 +170,48 @@ test('pricing-model slots round-trip (matrix / distance / photo)', () => {
   assert.equal(fields[2].maxPhotos, 3);
 });
 
+/* ─── 3b. results-CTA copy block survives the parse (strip regression) ── */
+
+test('results CTA copy round-trips (cta_heading / cta_sub / submit_success)', () => {
+  const results = {
+    heading: 'Your Estimate',
+    footnote: 'Instant estimate based on your inputs.',
+    show_breakdown: false,
+    cta_label: 'Book Now',
+    cta_heading: 'Take the First Step Toward Your Project',
+    cta_sub: 'Lock in this price — our team will confirm within one business day.',
+    submit_success: 'Thanks! Your quote is on its way to your inbox.',
+  };
+  const fixture = {
+    advanced: {
+      enabled: true,
+      fields: [fieldOf('number')],
+      results,
+    },
+  };
+  const r = calculatorSettingsSchema.safeParse(fixture);
+  assert.ok(r.success, 'results-CTA fixture should parse');
+  const parsed = (r as any).data.advanced.results;
+  // Assert PRESENCE post-parse — strip-unknown-keys silently drops fields
+  // the schema doesn't mirror, so retention (not just parse success) is
+  // what catches the regression.
+  assert.deepEqual(parsed, results, 'results block must survive verbatim');
+  assert.equal(parsed.cta_heading, results.cta_heading);
+  assert.equal(parsed.cta_sub, results.cta_sub);
+  assert.equal(parsed.submit_success, results.submit_success);
+});
+
+test('an over-cap cta_heading FAILS the parse (caps are enforced)', () => {
+  const r = calculatorSettingsSchema.safeParse({
+    advanced: {
+      enabled: true,
+      fields: [],
+      results: { cta_heading: 'x'.repeat(201) },
+    },
+  });
+  assert.equal(r.success, false, 'cta_heading over 200 chars must be rejected');
+});
+
 /* ─── 4. advanced.origin ──────────────────────────────────────────────── */
 
 test('advanced.origin round-trips (address + geocoded lat/lng)', () => {
