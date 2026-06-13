@@ -67,6 +67,7 @@
     "check:seo-generator": "tsx server/services/seoContent/seoArticleGenerator.test.ts",
     "check:seo-matrix": "tsx server/services/seoContent/programmaticMatrixGenerator.test.ts",
     "check:client-knowledge": "tsx server/services/clientKnowledge.test.ts",
+    "check:tradeline-parity": "tsx tests/tradeline-chat-voice-parity.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

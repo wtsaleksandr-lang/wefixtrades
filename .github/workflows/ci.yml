@@ -96,6 +96,8 @@ jobs:
         run: npm run check:seo-matrix
       - name: Client-knowledge guard (HARD audience tiers — customer block provably excludes margin formula constants + internal notes, red-proof vs unfiltered block; token-only degrade; audience-keyed 60s cache; KB truncation; injection framed as data + delimiter red-proof)
         run: npm run check:client-knowledge
+      - name: TradeLine chat↔voice parity guard (chat carries SAFETY_FLOOR+PII_GUARD+closer via the shared tail; voice renders the assembled customer-audience business-data block beneath the floor)
+        run: npm run check:tradeline-parity
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

@@ -360,6 +360,17 @@
     if (state.open && inputEl) setTimeout(function () { inputEl.focus(); }, 50);
   }
 
+  // Warm lead-capture fallback (P1 resilience). When the chat request times out
+  // or the network fails, the server can't intercept this turn into a
+  // callback_request — so the WIDGET must not strand the visitor on a stuck
+  // "typing…" spinner with a locked input. Instead it asks for a name + number
+  // (the one lead the server can't capture), keeping the input usable so they
+  // can leave it. Mirrors the server-side offline lead-capture copy.
+  function warmCaptureReply() {
+    var biz = (state.config && state.config.displayName) || "the team";
+    return "Sorry — I'm having trouble reaching the team right now. Leave your name and phone number here and " + biz + " will call you back.";
+  }
+
   function send() {
     if (state.sending || !inputEl) return;
     var text = (inputEl.value || "").trim();
@@ -369,23 +380,42 @@
     state.sending = true;
     render();
 
+    // AbortController + ~20s timeout so a hung backend degrades to the warm
+    // capture rather than an indefinite spinner. Older browsers without
+    // AbortController simply skip the abort (the .catch still recovers).
+    var controller = null;
+    var timedOut = false;
+    var timer = null;
+    try {
+      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    } catch (e) { controller = null; }
+    if (controller) {
+      timer = setTimeout(function () { timedOut = true; try { controller.abort(); } catch (e) {} }, 20000);
+    }
+
     fetch(apiBase + "/api/widget/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteKey: siteKey, sessionId: state.sessionId || undefined, messages: state.messages }),
+      signal: controller ? controller.signal : undefined,
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        if (timer) clearTimeout(timer);
         state.sending = false;
         if (d.sessionId) state.sessionId = d.sessionId;
         state.messages.push({ role: "assistant", content: d.reply || "Sorry, something went wrong." });
         render();
       })
       .catch(function () {
+        // Timeout OR network error both dead-end on the client (the server never
+        // saw a completable turn), so recover to the SAME warm lead-capture
+        // rather than a stuck spinner or a "couldn't reach the team" dead-end.
+        if (timer) clearTimeout(timer);
         state.sending = false;
         state.messages.push({
           role: "assistant",
-          content: "I couldn't reach the team — please try again in a moment.",
+          content: warmCaptureReply(),
         });
         render();
       });
