@@ -979,6 +979,170 @@
 }
 .chatSend:hover { filter: brightness(0.92); }
 
+/* ═══ SECTION-ANCHOR NAV (sticky, under header) ═══ */
+.sectionNav {
+  position: sticky;
+  top: 62px; /* sits below .stickyHeader */
+  z-index: 40;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.sectionNav::-webkit-scrollbar { display: none; }
+.sectionNavLink {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--grey);
+  background: var(--grey-bg);
+  text-decoration: none;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.sectionNavLink:hover { color: var(--cyan); border-color: rgba(13,60,252,0.3); }
+.scrollAnchor { scroll-margin-top: 112px; }
+
+/* ═══ SCORE EXPLANATION CAPTION ═══ */
+.gaugeCaption {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--grey);
+  line-height: 1.4;
+  max-width: 460px;
+  text-align: center;
+}
+.gaugeLabelRow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══ BEFORE → AFTER STRIP (score breakdown rows) ═══ */
+.baStrip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.baNow {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--grey-bg);
+  color: var(--grey);
+  white-space: nowrap;
+}
+.baArrow { color: var(--grey); font-weight: 800; }
+.baAfter {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--green-bg);
+  color: #166534;
+  white-space: nowrap;
+}
+
+/* ═══ PER-ISSUE "WE CAN FIX THIS" CTA ═══ */
+.issueFixBanner {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(13,60,252,0.06);
+  border-top: 1px solid rgba(13,60,252,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.issueFixText { font-size: 13px; font-weight: 600; color: var(--dark); }
+.issueFixText strong { color: var(--cyan); }
+.issueFixLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: var(--cyan);
+  color: var(--ink-inv);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.issueFixLink:hover { filter: brightness(0.93); }
+
+/* ═══ "RUN YOUR OWN AUDIT" VIRALITY BANNER ═══ */
+.viralBanner {
+  margin-top: 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(13,60,252,0.25);
+  background: linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02));
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.viralTitle { font-size: 19px; font-weight: 900; color: var(--dark); line-height: 1.25; }
+.viralSub { font-size: 14px; color: var(--grey); margin-top: 6px; line-height: 1.5; max-width: 440px; margin-left: auto; margin-right: auto; }
+.viralBtn {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 13px 26px;
+  border-radius: 12px;
+  background: var(--cyan);
+  color: var(--ink-inv);
+  font-weight: 800;
+  font-size: 15px;
+  text-decoration: none;
+}
+.viralBtn:hover { filter: brightness(0.93); }
+
+/* ═══ C4 — COMPETITOR STACKED CARDS (<480px) ═══ */
+.compCards { display: none; }
+.compCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.compCardYou { border: 1px solid var(--cyan); background: rgba(13,60,252,0.05); }
+.compCardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.compCardName { font-size: 14px; font-weight: 700; color: var(--dark); flex: 1; min-width: 0; word-break: break-word; }
+.compCardRank { font-size: 11px; font-weight: 800; color: var(--grey); flex-shrink: 0; }
+.compCardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+.compCardCell { display: flex; flex-direction: column; gap: 2px; }
+.compCardCellLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--grey); }
+.compCardCellVal { font-size: 13px; font-weight: 700; color: var(--dark); display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 479px) {
+  .compTableWrap { display: none; }
+  .compCards { display: block; }
+}
+
 /* ═══ REDUCED-MOTION RESPECT ═══ */
 @media (prefers-reduced-motion: reduce) {
   @keyframes shimmer { 0%, 100% { transform: none; } }

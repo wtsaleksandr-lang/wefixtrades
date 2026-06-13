@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/visual-primitives";
 import {
   MapPin, Globe, Search, Trophy, Megaphone, Clock,
-  Check, X as XIcon, Zap, ExternalLink, Download, Link2, Mail,
+  Check, X as XIcon, Zap, ExternalLink, Download, Link2, Mail, ArrowRight,
 } from "lucide-react";
 import { mkt } from "@/theme/tokens";
+import InfoTooltip from "@/components/marketing/InfoTooltip";
+import { getServicesForIssues } from "@shared/services";
 
 /* ─── Helpers ─── */
 function scoreColor(score: number, max: number): string {
@@ -111,6 +113,64 @@ function categoryAdvice(key: string, pct: number): string {
     competitorPositioning: "Differentiate on reviews + response time.",
   };
   return tips[key] ?? "Address the high-priority items below.";
+}
+
+/* ─── Plain-English explainer copy (help cues for non-technical owners) ─── */
+// One-line "what this measures + what's good vs bad" per score category.
+const CATEGORY_HELP: Record<string, string> = {
+  googleMaps:
+    "Your Google Business Profile — photos, hours, description, reviews. A complete, well-reviewed profile wins the top Maps spots; gaps push you down.",
+  websiteQuality:
+    "How fast, mobile-friendly and professional your site is. Slow or dated sites lose visitors before they ever call.",
+  searchVisibility:
+    "How easily customers find you on Google when they search for your service. Higher = you show up for more of the searches that matter.",
+  competitorPositioning:
+    "How you stack up against the other local businesses customers see next to you — reviews, website, ads. Higher means you out-position rivals.",
+  adOpportunity:
+    "The size of the paid-search market in your area — how much demand you could capture with Google Ads. Higher = more upside available.",
+  demandCoverage:
+    "Whether you're reachable when customers actually search (evenings, weekends, after-hours). Higher means you catch demand competitors miss.",
+};
+
+const OVERALL_HELP =
+  "Your overall local-SEO health out of 100 — a weighted blend of your Google profile, website, search visibility, competitor position, ad opportunity and demand coverage. 80+ is strong, 50–79 has fixable gaps, under 50 means leads are leaking.";
+
+// Jargon glossary used by inline InfoTooltip help cues.
+const JARGON = {
+  gbp: "Google Business Profile (GBP): your free Google listing that shows your name, hours, reviews and map pin. It's what customers see in Google Maps and the local '3-pack'.",
+  monthlySearches:
+    "Monthly searches: roughly how many times people in your area type this into Google each month. Higher = more potential customers looking.",
+  cpc: "Cost per click (CPC): what advertisers pay Google for one click on this keyword. A higher number means the search is valuable — people who type it tend to buy.",
+  rank: "Search rank: where your website lands in Google's results for this term. #1–3 gets most clicks; below #10 (page 2) gets almost none. 'Not ranking' means you don't appear.",
+  speedScore:
+    "Speed score (0–100): Google's grade for how fast your page loads. 90+ is fast, 50–89 needs work, under 50 is slow — and slow pages lose visitors and rank.",
+};
+
+// Realistic "after" target for a before→after strip: close ~60% of the gap to
+// the category max, rounded, never below current and never above max. Uses the
+// real score already in the report (no fabricated numbers).
+function realisticTarget(score: number, max: number): number {
+  if (max <= 0) return score;
+  const gap = max - score;
+  if (gap <= 0) return score;
+  const lift = Math.max(1, Math.round(gap * 0.6));
+  return Math.min(max, score + lift);
+}
+
+const NAV_SECTIONS = [
+  { id: "at-a-glance", label: "At a Glance" },
+  { id: "maps", label: "Maps" },
+  { id: "website", label: "Website" },
+  { id: "competitors", label: "Competitors" },
+  { id: "plan", label: "Plan" },
+];
+
+function scrollToSection(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  const el = document.getElementById(id);
+  if (el) {
+    e.preventDefault();
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 export default function SharedAuditReport() {
@@ -245,6 +305,27 @@ export default function SharedAuditReport() {
   const grade = scores?.grade || "D";
   const maxVol = Math.max(...keywords.map((k: any) => k.monthlySearches || 0), 1);
 
+  // Per-issue CTA target: the single best-matched WeFixTrades service for this
+  // business's detected issues (reuses the existing issue→service mapping).
+  // Used for the always-present "We can fix this →" chip on each action item so
+  // a forwarded report keeps the offer attached to every problem.
+  const detectedIssues: string[] = Array.isArray(ad?.detectedIssues) ? ad.detectedIssues : [];
+  const recommendedService = getServicesForIssues(detectedIssues)[0] || null;
+  const fixHref = recommendedService ? `/pricing#${recommendedService.id}` : "/pricing";
+  const fixLabel = recommendedService ? `Fix with ${recommendedService.name}` : "We can fix this";
+
+  // Only show nav links whose section actually renders for this report, so a
+  // tapped anchor always lands somewhere.
+  const hasSpeed = (speedData?.mobile?.score != null || speedData?.desktop?.score != null);
+  const availableNavIds = new Set<string>([
+    "at-a-glance",
+    "maps",
+    ...(hasSpeed ? ["website"] : []),
+    ...(competitors.length > 0 ? ["competitors"] : []),
+    ...(actionPlan.length > 0 ? ["plan"] : []),
+  ]);
+  const navSections = NAV_SECTIONS.filter((sec) => availableNavIds.has(sec.id));
+
   const SCORE_CATEGORIES = [
     { key: "googleMaps", label: "Google Maps", desc: "How complete and trusted your Google profile is", icon: <MapPin size={20} /> },
     { key: "websiteQuality", label: "Website", desc: "How fast and professional your website is", icon: <Globe size={20} /> },
@@ -311,6 +392,20 @@ export default function SharedAuditReport() {
         <span className={s.sharedBadge}>Shared Report</span>
         <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: mkt.accent, color: "#FFFFFF", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
       </div>
+
+      {/* Sticky section-anchor nav — smooth-scroll on a long single-scroll report */}
+      <nav className={s.sectionNav} aria-label="Report sections" data-testid="shared-section-nav">
+        {navSections.map((sec) => (
+          <a
+            key={sec.id}
+            href={`#${sec.id}`}
+            className={s.sectionNavLink}
+            onClick={(e) => scrollToSection(e, sec.id)}
+          >
+            {sec.label}
+          </a>
+        ))}
+      </nav>
 
       <div className={s.reportPage}>
         {/* C1 — Hero */}
@@ -458,8 +553,13 @@ export default function SharedAuditReport() {
         </div>
 
         {/* Wave 73c — KPI primitives row (overall health + 4 categories) */}
-        <div className={s.sectionCard} data-testid="audit-kpi-row">
-          <div className={s.sectionTitle}>At a Glance</div>
+        <div id="at-a-glance" className={`${s.sectionCard} ${s.scrollAnchor}`} data-testid="audit-kpi-row">
+          <div className={s.sectionTitle}>
+            <span className={s.gaugeLabelRow}>
+              At a Glance
+              <InfoTooltip theme="light" title="How to read your score" text={OVERALL_HELP} />
+            </span>
+          </div>
           <div
             style={{
               display: "grid",
@@ -472,7 +572,8 @@ export default function SharedAuditReport() {
               style={{
                 gridColumn: "1 / -1",
                 display: "flex",
-                justifyContent: "center",
+                flexDirection: "column",
+                alignItems: "center",
                 padding: "8px 0",
               }}
             >
@@ -486,6 +587,10 @@ export default function SharedAuditReport() {
                 palette={bandPalette(overallPct)}
                 size={240}
               />
+              {/* Permanent one-line "what this measures" caption (no modals here) */}
+              <div className={s.gaugeCaption} data-testid="audit-overall-caption">
+                Out of 100. 80+ strong · 50–79 fixable gaps · under 50 leaks leads.
+              </div>
             </div>
             {FOUR_UP_CATEGORIES.map((cat) => {
               const sc = scores[cat.key] || { score: 0, max: 1 };
@@ -493,7 +598,7 @@ export default function SharedAuditReport() {
               return (
                 <div
                   key={cat.key}
-                  style={{ display: "flex", justifyContent: "center" }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                   data-testid={`audit-kpi-${cat.key}`}
                 >
                   <SemiGauge
@@ -506,6 +611,11 @@ export default function SharedAuditReport() {
                     palette={bandPalette(pct)}
                     size={150}
                   />
+                  {/* per-category "what this measures" help cue */}
+                  <div className={s.gaugeLabelRow} style={{ marginTop: 2 }}>
+                    <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>What this measures</span>
+                    <InfoTooltip theme="light" title={cat.label} text={CATEGORY_HELP[cat.key] || categoryAdvice(cat.key, pct)} />
+                  </div>
                 </div>
               );
             })}
@@ -573,19 +683,33 @@ export default function SharedAuditReport() {
         )}
 
         {/* C2 — Score Breakdown */}
-        <div className={s.sectionCard}>
+        <div id="maps" className={`${s.sectionCard} ${s.scrollAnchor}`}>
           <div className={s.sectionTitle}>Your Score Breakdown</div>
           {SCORE_CATEGORIES.map(cat => {
             const sc = scores[cat.key] || { score: 0, max: 1 };
             const pct = sc.max > 0 ? (sc.score / sc.max) * 100 : 0;
             const color = scoreColor(sc.score, sc.max);
+            const after = realisticTarget(sc.score, sc.max);
+            const showBA = after > sc.score;
             return (
               <div key={cat.key} className={s.scoreRow}>
                 <div className={s.scoreRowIcon} style={{ color }}>{cat.icon}</div>
                 <div className={s.scoreRowBody}>
-                  <div className={s.scoreRowName}>{cat.label}</div>
+                  <div className={s.scoreRowName}>
+                    <span className={s.gaugeLabelRow}>
+                      {cat.label}
+                      <InfoTooltip theme="light" title={cat.label} text={CATEGORY_HELP[cat.key] || cat.desc} />
+                    </span>
+                  </div>
                   <div className={s.scoreRowDesc}>{cat.desc}</div>
                   <div className={s.scoreBar}><div className={s.scoreBarFill} style={{ width: `${pct}%`, background: color }} /></div>
+                  {showBA && (
+                    <div className={s.baStrip} data-testid={`audit-ba-${cat.key}`}>
+                      <span className={s.baNow}>Now {sc.score}/{sc.max}</span>
+                      <span className={s.baArrow}>&rarr;</span>
+                      <span className={s.baAfter}>Potential {after}/{sc.max}</span>
+                    </div>
+                  )}
                 </div>
                 <div className={s.scoreRowValue} style={{ color }}>{sc.score} / {sc.max}</div>
               </div>
@@ -595,7 +719,7 @@ export default function SharedAuditReport() {
 
         {/* C3 — Action Plan */}
         {actionPlan.length > 0 && (
-          <div className={s.sectionCard}>
+          <div id="plan" className={`${s.sectionCard} ${s.scrollAnchor}`}>
             <div className={s.sectionTitle}>What's Holding You Back</div>
             {actionPlan.map((item: any, i: number) => {
               const prio = (item.priority || "medium").toLowerCase();
@@ -629,12 +753,16 @@ export default function SharedAuditReport() {
                       <div className={s.issueSectionText}>{item.detail}</div>
                     </div>
                   </div>
-                  {item.wefixtrades_can_help && (
-                    <div className={s.wftBanner}>
-                      <span className={s.wftBannerText}>WeFixTrades can handle this for you</span>
-                      <a className={s.wftBannerLink} href="/pricing">See how &rarr;</a>
-                    </div>
-                  )}
+                  {/* Always-present per-issue CTA — the offer rides every problem
+                      so a forwarded report stays a lead magnet (conversion #9). */}
+                  <div className={s.issueFixBanner} data-testid={`audit-issue-cta-${i}`}>
+                    <span className={s.issueFixText}>
+                      Don't want to do this yourself? <strong>We can fix it for you.</strong>
+                    </span>
+                    <a className={s.issueFixLink} href={fixHref}>
+                      {fixLabel} <ArrowRight size={14} />
+                    </a>
+                  </div>
                 </div>
               );
             })}
@@ -643,8 +771,14 @@ export default function SharedAuditReport() {
 
         {/* C4 — Competitors */}
         {competitors.length > 0 && (
-          <div className={s.sectionCard}>
-            <div className={s.sectionTitle}>How You Compare Locally</div>
+          <div id="competitors" className={`${s.sectionCard} ${s.scrollAnchor}`}>
+            <div className={s.sectionTitle}>
+              <span className={s.gaugeLabelRow}>
+                How You Compare Locally
+                <InfoTooltip theme="light" title="Reading this table" text="A snapshot of the local businesses customers see alongside you. 'Website' and 'Ads' show whether each one has those — gaps are where you can pull ahead. 'Score' is each business's overall local-SEO health out of 100." />
+              </span>
+            </div>
+            {/* Desktop / tablet: scrollable table (≥480px) */}
             <div className={s.compTableWrap}>
               <table className={s.compTable}>
                 <thead>
@@ -694,6 +828,41 @@ export default function SharedAuditReport() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile: stacked cards (<480px) — no horizontal clipping */}
+            <div className={s.compCards} data-testid="comp-cards">
+              <div className={`${s.compCard} ${s.compCardYou}`}>
+                <div className={s.compCardHead}>
+                  <span className={s.compCardName}>{"★"} {biz.name} (You)</span>
+                  <span className={s.compScoreBadge} style={{ background: gradeBg(grade), color: gradeColor(grade) }}>{overall}</span>
+                </div>
+                <div className={s.compCardGrid}>
+                  <div className={s.compCardCell}><span className={s.compCardCellLabel}>Rating</span><span className={s.compCardCellVal}>{biz.rating ?? "--"}</span></div>
+                  <div className={s.compCardCell}><span className={s.compCardCellLabel}>Reviews</span><span className={s.compCardCellVal}>{biz.reviewsCount ?? 0}</span></div>
+                  <div className={s.compCardCell}><span className={s.compCardCellLabel}>Website</span><span className={s.compCardCellVal}>{biz.website ? <Check size={14} color="#22C55E" /> : <XIcon size={14} color="#EF4444" />}</span></div>
+                  <div className={s.compCardCell}><span className={s.compCardCellLabel}>Ads</span><span className={s.compCardCellVal}><XIcon size={14} color="#EF4444" /></span></div>
+                </div>
+              </div>
+              {competitors.map((c: any, i: number) => {
+                const cColor = c.score >= 70 ? "#22C55E" : c.score >= 45 ? "#F59E0B" : "#EF4444";
+                const cBg = c.score >= 70 ? "#DCFCE7" : c.score >= 45 ? "#FEF3C7" : "#FEE2E2";
+                return (
+                  <div key={i} className={s.compCard}>
+                    <div className={s.compCardHead}>
+                      <span className={s.compCardRank}>#{i + 1}</span>
+                      <span className={s.compCardName}>{c.name}</span>
+                      <span className={s.compScoreBadge} style={{ background: cBg, color: cColor }}>{c.score}</span>
+                    </div>
+                    <div className={s.compCardGrid}>
+                      <div className={s.compCardCell}><span className={s.compCardCellLabel}>Rating</span><span className={s.compCardCellVal}>{c.rating || "--"}</span></div>
+                      <div className={s.compCardCell}><span className={s.compCardCellLabel}>Reviews</span><span className={s.compCardCellVal}>{c.reviewsCount || 0}</span></div>
+                      <div className={s.compCardCell}><span className={s.compCardCellLabel}>Website</span><span className={s.compCardCellVal}>{c.hasWebsite ? <Check size={14} color="#22C55E" /> : <XIcon size={14} color="#EF4444" />}</span></div>
+                      <div className={s.compCardCell}><span className={s.compCardCellLabel}>Ads</span><span className={s.compCardCellVal}>{c.isRunningAds ? <Check size={14} color="#22C55E" /> : <XIcon size={14} color="#EF4444" />}</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             {narrative.competitorWeakness && <div className={s.calloutAmber}>Opportunity: {narrative.competitorWeakness}</div>}
           </div>
         )}
@@ -701,7 +870,17 @@ export default function SharedAuditReport() {
         {/* C5 — Keywords */}
         {keywords.some((k: any) => k.monthlySearches > 0) && (
           <div className={s.sectionCard}>
-            <div className={s.sectionTitle}>What Customers Search For</div>
+            <div className={s.sectionTitle}>
+              <span className={s.gaugeLabelRow}>
+                What Customers Search For
+                <InfoTooltip theme="light" title="Search terms" text={JARGON.monthlySearches} />
+              </span>
+            </div>
+            {/* legend with help cues for the per-keyword pills */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12, fontSize: 11, color: "#6B7280", fontWeight: 600 }} data-testid="kw-legend">
+              <span className={s.gaugeLabelRow}>$ = cost per click<InfoTooltip theme="light" title="Cost per click (CPC)" text={JARGON.cpc} /></span>
+              <span className={s.gaugeLabelRow}># = your Google rank<InfoTooltip theme="light" title="Search rank" text={JARGON.rank} /></span>
+            </div>
             {keywords.map((kw: any, i: number) => {
               const volPct = maxVol > 0 ? ((kw.monthlySearches || 0) / maxVol) * 100 : 0;
               const rankColor = kw.organicRank ? (kw.organicRank <= 3 ? "#22C55E" : kw.organicRank <= 10 ? "#F59E0B" : "#EF4444") : "#EF4444";
@@ -746,8 +925,13 @@ export default function SharedAuditReport() {
 
         {/* C8 — Speed */}
         {(speedData?.mobile?.score != null || speedData?.desktop?.score != null) && (
-          <div className={s.sectionCard}>
-            <div className={s.sectionTitle}>Website Speed</div>
+          <div id="website" className={`${s.sectionCard} ${s.scrollAnchor}`}>
+            <div className={s.sectionTitle}>
+              <span className={s.gaugeLabelRow}>
+                Website Speed
+                <InfoTooltip theme="light" title="Speed score" text={JARGON.speedScore} />
+              </span>
+            </div>
             <div className={s.speedGrid}>
               {["mobile", "desktop"].map(device => {
                 const d = speedData?.[device];
@@ -792,6 +976,16 @@ export default function SharedAuditReport() {
             </div>
           </div>
         )}
+
+        {/* Run-your-own-audit virality banner — turns a forwarded report into a
+            lead magnet for the person who received it (conversion #9). */}
+        <div className={s.viralBanner} data-testid="shared-run-own-audit">
+          <div className={s.viralTitle}>Want a free audit like this for your business?</div>
+          <div className={s.viralSub}>
+            See your own Google Maps + website score, the exact fixes holding you back, and what they're worth — in about 60 seconds. No card, no catch.
+          </div>
+          <a className={s.viralBtn} href="/tools/free-audit">Run my free audit &rarr;</a>
+        </div>
 
         {/* Back to audit CTA */}
         <div style={{ textAlign: "center", marginTop: 24, marginBottom: 40 }}>
