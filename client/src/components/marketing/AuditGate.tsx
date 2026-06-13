@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { trackEvent } from "@/lib/trackEvent";
-import { Lock, Send, CheckCircle2, Loader2, Shield } from "lucide-react";
+import { Lock, Send, CheckCircle2, Loader2, Shield, HelpCircle, Plus } from "lucide-react";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 
 // BE-2: ink upgraded to the locked QuoteQuick brand ink (#1E1E1E)
@@ -10,16 +10,181 @@ const WHITE = "#FFFFFF";
 const GREY = "#6B7280";
 const BORDER = "#E5E7EB";
 
+// Score → traffic-light verdict colour + plain-English read. Used by the
+// explained hero gauge (design M5/H1 — first-time visitors must understand
+// the number, not just see it).
+function scoreColor(s: number): string {
+  if (s >= 80) return "#16A34A"; // emerald
+  if (s >= 50) return "#D97706"; // amber
+  return "#DC2626"; // crimson
+}
+function scoreVerdict(s: number): string {
+  if (s >= 80) return "Strong — a few quick wins left";
+  if (s >= 65) return "Decent — real ground to gain";
+  if (s >= 50) return "Mixed — competitors are pulling ahead";
+  return "At risk — you're losing visible ground";
+}
+
+/**
+ * ExplainedScoreGauge — the wow moment. A premium semicircular gauge that
+ * leads the gate with the overall score + a one-line "what this means"
+ * caption and a top-left "?" help cue (DESIGN-SYSTEM rule §2). This is the
+ * first real number a brand-new visitor sees, so it must read as premium
+ * AND be understood. Self-contained SVG (no token/theme dependency) so it
+ * renders identically on the gate's white card.
+ */
+function ExplainedScoreGauge({ score, grade }: { score: number; grade?: string }) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  const clamped = Math.max(0, Math.min(100, Math.round(score)));
+  const color = scoreColor(clamped);
+
+  // Semicircle geometry: 180° arc, viewBox 200×118.
+  const cx = 100;
+  const cy = 100;
+  const r = 80;
+  const startDeg = 180;
+  const endDeg = 0;
+  const polar = (deg: number) => {
+    const a = (Math.PI * deg) / 180;
+    return { x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) };
+  };
+  const arc = (from: number, to: number) => {
+    const s = polar(from);
+    const e = polar(to);
+    const large = Math.abs(to - from) > 180 ? 1 : 0;
+    const sweep = to > from ? 0 : 1;
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} ${sweep} ${e.x} ${e.y}`;
+  };
+  const valueDeg = startDeg - (clamped / 100) * (startDeg - endDeg);
+
+  return (
+    <div data-theme="light" style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
+      {/* DESIGN-SYSTEM rule §2 — help cue anchored top-left of the component.
+          data-theme="light" scopes this light-surface gauge for the
+          hardcoded-color guard (the help button is white-on-light, the
+          tooltip is white-on-dark — both intentional, theme-correct). */}
+      <button
+        type="button"
+        aria-label="What this score means"
+        aria-expanded={helpOpen}
+        onClick={() => setHelpOpen((o) => !o)}
+        onBlur={() => setHelpOpen(false)}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 24,
+          height: 24,
+          borderRadius: "50%",
+          border: `1px solid ${BORDER}`,
+          background: WHITE,
+          color: GREY,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          padding: 0,
+          zIndex: 2,
+        }}
+      >
+        <HelpCircle size={14} />
+      </button>
+      {helpOpen && (
+        <div
+          role="tooltip"
+          style={{
+            position: "absolute",
+            top: 28,
+            left: 0,
+            width: 240,
+            background: DARK,
+            color: WHITE,
+            fontSize: 12,
+            lineHeight: 1.5,
+            borderRadius: 10,
+            padding: "10px 12px",
+            zIndex: 3,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+            textAlign: "left",
+          }}
+        >
+          Your overall audit score (0–100) blends your Google Maps profile, website,
+          reviews, and how you stack up against nearby competitors. Higher = easier for
+          customers to find and trust you.
+        </div>
+      )}
+
+      <svg viewBox="0 0 200 118" width="200" height="118" role="img" aria-label={`Overall audit score ${clamped} out of 100`}>
+        {/* track */}
+        <path d={arc(startDeg, endDeg)} fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={14} strokeLinecap="round" />
+        {/* value arc */}
+        <path d={arc(startDeg, valueDeg)} fill="none" stroke={color} strokeWidth={14} strokeLinecap="round" />
+        {/* needle */}
+        <line
+          x1={cx}
+          y1={cy}
+          x2={polar(valueDeg).x}
+          y2={polar(valueDeg).y}
+          stroke={DARK}
+          strokeWidth={2}
+          strokeLinecap="round"
+        />
+        <circle cx={cx} cy={cy} r={4} fill={DARK} />
+      </svg>
+
+      {/* Big number + grade, sitting in the arc's mouth */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: -28 }}>
+        <span style={{ fontSize: 40, fontWeight: 800, color, lineHeight: 1, letterSpacing: "-0.02em" }}>
+          {clamped}
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: GREY }}>/100</span>
+        {grade && (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color,
+              background: `${color}1A`,
+              border: `1px solid ${color}`,
+              borderRadius: 20,
+              padding: "2px 10px",
+              marginLeft: 2,
+            }}
+          >
+            Grade {grade}
+          </span>
+        )}
+      </div>
+      {/* "What this means" caption — the explanation, not just the number */}
+      <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginTop: 8, textAlign: "center" }}>
+        {scoreVerdict(clamped)}
+      </div>
+      <div style={{ fontSize: 11, color: GREY, marginTop: 2, textAlign: "center" }}>
+        Your overall Google &amp; website health score
+      </div>
+    </div>
+  );
+}
+
 interface AuditGateProps {
   businessName?: string;
   reportId?: string | null;
   score?: number;
+  grade?: string;
   trade?: string;
   city?: string;
   placeId?: string;
   issueCount?: number;
   detectedIssues?: string[];
   recommendedServices?: Array<{ name: string; price: number; id: string }>;
+  /**
+   * Estimated monthly revenue left on the table (missed jobs). When provided
+   * the gate renders the full loss-framed ask ("recover $X/mo in missed
+   * jobs"). ReportView already computes this as `lostRevenueMonthly` — pass
+   * it through the AuditGate call site to light up the revenue copy. Absent
+   * → the gate falls back to a concrete issue-count loss frame.
+   */
+  lostRevenueMonthly?: number;
   onUnlock: () => void;
 }
 
@@ -27,20 +192,42 @@ export default function AuditGate({
   businessName,
   reportId,
   score,
+  grade,
   trade,
   city,
   placeId,
   issueCount,
   detectedIssues,
   recommendedServices,
+  lostRevenueMonthly,
   onUnlock,
 }: AuditGateProps) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [showPhone, setShowPhone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  const fixes = issueCount ?? detectedIssues?.length ?? 0;
+  const revenue =
+    typeof lostRevenueMonthly === "number" && lostRevenueMonthly > 0
+      ? Math.round(lostRevenueMonthly)
+      : 0;
+
+  // Loss-framed value line (CRO #7). Lead with the concrete count of fixes,
+  // and — when a real revenue estimate is in scope — the dollars at stake.
+  // Never invent a number: with no revenue figure we frame around the fixes
+  // + the missed jobs they unblock, which is still concrete and honest.
+  const headline =
+    fixes > 0
+      ? revenue > 0
+        ? `See the ${fixes} fix${fixes !== 1 ? "es" : ""} that could recover ~$${revenue.toLocaleString()}/mo in missed jobs`
+        : `See the ${fixes} fix${fixes !== 1 ? "es" : ""} costing you jobs on Google`
+      : revenue > 0
+        ? `See how to recover ~$${revenue.toLocaleString()}/mo in missed jobs`
+        : "See your full fix plan and competitor breakdown";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +280,10 @@ export default function AuditGate({
       if (reportId) {
         try {
           localStorage.setItem(`audit-unlocked-${reportId}`, "1");
-        } catch {}
+        } catch {
+          /* localStorage unavailable (private mode / blocked) — non-fatal,
+             the in-memory unlock below still reveals the report this session */
+        }
       }
 
       // Brief confirmation then unlock
@@ -138,7 +328,7 @@ export default function AuditGate({
           Your full report is ready.
         </div>
         <div style={{ fontSize: 14, color: GREY, lineHeight: 1.5 }}>
-          We've also emailed your fix checklist.
+          We've also emailed your fix checklist{fixes > 0 ? ` — all ${fixes} of them` : ""}.
         </div>
       </div>
     );
@@ -171,6 +361,13 @@ export default function AuditGate({
         }}
       />
 
+      {/* M5/H1 — lead with the explained premium score gauge (the wow moment),
+          so the hero number is understood the moment a first-time visitor
+          lands on the gate. Only when a real score is in scope. */}
+      {typeof score === "number" && score > 0 && (
+        <ExplainedScoreGauge score={score} grade={grade} />
+      )}
+
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <div
           style={{
@@ -186,13 +383,12 @@ export default function AuditGate({
         >
           <Lock size={20} color={CYAN} />
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: DARK, marginBottom: 6, lineHeight: 1.2 }}>
-          {businessName
-            ? `Unlock ${businessName}'s Full Report`
-            : "Unlock Your Full Audit Report"}
+        <div style={{ fontSize: 20, fontWeight: 700, color: DARK, marginBottom: 8, lineHeight: 1.25 }}>
+          {headline}
         </div>
         <div style={{ fontSize: 14, color: GREY, lineHeight: 1.5 }}>
-          Your detailed fix plan, competitor analysis, and recommendations are ready.
+          Emailed as a step-by-step checklist — plus your competitor breakdown and
+          exactly what to fix first. Free, no card.
         </div>
       </div>
 
@@ -233,49 +429,76 @@ export default function AuditGate({
           )}
         </div>
 
-        {/* Optional fields - collapsed into a row.
-            BE-2: bumped to 44px to meet the locked mobile touch-target floor. */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name (optional)"
-            aria-label="Name (optional)"
+        {/* CRO #7 — email-only ask. Name stays optional inline; phone is no
+            longer a visible required field (it dampened conversion). It's
+            available behind a one-tap reveal for the buyers who want a call. */}
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name (optional)"
+          aria-label="Name (optional)"
+          style={{
+            width: "100%",
+            height: 44,
+            padding: "0 12px",
+            borderRadius: 10,
+            border: `1px solid ${BORDER}`,
+            fontSize: 13,
+            outline: "none",
+            fontFamily: "inherit",
+            color: DARK,
+            boxSizing: "border-box",
+          }}
+        />
+
+        {showPhone ? (
+          <>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone (optional)"
+              aria-label="Phone number (optional)"
+              autoFocus
+              style={{
+                width: "100%",
+                height: 44,
+                padding: "0 12px",
+                borderRadius: 10,
+                border: `1px solid ${BORDER}`,
+                fontSize: 13,
+                outline: "none",
+                fontFamily: "inherit",
+                color: DARK,
+                boxSizing: "border-box",
+              }}
+            />
+            <SmsConsentDisclosure variant="inline" />
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowPhone(true)}
             style={{
-              flex: 1,
-              height: 44,
-              padding: "0 12px",
-              borderRadius: 10,
-              border: `1px solid ${BORDER}`,
-              fontSize: 13,
-              outline: "none",
+              alignSelf: "center",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: "none",
+              border: "none",
+              padding: "2px 4px",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              color: GREY,
               fontFamily: "inherit",
-              color: DARK,
-              boxSizing: "border-box",
             }}
-          />
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone (optional)"
-            aria-label="Phone number (optional)"
-            style={{
-              flex: 1,
-              height: 44,
-              padding: "0 12px",
-              borderRadius: 10,
-              border: `1px solid ${BORDER}`,
-              fontSize: 13,
-              outline: "none",
-              fontFamily: "inherit",
-              color: DARK,
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-        <SmsConsentDisclosure variant="inline" />
+          >
+            <Plus size={14} />
+            Add phone for a callback (optional)
+          </button>
+        )}
 
         <button
           type="submit"
@@ -311,11 +534,12 @@ export default function AuditGate({
           ) : (
             <Send size={16} />
           )}
-          Unlock My Full Audit & Fix Plan
+          {fixes > 0 ? `Email me my ${fixes}-fix checklist` : "Email me my fix checklist"}
         </button>
       </form>
 
-      {/* Trust line */}
+      {/* Trust line — numbered social proof (CRO #7). 100+ home-service trades
+          is the same true count used on the FreeAudit hero trust chips. */}
       <div
         style={{
           display: "flex",
@@ -325,10 +549,12 @@ export default function AuditGate({
           marginTop: 14,
           fontSize: 12,
           color: GREY,
+          textAlign: "center",
+          lineHeight: 1.5,
         }}
       >
-        <Shield size={12} />
-        <span>No spam. We'll only send your audit report and fix checklist.</span>
+        <Shield size={12} style={{ flexShrink: 0 }} />
+        <span>Joined by 100+ home-service trades. No spam — just your audit &amp; fix checklist.</span>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { @keyframes spin { to { transform: none; } } }`}</style>
