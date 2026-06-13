@@ -80,6 +80,10 @@ const STORAGE_KEY = 'qq_wizard_sheet_height_frac';
 // Legacy key (3-value snap enum) — ignored/migrated to the default fraction.
 const LEGACY_SNAP_KEY = 'qq_wizard_sheet_snap';
 
+// One-time-per-session flag: once the drag-handle "you can drag me" hint has
+// played on the first open, we don't nag again for the rest of the session.
+const HINT_SHOWN_KEY = 'qq_wizard_sheet_drag_hint_shown';
+
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -108,6 +112,21 @@ function readPrefersReduced(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   catch { return false; }
+}
+
+// Whether the one-time drag-affordance hint has already played this session.
+// sessionStorage so it hints once on first open then stays quiet — and resets
+// for a fresh session (so a returning user still gets the cue next visit).
+function hasHintPlayed(): boolean {
+  if (typeof window === 'undefined') return true;
+  try { return window.sessionStorage.getItem(HINT_SHOWN_KEY) === '1'; }
+  catch { return false; }
+}
+
+function markHintPlayed(): void {
+  if (typeof window === 'undefined') return;
+  try { window.sessionStorage.setItem(HINT_SHOWN_KEY, '1'); }
+  catch { /* private mode — fine, the hint just plays again next open */ }
 }
 
 // Load the persisted resting height as a fraction (0..1) of the work area.
@@ -203,6 +222,13 @@ export default function MobileBottomSheet({
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // One-time-per-session drag affordance: when the sheet first opens this
+  // session, the grab handle plays a subtle "you can drag me" bob/glow so users
+  // realize the panel is resizable. It plays once, then a sessionStorage flag
+  // keeps it quiet for the rest of the session. Disabled under reduced-motion.
+  const [hintActive, setHintActive] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   useLayoutGuard(contentRef, { maxGapPx: 24, label: 'wizard-sheet-content' });
@@ -256,6 +282,28 @@ export default function MobileBottomSheet({
   useEffect(() => {
     if (open) setPeeked(false);
   }, [open]);
+
+  // ── One-time drag-affordance hint ─────────────────────────────────
+  // On the FIRST open of the session (and only if motion is allowed), play the
+  // grab-handle bob/glow once, then mark it shown so it never nags again. The
+  // animation is ~2 gentle cycles (~2.4s) then we drop the class.
+  useEffect(() => {
+    if (!open || reduceMotion) return;
+    if (hasHintPlayed()) return;
+    markHintPlayed();
+    setHintActive(true);
+    hintTimerRef.current = setTimeout(() => setHintActive(false), 2600);
+    return () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    };
+  }, [open, reduceMotion]);
+
+  // Any real interaction (drag start) cancels the hint immediately — once the
+  // user has grabbed the handle, the cue has done its job.
+  const dismissHint = useCallback(() => {
+    if (hintTimerRef.current) { clearTimeout(hintTimerRef.current); hintTimerRef.current = null; }
+    setHintActive(false);
+  }, []);
 
   // ── Publish current visible height to <html> as --qq-sheet-h ───────
   // The preview's height calc subtracts this var so it shrinks/grows live.
@@ -328,6 +376,7 @@ export default function MobileBottomSheet({
   const dragRef = useRef<{ startY: number; startH: number; moved: number } | null>(null);
 
   const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
+    dismissHint();
     computeGeom();
     // Start from whatever is currently rendered (peek or open resting height).
     const startH = peeked ? COLLAPSED_PX : Math.min(openHeightPx, geomRef.current.maxPx || openHeightPx);
@@ -335,7 +384,7 @@ export default function MobileBottomSheet({
     setIsDragging(true);
     setDragHeight(startH);
     try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* capture unsupported */ }
-  }, [computeGeom, peeked, openHeightPx]);
+  }, [computeGeom, peeked, openHeightPx, dismissHint]);
 
   const onHandlePointerMove = useCallback((ev: React.PointerEvent) => {
     const drag = dragRef.current;
@@ -437,7 +486,7 @@ export default function MobileBottomSheet({
 
       <div
         ref={sheetRef}
-        className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
+        className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}${hintActive ? ' is-hinting' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-open={open ? 'true' : 'false'}
         data-collapsed={isCollapsed ? 'true' : 'false'}
@@ -589,8 +638,39 @@ export default function MobileBottomSheet({
           }
           .qq-sheet-grabber-bar {
             display: block;
-            width: 40px; height: 4px; border-radius: ${AE.radius.pill};
+            /* Slightly wider/taller than a hairline so the pill reads as an
+               interactive, grabbable control rather than a decorative divider. */
+            width: 44px; height: 5px; border-radius: ${AE.radius.pill};
             background: ${AE.color.hairlineStrong};
+            transition: background 0.16s ease, transform 0.16s ease,
+                        width 0.16s ease;
+          }
+          /* Pressed/active → darken + nudge the pill so the grab registers. */
+          .qq-sheet-grabber:active .qq-sheet-grabber-bar {
+            background: ${AE.color.secondary};
+            width: 52px;
+          }
+
+          /* ── One-time drag-affordance hint ─────────────────────────
+             On first open this session the pill gently bobs + glows a few
+             times to signal "drag me", then the class is dropped. Honors
+             reduced-motion (the whole branch is gated off below + the JS
+             never sets the class when reduced-motion is on). */
+          .qq-sheet.is-hinting .qq-sheet-grabber-bar {
+            animation: qq-sheet-drag-hint 1.3s ease-in-out 2;
+          }
+          @keyframes qq-sheet-drag-hint {
+            0%, 100% {
+              transform: translateY(0) scaleX(1);
+              background: ${AE.color.hairlineStrong};
+            }
+            50% {
+              /* Soft upward bob + slight widen + accent-tinted glow. Quiet,
+                 not a loud bounce — Tesla/Apple-simplicity standard. */
+              transform: translateY(-3px) scaleX(1.12);
+              background: ${AE.color.accent};
+              box-shadow: 0 0 0 4px ${AE.color.accentTint};
+            }
           }
           .qq-sheet-header-row {
             display: flex; align-items: center; justify-content: space-between;
@@ -734,6 +814,12 @@ export default function MobileBottomSheet({
           .qq-sheet, .qq-sheet-content {
             transition: none !important;
             animation: none !important;
+          }
+          /* No drag-hint bob/glow under reduced-motion (JS also never arms it). */
+          .qq-sheet.is-hinting .qq-sheet-grabber-bar,
+          .qq-sheet-grabber-bar {
+            animation: none !important;
+            transition: none !important;
           }
           .qq-sheet-content [data-sheet-highlight="true"] {
             animation: none !important;
