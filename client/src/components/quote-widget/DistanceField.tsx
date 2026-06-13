@@ -361,6 +361,7 @@ export default function DistanceField({
         type="number"
         min={0}
         inputMode="decimal"
+        aria-label={manualLabel}
         value={manualText}
         data-testid={`adv-distance-manual-${fieldId}`}
         onChange={(e) => onManualChange(e.target.value)}
