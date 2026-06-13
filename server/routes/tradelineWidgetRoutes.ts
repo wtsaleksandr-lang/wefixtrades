@@ -32,6 +32,7 @@ import { aiChannelGateOn } from "../services/aiChannelGate";
 import { aiGateAllowed } from "../services/aiSystemGate";
 import { AI_SURFACES } from "../services/aiSurfaces";
 import { sanitizePromptData } from "../services/promptBuilder";
+import { assembleClientKnowledge } from "../services/clientKnowledge";
 import { createLogger } from "../lib/logger";
 import { withClientIdOrPreview } from "../middleware/adminPreviewSafe";
 
@@ -320,21 +321,28 @@ export function registerTradelineWidgetRoutes(app: Express) {
         log.warn("widget chat KB load failed — template-only prompt", { clientId: row.client_id, err: err?.message });
       }
 
-      /* TODO(unified-AI U1 wiring): assembled business data block.
-       * `server/services/clientKnowledge.ts` lands in the parallel
-       * feat/client-knowledge-service branch (NOT merged yet, so no hard
-       * import here). Once it merges, wire:
-       *
-       *   const assembled = await assembleClientKnowledge({
-       *     clientId: row.client_id,
-       *     audience: "customer",   // REQUIRED — this is a CUSTOMER-facing
-       *   });                       // surface; customer tier only (no formula
-       *   knowledgeBlock = assembled?.block?.trim() ?? "";  // internals/margins/PII)
-       *
-       * Fail-soft (try/catch → keep ""). The prompt below already renders
-       * the block when non-empty; KB rows alone fix the chat/voice
-       * divergence today — the assembled block is additive. */
-      const knowledgeBlock: string = "";
+      /* unified-AI U1 wiring (now that feat/client-knowledge-service merged):
+       * the platform-assembled business-data block. audience MUST be
+       * "customer" — this is a CUSTOMER-facing surface (the trade's website
+       * visitors), so the customer tier hard-filters out formula internals,
+       * margins, lead PII, etc. (the leak boundary). clientId is a string in
+       * the service contract; row.client_id is the numeric clients.id.
+       * Fail-open: assembly throwing / returning empty degrades to the
+       * KB-rows-only + niche-template prompt exactly as the U3 path ships —
+       * logged (not silently swallowed), never a hard failure for the chat. */
+      let knowledgeBlock: string = "";
+      try {
+        const assembled = await assembleClientKnowledge({
+          clientId: String(row.client_id),
+          audience: "customer",
+        });
+        knowledgeBlock = assembled.block.trim();
+      } catch (err: any) {
+        log.warn("widget chat client-knowledge assembly failed — KB-rows-only prompt", {
+          clientId: row.client_id,
+          err: err?.message,
+        });
+      }
 
       const template = selectTemplate(client.trade_type);
       const hasClientKnowledge = kbEntries.length > 0 || knowledgeBlock.length > 0;
