@@ -450,3 +450,18 @@ export const widgetAiConvsPerCalcPerDayLimiter = new RateLimiter(
   envInt("WIDGET_AI_CONVS_PER_CALC_PER_DAY", 50),
   DAY_MS,
 );
+
+/**
+ * TradeLine owner-site chat widget — per-siteKey daily CONVERSATION cap
+ * (POST /api/widget/chat). Mirrors widgetAiConvsPerCalcPerDayLimiter (QuoteQuick):
+ * the widget chat was previously per-IP only, so an attacker rotating IPs could
+ * drive unbounded Haiku spend against a single owner's site. Counted at
+ * conversation START only (first user message, messages.length === 1) so a
+ * mid-chat visitor is never cut off. Over-cap degrades to the warm callback
+ * capture (consistent with the existing server-side offline handoff), never an
+ * error. Env-overridable so it can be tuned without a redeploy. */
+export const tradelineWidgetConvsPerSiteKeyPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("TRADELINE_WIDGET_CONVS_PER_SITEKEY_PER_DAY", 100),
+  DAY_MS,
+);

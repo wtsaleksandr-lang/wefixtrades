@@ -652,11 +652,39 @@ export async function buildTradeLineContextWithKnowledge(
         .limit(1),
     ]);
 
+    // unified-AI U1 parity: also inject the platform-assembled business-data
+    // block (customer audience) — the SAME auto-assembled pricing/hours/profile
+    // the website CHAT widget loads (tradelineWidgetRoutes). Previously voice
+    // hand-rolled a KB-only query and SKIPPED this, so the PHONE assistant knew
+    // LESS than the website chat. audience MUST be "customer" — voice answers a
+    // homeowner caller, so the customer tier hard-filters formula internals,
+    // margins, lead PII, etc. (the leak boundary).
+    //
+    // Fail-open: a thrown/empty assembly degrades to the KB-only behaviour above
+    // exactly — logged (not silently swallowed), never blocks a live call. The
+    // KB-only path (kbRows/greeting/responseStyle) is loaded FIRST and returned
+    // even if this block fails, so voice is never weaker than before this change.
+    let assembledKnowledgeBlock: string | null = null;
+    try {
+      const { assembleClientKnowledge } = await import("./clientKnowledge");
+      const assembled = await assembleClientKnowledge({
+        clientId: String(resolved.client.id),
+        audience: "customer",
+      });
+      assembledKnowledgeBlock = assembled.block.trim() || null;
+    } catch (err) {
+      log.warn("TradeLine voice client-knowledge assembly failed — KB-only context", {
+        clientId: resolved.client.id,
+        error: (err as Error).message,
+      });
+    }
+
     return {
       ...base,
       knowledgeBase: kbRows,
       greeting: settingsRows[0]?.greeting ?? null,
       responseStyle: settingsRows[0]?.response_style ?? null,
+      assembledKnowledgeBlock,
     };
   } catch (err) {
     log.warn("Failed to load TradeLine KB / settings — using base context", {
