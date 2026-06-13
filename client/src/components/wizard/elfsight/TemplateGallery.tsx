@@ -28,7 +28,7 @@
 // backdrop carries its own data-theme stamp; the dark-mode rules live in
 // index.css under .qq-tg-modal-backdrop[data-theme="dark"].
 
-import { useEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
@@ -218,15 +218,17 @@ function TemplateCardHover({
     setOpen(false);
   };
 
-  // Touch tap: first tap opens the bottom sheet; second tap applies.
-  // On fine pointers, click always applies (tooltip is purely informational).
-  const handleClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    if (isCoarse && !open && (description || chips.length > 0)) {
-      e.preventDefault();
-      e.stopPropagation();
-      openTooltip();
-      return;
-    }
+  // fix/template-load-into-preview-2 (2026-06-12) — a tap on a template card
+  // ALWAYS applies that template. #1742 made the FIRST touch tap merely open
+  // the info sheet (apply only on the sheet's "Use this template" button or a
+  // second tap), which regressed the core gesture: on phones/tablets (and any
+  // coarse-pointer / touchscreen laptop) tapping a card no longer loaded it
+  // into the preview — the reported "select a template but the preview doesn't
+  // change" bug. The card IS the action; selecting must be one tap on every
+  // pointer type. The info tooltip/sheet stays available as a NON-blocking
+  // affordance (desktop hover, and the dedicated info button below for touch),
+  // so users keep the "Best for" context without losing single-tap apply.
+  const handleClick = () => {
     onClick();
   };
 
@@ -265,6 +267,22 @@ function TemplateCardHover({
       >
         {children}
       </button>
+      {/* fix/template-load-into-preview-2 — coarse-pointer info affordance.
+          With single-tap-apply restored above, the card tap no longer opens
+          the details sheet on touch; this dedicated button surfaces the same
+          "Best for"/description content WITHOUT intercepting the apply gesture.
+          stopPropagation keeps a tap here from also applying the template. */}
+      {isCoarse && hasTooltipContent && (
+        <button
+          type="button"
+          className="qq-tg-card-info"
+          aria-label={`About the ${template.name} template`}
+          data-testid={`template-card-info-${template.id}`}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTooltip(); }}
+        >
+          i
+        </button>
+      )}
       {open && hasTooltipContent && position !== 'sheet' && (
         <div
           id={`tpl-hover-${template.id}`}
@@ -615,6 +633,34 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         .qq-tg-card-hover-wrap {
           position: relative;
           display: inline-flex;
+        }
+        /* fix/template-load-into-preview-2 — touch info affordance. Small,
+           non-blocking "i" pinned to the card's top-right; opens the details
+           sheet without intercepting the single-tap apply on the card body. */
+        .qq-tg-card-info {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          z-index: 2;
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          border: 1px solid ${p.colors.border};
+          background: ${p.colors.surface};
+          color: ${p.colors.muted};
+          font-size: 12px;
+          font-weight: 700;
+          font-style: italic;
+          line-height: 1;
+          cursor: pointer;
+          padding: 0;
+        }
+        .qq-tg-card-info:hover {
+          color: ${p.colors.heading};
+          border-color: ${p.colors.heading};
         }
         .qq-tg-modal-grid .qq-tg-card-hover-wrap {
           display: flex; width: 100%;
