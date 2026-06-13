@@ -174,6 +174,20 @@ function clearHistory(calculatorId: number): void {
   else writeSession('qq-chat-history-session', '[]');
 }
 
+/* Brand mark — canonical locked checkmark asset (/favicon.svg), same as the
+ * builder bubble (wizard/elfsight/AIBubble.tsx). Decorative; hidden from AT. */
+function BrandMark({ size = 16 }: { size?: number }) {
+  return (
+    <img
+      src="/favicon.svg"
+      alt=""
+      aria-hidden="true"
+      style={{ width: size, height: size, display: 'block' }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
 export default function AIChatBubble({
   calculatorId,
   accentColor = '#6366f1',
@@ -847,11 +861,18 @@ export default function AIChatBubble({
                 <GripHorizontal size={20} />
               </div>
             )}
-            <div>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: '15px', lineHeight: 1.2 }} data-testid="text-chat-business-name">
-                {businessName}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Branded checkmark avatar. Favicon is all-blue and can read low
+                  on the dark accent header, so seat it in a small white chip. */}
+              <span style={{ background: '#fff', borderRadius: '6px', padding: '3px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <BrandMark size={20} />
+              </span>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: '15px', lineHeight: 1.2 }} data-testid="text-chat-business-name">
+                  {businessName}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>Virtual assistant</div>
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>Virtual assistant</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* BD-3c Feature 3 — clear conversation. Wipes localStorage
@@ -891,9 +912,17 @@ export default function AIChatBubble({
                 style={{
                   display: 'flex',
                   justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  alignItems: 'flex-start',
+                  gap: '6px',
                 }}
                 data-testid={`chat-message-${msg.role}-${i}`}
               >
+                {/* Branded checkmark avatar beside assistant replies only. */}
+                {msg.role !== 'user' && (
+                  <span style={{ flexShrink: 0, marginTop: '3px' }}>
+                    <BrandMark size={14} />
+                  </span>
+                )}
                 <div
                   style={{
                     maxWidth: '82%',
@@ -1011,7 +1040,7 @@ export default function AIChatBubble({
               </button>
             </div>
             <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: '#9ca3af' }} data-testid="text-powered-by">
-              Powered by AI
+              Powered by WeFixTrades
             </div>
           </div>
         </div>
