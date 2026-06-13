@@ -287,6 +287,208 @@ export const SERVICES: Service[] = [
 // hide it from audit recs rather than ship a broken purchase path.
 const AUDIT_EXCLUDED_SERVICE_IDS = new Set<string>(["bookflow"]);
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Per-item billing metadata (Free-Audit Wave 2, Agent D — Task 1).
+ *
+ * The conversion audit found ReportView.tsx hardcoded "/mo" on the checkout
+ * CTA while service cards correctly say "one-time", so a $397 one-time fix
+ * showed as "$397/mo" at checkout. Each Service already carries a typed
+ * `billingPeriod`; this helper exposes the rendering primitives (suffix /
+ * cadence noun) off that field so the report + checkout read ONE source of
+ * truth instead of re-deriving the cadence per call-site.
+ *
+ * Contract for Agent A (ReportView.tsx): given a service id (or a Service),
+ * call getServiceBillingMeta(...) and render `priceSuffix` after the price.
+ * Never hardcode "/mo" again.
+ * ────────────────────────────────────────────────────────────────────────── */
+export type BillingMeta = {
+  billingPeriod: "monthly" | "one-time";
+  /** Suffix to append after a price, e.g. "/mo" or "" for one-time. */
+  priceSuffix: string;
+  /** Human cadence noun, e.g. "per month" / "one-time". */
+  cadence: string;
+  /** True when this is a recurring (monthly) charge. */
+  isRecurring: boolean;
+};
+
+export function billingMetaForPeriod(period: "monthly" | "one-time"): BillingMeta {
+  const isRecurring = period === "monthly";
+  return {
+    billingPeriod: period,
+    priceSuffix: isRecurring ? "/mo" : "",
+    cadence: isRecurring ? "per month" : "one-time",
+    isRecurring,
+  };
+}
+
+/** Resolve billing metadata for a service id OR a Service object. Falls back
+ * to one-time meta for an unknown id so a missing match never renders "/mo"
+ * on a charge that isn't recurring. */
+export function getServiceBillingMeta(serviceOrId: string | Service): BillingMeta {
+  const svc = typeof serviceOrId === "string"
+    ? SERVICES.find(s => s.id === serviceOrId)
+    : serviceOrId;
+  // Unknown id → safest default is one-time (no recurring suffix on an
+  // unmatched charge). Known service → honor its declared period.
+  return billingMetaForPeriod(svc?.billingPeriod ?? "one-time");
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Per-trade average ticket (Free-Audit Wave 2, Agent D — Task 2).
+ *
+ * Canonical trade → mid-range job value, lifted to @shared so BOTH the server
+ * (server/auditRoutes.ts revenue-loss floor) and the client (ReportView.tsx
+ * revenue math) compute from one table instead of two diverging copies. The
+ * server previously had only an 8-trade JOB_VALUES map; this covers 30+ trades
+ * with the same values the report UI already used. Conservative mid-range,
+ * not best-case — these feed a customer-facing dollar figure.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Conservative cross-trade floor when the trade isn't in the table. */
+export const DEFAULT_AVG_TICKET = 250;
+
+/** Trade (normalized key) → mid-range job value in whole dollars. */
+export const TRADE_AVG_TICKET: Record<string, number> = {
+  plumbing: 450,
+  plumber: 450,
+  hvac: 800,
+  electrical: 500,
+  electrician: 500,
+  roofing: 12000,
+  roofer: 12000,
+  cleaning: 220,
+  "house-cleaning": 220,
+  landscaping: 600,
+  landscaper: 600,
+  painting: 1800,
+  painter: 1800,
+  flooring: 2500,
+  carpentry: 900,
+  remodeling: 8000,
+  handyman: 300,
+  pestcontrol: 220,
+  "pest-control": 220,
+  pool: 250,
+  pools: 250,
+  locksmith: 180,
+  appliance: 280,
+  garagedoor: 380,
+  "garage-door": 380,
+  fencing: 2200,
+  concrete: 3500,
+  pavers: 5000,
+  excavation: 4500,
+  septic: 600,
+  solar: 16000,
+  windows: 3500,
+  siding: 8000,
+  gutter: 1100,
+  chimney: 600,
+};
+
+/** Normalize a free-text trade label to a TRADE_AVG_TICKET key. */
+export function tradeTicketKey(trade?: string | null): string {
+  return (trade || "").toString().toLowerCase().replace(/[^a-z0-9-]/g, "");
+}
+
+/** Resolve a trade's average ticket, falling back to DEFAULT_AVG_TICKET. */
+export function avgTicketForTrade(trade?: string | null): number {
+  return TRADE_AVG_TICKET[tradeTicketKey(trade)] || DEFAULT_AVG_TICKET;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Real per-business revenue-loss floor (Free-Audit Wave 2, Agent D — Task 2).
+ *
+ * The conversion audit found the report shows a hardcoded "5–15 leads /
+ * $800–$2,400" placeholder when the real demand-gap math computes 0 — a fake
+ * business-specific number. This computes an HONEST floor: a conservative
+ * missed-lead estimate × the trade's average ticket. When there is genuinely
+ * no measurable loss, `isReal` is false so the UI can positive-frame
+ * ("capturing demand well — defend it") instead of showing an invented loss.
+ *
+ * Contract for Agent A (ReportView.tsx):
+ *   estimatedRevenueLoss: { low: number; high: number; isReal: boolean;
+ *                           monthlyMissedLeads: number; avgTicket: number;
+ *                           basis: "demand-gap" | "floor" | "none" }
+ *   - isReal === true  → render the $low–$high/mo figure as business-specific.
+ *   - isReal === false → low/high are 0; show the positive-frame copy, NOT a
+ *                        dollar loss.
+ * ────────────────────────────────────────────────────────────────────────── */
+export type RevenueLossEstimate = {
+  low: number;
+  high: number;
+  isReal: boolean;
+  /** Missed leads/month the estimate is built from (0 when isReal=false). */
+  monthlyMissedLeads: number;
+  /** Average ticket used for the math (for transparent UI captions). */
+  avgTicket: number;
+  /** Where the number came from: measured demand gap, computed floor, or none. */
+  basis: "demand-gap" | "floor" | "none";
+};
+
+/** Round a dollar amount to the nearest $100 for clean display bands. */
+function roundTo100(n: number): number {
+  return Math.max(0, Math.round(n / 100) * 100);
+}
+
+/**
+ * Compute an honest revenue-loss estimate.
+ *
+ * @param trade        free-text trade label (resolved via avgTicketForTrade)
+ * @param demandLoss   the measured demand-gap revenue loss, if any
+ *                     (from calculateDemandGaps — already trade-aware).
+ *                     Pass null/zero when no gap was measured.
+ * @param missedLeads  conservative missed-lead estimate for the floor path.
+ *                     When demand-gap math is zero but the business has clear
+ *                     capture gaps, callers pass a small floor (e.g. 1–3).
+ */
+export function computeRevenueLoss(args: {
+  trade?: string | null;
+  demandLoss?: { low?: number; high?: number; monthlyMissedLeads?: number } | null;
+  floorMissedLeads?: number;
+}): RevenueLossEstimate {
+  const avgTicket = avgTicketForTrade(args.trade);
+
+  // 1) Prefer the measured demand-gap loss when it's a real positive number.
+  const dl = args.demandLoss;
+  if (dl && ((dl.low ?? 0) > 0 || (dl.high ?? 0) > 0)) {
+    return {
+      low: roundTo100(dl.low ?? 0),
+      high: roundTo100(dl.high ?? 0),
+      isReal: true,
+      monthlyMissedLeads: Math.round(dl.monthlyMissedLeads ?? 0),
+      avgTicket,
+      basis: "demand-gap",
+    };
+  }
+
+  // 2) Fall back to a conservative computed floor from avg ticket, but ONLY
+  //    when the caller supplied a real missed-lead count (> 0). The band is
+  //    intentionally tight (1 missed lead low → floorMissedLeads high) so it
+  //    reads as a defensible floor, not a hype number.
+  const floorLeads = Math.max(0, Math.floor(args.floorMissedLeads ?? 0));
+  if (floorLeads > 0) {
+    return {
+      low: roundTo100(1 * avgTicket),
+      high: roundTo100(floorLeads * avgTicket),
+      isReal: true,
+      monthlyMissedLeads: floorLeads,
+      avgTicket,
+      basis: "floor",
+    };
+  }
+
+  // 3) Genuinely no measurable loss → positive-frame, never a fake number.
+  return {
+    low: 0,
+    high: 0,
+    isReal: false,
+    monthlyMissedLeads: 0,
+    avgTicket,
+    basis: "none",
+  };
+}
+
 export function getServicesForIssues(issues: string[]): Service[] {
   if (!issues.length) return [];
   const scored = SERVICES
