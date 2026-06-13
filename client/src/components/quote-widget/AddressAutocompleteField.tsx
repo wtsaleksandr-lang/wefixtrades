@@ -40,6 +40,10 @@ export interface AddressSelection {
   locality?: string;
   /** Admin area level 1 (state / province). */
   region?: string;
+  /** Precise destination latitude from the picked Place's geometry. */
+  lat?: number;
+  /** Precise destination longitude from the picked Place's geometry. */
+  lng?: number;
 }
 
 interface Props {
@@ -135,9 +139,17 @@ function parseAddressComponents(place: any): AddressSelection {
     else if (c.types.includes('locality')) locality = c.long_name;
     else if (c.types.includes('administrative_area_level_1')) region = c.short_name;
   }
+  // Precise coords from the Place geometry. `location.lat`/`lng` are functions
+  // on a live LatLng, but a plain-number shape can appear on serialized
+  // results — accept both, and only surface finite numbers.
+  const loc = place?.geometry?.location;
+  const rawLat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat;
+  const rawLng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng;
+  const lat = typeof rawLat === 'number' && isFinite(rawLat) ? rawLat : undefined;
+  const lng = typeof rawLng === 'number' && isFinite(rawLng) ? rawLng : undefined;
   return {
     formatted: place?.formatted_address ?? '',
-    postalCode, country, locality, region,
+    postalCode, country, locality, region, lat, lng,
   };
 }
 

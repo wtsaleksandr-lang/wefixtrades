@@ -27,11 +27,15 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WidgetTheme } from './widgetThemes';
 import AddressAutocompleteField from './AddressAutocompleteField';
+import type { AddressSelection } from './AddressAutocompleteField';
 import { guardTextColor } from '@/lib/contrastGuard';
 
-/** Server failure reasons (contract with quoteWidgetDistanceRoutes — U1). */
+/** Server failure reasons (contract with quoteWidgetDistanceRoutes — U1).
+ *  `unresolved` = the destination address didn't resolve / no driving route
+ *  exists (actionable: fix the address); distinct from `unavailable`, which
+ *  is a transient/config problem the customer can't fix. */
 export type DistanceErrorReason =
-  | 'no_origin' | 'quota' | 'unavailable' | 'not_found' | 'network';
+  | 'no_origin' | 'quota' | 'unavailable' | 'unresolved' | 'not_found' | 'network';
 
 /**
  * The persisted answer for an `address_distance` field. Rides in the lead's
@@ -73,13 +77,14 @@ interface DistanceApiOk {
 }
 interface DistanceApiErr {
   ok: false;
-  reason?: 'no_origin' | 'quota' | 'unavailable' | 'not_found';
+  reason?: 'no_origin' | 'quota' | 'unavailable' | 'unresolved' | 'not_found';
 }
 
 const ERROR_COPY: Record<DistanceErrorReason, string> = {
   no_origin: 'Distance lookup isn’t set up yet — enter your distance below.',
   quota: 'Distance lookup is busy right now.',
   unavailable: 'Distance lookup is temporarily unavailable.',
+  unresolved: 'We couldn’t find that address — please check it and try again.',
   not_found: 'We couldn’t find that address.',
   network: 'Distance lookup is temporarily unavailable.',
 };
@@ -126,6 +131,11 @@ export default function DistanceField({
     value.status === 'resolved' || value.status === 'error' ? value.address : null,
   );
   const abortRef = useRef<AbortController | null>(null);
+  // Precise coords from the last Places pick, bound to the formatted address
+  // they belong to. The lookup uses them ONLY when they still match the
+  // address being resolved (a user who keeps typing after picking invalidates
+  // them → fall back to the address string, which the server geocodes itself).
+  const placesCoordsRef = useRef<{ address: string; lat: number; lng: number } | null>(null);
   // Manual-entry input text (display unit). Seeded from a persisted manual
   // answer so step back/forward keeps the typed value.
   const [manualText, setManualText] = useState<string>(() =>
@@ -172,6 +182,12 @@ export default function DistanceField({
       abortRef.current = controller;
       onChangeRef.current({ ...valueRef.current, status: 'loading', errorReason: undefined });
 
+      // Send the Places coords only when they still match the address being
+      // resolved — the server then uses them as the destination and skips its
+      // own geocode (more accurate + no extra Geocoding spend). Typed-only
+      // addresses (no pick) send the string and the server geocodes it.
+      const coords = placesCoordsRef.current;
+      const useCoords = !!coords && coords.address === address;
       fetch('/api/quote-widget/distance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,6 +195,7 @@ export default function DistanceField({
           calculator_id: calculatorId,
           field_id: fieldId,
           address,
+          ...(useCoords ? { lat: coords!.lat, lng: coords!.lng } : {}),
         }),
         signal: controller.signal,
       })
@@ -206,7 +223,8 @@ export default function DistanceField({
               manual: false,
               status: 'error',
               errorReason: reason === 'no_origin' || reason === 'quota'
-                || reason === 'unavailable' || reason === 'not_found'
+                || reason === 'unavailable' || reason === 'unresolved'
+                || reason === 'not_found'
                 ? reason : 'unavailable',
             });
           }
@@ -238,6 +256,10 @@ export default function DistanceField({
     // response can't pair the OLD distance with the NEW address.
     abortRef.current?.abort();
     requestedForRef.current = null;
+    // Drop any stale Places coords — they belong to the PREVIOUS address. On a
+    // real pick, Places fires onChange (here) BEFORE onSelect, so onSelect
+    // re-sets the coords for the new formatted address right after this clear.
+    placesCoordsRef.current = null;
     if (value.manual) setManualText('');
     onChange({
       ...value,
@@ -248,6 +270,18 @@ export default function DistanceField({
       status: 'idle',
       errorReason: undefined,
     });
+  };
+
+  // Capture precise coords when the customer PICKS a Places suggestion, so the
+  // server can skip re-geocoding the address string (more accurate, no extra
+  // Geocoding spend). `onChange` fires first with the formatted address, then
+  // `onSelect` — so bind the coords to that same formatted string.
+  const onAddressSelect = (sel: AddressSelection) => {
+    if (typeof sel.lat === 'number' && typeof sel.lng === 'number' && sel.formatted) {
+      placesCoordsRef.current = { address: sel.formatted, lat: sel.lat, lng: sel.lng };
+    } else {
+      placesCoordsRef.current = null;
+    }
   };
 
   const onManualChange = (text: string) => {
@@ -368,6 +402,7 @@ export default function DistanceField({
         radiusPx={radiusPx}
         value={value.address}
         onChange={onAddressChange}
+        onSelect={onAddressSelect}
         serviceArea={serviceArea}
         label={label || 'Service address'}
         testId={`adv-distance-address-${fieldId}`}

@@ -159,20 +159,30 @@ export default function PhotoUploadField({
           updateItems((prev) => prev.filter((i) => i.key !== key));
           return;
         }
-        let body: { ok?: boolean; url?: string; error?: string } | null = null;
+        let body: { ok?: boolean; url?: string; reason?: string } | null = null;
         try { body = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
         if (xhr.status >= 200 && xhr.status < 300 && body && body.ok !== false
           && typeof body.url === 'string' && body.url) {
           updateItems((prev) => prev.map((i) => i.key === key
             ? { ...i, status: 'done', progress: 1, url: body!.url } : i));
         } else {
+          // Map the server's enumerated `reason` (quoteWidgetUploadRoutes.ts:
+          // too_large/bad_type/quota/not_found/bad_request/error) to friendly
+          // copy, falling back to status-code inference for non-JSON errors.
+          // A 429/quota is NON-retryable — retrying instantly re-burns the
+          // per-IP limiter and just fails again; tell them to wait a minute.
+          const reason = body?.reason;
+          const isQuota = xhr.status === 429 || reason === 'quota';
+          const isTooLarge = xhr.status === 413 || reason === 'too_large';
+          const isBadType = xhr.status === 415 || reason === 'bad_type';
           updateItems((prev) => prev.map((i) => i.key === key
             ? {
-              ...i, status: 'error', retryable: xhr.status !== 413 && xhr.status !== 415,
-              errorText: body?.error
-                || (xhr.status === 413 ? 'Photo is too large'
-                  : xhr.status === 415 ? 'Not a supported image'
-                    : 'Upload failed — tap to retry'),
+              ...i, status: 'error', retryable: !isQuota && !isTooLarge && !isBadType,
+              errorText: isTooLarge ? `That image is too large (max ${Math.round(maxBytes / 1024 / 1024)} MB)`
+                : isBadType ? 'Please use a JPG, PNG, or WebP image'
+                  : isQuota ? 'You’ve added a lot of photos — try again in a minute'
+                    : reason === 'not_found' ? 'Photo uploads aren’t available for this quote'
+                      : 'Upload failed — tap to retry',
             } : i));
         }
       };
