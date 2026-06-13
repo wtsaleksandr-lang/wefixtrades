@@ -50,6 +50,13 @@ const log = createLogger("MobileAiVoice");
 /**
  * Body parser limit for this route only. We allow 35 MB of JSON so a
  * 25 MB binary still fits once base64-encoded (~33% inflation).
+ *
+ * NOTE: a route-scoped parser CANNOT raise the global 100 KB limit — the
+ * global express.json() in server/index.ts runs first and would 413 the
+ * body before this ever executes. The real raised limit for this path is
+ * mounted ahead of the global parser via server/lib/bodyLimits.ts
+ * ("/api/mobile/ai/transcribe" → 35mb). This parser is kept only as a
+ * no-op backstop (body arrives already parsed, so it skips).
  */
 const transcribeBodyParser = express.json({ limit: "35mb" });
 

@@ -50,6 +50,8 @@ jobs:
         run: npm run check:matrix-rate
       - name: Wizard field-types guard (public↔engine round-trip, makeField factories, SSR of distance/matrix/photo runtime fields)
         run: npm run check:wizard-field-types
+      - name: Body-limit preemption guard (every raised-limit path mounted AHEAD of the global 100KB parser; big bodies reach routes; over-limit 413s; untouched paths stay strict)
+        run: npm run check:body-limit-preemption
       - name: Demo-persona guard (TradeLine demo role-plays the receptionist, not the platform)
         run: npm run check:demo-persona
       - name: ContentFlow generate-source guard (saved custom prompts can drive generation — not template-bound)
@@ -86,6 +88,8 @@ jobs:
         run: npm run check:seo-generator
       - name: SEO programmatic-matrix guard (k-anonymity skip → no page, in_review never auto-publishes, dedup, limit respected, flag-off inert, deliberate-failure fixture)
         run: npm run check:seo-matrix
+      - name: Client-knowledge guard (HARD audience tiers — customer block provably excludes margin formula constants + internal notes, red-proof vs unfiltered block; token-only degrade; audience-keyed 60s cache; KB truncation; injection framed as data + delimiter red-proof)
+        run: npm run check:client-knowledge
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

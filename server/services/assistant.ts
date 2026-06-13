@@ -94,6 +94,9 @@ function chatSurfaceToAiSurface(surface: ChatSurface): AiSurface {
     case "audit":          return AI_SURFACES.wft_audit;
     case "vapi":           return AI_SURFACES.tradeline_voice;
     case "tradeline_demo": return AI_SURFACES.tradeline_voice;
+    // unified-AI U3: owner-site chat widget gets its own gate + spend bucket
+    // (was riding tradeline_demo → tradeline_voice, hiding real widget spend).
+    case "tradeline_widget_chat": return AI_SURFACES.tradeline_widget_chat;
     case "admin":          return AI_SURFACES.business_operator;
     case "portal":         return AI_SURFACES.business_operator;
     case "dashboard":      return AI_SURFACES.business_operator;

@@ -738,6 +738,12 @@ export function registerPortalContentflowRoutes(app: Express) {
     }
   });
 
+  // NOTE: this route accepts reference.imageBase64 (up to ~11 MB base64 for
+  // the 8 MB client-side cap). The global express.json() parser in
+  // server/index.ts has a 100 KB limit and runs first — the raised limit for
+  // this path is mounted ahead of it via server/lib/bodyLimits.ts
+  // ("/api/portal/contentflow/generate" → 12mb). Do NOT add a route-scoped
+  // parser here; it would be dead code (see bodyLimits.ts header).
   app.post("/api/portal/contentflow/generate", requireClient, async (req: Request, res: Response) => {
     const t0 = Date.now();
     try {

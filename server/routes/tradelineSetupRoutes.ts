@@ -126,10 +126,15 @@ function distinctId(userId: number): string {
 /* ─── Routes ─── */
 
 /**
- * Larger JSON body parser for the bill + LOA upload routes. Global
- * express.json() defaults to 100KB; phone-bill PDFs base64-encoded run
- * up to ~7 MB. Applied per-route so other endpoints keep the tighter
- * default.
+ * Larger JSON body parser for the bill + LOA upload routes.
+ *
+ * NOTE: a route-scoped parser CANNOT raise the global 100 KB limit — the
+ * global express.json() in server/index.ts runs first and would 413 the
+ * body before this ever executes. The real raised limits for these paths
+ * are mounted ahead of the global parser via server/lib/bodyLimits.ts
+ * ("/api/portal/tradeline/setup/port/{upload-bill,extract-bill,sign-loa}"
+ * → 10mb). This parser is kept only as a no-op backstop (body arrives
+ * already parsed, so it skips).
  */
 const LARGE_JSON = express.json({ limit: "10mb" });
 
