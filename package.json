@@ -40,6 +40,7 @@
     "check:funnel-analytics": "tsx server/lib/analytics.funnel.test.ts",
     "check:serp-country": "tsx shared/locationCountry.test.ts",
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
+    "check:template-formula-refs": "tsx scripts/check-template-formula-refs.ts",
     "check:quote-widget-distance": "tsx server/routes/quoteWidgetDistanceRoutes.test.ts",
     "check:quote-widget-upload": "tsx server/routes/quoteWidgetUploadRoutes.test.ts",
     "check:client-chat-access": "tsx server/services/clientChatAccess.test.ts",
