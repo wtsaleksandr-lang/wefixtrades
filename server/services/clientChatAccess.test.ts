@@ -479,6 +479,124 @@ await check("U6 DELIBERATE-FAILURE — a predicate that ignores `enabled` disagr
   assert.ok(caught, "agreement assertion must fail red against the regressed predicate");
 });
 
+/* ═══ 9. Conversation-START detection vs the widget auto-greeting ══════
+ * The customer widget (AIChatBubble.tsx) seeds an auto-greeting ASSISTANT
+ * message when the panel opens, so a real customer's first send arrives as
+ * [assistant-greeting, user] → messages.length === 2. The OLD route logic
+ * (`isConversationStart: messages.length === 1`) therefore NEVER fired for
+ * genuine widget traffic — only single-message API callers counted — so the
+ * per-calculator daily cap (the free-AI spend ceiling) was effectively
+ * unenforced. The FIX keys the start on the FIRST USER turn:
+ *   isConversationStart = messages.filter(m => m.role === 'user').length === 1
+ *
+ * These cases drive the EXACT predicate the route (aiRoutes.ts) now computes,
+ * then feed it into the real gate to prove the cap engages for a greeting-led
+ * conversation and still never re-counts mid-chat follow-ups.
+ */
+
+/** Mirror of the route's start detection (aiRoutes.ts /api/ai/client-chat). */
+type ChatMsg = { role: "user" | "assistant"; content: string };
+const isConversationStart = (messages: ChatMsg[]): boolean =>
+  messages.filter((m) => m.role === "user").length === 1;
+
+await check("first real user turn AFTER an assistant greeting counts as a START", () => {
+  // Exactly what the widget POSTs on the customer's first send.
+  const messages: ChatMsg[] = [
+    { role: "assistant", content: "Hi! I'm the virtual assistant for Bright Plumbing. How can I help?" },
+    { role: "user", content: "How much for a water heater swap?" },
+  ];
+  assert.equal(messages.length, 2, "greeting-led first send is length 2, not 1");
+  assert.equal(isConversationStart(messages), true, "first user turn must register as a start");
+});
+
+await check("a bare single user message (legacy API caller) still counts as a START", () => {
+  const messages: ChatMsg[] = [{ role: "user", content: "How much?" }];
+  assert.equal(isConversationStart(messages), true);
+});
+
+await check("mid-conversation follow-up (≥2 user turns) does NOT re-count as a start", () => {
+  const messages: ChatMsg[] = [
+    { role: "assistant", content: "Hi! How can I help?" },
+    { role: "user", content: "How much for a repair?" },
+    { role: "assistant", content: "Around $150–$300 depending on the part." },
+    { role: "user", content: "And for two units?" },
+  ];
+  assert.equal(isConversationStart(messages), false, "second user turn must not re-count");
+});
+
+await check("greeting-led START feeds the gate and DOES consume the daily cap", async () => {
+  // Cap of 1/calc/day. Two greeting-led conversations from the same widget:
+  // the first must pass, the second must hit the cap — proving real widget
+  // traffic now enforces the free-AI spend ceiling (it previously never did).
+  const limiter = new RateLimiter(new MemoryRateLimitStore(), 1, 60_000);
+  const deps = makeGateDeps({ convsPerCalcPerDayLimiter: limiter });
+
+  const conv1: ChatMsg[] = [
+    { role: "assistant", content: "Hi! How can I help?" },
+    { role: "user", content: "First customer question" },
+  ];
+  const conv2: ChatMsg[] = [
+    { role: "assistant", content: "Hi! How can I help?" },
+    { role: "user", content: "Second customer question" },
+  ];
+
+  const r1 = await checkClientChatAccess(deps, makeGateInput({ isConversationStart: isConversationStart(conv1) }));
+  const r2 = await checkClientChatAccess(deps, makeGateInput({ isConversationStart: isConversationStart(conv2) }));
+  assert.equal(r1.allowed, true, "first greeting-led conversation passes");
+  assert.equal(r2.allowed, false, "second greeting-led conversation hits the daily cap");
+  if (r2.allowed) throw new Error("unreachable");
+  assert.equal(r2.status, 503, "over-cap is the honest soft-fail the route converts to a warm hand-off");
+});
+
+await check("greeting-led follow-up turns NEVER consume cap or get cut off", async () => {
+  // Cap of 1. One conversation start, then many follow-ups in the SAME chat.
+  const limiter = new RateLimiter(new MemoryRateLimitStore(), 1, 60_000);
+  const deps = makeGateDeps({ convsPerCalcPerDayLimiter: limiter });
+
+  // Customer's first send: [greeting, user] → start.
+  const start = await checkClientChatAccess(
+    deps,
+    makeGateInput({ isConversationStart: isConversationStart([
+      { role: "assistant", content: "Hi!" },
+      { role: "user", content: "q1" },
+    ]) }),
+  );
+  assert.equal(start.allowed, true);
+
+  // Follow-ups: the thread grows; user count climbs ≥2 → never a start.
+  const thread: ChatMsg[] = [
+    { role: "assistant", content: "Hi!" },
+    { role: "user", content: "q1" },
+    { role: "assistant", content: "a1" },
+  ];
+  for (let i = 0; i < 5; i++) {
+    thread.push({ role: "user", content: `q${i + 2}` });
+    const followUp = await checkClientChatAccess(deps, makeGateInput({ isConversationStart: isConversationStart(thread) }));
+    assert.equal(followUp.allowed, true, "mid-conversation message must never be cut off by the cap");
+    thread.push({ role: "assistant", content: `a${i + 2}` });
+  }
+});
+
+await check("DELIBERATE-FAILURE — the OLD `messages.length === 1` start logic misses greeting-led starts (red)", () => {
+  // The pre-fix predicate. For a greeting-led first send it returns FALSE, so
+  // the cap never counted real widget conversations. The real contract
+  // (greeting-led first send IS a start) must fail red against it.
+  const oldIsStart = (messages: ChatMsg[]) => messages.length === 1;
+  const greetingLed: ChatMsg[] = [
+    { role: "assistant", content: "Hi! How can I help?" },
+    { role: "user", content: "How much?" },
+  ];
+
+  let caught: unknown = null;
+  try {
+    // The REAL contract assertion: a greeting-led first send is a START.
+    assert.equal(oldIsStart(greetingLed), true, "greeting-led first send must be a start");
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, "old messages.length===1 logic must fail the start-detection contract red");
+});
+
 /* ═══ Verdict ═════════════════════════════════════════════════════════ */
 
 console.log(`\nclient-chat-access gate: ${passed} passed, ${failed} failed`);

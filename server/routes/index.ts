@@ -204,6 +204,15 @@ export async function registerRoutes(
   // GET /api/admin/health (requireAdmin). Monitoring-only: no UI, no
   // auto-resolution, no SMS, no systemAlerts writes, no cron yet.
   registerAdminHealthRoutes(app);
+  // ROUTE-ORDER (W-AW-1): the literal /api/portal/tradeline/{knowledge,voices,
+  // settings} routes MUST be registered BEFORE registerPortalRoutes, whose
+  // param route GET /api/portal/tradeline/:clientServiceId would otherwise
+  // shadow them (Express 5 matches in registration order, first-match-wins, and
+  // no longer supports inline regex params like :id(\\d+) for digit-constraint).
+  // Without this, GET /knowledge etc. hit the param handler → parseInt("knowledge")
+  // → NaN → 400 "Invalid service id", breaking the portal "Teach your assistant"
+  // panel and causing duplicate knowledge `doc` rows on every save.
+  registerPortalTradelineKnowledgeRoutes(app);
   registerPortalRoutes(app);
   registerPortalEmailDomainRoutes(app);
   registerPortalSecurityRoutes(app);
@@ -311,7 +320,8 @@ export async function registerRoutes(
   registerPortalApiKeysRoutes(app);
   registerPortalBrandKitsRoutes(app);
   registerAdminTradelineVoicesRoutes(app);
-  registerPortalTradelineKnowledgeRoutes(app);
+  // registerPortalTradelineKnowledgeRoutes moved earlier (before registerPortalRoutes)
+  // to avoid the param-route shadow — see ROUTE-ORDER note above.
   registerPortalAiAssistantRoutes(app);
   registerAdminAuditLogRoutes(app);
   registerAdminFileRetentionRoutes(app);
