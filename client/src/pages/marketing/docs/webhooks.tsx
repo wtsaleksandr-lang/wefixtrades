@@ -59,7 +59,7 @@ https://your-crm.com/api/qq-webhook`} />
       <Accordion title="lead.created (free lead webhook)" icon="📋">
         <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, marginBottom: 10 }}>
           This is the exact body POSTed by the free Integrations lead webhook. A
-          test send is identical but adds <code>"test": true</code>. <code>total</code>
+          test send is identical but adds <code>"test": true</code>. <code>total</code>{' '}
           and <code>deposit</code> are whole units of <code>currency</code> (or <code>null</code>).
         </p>
         <CodeBlock lang="json" code={`{
