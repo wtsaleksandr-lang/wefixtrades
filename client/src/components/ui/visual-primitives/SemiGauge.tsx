@@ -255,6 +255,7 @@ export function SemiGauge({
             <motion.line
               x1={cx}
               y1={cy}
+              initial={{ x2: needleTip.x, y2: needleTip.y }}
               animate={{ x2: needleTip.x, y2: needleTip.y }}
               transition={{
                 duration: shouldAnimate ? 0.9 : 0,
