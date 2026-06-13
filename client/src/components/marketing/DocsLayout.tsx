@@ -5,15 +5,26 @@ import MarketingLayout from "./MarketingLayout";
 
 import { mkt, colors, shadows } from "@/theme/tokens";
 
+// The docs surface is DARK — MarketingLayout wraps every page in `mkt.bg`
+// (#181D1F). Headings/body/muted therefore use the light on-dark tokens
+// (mkt.onDark / mkt.text / mkt.textMuted), NOT colors.text.* (which are
+// near-black, made for light surfaces and rendered dark-on-dark = unreadable).
 const C = {
   navy: colors.brand.dark,
+  // sage = accent FILL (e.g. the step-number circle with white text on it,
+  // the checklist tick icon). sageText = accent used AS TEXT on the dark
+  // surface — brand blue #0d3cfc fails AA as text on dark, so use accentOnDark.
   sage: colors.accent.blue,
+  sageText: mkt.accentOnDark,
   sageTint: colors.accent.blueTint,
   bg: mkt.bg,
-  bgGray: colors.surface.muted,
-  heading: colors.text.primary,
-  body: colors.text.secondary,
-  muted: colors.text.secondary,
+  bgGray: mkt.surface,
+  heading: mkt.onDark,
+  body: mkt.text,
+  muted: mkt.textMuted,
+  // InfoBox callouts are intentionally LIGHT cards on the dark page, so their
+  // text must stay dark to read on the light card background.
+  calloutText: colors.text.secondary,
   border: mkt.border,
   borderLight: mkt.borderLight,
   codeBase: colors.brand.dark,
@@ -117,7 +128,7 @@ export function InfoBox({ type = "info", children }: { type?: "info" | "warn" | 
     tip: { bg: C.sageTint, border: "#A7F3D0", icon: "💡" },
   }[type];
   return (
-    <div style={{ background: styles.bg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "14px 18px", margin: "16px 0", fontSize: 14, color: C.body, lineHeight: 1.65, display: "flex", gap: 10 }}>
+    <div style={{ background: styles.bg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "14px 18px", margin: "16px 0", fontSize: 14, color: C.calloutText, lineHeight: 1.65, display: "flex", gap: 10 }}>
       <span style={{ flexShrink: 0 }}>{styles.icon}</span>
       <div>{children}</div>
     </div>
@@ -168,7 +179,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
 
         {/* Mobile top bar */}
         <div className="docs-mobile-bar" style={{ display: "none", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, background: C.bg, alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sage, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+          <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sageText, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
             <ArrowLeft size={14} strokeWidth={1.5} /> Docs
           </Link>
           <button
@@ -210,7 +221,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
                 <BookOpen size={14} color={C.muted} strokeWidth={1.5} />
                 <span>QuoteQuick Docs</span>
                 <ChevronRight size={12} color={C.muted} strokeWidth={1.5} />
-                <span style={{ color: C.sage, fontWeight: 600 }}>{title}</span>
+                <span style={{ color: C.sageText, fontWeight: 600 }}>{title}</span>
               </div>
               <h1 style={{ fontSize: "clamp(24px, 3vw, 34px)", fontWeight: 800, color: C.heading, margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
                 {title}
@@ -223,7 +234,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
 
             {/* Footer nav */}
             <div style={{ marginTop: 64, paddingTop: 28, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-              <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sage, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+              <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 6, color: C.sageText, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
                 <ArrowLeft size={14} strokeWidth={1.5} /> Back to Docs Hub
               </Link>
               <Link href="/contact" style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
@@ -264,13 +275,13 @@ function DocsSidebar({ activeSlug, onNavigate }: { activeSlug: string; onNavigat
               display: "flex", alignItems: "center", gap: 10,
               padding: "9px 20px",
               textDecoration: "none",
-              background: active ? `${C.sage}12` : "transparent",
-              borderLeft: `3px solid ${active ? C.sage : "transparent"}`,
+              background: active ? `${C.sageText}1F` : "transparent",
+              borderLeft: `3px solid ${active ? C.sageText : "transparent"}`,
               transition: "all 0.15s ease",
             }}
           >
-            <Icon size={16} color={active ? C.sage : C.muted} strokeWidth={1.5} />
-            <span style={{ fontSize: 14, fontWeight: active ? 600 : 400, color: active ? C.sage : C.body }}>
+            <Icon size={16} color={active ? C.sageText : C.muted} strokeWidth={1.5} />
+            <span style={{ fontSize: 14, fontWeight: active ? 600 : 400, color: active ? C.sageText : C.body }}>
               {label}
             </span>
           </Link>
