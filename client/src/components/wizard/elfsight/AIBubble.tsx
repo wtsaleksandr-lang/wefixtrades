@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom';
 import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
-import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
+import { applyAiToolCall, describeDroppedStyleKeys, type AiToolCall } from './aiToolApplier';
 import { imageTemplateToConfig, type ImageTemplate } from './imageTemplateToConfig';
 import type {
   ShellState, ShellHeader, ShellResults, ShellStyle, ShellSettings,
@@ -335,8 +335,19 @@ function describePendingConfirm(call: AiToolCall): { title: string; body: string
 
 /* Sentinel prefix marking a toolChip as a FAILED apply (rendered ⚠, not ✓).
  * toolChips is a string[]; we encode failure in-band so we don't widen the
- * Message type just for one flag. (anti-hallucination Fix 4) */
+ * Message type just for one flag. (anti-hallucination Fix 4)
+ *
+ * TOOL_CHIP_NOTE_PREFIX marks a partial-drop NOTE (rendered subtly — not a ✓
+ * success nor a ⚠ failure). Used when an apply succeeded for the VALID
+ * remainder but the U6 sanitiser DROPPED some invalid values: the user is told
+ * honestly what didn't take, alongside the normal success chip. Same in-band
+ * NUL-leader encoding so it can never collide with a real describeTool()
+ * label. (U6 restyle-integrity return channel) */
 const TOOL_CHIP_FAIL_PREFIX = ' fail:';
+
+/* U6 restyle-integrity — partial-drop note prefix (see TOOL_CHIP_FAIL_PREFIX
+ * above). The leading char is the same NUL sentinel the fail prefix uses. */
+const TOOL_CHIP_NOTE_PREFIX = ' note:';
 
 /* ─── Gap 6 — post-apply follow-up quick replies ───────────────────────────
  * Scripted LOCAL assistant message appended after a successful
@@ -1011,8 +1022,14 @@ export default function AIBubble(props: AIBubbleProps) {
               return;
             }
             let applyFailed = false;
+            let droppedKeys: string[] = [];
             try {
-              applyAiToolCall(call, props);
+              const result = applyAiToolCall(call, props);
+              // U6 restyle-integrity return channel — set_style DROPS invalid
+              // colour/radius/font values and keeps the valid remainder. Capture
+              // the dropped keys so we can tell the user honestly what didn't
+              // take, instead of letting the ✓ chip claim the whole change landed.
+              droppedKeys = result?.droppedKeys ?? [];
             } catch (err: any) {
               // Even on apply failure, surface the attempt to the user — both as
               // a stream error AND as a visible failure chip, so the chip (the
@@ -1021,15 +1038,20 @@ export default function AIBubble(props: AIBubbleProps) {
               applyFailed = true;
               setStreamErr(`tool ${call.name} failed: ${err?.message ?? err}`);
             }
-            const chip = applyFailed
-              ? `${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${call.name}`
-              : describeTool(call);
+            const chips = applyFailed
+              ? [`${TOOL_CHIP_FAIL_PREFIX}Couldn't apply: ${call.name}`]
+              // Success → the normal ✓ chip; PLUS a subtle drop note when the
+              // sanitiser discarded part of the patch (nothing dropped = chip
+              // only, unchanged behaviour).
+              : droppedKeys.length
+                ? [describeTool(call), `${TOOL_CHIP_NOTE_PREFIX}${describeDroppedStyleKeys(droppedKeys)}`]
+                : [describeTool(call)];
             setMessages(prev => prev.map(m =>
               m.id === assistantId
                 ? {
                   ...m,
                   pendingLabel: undefined,
-                  toolChips: [...(m.toolChips ?? []), chip],
+                  toolChips: [...(m.toolChips ?? []), ...chips],
                 }
                 : m
             ));
@@ -1538,15 +1560,26 @@ export default function AIBubble(props: AIBubbleProps) {
                       // A chip prefixed with the failure sentinel is an edit that
                       // failed to apply — render it as a warning, not a ✓.
                       const failed = chip.startsWith(TOOL_CHIP_FAIL_PREFIX);
-                      const label = failed ? chip.slice(TOOL_CHIP_FAIL_PREFIX.length) : chip;
+                      // A chip prefixed with the note sentinel is a partial-drop
+                      // note (the apply succeeded for the valid remainder but the
+                      // sanitiser discarded some invalid values). Rendered subtly
+                      // with a neutral marker — not a ✓ success nor a ⚠ failure.
+                      const note = !failed && chip.startsWith(TOOL_CHIP_NOTE_PREFIX);
+                      const label = failed
+                        ? chip.slice(TOOL_CHIP_FAIL_PREFIX.length)
+                        : note
+                          ? chip.slice(TOOL_CHIP_NOTE_PREFIX.length)
+                          : chip;
+                      const marker = failed ? '⚠' : note ? 'ⓘ' : '✓';
                       return (
                         <span
                           key={i}
-                          className={`qq-ai-chip${failed ? ' qq-ai-chip-failed' : ''}`}
-                          data-testid={failed ? 'aibubble-tool-chip-failed' : 'aibubble-tool-chip'}
+                          className={`qq-ai-chip${failed ? ' qq-ai-chip-failed' : note ? ' qq-ai-chip-note' : ''}`}
+                          data-testid={failed ? 'aibubble-tool-chip-failed' : note ? 'aibubble-tool-chip-note' : 'aibubble-tool-chip'}
                           data-failed={failed ? 'true' : undefined}
+                          data-note={note ? 'true' : undefined}
                         >
-                          {failed ? '⚠' : '✓'} {label}
+                          {marker} {label}
                         </span>
                       );
                     })}
@@ -2142,6 +2175,17 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-chip-failed {
           background: rgba(220, 38, 38, 0.10);
           color: #b91c1c;
+        }
+        /* U6 restyle-integrity — partial-drop note. Subtle, not alarming: a
+           muted slate tone (NOT the red failure tone) so it reads as an
+           informational aside next to the ✓ success chip. */
+        .qq-ai-chip-note {
+          background: rgba(100, 116, 139, 0.12);
+          color: #475569;
+        }
+        [data-theme="dark"] .qq-ai-chip-note {
+          background: rgba(148, 163, 184, 0.16);
+          color: #cbd5e1;
         }
 
         /* Inline confirmation card for destructive AI actions

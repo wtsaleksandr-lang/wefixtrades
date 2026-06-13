@@ -50,6 +50,8 @@ jobs:
         run: npm run check:client-chat-access
       - name: Matrix-rate guard (resolveMatrixRate — full cell / unselected undefined / missing-cell null both rules / single-axis / formula composition)
         run: npm run check:matrix-rate
+      - name: Style-drop integrity guard (set_style RETURNS dropped invalid colour/radius/font keys so the chat surfaces them honestly; all-valid patch reports nothing)
+        run: npm run check:style-drop
       - name: Wizard field-types guard (public↔engine round-trip, makeField factories, SSR of distance/matrix/photo runtime fields)
         run: npm run check:wizard-field-types
       - name: Wizard template-apply guard (card tap always applies; every gallery template applies to a non-empty preview; fresh seed needs no confirm)
