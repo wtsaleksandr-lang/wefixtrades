@@ -1242,15 +1242,15 @@ export async function reprovisionTradeLineVoiceForClient(clientId: number): Prom
   }
 }
 
-export async function provisionTradeLineAssistant(clientServiceId: number): Promise<{ assistantId: string | null; skipped: boolean; skipReason?: string; definition?: import("./tradelineTemplates").AssistantDefinition; error?: string }> {
+export async function provisionTradeLineAssistant(clientServiceId: number): Promise<{ assistantId: string | null; skipped: boolean; skipReason?: string; definition?: import("./tradelineTemplates").AssistantDefinition; error?: string; status: "live" | "partial" | "failed"; phoneNumberId?: string | null; phoneNumber?: string | null; notLiveReason?: string }> {
   const { buildTradeLineAssistant } = await import("./tradelineTemplates");
   let result;
   try { result = await buildTradeLineAssistant(clientServiceId); } catch (err: any) {
     log.error("Assistant build failed", { clientServiceId, error: err.message });
     await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.assistant_build_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Assistant build failed: ${err.message}` });
-    return { assistantId: null, skipped: false, error: err.message };
+    return { assistantId: null, skipped: false, error: err.message, status: "failed", notLiveReason: `Assistant build failed: ${err.message}` };
   }
-  if (result.skipped) return { assistantId: null, skipped: true, skipReason: result.skipReason, definition: result.definition };
+  if (result.skipped) return { assistantId: null, skipped: true, skipReason: result.skipReason, definition: result.definition, status: "partial", notLiveReason: result.skipReason || "Assistant build skipped — prerequisites not met." };
 
   const vapiConfig = getVapiConfig();
   let assistantId: string | null = null;
@@ -1268,7 +1268,7 @@ export async function provisionTradeLineAssistant(clientServiceId: number): Prom
       const ca = latestConfig?.assistant;
       await storage.updateTradeLineConfig(clientServiceId, { assistant: { status: "failed", templateId: ca?.templateId ?? "", inputHash: ca?.inputHash ?? "", vapiAssistantId: ca?.vapiAssistantId ?? "", lastBuiltAt: ca?.lastBuiltAt ?? "", lastBuildError: `Vapi push failed: ${err.message}`, manualOverride: ca?.manualOverride ?? false } });
       await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.vapi_push_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Vapi push failed: ${err.message}` });
-      return { assistantId: null, skipped: false, error: `Vapi push failed: ${err.message}`, definition: result.definition };
+      return { assistantId: null, skipped: false, error: `Vapi push failed: ${err.message}`, definition: result.definition, status: "failed", notLiveReason: `Vapi push failed: ${err.message}` };
     }
   } else {
     log.warn("VAPI_API_KEY not set — assistant built but not pushed to Vapi");
@@ -1276,14 +1276,54 @@ export async function provisionTradeLineAssistant(clientServiceId: number): Prom
 
   await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.assistant_built", entity_type: "client_service", entity_id: clientServiceId, summary: `Built assistant (template: ${result.definition.templateId}, hash: ${result.definition.inputHash})${assistantId ? ` → Vapi ID: ${assistantId}` : " (Vapi not configured)"}`, metadata: { templateId: result.definition.templateId, inputHash: result.definition.inputHash, vapiAssistantId: assistantId } });
 
-  // Auto-provision a phone number after assistant is built (fail-safe)
-  if (assistantId && vapiConfig.apiKey) {
-    provisionVapiPhoneNumber(clientServiceId, assistantId).catch(err => {
-      log.warn("Phone number auto-provisioning failed (non-blocking)", { clientServiceId, error: (err as Error).message });
-    });
+  // The assistant was built locally but never pushed to Vapi (no API key). It is
+  // NOT callable — report this honestly as "partial" so the setup surface cannot
+  // tell the owner their phone assistant is live. (The previous code returned a
+  // bare success here, which is the silent-degrade this fix closes.)
+  if (!assistantId) {
+    return {
+      assistantId: null,
+      skipped: false,
+      definition: result.definition,
+      status: "partial",
+      phoneNumberId: null,
+      phoneNumber: null,
+      notLiveReason: "Voice provider (Vapi) is not configured — the assistant was built but not pushed and is not callable. Add VAPI_API_KEY, then rebuild.",
+    };
   }
 
-  return { assistantId, skipped: false, definition: result.definition };
+  // Auto-provision a phone number after the assistant is pushed. We AWAIT the
+  // result (instead of fire-and-forget) so the return can reflect honestly
+  // whether the line is actually callable. A failure here is non-fatal to the
+  // assistant itself, but it means the assistant is reachable in-dashboard yet
+  // has no inbound number — that is "partial", never "live".
+  let phoneNumberId: string | null = null;
+  let phoneNumber: string | null = null;
+  let phoneError: string | undefined;
+  try {
+    const prov = await provisionVapiPhoneNumber(clientServiceId, assistantId);
+    phoneNumberId = prov.phoneNumberId;
+    phoneNumber = prov.number;
+  } catch (err) {
+    phoneError = (err as Error).message;
+    log.warn("Phone number auto-provisioning failed (non-blocking)", { clientServiceId, error: phoneError });
+  }
+
+  if (!phoneNumberId) {
+    return {
+      assistantId,
+      skipped: false,
+      definition: result.definition,
+      status: "partial",
+      phoneNumberId: null,
+      phoneNumber: null,
+      notLiveReason: phoneError
+        ? `Assistant is built and pushed, but provisioning an inbound phone number failed (${phoneError}) — no one can call it yet. Retry to provision a number.`
+        : "Assistant is built and pushed, but no inbound phone number is provisioned yet — no one can call it. Retry to provision a number.",
+    };
+  }
+
+  return { assistantId, skipped: false, definition: result.definition, status: "live", phoneNumberId, phoneNumber };
 }
 
 /* ─── Per-Client Vapi Phone Number Provisioning ─── */

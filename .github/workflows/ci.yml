@@ -98,6 +98,8 @@ jobs:
         run: npm run check:client-knowledge
       - name: TradeLine chat↔voice parity guard (chat carries SAFETY_FLOOR+PII_GUARD+closer via the shared tail; voice renders the assembled customer-audience business-data block beneath the floor)
         run: npm run check:tradeline-parity
+      - name: TradeLine safety-floor guard (live prompt carries the unconditional emergency-escalation block + absolute-precedence line for matched/unmatched/empty trade; hostile owner KB cannot remove, weaken, or reorder it)
+        run: npm run check:tradeline-safety
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

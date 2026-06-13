@@ -893,6 +893,11 @@ export default function FieldRow({
                       data-testid={`field-distance-trip-round-${field.id}`}
                     >Round trip ×2</button>
                   </div>
+                  {field.roundTrip && (
+                    <p className="qq-field-hint" data-testid={`field-distance-roundtrip-hint-${field.id}`}>
+                      Round trip doubles the billed distance (×2) in your formula.
+                    </p>
+                  )}
                 </div>
               </div>
               <p className="qq-field-hint" data-testid={`field-distance-origin-hint-${field.id}`}>

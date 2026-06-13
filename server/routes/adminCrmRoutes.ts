@@ -3230,6 +3230,14 @@ export function registerAdminCrmRoutes(app: Express): void {
         skipReason: result.skipReason,
         templateId: result.definition?.templateId,
         inputHash: result.definition?.inputHash,
+        // Honest live/partial signal — a built-but-not-callable assistant (no
+        // Vapi key, or no inbound number provisioned) reports "partial", never a
+        // bare success. The UI must not claim the phone assistant is live unless
+        // status === "live".
+        status: result.status,
+        phoneNumberId: result.phoneNumberId ?? null,
+        phoneNumber: result.phoneNumber ?? null,
+        notLiveReason: result.notLiveReason ?? null,
       });
     } catch (err: any) {
       log.error("[admin-crm] TradeLine build-assistant unexpected error:", { message: err.message, stack: err.stack });
@@ -3373,6 +3381,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         enabled: true,
         assistantId: result.assistantId,
         error: result.error ?? null,
+        // Honest live/partial signal (see build-assistant route) — re-enable does
+        // not mean callable unless status === "live".
+        status: result.status,
+        phoneNumberId: result.phoneNumberId ?? null,
+        phoneNumber: result.phoneNumber ?? null,
+        notLiveReason: result.notLiveReason ?? null,
         config: updatedConfig,
       });
     } catch (err: any) {
