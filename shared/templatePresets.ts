@@ -2519,7 +2519,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     ];
     const calculations: TemplateCalculation[] = [
       calc('Doors Subtotal', '([Door Type] + [Hardware Level]) * [Number of Doors]'),
-      calc('Service Total', '[Removal] * [Number of Doors] + [Extras]'),
+      calc('Service Total', '[Remove Old Door] * [Number of Doors] + [Extras]'),
       calc('Estimated Total', '[Doors Subtotal] + [Service Total]'),
     ];
     const header: TemplateHeader = {
@@ -6433,7 +6433,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
    * panel collapses below inputs at ≤768px (renderer-handled). */
   {
     id: 'carpet_cleaning_quote', name: 'Carpet Cleaning — Per Square Foot',
-    description: 'Per-square-foot + per-room cleaning pricing with add-ons. Mint-green result panel, dark-green CTA. Inspired by Elfsight\'s Carpet Cleaning calc with our trust badges + sticky shell.',
+    description: 'Per-square-foot and per-room carpet cleaning pricing with optional add-ons, so customers get an instant, transparent quote.',
     // BATCH 0 — the registry's own `carpet_cleaning` trade was missing.
     category: 'Cleaning', trades: ['carpet_cleaning', 'house_cleaning'],
     matchingTrades: ['carpet-cleaning', 'residential-cleaning', 'commercial-cleaning', 'janitorial', 'general-cleaning'],
