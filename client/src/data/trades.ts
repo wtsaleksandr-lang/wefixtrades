@@ -41,6 +41,10 @@ export const TRADES: Trade[] = [
   // PRICING-MODELS U7 — dumpster rental (template-inventory TOP-15 #4; the
   // rate_matrix showcase trade — sizes × delivery zones lane pricing).
   { id: "dumpster_rental", categoryId: "cleaning", label: "Dumpster Rental" },
+  // TEMPLATES BATCH 4 — "Auto + Niche" (template-inventory TOP-15 #13).
+  // Short-term-rental (Airbnb) turnover cleaning — recurring per-turnover
+  // cleaning, distinct from one-off move-in/move-out cleaning.
+  { id: "str_turnover_cleaning", categoryId: "cleaning", label: "Short-Term Rental Turnover Cleaning" },
   { id: "pest_control", categoryId: "cleaning", label: "Pest Control" },
 
   { id: "kitchen_remodeling", categoryId: "reno", label: "Kitchen Remodeling" },
