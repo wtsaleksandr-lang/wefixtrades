@@ -125,11 +125,28 @@ assert.ok(
   !/free trial has ended/i.test(chatBubbleSrc),
   "AIChatBubble expiry message must not say 'free trial'"
 );
+/* UNIFIED-AI U5 (2026-06-12) — the customer-facing widget bubble must NEVER
+ * show the owner-facing upgrade/Pro-preview message. Showing "upgrade to Pro"
+ * to the owner's HOMEOWNER customer is a direct identity violation (spec §C).
+ * Trial-expired (and every other blocked/limit state) is now a WARM hand-off:
+ * a normal assistant bubble + an inline lead-capture form. The honest
+ * Pro-preview upgrade message lives ONLY in the owner channels — emails
+ * (proTrialEndedEmail, asserted above), the T-3d SMS, and the owner portal —
+ * NOT in this customer bubble. So the bubble must NOT carry any of that copy. */
+for (const banned of [
+  "Pro preview of the chat assistant has ended",
+  "Upgrading to Pro",
+  "upgrade to Pro",
+  "Assistant unavailable",
+]) {
+  assert.ok(
+    !chatBubbleSrc.includes(banned),
+    `AIChatBubble must NOT show owner-facing upgrade copy to the customer ("${banned}") — it converts blocked states to a warm lead-capture hand-off instead`
+  );
+}
 assert.ok(
-  // Chat rebrand (2026-06-12): "AI assistant" → "chat assistant" — the
-  // honest Pro-preview phrasing is the part that matters here.
-  chatBubbleSrc.includes("Pro preview of the chat assistant has ended"),
-  "AIChatBubble must use the honest Pro-preview phrasing"
+  /captureLead/.test(chatBubbleSrc),
+  "AIChatBubble must render the warm hand-off lead-capture form (captureLead) for blocked/limit states"
 );
 
 const dashboardSrc = read("client/src/pages/dashboard.tsx");
