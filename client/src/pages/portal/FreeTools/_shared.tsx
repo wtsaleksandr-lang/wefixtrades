@@ -338,3 +338,31 @@ export function useDebouncedCallback<TArgs extends unknown[]>(
     }, delayMs);
   }, [delayMs]);
 }
+
+/* ─── Keyed debounce — one independent timer per `key`. ───
+   Use when the SAME callback debounces edits to multiple rows: a single
+   shared timer would let a fast edit to row B cancel the pending PATCH for
+   row A (its args are discarded → row A's edit is silently lost). Keying by
+   id (or id+field) isolates each row's debounce so no edit is dropped. */
+export function useKeyedDebouncedCallback<TArgs extends unknown[]>(
+  fn: (...args: TArgs) => void,
+  delayMs: number = 300,
+) {
+  const fnRef = useRef(fn);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => { fnRef.current = fn; }, [fn]);
+  useEffect(() => () => {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current.clear();
+  }, []);
+
+  return useCallback((key: string, ...args: TArgs) => {
+    const existing = timersRef.current.get(key);
+    if (existing) clearTimeout(existing);
+    timersRef.current.set(key, setTimeout(() => {
+      timersRef.current.delete(key);
+      fnRef.current(...args);
+    }, delayMs));
+  }, [delayMs]);
+}

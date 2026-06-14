@@ -112,6 +112,7 @@ const hoursBody = z.object({
     opens: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     closes: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   })).max(50).optional(),
+  variant: z.enum(["badge", "table", "both"]).default("both"),
 });
 
 const badgeSchema = z.object({
@@ -292,6 +293,7 @@ export function registerPortalFreetoolsRoutes(app: Express): void {
       res.json({
         hours: client?.business_hours ?? null,
         special: client?.special_hours ?? [],
+        variant: client?.hours_variant ?? "both",
         widgetToken: token,
       });
     } catch (err: any) {
@@ -311,6 +313,7 @@ export function registerPortalFreetoolsRoutes(app: Express): void {
         .set({
           business_hours: parsed.data.hours,
           special_hours: parsed.data.special ?? [],
+          hours_variant: parsed.data.variant,
           updated_at: new Date(),
         })
         .where(eq(clients.id, clientId));

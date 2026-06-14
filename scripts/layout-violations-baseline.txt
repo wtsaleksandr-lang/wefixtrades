@@ -132,7 +132,7 @@ client/src/pages/marketing/DesignShowcase.tsx:134:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:138:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:142:57	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:146:53	rule-c	size={1080}
-client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:242:7	rule-b	<div> contains 3 cues
+client/src/pages/portal/FreeTools/ServiceAreaMap.tsx:251:7	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalBrandKitsPage.tsx:164:23	rule-c	size={10}
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12
 client/src/pages/portal/PortalOnboarding.tsx:433:5	rule-b	<div> contains 3 cues

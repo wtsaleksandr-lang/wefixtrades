@@ -126,6 +126,9 @@ export const clients = pgTable("clients", {
   // special_hours: array of { date:"YYYY-MM-DD", closed?:true, opens?, closes? }
   business_hours: jsonb("business_hours"),
   special_hours: jsonb("special_hours"),
+  // Hours widget display variant: "badge" | "table" | "both". Persisted so the
+  // portal picker round-trips and the embed snippet's data-variant matches.
+  hours_variant: text("hours_variant").notNull().default("both"),
   // 0042 — invoice template preference + accent. New invoices auto-apply
   // these unless the user overrides them per-invoice. Accent flows through
   // to both the live React preview and the PDFKit renderer.
@@ -226,6 +229,10 @@ export const callbackWidgetConfigs = pgTable("callback_widget_configs", {
   enabled: boolean("enabled").notNull().default(true),
   heading: text("heading").default("Request a callback"),
   cta_label: text("cta_label").default("Send request"),
+  // Display mode for the embedded widget: "inline" (renders where the snippet
+  // is pasted) or "popup" (bottom-right launcher). Persisted so the portal
+  // selection round-trips and the live preview honors it.
+  mode: text("mode").notNull().default("inline"),
   // { name:bool, phone:bool, message:bool, best_time:bool }
   fields_json: jsonb("fields_json").notNull().default(sql`'{"name":true,"phone":true,"message":true,"best_time":true}'::jsonb`),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
