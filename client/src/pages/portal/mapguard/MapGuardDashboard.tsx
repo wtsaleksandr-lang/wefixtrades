@@ -56,7 +56,8 @@ import {
   SparklineWithPeak,
   type DonutSegment,
 } from "@/components/ui/visual-primitives";
-import { RankGridPulse, type RankGridCell } from "@/components/mapguard/RankGridPulse";
+import { type RankGridCell } from "@/components/mapguard/RankGridPulse";
+import { RankGridMap } from "@/components/mapguard/RankGridMap";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
 // Wave 36 — CitationHealthRing import removed. Audit verdict: third citation
 // representation on the page (alongside the hero LetterGradeBadge and the
@@ -97,7 +98,10 @@ interface DashboardKpisResponse {
     };
     gbpHealth: number;
   };
-  grid: RankGridCell[];
+  /** Cells carry lat/lng when the client's service-area location is set. */
+  grid: (RankGridCell & { lat?: number; lng?: number })[];
+  /** Centre + radius for fitting the static map. null = no location on file. */
+  geo: { centerLat: number; centerLng: number; radiusKm: number } | null;
   gbpTrend14d: number[];
 }
 
@@ -248,6 +252,12 @@ export default function MapGuardDashboard() {
   const previewMode =
     !!kpisQuery.data?.previewMode || !!insightsQuery.data?.previewMode;
   const grid = kpisQuery.data?.grid ?? [];
+  // Real-map render is available once the grid cells carry coordinates (the
+  // client's service-area location is set). Otherwise we show the onboarding
+  // empty state — never abstract boxes pretending to be a map.
+  const gridHasGeo = grid.some(
+    (c) => typeof c.lat === "number" && typeof c.lng === "number",
+  );
   const events = alertsQuery.data?.events ?? [];
   const emptyAlerts = events.length === 0 && (alertsQuery.data?.previewMode || !alertsQuery.isLoading);
 
@@ -580,14 +590,49 @@ export default function MapGuardDashboard() {
 
               {/* Wave 36 — Citation Health Ring sibling deleted (was the third
                   citation representation on the page). The grid is now the
-                  single dominant visual. */}
+                  single dominant visual.
+
+                  The headline is the REAL Google static map with geo-projected
+                  rank pins (same visual as the public Local Rank Grid tool),
+                  rendered once the client's service-area location is on file.
+                  Until then we show an honest onboarding state, not abstract
+                  boxes pretending to be a map. */}
               <div className="flex flex-col items-center gap-4">
-                <RankGridPulse
-                  cells={grid}
-                  selected={selectedCell}
-                  onSelectCell={(c) => setSelectedCell({ row: c.row, col: c.col })}
-                  emptyState={grid.length === 0}
-                />
+                {gridHasGeo ? (
+                  <RankGridMap
+                    cells={grid}
+                    selected={selectedCell}
+                    onSelectCell={(c) =>
+                      setSelectedCell({ row: c.row, col: c.col })
+                    }
+                    centerLabel="Your service area"
+                    className="max-w-xl"
+                  />
+                ) : (
+                  <div
+                    className="flex aspect-[600/440] w-full max-w-xl flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 px-6 text-center"
+                    data-testid="rank-grid-map-onboarding"
+                  >
+                    <MapPin
+                      className="h-6 w-6 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <p className="text-sm font-medium text-foreground">
+                      We&rsquo;ll show your live rank grid once your location is
+                      set
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Add your business address and service-area radius so we can
+                      map where you rank across your area.
+                    </p>
+                    <Link href="/portal/mapguard">
+                      <Button variant="outline" size="sm">
+                        Set business location
+                        <ArrowRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {/* Selected cell drill-down */}

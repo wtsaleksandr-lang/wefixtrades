@@ -28,9 +28,14 @@ import {
   mapguardSnapshots,
   citationTrackerListings,
   citationTrackerSubscriptions,
+  serviceAreaMapConfigs,
 } from "@shared/schema";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
+import {
+  buildRankGridGeoCells,
+  radiusToKm,
+} from "@shared/mapguard/rankGridGeo";
 
 const log = createLogger("PortalMapguardDashboardKpis");
 
@@ -39,6 +44,23 @@ interface GridCell {
   col: number;
   rank: number | null;
   delta7d: number | null;
+  /**
+   * Real-world coordinate of this pin, projected from the client's stored
+   * service-area centre + radius. Present only when the client has a
+   * service-area config with a centre; absent cells render in the abstract
+   * grid fallback. Lets the portal draw the real Google static map + geo-pins
+   * (the same visual the public Local Rank Grid tool produces) instead of
+   * abstract boxes.
+   */
+  lat?: number;
+  lng?: number;
+}
+
+/** Centre + radius the portal uses to fit the static map and project pins. */
+interface GridGeo {
+  centerLat: number;
+  centerLng: number;
+  radiusKm: number;
 }
 
 interface DashboardResponse {
@@ -55,19 +77,61 @@ interface DashboardResponse {
     gbpHealth: number;
   };
   grid: GridCell[];
+  /** Geo block for fitting the static map. null when no centre is available. */
+  geo: GridGeo | null;
   gbpTrend14d: number[];
+}
+
+/**
+ * Admin-preview / sample payload. Seeds a representative geo-located 5×5 grid
+ * (centred on a real city so the static map renders) with plausible rank reads
+ * + a couple of 7-day deltas, so preview mode DEMONSTRATES the product on a
+ * real map instead of reading as an empty grid. Coordinates are illustrative —
+ * the IllustrativeDataBadge on the dashboard already flags preview data.
+ */
+const SAMPLE_CENTER = { lat: 40.7128, lng: -74.006 }; // New York, NY
+const SAMPLE_RADIUS_KM = 4;
+
+function buildSampleGrid(): GridCell[] {
+  const geoCells = buildRankGridGeoCells(
+    SAMPLE_CENTER.lat,
+    SAMPLE_CENTER.lng,
+    SAMPLE_RADIUS_KM,
+  );
+  // Representative rank pattern: strong in the centre, fading at the edges.
+  const ranks = [
+    8, 6, 5, 7, 11,
+    5, 3, 2, 4, 8,
+    4, 2, 1, 3, 6,
+    6, 3, 2, 5, 9,
+    10, 7, 5, 8, 13,
+  ];
+  const deltas: Record<number, number> = { 7: 2, 12: 3, 11: -1, 18: 1 };
+  return geoCells.map((g, i) => ({
+    row: g.row,
+    col: g.col,
+    rank: ranks[i] ?? null,
+    delta7d: deltas[i] ?? null,
+    lat: g.lat,
+    lng: g.lng,
+  }));
 }
 
 const EMPTY_RESPONSE = {
   previewMode: true,
   kpis: {
-    avgRank: 0,
-    top3Coverage: 0,
-    citationHealth: { found: 0, missing: 0, inconsistent: 0, grade: "F" },
-    gbpHealth: 0,
+    avgRank: 5.3,
+    top3Coverage: 28,
+    citationHealth: { found: 18, missing: 4, inconsistent: 3, grade: "B" },
+    gbpHealth: 72,
   },
-  grid: [],
-  gbpTrend14d: [],
+  grid: buildSampleGrid(),
+  geo: {
+    centerLat: SAMPLE_CENTER.lat,
+    centerLng: SAMPLE_CENTER.lng,
+    radiusKm: SAMPLE_RADIUS_KM,
+  } satisfies GridGeo,
+  gbpTrend14d: [60, 62, 61, 64, 66, 65, 68, 70, 69, 71, 70, 72, 71, 72],
 };
 
 /**
@@ -208,9 +272,41 @@ export async function computeMapguardDashboardKpis(
     .orderBy(desc(mapguardSnapshots.captured_at))
     .limit(1);
 
-  const grid = latest
+  let grid = latest
     ? buildGrid(latest.keywords_data, previous?.keywords_data)
     : [];
+
+  // Geo-project the grid onto the client's real service area so the portal can
+  // render the actual Google static map + located pins (not abstract boxes).
+  // Source of truth: the client's service-area-map config (centre + radius),
+  // the same honest coordinates the public free tools use. If the client has
+  // no centre on file we return geo:null and the portal shows its onboarding
+  // empty state ("we'll show your live rank grid once your location is set")
+  // rather than faking a map.
+  let geo: GridGeo | null = null;
+  const [areaConfig] = await db
+    .select({
+      center_lat: serviceAreaMapConfigs.center_lat,
+      center_lng: serviceAreaMapConfigs.center_lng,
+      radius_value: serviceAreaMapConfigs.radius_value,
+      radius_unit: serviceAreaMapConfigs.radius_unit,
+    })
+    .from(serviceAreaMapConfigs)
+    .where(eq(serviceAreaMapConfigs.client_id, clientId))
+    .limit(1);
+
+  const centerLat = areaConfig?.center_lat != null ? Number(areaConfig.center_lat) : NaN;
+  const centerLng = areaConfig?.center_lng != null ? Number(areaConfig.center_lng) : NaN;
+  if (Number.isFinite(centerLat) && Number.isFinite(centerLng)) {
+    const radiusKm = radiusToKm(areaConfig?.radius_value, areaConfig?.radius_unit);
+    geo = { centerLat, centerLng, radiusKm };
+    const geoCells = buildRankGridGeoCells(centerLat, centerLng, radiusKm);
+    const coordOf = new Map(geoCells.map((g) => [`${g.row}:${g.col}`, g]));
+    grid = grid.map((cell) => {
+      const g = coordOf.get(`${cell.row}:${cell.col}`);
+      return g ? { ...cell, lat: g.lat, lng: g.lng } : cell;
+    });
+  }
 
   const avgRank = computeAvgRank(grid);
   const top3Coverage = computeTop3Coverage(grid);
@@ -297,6 +393,7 @@ export async function computeMapguardDashboardKpis(
       gbpHealth,
     },
     grid,
+    geo,
     gbpTrend14d,
   };
 }
