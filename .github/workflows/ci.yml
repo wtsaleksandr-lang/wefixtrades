@@ -45,6 +45,8 @@ jobs:
         run: npm run check:funnel-analytics
       - name: SERP-country guard (location string derives the country index)
         run: npm run check:serp-country
+      - name: Reviews-providers guard (DataForSEO-primary review chain maps the real DFS/Places shapes + falls through gracefully, never Outscraper-dependent)
+        run: npm run check:reviews-providers
       - name: Audit-scoring guard (no false slow-website; blocked-fetch excludes website from denominator not zero-scores it; htmlChecks capped at 8)
         run: npm run check:audit-scoring
       - name: Revenue-loss guard (honest per-business loss — real demand-gap or avg-ticket floor; isReal:false instead of a fake placeholder when zero)
