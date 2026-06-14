@@ -289,6 +289,23 @@ export async function assistantStream(req: AssistantRequest): Promise<AssistantS
 
 /* ─── Synchronous response (for REST, Vapi sync, webhooks, etc) ─── */
 export async function assistantSync(req: AssistantRequest): Promise<AssistantSyncResult> {
+  // GUARD (P0 regression fence): assistantSync runs a SINGLE chat() completion
+  // and forwards NO tools — chat() returns a plain string and never executes a
+  // tool loop. A caller that passes `req.tools` here expects tool actuation it
+  // will NOT get (this is exactly how TradeLine voice bookings silently never
+  // fired). Fail loudly so the mistake surfaces in dev/CI instead of becoming a
+  // silent "the AI said it booked but nothing happened" production bug. Tool-
+  // capable callers must use assistantAgentLoop / assistantStream instead.
+  if (req.tools?.length) {
+    log.error("[assistant] assistantSync called with tools — they will NOT fire; use assistantAgentLoop", {
+      surface: req.surface,
+      toolCount: req.tools.length,
+    });
+    throw new Error(
+      "assistantSync does not execute tools — route tool-capable turns through assistantAgentLoop or assistantStream.",
+    );
+  }
+
   const { systemPrompt, chatMessages } = await buildContext(req);
   const startMs = Date.now();
 

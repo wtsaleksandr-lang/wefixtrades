@@ -17,9 +17,11 @@
  * This layer converts relevant events into shared assistant calls.
  */
 
-import { assistantSync, isReady } from "./assistant";
-import type { AssistantRequest } from "./assistant";
+import { assistantSync, assistantAgentLoop, isReady } from "./assistant";
+import type { AssistantRequest, AssistantAgentLoopOptions } from "./assistant";
+import type { AgentLoopResult } from "./aiAgentLoop";
 import { chat, type ChatMessage } from "./aiService";
+import { BOOKING_TOOLS, executeCheckAvailability, executeCreateBooking } from "./bookingTools";
 import { CLAUDE_SONNET } from "./aiModels";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { summarizeBusinessHours } from "./clientKnowledge";
@@ -610,7 +612,10 @@ async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLine
   return { clientService: cs, client, config };
 }
 
-export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeLineContext {
+export function buildTradeLineContext(
+  resolved: ResolvedTradeLineClient,
+  callerNumber?: string | null,
+): TradeLineContext {
   // Real service area + business hours from the client's stored record so the
   // receptionist can answer "do you serve X?" and "are you open now?" directly,
   // instead of the previously-hardcoded `serviceArea: undefined`.
@@ -639,6 +644,9 @@ export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeL
     channels: resolved.config.channels,
     booking: resolved.config.booking,
     phoneRouting: resolved.config.phoneRouting,
+    // LITERAL inbound caller-ID, threaded so the prompt confirms the real digits
+    // and the booking executor defaults the callback number to it.
+    callerNumber: callerNumber?.trim() || null,
   };
 }
 
@@ -654,8 +662,9 @@ export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeL
  */
 export async function buildTradeLineContextWithKnowledge(
   resolved: ResolvedTradeLineClient,
+  callerNumber?: string | null,
 ): Promise<TradeLineContext> {
-  const base = buildTradeLineContext(resolved);
+  const base = buildTradeLineContext(resolved, callerNumber);
   try {
     const { db } = await import("../db");
     const {
@@ -761,11 +770,57 @@ async function loadTradeLineOnboardingPatch(clientServiceId: number): Promise<AI
   }
 }
 
+/**
+ * Resolve the calculator that backs a TradeLine client's booking calendar.
+ *
+ * Mirrors the (custom-llm-dead) webhook `function-call` handler's resolution:
+ * the client's first calculator carries the booking_settings + slot calendar
+ * the booking executors read/write. Returns null when the client has no
+ * calculator (booking can't fire — the prompt then degrades to take-a-message).
+ */
+async function resolveBookingCalculatorId(
+  resolved: ResolvedTradeLineClient,
+): Promise<number | null> {
+  try {
+    const calcs = await storage.getCalculatorsByUserId(resolved.client.user_id ?? 0);
+    return calcs[0]?.id ?? null;
+  } catch (err) {
+    log.warn("Failed to resolve booking calculator for TradeLine voice turn", {
+      clientId: resolved.client.id,
+      error: (err as Error).message,
+    });
+    return null;
+  }
+}
+
+/**
+ * Injectable seam for handleTradeLineConversationTurn.
+ *
+ * Production binds the real assistantAgentLoop + assistantSync. The booking
+ * test injects deterministic, DB-free stand-ins (a stubbed model that emits a
+ * create_booking tool call running the REAL executor) so it can prove the tool
+ * path actually fires — the exact failure mode that was previously invisible.
+ */
+export interface TradeLineTurnDeps {
+  runAgentLoop?: (
+    req: AssistantRequest,
+    opts: AssistantAgentLoopOptions,
+  ) => Promise<AgentLoopResult>;
+  runSync?: (req: AssistantRequest) => Promise<{ reply: string }>;
+  /** Override the booking-calculator resolution (test injects a fixed id). */
+  resolveCalculatorId?: (resolved: ResolvedTradeLineClient) => Promise<number | null>;
+  /** Override the booking executors (test asserts these are REACHED). */
+  checkAvailability?: typeof executeCheckAvailability;
+  createBooking?: typeof executeCreateBooking;
+}
+
 export async function handleTradeLineConversationTurn(
   messages: VapiTranscriptMessage[],
   callId: string,
   tradeLineCtx: TradeLineContext,
   clientServiceId?: number,
+  resolved?: ResolvedTradeLineClient,
+  deps: TradeLineTurnDeps = {},
 ): Promise<string> {
   const chatMessages = translateTranscript(messages);
   if (!chatMessages.length) {
@@ -773,6 +828,12 @@ export async function handleTradeLineConversationTurn(
       ? `Hi, thanks for calling ${tradeLineCtx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
       : `Hi, thanks for calling ${tradeLineCtx.businessName}! How can I help you today?`;
   }
+
+  const runAgentLoop = deps.runAgentLoop ?? assistantAgentLoop;
+  const runSync = deps.runSync ?? assistantSync;
+  const checkAvailability = deps.checkAvailability ?? executeCheckAvailability;
+  const createBooking = deps.createBooking ?? executeCreateBooking;
+  const resolveCalcId = deps.resolveCalculatorId ?? resolveBookingCalculatorId;
 
   try {
     const onboardingPatch = clientServiceId
@@ -787,19 +848,90 @@ export async function handleTradeLineConversationTurn(
       undefined,
       onboardingPatch,
     );
-    const req: AssistantRequest = {
+
+    // Scoped to the TradeLine voice path only: Sonnet brain + a larger answer
+    // budget so receptionist replies aren't clipped mid-sentence. Brevity is
+    // still enforced by the prompt's VOICE RULES. The widget chat path sets
+    // neither and stays on Haiku (client-chat-access guard).
+    const baseReq: AssistantRequest = {
       surface: "vapi",
       messages: chatMessages,
       sessionId: `vapi-${callId}`,
-      // Scoped to the TradeLine voice path only: Sonnet brain + a larger answer
-      // budget so receptionist replies aren't clipped mid-sentence. Brevity is
-      // still enforced by the prompt's VOICE RULES. The widget chat path sets
-      // neither and stays on Haiku (client-chat-access guard).
       model: TRADELINE_VOICE_MODEL,
       maxTokens: TRADELINE_VOICE_MAX_TOKENS,
       systemOverride: systemPrompt,
     };
-    const result = await assistantSync(req);
+
+    // ── Booking actuation (P0 fix) ──
+    // The single-call assistantSync path forwards NO tools, so checkAvailability
+    // / createBooking could NEVER fire on a voice call — the AI would say
+    // "you're booked" and nothing was persisted. When this client has booking
+    // enabled AND a backing calculator, route the turn through the tool-capable
+    // agent loop with the booking executors wired in. The loop short-circuits to
+    // a single completion when the model calls no tool (no extra round-trips on
+    // "what are your hours?" turns), so voice latency for non-booking turns is
+    // unchanged. Businesses without booking (or without a calculator) keep the
+    // lean single-call path.
+    const bookingCalcId =
+      tradeLineCtx.booking?.enabled && resolved
+        ? await resolveCalcId(resolved)
+        : null;
+
+    if (bookingCalcId != null) {
+      const callerNumber = tradeLineCtx.callerNumber ?? undefined;
+      const toolExecutors = {
+        // Anthropic tool names (BOOKING_TOOLS) — check_availability / create_booking.
+        check_availability: async (args: Record<string, unknown>) => {
+          const r = await checkAvailability(bookingCalcId, args);
+          // Return the executor's real status object so the loop's
+          // isFailureResult() guard can flag a soft-fail as is_error — the model
+          // then can't read a failed lookup as success. The narrative carries the
+          // caller-facing text.
+          return { ok: r.success, narrative: r.narrative, ...r.data };
+        },
+        create_booking: async (args: Record<string, unknown>) => {
+          // Default the callback number to the literal caller ID when the model
+          // didn't capture one — so a booking always carries a reachable number.
+          const withPhone = { ...args };
+          if (!withPhone.customer_phone && callerNumber) {
+            withPhone.customer_phone = callerNumber;
+          }
+          const r = await createBooking(bookingCalcId, withPhone);
+          return { ok: r.success, narrative: r.narrative, ...r.data };
+        },
+      };
+
+      const result = await runAgentLoop(
+        { ...baseReq, tools: BOOKING_TOOLS as any },
+        {
+          toolExecutors,
+          // The booking tools are NOT registered in copilotActionRegistry, so the
+          // loop treats them as auto-tier and executes inline (no confirm-card
+          // short-circuit) — exactly what a live voice turn needs.
+          actionSurface: "customer-widget",
+          maxSteps: 4,
+          // Generous per-turn ceiling; a booking turn is at most
+          // availability → confirm → book.
+          costCapCents: 25,
+        },
+      );
+
+      if (result.reply && result.reply.trim()) {
+        return result.reply;
+      }
+      // The loop produced no text (gate block, cost cap, executor missing, or a
+      // provider error). Fall back to a safe take-a-message reply rather than
+      // returning an empty string to the caller.
+      log.warn("TradeLine booking-capable turn returned no text — using fallback", {
+        callId,
+        status: result.status,
+      });
+      const name = tradeLineCtx.businessName || "us";
+      return `I want to make sure I get this right — let me take your name and number and the team at ${name} will lock in your appointment and call you straight back.`;
+    }
+
+    // Non-booking turn: the lean single-call path (no tools needed).
+    const result = await runSync(baseReq);
     return result.reply;
   } catch (err: any) {
     log.error("TradeLine conversation turn failed, returning fallback", { callId, error: err.message });
