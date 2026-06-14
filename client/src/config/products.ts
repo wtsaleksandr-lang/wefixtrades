@@ -221,7 +221,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Automated website health monitoring, uptime checks, security scanning, and CMS patch management. Built for trades businesses. No contracts.",
     category: "growth",
     heroVisualType: "dashboard",
-    primaryCTA: { label: "Get Started", href: "/wizard" },
+    primaryCTA: { label: "Get Started", href: "#pricing" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
@@ -392,7 +392,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need to do anything after setup?", a: "Almost nothing. Review requests go out automatically after every job. You can also send them manually or hand customers a QR code. AI drafts responses for you. Reports arrive in your inbox." },
       { q: "What is the \u201cshield\u201d?", a: "When a customer has a bad experience, they see a private feedback form instead of being sent to Google. You get the complaint and a chance to make it right \u2014 before it becomes a public 1-star review." },
       { q: "How do review requests get sent?", a: "By SMS or email, automatically after each completed job. SMS is the default because it gets 3\u20135x more responses. You can also generate QR codes for in-person collection." },
-      { q: "How do you respond to reviews?", a: "AI generates personalized, professional responses matching your business tone. Positive reviews are replied to automatically. Negative reviews get a carefully drafted response reviewed before posting." },
+      { q: "How do you respond to reviews?", a: "AI drafts a personalized, professional reply for every review — matching your business tone — ready for one-tap approval. Nothing is posted until you approve it. On Premium, you can post approved replies directly to Google in one click." },
       { q: "Can I respond to reviews from here?", a: "Yes. AI drafts a professional response based on the review text and your business type. On the Pro plan you can edit and copy it. On Premium, you can post it directly to Google with one click." },
       { q: "Will this help me get more reviews?", a: "Yes. Automated SMS and email requests after every job significantly increase the number of reviews you receive. We track which requests lead to reviews." },
       { q: "What if I get a bad review anyway?", a: "You\u2019ll get an instant email alert. AI drafts a calm, professional response. You can post it quickly \u2014 fast responses show future customers you care." },
@@ -456,7 +456,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Speed optimization, mobile responsiveness, SEO structure fixes, and security hardening — delivered in one focused sprint. Built for trades businesses. One-time fee, no subscription.",
     category: "core",
     heroVisualType: "website",
-    primaryCTA: { label: "Fix My Website", href: "/wizard" },
+    primaryCTA: { label: "Fix My Website", href: "#pricing" },
     secondaryCTA: { label: "See Pricing", href: "#pricing" },
     highlights: [
       "Page-speed audit + Core Web Vitals fixes by our specialists — faster load times mean fewer bounced visitors and better Google rankings.",
