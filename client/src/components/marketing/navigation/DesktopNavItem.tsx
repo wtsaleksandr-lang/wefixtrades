@@ -301,13 +301,13 @@ export function DesktopNavItem({
         >
           {label}
           <Plus
-            size={11}
-            strokeWidth={2}
+            size={12}
+            strokeWidth={2.5}
             style={{
               transition: "transform 0.22s ease, opacity 0.2s ease",
               transform: open ? "rotate(45deg)" : "rotate(0deg)",
-              opacity: 0.95,
-              color: mkt.accent,
+              opacity: 1,
+              color: mkt.accentOnDark,
             }}
           />
         </button>
