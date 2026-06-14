@@ -442,7 +442,7 @@ export default function QuoteCalculatorDemo() {
                       textDecoration: "none",
                     }}
                   >
-                    Try the builder <ArrowRight size={18} />
+                    Try the builder <ArrowRight size={16} />
                   </Link>
                 </div>
               )}
