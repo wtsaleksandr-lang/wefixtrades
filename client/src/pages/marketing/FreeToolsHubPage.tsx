@@ -49,6 +49,9 @@ const LOCAL_SEO_TOOLS: ToolEntry[] = [
   { name: "Local Rank Tracker", href: "/tools/local-rank-tracker", blurb: "Multi-engine rank snapshot (Google + Brave + Maps).", thumb: "/free-tools/previews/rank-tracker.png" },
   { name: "Local Rankflux", href: "/tools/local-rankflux", blurb: "Algorithm-update tracker for local search.", thumb: "/free-tools/previews/rankflux.png" },
   { name: "Local SERP Checker", href: "/tools/local-serp-checker", blurb: "Google + Maps SERP viewer, multi-country / language.", thumb: "/free-tools/previews/serp-checker.png" },
+  { name: "NAP Consistency Checker", href: "/tools/nap-checker", blurb: "Check your Name, Address & Phone across directories." },
+  { name: "GBP Post Generator", href: "/tools/gbp-post-generator", blurb: "AI-write ready-to-publish Google Business Profile posts." },
+  { name: "Review Response Generator", href: "/tools/review-response-generator", blurb: "AI replies to any customer review — gracious or de-escalating." },
 ];
 
 const AI_CONTENT_TOOLS: ToolEntry[] = [

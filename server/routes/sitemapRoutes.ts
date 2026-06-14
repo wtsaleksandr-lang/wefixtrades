@@ -151,6 +151,11 @@ const STATIC_ROUTES: StaticRoute[] = [
   // Free Tools Wave 2 — Local Rank Grid (single-shot 5x5 geo-grid scan).
   // Free lead magnet that funnels to MapGuard for continuous monitoring.
   { loc: "/tools/local-rank-grid", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Audit-flagged additions — NAP checker (citation-backend reuse) + two AI
+  // generators (GBP posts, review responses).
+  { loc: "/tools/nap-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
+  { loc: "/tools/gbp-post-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
+  { loc: "/tools/review-response-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
   // Citation Builder — paid one-time service ($79/$179/$299). Marketing
   // page only for now; Stripe checkout + submission backend ship in Wave 2.5.
   { loc: "/citation-builder", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },

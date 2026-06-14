@@ -103,6 +103,9 @@ const LocalRankTracker = lazy(() => import("@/pages/marketing/tools/LocalRankTra
 const CitationChecker = lazy(() => import("@/pages/marketing/tools/CitationChecker"));
 const LocalRankflux = lazy(() => import("@/pages/marketing/tools/LocalRankflux"));
 const LocalRankGrid = lazy(() => import("@/pages/marketing/tools/LocalRankGrid"));
+const GbpPostGenerator = lazy(() => import("@/pages/marketing/tools/GbpPostGenerator"));
+const ReviewResponseGenerator = lazy(() => import("@/pages/marketing/tools/ReviewResponseGenerator"));
+const NapChecker = lazy(() => import("@/pages/marketing/tools/NapChecker"));
 const CitationBuilderPage = lazy(() => import("@/pages/marketing/CitationBuilderPage"));
 
 // ── Compare / SEO landing pages ────────────────────────────────────────────
@@ -722,6 +725,11 @@ function Router() {
       <Route path="/tools/local-rankflux" component={LocalRankflux} />
       {/* Wave 2 SEO surfaces — Local Rank Grid (free) + Citation Builder (paid service). */}
       <Route path="/tools/local-rank-grid" component={LocalRankGrid} />
+      {/* Audit-flagged additions — AI GBP post + AI review-response generators,
+          and the NAP consistency checker (reuses the citation backend). */}
+      <Route path="/tools/gbp-post-generator" component={GbpPostGenerator} />
+      <Route path="/tools/review-response-generator" component={ReviewResponseGenerator} />
+      <Route path="/tools/nap-checker" component={NapChecker} />
       <Route path="/citation-builder" component={CitationBuilderPage} />
       <Route path="/citation-tracker" component={CitationTrackerPage} />
       {/* ContentFlow Phase 1 — public prompt-library SEO landings.
