@@ -238,6 +238,7 @@ export const SERVICES: Service[] = [
     billingPeriod: "monthly",
     category: "leads",
     fixesIssues: [
+      "no-ads",
       "low-visibility",
       "low-demand-coverage",
     ],

@@ -1039,11 +1039,6 @@ const SPECIFIC_SERVICE_MAP: Record<string, string> = {
   cleaning: "house cleaning", landscaping: "lawn care", roofing: "roof repair",
   locksmith: "locksmith", general: "home renovation",
 };
-const JOB_VALUES: Record<string, number> = {
-  plumbing: 280, hvac: 420, electrical: 310, cleaning: 160,
-  landscaping: 200, roofing: 8500, locksmith: 180, general: 350,
-};
-
 function buildSeedKeywords(trade: string, city: string): string[] {
   const specific = SPECIFIC_SERVICE_MAP[trade.toLowerCase()] || trade;
   return [
@@ -1398,7 +1393,11 @@ async function calculateDemandGaps(
   const clickRate = 0.05;
   const conversionRate = 0.15;
   const monthlyLeads = effectiveVolume * clickRate * conversionRate;
-  const jobValue = JOB_VALUES[trade.toLowerCase()] || 350;
+  // Fix 3 — single source of truth: the demand-gap revenue figure now reads the
+  // canonical @shared TRADE_AVG_TICKET map (via avgTicketForTrade) instead of the
+  // old local 8-trade JOB_VALUES copy, so the measured-loss path and the floor
+  // path (computeRevenueLoss) agree on the same per-trade dollar value.
+  const jobValue = avgTicketForTrade(trade);
 
   const gaps: any[] = [];
   if (!isOpenEvenings) {
@@ -2367,7 +2366,13 @@ function getTradeContext(trade: string, city: string): {
       urgencyKeywords: ["handyman", "repairs", "home services"],
     },
   };
-  return contexts[trade] || contexts.general;
+  // Fix 3 — keep the qualitative trade context (keyServices/seasonal/urgency)
+  // here, but source avgJobValue from the canonical @shared TRADE_AVG_TICKET map
+  // so the AI prompt quotes the SAME per-trade dollar figure the revenue-loss
+  // calc uses. The literal avgJobValue numbers above are retained only as the
+  // object shape's default and are overridden below.
+  const ctx = contexts[trade] || contexts.general;
+  return { ...ctx, avgJobValue: avgTicketForTrade(trade) };
 }
 
 /* ═══════════════════════════════════════════════════════ */
@@ -2787,6 +2792,27 @@ router.post("/generate", async (req: Request, res: Response) => {
     if ((auditData.scores?.competitorPositioning?.score || 0) < 8) detectedIssues.push("not-in-maps-pack");
     if ((auditData.scores?.demandCoverage?.score || 0) < 8) detectedIssues.push("no-after-hours");
     if ((auditData.scores?.adOpportunity?.score || 0) < 5) detectedIssues.push("no-ads");
+    // no-quote-tool: the business HAS a website we actually fetched
+    // (websiteQualityChecks is non-null only when fetchOk was true — fabricated
+    // zeros are excluded upstream), but the page has neither an instant-quote
+    // tool nor a booking/quote form. Honest discipline: never assert this off a
+    // blocked/unreachable site, since "no widget detected" there would be a false
+    // negative on missing data. Maps to QuoteQuick.
+    const websiteChecks = auditData.websiteQualityChecks;
+    if (auditData.business?.website && websiteChecks &&
+        !websiteChecks.hasInstantQuoteTool && !websiteChecks.hasBookingForm) {
+      detectedIssues.push("no-quote-tool");
+    }
+    // low-search-ranking: keywords were actually tested AND the business has weak
+    // keyword coverage (ranking for few of its relevant terms) AND it isn't
+    // already carried by the local pack. Distinct from low-visibility (which
+    // requires no-pack AND majority-not-visible); this is the SEO/keyword-rank
+    // signal that routes to the local-SEO / demand-gen service. Only emitted when
+    // we have real rank data — never fabricated on an empty keyword set.
+    const kwCoverage = auditData.scores?.keywordCoverage;
+    if (kwCoverage && (kwCoverage.tested || 0) > 0 && kwCoverage.level === "weak" && !anyLocalPack) {
+      detectedIssues.push("low-search-ranking");
+    }
     // slow-website can ONLY be asserted once PageSpeed has actually measured the
     // site AND it scored poorly. At this point in /generate, speed runs in the
     // background (/speed job) so resolvedSpeedData is always {mobile:null}, which
@@ -2888,8 +2914,8 @@ WRITING RULES:
 ${serviceCatalogBlock}
 
 ROI FRAMING RULE:
-Job values by trade: plumbing $280, hvac $420, electrical $310, cleaning $160, landscaping $200, roofing $8500, locksmith $180, general $350.
-For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $[jobValue], you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / jobValue).)
+Use $${tradeCtx.avgJobValue} as the average ${trade} job value for ALL ROI math (this is the single canonical per-trade figure — do not substitute any other number).
+For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $${tradeCtx.avgJobValue}, you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / ${tradeCtx.avgJobValue}).)
 
 WEBSITE SPEED RULE:
 If website speed mobile score is below 70 (or unavailable), include in the relevant action plan item: "Every 1-second delay reduces conversions by 7%. Fixing your mobile speed typically recovers 15–25% of visitors who currently leave before contacting you."
