@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Plus, Lock } from "lucide-react";
+import { Plus, ChevronDown, Lock } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
@@ -49,6 +49,21 @@ export function MobileNavItem({
     return () => window.removeEventListener("resize", handler);
   }, []);
 
+  // FIX (clipping): when a nested MobileSubgroup accordion expands, the parent
+  // content grows taller — but the parent maxHeight was measured once and would
+  // clip the newly-revealed sub-items. A ResizeObserver on the content element
+  // re-measures whenever nested content grows/shrinks, so the parent always
+  // unfolds to its full height and nothing is cut off.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setContentHeight(el.scrollHeight);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const handleCardTap =
     (ch: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
       e.preventDefault();
@@ -95,13 +110,13 @@ export function MobileNavItem({
           >
             {label}
             <Plus
-              size={13}
-              strokeWidth={2}
+              size={14}
+              strokeWidth={2.5}
               style={{
                 transition: "transform 0.22s ease, opacity 0.2s ease",
                 transform: expanded ? "rotate(45deg)" : "rotate(0deg)",
-                color: mkt.accent,
-                opacity: 0.95,
+                color: mkt.accentOnDark,
+                opacity: 1,
               }}
             />
           </button>
@@ -306,13 +321,14 @@ function MobileSubgroup({
         }}
       >
         {group.heading}
-        <Plus
-          size={12}
-          strokeWidth={2}
+        <ChevronDown
+          size={15}
+          strokeWidth={2.25}
           style={{
             transition: "transform 0.22s ease",
-            transform: open ? "rotate(45deg)" : "rotate(0deg)",
-            color: mkt.accent,
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            color: mkt.accentOnDark,
+            flexShrink: 0,
           }}
         />
       </button>
