@@ -53,6 +53,7 @@ interface SpecialDay { date: string; closed?: boolean; opens?: string; closes?: 
 interface HoursResponse {
   hours: HoursMap | null;
   special: SpecialDay[];
+  variant: "badge" | "table" | "both";
   widgetToken: string;
 }
 
@@ -100,6 +101,7 @@ export default function HoursWidget() {
     if (!data) return;
     if (data.hours && Object.keys(data.hours).length) setHours({ ...DEFAULT_HOURS, ...data.hours });
     if (Array.isArray(data.special)) setSpecial(data.special);
+    if (data.variant === "badge" || data.variant === "table" || data.variant === "both") setVariant(data.variant);
   }, [data]);
 
   useCopilotForm({
@@ -120,7 +122,7 @@ export default function HoursWidget() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hours, special }),
+        body: JSON.stringify({ hours, special, variant }),
       });
       if (!r.ok) throw new Error("Save failed");
     },

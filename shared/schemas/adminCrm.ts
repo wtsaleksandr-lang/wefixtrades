@@ -126,6 +126,9 @@ export const clients = pgTable("clients", {
   // special_hours: array of { date:"YYYY-MM-DD", closed?:true, opens?, closes? }
   business_hours: jsonb("business_hours"),
   special_hours: jsonb("special_hours"),
+  // Hours widget display variant: "badge" | "table" | "both". Persisted so the
+  // portal picker round-trips and the embed snippet's data-variant matches.
+  hours_variant: text("hours_variant").notNull().default("both"),
   // 0042 — invoice template preference + accent. New invoices auto-apply
   // these unless the user overrides them per-invoice. Accent flows through
   // to both the live React preview and the PDFKit renderer.
