@@ -20,7 +20,9 @@
 import { assistantSync, isReady } from "./assistant";
 import type { AssistantRequest } from "./assistant";
 import { chat, type ChatMessage } from "./aiService";
+import { CLAUDE_SONNET } from "./aiModels";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
+import { summarizeBusinessHours } from "./clientKnowledge";
 import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client, TradelineLeadData } from "@shared/schema";
 import { VAPI_BOOKING_FUNCTIONS } from "./bookingTools";
@@ -55,6 +57,23 @@ import crypto from "crypto";
  * string` provisioning failure (see Wave 12D fix). */
 export const VAPI_BRAND_MODEL = "wefixtrades-brand-v1" as const;
 export const VAPI_TRADELINE_MODEL = "wefixtrades-tradeline-v1" as const;
+
+/* ─── TradeLine live-conversation brain ───
+ * The LLM model + answer budget for the per-client TradeLine VOICE turn
+ * (handleTradeLineConversationTurn). These are scoped to the TradeLine path
+ * ONLY — passed on that AssistantRequest, never the global aiService default —
+ * so the website widget chat (which sets no model and stays on CLAUDE_HAIKU per
+ * the client-chat-access guard) is unaffected.
+ *
+ * - Model: Sonnet, not Haiku. A receptionist call wants the nuance Sonnet gives
+ *   (triage, objection handling, multi-part questions). Env override allowed.
+ * - maxTokens: raised from the old 150 hard cap (which clipped natural
+ *   receptionist answers mid-sentence) to a budget that lets a complete answer
+ *   land. Brevity is still enforced by the VOICE RULES in the prompt (1–3
+ *   sentences); this only stops the hard mid-sentence truncation. */
+export const TRADELINE_VOICE_MODEL =
+  process.env.TRADELINE_VOICE_MODEL || CLAUDE_SONNET;
+export const TRADELINE_VOICE_MAX_TOKENS = 280;
 
 /* ─── Wave 12D — Zod schema for the Vapi assistant create/update payload ───
  *
@@ -592,10 +611,30 @@ async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLine
 }
 
 export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeLineContext {
+  // Real service area + business hours from the client's stored record so the
+  // receptionist can answer "do you serve X?" and "are you open now?" directly,
+  // instead of the previously-hardcoded `serviceArea: undefined`.
+  //
+  // - business_hours lives on the clients row (jsonb) — summarized to the same
+  //   structured line the chat widget uses (shared summarizeBusinessHours).
+  // - serviceArea has no dedicated clients column; when the onboarding/profile
+  //   stored it on clients.metadata it's read here, else omitted gracefully (the
+  //   auto-assembled BUSINESS DATA block still carries the calculator profile's
+  //   service area). No "undefined" is ever injected into the prompt.
+  const meta = resolved.client.metadata as Record<string, unknown> | null | undefined;
+  const metaServiceArea =
+    meta && typeof meta.serviceArea === "string" && meta.serviceArea.trim()
+      ? meta.serviceArea.trim()
+      : meta && typeof meta.service_area === "string" && meta.service_area.trim()
+        ? meta.service_area.trim()
+        : undefined;
+  const businessHours = summarizeBusinessHours(resolved.client.business_hours) ?? undefined;
+
   return {
     businessName: resolved.client.business_name,
     tradeType: resolved.client.trade_type ?? undefined,
-    serviceArea: undefined,
+    serviceArea: metaServiceArea,
+    businessHours,
     mode: resolved.config.currentMode,
     channels: resolved.config.channels,
     booking: resolved.config.booking,
@@ -748,7 +787,18 @@ export async function handleTradeLineConversationTurn(
       undefined,
       onboardingPatch,
     );
-    const req: AssistantRequest = { surface: "vapi", messages: chatMessages, sessionId: `vapi-${callId}`, maxTokens: 150, systemOverride: systemPrompt };
+    const req: AssistantRequest = {
+      surface: "vapi",
+      messages: chatMessages,
+      sessionId: `vapi-${callId}`,
+      // Scoped to the TradeLine voice path only: Sonnet brain + a larger answer
+      // budget so receptionist replies aren't clipped mid-sentence. Brevity is
+      // still enforced by the prompt's VOICE RULES. The widget chat path sets
+      // neither and stays on Haiku (client-chat-access guard).
+      model: TRADELINE_VOICE_MODEL,
+      maxTokens: TRADELINE_VOICE_MAX_TOKENS,
+      systemOverride: systemPrompt,
+    };
     const result = await assistantSync(req);
     return result.reply;
   } catch (err: any) {
