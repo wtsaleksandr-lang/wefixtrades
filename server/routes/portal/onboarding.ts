@@ -103,6 +103,25 @@ async function applyOnboardingSubmit(
             log.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
           );
         });
+
+        // Day-one knowledge: seed per-trade starter FAQs + persist the owner's
+        // onboarding answers as customer-tier KB rows so the assistant can
+        // answer the universal first-call questions the moment it goes live.
+        // Idempotent (deterministic ids) and best-effort — a seeding failure
+        // must never block activation. Rows reach the prompt via the existing
+        // clientKnowledge customer-audience load path.
+        const seedClient = await storage.getClientById(clientId);
+        import("../../services/tradelineSetup/kbSeeding").then(({ seedTradelineKnowledge }) => {
+          seedTradelineKnowledge({
+            clientId,
+            businessName: seedClient?.business_name ?? null,
+            tradeType: seedClient?.trade_type ?? null,
+            responses,
+            businessHours: seedClient?.business_hours ?? null,
+          }).catch(err =>
+            log.warn(`[tradeline] KB seeding failed for client #${clientId}:`, err?.message ?? String(err)),
+          );
+        });
       }
 
       if (cs && cs.service_id.startsWith("socialsync")) {
