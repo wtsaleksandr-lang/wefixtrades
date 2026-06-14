@@ -147,6 +147,10 @@ const STATIC_ROUTES = [
   // Wave 2 — Local Rank Grid (free) + Citation Builder (paid service).
   // Both need hydrated head tags for non-JS crawlers (Bing, LLMs).
   "/tools/local-rank-grid",
+  // Audit-flagged additions — NAP checker + two AI generators.
+  "/tools/nap-checker",
+  "/tools/gbp-post-generator",
+  "/tools/review-response-generator",
   "/citation-builder",
   // Nav/SEO hygiene — header + footer link these live pages (MapGuard Suite,
   // the Free Tools hub, the Rank Tracker tool, the Citation Tracker), but they

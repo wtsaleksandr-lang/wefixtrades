@@ -40,8 +40,45 @@ import { queueEmail } from "../services/emailQueueService";
 import { storage } from "../storage";
 import { searchSerp } from "../lib/serpOrchestrator";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
+import { chat, NoAIProviderError, validateConfig } from "../services/aiService";
 
 const log = createLogger("free-tools");
+
+/* ─── AI generation config (shared by the GBP + review-response tools) ────
+ *
+ * Both AI tools route through the canonical multi-provider engine (chat()):
+ * Anthropic primary, auto-failover to OpenAI/Groq/Together/Mistral/… on
+ * outage. We tag the call with the public `wft_marketing_chat` surface so
+ * spend is gated + logged on the same system surface the public marketing
+ * chat already uses (no new surface to seed). claude-haiku-4-5 is the
+ * cheapest text model — these are short, anonymous lead-magnet generations.
+ */
+const TOOL_AI_MODEL = "claude-haiku-4-5-20251001";
+const TOOL_AI_SURFACE = "wft_marketing_chat";
+
+/** Tolerant extraction of a string[] from a model's JSON-ish text output. */
+function parseStringArray(text: string, key: string): string[] {
+  let raw: unknown = null;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    const m = /\{[\s\S]*\}/.exec(text);
+    if (m) {
+      try {
+        raw = JSON.parse(m[0]);
+      } catch {
+        /* fall through — returns [] below */
+      }
+    }
+  }
+  const arr = (raw as Record<string, unknown> | null)?.[key];
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((r): r is string => typeof r === "string")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
 
 /* ─── Rate limiting (per-tool, in-memory) ─────────────────────────────── */
 
@@ -1290,6 +1327,305 @@ async function toolLeadHandler(req: Request, res: Response) {
   }
 }
 
+/* ─── 9. GBP Post Generator (AI) ──────────────────────────────────────────
+ *
+ * POST /api/tools/gbp-post-generator
+ *   body { businessName, trade, goal, details? }
+ *   → { ok, posts: string[] }   (2-3 ready-to-publish GBP post variants)
+ *
+ * Generates Google Business Profile post copy via the canonical AI engine.
+ * The prompt is constrained to honest, generic copy: NO invented prices,
+ * discounts, guarantees, or specific claims (the pricing-truth guard would
+ * otherwise catch fabricated "$X off" copy, and it would be dishonest on a
+ * public lead magnet anyway). GBP posts have a ~1,500-char limit; we ask the
+ * model to stay well under and lead with the key message.
+ */
+const GBP_GOALS: Record<string, string> = {
+  offer: "a promotional Offer post (highlight value without inventing a specific price, % discount, or dollar figure — keep it generic, e.g. 'seasonal savings', 'ask us about current offers')",
+  update: "a business Update post (news, a completed project type, a new service area, or a general announcement)",
+  event: "an Event post (an upcoming event, open day, or seasonal availability — do not invent a specific date unless given in the details)",
+  tip: "a helpful Tip post (a genuinely useful maintenance/safety tip for the customer that subtly positions the business as the expert)",
+};
+
+async function gbpPostGeneratorHandler(req: Request, res: Response) {
+  if (!rateOk("gbp-post", req, res)) return;
+  const businessName = strField(req.body?.businessName, 120);
+  const trade = strField(req.body?.trade, 80);
+  const goalKey = strField(req.body?.goal, 20).toLowerCase();
+  const details = strField(req.body?.details, 400);
+  if (!businessName || !trade) {
+    return res.status(400).json({ ok: false, error: "Business name and trade are required." });
+  }
+  const goalDesc = GBP_GOALS[goalKey] || GBP_GOALS.update;
+
+  const cfg = validateConfig();
+  if (!cfg.valid) {
+    return res.status(503).json({ ok: false, error: "The AI service is temporarily unavailable. Please try again in a moment." });
+  }
+
+  const system = [
+    `You write Google Business Profile (GBP) posts for a ${trade} business called "${businessName}".`,
+    "",
+    `Write 3 distinct, ready-to-publish GBP post variants — each is ${goalDesc}.`,
+    "Each post must:",
+    "- be 2-4 short sentences, comfortably under 1,300 characters, leading with the key message",
+    "- sound like a real local trade business owner — warm, plain-spoken, not corporate or salesy",
+    "- end with ONE soft call-to-action (e.g. 'Call us to book', 'Message us for a free quote', 'Tap to learn more') — do NOT invent a phone number, URL, or booking link",
+    "- NEVER invent prices, percentages, dollar amounts, discounts, guarantees, awards, certifications, or specific claims that weren't provided",
+    "- vary wording and angle across the 3 so they don't read as duplicates",
+    "- contain no markdown, no hashtags spam (at most 1-2 natural hashtags), no emojis-overload (0-1 tasteful emoji max)",
+    "",
+    details ? `Work in these details the owner provided (only facts from here may be stated as specific): "${details}"` : "No extra details were provided — keep claims generic and honest.",
+    "",
+    'Respond ONLY as JSON in exactly this shape: { "posts": ["<post 1>", "<post 2>", "<post 3>"] }. No prose outside the JSON.',
+  ].join("\n");
+
+  try {
+    const text = (
+      await chat({
+        system,
+        messages: [{ role: "user", content: `Generate the 3 GBP ${goalKey || "update"} posts now.` }],
+        maxTokens: 900,
+        modelOverride: TOOL_AI_MODEL,
+        surface: TOOL_AI_SURFACE,
+      })
+    ).trim();
+    const posts = parseStringArray(text, "posts");
+    if (posts.length === 0) {
+      return res.status(422).json({ ok: false, error: "Couldn't draft posts this time. Please try again." });
+    }
+    return res.json({ ok: true, posts });
+  } catch (err: any) {
+    if (err instanceof NoAIProviderError) {
+      log.error("[gbp-post] no AI provider available", { error: err?.message });
+      return res.status(503).json({ ok: false, error: "The AI service is temporarily unavailable. Please try again in a moment." });
+    }
+    log.warn("[gbp-post] generation failed", { error: err?.message || String(err) });
+    return res.status(502).json({ ok: false, error: "Couldn't reach the AI service. Please try again in a moment." });
+  }
+}
+
+/* ─── 10. Review-Response Generator (AI) ──────────────────────────────────
+ *
+ * POST /api/tools/review-response-generator
+ *   body { businessName, trade, rating (1-5), reviewText, tone? }
+ *   → { ok, replies: string[] }   (2-3 reply variants appropriate to rating)
+ *
+ * Mirrors the portal review-reply tool's prompt discipline (de-escalating
+ * for 1-2★, gracious for 5★, never defensive, never fabricates facts) but
+ * runs ANONYMOUSLY off the public free-tools surface (no auth / no per-user
+ * budget — gated by the shared marketing AI surface + the in-memory IP rate
+ * bucket like the other public tools).
+ */
+const REVIEW_TONES: Record<string, string> = {
+  warm: "Warm and friendly, like a local owner who genuinely cares. At most one tasteful emoji.",
+  professional: "Professional and courteous — polished, businesslike, warm but not casual. No emojis.",
+  apologetic: "Apologetic but composed — sincerely acknowledge the concern and take ownership, while staying calm and constructive. Do not grovel or admit legal fault. No emojis.",
+};
+
+async function reviewResponseHandler(req: Request, res: Response) {
+  if (!rateOk("review-response", req, res)) return;
+  const businessName = strField(req.body?.businessName, 120);
+  const trade = strField(req.body?.trade, 80);
+  const reviewText = strField(req.body?.reviewText, 4000);
+  const ratingRaw = Number(req.body?.rating);
+  const rating = Number.isFinite(ratingRaw) ? Math.min(5, Math.max(1, Math.round(ratingRaw))) : 0;
+  let toneKey = strField(req.body?.tone, 20).toLowerCase();
+  if (!businessName || !trade || !reviewText || !rating) {
+    return res.status(400).json({ ok: false, error: "Business name, trade, star rating, and the review text are all required." });
+  }
+  // For low-star reviews, default to the de-escalating apologetic tone unless
+  // the caller explicitly chose one.
+  if (!REVIEW_TONES[toneKey]) toneKey = rating <= 2 ? "apologetic" : "professional";
+
+  const cfg = validateConfig();
+  if (!cfg.valid) {
+    return res.status(503).json({ ok: false, error: "The AI service is temporarily unavailable. Please try again in a moment." });
+  }
+
+  const sentiment = rating >= 4 ? "positive" : rating === 3 ? "mixed" : "negative";
+  const system = [
+    `You help the owner of a ${trade} business ("${businessName}") write replies to a ${rating}-star (${sentiment}) customer review.`,
+    "",
+    "Write 3 short, distinct, on-brand reply options the owner can post as-is. Each reply must:",
+    "- be 2-4 sentences",
+    "- thank the customer and acknowledge their specific feedback",
+    rating <= 2
+      ? "- stay calm and NEVER defensive: take ownership where appropriate, apologize sincerely, and offer to make it right by inviting them to get in touch directly. Do not argue, blame the customer, or dispute facts."
+      : rating === 3
+        ? "- acknowledge both what went well and the concern, and invite them back to give you another chance"
+        : "- reinforce the good experience and warmly invite them back or to refer others",
+    "- sign off naturally as the business (do NOT invent a person's name)",
+    "- NEVER fabricate facts, discounts, refunds, names, or details not present in the review",
+    "- vary wording and structure across the 3 options",
+    "",
+    `Tone: ${REVIEW_TONES[toneKey]}`,
+    "",
+    'Respond ONLY as JSON in exactly this shape: { "replies": ["<reply 1>", "<reply 2>", "<reply 3>"] }. No prose outside the JSON.',
+  ].join("\n");
+
+  try {
+    const text = (
+      await chat({
+        system,
+        messages: [{ role: "user", content: `Here is the ${rating}-star review to reply to:\n\n"""${reviewText}"""` }],
+        maxTokens: 800,
+        modelOverride: TOOL_AI_MODEL,
+        surface: TOOL_AI_SURFACE,
+      })
+    ).trim();
+    const replies = parseStringArray(text, "replies");
+    if (replies.length === 0) {
+      return res.status(422).json({ ok: false, error: "Couldn't draft replies this time. Please try again." });
+    }
+    return res.json({ ok: true, replies });
+  } catch (err: any) {
+    if (err instanceof NoAIProviderError) {
+      log.error("[review-response] no AI provider available", { error: err?.message });
+      return res.status(503).json({ ok: false, error: "The AI service is temporarily unavailable. Please try again in a moment." });
+    }
+    log.warn("[review-response] generation failed", { error: err?.message || String(err) });
+    return res.status(502).json({ ok: false, error: "Couldn't reach the AI service. Please try again in a moment." });
+  }
+}
+
+/* ─── 11. NAP Consistency Checker ─────────────────────────────────────────
+ *
+ * POST /api/tools/nap-checker
+ *   body { businessName, address, phone, city? }
+ *   → { ok, results[], summary, topFixes[] }
+ *
+ * REUSES the citation backend (#1812): the same CITATION_SOURCES + the same
+ * `site:<domain>` SERP path + classifyCitationHit discipline. For each
+ * directory hit we compare the listing's snippet/title against the canonical
+ * NAP the user entered and flag genuine mismatches (phone digits differ, the
+ * business name appears in a variant form). We are HONEST about uncertainty:
+ * a host-only/unverified hit (couldn't confirm it's this business) is
+ * reported as "couldn't verify", NEVER a false mismatch. We only assert a
+ * mismatch when the listing is confirmed to be this business AND a NAP field
+ * provably differs.
+ */
+type NapFieldStatus = "match" | "mismatch" | "unknown";
+interface NapRowResult {
+  source: string;
+  label: string;
+  /** "listed" = confirmed this business; "unverified" = found a page but couldn't confirm; "missing"/"unable-to-check". */
+  listing: "listed" | "unverified" | "missing" | "unable-to-check";
+  url?: string;
+  name: NapFieldStatus;
+  phone: NapFieldStatus;
+  /** Human-readable note about the specific inconsistency, when any. */
+  note?: string;
+}
+
+async function napCheckerHandler(req: Request, res: Response) {
+  if (!rateOk("nap-checker", req, res)) return;
+  const businessName = strField(req.body?.businessName, 120);
+  const address = strField(req.body?.address, 200);
+  const phone = strField(req.body?.phone, 40);
+  const city = strField(req.body?.city, 80);
+  if (!businessName || !phone) {
+    return res.status(400).json({ ok: false, error: "Business name and phone number are required." });
+  }
+  const canonPhoneDigits = normPhoneDigits(phone);
+
+  const checks = CITATION_SOURCES.map(async (src): Promise<NapRowResult> => {
+    const q = [`site:${src.domain}`, `"${businessName}"`, city].filter(Boolean).join(" ");
+    try {
+      const result = await searchSerp({ query: q, country: "us", language: "en", num: 5 });
+      const { status, url } = classifyCitationHit(result.organic, src, businessName, city, phone);
+
+      if (status === "missing") {
+        return { source: src.source, label: src.label, listing: "missing", url, name: "unknown", phone: "unknown" };
+      }
+      if (status === "unable-to-check") {
+        return { source: src.source, label: src.label, listing: "unable-to-check", url, name: "unknown", phone: "unknown" };
+      }
+      // "unverified" → we found a page on the directory but couldn't confirm
+      // it's THIS business. Per #1812 discipline: do NOT assert a NAP mismatch
+      // on an unconfirmed hit — report it as "couldn't verify".
+      if (status === "unverified") {
+        return { source: src.source, label: src.label, listing: "unverified", url, name: "unknown", phone: "unknown" };
+      }
+
+      // status === "found" → confirmed this business. Now compare NAP fields
+      // against the matched result's text. We can only flag a field when we
+      // have positive evidence of a DIFFERENCE, never on absence.
+      const hostHit = result.organic.find((o) => o.link === url) || result.organic[0];
+      const haystack = `${hostHit?.title || ""} ${hostHit?.snippet || ""} ${hostHit?.link || ""}`;
+
+      // Name: classifyCitationHit confirmed via name OR phone. If the name
+      // token appears, it's a match; if it confirmed purely on phone digits
+      // and the name token is absent, the listing may use a name variant.
+      const nameAppears = looseIncludes(haystack, businessName);
+      const nameStatus: NapFieldStatus = nameAppears ? "match" : "unknown";
+
+      // Phone: only assert mismatch when the snippet contains a *different*
+      // 7+ digit phone number and NOT the canonical one. Absence → unknown.
+      const haystackDigits = normPhoneDigits(haystack);
+      let phoneStatus: NapFieldStatus = "unknown";
+      let note: string | undefined;
+      const phoneMatches = canonPhoneDigits.length >= 7 && haystackDigits.includes(canonPhoneDigits);
+      if (phoneMatches) {
+        phoneStatus = "match";
+      } else {
+        // Look for any 10-11 digit run in the snippet that ISN'T the canonical
+        // number — positive evidence of a different listed phone.
+        const phoneRuns = haystack.match(/(?:\+?\d[\s().-]?){10,}/g) || [];
+        const differing = phoneRuns
+          .map((p) => normPhoneDigits(p))
+          .find((d) => d.length >= 10 && !d.includes(canonPhoneDigits) && !canonPhoneDigits.includes(d));
+        if (differing) {
+          phoneStatus = "mismatch";
+          note = "Listing shows a different phone number than your canonical NAP.";
+        }
+      }
+
+      if (nameStatus === "unknown" && phoneStatus === "match") {
+        // Confirmed by phone but the visible name differs from what was typed
+        // → likely a name variation worth checking.
+        note = note || "Listing confirmed by phone, but your exact business name wasn't visible — check for a name variation.";
+      }
+
+      return { source: src.source, label: src.label, listing: "listed", url, name: nameStatus, phone: phoneStatus, note };
+    } catch {
+      return { source: src.source, label: src.label, listing: "unable-to-check", name: "unknown", phone: "unknown" };
+    }
+  });
+
+  const results = await Promise.all(checks);
+
+  const listed = results.filter((r) => r.listing === "listed");
+  const mismatches = listed.filter((r) => r.name === "mismatch" || r.phone === "mismatch" || (r.note && r.phone !== "match"));
+  // Consistency score: of the listings we could CONFIRM, what fraction had no
+  // detected mismatch. Honest denominator = confirmed listings only (we don't
+  // penalise for listings we couldn't verify).
+  const confirmedClean = listed.filter((r) => r.phone === "match" && r.name === "match").length;
+  const score = listed.length > 0 ? Math.round((confirmedClean / listed.length) * 100) : null;
+
+  const topFixes = mismatches
+    .map((r) => r.note ? `${r.label}: ${r.note}` : `${r.label}: review your Name / Phone for consistency.`)
+    .slice(0, 5);
+
+  return res.json({
+    ok: true,
+    businessName,
+    address: address || null,
+    phone,
+    city: city || null,
+    results,
+    summary: {
+      checked: results.length,
+      listed: listed.length,
+      unverified: results.filter((r) => r.listing === "unverified").length,
+      missing: results.filter((r) => r.listing === "missing").length,
+      mismatches: mismatches.length,
+      score,
+    },
+    topFixes,
+  });
+}
+
 /* ─── Router registration ─────────────────────────────────────────────── */
 
 export function registerFreeToolsRoutes(app: Express): void {
@@ -1303,4 +1639,9 @@ export function registerFreeToolsRoutes(app: Express): void {
   // Wave 6E + 6F — BrightLocal-parity SERP Checker + Rank Tracker.
   app.post("/api/tools/local-serp-check", localSerpCheckHandler);
   app.post("/api/tools/local-rank-tracker", localRankTrackerHandler);
+  // Wave — three audit-flagged tools: AI GBP post generator, AI review-
+  // response generator, NAP consistency checker (reuses the citation backend).
+  app.post("/api/tools/gbp-post-generator", gbpPostGeneratorHandler);
+  app.post("/api/tools/review-response-generator", reviewResponseHandler);
+  app.post("/api/tools/nap-checker", napCheckerHandler);
 }
