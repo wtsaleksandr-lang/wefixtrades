@@ -20,6 +20,7 @@
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import ToolFaq from "@/components/marketing/ToolFaq";
 import {
   FreeToolFormField,
   FreeToolFormSelect,
@@ -646,14 +647,7 @@ export default function LocalSerpChecker() {
         </p>
 
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)" }}>Frequently asked questions</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {FAQ_ITEMS.map((item, i) => (
-            <div key={i}>
-              <div style={{ fontWeight: 700, color: "rgb(17,24,39)", marginBottom: 4 }}>{item.question}</div>
-              <div style={{ color: "rgba(0,0,0,0.62)" }}>{item.answer}</div>
-            </div>
-          ))}
-        </div>
+        <ToolFaq items={FAQ_ITEMS} />
       </FreeToolLayout>
     </MarketingLayout>
   );
