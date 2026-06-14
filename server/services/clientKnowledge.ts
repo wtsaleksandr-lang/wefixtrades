@@ -444,7 +444,7 @@ export function summarizeBusinessProfile(profile: BusinessProfile | undefined): 
 
 /* ─── Hours / scheduling / deposit ───────────────────────────────────── */
 
-function summarizeBusinessHours(raw: unknown): string | null {
+export function summarizeBusinessHours(raw: unknown): string | null {
   if (!raw || typeof raw !== "object") return null;
   const hours = raw as Record<string, unknown>;
   const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;

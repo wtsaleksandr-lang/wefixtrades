@@ -156,6 +156,13 @@ export interface TradeLineContext {
   businessName: string;
   tradeType?: string;
   serviceArea?: string;
+  /**
+   * Pre-summarized business-hours line (e.g. "Business hours: Mon 8–5, …").
+   * Populated from the client's stored `business_hours` so the receptionist can
+   * answer "are you open now?" / "what are your hours?" from a clean structured
+   * line, not just buried in the assembled DATA block.
+   */
+  businessHours?: string;
   mode: TradelineConfig["currentMode"]; // "available" | "on_the_job" | "after_hours"
   channels: TradelineConfig["channels"];
   booking: TradelineConfig["booking"];
@@ -1066,6 +1073,15 @@ function buildTradeLinePrompt(ctx: TradeLineContext, onboardingPatch?: AIConfigP
   const safeServiceArea = ctx.serviceArea ? sanitizePromptData(ctx.serviceArea, 100) : "";
   parts.push(`You are the AI phone assistant for ${safeBusinessName}${safeTradeType ? `, a ${safeTradeType} business` : ""}${safeServiceArea ? ` serving ${safeServiceArea}` : ""}.`);
 
+  // Structured business-hours line (from the client's stored business_hours) so
+  // "are you open now?" / "what are your hours?" are answerable directly. Framed
+  // as DATA; the SAFETY_FLOOR below still overrides everything. Omitted cleanly
+  // when no hours are configured (never injects an empty/"undefined" line).
+  if (ctx.businessHours && ctx.businessHours.trim()) {
+    const safeHours = sanitizePromptData(ctx.businessHours, 300);
+    parts.push(`${safeHours}. If a caller asks whether you're open or what your hours are, answer from this; if they ask about a day not listed, treat it as closed unless the business knowledge below says otherwise.`);
+  }
+
   // W-AZ-3: onboarding-derived patch (owner setup answers). Rendered once here
   // and inserted AFTER the SAFETY_FLOOR below so this owner free-text can never
   // sit above the absolute emergency rules. Sanitized inside renderOnboardingPatch.
@@ -1212,6 +1228,16 @@ ESTIMATES: You MAY give typical price RANGES and lead-time estimates, and do bas
     }
     interleave.push(kbLines.join("\n"));
   }
+
+  // Callback-number capture + read-back. Mis-heard digits are the #1 cause of
+  // lost leads on a voice line, so the receptionist must confirm the number
+  // before ending — mirrors the brand-line (Riley) read-back pattern. When the
+  // call carries the caller's number via caller ID, the assistant already HAS
+  // it and should confirm rather than ask blindly.
+  interleave.push(`CALLBACK NUMBER (so the team can reach the caller):
+- If this call's caller-ID phone number is available to you, you ALREADY have their number — don't ask for it from scratch. Read it back digit by digit and ask "is this the best number to reach you?" Only ask them to provide one if no caller-ID number is available or they want to be reached on a different line.
+- Whenever you capture or confirm a callback number, repeat it back to the caller digit by digit (e.g. "five-five-five, one-two-three, four-five-six-seven") and get a clear yes before moving on. If they correct you, read the corrected number back again and confirm.
+- Never end the call having taken a number you haven't read back and confirmed.`);
 
   // audit/ai 2026-05-24 (R4 + R8): the "I'm an AI" rule used to be in
   // BRAND_VOICE-style copy AND here — consolidated to a single line in this
