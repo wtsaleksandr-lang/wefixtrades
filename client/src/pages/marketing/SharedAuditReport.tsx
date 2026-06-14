@@ -300,9 +300,19 @@ export default function SharedAuditReport() {
     : null;
   // The scoring engine returns the headline as `total`; older cached reports may
   // carry `overall`. Read total first so the hero ring/gauge/competitor bar show
-  // the real score instead of a constant 0.
-  const overall = scores?.total ?? scores?.overall ?? 0;
+  // the real score instead of a constant 0. Coerce with Number()||0 so a string
+  // or undefined never propagates NaN into the ring/gauge math (P5).
+  const overall = Number(scores?.total ?? scores?.overall) || 0;
   const grade = scores?.grade || "D";
+  // Revenue honesty — mirror ReportView exactly. The backend derives
+  // `estimatedRevenueLoss = {low, high, isReal, ...}`. isReal=true → show the
+  // business-specific $low–$high/mo band; isReal=false (low/high are 0) →
+  // positive-frame ("you're capturing demand well — defend it"), NEVER a fake
+  // loss. Gating on `high > 0` alone (the old behaviour) could contradict the
+  // interactive report on a forwarded copy.
+  const revLow = Number(revLoss?.low) || 0;
+  const revHigh = Number(revLoss?.high) || 0;
+  const revLossReal = revLoss?.isReal === true && (revLow > 0 || revHigh > 0);
   const maxVol = Math.max(...keywords.map((k: any) => k.monthlySearches || 0), 1);
 
   // Per-issue CTA target: the single best-matched WeFixTrades service for this
@@ -311,7 +321,14 @@ export default function SharedAuditReport() {
   // a forwarded report keeps the offer attached to every problem.
   const detectedIssues: string[] = Array.isArray(ad?.detectedIssues) ? ad.detectedIssues : [];
   const recommendedService = getServicesForIssues(detectedIssues)[0] || null;
-  const fixHref = recommendedService ? `/pricing#${recommendedService.id}` : "/pricing";
+  // P1 — make the CTA land on a REAL, preselected purchase instead of dumping
+  // the prospect at the top of /pricing. Deep-link to a query-driven checkout
+  // (`/pricing?service=<id>&checkout=1`) that PricingUnified reads on mount to
+  // auto-open the CheckoutModal with the matched service preselected — the same
+  // intent as the interactive ReportView's fixWithService → setCheckoutOpen.
+  const fixHref = recommendedService
+    ? `/pricing?service=${encodeURIComponent(recommendedService.id)}&checkout=1`
+    : "/pricing";
   const fixLabel = recommendedService ? `Fix with ${recommendedService.name}` : "We can fix this";
 
   // Only show nav links whose section actually renders for this report, so a
@@ -384,6 +401,12 @@ export default function SharedAuditReport() {
         title={reportTitle}
         description="A WeFixTrades local SEO audit covering Google Business Profile, website quality, search visibility, competitors, and revenue opportunity."
         noIndex
+        ogType="article"
+        // P4 — pasted/forwarded links unfurl with the score card. The backend
+        // renders a per-report OG image at this endpoint (auditRoutes.ts).
+        // PageMeta resolves the relative path to an absolute URL for og:image /
+        // twitter:image. noIndex keeps it out of search while still unfurling.
+        ogImage={id ? `/api/audit/report/${id}/og-image` : undefined}
       />
       {/* Sticky header — read-only shared view */}
       <div className={s.stickyHeader}>
@@ -514,8 +537,24 @@ export default function SharedAuditReport() {
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Email me this report</div>
             {emailState === "sent" ? (
-              <div data-testid="shared-email-sent" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Check size={16} /> Sent — check your inbox.
+              // P6 — confirm the send but allow emailing a SECOND address. The
+              // form used to be permanently replaced, so a forwarder couldn't
+              // send the report to another person on the same visit.
+              <div data-testid="shared-email-sent" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Check size={16} /> Sent — check your inbox.
+                </span>
+                <button
+                  data-testid="shared-email-again"
+                  onClick={() => { setEmailValue(""); setEmailErr(""); setEmailState("idle"); }}
+                  style={{
+                    background: "none", border: "none", padding: 0,
+                    color: mkt.accent, fontWeight: 600, fontSize: 13,
+                    cursor: "pointer", fontFamily: "inherit", textDecoration: "underline",
+                  }}
+                >
+                  Send to another address
+                </button>
               </div>
             ) : (
               <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
@@ -593,8 +632,14 @@ export default function SharedAuditReport() {
               </div>
             </div>
             {FOUR_UP_CATEGORIES.map((cat) => {
-              const sc = scores[cat.key] || { score: 0, max: 1 };
-              const pct = sc.max > 0 ? (sc.score / sc.max) * 100 : 0;
+              // P5 — a partial report can carry {max:25, score:undefined}, which
+              // defeats the `|| {…}` default and feeds NaN into the gauge. Coerce
+              // each field with Number()||0 before any math.
+              const rawSc = scores[cat.key] || {};
+              const scScore = Number(rawSc.score) || 0;
+              const scMax = Number(rawSc.max) || 1;
+              const pct = scMax > 0 ? (scScore / scMax) * 100 : 0;
+              const safePct = Number.isFinite(pct) ? pct : 0;
               return (
                 <div
                   key={cat.key}
@@ -602,19 +647,19 @@ export default function SharedAuditReport() {
                   data-testid={`audit-kpi-${cat.key}`}
                 >
                   <SemiGauge
-                    value={Math.round(pct)}
+                    value={Math.round(safePct)}
                     max={100}
                     label={cat.label}
-                    verdict={categoryVerdict(pct)}
-                    advice={categoryAdvice(cat.key, pct)}
+                    verdict={categoryVerdict(safePct)}
+                    advice={categoryAdvice(cat.key, safePct)}
                     unit="%"
-                    palette={bandPalette(pct)}
+                    palette={bandPalette(safePct)}
                     size={150}
                   />
                   {/* per-category "what this measures" help cue */}
                   <div className={s.gaugeLabelRow} style={{ marginTop: 2 }}>
                     <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>What this measures</span>
-                    <InfoTooltip theme="light" title={cat.label} text={CATEGORY_HELP[cat.key] || categoryAdvice(cat.key, pct)} />
+                    <InfoTooltip theme="light" title={cat.label} text={CATEGORY_HELP[cat.key] || categoryAdvice(cat.key, safePct)} />
                   </div>
                 </div>
               );
@@ -686,11 +731,16 @@ export default function SharedAuditReport() {
         <div id="maps" className={`${s.sectionCard} ${s.scrollAnchor}`}>
           <div className={s.sectionTitle}>Your Score Breakdown</div>
           {SCORE_CATEGORIES.map(cat => {
-            const sc = scores[cat.key] || { score: 0, max: 1 };
-            const pct = sc.max > 0 ? (sc.score / sc.max) * 100 : 0;
-            const color = scoreColor(sc.score, sc.max);
-            const after = realisticTarget(sc.score, sc.max);
-            const showBA = after > sc.score;
+            // P5 — coerce score/max so a partial report ({max:25, score:undefined})
+            // can't render NaN in the bar, value, or before/after strip.
+            const rawSc = scores[cat.key] || {};
+            const scScore = Number(rawSc.score) || 0;
+            const scMax = Number(rawSc.max) || 1;
+            const pctRaw = scMax > 0 ? (scScore / scMax) * 100 : 0;
+            const pct = Number.isFinite(pctRaw) ? pctRaw : 0;
+            const color = scoreColor(scScore, scMax);
+            const after = realisticTarget(scScore, scMax);
+            const showBA = after > scScore;
             return (
               <div key={cat.key} className={s.scoreRow}>
                 <div className={s.scoreRowIcon} style={{ color }}>{cat.icon}</div>
@@ -705,13 +755,13 @@ export default function SharedAuditReport() {
                   <div className={s.scoreBar}><div className={s.scoreBarFill} style={{ width: `${pct}%`, background: color }} /></div>
                   {showBA && (
                     <div className={s.baStrip} data-testid={`audit-ba-${cat.key}`}>
-                      <span className={s.baNow}>Now {sc.score}/{sc.max}</span>
+                      <span className={s.baNow}>Now {scScore}/{scMax}</span>
                       <span className={s.baArrow}>&rarr;</span>
-                      <span className={s.baAfter}>Potential {after}/{sc.max}</span>
+                      <span className={s.baAfter}>Potential {after}/{scMax}</span>
                     </div>
                   )}
                 </div>
-                <div className={s.scoreRowValue} style={{ color }}>{sc.score} / {sc.max}</div>
+                <div className={s.scoreRowValue} style={{ color }}>{scScore} / {scMax}</div>
               </div>
             );
           })}
@@ -724,6 +774,13 @@ export default function SharedAuditReport() {
             {actionPlan.map((item: any, i: number) => {
               const prio = (item.priority || "medium").toLowerCase();
               const prioCls = prio === "high" ? s.priorityHigh : prio === "low" ? s.priorityLow : s.priorityMedium;
+              // P2 — render the DISTINCT problem vs fix the backend now provides,
+              // mirroring ReportView exactly. Falling back to estimatedImpact /
+              // detail keeps older cached reports working, and showFix suppresses
+              // the "HOW TO FIX IT" block when it would just echo the problem.
+              const problemText = (item.problem || item.estimatedImpact || item.detail || "").trim();
+              const fixText = (item.fix || item.detail || "").trim();
+              const showFix = !!fixText && fixText !== problemText;
               return (
                 <div key={i} className={s.issueCard}>
                   <div className={s.issueTopBar}>
@@ -734,24 +791,28 @@ export default function SharedAuditReport() {
                     <div className={s.issueSection}>
                       <div className={`${s.issueSectionLabel} ${s.problem}`}>THE PROBLEM</div>
                       <div className={s.issueSectionTitle}>{item.title}</div>
-                      <div className={s.issueSectionText}>{item.detail}</div>
+                      {problemText && <div className={s.issueSectionText}>{problemText}</div>}
                     </div>
-                    <div className={s.issueSection}>
-                      <div className={`${s.issueSectionLabel} ${s.cost}`}>WHAT IT'S COSTING YOU</div>
-                      <div className={s.issueSectionText}>
-                        {prio === "high"
-                          ? `Every month this isn't fixed, you're potentially missing ${item.estimatedImpact || "significant leads"}.`
-                          : `Addressing this could bring in ${item.estimatedImpact || "additional business"}.`}
+                    {(prio === "high" ? item.estimatedImpact : item.estimatedImpact) && (
+                      <div className={s.issueSection}>
+                        <div className={`${s.issueSectionLabel} ${s.cost}`}>WHAT IT'S COSTING YOU</div>
+                        <div className={s.issueSectionText}>
+                          {prio === "high"
+                            ? `Every month this isn't fixed, you're potentially missing ${item.estimatedImpact}.`
+                            : `Addressing this could bring in ${item.estimatedImpact}.`}
+                        </div>
                       </div>
-                    </div>
-                    <div className={s.issueSection}>
-                      <div className={`${s.issueSectionLabel} ${s.fix}`}>HOW TO FIX IT</div>
-                      <div className={s.badgeRow}>
-                        {item.estimatedCost && <span className={s.smallBadge}>{item.estimatedCost}</span>}
-                        {item.timeToResult && <span className={s.smallBadge}>{item.timeToResult}</span>}
+                    )}
+                    {showFix && (
+                      <div className={s.issueSection}>
+                        <div className={`${s.issueSectionLabel} ${s.fix}`}>HOW TO FIX IT</div>
+                        <div className={s.badgeRow}>
+                          {item.estimatedCost && <span className={s.smallBadge}>{item.estimatedCost}</span>}
+                          {item.timeToResult && <span className={s.smallBadge}>{item.timeToResult}</span>}
+                        </div>
+                        <div className={s.issueSectionText}>{fixText}</div>
                       </div>
-                      <div className={s.issueSectionText}>{item.detail}</div>
-                    </div>
+                    )}
                   </div>
                   {/* Always-present per-issue CTA — the offer rides every problem
                       so a forwarded report stays a lead magnet (conversion #9). */}
@@ -891,7 +952,11 @@ export default function SharedAuditReport() {
                 <div key={i} className={s.kwRow}>
                   <div style={{ fontWeight: 600, color: "#1A1A2E", fontSize: 13 }}>{kw.keyword}</div>
                   <div className={s.kwBar}><div className={s.kwBarFill} style={{ width: `${volPct}%` }} /></div>
-                  <span className={s.kwPill} style={{ background: "#F9FAFB", color: "#6B7280" }}>${kw.cpc?.toFixed(2) ?? "0.00"}</span>
+                  {/* P5 — only render the CPC pill when we have a real positive
+                      number; a missing/zero CPC printed "$0.00", which looks broken. */}
+                  {Number(kw.cpc) > 0 && (
+                    <span className={s.kwPill} style={{ background: "#F9FAFB", color: "#6B7280" }}>${Number(kw.cpc).toFixed(2)}</span>
+                  )}
                   <span className={s.kwPill} style={{ background: rankBg, color: rankColor }}>{kw.organicRank ? `#${kw.organicRank}` : "Not ranking"}</span>
                   <span className={s.kwPill} style={{ background: statusBg, color: statusColor }}>{kw.status || "unknown"}</span>
                 </div>
@@ -901,15 +966,29 @@ export default function SharedAuditReport() {
           </div>
         )}
 
-        {/* C6 — Revenue */}
-        {revLoss && revLoss.high > 0 && (
+        {/* C6 — Revenue. P3 — honesty must match the interactive ReportView:
+            gate on estimatedRevenueLoss.isReal, NOT just high > 0. When the loss
+            is real, show the business-specific $low–$high/mo band; when it isn't
+            (low/high are 0), positive-frame instead of an invented loss, so a
+            forwarded report can never contradict the interactive one. We only
+            render the positive-frame card when we actually have revenue data
+            (revLoss present) — otherwise the section is omitted entirely. */}
+        {revLossReal ? (
           <div className={s.revenueCard}>
             <div className={s.revenueLabel}>Estimated Monthly Revenue Being Left on the Table</div>
-            <div className={s.revenueAmount}>${fmtNumber(revLoss.low)} – ${fmtNumber(revLoss.high)}</div>
+            <div className={s.revenueAmount}>${fmtNumber(revLow)} – ${fmtNumber(revHigh)}</div>
             {narrative.revenueCalculation && <div className={s.revenueExplain}>{narrative.revenueCalculation}</div>}
             {narrative.demandGapInsight && <div className={s.revenueExplain} style={{ marginTop: 8 }}>{narrative.demandGapInsight}</div>}
           </div>
-        )}
+        ) : revLoss ? (
+          <div className={s.revenueCard} data-testid="audit-revenue-positive">
+            <div className={s.revenueLabel}>Demand Capture</div>
+            <div className={s.revenueAmount} style={{ fontSize: 28 }}>You're capturing demand well</div>
+            <div className={s.revenueExplain}>
+              We didn't find a measurable revenue gap from missed demand right now — that's a good sign. Keep defending your position so competitors don't close the gap.
+            </div>
+          </div>
+        ) : null}
 
         {/* C7 — Quick Win */}
         {quickWin && (

@@ -15,6 +15,28 @@ import {
 } from "@/config/pricing";
 import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
 import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
+import { SERVICES, getServiceBillingMeta } from "@shared/services";
+
+/* ── Audit deep-link → checkout (free-audit shared report CTA) ──────────────
+ * The shared/forwarded free-audit report links each "Fix with <service>" CTA to
+ * `/pricing?service=<auditServiceId>&checkout=1`. We resolve that audit-catalog
+ * id to the purchasable service_catalog tier SKU the /api/public/checkout
+ * endpoint expects (multi-tier products point at their entry tier), so the CTA
+ * lands on a PRESELECTED checkout instead of dead-ending at the top of /pricing.
+ * Mirror of AUDIT_SERVICE_TO_CATALOG_SKU in ReportView.tsx — keep in sync. */
+const AUDIT_SERVICE_TO_CATALOG_SKU: Record<string, string> = {
+  rankflow: "rankflow-starter",
+  tradeline: "tradeline-starter",
+  quotequick: "quotequick-pro",
+  webcare: "webcare-basic",
+  socialsync: "socialsync-starter",
+  adflow: "adflow-starter",
+  "mapguard-ongoing": "mapguard-basic",
+  reputationshield: "reputationshield-basic",
+};
+function auditServiceToSku(auditServiceId: string): string {
+  return AUDIT_SERVICE_TO_CATALOG_SKU[auditServiceId] ?? auditServiceId;
+}
 
 /* ═══════════════════════════════════════════
    CONSTANTS
@@ -1167,6 +1189,38 @@ export default function PricingUnified() {
   const [checkoutBundleId, setCheckoutBundleId] = useState<string | undefined>();
   const [checkoutBundlePrice, setCheckoutBundlePrice] = useState<number | undefined>();
   const [checkoutSystemBuilder, setCheckoutSystemBuilder] = useState(false);
+
+  /* ─── Free-audit deep-link → preselected checkout ───────────────────────────
+   * Reads `?service=<auditServiceId>&checkout=1` on mount. Resolves the audit
+   * service to a real, purchasable tier SKU + price/billing and auto-opens the
+   * CheckoutModal preselected — the conversion intent the interactive report's
+   * fixWithService already routes into. If the service can't be resolved we
+   * still land on /pricing (no dead-end), just without auto-opening. Runs once;
+   * the query is stripped from the URL so a refresh doesn't reopen it. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("checkout") !== "1") return;
+    const auditId = (sp.get("service") || "").trim();
+    if (!auditId) return;
+    const svc = SERVICES.find((s) => s.id === auditId);
+    // Strip the deep-link params so a refresh / back doesn't re-trigger.
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState(null, "", cleanUrl);
+    if (!svc || !(svc.price > 0)) return;
+    const meta = getServiceBillingMeta(svc);
+    setCheckoutTitle(svc.name);
+    setCheckoutItems([{
+      serviceId: auditServiceToSku(svc.id),
+      label: svc.name,
+      price: svc.price,
+      billingPeriod: meta.billingPeriod,
+    }]);
+    setCheckoutBundleId(undefined);
+    setCheckoutBundlePrice(undefined);
+    setCheckoutSystemBuilder(false);
+    setCheckoutOpen(true);
+  }, []);
 
   function openBundleCheckout(bundle: BundleDef) {
     setCheckoutTitle(bundle.name);
