@@ -40,7 +40,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, HelpCircle, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -80,9 +80,14 @@ const STORAGE_KEY = 'qq_wizard_sheet_height_frac';
 // Legacy key (3-value snap enum) — ignored/migrated to the default fraction.
 const LEGACY_SNAP_KEY = 'qq_wizard_sheet_snap';
 
-// One-time-per-session flag: once the drag-handle "you can drag me" hint has
-// played on the first open, we don't nag again for the rest of the session.
-const HINT_SHOWN_KEY = 'qq_wizard_sheet_drag_hint_shown';
+// Show-until-LEARNED drag-affordance teaching. We keep teaching the user that
+// the handle is draggable until they ACTUALLY drag the sheet at least once —
+// persisted in localStorage so it survives across sessions. A safety cap also
+// stops the cue after MAX_HINT_OPENS opens even if they never drag, so a user
+// who simply never resizes isn't nagged forever.
+const DRAGGED_KEY = 'qq_wizard_sheet_dragged';      // '1' once a real drag happened
+const HINT_OPENS_KEY = 'qq_wizard_sheet_hint_opens'; // integer: # of teaching opens
+const MAX_HINT_OPENS = 8;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -114,19 +119,42 @@ function readPrefersReduced(): boolean {
   catch { return false; }
 }
 
-// Whether the one-time drag-affordance hint has already played this session.
-// sessionStorage so it hints once on first open then stays quiet — and resets
-// for a fresh session (so a returning user still gets the cue next visit).
-function hasHintPlayed(): boolean {
+// Whether the user has EVER performed a real drag-resize of the sheet. Once
+// true we never teach the drag affordance again. localStorage so it persists
+// across sessions (the gesture is learned once and stays learned).
+function hasDragged(): boolean {
   if (typeof window === 'undefined') return true;
-  try { return window.sessionStorage.getItem(HINT_SHOWN_KEY) === '1'; }
+  try { return window.localStorage.getItem(DRAGGED_KEY) === '1'; }
   catch { return false; }
 }
 
-function markHintPlayed(): void {
+// Record that the user has actually dragged the sheet — call this only from a
+// genuine drag (real movement past the tap threshold), never from a tap.
+function markDragged(): void {
   if (typeof window === 'undefined') return;
-  try { window.sessionStorage.setItem(HINT_SHOWN_KEY, '1'); }
-  catch { /* private mode — fine, the hint just plays again next open */ }
+  try { window.localStorage.setItem(DRAGGED_KEY, '1'); }
+  catch { /* private mode — fine, the safety cap still bounds the teaching */ }
+}
+
+// How many times the teaching hint has played so far (safety-cap counter).
+function readHintOpens(): number {
+  if (typeof window === 'undefined') return MAX_HINT_OPENS;
+  try {
+    const n = parseInt(window.localStorage.getItem(HINT_OPENS_KEY) ?? '0', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch { return 0; }
+}
+
+function bumpHintOpens(): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(HINT_OPENS_KEY, String(readHintOpens() + 1)); }
+  catch { /* private mode — cap can't persist, but hasDragged() still stops it */ }
+}
+
+// The teaching cue should play on this open when the user has NOT yet dragged
+// AND we're still under the safety cap. Reduced-motion is gated by the caller.
+function shouldHintNow(): boolean {
+  return !hasDragged() && readHintOpens() < MAX_HINT_OPENS;
 }
 
 // Load the persisted resting height as a fraction (0..1) of the work area.
@@ -222,10 +250,12 @@ export default function MobileBottomSheet({
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // One-time-per-session drag affordance: when the sheet first opens this
-  // session, the grab handle plays a subtle "you can drag me" bob/glow so users
-  // realize the panel is resizable. It plays once, then a sessionStorage flag
-  // keeps it quiet for the rest of the session. Disabled under reduced-motion.
+  // Show-until-learned drag affordance: every time the sheet opens, if the user
+  // has never actually dragged it (and we're under the safety cap), the grab
+  // handle plays a subtle "you can drag me" bob/glow AND a quiet "Drag to
+  // resize" caption appears, so users realize the panel is resizable. Once they
+  // perform a real drag the localStorage flag is set and the cue never returns.
+  // Disabled under reduced-motion.
   const [hintActive, setHintActive] = useState(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -283,14 +313,16 @@ export default function MobileBottomSheet({
     if (open) setPeeked(false);
   }, [open]);
 
-  // ── One-time drag-affordance hint ─────────────────────────────────
-  // On the FIRST open of the session (and only if motion is allowed), play the
-  // grab-handle bob/glow once, then mark it shown so it never nags again. The
-  // animation is ~2 gentle cycles (~2.4s) then we drop the class.
+  // ── Show-until-learned drag-affordance hint ────────────────────────
+  // On EVERY open (if motion is allowed), replay the grab-handle bob/glow +
+  // "Drag to resize" caption — UNLESS the user has already performed a real
+  // drag (localStorage 'qq_wizard_sheet_dragged') or we've hit the safety cap
+  // (MAX_HINT_OPENS). Each teaching open bumps the cap counter. The animation
+  // is ~2 gentle cycles (~2.4s) then we drop the class.
   useEffect(() => {
     if (!open || reduceMotion) return;
-    if (hasHintPlayed()) return;
-    markHintPlayed();
+    if (!shouldHintNow()) return;
+    bumpHintOpens();
     setHintActive(true);
     hintTimerRef.current = setTimeout(() => setHintActive(false), 2600);
     return () => {
@@ -298,8 +330,10 @@ export default function MobileBottomSheet({
     };
   }, [open, reduceMotion]);
 
-  // Any real interaction (drag start) cancels the hint immediately — once the
-  // user has grabbed the handle, the cue has done its job.
+  // Stop the visible teaching cue (drop the class + caption). Called on
+  // drag-start so the bob/caption clear the moment the user grabs the handle.
+  // This does NOT mark the gesture learned — only a real drag (movement past
+  // the tap threshold) does that, via markDragged() in endDrag.
   const dismissHint = useCallback(() => {
     if (hintTimerRef.current) { clearTimeout(hintTimerRef.current); hintTimerRef.current = null; }
     setHintActive(false);
@@ -409,6 +443,10 @@ export default function MobileBottomSheet({
       setDragHeight(null);
       return;
     }
+    // Real drag → the user has now LEARNED the gesture; record it so the
+    // teaching cue never plays again (show-until-learned). Set here, not on
+    // drag-start, so a mere tap (handled above) never counts as a drag.
+    markDragged();
     // Real drag → REST at the released height (free resize, no snap-back).
     // Clamp into [MIN_OPEN_PX, maxPx] and persist it as a fraction. If the user
     // dragged down to a peek, collapse instead of resting at a useless sliver.
@@ -519,6 +557,18 @@ export default function MobileBottomSheet({
           >
             <span className="qq-sheet-grabber-bar" aria-hidden="true" />
           </button>
+          {/* Teaching caption — only while the cue is active. Absolutely
+              positioned over the grabber row so it never shifts layout, never
+              causes 375px overflow, and never overlaps the title/close (it sits
+              between the pill and the title row, fading in/out with the hint).
+              aria-hidden: the button already announces "Expand/Collapse"; the
+              caption is a purely visual teaching cue. */}
+          {hintActive && (
+            <div className="qq-sheet-drag-caption" aria-hidden="true">
+              <ChevronsUpDown size={14} aria-hidden="true" />
+              <span>Drag to resize</span>
+            </div>
+          )}
           <div className="qq-sheet-header-row">
             <span className="qq-sheet-title" data-testid="wizard-sheet-title">
               {activeTabLabel}
@@ -623,6 +673,8 @@ export default function MobileBottomSheet({
           /* ── Drag handle + header ──────────────────────────────── */
           .qq-sheet-header {
             flex-shrink: 0;
+            /* Anchor the absolutely-positioned teaching caption. */
+            position: relative;
           }
           .qq-sheet-grabber {
             display: flex; align-items: center; justify-content: center;
@@ -672,6 +724,38 @@ export default function MobileBottomSheet({
               box-shadow: 0 0 0 4px ${AE.color.accentTint};
             }
           }
+          /* ── "Drag to resize" teaching caption ─────────────────────
+             Absolutely positioned over the header so it adds NO layout (never
+             shifts the pill/title/close and never causes 375px overflow). It's
+             horizontally centred and sits just under the pill, in the gap to
+             the right of the short left-aligned tab title and left of the close
+             chevron, so it overlaps neither. Quiet, accent-tinted, small — it
+             fades in with the hint and is unmounted the instant the hint ends
+             (or the user drags). Resting state shows ONLY the clean pill. */
+          .qq-sheet-drag-caption {
+            position: absolute;
+            top: 18px; left: 50%;
+            transform: translateX(-50%);
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px;
+            border-radius: ${AE.radius.pill};
+            background: ${AE.color.accentTint};
+            color: ${AE.color.accent};
+            font-size: 11px; font-weight: 600; line-height: 1;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 1;
+            animation: qq-sheet-caption-fade 0.22s ease-out both;
+          }
+          .qq-sheet-drag-caption svg {
+            width: 14px; height: 14px; flex-shrink: 0;
+          }
+          @keyframes qq-sheet-caption-fade {
+            from { opacity: 0; transform: translateX(-50%) translateY(-2px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          }
+
           .qq-sheet-header-row {
             display: flex; align-items: center; justify-content: space-between;
             gap: 8px;
@@ -820,6 +904,11 @@ export default function MobileBottomSheet({
           .qq-sheet-grabber-bar {
             animation: none !important;
             transition: none !important;
+          }
+          /* Caption is never mounted under reduced-motion (JS gates hintActive),
+             but defensively kill its fade animation too. */
+          .qq-sheet-drag-caption {
+            animation: none !important;
           }
           .qq-sheet-content [data-sheet-highlight="true"] {
             animation: none !important;
