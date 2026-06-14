@@ -374,7 +374,7 @@ export default function ActionTab({
           {/* 2c. Drill-in sub rows */}
           <AdvancedSection
             id="action-advanced"
-            label="Advanced settings"
+            label="Advanced action"
             hint="payment, email notifications, booking & more"
           >
             {/* Payment — relocated style.deposit */}

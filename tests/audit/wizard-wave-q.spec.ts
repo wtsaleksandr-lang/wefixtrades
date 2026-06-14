@@ -69,12 +69,9 @@ test.describe('Wave Q — SettingsTab brand badge', () => {
     await page.getByTestId('editor-tab-settings').click();
     await expect(page.getByTestId('editor-tabpanel-settings')).toBeVisible();
 
-    // IA redesign (2026-06) — the brand-badge fieldset moved under the
-    // "Advanced settings" AdvancedSection, which UNMOUNTS its children while
-    // collapsed (default). Expand it first so the fieldset enters the DOM.
-    await expect(page.getByTestId('settings-group-brand-badge')).toHaveCount(0);
-    await page.getByTestId('advanced-toggle-settings-advanced').click();
-
+    // IA redesign (2026-06-13) — Branding was PROMOTED back to the default
+    // Settings surface (owner: "the Settings tab is too empty"), so the
+    // brand-badge fieldset is visible immediately without expanding any fold.
     const group = page.getByTestId('settings-group-brand-badge');
     await expect(group).toBeVisible();
 
