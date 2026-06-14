@@ -1692,7 +1692,7 @@ export default function WizardShell({ embed = false }: Props) {
   const applyEditHighlight = useCallback((targetKey: string) => {
     // Some edit anchors live inside an AdvancedSection that UNMOUNTS its
     // children when collapsed (header/results under "Titles & result text";
-    // trust-badges/tiered under Style "Advanced settings"). When the section
+    // trust-badges/tiered under Style "Advanced style"). When the section
     // is closed the anchor isn't in the DOM, so resolveEditTarget returns null.
     // Map those keys → their owning section id so we can expand-then-retry.
     const SECTION_FOR_KEY: Record<string, string> = {

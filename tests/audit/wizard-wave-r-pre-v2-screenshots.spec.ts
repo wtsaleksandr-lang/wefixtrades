@@ -14,8 +14,8 @@
  *    select; floating label only.
  *  - Hosted page section in the Publish modal: headline + subheadline use
  *    FloatField (no header text above bare inputs).
- *  - Settings tab: brand-badge toggle visible (now under AdvancedSection —
- *    expand "Advanced settings" first).
+ *  - Settings tab: brand-badge toggle visible (promoted to the default
+ *    surface 2026-06-13 — no fold to expand).
  *  - Calculator preview: pencil icon next to title; quoted-amount with
  *    a long currency value does not overlap.
  *  - "Get a quote" flow: clicking CTA reveals form WITH a Back button.
@@ -131,10 +131,9 @@ test.describe('Wave R-pre v2 — desktop 1440', () => {
     await openWizard(page);
     await page.getByTestId('editor-tab-settings').click();
     await expect(page.getByTestId('editor-tabpanel-settings')).toBeVisible({ timeout: 1500 });
-    // IA redesign — brand-badge fieldset now lives inside the
-    // "Advanced settings" AdvancedSection (collapsed by default), so expand
-    // it before the fieldset is in the DOM, then scroll it into view.
-    await page.getByTestId('advanced-toggle-settings-advanced').click();
+    // IA redesign (2026-06-13) — brand-badge fieldset was PROMOTED back to
+    // the default Settings surface, so it is visible immediately (no fold to
+    // expand). Just scroll it into view for the screenshot.
     await expect(page.getByTestId('settings-group-brand-badge')).toBeVisible({ timeout: 1500 });
     await page.getByTestId('settings-group-brand-badge').scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);

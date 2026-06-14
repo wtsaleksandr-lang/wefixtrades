@@ -1,17 +1,27 @@
 // SettingsTab — Build > Settings panel (Wave H6).
 //
-// Surfaces the user-editable knobs that don't fit into Build (per-calculator
-// fields) or Style (per-template look). Sections, in order:
+// Surfaces the user-editable, calculator-LEVEL knobs that don't fit into Build
+// (per-calculator fields) or Style (per-template look).
 //
-//   (Trade selector removed 2026-06-12 — settings.tradeId is still persisted
-//    to trade_type, but trade filtering now lives in Browse-all templates.)
-//   1. Lead notification   — single recipient email (basic format check).
-//   3. Pricing model       — segmented `hourly / fixed / custom`; per-mode value.
-//   4. Number formatting   — thousands sep + decimal sep + ISO currency code.
-//   5. Custom CTA label    — overrides `results.cta_label` in the preview.
+// Layout (re-grouped 2026-06-13 per owner feedback "the Settings tab is too
+// empty"): the PRIMARY calculator-level settings now sit on the DEFAULT
+// surface so the tab reads populated, with only the genuinely advanced detail
+// tucked behind the "More settings" fold.
 //
-// Webhooks / integrations are deliberately out of scope (they need real
-// account hookup — Alex-gated; Wave H7+ at the earliest).
+//   Default surface:
+//     1. Number formatting — thousands sep + decimal sep + ISO currency code.
+//     2. Pricing model     — segmented `hourly / fixed / custom`; per-mode value.
+//     3. Branding          — "Powered by WeFixTrades" badge toggle (real
+//                            pricing model: Free keeps it; Pro / Business hide it).
+//   "More settings" fold:
+//     4. Deposit + Online booking (Stripe-gated; Calendly-style scheduling).
+//     5. Business location — distance-based-pricing anchor address.
+//     6. Business profile  — inline trust signals (rating, license, insured).
+//
+// Lead-form CTA, success copy, spam protection, email-notification recipient,
+// and the action mode live in the ACTION tab (lead-flow concerns). Embed
+// language + slug + hosted-page chrome live in the INSTALL tab. Webhooks /
+// integrations remain out of scope (real account hookup — Alex-gated).
 //
 // Layout mirrors StyleTab's `qq-style-*` classes so the visual rhythm of the
 // editor stays consistent across tabs.
@@ -173,6 +183,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       data-section
       aria-label="Settings"
       role="tabpanel"
+      /* Panel-level container: each fieldset below is its own surface with a
+         single help cue in its legend. The escape hatch applies here so the
+         outer section isn't flagged for aggregating its children's lone cues
+         (matches ActionTab). Promoting Pricing + Branding out of the fold
+         raised the section's aggregate cue count past the rule-b threshold;
+         the per-fieldset single-cue rule is still honored within each. */
+      data-cue-allowed-multiple
     >
       {/* ── CORE: Number formatting ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
@@ -252,15 +269,14 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
-      {/* ── Progressive disclosure: everything non-core lives here,
-       *  collapsed by default for an Apple-clean minimal panel. Nothing
-       *  is removed — each fieldset is moved intact, wiring unchanged. */}
-      <AdvancedSection
-        id="settings-advanced"
-        label="Advanced settings"
-        hint="pricing, deposit, scheduling & business details"
-      >
-      {/* ── Pricing model ───────────────────────────────────────── */}
+      {/* ── Pricing model ─────────────────────────────────────────
+       *  Owner feedback (2026-06-13): the Settings tab read near-empty
+       *  because everything but Number formatting was buried in one
+       *  "Advanced settings" fold. Pricing model is a PRIMARY
+       *  calculator-level setting, so it now sits on the default surface
+       *  alongside Number formatting and Branding. Only the genuinely
+       *  advanced detail (deposit, booking, business address/profile)
+       *  stays behind the fold below. */}
       {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
          help-cue placement audit. The segmented control still speaks for
          itself, but the legend gives the section a name screen readers
@@ -370,6 +386,91 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  tab's Email-notifications sub-row) moved out of Settings. Same
        *  state keys + testids, no duplication. */}
 
+      {/* Wave Q-E — Brand badge toggle (PROMOTED to default surface
+       *  2026-06-13). Branding is a primary calculator-level decision, so
+       *  it sits on the default Settings surface beside Number formatting
+       *  and Pricing rather than buried in the fold. Free users see the
+       *  toggle as read-only with an "Upgrade to Pro" call-to-action; Pro /
+       *  Business users can flip it. The server-side gate (Wave Q-D)
+       *  enforces this on save regardless of what the client sends. */}
+      <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-brand"
+                  region="trust-block"
+                  text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
+                />
+                <span style={{ marginLeft: 6 }}>Branding</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        <div
+          className="qq-brand-badge-row"
+          data-testid="settings-brand-badge-row"
+          data-plan-tier={planTier}
+          data-paid-tier={isPaidTier ? 'true' : 'false'}
+        >
+          <label className={`qq-brand-badge-toggle${isPaidTier ? '' : ' is-locked'}`}>
+            <input
+              type="checkbox"
+              checked={isPaidTier ? showBrandBadge : true}
+              disabled={!isPaidTier}
+              onChange={(e) => {
+                if (isPaidTier) patch({ brandBadge: e.target.checked });
+              }}
+              data-testid="settings-brand-badge-input"
+              aria-label="Show WeFixTrades brand badge"
+            />
+            <span>
+              <span className="qq-brand-badge-title">
+                Show WeFixTrades branding on the widget
+                <InfoCue
+                  testid="settings-brand-badge"
+                  region="trust-block"
+                  text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
+                />
+              </span>
+              <span className="qq-brand-badge-sub">
+                {isPaidTier ? (
+                  <>You're on the {planTier === 'business' ? 'Business' : 'Pro'} plan — toggle this off to hide the badge on the hosted page and embeds.</>
+                ) : (
+                  <>
+                    Required on the Free plan.{' '}
+                    <a
+                      href="/pricing/quotequick"
+                      className="qq-brand-badge-link"
+                      data-testid="settings-brand-badge-upgrade"
+                    >
+                      Upgrade to Pro ($29/mo) to remove it →
+                    </a>
+                  </>
+                )}
+              </span>
+            </span>
+          </label>
+        </div>
+        </div>
+      </fieldset>
+
+      {/* ── Progressive disclosure: the genuinely advanced calculator
+       *  settings (deposit, online booking, business address + profile)
+       *  live here, collapsed by default so the default Settings surface
+       *  reads clean. Labelled "More settings" — distinct from the other
+       *  tabs' context-specific "Advanced build / action / style" folds,
+       *  since this IS the settings tab. Nothing is removed; every
+       *  fieldset keeps its testids + wiring. */}
+      <AdvancedSection
+        id="settings-advanced"
+        label="More settings"
+        hint="deposit, online booking & business details"
+      >
       {/* ── Deposit + Online booking pair (W2 #12) ───────────────────
        *  Alex: "booking and deposit should be on one row." Both fieldsets
        *  sit side-by-side in a two-column grid on desktop and stack to a
@@ -675,78 +776,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
       </div>
-
-      {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
-       *  read-only with an "Upgrade to Pro" call-to-action; Pro / Business
-       *  users can flip it. Client-side tier detection is not yet wired,
-       *  so for now the toggle is permanently disabled with the upgrade
-       *  link surfaced. The server-side gate (Wave Q-D) enforces this on
-       *  save regardless of what the client sends. */}
-      <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-brand"
-                  region="trust-block"
-                  text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
-                />
-                <span style={{ marginLeft: 6 }}>Branding</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div
-          className="qq-brand-badge-row"
-          data-testid="settings-brand-badge-row"
-          data-plan-tier={planTier}
-          data-paid-tier={isPaidTier ? 'true' : 'false'}
-        >
-          <label className={`qq-brand-badge-toggle${isPaidTier ? '' : ' is-locked'}`}>
-            <input
-              type="checkbox"
-              checked={isPaidTier ? showBrandBadge : true}
-              disabled={!isPaidTier}
-              onChange={(e) => {
-                if (isPaidTier) patch({ brandBadge: e.target.checked });
-              }}
-              data-testid="settings-brand-badge-input"
-              aria-label="Show WeFixTrades brand badge"
-            />
-            <span>
-              <span className="qq-brand-badge-title">
-                Show WeFixTrades branding on the widget
-                <InfoCue
-                  testid="settings-brand-badge"
-                  region="trust-block"
-                  text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
-                />
-              </span>
-              <span className="qq-brand-badge-sub">
-                {isPaidTier ? (
-                  <>You're on the {planTier === 'business' ? 'Business' : 'Pro'} plan — toggle this off to hide the badge on the hosted page and embeds.</>
-                ) : (
-                  <>
-                    Required on the Free plan.{' '}
-                    <a
-                      href="/pricing/quotequick"
-                      className="qq-brand-badge-link"
-                      data-testid="settings-brand-badge-upgrade"
-                    >
-                      Upgrade to Pro ($29/mo) to remove it →
-                    </a>
-                  </>
-                )}
-              </span>
-            </span>
-          </label>
-        </div>
-        </div>
-      </fieldset>
 
       {/* ── PRICING-MODELS (U3) — Business location ───────────────────
        *  Single anchor address for `address_distance` fields. Writes

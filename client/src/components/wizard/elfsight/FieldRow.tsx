@@ -902,7 +902,7 @@ export default function FieldRow({
               </div>
               <p className="qq-field-hint" data-testid={`field-distance-origin-hint-${field.id}`}>
                 Distance is measured from your <strong>Business location</strong>.
-                Set it in Settings → Advanced settings → Business location so
+                Set it in Settings → More settings → Business location so
                 quotes can price by distance.
               </p>
               <AdvancedSection id={`field-distance-${field.id}`} label="Advanced">

@@ -887,7 +887,7 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      <AdvancedSection id="style-advanced" label="Advanced settings" hint="layout, shape, branding, badges, brand kit & more">
+      <AdvancedSection id="style-advanced" label="Advanced style" hint="layout, shape, branding, badges, brand kit & more">
       {/* ── Layout ── Elfsight-style: width/layout is not a default-visible
        *  Style control, so it lives under Advanced settings with the rest of
        *  the non-core groups. Markup unchanged — only placement moved. */}
