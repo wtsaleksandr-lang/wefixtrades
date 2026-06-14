@@ -65,7 +65,7 @@ export default function ForFranchisesPage() {
       ]}
       recommendedFreeTools={[
         { label: "NAP Consistency Audit", href: "/tools/citation-checker" },
-        { label: "Local Search Checker", href: "/tools/local-search-checker" },
+        { label: "Local Search Checker", href: "/tools/local-serp-checker" },
       ]}
     />
   );

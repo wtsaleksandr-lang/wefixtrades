@@ -7,7 +7,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import TrustStrip from "@/components/marketing/TrustStrip";
-import { ArrowRight, Play, ChevronDown, Home, Hammer } from "lucide-react";
+import { ArrowRight, ChevronDown, Home, Hammer } from "lucide-react";
 
 /* ─── Page constants ─── */
 
@@ -393,29 +393,57 @@ export default function QuoteCalculatorDemo() {
                 />
               )}
               {videoFailed && (
+                // BE-3 — honest absent-asset state. When the tour MP4 isn't
+                // present the video element errors; instead of a dead play
+                // button that promises a video that can't play, show a real
+                // "See it live" panel whose CTA opens the actual builder.
                 <div
+                  data-testid="tour-video-fallback"
                   style={{
                     position: "absolute",
                     inset: 0,
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 14,
+                    padding: "24px clamp(16px, 5vw, 32px)",
+                    textAlign: "center",
+                    background:
+                      "linear-gradient(160deg, rgba(13,60,252,0.16), rgba(13,21,20,0.92))",
                   }}
-                  aria-hidden="true"
                 >
-                  <div
+                  <p
                     style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 9999,
-                      background: "rgba(255,255,255,0.10)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      fontSize: "clamp(15px, 2.4vw, 18px)",
+                      fontWeight: 600,
+                      color: "rgba(255,255,255,0.96)",
+                      lineHeight: 1.4,
+                      margin: 0,
+                      maxWidth: 380,
                     }}
                   >
-                    <Play size={24} color="rgba(255,255,255,0.85)" strokeWidth={2} />
-                  </div>
+                    See it live — build a working quote calculator in 60 seconds.
+                  </p>
+                  <Link
+                    href="/wizard"
+                    className="tour-cta"
+                    data-testid="tour-video-fallback-cta"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "12px 24px",
+                      borderRadius: 12,
+                      background: mkt.accent,
+                      color: "rgba(255,255,255,1)",
+                      fontSize: 15,
+                      fontWeight: 700,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Try the builder <ArrowRight size={16} />
+                  </Link>
                 </div>
               )}
 

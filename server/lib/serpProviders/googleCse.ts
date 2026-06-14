@@ -32,10 +32,16 @@ export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number
   }
 
   const num = Math.min(req.num ?? 10, 10);  // CSE caps at 10 per request
+  // CSE has no real `location` param (only country via cr/gl), so a city
+  // like "Austin, TX" would otherwise return US-wide results while the UI
+  // promises "near Austin, TX". Fold the location text into the query so
+  // results are actually geo-local. The no-location path is unchanged.
+  const locationText = req.location?.trim();
+  const q = locationText ? `${req.query} ${locationText}` : req.query;
   const url = new URL("https://customsearch.googleapis.com/customsearch/v1");
   url.searchParams.set("key", apiKey!);
   url.searchParams.set("cx", cx!);
-  url.searchParams.set("q", req.query);
+  url.searchParams.set("q", q);
   url.searchParams.set("num", String(num));
   if (req.country) {
     url.searchParams.set("cr", `country${req.country.toUpperCase()}`);

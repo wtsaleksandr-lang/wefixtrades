@@ -68,7 +68,7 @@ export default function ForAgenciesPage() {
       recommendedFreeTools={[
         { label: "Citation Checker", href: "/tools/citation-checker" },
         { label: "Local RankFlux", href: "/tools/local-rankflux" },
-        { label: "Local Search Checker", href: "/tools/local-search-checker" },
+        { label: "Local Search Checker", href: "/tools/local-serp-checker" },
       ]}
     />
   );

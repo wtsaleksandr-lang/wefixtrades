@@ -248,7 +248,11 @@ export default function TradePromptsPage() {
               <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
                 Ready to use these for your {tradeMeta.noun} business?
               </h2>
-              <p style={{ fontSize: 16, color: mkt.onDarkMuted, lineHeight: 1.65, marginBottom: 36, maxWidth: 460, margin: "0 auto 36px" }}>
+              {/* CONTRAST — sub-text sits on a BRIGHT blue gradient, so the
+                  dark-surface muted grey (mkt.onDarkMuted ≈ rgb 177,197,206)
+                  failed AA (~3:1). mkt.onDark is the near-white token used by
+                  the h2 above and clears AA on the accent fill. */}
+              <p style={{ fontSize: 16, color: mkt.onDark, lineHeight: 1.65, marginBottom: 36, maxWidth: 460, margin: "0 auto 36px" }}>
                 Sign up free. 5 AI images, 3 AI articles, and 1 publishing channel every month — no card required.
               </p>
               <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
