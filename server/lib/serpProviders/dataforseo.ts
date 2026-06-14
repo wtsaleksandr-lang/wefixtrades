@@ -19,13 +19,25 @@ import {
 
 export const ID = "dataforseo";
 export const MONTHLY_LIMIT = 0;            // pay-as-you-go, no monthly cap tracked
-export const SUPPORTED_ENGINES = new Set(["google_web", "google_maps", "bing_equivalent"]);
+// Accuracy fix (2026-06-13): DataForSEO no longer claims `bing_equivalent`.
+// Its `google/organic` endpoint returns GOOGLE results — routing a
+// bing_equivalent request here silently returned Google organic dressed up
+// as a Bing/Brave rank (the Rank Tracker's "Brave Web" column showed Google
+// data when Brave was down). Brave is the only honest bing_equivalent
+// provider; if Brave fails, the column now reports "Unavailable" rather than
+// a duplicate Google rank.
+export const SUPPORTED_ENGINES = new Set(["google_web", "google_maps"]);
 
 export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number): Promise<SerpResult> => {
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
   if (!envPresent("DATAFORSEO_LOGIN") || !envPresent("DATAFORSEO_PASSWORD")) {
     throw new ProviderUnavailableError(ID, "DATAFORSEO_LOGIN or DATAFORSEO_PASSWORD not set");
+  }
+  const reqEngine = req.engine ?? "google_web";
+  if (!SUPPORTED_ENGINES.has(reqEngine)) {
+    // Notably bing_equivalent — see SUPPORTED_ENGINES note above.
+    throw new ProviderUnavailableError(ID, `engine ${reqEngine} not supported (no Bing equivalent)`);
   }
 
   // Buffer.from is fine here — auth pair, not a secret value we'd log.
