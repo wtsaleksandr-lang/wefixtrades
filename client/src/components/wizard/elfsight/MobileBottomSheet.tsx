@@ -640,7 +640,7 @@ export default function MobileBottomSheet({
             display: block;
             /* Slightly wider/taller than a hairline so the pill reads as an
                interactive, grabbable control rather than a decorative divider. */
-            width: 44px; height: 5px; border-radius: ${AE.radius.pill};
+            width: 38px; height: 4px; border-radius: ${AE.radius.pill};
             background: ${AE.color.hairlineStrong};
             transition: background 0.16s ease, transform 0.16s ease,
                         width 0.16s ease;
@@ -648,7 +648,7 @@ export default function MobileBottomSheet({
           /* Pressed/active → darken + nudge the pill so the grab registers. */
           .qq-sheet-grabber:active .qq-sheet-grabber-bar {
             background: ${AE.color.secondary};
-            width: 52px;
+            width: 44px;
           }
 
           /* ── One-time drag-affordance hint ─────────────────────────
