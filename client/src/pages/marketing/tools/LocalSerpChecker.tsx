@@ -31,6 +31,8 @@ import { Search, MapPin, AlertCircle, Star, Globe } from "lucide-react";
 import { BarComparisonCard } from "@/components/ui/visual-primitives";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
 
+import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+
 const TOOL_PATH = "/tools/local-serp-checker";
 
 /** ISO-3166 top 20 countries that Serper / CSE / Brave reliably target. */
@@ -544,6 +546,39 @@ export default function LocalSerpChecker() {
       >
         Powered by {result.provider} {result.cached ? "(cached)" : ""} · 6-provider free-tier rotation (Wave 6.5)
       </div>
+
+      {/* Result-aware upsell — this tool shows the live SERP for a term, not a
+          per-business ranking. When real results came back, the natural next
+          step is "do you show up here?" → managed MapGuard; otherwise nudge a
+          full audit. */}
+      {lowConfidence ? (
+        <ToolUpsellCTA
+          sourceTool="local-serp-check"
+          tone="audit"
+          eyebrow="Next step"
+          headline="See exactly where your business stands"
+          body="That query didn't return a clear local set. Run a Full Audit to see your real rankings, reviews, and citations in one place."
+          href="/tools/free-audit"
+          ctaLabel="Run a full free audit"
+        />
+      ) : (
+        <ToolUpsellCTA
+          sourceTool="local-serp-check"
+          tone="fix"
+          eyebrow="Next step"
+          headline={`Want to own this page for "${result.query}"?`}
+          body="MapGuard does the ongoing local-SEO work to get — and keep — your business in the top results for searches like this one in your area."
+          serviceId="mapguard-ongoing"
+          ctaLabel="Get me ranking here"
+        />
+      )}
+
+      <ToolLeadCapture
+        sourceTool="local-serp-check"
+        sourcePage={TOOL_PATH}
+        title="Email me these results"
+        subtitle="Get this SERP snapshot in your inbox to compare later. No spam."
+      />
     </div>
   ) : null;
 

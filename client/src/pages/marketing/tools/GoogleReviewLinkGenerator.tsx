@@ -28,6 +28,8 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Copy, CheckCircle2, AlertCircle, ArrowRight, Info } from "lucide-react";
 
+import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+
 const TOOL_PATH = "/tools/google-review-link-generator";
 
 const FAQ_ITEMS = [
@@ -315,6 +317,26 @@ export default function GoogleReviewLinkGenerator() {
           <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 6 }}>Scan to review</div>
         </div>
       </div>
+
+      {/* Result-aware upsell — they just made it easy to ask for reviews;
+          the natural next step is turning that into a steady stream. */}
+      <ToolUpsellCTA
+        sourceTool="google-review-link"
+        tone="fix"
+        eyebrow="Next step"
+        headline="Turn this link into a steady stream of 5-star reviews"
+        body="ReputationShield auto-texts this exact link to customers after every completed job, drafts AI replies, and flags any negative review before it does damage."
+        serviceId="reputationshield"
+        ctaLabel="Get more reviews on autopilot"
+      />
+
+      <ToolLeadCapture
+        sourceTool="google-review-link"
+        sourcePage={TOOL_PATH}
+        businessName={result.name}
+        title="Email me this review link + QR code"
+        subtitle="Get your link, QR code, and Place ID in your inbox so you can print or share them anytime. No spam."
+      />
     </div>
   ) : null;
 

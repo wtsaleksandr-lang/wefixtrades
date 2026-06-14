@@ -37,6 +37,8 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Activity, ShieldCheck, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 
+import { ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+
 const TOOL_PATH = "/tools/local-rankflux";
 
 const FAQ_ITEMS = [
@@ -283,6 +285,33 @@ export default function LocalRankflux() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Result-aware upsell — driven by today's volatility band. A HIGH
+          reading (likely a Google update) is peak intent for managed
+          protection; a calm day cross-sells the Full Audit. Note: this tool's
+          email capture is the subscribe form below (one capture per surface),
+          so we add only the contextual CTA here, not a second email field. */}
+      {data && data.todayBand === "HIGH" ? (
+        <ToolUpsellCTA
+          sourceTool="local-rankflux"
+          tone="fix"
+          eyebrow="High volatility today"
+          headline="Google is shuffling local rankings — don't lose ground"
+          body="When the algorithm is this active, businesses without active local-SEO slip. MapGuard monitors your rankings weekly and reacts to volatility for you, so a Google update doesn't quietly cost you calls."
+          serviceId="mapguard-ongoing"
+          ctaLabel="Protect my rankings"
+        />
+      ) : (
+        <ToolUpsellCTA
+          sourceTool="local-rankflux"
+          tone="audit"
+          eyebrow="Next step"
+          headline="See how your own rankings are holding up"
+          body="The algorithm's quiet right now — a good moment to check your real position. Run a Full Audit for your rankings, reviews, citations, and site speed in one place."
+          href="/tools/free-audit"
+          ctaLabel="Run a full free audit"
+        />
       )}
 
       {/* Section C — subscribe form. */}

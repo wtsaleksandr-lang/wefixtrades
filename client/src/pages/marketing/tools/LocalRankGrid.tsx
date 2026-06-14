@@ -41,6 +41,8 @@ import {
   rankPinColor,
 } from "@/components/marketing/map-snapshot/rankGridProjection";
 
+import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+
 const TOOL_PATH = "/tools/local-rank-grid";
 
 /** Neutral grey for points/badges that have NO rank data (unavailable /
@@ -593,6 +595,40 @@ export default function LocalRankGrid() {
           See MapGuard plans <ArrowRight size={14} />
         </a>
       </div>
+
+      {/* Result-aware upsell — derived from the grid summary. A weak average
+          rank or any dead zones routes to managed MapGuard; a strong grid
+          (top-3 average, no dead zones) cross-sells the Full Audit. */}
+      {result.summary.avgRank == null || result.summary.avgRank > 3 || result.summary.missedCount > 0 ? (
+        <ToolUpsellCTA
+          sourceTool="local-rank-grid"
+          tone="fix"
+          eyebrow="Next step"
+          headline={
+            result.summary.missedCount > 0
+              ? `You're invisible in ${result.summary.missedCount} ${result.summary.missedCount === 1 ? "spot" : "spots"} around ${city}`
+              : `You're averaging rank ${result.summary.avgRank != null ? result.summary.avgRank.toFixed(1) : "—"} — there's room above you`}
+          body="MapGuard runs ongoing local-SEO work to pull you into the top 3 across every grid point — profile optimisation, citations, and weekly rank tracking, done for you."
+          serviceId="mapguard-ongoing"
+          ctaLabel="Improve my local ranking"
+        />
+      ) : (
+        <ToolUpsellCTA
+          sourceTool="local-rank-grid"
+          tone="audit"
+          eyebrow="Strong grid"
+          headline="You're top-3 across the board — protect that lead"
+          body="Great coverage. The Full Audit checks the rest of your local presence — reviews, citations, site speed — so a competitor can't close the gap."
+          href="/tools/free-audit"
+          ctaLabel="Run a full free audit"
+        />
+      )}
+
+      <ToolLeadCapture
+        sourceTool="local-rank-grid"
+        sourcePage={TOOL_PATH}
+        businessName={businessName}
+      />
 
       {/* Responsive: collapse the right sidebar below the grid on narrow viewports. */}
       <style>{`
