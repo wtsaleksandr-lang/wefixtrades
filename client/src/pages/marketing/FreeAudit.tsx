@@ -1252,9 +1252,21 @@ export default function FreeAudit() {
                         } else if (e.key === "Enter") {
                           e.preventDefault();
                           if (predictions.length > 0) {
-                            const idx = highlightedIndex >= 0 ? highlightedIndex : 0;
-                            const pick = predictions[idx];
-                            if (pick) runAudit(pick, lastTradeRef.current || undefined);
+                            // BG-3 fix: never audit a *guessed* prediction on Enter.
+                            // Require an explicit selection. If the user has
+                            // highlighted a row (arrow keys / hover), audit that.
+                            // If there's exactly one prediction it is unambiguous,
+                            // so auditing it is fine. Otherwise the choice is
+                            // ambiguous — open + focus the list and make the user
+                            // pick, rather than silently running predictions[0].
+                            if (highlightedIndex >= 0 && highlightedIndex < predictions.length) {
+                              runAudit(predictions[highlightedIndex], lastTradeRef.current || undefined);
+                            } else if (predictions.length === 1) {
+                              runAudit(predictions[0], lastTradeRef.current || undefined);
+                            } else {
+                              setDropdownOpen(true);
+                              setHighlightedIndex(0);
+                            }
                           } else if (query.trim().length >= 3) {
                             runSearch(query);
                           }
