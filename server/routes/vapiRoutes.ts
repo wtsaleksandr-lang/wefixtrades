@@ -132,13 +132,17 @@ export function registerVapiRoutes(app: Express): void {
             return res.json({ reply: "How can I help you?" });
           }
 
-          // Use TradeLine mode-aware handler if resolved, otherwise default
+          // Use TradeLine mode-aware handler if resolved, otherwise default.
+          // Thread the literal inbound caller number into the context (booking
+          // callback default + caller-ID read-back) and pass the resolved client
+          // so the handler can wire booking executors to the right calculator.
           const reply = tradeLineResolved
             ? await handleTradeLineConversationTurn(
                 messages,
                 callId,
-                await buildTradeLineContextWithKnowledge(tradeLineResolved),
+                await buildTradeLineContextWithKnowledge(tradeLineResolved, customerNumber),
                 tradeLineResolved.clientService.id,
+                tradeLineResolved,
               )
             : await handleConversationTurn(messages, callId);
 
@@ -439,12 +443,14 @@ export function registerVapiRoutes(app: Express): void {
         }
       }
 
+      const convCallerNumber = call?.customer?.number;
       const reply = tradeLineCtx
         ? await handleTradeLineConversationTurn(
             vapiMessages,
             convCallId,
-            await buildTradeLineContextWithKnowledge(tradeLineCtx),
+            await buildTradeLineContextWithKnowledge(tradeLineCtx, convCallerNumber),
             tradeLineCtx.clientService.id,
+            tradeLineCtx,
           )
         : await handleConversationTurn(vapiMessages, convCallId);
 

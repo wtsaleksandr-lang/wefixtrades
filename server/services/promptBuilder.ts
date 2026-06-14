@@ -180,6 +180,14 @@ export interface TradeLineContext {
    * as the chat. Rendered as injection-safe reference DATA, beneath SAFETY_FLOOR.
    */
   assembledKnowledgeBlock?: string | null;
+  /**
+   * The LITERAL inbound caller-ID digits (E.164, from the Vapi/Twilio webhook
+   * `call.customer.number`). Threaded so the receptionist confirms the actual
+   * number back to the caller instead of asking blindly, and so a booking
+   * defaults the callback number to the caller ID. Absent on web-SDK demo calls
+   * with no DID — the prompt degrades to asking for it in that case.
+   */
+  callerNumber?: string | null;
 }
 /* ─── Portal types ─── */
 
@@ -1135,13 +1143,19 @@ The business is closed for the day. Be helpful but honest about availability.
     const bookingMode = ctx.booking.mode === "book_if_available"
       ? "You can offer to book them into the calendar directly."
       : "You can take a booking request and the team will confirm it.";
+    // Caller-ID line: when the inbound number is known, the receptionist
+    // confirms the actual digits instead of asking blindly, and defaults the
+    // booking's callback number to it. Degrades to asking when absent.
+    const callerLine = ctx.callerNumber
+      ? `\nThe caller is phoning from ${ctx.callerNumber}. Confirm that number back to them as the callback number ("I have your number as …, is that the best one?") and use it as the booking's phone number unless they give a different one.`
+      : `\nYou do not have the caller's number — ask for the best callback number before completing a booking.`;
     parts.push(`\nBOOKING: ${bookingMode}
-You can check appointment availability and book appointments for customers. When a customer wants to book:
-1. First check available slots using the checkAvailability function
+You can check appointment availability and book appointments for customers. To actually book, you MUST call the booking tools — never tell a caller they are booked unless the booking tool returned a confirmation. When a customer wants to book:
+1. First check available slots using the check-availability tool
 2. Present the options clearly — mention specific days and times
 3. Once they choose a time, confirm their name and contact details
-4. Create the booking using the createBooking function
-5. Confirm the booking details back to them`);
+4. Create the booking using the create-booking tool
+5. Read the confirmed date, time, and callback number back to them${callerLine}`);
   }
 
   // Response-style hint (per-client override from tradeline_assistant_settings).
