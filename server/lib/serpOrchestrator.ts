@@ -132,7 +132,11 @@ const PROVIDERS: Record<string, ProviderModule> = {
 const PROVIDER_ORDER: Record<SerpEngine, string[]> = {
   google_web: ["googleCse", "serper", "brave", "scaleserp", "serpstack", "dataforseo"],
   google_maps: ["serper", "scaleserp", "dataforseo"],
-  bing_equivalent: ["brave", "dataforseo"],
+  // Brave is the ONLY honest bing_equivalent provider — DataForSEO's
+  // google/organic endpoint returns Google results, so it's no longer in
+  // this chain (it would silently masquerade as a Bing/Brave rank). If Brave
+  // is down/unfunded, bing_equivalent reports Unavailable rather than faking.
+  bing_equivalent: ["brave"],
 };
 
 const REQUEST_TIMEOUT_MS = 5_000;

@@ -43,7 +43,7 @@ interface ToolEntry {
  * cards below. Stub icon-in-empty-box previews read as unfinished. */
 const LOCAL_SEO_TOOLS: ToolEntry[] = [
   { name: "Free Audit", href: "/tools/free-audit", blurb: "30-second local SEO health check + GBP rank grid.", thumb: "/free-tools/previews/free-audit.png" },
-  { name: "Citation Checker", href: "/tools/citation-checker", blurb: "Find missing citations across 50+ directories.", thumb: "/free-tools/previews/citation-checker.png" },
+  { name: "Citation Checker", href: "/tools/citation-checker", blurb: "Check your listings across 10 high-impact directories.", thumb: "/free-tools/previews/citation-checker.png" },
   { name: "Google Review Link Generator", href: "/tools/google-review-link-generator", blurb: "Get your direct review link in one click.", thumb: "/free-tools/previews/review-link-generator.png" },
   { name: "Local Rank Grid", href: "/tools/local-rank-grid", blurb: "5×5 geo-grid rank scan for any keyword.", thumb: "/free-tools/previews/rank-grid.png" },
   { name: "Local Rank Tracker", href: "/tools/local-rank-tracker", blurb: "Multi-engine rank snapshot (Google + Brave + Maps).", thumb: "/free-tools/previews/rank-tracker.png" },

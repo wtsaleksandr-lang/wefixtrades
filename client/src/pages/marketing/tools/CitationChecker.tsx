@@ -43,6 +43,11 @@ const FAQ_ITEMS = [
       "We searched the directory for your business by name and didn't find a match. It may genuinely not be listed, or your listing may be under a different name spelling. Click through to the directory and confirm before assuming.",
   },
   {
+    question: "What does \"Unverified\" mean?",
+    answer:
+      "We found a page on that directory, but couldn't confirm it's your listing — it may be a category/index page, or a listing for a similarly-named business in a different city. We only mark a directory \"Found\" when your business name (and city, if you entered one) actually appears on the page. Add your phone number to help us confirm matches.",
+  },
+  {
     question: "What does \"Unable to check\" mean?",
     answer:
       "The directory's search response failed, timed out, or rate-limited us during this run. Try the check again in a minute, or run the Full Audit for a deeper sweep.",
@@ -57,7 +62,7 @@ const FAQ_ITEMS = [
 interface ResultRow {
   source: string;
   label: string;
-  status: "found" | "missing" | "unable-to-check";
+  status: "found" | "unverified" | "missing" | "unable-to-check";
   url?: string;
 }
 
@@ -66,6 +71,15 @@ function StatusBadge({ status }: { status: ResultRow["status"] }) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#22C55E", fontWeight: 600, fontSize: 12 }}>
         <CheckCircle2 size={14} /> Found
+      </span>
+    );
+  }
+  if (status === "unverified") {
+    // A page exists on the directory but we couldn't confirm it's THIS
+    // business (wrong city, category/index page, or name didn't match).
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#B45309", fontWeight: 600, fontSize: 12 }}>
+        <HelpCircle size={14} /> Unverified
       </span>
     );
   }
@@ -89,7 +103,7 @@ export default function CitationChecker() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ results: ResultRow[]; summary: { checked: number; found: number; missing: number } } | null>(null);
+  const [result, setResult] = useState<{ results: ResultRow[]; summary: { checked: number; found: number; unverified?: number; missing: number } } | null>(null);
 
   const faqSchemaItems = useMemo(() => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })), []);
   useFaqSchema(faqSchemaItems);
@@ -156,7 +170,7 @@ export default function CitationChecker() {
           onChange={setPhone}
           autoComplete="tel"
           testId="input-citation-phone"
-          helpText="Helps match against directories that list phone numbers."
+          helpText="Optional. If the directory page shows your number, it confirms the listing is yours."
         />
       </div>
       <button
@@ -186,14 +200,16 @@ export default function CitationChecker() {
     </form>
   );
 
-  // Wave 73b — derive 3-way segment counts from the raw status list
-  // (server's `summary.missing` lumps missing + unable-to-check together).
+  // Derive segment counts from the raw status list. "unverified" = a page
+  // exists on the directory but we couldn't confirm it's this business
+  // (wrong city / category page / name mismatch) — it is NOT "found".
   const foundCount = result ? result.results.filter((r) => r.status === "found").length : 0;
+  const unverifiedCount = result ? result.results.filter((r) => r.status === "unverified").length : 0;
   const missingCount = result ? result.results.filter((r) => r.status === "missing").length : 0;
   const unableCount = result ? result.results.filter((r) => r.status === "unable-to-check").length : 0;
-  // Clean = listed correctly (found). Flagged = missing or unable-to-check.
+  // Clean = confirmed listing (found). Flagged = unverified, missing or errored.
   const cleanCount = foundCount;
-  const flaggedCount = missingCount + unableCount;
+  const flaggedCount = unverifiedCount + missingCount + unableCount;
 
   const resultPanel = result ? (
     <div style={{
@@ -208,7 +224,9 @@ export default function CitationChecker() {
           Citation snapshot
         </div>
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
-          <strong style={{ color: "#22C55E" }}>{result.summary.found}</strong> found · <strong style={{ color: "#B91C1C" }}>{result.summary.missing}</strong> missing of {result.summary.checked}
+          <strong style={{ color: "#22C55E" }}>{foundCount}</strong> found
+          {unverifiedCount > 0 && <> · <strong style={{ color: "#B45309" }}>{unverifiedCount}</strong> unverified</>}
+          {" "}· <strong style={{ color: "#B91C1C" }}>{missingCount}</strong> missing of {result.summary.checked}
         </div>
       </div>
 
@@ -228,9 +246,10 @@ export default function CitationChecker() {
             centerLabel={String(result.summary.checked)}
             centerSub="directories"
             segments={[
-              { label: "Listed", value: foundCount, color: "emerald" },
+              { label: "Found", value: foundCount, color: "emerald" },
+              { label: "Unverified", value: unverifiedCount, color: "amber" },
               { label: "Missing", value: missingCount, color: "crimson" },
-              { label: "Unable to check", value: unableCount, color: "amber" },
+              { label: "Unable to check", value: unableCount, color: "sapphire" },
             ]}
           />
         </div>
@@ -238,8 +257,8 @@ export default function CitationChecker() {
           <BarComparisonCard
             title="Clean vs flagged"
             items={[
-              { label: "Clean (listed)", value: cleanCount, color: "emerald" },
-              { label: "Flagged (missing / errored)", value: flaggedCount, color: "crimson" },
+              { label: "Confirmed (found)", value: cleanCount, color: "emerald" },
+              { label: "Flagged (unverified / missing / errored)", value: flaggedCount, color: "crimson" },
             ]}
           />
         </div>
@@ -260,7 +279,7 @@ export default function CitationChecker() {
               <td style={{ padding: "10px 4px" }}>
                 {row.url ? (
                   <a href={row.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: mkt.accent, textDecoration: "none", fontSize: 12 }}>
-                    View <ExternalLink size={11} />
+                    View <ExternalLink size={12} />
                   </a>
                 ) : (
                   <span style={{ color: "rgba(0,0,0,0.35)", fontSize: 12 }}>—</span>

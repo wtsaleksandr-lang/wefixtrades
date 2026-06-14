@@ -252,12 +252,90 @@ const CITATION_SOURCES: Array<{ source: string; label: string; domain: string }>
   { source: "manta", label: "Manta", domain: "manta.com" },
 ];
 
+/**
+ * Accuracy fix (2026-06-13): the old matcher counted a directory "found"
+ * whenever ANY organic result's hostname equalled the directory domain —
+ * with no check that the page was actually THIS business's listing. Live,
+ * a Roto-Rooter/Austin scan returned 10/10 "found" where the Houzz hit was
+ * a *Boerne* (wrong-city) page and Thumbtack/HomeAdvisor were category
+ * index pages. That is a misleading result on a public lead-magnet.
+ *
+ * New rule: a host-only hit is necessary but not sufficient. To claim
+ * "found" we require a corroborating signal in the result's title /
+ * snippet / URL:
+ *   - the business-name token must appear (fuzzy, via looseIncludes), AND
+ *   - if a city was supplied, the city must appear too (a wrong-city page
+ *     stays "unverified", not "found").
+ * Host-only hits with no name corroboration are demoted to "unverified"
+ * (we found a page on that directory, but couldn't confirm it's yours) —
+ * we never silently claim "found".
+ *
+ * Phone (optional): when supplied, a digits-match of the phone in the
+ * title/snippet/URL is treated as a strong corroborating signal that, on
+ * its own, can lift an "unverified" host hit to "found" — this is the
+ * "helps confirm your listing" use the field's helptext now promises.
+ */
+type CitationStatus = "found" | "unverified" | "missing" | "unable-to-check";
+
+function normPhoneDigits(s: string): string {
+  return (s || "").replace(/\D+/g, "");
+}
+
+/**
+ * Decide a citation status from the organic results of a `site:<domain>`
+ * query. Pure + exported for unit tests.
+ */
+export function classifyCitationHit(
+  organic: Array<{ link: string; title?: string; snippet?: string }>,
+  src: { domain: string },
+  businessName: string,
+  city: string,
+  phone: string,
+): { status: CitationStatus; url?: string } {
+  const hostHits = organic.filter((o) => {
+    try {
+      const host = new URL(o.link).hostname.replace(/^www\./, "");
+      return host === src.domain || host.endsWith(`.${src.domain}`);
+    } catch {
+      return false;
+    }
+  });
+  if (hostHits.length === 0) return { status: "missing" };
+
+  const phoneDigits = normPhoneDigits(phone);
+  // A meaningful phone has at least 7 digits; ignore stubs so a "1" or area
+  // code alone can't false-corroborate.
+  const phoneUsable = phoneDigits.length >= 7;
+
+  let firstHostUrl: string | undefined;
+  for (const o of hostHits) {
+    if (!firstHostUrl) firstHostUrl = o.link;
+    const haystack = `${o.title || ""} ${o.snippet || ""} ${o.link || ""}`;
+    const nameMatch = looseIncludes(haystack, businessName);
+    const cityMatch = !city || looseIncludes(haystack, city);
+    const phoneMatch =
+      phoneUsable && normPhoneDigits(haystack).includes(phoneDigits);
+
+    // Strong corroboration → "found":
+    //   name + (city if provided)      → confirmed listing
+    //   phone digits present           → confirmed listing (NAP phone match)
+    if ((nameMatch && cityMatch) || phoneMatch) {
+      return { status: "found", url: o.link };
+    }
+  }
+  // We found a page on the directory but couldn't confirm it's this
+  // business (wrong city, category/index page, or name didn't appear).
+  return { status: "unverified", url: firstHostUrl };
+}
+
 async function citationCheckerHandler(req: Request, res: Response) {
   if (!rateOk("citation", req, res)) return;
   const businessName = strField(req.body?.businessName, 120);
   const city = strField(req.body?.city, 80);
-  // phone is accepted by the form but intentionally not used to gate the
-  // citation query (see queryParts note below) — reading it would be dead code.
+  // Phone is optional. When supplied it is used as a corroborating NAP
+  // signal in classifyCitationHit (it can lift a host-only hit to "found"),
+  // never to shrink the count — so it stays purely additive.
+  const phone = strField(req.body?.phone, 40);
   if (!businessName) {
     return res.status(400).json({ ok: false, error: "Missing businessName." });
   }
@@ -267,9 +345,9 @@ async function citationCheckerHandler(req: Request, res: Response) {
     // the query. Directory result snippets rarely contain the literal phone
     // string, so requiring it as an AND term dropped legitimate matches
     // (~9/10 → ~3/10). The phone field is "optional, helps matching" only — it
-    // must never shrink the citation count. We accept the first organic hit on
-    // that domain as confirmation; the disclaimer below makes clear this is a
-    // quick check, not the full 50+ directory sweep that the paid audit runs.
+    // must never shrink the citation count. A host-only hit is then
+    // business-matched (name + city, or phone digits) before we claim
+    // "found"; unconfirmed host hits are reported as "unverified".
     const queryParts = [
       `site:${src.domain}`,
       `"${businessName}"`,
@@ -278,25 +356,23 @@ async function citationCheckerHandler(req: Request, res: Response) {
     const q = queryParts.join(" ");
     try {
       const result = await searchSerp({ query: q, country: "us", language: "en", num: 5 });
-      const hit = result.organic.find((o) => {
-        try {
-          const host = new URL(o.link).hostname.replace(/^www\./, "");
-          return host === src.domain || host.endsWith(`.${src.domain}`);
-        } catch {
-          return false;
-        }
-      });
-      if (hit) {
-        return { source: src.source, label: src.label, status: "found" as const, url: hit.link };
-      }
-      return { source: src.source, label: src.label, status: "missing" as const };
+      const { status, url } = classifyCitationHit(
+        result.organic,
+        src,
+        businessName,
+        city,
+        phone,
+      );
+      return { source: src.source, label: src.label, status, url };
     } catch {
-      return { source: src.source, label: src.label, status: "unable-to-check" as const };
+      return { source: src.source, label: src.label, status: "unable-to-check" as const, url: undefined };
     }
   });
 
   const results = await Promise.all(checks);
   const foundCount = results.filter((r) => r.status === "found").length;
+  const unverifiedCount = results.filter((r) => r.status === "unverified").length;
+  const missingCount = results.filter((r) => r.status === "missing").length;
   return res.json({
     ok: true,
     businessName,
@@ -305,7 +381,10 @@ async function citationCheckerHandler(req: Request, res: Response) {
     summary: {
       checked: results.length,
       found: foundCount,
-      missing: results.length - foundCount,
+      unverified: unverifiedCount,
+      // `missing` keeps its historical meaning (truly not listed); the UI
+      // derives its own 3-/4-way breakdown from the per-row statuses.
+      missing: missingCount,
     },
   });
 }

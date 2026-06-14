@@ -45,32 +45,42 @@ type EngineKey = "googleWeb" | "braveWeb" | "googleMaps";
 interface EngineCardData {
   key: EngineKey;
   label: string;
+  /** Short label for the cross-engine visibility bar chart (avoids overflow). */
+  shortLabel: string;
   helper: string;
   icon: React.ReactNode;
   accent: string;
 }
 
+// Maps leads — it's the only engine that's truly geo-localized to the city
+// you enter (the Local Pack is what searchers actually see for "near me"
+// queries). The two web columns follow. The web engines are honest about NOT
+// being geo-pinned: Brave's web API only accepts a country (no city), so its
+// rank reflects a NATIONAL query, not your local market.
 const ENGINES: EngineCardData[] = [
+  {
+    key: "googleMaps",
+    label: "Google Maps Local Pack",
+    shortLabel: "Maps",
+    helper: "The 3-pack of map results — localized to your city",
+    icon: <MapPin size={20} />,
+    accent: "rgb(34,197,94)",
+  },
   {
     key: "googleWeb",
     label: "Google Web",
+    shortLabel: "Google Web",
     helper: "Top 10 organic blue links",
     icon: <Search size={20} />,
     accent: "rgb(13,60,252)",
   },
   {
     key: "braveWeb",
-    label: "Brave Web",
-    helper: "Bing-equivalent index — privacy SE",
+    label: "National web rank (not geo-pinned)",
+    shortLabel: "Web (national)",
+    helper: "Brave / Bing-equivalent index — country-level, not city",
     icon: <Globe size={20} />,
     accent: "rgb(251,113,36)",
-  },
-  {
-    key: "googleMaps",
-    label: "Google Maps Local Pack",
-    helper: "The 3-pack of map results",
-    icon: <MapPin size={20} />,
-    accent: "rgb(34,197,94)",
   },
 ];
 
@@ -98,7 +108,12 @@ const FAQ_ITEMS = [
   {
     question: "What does 'not in top 20' mean?",
     answer:
-      "We pull the top 20 results from each engine. If we don't find your business in those 20, we show 'Not in top 20'. Beyond position 20 the click-through rate is effectively zero, so for ranking-decision purposes 'not in top 20' = 'not ranking'.",
+      "We pull the top 20 results from each engine. If we don't find your business in those 20, we show 'Not in top 20'. Beyond position 20 the click-through rate is effectively zero, so for ranking-decision purposes 'not in top 20' = 'not ranking'. If an engine returns no data at all (rate-limited, key unfunded, or down for that run) we show 'Unavailable' instead — that's different from a genuine 'not ranking'.",
+  },
+  {
+    question: "Why is the web column labelled 'national, not geo-pinned'?",
+    answer:
+      "Only the Google Maps Local Pack is truly localized to the city you enter. The Brave / Bing-equivalent web API accepts a country but no city, so its rank reflects a national query — a competitor from another city can appear. We label it honestly so you don't read a national web rank as your local-market rank. For local decisions, lead with the Maps result.",
   },
 ];
 
@@ -290,10 +305,15 @@ export default function LocalRankTracker() {
   /* ─── Engine result card ────────────────────────────────────────────── */
   const EngineCard = ({ engine, data }: { engine: EngineCardData; data: EngineResult }) => {
     const inTop10 = data.position != null && data.position <= 10;
+    // An engine that returned ZERO results (totalChecked === 0) gave us no
+    // data — that is NOT the same as a genuine "not ranking" miss. Live, an
+    // engine returned { totalChecked: 0, position: null } with no error and
+    // we wrongly rendered "Not in top 20". Treat empty as Unavailable.
+    const noData = data.position == null && data.totalChecked === 0;
     const positionLabel =
       data.position != null
         ? `#${data.position}`
-        : data.error
+        : data.error || noData
         ? "Unavailable"
         : `Not in top ${data.totalChecked || 20}`;
     return (
@@ -399,7 +419,7 @@ export default function LocalRankTracker() {
     ? ENGINES.map((eng) => {
         const r = result.engines[eng.key];
         const visibility = r.position != null ? Math.max(0, 21 - r.position) : 0;
-        return { label: eng.label.replace(" Local Pack", ""), value: visibility, raw: r };
+        return { label: eng.shortLabel, value: visibility, raw: r };
       })
     : [];
   const peakVisibility = visibilityBars.reduce((m, b) => (b.value > m ? b.value : m), 0);
@@ -408,8 +428,9 @@ export default function LocalRankTracker() {
     value: b.value,
     highlighted: b.value > 0 && b.value === peakVisibility,
   }));
-  // Format the tooltip value back into "rank #N" or "Not in top 20".
-  const formatRankTooltip = (n: number) => (n > 0 ? `Rank #${21 - n}` : "Not in top 20");
+  // Format the tooltip value back into "rank #N", or a neutral label for a
+  // zero bar (could be "not ranking" OR an engine that returned no data).
+  const formatRankTooltip = (n: number) => (n > 0 ? `Rank #${21 - n}` : "Not ranking / no data");
 
   const resultPanel = result ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -430,6 +451,10 @@ export default function LocalRankTracker() {
           caption="Taller bar = stronger rank. Hover for the raw position."
           color="emerald"
           formatValue={formatRankTooltip}
+          // Only 3 engines (vs the ~12-bar monthly default) — widen the bars
+          // and gaps so the per-engine labels have room and don't collide.
+          barWidth={56}
+          barGap={36}
         />
       </div>
 
