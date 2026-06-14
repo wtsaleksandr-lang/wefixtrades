@@ -38,6 +38,8 @@ import {
 import { Link } from "wouter";
 import { MonthlyBarSeries } from "@/components/ui/visual-primitives";
 
+import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+
 const TOOL_PATH = "/tools/local-rank-tracker";
 
 type EngineKey = "googleWeb" | "braveWeb" | "googleMaps";
@@ -521,6 +523,49 @@ export default function LocalRankTracker() {
       >
         Apple Maps tracking coming Q4 2026 (pending public Apple Maps SERP API)
       </div>
+
+      {/* Result-aware upsell — best position across all engines decides the
+          recommendation. Not found / outside top 3 → managed MapGuard;
+          already top-3 somewhere → cross-sell the Full Audit. */}
+      {(() => {
+        const positions = Object.values(result.engines)
+          .map((e) => e.position)
+          .filter((p): p is number => p != null);
+        const best = positions.length ? Math.min(...positions) : null;
+        if (best == null || best > 3) {
+          return (
+            <ToolUpsellCTA
+              sourceTool="local-rank-tracker"
+              tone="fix"
+              eyebrow="Next step"
+              headline={
+                best == null
+                  ? `You're not ranking for "${result.keyword}" in ${result.location} yet`
+                  : `You're ranking #${best} — the top 3 get most of the clicks`}
+              body="MapGuard does the ongoing local-SEO work to move you up — Google Business Profile optimisation, citations, reviews, and weekly rank tracking, all handled for you."
+              serviceId="mapguard-ongoing"
+              ctaLabel="Improve my ranking"
+            />
+          );
+        }
+        return (
+          <ToolUpsellCTA
+            sourceTool="local-rank-tracker"
+            tone="audit"
+            eyebrow="You're in the top 3"
+            headline="Strong ranking — make sure it holds"
+            body="Nice spot. The Full Audit checks the signals that keep you there — reviews, citations, site speed — and flags anything slipping."
+            href="/tools/free-audit"
+            ctaLabel="Run a full free audit"
+          />
+        );
+      })()}
+
+      <ToolLeadCapture
+        sourceTool="local-rank-tracker"
+        sourcePage={TOOL_PATH}
+        businessName={result.businessName}
+      />
     </div>
   ) : null;
 

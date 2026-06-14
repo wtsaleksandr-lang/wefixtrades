@@ -37,6 +37,7 @@ import { db } from "../db";
 import { rankfluxSubscriptions } from "@shared/schemas/rankfluxSubscriptions";
 import { sql } from "drizzle-orm";
 import { queueEmail } from "../services/emailQueueService";
+import { storage } from "../storage";
 import { searchSerp } from "../lib/serpOrchestrator";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
 
@@ -1218,9 +1219,81 @@ async function localRankTrackerHandler(req: Request, res: Response) {
   });
 }
 
+/* ─── 8. Tool lead capture ("Email me this report") ───────────────────── */
+
+/**
+ * Peak-intent lead capture shared by every free SEO tool's result view
+ * (Citation Checker, Google Review Link, Local Rank Grid, Local Rank Tracker,
+ * Local SERP Checker — and the Rankflux upsell). The visitor sees full
+ * results first; this is an OPTIONAL "email me this report" affordance, not a
+ * gate.
+ *
+ * Reuses the existing audit lead store rather than inventing a new pipeline:
+ *   - persists to `audit_submissions` via storage.createAuditSubmission (the
+ *     same store /api/audit/save-lead writes to — see auditRoutes.ts:3363),
+ *     tagged with `source_tool` for attribution so follow-up / analytics can
+ *     differentiate which tool produced the lead;
+ *   - sends a best-effort confirmation via the same queueEmail pipeline the
+ *     rankflux-subscribe handler uses. If SMTP is unconfigured the queue is a
+ *     no-op and the lead row still lands, so we never lose the signal.
+ *
+ * We do NOT enqueue the audit follow-up *sequence* here — that sequence is
+ * audit-report-specific (it references the visitor's score, report link, and
+ * detected issues, none of which a tool lead has). The lead is persisted +
+ * confirmed; tool-specific nurture can be layered on later off the
+ * `source_tool` tag without rework.
+ */
+const TOOL_LEAD_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function toolLeadHandler(req: Request, res: Response) {
+  if (!rateOk("tool-lead", req, res)) return;
+  const email = strField(req.body?.email, 200).toLowerCase();
+  // Clamp to the audit_submissions.source_tool varchar(50) column width.
+  const sourceTool = strField(req.body?.sourceTool, 50);
+  const sourcePage = strField(req.body?.sourcePage, 200);
+  const businessName = strField(req.body?.businessName, 120);
+  if (!email || !TOOL_LEAD_EMAIL_RE.test(email)) {
+    return res.status(400).json({ ok: false, error: "Please enter a valid email." });
+  }
+
+  try {
+    const submission = await storage.createAuditSubmission({
+      email,
+      business_name: businessName || null,
+      wants_help: false,
+      issue_count: 0,
+      source_tool: sourceTool || "seo-tool",
+      source_page: sourcePage || null,
+    });
+
+    // Best-effort confirmation email — never blocks the lead save.
+    try {
+      await queueEmail(
+        email,
+        "Your WeFixTrades report",
+        `<p>Thanks for using our free local-SEO tools.</p>
+         <p>You asked us to email you a copy of your report${businessName ? ` for <strong>${businessName}</strong>` : ""}. Keep an eye on this inbox — if you'd like a hand acting on what it showed, just reply and a real person will help.</p>
+         <p>Want the complete picture? Our <a href="https://wefixtrades.com/tools/free-audit">Full Audit</a> checks 50+ citation sources, 20 keyword rankings, your Google Business Profile, competitors, and website speed.</p>
+         <p>— The WeFixTrades Team</p>`,
+        undefined,
+        { category: "marketing", source: `tool_lead:${sourceTool || "seo-tool"}` },
+      );
+    } catch (emailErr: any) {
+      log.debug("[tool-lead] confirmation email enqueue failed (non-fatal)", { error: emailErr?.message });
+    }
+
+    log.info("[tool-lead] saved", { id: submission.id, sourceTool });
+    return res.json({ ok: true, submissionId: submission.id });
+  } catch (err: any) {
+    log.warn("[tool-lead] save failed", { error: err?.message || String(err) });
+    return res.status(500).json({ ok: false, error: "Could not save. Please try again." });
+  }
+}
+
 /* ─── Router registration ─────────────────────────────────────────────── */
 
 export function registerFreeToolsRoutes(app: Express): void {
+  app.post("/api/tools/tool-lead", toolLeadHandler);
   app.post("/api/tools/google-review-link", googleReviewLinkHandler);
   app.post("/api/tools/local-search-checker", localSearchCheckerHandler);
   app.post("/api/tools/citation-checker", citationCheckerHandler);

@@ -22,6 +22,7 @@ import {
   BarComparisonCard,
   DonutChart,
 } from "@/components/ui/visual-primitives";
+import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
 import { mkt } from "@/theme/tokens";
 
 const TOOL_PATH = "/tools/citation-checker";
@@ -292,6 +293,36 @@ export default function CitationChecker() {
       <div style={{ marginTop: 12, fontSize: 12, color: "rgba(0,0,0,0.5)", lineHeight: 1.5 }}>
         Quick check of 10 popular directories. The Full Audit checks 50+ citation sources and flags NAP inconsistencies.
       </div>
+
+      {/* Result-aware upsell — gaps (missing/unverified) route to MapSetup
+          (citation + NAP cleanup); a clean sheet cross-sells the Full Audit. */}
+      {flaggedCount > 0 ? (
+        <ToolUpsellCTA
+          sourceTool="citation-checker"
+          tone="fix"
+          eyebrow="Next step"
+          headline={`${flaggedCount} ${flaggedCount === 1 ? "directory needs" : "directories need"} attention`}
+          body="We'll claim your missing listings and fix every NAP inconsistency across the major directories — so Google sees one consistent business, not a dozen mismatched ones."
+          serviceId="mapguard-setup"
+          ctaLabel="Fix my citations + NAP"
+        />
+      ) : (
+        <ToolUpsellCTA
+          sourceTool="citation-checker"
+          tone="audit"
+          eyebrow="You're in good shape"
+          headline="Your citations look clean — lock it in"
+          body="Nice. The Full Audit checks 50+ more sources plus your rankings, reviews, and site speed so nothing slips."
+          href="/tools/free-audit"
+          ctaLabel="Run a full free audit"
+        />
+      )}
+
+      <ToolLeadCapture
+        sourceTool="citation-checker"
+        sourcePage={TOOL_PATH}
+        businessName={businessName}
+      />
     </div>
   ) : null;
 
