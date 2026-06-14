@@ -41,6 +41,7 @@ interface CallbackConfigResp {
   enabled: boolean;
   heading: string;
   cta_label: string;
+  mode: "inline" | "popup";
   fields_json: CallbackFields;
   widgetToken: string;
 }
@@ -102,6 +103,7 @@ export default function CallbackForm() {
     setEnabled(Boolean(data.enabled));
     setHeading(typeof data.heading === "string" ? data.heading : "Request a callback");
     setCtaLabel(typeof data.cta_label === "string" ? data.cta_label : "Send request");
+    setMode(data.mode === "popup" ? "popup" : "inline");
     // Defensive merge — `fields_json` can be null/partial on older rows.
     const raw = (data.fields_json ?? {}) as Partial<CallbackFields>;
     setFields({
@@ -141,7 +143,7 @@ export default function CallbackForm() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, heading, cta_label: ctaLabel, fields_json: fields }),
+        body: JSON.stringify({ enabled, heading, cta_label: ctaLabel, mode, fields_json: fields }),
       });
       if (!r.ok) throw new Error("Save failed");
     },

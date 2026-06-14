@@ -252,7 +252,11 @@ function deriveCacheKey(inputs: RenderInputs): string {
     inputs.pinColor.toLowerCase(),
     inputs.circleColor.toLowerCase(),
     inputs.circleOpacity.toFixed(2),
-    inputs.poweredBy ? "pb1" : "pb0",
+    // NOTE: poweredBy is intentionally NOT part of the cache key. The rendered
+    // Google PNG is byte-identical for both tiers (branding is applied as a
+    // caption in the embed snippet, not composited into the image). Keying by
+    // poweredBy would force a fresh PAID Google fetch on every tier toggle for
+    // an identical image.
   ].join("|");
   return crypto.createHash("sha256").update(seed).digest("hex").slice(0, 32);
 }
@@ -299,16 +303,13 @@ async function renderMapPng(inputs: RenderInputs): Promise<Buffer | null> {
       log.warn("static maps HTTP error", { status: resp.status });
       return null;
     }
-    const buf = Buffer.from(await resp.arrayBuffer());
-    if (!inputs.poweredBy) return buf;
-    // Powered-by overlay: bake a small PNG strip into the image. Without
-    // `sharp` available we fall back to appending an iTXt chunk note —
-    // visually we cannot composite. Instead, we serve the unmodified Google
-    // PNG and rely on the customer's site to render a small caption beneath
-    // their <img>. We document this in the embed snippet shown in the
-    // portal page. (See ServiceAreaMap.tsx — the embed includes a tiny
-    // <span> for free-tier users.)
-    return buf;
+    // The rendered PNG is identical for both tiers — we do NOT composite a
+    // server-side overlay (no `sharp` dependency). Free-tier "Powered by
+    // WeFixTrades" branding is rendered as a caption in the embed snippet
+    // beneath the <img> (see ServiceAreaMap.tsx). Because the image is
+    // tier-independent, `poweredBy` is excluded from the cache key so both
+    // tiers share one cached PNG instead of forcing duplicate paid fetches.
+    return Buffer.from(await resp.arrayBuffer());
   } catch (err: any) {
     log.error("static maps threw", { error: err?.message });
     return null;
@@ -418,10 +419,14 @@ export function registerServiceAreaMapRoutes(app: Express): void {
         .limit(1);
       const token = await storage.ensureWidgetToken(clientId);
       const apiKeyConfigured = Boolean(getMapsApiKey());
+      // Free tier shows a "Powered by WeFixTrades" caption in the embed snippet;
+      // paid removes it. Branding is a snippet caption, not baked into the PNG.
+      const poweredBy = !(await hasActivePaidSubscription(clientId));
       res.json({
         config: row ?? null,
         widgetToken: token,
         apiKeyConfigured,
+        poweredBy,
       });
     } catch (err: any) {
       log.error("get config error", { error: err?.message });

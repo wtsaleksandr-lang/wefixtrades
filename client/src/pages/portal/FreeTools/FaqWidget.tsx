@@ -26,7 +26,7 @@ import {
   FieldGroupHeader,
   TitleInField,
   TitleInFieldTextarea,
-  useDebouncedCallback,
+  useKeyedDebouncedCallback,
 } from "./_shared";
 
 /**
@@ -148,13 +148,16 @@ export default function FaqWidget() {
     onError: (e: Error) => toast({ title: "Couldn't update", description: e.message, variant: "destructive" }),
   });
 
-  /* DS rule (autosave): single debounced PATCH per row. Without this the
+  /* DS rule (autosave): one debounced PATCH per (row, field). Without this the
      widget fires N requests per second while the customer is typing — the
      audit flagged this as the "FaqWidget keystroke storm". 300ms feels
-     instant on save indicators but coalesces normal typing into one POST. */
+     instant on save indicators but coalesces normal typing into one POST.
+     The debounce is KEYED by id+field: a single shared timer let a fast edit
+     to row B cancel row A's pending PATCH (its args discarded → row A's edit
+     was silently lost). Keyed timers isolate each row+field. */
   const patchMutRef = useRef(patchMut);
   useEffect(() => { patchMutRef.current = patchMut; }, [patchMut]);
-  const debouncedPatch = useDebouncedCallback(
+  const debouncedPatch = useKeyedDebouncedCallback(
     (id: string, body: Partial<FaqItem>) => patchMutRef.current.mutate({ id, body }),
     300,
   );
@@ -292,7 +295,7 @@ export default function FaqWidget() {
                               value={draft.question}
                               onChange={(v) => {
                                 setDrafts((d) => ({ ...d, [it.id]: { ...draft, question: v } }));
-                                debouncedPatch(it.id, { question: v });
+                                debouncedPatch(`${it.id}:question`, it.id, { question: v });
                               }}
                               help="The question your customer is asking — keep it natural and specific."
                             />
@@ -302,7 +305,7 @@ export default function FaqWidget() {
                               value={draft.answer}
                               onChange={(v) => {
                                 setDrafts((d) => ({ ...d, [it.id]: { ...draft, answer: v } }));
-                                debouncedPatch(it.id, { answer: v });
+                                debouncedPatch(`${it.id}:answer`, it.id, { answer: v });
                               }}
                               textareaClassName="min-h-[60px]"
                             />

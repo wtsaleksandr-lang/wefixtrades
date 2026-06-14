@@ -93,11 +93,21 @@ async function ensureReviewLinkConfig(clientId: number, businessName: string | n
 }
 
 /* ─── Schemas ─── */
+// z.string().url() alone accepts javascript:/data: schemes — these later get
+// returned verbatim as a `redirect` target (reviewFunnelRoutes), enabling
+// open-redirect / self-XSS. Restrict review destination URLs to http(s).
+const httpUrl = () =>
+  z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => /^https?:\/\//i.test(u), { message: "URL must start with http:// or https://" });
+
 const reviewLinkBody = z.object({
   slug: z.string().regex(SLUG_RE, "Slug must be lowercase letters / digits / dashes (2-42 chars)"),
-  google_url: z.string().url().max(500).optional().or(z.literal("").transform(() => undefined)),
-  facebook_url: z.string().url().max(500).optional().or(z.literal("").transform(() => undefined)),
-  yelp_url: z.string().url().max(500).optional().or(z.literal("").transform(() => undefined)),
+  google_url: httpUrl().optional().or(z.literal("").transform(() => undefined)),
+  facebook_url: httpUrl().optional().or(z.literal("").transform(() => undefined)),
+  yelp_url: httpUrl().optional().or(z.literal("").transform(() => undefined)),
   threshold: z.number().int().min(1).max(5),
   heading: z.string().max(200).optional().or(z.literal("").transform(() => undefined)),
 });
@@ -106,6 +116,7 @@ const callbackConfigBody = z.object({
   enabled: z.boolean(),
   heading: z.string().min(1).max(200),
   cta_label: z.string().min(1).max(80),
+  mode: z.enum(["inline", "popup"]).default("inline"),
   fields_json: z.object({
     name: z.boolean(),
     phone: z.boolean(),
@@ -348,6 +359,7 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
         enabled: cfg?.enabled ?? true,
         heading: cfg?.heading ?? "Request a callback",
         cta_label: cfg?.cta_label ?? "Send request",
+        mode: cfg?.mode ?? "inline",
         fields_json: cfg?.fields_json ?? { name: true, phone: true, message: true, best_time: true },
         widgetToken: token,
       });
@@ -376,6 +388,7 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
             enabled: parsed.data.enabled,
             heading: parsed.data.heading,
             cta_label: parsed.data.cta_label,
+            mode: parsed.data.mode,
             fields_json: parsed.data.fields_json,
             updated_at: new Date(),
           })
@@ -386,6 +399,7 @@ export function registerPortalReviewLinkRoutes(app: Express): void {
           enabled: parsed.data.enabled,
           heading: parsed.data.heading,
           cta_label: parsed.data.cta_label,
+          mode: parsed.data.mode,
           fields_json: parsed.data.fields_json,
         });
       }

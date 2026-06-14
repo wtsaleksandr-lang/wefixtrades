@@ -59,6 +59,7 @@ interface ConfigResponse {
   config: ServiceAreaConfig | null;
   widgetToken: string;
   apiKeyConfigured: boolean;
+  poweredBy: boolean;
 }
 
 const DEFAULT_PIN = "#0d3cfc";
@@ -150,6 +151,7 @@ export default function ServiceAreaMap() {
 
   const widgetToken = data?.widgetToken ?? "";
   const apiKeyConfigured = data?.apiKeyConfigured ?? false;
+  const poweredBy = data?.poweredBy ?? true;
 
   const publicUrl = useMemo(
     () => (widgetToken ? `https://wefixtrades.com/free-tool/service-area/${widgetToken}.png` : ""),
@@ -160,7 +162,14 @@ export default function ServiceAreaMap() {
     [widgetToken, previewKey],
   );
   const snippet = widgetToken
-    ? `<img src="${publicUrl}" alt="Service area" width="600" height="400" loading="lazy">`
+    ? poweredBy
+      ? `<figure style="display:inline-block;margin:0">
+  <img src="${publicUrl}" alt="Service area" width="600" height="400" loading="lazy">
+  <figcaption style="font:12px/1.4 system-ui,sans-serif;text-align:right;margin-top:4px">
+    <a href="https://wefixtrades.com" target="_blank" rel="noopener" style="color:#6b7280;text-decoration:none">Powered by WeFixTrades</a>
+  </figcaption>
+</figure>`
+      : `<img src="${publicUrl}" alt="Service area" width="600" height="400" loading="lazy">`
     : "Loading…";
 
   const saveMut = useMutation({
