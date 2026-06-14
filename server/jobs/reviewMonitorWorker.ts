@@ -15,13 +15,13 @@ import { storage } from "../storage";
 import { sendLowRatingAlert } from "../lib/lowRatingAlert";
 import { mergeSettings } from "@shared/reputationConfig";
 import {
-  fetchGoogleReviews,
   fetchFacebookReviews,
   fetchYelpReviews,
   fetchTrustpilotReviews,
   normalizeReview,
   reviewDedupKey,
 } from "../lib/outscraper";
+import { fetchGoogleReviewsChained } from "../lib/dataforseoReviews";
 import type { Client } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 
@@ -148,15 +148,30 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
   const locationRows = await storage.listGoogleLocations(client.id);
   const enabledLocations = locationRows.filter((l) => l.enabled);
 
-  // Build the work list. Each entry: { placeId, label (for logs/dedup) }.
-  // For multi-location clients, label = location_name; for legacy, label = business_name.
-  const googleWork: Array<{ placeId: string; label: string }> = [];
+  // Build the work list. Each entry carries enough to drive the provider
+  // chain (DataForSEO → Places → Outscraper):
+  //   - placeId        : exact id Places/Outscraper use
+  //   - label          : for logs/dedup (location_name or business_name)
+  //   - locationLabel  : geo string DataForSEO needs for keyword lookup
+  //                      (derived from a multi-location address when present;
+  //                      DataForSEO does NOT accept place_id as input)
+  const googleWork: Array<{ placeId: string; label: string; locationLabel: string }> = [];
   if (enabledLocations.length > 0) {
     for (const loc of enabledLocations) {
-      googleWork.push({ placeId: loc.place_id, label: loc.location_name });
+      googleWork.push({
+        placeId: loc.place_id,
+        label: loc.location_name,
+        // address (free text) is the best geo hint we have per location;
+        // fall back to the location label, then empty (chain handles it).
+        locationLabel: loc.address || loc.location_name || "",
+      });
     }
   } else if (client.google_place_id) {
-    googleWork.push({ placeId: client.google_place_id, label: client.business_name });
+    googleWork.push({
+      placeId: client.google_place_id,
+      label: client.business_name,
+      locationLabel: "",
+    });
   }
 
   if (googleWork.length === 0 && !client.facebook_page_url) {
@@ -164,10 +179,20 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
     return result;
   }
 
-  // Google reviews — one fetch per enabled location.
+  // Google reviews — one fetch per enabled location, via the provider chain
+  // (DataForSEO primary → Google Places secondary → Outscraper last-resort)
+  // so review sync is no longer Outscraper-dependent. The chain never throws.
   for (const work of googleWork) {
-    const rawGoogle = await fetchGoogleReviews(work.placeId, REVIEWS_PER_CLIENT);
-    if (rawGoogle) {
+    const { reviews: rawGoogle, provider } = await fetchGoogleReviewsChained({
+      placeId: work.placeId,
+      businessName: client.business_name,
+      locationLabel: work.locationLabel,
+      limit: REVIEWS_PER_CLIENT,
+    });
+    if (rawGoogle.length > 0) {
+      log.info(
+        `[ReviewMonitor] Google reviews for ${client.business_name} (${work.label}) served by ${provider}: ${rawGoogle.length}`,
+      );
       result.totalFetched += rawGoogle.length;
       // Pass the location-specific place_id as the placeIdKey so dedup
       // is scoped per-location (same review at two locations stays distinct).
@@ -256,13 +281,21 @@ export async function processReviewMonitoring(): Promise<{
     return { synced: 0, totalNew: 0, totalUpdated: 0, errors: [], results: [] };
   }
 
-  // Check API key once
-  if (!process.env.OUTSCRAPER_API_KEY) {
+  // Require at least one Google-review provider to be configured. The chain
+  // is DataForSEO (primary) → Google Places (secondary) → Outscraper (last),
+  // so review sync proceeds even with Outscraper unfunded/unset. (Facebook,
+  // Yelp and Trustpilot remain Outscraper-only and self-skip when its key is
+  // absent.)
+  const hasReviewProvider =
+    (!!process.env.DATAFORSEO_LOGIN && !!process.env.DATAFORSEO_PASSWORD) ||
+    !!process.env.GOOGLE_MAPS_API_KEY ||
+    !!process.env.OUTSCRAPER_API_KEY;
+  if (!hasReviewProvider) {
     return {
       synced: 0,
       totalNew: 0,
       totalUpdated: 0,
-      errors: ["OUTSCRAPER_API_KEY not configured"],
+      errors: ["No Google-review provider configured (need DATAFORSEO_LOGIN+PASSWORD, GOOGLE_MAPS_API_KEY, or OUTSCRAPER_API_KEY)"],
       results: [],
     };
   }
