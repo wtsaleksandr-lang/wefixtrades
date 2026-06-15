@@ -40,6 +40,11 @@ export interface CompetitorEntry {
   /** Straight-line km from the subject business; null when the subject coords
    *  are unknown (no centroid resolvable). Out-of-radius competitors are dropped. */
   distanceKm: number | null;
+  /** Set true when the peer-relevance filter classed this competitor as a
+   *  national/global player (a giant) and excluded it from the head-to-head.
+   *  Kept on the entry only so a later UI could surface "national players
+   *  dominate this category" context — it is NEVER part of the comparison set. */
+  nationalPlayer?: boolean;
 }
 
 /* ─── Same-niche category matching ───────────────────────────────────────────
@@ -158,11 +163,188 @@ export function haversineKm(
 /** Competitors farther than this from the subject are dropped (matches the 30km bias). */
 const MAX_DISTANCE_KM = 30;
 
+/* ─── Peer-relevance (same-LEAGUE) filter ─────────────────────────────────────
+ * Same-niche + nearby is not enough: a small local freight forwarder (e.g.
+ * "Access Air Mississauga") must NOT be benchmarked head-to-head against
+ * FedEx / DHL / UPS just because those national giants also surface for
+ * "freight forwarding near Toronto" and sit inside the 30km radius. The audit's
+ * comparison set, marketLeader, and review-gap narrative must name a PEER — a
+ * business in the same SIZE LEAGUE as the subject — not an out-of-league giant.
+ *
+ * Two complementary signals exclude a giant from the head-to-head:
+ *
+ *  1. Known-national-brand match — a curated, maintainable list of national /
+ *     global brands and big franchises whose name alone proves they are not a
+ *     local peer (FedEx, DHL, UPS, Purolator, …, plus common across-trades
+ *     franchise names). Name-based, so it catches a giant even with sparse
+ *     review data.
+ *
+ *  2. Review-magnitude (size-tier) — TUNED to avoid dropping legitimate LOCAL
+ *     leaders. A busy local independent can carry several HUNDRED reviews and is
+ *     a real competitor; the giants carry THOUSANDS-to-tens-of-thousands. So:
+ *       • Absolute: reviewsCount ≥ PEER_REVIEW_ABS_CEILING → out-of-league. No
+ *         single-location local independent realistically has this many.
+ *       • Relative: only at an EXTREME ratio — reviewsCount ≥ PEER_REVIEW_RATIO×
+ *         the subject AND reviewsCount ≥ PEER_REVIEW_RATIO_FLOOR. The floor stops
+ *         a brand-new subject (2 reviews) from making a normal 200-review local
+ *         leader look like a giant.
+ *
+ * Conservative by design: the #1 risk is dropping a real local competitor, so
+ * every threshold biases toward KEEPING. Only clear giants are removed. If the
+ * filter would empty the comparison entirely, we fall back to the original set
+ * rather than show an empty head-to-head. */
+
+/** Absolute review ceiling: at/above this, a competitor is treated as a
+ *  national/regional giant. Tuned high — busy local independents top out in the
+ *  hundreds to low-thousands; FedEx-class brands sit in the 10k+ range, so 3000
+ *  clears even an unusually-reviewed local leader. */
+const PEER_REVIEW_ABS_CEILING = 3000;
+
+/** Relative multiplier: a competitor with ≥ this many times the subject's
+ *  reviews is a candidate giant — but only combined with the floor below, so a
+ *  near-zero-review subject can't trip it against an ordinary local leader. */
+const PEER_REVIEW_RATIO = 40;
+
+/** The relative rule only fires when the competitor itself has at least this
+ *  many reviews. Below it, even a 40× ratio is just "an established local beats
+ *  a brand-new shop" — NOT a giant — so we keep the competitor. */
+const PEER_REVIEW_RATIO_FLOOR = 1000;
+
+/**
+ * Curated national/global brands + big multi-location franchises. Matched
+ * word-bounded against the competitor name (case-insensitive). Intentionally a
+ * plain, maintainable constant — extend it as new giants surface. Names are
+ * lowercased; multi-word brands match as a contiguous phrase.
+ *
+ * Grouped by domain for maintainability:
+ *  - Freight / parcel / logistics giants (the Access Air case)
+ *  - National home-services franchises common across the trades we audit
+ *  - National big-box / supply chains that can mis-surface in a trade search
+ */
+const NATIONAL_BRANDS: string[] = [
+  // Freight / parcel / courier / logistics giants
+  "fedex", "fed ex", "dhl", "ups", "united parcel", "purolator", "canada post",
+  "usps", "postnl", "tnt express", "ceva", "ceva logistics", "kuehne", "kuehne nagel",
+  "kuehne + nagel", "db schenker", "schenker", "expeditors", "dsv", "dsv air",
+  "geodis", "nippon express", "c.h. robinson", "ch robinson", "dachser",
+  "bollore", "hellmann", "panalpina", "agility logistics", "maersk", "kerry logistics",
+  "xpo", "xpo logistics", "j.b. hunt", "jb hunt", "old dominion", "estes express",
+  "yrc", "tforce", "day & ross", "manitoulin", "loomis express",
+  // National home-services / trades franchises
+  "roto-rooter", "roto rooter", "mr. rooter", "mr rooter", "mister rooter",
+  "mr. handyman", "mr handyman", "mister handyman", "ace handyman",
+  "one hour heating", "mister sparky", "mr. sparky", "mr sparky",
+  "benjamin franklin plumbing", "aire serv", "aire-serv", "molly maid",
+  "merry maids", "the maids", "servpro", "stanley steemer", "chemdry",
+  "chem-dry", "terminix", "orkin", "rentokil", "two men and a truck",
+  "u-haul", "uhaul", "u haul", "1-800-got-junk", "1 800 got junk", "got junk",
+  "junk king", "college hunks", "the brothers that just do gutters",
+  "trugreen", "weed man", "scotts lawn", "rotech", "precision door",
+  // National big-box / supply chains (can mis-surface in trade searches)
+  "home depot", "the home depot", "lowe's", "lowes", "rona", "canadian tire",
+  "ferguson", "grainger", "wurth", "sherwin-williams", "sherwin williams",
+  "general electric",
+];
+
+/** Word-bounded, case-insensitive: true when the competitor name contains a
+ *  curated national brand as a whole token/phrase. Word-bounded so "Upstate
+ *  Plumbing" does NOT match "ups" and "Upscale Movers" does NOT match a brand. */
+export function matchesNationalBrand(name: string): boolean {
+  const n = (name || "").toLowerCase();
+  if (!n) return false;
+  for (const brand of NATIONAL_BRANDS) {
+    // Escape regex specials in the brand, allow flexible whitespace between words.
+    const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+    if (re.test(n)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when a competitor is OUT OF LEAGUE for the given subject — a national /
+ * global giant that should not appear in the local head-to-head. Returns the
+ * reason for logging. Conservative: only fires on a curated brand match or a
+ * clear size-tier signal (see the threshold constants above).
+ */
+export function isOutOfLeague(
+  c: Pick<CompetitorEntry, "name" | "reviewsCount">,
+  subjectReviewsCount: number,
+): { out: boolean; reason: string } {
+  if (matchesNationalBrand(c.name)) return { out: true, reason: "national-brand" };
+
+  const reviews = typeof c.reviewsCount === "number" ? c.reviewsCount : 0;
+  // Primary: absolute ceiling — no local independent realistically reaches this.
+  if (reviews >= PEER_REVIEW_ABS_CEILING) {
+    return { out: true, reason: `reviews≥${PEER_REVIEW_ABS_CEILING}` };
+  }
+  // Secondary: extreme ratio AND a high absolute floor — catches a giant the
+  // absolute ceiling missed without dropping a local leader who merely dwarfs a
+  // brand-new subject.
+  const subj = typeof subjectReviewsCount === "number" && subjectReviewsCount > 0 ? subjectReviewsCount : 0;
+  if (subj > 0 && reviews >= PEER_REVIEW_RATIO_FLOOR && reviews >= PEER_REVIEW_RATIO * subj) {
+    return { out: true, reason: `ratio≥${PEER_REVIEW_RATIO}x (reviews ${reviews} vs subject ${subj})` };
+  }
+  return { out: false, reason: "" };
+}
+
+/**
+ * Split a same-niche, geo-bounded competitor list into peers (same league) and
+ * out-of-league giants. Tags giants with nationalPlayer:true. NEVER over-filters
+ * to zero: if every competitor is judged out-of-league, fall back to the closest
+ * in size (or the original set) so the head-to-head is never empty.
+ */
+function applyPeerRelevance(
+  competitors: CompetitorEntry[],
+  subjectReviewsCount: number,
+): { peers: CompetitorEntry[]; nationalPlayers: CompetitorEntry[] } {
+  const peers: CompetitorEntry[] = [];
+  const nationalPlayers: CompetitorEntry[] = [];
+  for (const c of competitors) {
+    const { out, reason } = isOutOfLeague(c, subjectReviewsCount);
+    if (out) {
+      c.nationalPlayer = true;
+      nationalPlayers.push(c);
+      log.info("[E1 peer-filter] excluded out-of-league competitor", { name: c.name, reviews: c.reviewsCount, reason });
+    } else {
+      peers.push(c);
+    }
+  }
+
+  log.info("[E1 peer-filter] kept vs excluded:", {
+    kept: peers.length,
+    excluded: nationalPlayers.length,
+    subjectReviews: subjectReviewsCount,
+  });
+
+  // Never over-filter to zero. If the peer filter removed EVERY competitor, the
+  // subject still deserves a comparison — surface the closest-in-size ones rather
+  // than an empty head-to-head. We pick the smallest-by-reviews of the excluded
+  // set (the least out-of-league) so the fallback is as peer-like as possible.
+  if (peers.length === 0 && nationalPlayers.length > 0) {
+    const fallback = [...nationalPlayers].sort((a, b) => a.reviewsCount - b.reviewsCount);
+    log.warn("[E1 peer-filter] peer filter emptied the set — falling back to closest-in-size competitors", {
+      fallbackCount: fallback.length,
+      fallbackNames: fallback.map((c) => c.name),
+    });
+    // These are kept in the comparison but stay tagged nationalPlayer:true so a
+    // UI could still label them honestly.
+    return { peers: fallback, nationalPlayers: [] };
+  }
+
+  return { peers, nationalPlayers };
+}
+
 export interface CompetitorResult {
   competitors: CompetitorEntry[];
   areaAverageRating: number;
   areaAverageReviews: number;
   marketLeader: CompetitorEntry | null;
+  /** Out-of-league national/global players the peer filter pulled OUT of the
+   *  head-to-head. Empty unless giants surfaced. Provided so a later UI could
+   *  show "national players dominate this category" context — these are NOT in
+   *  `competitors` and never feed marketLeader / the review-gap narrative. */
+  nationalPlayers?: CompetitorEntry[];
 }
 
 /* ─── Shared helpers ─── */
@@ -186,8 +368,20 @@ function scoreCompetitor(rating: number, reviews: number, hasWebsite: boolean, h
 /**
  * Aggregate helper: turns a list of mapped competitors into the full
  * CompetitorResult shape (areaAverageRating, areaAverageReviews, marketLeader).
+ *
+ * The peer-relevance filter runs FIRST so the comparison set, marketLeader, area
+ * averages, and the downstream review-gap narrative are all built from PEERS
+ * (same-league locals) — never from an out-of-league national giant.
+ * `subjectReviewsCount` powers the relative size-tier heuristic; when unknown
+ * (0) only the absolute ceiling + brand list apply.
  */
-function aggregate(competitors: CompetitorEntry[]): CompetitorResult {
+function aggregate(competitors: CompetitorEntry[], subjectReviewsCount = 0): CompetitorResult {
+  const { peers, nationalPlayers } = applyPeerRelevance(competitors, subjectReviewsCount);
+  return { ...aggregatePeers(peers), nationalPlayers };
+}
+
+/** Builds the averages + marketLeader from an already-peer-filtered list. */
+function aggregatePeers(competitors: CompetitorEntry[]): Omit<CompetitorResult, "nationalPlayers"> {
   const allRatings = competitors.map((c) => c.rating).filter((r) => r > 0);
   const allReviews = competitors.map((c) => c.reviewsCount);
   const areaAverageRating =
@@ -223,6 +417,7 @@ export async function fetchPlacesCompetitors(
   stateCode?: string,
   coords?: { lat: number; lng: number } | null,
   subjectPlaceId?: string,
+  subjectReviewsCount = 0,
 ): Promise<CompetitorResult> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY not set");
@@ -371,7 +566,7 @@ export async function fetchPlacesCompetitors(
     arg6: droppedDistance,
     arg7: ")",
   });
-  return aggregate(competitors);
+  return aggregate(competitors, subjectReviewsCount);
 }
 
 /* ─── Fallback: Outscraper ─── */
@@ -403,6 +598,7 @@ export async function fetchOutscraperCompetitorsFallback(
   stateCode?: string,
   coords?: { lat: number; lng: number } | null,
   subjectPlaceId?: string,
+  subjectReviewsCount = 0,
 ): Promise<CompetitorResult> {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
   if (!apiKey) throw new Error("OUTSCRAPER_API_KEY not set");
@@ -557,7 +753,7 @@ export async function fetchOutscraperCompetitorsFallback(
     arg6: droppedDistance,
     arg7: ")",
   });
-  return aggregate(competitors);
+  return aggregate(competitors, subjectReviewsCount);
 }
 
 /* ─── Orchestrator: cache + Places → Outscraper fallback ─── */
@@ -575,6 +771,7 @@ export async function fetchCompetitors(
   setCached: CacheSet,
   coords?: { lat: number; lng: number } | null,
   subjectPlaceId?: string,
+  subjectReviewsCount = 0,
 ): Promise<CompetitorResult | null> {
   // No usable category (truly-unknown business): an empty competitor block is
   // far better than searching "general near <city>" and returning junk. The
@@ -609,7 +806,7 @@ export async function fetchCompetitors(
   let usedFallback = false;
 
   try {
-    const placesResult = await fetchPlacesCompetitors(category, city, businessName, stateCode, coords, subjectPlaceId);
+    const placesResult = await fetchPlacesCompetitors(category, city, businessName, stateCode, coords, subjectPlaceId, subjectReviewsCount);
     if (placesResult.competitors.length > 0) {
       result = placesResult;
       log.info("[E1 competitors] Places succeeded:", { detail: placesResult.competitors.length });
@@ -624,7 +821,7 @@ export async function fetchCompetitors(
   if (!result) {
     usedFallback = true;
     try {
-      const outResult = await fetchOutscraperCompetitorsFallback(category, city, businessName, stateCode, coords, subjectPlaceId);
+      const outResult = await fetchOutscraperCompetitorsFallback(category, city, businessName, stateCode, coords, subjectPlaceId, subjectReviewsCount);
       if (outResult.competitors.length > 0) {
         result = outResult;
         log.info("[E1 competitors] Outscraper fallback succeeded:", { detail: outResult.competitors.length });

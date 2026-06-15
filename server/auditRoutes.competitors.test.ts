@@ -46,6 +46,8 @@ async function main() {
     fetchPlacesCompetitors,
     isSameNiche,
     haversineKm,
+    matchesNationalBrand,
+    isOutOfLeague,
   } = await import("./services/competitorSearch");
 
   /* ─── isSameNiche: trade type-intersection + token fallback ─── */
@@ -237,6 +239,124 @@ async function main() {
     assert.equal(detectTrade("Bright Electric", [], null), "electrical", "'Electric' name → electrical");
     // "Remove It Junk" must NOT be a moving company ('mov' inside 'remove').
     assert.equal(detectTrade("Remove It Junk", [], null), "general", "'Remove' is not a moving company");
+  }
+
+  /* ─── Peer-relevance: national-brand name matching (word-bounded) ─── */
+  {
+    assert.equal(matchesNationalBrand("FedEx Freight"), true, "FedEx is a national brand");
+    assert.equal(matchesNationalBrand("DHL Express Mississauga"), true, "DHL is a national brand");
+    assert.equal(matchesNationalBrand("UPS Store #1234"), true, "UPS is a national brand");
+    assert.equal(matchesNationalBrand("Purolator Inc"), true, "Purolator is a national brand");
+    assert.equal(matchesNationalBrand("Roto-Rooter Plumbing"), true, "Roto-Rooter franchise");
+    assert.equal(matchesNationalBrand("The Home Depot"), true, "Home Depot big-box");
+    // Word-bounded: must NOT false-positive on substrings.
+    assert.equal(matchesNationalBrand("Upstate Plumbing"), false, "'Upstate' must not match 'ups'");
+    assert.equal(matchesNationalBrand("Upscale Movers"), false, "'Upscale' must not match a brand");
+    assert.equal(matchesNationalBrand("Access Air Mississauga"), false, "a small local forwarder is not a brand");
+    assert.equal(matchesNationalBrand("Joe's Local Plumbing"), false, "a normal local name is not a brand");
+  }
+
+  /* ─── Peer-relevance: size-tier (absolute + extreme-ratio), biased to KEEP ─── */
+  {
+    // Absolute ceiling: a 12000-review competitor is out-of-league regardless of subject.
+    assert.equal(isOutOfLeague({ name: "Big Co", reviewsCount: 12000 }, 50).out, true, "12k reviews → out of league");
+    // A busy LOCAL leader (450 reviews) vs a brand-new subject (3) must be KEPT —
+    // 450 ≥ 40× but below the 1000 ratio floor → not a giant.
+    assert.equal(isOutOfLeague({ name: "Busy Local Plumber", reviewsCount: 450 }, 3).out, false, "450-review local leader KEPT vs new subject");
+    // Even a 900-review local independent stays (below absolute ceiling + ratio floor).
+    assert.equal(isOutOfLeague({ name: "Established Local", reviewsCount: 900 }, 10).out, false, "900-review local KEPT");
+    // Extreme ratio + high floor: 2000 reviews vs a 5-review subject (400×) and ≥1000 → giant.
+    assert.equal(isOutOfLeague({ name: "Regional Giant", reviewsCount: 2000 }, 5).out, true, "2000 reviews, 400x ratio, ≥1000 floor → out");
+    // Brand always wins even with modest reviews.
+    assert.equal(isOutOfLeague({ name: "FedEx Office", reviewsCount: 60 }, 40).out, true, "national brand out regardless of reviews");
+  }
+
+  /* ─── Peer-relevance end-to-end: Access Air case (drop FedEx/DHL/UPS/Purolator,
+         keep peer-sized local forwarders, marketLeader is a peer) ─── */
+  {
+    const subjectCoords = { lat: 43.589, lng: -79.6441 }; // Mississauga
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      placesResponse([
+        // National giants — same niche, nearby, but OUT of league.
+        { id: "FEDEX", displayName: { text: "FedEx Ship Centre" }, rating: 3.8, userRatingCount: 14000, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.6, longitude: -79.65 } },
+        { id: "DHL", displayName: { text: "DHL Express" }, rating: 3.5, userRatingCount: 9000, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.61, longitude: -79.64 } },
+        { id: "UPS", displayName: { text: "UPS Customer Center" }, rating: 3.2, userRatingCount: 6500, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.62, longitude: -79.63 } },
+        { id: "PURO", displayName: { text: "Purolator" }, rating: 3.0, userRatingCount: 4200, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.59, longitude: -79.66 } },
+        // Peer-sized local forwarders — IN league.
+        { id: "PEER_A", displayName: { text: "Maple Freight Forwarders" }, rating: 4.5, userRatingCount: 80, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.6, longitude: -79.62 } },
+        { id: "PEER_B", displayName: { text: "GTA Cargo Logistics" }, rating: 4.6, userRatingCount: 140, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.58, longitude: -79.63 } },
+      ])) as any;
+    try {
+      const res = await fetchPlacesCompetitors(
+        "freight forwarding service",
+        "Mississauga",
+        "Access Air",
+        "ON",
+        subjectCoords,
+        "ACCESS_AIR_ID",
+        30, // subject's review count
+      );
+      const names = res.competitors.map((c) => c.name);
+      assert.ok(!names.includes("FedEx Ship Centre"), "FedEx dropped from head-to-head");
+      assert.ok(!names.includes("DHL Express"), "DHL dropped");
+      assert.ok(!names.includes("UPS Customer Center"), "UPS dropped");
+      assert.ok(!names.includes("Purolator"), "Purolator dropped");
+      assert.deepEqual(names.sort(), ["GTA Cargo Logistics", "Maple Freight Forwarders"].sort(), "only peer forwarders remain");
+      assert.ok(res.marketLeader, "marketLeader present");
+      assert.equal(res.marketLeader!.name, "GTA Cargo Logistics", "leader is a PEER (most-reviewed peer), not a giant");
+      assert.ok((res.marketLeader!.reviewsCount || 0) < 3000, "leader is peer-sized, not a giant");
+      // Excluded giants are surfaced as nationalPlayers context, NOT in comparison.
+      assert.ok(Array.isArray(res.nationalPlayers), "nationalPlayers list present");
+      assert.equal(res.nationalPlayers!.length, 4, "all four giants captured as national players");
+      assert.ok(res.nationalPlayers!.every((c) => c.nationalPlayer === true), "giants tagged nationalPlayer");
+      // areaAverageReviews is over peers only → (80 + 140) / 2 = 110, not skewed by 14k giant.
+      assert.equal(res.areaAverageReviews, 110, "area average over peers only");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  /* ─── Peer-relevance regression guard: a strong LOCAL leader is NOT dropped ─── */
+  {
+    const subjectCoords = { lat: 43.6532, lng: -79.3832 };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      placesResponse([
+        // 420-review local plumbing leader — MUST stay (a real competitor).
+        { id: "LOCALLEAD", displayName: { text: "Downtown Drain Pros" }, rating: 4.7, userRatingCount: 420, primaryType: "plumber", types: ["plumber"], location: { latitude: 43.66, longitude: -79.39 } },
+        { id: "LOCAL_C", displayName: { text: "Riverside Plumbing" }, rating: 4.3, userRatingCount: 95, primaryType: "plumber", types: ["plumber"], location: { latitude: 43.65, longitude: -79.37 } },
+      ])) as any;
+    try {
+      // Subject has only 8 reviews — the 420-review leader is ~52× but below the
+      // 1000 floor, so it must NOT be classed a giant.
+      const res = await fetchPlacesCompetitors("plumbing", "Toronto", "New Plumber", "ON", subjectCoords, "NEW_ID", 8);
+      const names = res.competitors.map((c) => c.name);
+      assert.ok(names.includes("Downtown Drain Pros"), "420-review local leader NOT dropped (no regression)");
+      assert.equal(res.marketLeader!.name, "Downtown Drain Pros", "local leader is the marketLeader");
+      assert.equal((res.nationalPlayers || []).length, 0, "no national players in a normal local market");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  /* ─── Peer-relevance never over-filters to zero: all-giants → fall back ─── */
+  {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      placesResponse([
+        { id: "G1", displayName: { text: "FedEx Freight" }, rating: 3.5, userRatingCount: 5000, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.6, longitude: -79.65 } },
+        { id: "G2", displayName: { text: "DHL Supply Chain" }, rating: 3.4, userRatingCount: 8000, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.61, longitude: -79.64 } },
+      ])) as any;
+    try {
+      const res = await fetchPlacesCompetitors("freight forwarding service", "Mississauga", "Access Air", "ON", { lat: 43.589, lng: -79.6441 }, "AA", 30);
+      // No peers exist → fall back to closest-in-size rather than an empty head-to-head.
+      assert.ok(res.competitors.length > 0, "never over-filter to zero — fallback keeps closest-in-size");
+      assert.equal(res.competitors[0].name, "FedEx Freight", "fallback surfaces the smallest-by-reviews giant first");
+      assert.ok(res.marketLeader, "marketLeader present in fallback");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   }
 
   console.log("✓ audit-competitors: all assertions passed");
