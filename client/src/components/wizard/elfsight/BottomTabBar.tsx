@@ -30,6 +30,7 @@
 
 import {
   SlidersHorizontal, MousePointerClick, Palette, Settings as SettingsIcon, HelpCircle,
+  Code2,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 import { EDITOR_TABS, type EditorTab } from './types';
@@ -59,6 +60,7 @@ const TAB_ICON: Record<EditorTab, typeof SlidersHorizontal> = {
   action: MousePointerClick,
   style: Palette,
   settings: SettingsIcon,
+  install: Code2,
 };
 
 export default function BottomTabBar({

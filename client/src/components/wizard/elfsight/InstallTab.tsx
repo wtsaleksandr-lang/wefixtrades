@@ -27,7 +27,7 @@
 // `translations` map keyed by ISO code; supply translated strings for the
 // AdvancedCalculator's hardcoded labels and the wizard headline copy.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import { Check, ExternalLink, Pencil, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -38,7 +38,9 @@ import {
   DEFAULT_SHELL_LANGUAGE, SHELL_LANGUAGES, getShellLanguage,
   type ShellSettings, type HostedPageSettings, type ShellStyle,
 } from './types';
-import type { AdvFloatingLauncherPosition } from '@shared/templatePresets';
+import type {
+  AdvFloatingLauncherPosition, AdvFloatingLauncher,
+} from '@shared/templatePresets';
 import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
@@ -65,12 +67,21 @@ interface Props {
    *  customisation section to enable/disable the show-logo toggle. */
   logoUrl?: string | null;
   /** Wave P — current ShellStyle (accent + body bg) so the hosted-page
-   *  section can pick a smart default background preset for the user. */
+   *  section can pick a smart default background preset for the user.
+   *  Also carries `style.floatingLauncher` — the floating-launcher control
+   *  was relocated here from the Style tab (it's an embed/delivery concern,
+   *  edited next to the embed snippet). Its state key is unchanged. */
   style?: ShellStyle;
+  /** Persist style updates — needed so the floating-launcher control (moved
+   *  here from Style) can write the SAME `style.floatingLauncher` key. */
+  onStyleChange?: (next: ShellStyle) => void;
+  /** Owner plan tier — informational for the launcher's Pro-only fields. */
+  planTier?: string;
 }
 
 export default function InstallTab({
   settings, onChange, embedSlug, businessName = '', logoUrl = null, style,
+  onStyleChange,
 }: Props) {
   const language = settings.language ?? DEFAULT_SHELL_LANGUAGE;
 
@@ -185,32 +196,43 @@ export default function InstallTab({
     return o || 'https://wefixtrades.com';
   }, []);
 
-  // BD-3m — embed-mode toggle. Drives the snippet generation + the live
-  // preview banner below. Defaults to `inline` to match the historic
-  // snippet shape. `floating` mode is the BD-3m floating launcher (icon
-  // docked in a corner, expands the full widget on click). The position
-  // value mirrors the Style tab's floatingLauncher.position so the
-  // wizard preview and the host-page snippet stay in sync.
-  const floatingLauncherStyle = style?.floatingLauncher;
-  const styleSaysFloating = floatingLauncherStyle?.enabled === true;
-  const styleSaysPosition: AdvFloatingLauncherPosition =
-    floatingLauncherStyle?.position ?? 'bottom-right';
-  const [embedMode, setEmbedMode] = useState<'inline' | 'floating'>(
-    styleSaysFloating ? 'floating' : 'inline',
-  );
-  // Keep the InstallTab toggle in sync if the Style tab flips the master
-  // toggle while the user is on a different tab. We only react to the
-  // master toggle (not the position) so the user's last InstallTab choice
-  // wins for the position. Effect runs only when the boolean flips.
-  useEffect(() => {
-    setEmbedMode(styleSaysFloating ? 'floating' : 'inline');
-  }, [styleSaysFloating]);
-  const [embedPosition, setEmbedPosition] = useState<AdvFloatingLauncherPosition>(
-    styleSaysPosition,
-  );
-  useEffect(() => {
-    setEmbedPosition(styleSaysPosition);
-  }, [styleSaysPosition]);
+  // Floating launcher — RELOCATED here from the Style tab. The launcher is an
+  // embed/delivery concern, so it lives next to the embed snippet and is now
+  // the SINGLE source of truth (no more Style↔Install useEffect sync). The
+  // embed mode (Inline / Floating) + position derive directly from the
+  // persisted `style.floatingLauncher` slot; toggling them writes that slot.
+  const floatingLauncher: AdvFloatingLauncher = style?.floatingLauncher ?? {};
+  const embedMode: 'inline' | 'floating' =
+    floatingLauncher.enabled === true ? 'floating' : 'inline';
+  const embedPosition: AdvFloatingLauncherPosition =
+    floatingLauncher.position ?? 'bottom-right';
+  const floatingCustomIconUrl = typeof floatingLauncher.customIconUrl === 'string'
+    ? floatingLauncher.customIconUrl : '';
+  const floatingLabel = typeof floatingLauncher.label === 'string' ? floatingLauncher.label : '';
+  const floatingIconFileRef = useRef<HTMLInputElement | null>(null);
+  const setFloatingLauncher = useCallback((next: Partial<AdvFloatingLauncher>) => {
+    if (!onStyleChange || !style) return;
+    onStyleChange({
+      ...style,
+      floatingLauncher: { ...(style.floatingLauncher ?? {}), ...next },
+    });
+  }, [onStyleChange, style]);
+  const setEmbedMode = useCallback((mode: 'inline' | 'floating') => {
+    setFloatingLauncher({ enabled: mode === 'floating' });
+  }, [setFloatingLauncher]);
+  const setEmbedPosition = useCallback((pos: AdvFloatingLauncherPosition) => {
+    setFloatingLauncher({ position: pos });
+  }, [setFloatingLauncher]);
+  const onFloatingIconFile = useCallback((file: File | null) => {
+    if (!file) { setFloatingLauncher({ customIconUrl: undefined }); return; }
+    if (file.size > 1024 * 1024) return; // 1 MB cap — silently skip
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') setFloatingLauncher({ customIconUrl: result });
+    };
+    reader.readAsDataURL(file);
+  }, [setFloatingLauncher]);
 
   // Realistic embed snippet matching the existing repo pattern from
   // `client/public/widget/embed.js` / legacy PublishStep. BD-3m: when the
@@ -583,82 +605,166 @@ export default function InstallTab({
           />
         </h3>
 
-        {/* BD-3m — embed-mode toggle. Radio-style pair so both options
-         *  stay visible. When Floating is picked the position dropdown
-         *  appears beneath. Both controls also patch the canonical
-         *  `style.floatingLauncher` slot via the StyleTab indirectly —
-         *  the Style tab is the source of truth, so an explicit "Apply
-         *  to Style" callback isn't needed (the snippet is what the
-         *  user copies; the live runtime config reads from style). */}
-        <div
-          className="qq-install-mode"
-          data-testid="install-embed-mode"
-          role="radiogroup"
-          aria-label="Embed mode"
-        >
-          <label
-            className="qq-install-mode-opt"
-            data-state={embedMode === 'inline' ? 'on' : 'off'}
-          >
-            <input
-              type="radio"
-              name="qq-install-embed-mode"
-              value="inline"
-              checked={embedMode === 'inline'}
-              onChange={() => setEmbedMode('inline')}
-              data-testid="install-embed-mode-inline"
-            />
-            <span className="qq-install-mode-opt-label">Inline</span>
-            <span className="qq-install-mode-opt-hint">Renders where you drop the snippet.</span>
-          </label>
-          <label
-            className="qq-install-mode-opt"
-            data-state={embedMode === 'floating' ? 'on' : 'off'}
-          >
-            <input
-              type="radio"
-              name="qq-install-embed-mode"
-              value="floating"
-              checked={embedMode === 'floating'}
-              onChange={() => setEmbedMode('floating')}
-              data-testid="install-embed-mode-floating"
-            />
-            <span className="qq-install-mode-opt-label">Floating launcher</span>
-            <span className="qq-install-mode-opt-hint">Icon docks in a corner; expands on click.</span>
-          </label>
-        </div>
-
-        {embedMode === 'floating' && (
-          <div
-            className="qq-install-mode-position"
-            data-testid="install-embed-mode-position-wrap"
-          >
-            <FloatField
-              label="Launcher corner"
-              htmlFor="qq-install-embed-position"
-              variant="select"
-              infoText="Which corner the launcher icon docks into. If the AI chat bubble lives in the same corner, the launcher automatically offsets 72px clear so the two affordances never overlap."
-              infoTestid="install-embed-mode-position"
+        {/* Embed-mode toggle. Radio pair: Inline (drop-in mount) vs Floating
+         *  launcher (icon docked in a corner). This is now the SINGLE home of
+         *  the floating-launcher config (relocated from the Style tab) — it
+         *  writes the persisted `style.floatingLauncher` slot directly, so the
+         *  snippet, the live preview, and the saved widget all stay in sync
+         *  with no cross-tab effect. When the style slot isn't plumbed in
+         *  (no onStyleChange), the launcher controls are simply hidden. */}
+        {onStyleChange && style ? (
+          <>
+            <div
+              className="qq-install-mode"
+              data-testid="install-embed-mode"
+              role="radiogroup"
+              aria-label="Embed mode"
             >
-              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
-                  StyledSelect so the OS sheet stops covering the wizard's
-                  install panel on mobile. */}
-              <StyledSelect
-                value={embedPosition}
-                onChange={(next) => setEmbedPosition(next as AdvFloatingLauncherPosition)}
-                options={[
-                  { value: 'bottom-right', label: 'Bottom right (default)' },
-                  { value: 'bottom-left', label: 'Bottom left' },
-                  { value: 'top-right', label: 'Top right' },
-                  { value: 'top-left', label: 'Top left' },
-                ]}
-                title="Launcher corner"
-                ariaLabel="Launcher corner"
-                testId="install-embed-mode-position"
-              />
-            </FloatField>
-          </div>
-        )}
+              <label
+                className="qq-install-mode-opt"
+                data-state={embedMode === 'inline' ? 'on' : 'off'}
+              >
+                <input
+                  type="radio"
+                  name="qq-install-embed-mode"
+                  value="inline"
+                  checked={embedMode === 'inline'}
+                  onChange={() => setEmbedMode('inline')}
+                  data-testid="install-embed-mode-inline"
+                />
+                <span className="qq-install-mode-opt-label">Inline</span>
+                <span className="qq-install-mode-opt-hint">Renders where you drop the snippet.</span>
+              </label>
+              <label
+                className="qq-install-mode-opt"
+                data-state={embedMode === 'floating' ? 'on' : 'off'}
+              >
+                {/* `style-floating-launcher-enabled` testid preserved from the
+                    Style tab so existing references resolve at its new home. */}
+                <input
+                  type="radio"
+                  name="qq-install-embed-mode"
+                  value="floating"
+                  checked={embedMode === 'floating'}
+                  onChange={() => setEmbedMode('floating')}
+                  data-testid="install-embed-mode-floating"
+                />
+                <span className="qq-install-mode-opt-label">Floating launcher</span>
+                <span className="qq-install-mode-opt-hint">Icon docks in a corner; expands on click.</span>
+              </label>
+            </div>
+
+            {/* Hidden mirror checkbox so the relocated `style-floating-launcher-enabled`
+                testid + the master enable semantics survive the move. */}
+            <input
+              type="checkbox"
+              checked={embedMode === 'floating'}
+              onChange={(e) => setEmbedMode(e.target.checked ? 'floating' : 'inline')}
+              data-testid="style-floating-launcher-enabled"
+              aria-hidden="true"
+              tabIndex={-1}
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+            />
+
+            {embedMode === 'floating' && (
+              <div
+                className="qq-install-mode-position"
+                data-testid="style-floating-launcher-sub-fields"
+              >
+                <FloatField
+                  label="Launcher corner"
+                  htmlFor="qq-install-embed-position"
+                  variant="select"
+                  infoText="Which corner the launcher icon docks into. If the AI chat bubble lives in the same corner, the launcher automatically offsets 72px clear so the two affordances never overlap."
+                  infoTestid="install-embed-mode-position"
+                >
+                  <StyledSelect
+                    value={embedPosition}
+                    onChange={(next) => setEmbedPosition(next as AdvFloatingLauncherPosition)}
+                    options={[
+                      { value: 'bottom-right', label: 'Bottom right (default)' },
+                      { value: 'bottom-left', label: 'Bottom left' },
+                      { value: 'top-right', label: 'Top right' },
+                      { value: 'top-left', label: 'Top left' },
+                    ]}
+                    title="Launcher corner"
+                    ariaLabel="Launcher corner"
+                    testId="style-floating-launcher-position"
+                  />
+                </FloatField>
+
+                {/* Custom icon upload (1 MB max, data URL). Relocated from Style. */}
+                <FloatField
+                  label="Custom icon (optional)"
+                  htmlFor="qq-install-floating-launcher-icon"
+                  infoText="Upload a 1 MB max image to replace the default calculator icon. PNG / SVG / JPEG; transparent backgrounds work best."
+                  infoTestid="style-floating-launcher-icon"
+                >
+                  <input
+                    id="qq-install-floating-launcher-icon"
+                    ref={floatingIconFileRef}
+                    type="file"
+                    accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                    className="premium-input"
+                    data-testid="style-floating-launcher-icon-file"
+                    onChange={(e) => onFloatingIconFile(e.target.files?.[0] ?? null)}
+                    aria-label="Upload custom launcher icon"
+                  />
+                </FloatField>
+                {floatingCustomIconUrl && (
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                    data-testid="style-floating-launcher-icon-preview"
+                  >
+                    <img
+                      src={floatingCustomIconUrl}
+                      alt=""
+                      width={36}
+                      height={36}
+                      style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        objectFit: 'cover', border: `1px solid ${p.colors.border}`,
+                        background: '#fff',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFloatingLauncher({ customIconUrl: undefined })}
+                      data-testid="style-floating-launcher-icon-clear"
+                      style={{
+                        background: 'transparent',
+                        border: `1px solid ${p.colors.border}`,
+                        borderRadius: 7,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        color: p.colors.body,
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                <FloatField
+                  label="Screen-reader label (optional)"
+                  htmlFor="qq-install-floating-launcher-label"
+                >
+                  <input
+                    id="qq-install-floating-launcher-label"
+                    type="text"
+                    className="premium-input"
+                    maxLength={120}
+                    placeholder=" "
+                    value={floatingLabel}
+                    data-testid="style-floating-launcher-label"
+                    onChange={(e) => setFloatingLauncher({ label: e.target.value })}
+                  />
+                </FloatField>
+              </div>
+            )}
+          </>
+        ) : null}
 
         <p className="qq-install-sub" style={{ marginTop: 8 }}>
           {embedMode === 'floating'

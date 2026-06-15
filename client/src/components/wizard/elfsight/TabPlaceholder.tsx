@@ -21,6 +21,7 @@ const WAVE_BY_TAB: Record<EditorTab, string> = {
   action: 'Action', // implemented — fallback waypoint only
   style: 'Wave H5', // implemented — but kept as a fallback waypoint
   settings: 'Wave H6',
+  install: 'Install', // implemented — fallback waypoint only
 };
 
 export default function TabPlaceholder({ tab, businessName, onBusinessNameChange }: Props) {

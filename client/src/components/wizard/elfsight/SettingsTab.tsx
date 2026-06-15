@@ -14,14 +14,15 @@
 //     3. Branding          — "Powered by WeFixTrades" badge toggle (real
 //                            pricing model: Free keeps it; Pro / Business hide it).
 //   "More settings" fold:
-//     4. Deposit + Online booking (Stripe-gated; Calendly-style scheduling).
-//     5. Business location — distance-based-pricing anchor address.
-//     6. Business profile  — inline trust signals (rating, license, insured).
+//     4. Business location — distance-based-pricing anchor address.
+//     5. Business profile  — inline trust signals (rating, license, insured).
 //
 // Lead-form CTA, success copy, spam protection, email-notification recipient,
-// and the action mode live in the ACTION tab (lead-flow concerns). Embed
-// language + slug + hosted-page chrome live in the INSTALL tab. Webhooks /
-// integrations remain out of scope (real account hookup — Alex-gated).
+// the action mode, AND the Deposit + Online-booking config live in the ACTION
+// tab (post-quote / lead-flow concerns). The AI chat visibility toggle lives
+// in this tab (behavior). Embed language + slug + hosted-page chrome + the
+// floating launcher live in the INSTALL tab. Webhooks / integrations remain
+// in the Action tab's Advanced area.
 //
 // Layout mirrors StyleTab's `qq-style-*` classes so the visual rhythm of the
 // editor stays consistent across tabs.
@@ -30,18 +31,13 @@ import { useCallback, useRef, useState } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   DEFAULT_SHELL_NUMBER_FORMAT,
-  DEFAULT_SHELL_SCHEDULING,
   type ShellSettings,
+  type ShellStyle,
   type ShellPricing,
   type ShellPricingMode,
   type ShellNumberFormat,
   type ShellThousandsSep,
   type ShellDecimalSep,
-  type ShellDeposit,
-  type ShellSchedulingSettings,
-  type ShellSlotDurationMinutes,
-  type ShellBufferMinutes,
-  type ShellWorkingDay,
 } from './types';
 import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
@@ -66,33 +62,6 @@ const DECIMAL_OPTIONS: ReadonlyArray<{ value: ShellDecimalSep; label: string }> 
   { value: 'comma', label: 'Comma (,)' },
 ];
 
-/* Wave R-1 — Booking section constants. Mon-Sun in calendar order; we store
-   0=Sun..6=Sat under the hood (matches JS Date.getDay()), so the UI flips
-   the index but the persisted value is always the standard JS day index. */
-const SCHEDULING_DAYS: ReadonlyArray<{ value: ShellWorkingDay; label: string }> = [
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-  { value: 0, label: 'Sun' },
-];
-
-const SLOT_DURATION_OPTIONS: ReadonlyArray<{ value: ShellSlotDurationMinutes; label: string }> = [
-  { value: 15, label: '15 minutes' },
-  { value: 30, label: '30 minutes' },
-  { value: 45, label: '45 minutes' },
-  { value: 60, label: '60 minutes' },
-];
-
-const BUFFER_OPTIONS: ReadonlyArray<{ value: ShellBufferMinutes; label: string }> = [
-  { value: 0,  label: 'No buffer' },
-  { value: 5,  label: '5 minutes' },
-  { value: 10, label: '10 minutes' },
-  { value: 15, label: '15 minutes' },
-];
-
 interface Props {
   settings: ShellSettings;
   onChange: (next: ShellSettings) => void;
@@ -100,9 +69,17 @@ interface Props {
    *  brand-badge toggle (server gate still strips it on PATCH if a free
    *  user manages to bypass the client); Pro / Business enables it. */
   planTier?: string;
+  /** AI chat visibility lives in `style.aiChatVisibility` (a persisted style
+   *  key). It is a BEHAVIOR control, so its editor moved here from Style —
+   *  the state key is unchanged, so Settings needs read/write access to the
+   *  style slot just for this one toggle. */
+  style?: ShellStyle;
+  onStyleChange?: (next: ShellStyle) => void;
 }
 
-export default function SettingsTab({ settings, onChange, planTier = 'free' }: Props) {
+export default function SettingsTab({
+  settings, onChange, planTier = 'free', style, onStyleChange,
+}: Props) {
   const isPaidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
   // brandBadge field maps to calculator_settings.appearance.show_powered_by
   // on save (wired in WizardShell). True = show; false = hide. Default
@@ -123,8 +100,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   const pricing: ShellPricing = settings.pricing ?? { mode: 'hourly', rate: 75 };
   const numberFormat: ShellNumberFormat =
     settings.numberFormat ?? { ...DEFAULT_SHELL_NUMBER_FORMAT };
-  const scheduling: ShellSchedulingSettings =
-    settings.scheduling ?? { ...DEFAULT_SHELL_SCHEDULING };
 
   const patchPricing = useCallback(
     (next: Partial<ShellPricing>) =>
@@ -136,33 +111,10 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       patch({ numberFormat: { ...numberFormat, ...next } }),
     [patch, numberFormat],
   );
-  const patchScheduling = useCallback(
-    (next: Partial<ShellSchedulingSettings>) =>
-      patch({ scheduling: { ...scheduling, ...next } }),
-    [patch, scheduling],
-  );
-  const toggleWorkingDay = useCallback(
-    (day: ShellWorkingDay) => {
-      const set = new Set<ShellWorkingDay>(scheduling.workingDays);
-      if (set.has(day)) set.delete(day);
-      else set.add(day);
-      patchScheduling({ workingDays: Array.from(set).sort((a, b) => a - b) as ShellWorkingDay[] });
-    },
-    [patchScheduling, scheduling.workingDays],
-  );
 
-  // Wave R-2 — Stripe deposit step config (maps to
-  // calculator_settings.appearance.deposit on save). The fieldset
-  // disables itself when the underlying calculator has no connected
-  // Stripe account (see WizardShell wiring).
-  const deposit: ShellDeposit = settings.deposit ?? {
-    enabled: false, mode: 'percent', value: 15, label: '', required: false,
-  };
-  const stripeConnected = settings.stripeConnected !== false;
-  const patchDeposit = useCallback(
-    (next: Partial<ShellDeposit>) => patch({ deposit: { ...deposit, ...next } }),
-    [patch, deposit],
-  );
+  // Deposit (settings.deposit) + Online booking (settings.scheduling) — the
+  // PERSISTED Stripe deposit + built-in scheduler — moved to the Action tab.
+  // Same state keys + save mapping; only the editing UI relocated.
 
   // BD-3g Item 2 — wire fold/unfold onto every <fieldset.qq-style-group>
   // in this panel. Persists per-panel state in sessionStorage keyed by
@@ -459,323 +411,70 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </div>
       </fieldset>
 
+      {/* ── AI chat visibility (RELOCATED from StyleTab) ───────────────
+       *  Behavior control (not appearance), so it lives in Settings.
+       *  Writes the SAME persisted key as before — style.aiChatVisibility.
+       *  Only rendered when the style slot is plumbed in. */}
+      {onStyleChange && style && (
+        <fieldset className="qq-style-group" data-testid="settings-group-ai-chat">
+          <legend className="qq-style-legend">
+            <HelpCueRow
+              className="!mb-0"
+              cue={
+                <>
+                  <InfoCue
+                    testid="style-ai-chat-visibility-info"
+                    region="chat-bubble"
+                    text="When should the AI chat assistant appear? Smart timing (recommended) keeps it out of the way as a small 'Need help?' pill and pops up only when a visitor seems stuck — idle for 30 seconds, deep into the form, or after tapping a help icon. Always visible puts the full chat button in the corner from page load. Smart timing gets more visitors to finish the form and use the chat."
+                  />
+                  <span style={{ marginLeft: 6 }}>AI chat visibility</span>
+                </>
+              }
+            />
+          </legend>
+          <div className="qq-style-group-body" data-testid="style-ai-chat-visibility">
+            <SegmentedControl<'rescue' | 'always'>
+              name="ai-chat-visibility"
+              testid="style-segmented-ai-chat-visibility"
+              value={(style.aiChatVisibility as 'rescue' | 'always') ?? 'rescue'}
+              options={[
+                { value: 'rescue', label: 'Smart timing' },
+                { value: 'always', label: 'Always visible' },
+              ]}
+              onChange={(v) => onStyleChange({ ...style, aiChatVisibility: v })}
+            />
+            <p
+              style={{
+                fontSize: 11, color: p.colors.subtle,
+                margin: '6px 0 0', lineHeight: 1.4,
+              }}
+            >
+              Shown on your published calculator when the AI assistant is
+              active. Free calculators always use Smart timing; paid plans can
+              choose Always visible.
+            </p>
+          </div>
+        </fieldset>
+      )}
+
       {/* ── Progressive disclosure: the genuinely advanced calculator
-       *  settings (deposit, online booking, business address + profile)
-       *  live here, collapsed by default so the default Settings surface
-       *  reads clean. Labelled "More settings" — distinct from the other
-       *  tabs' context-specific "Advanced build / action / style" folds,
-       *  since this IS the settings tab. Nothing is removed; every
-       *  fieldset keeps its testids + wiring. */}
+       *  settings (business address + profile) live here, collapsed by
+       *  default so the default Settings surface reads clean. Labelled
+       *  "More settings" — distinct from the other tabs' context-specific
+       *  "Advanced build / action / style" folds, since this IS the
+       *  settings tab. Nothing is removed; every fieldset keeps its
+       *  testids + wiring. */}
       <AdvancedSection
         id="settings-advanced"
         label="More settings"
-        hint="deposit, online booking & business details"
+        hint="business location & profile details"
       >
-      {/* ── Deposit + Online booking pair (W2 #12) ───────────────────
-       *  Alex: "booking and deposit should be on one row." Both fieldsets
-       *  sit side-by-side in a two-column grid on desktop and stack to a
-       *  single column on the narrow mobile sheet (≤640px). All testids and
-       *  onChange wiring are unchanged — only the surrounding layout moved. */}
-      <div className="qq-settings-pair" data-testid="settings-pair-booking-deposit">
-      {/* ── Deposit (Wave R-2) ──────────────────────────────────── */}
-      <fieldset
-        className={`qq-style-group qq-settings-deposit${stripeConnected ? '' : ' is-disabled'}`}
-        data-testid="settings-group-deposit"
-        data-stripe-connected={stripeConnected ? 'true' : 'false'}
-      >
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-deposit"
-                  region="step-content"
-                  text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
-                />
-                <span style={{ marginLeft: 6 }}>Deposit</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {!stripeConnected && (
-          <p
-            className="qq-settings-deposit-warning"
-            data-testid="settings-deposit-no-stripe"
-            style={{
-              fontSize: 12,
-              color: p.colors.muted,
-              margin: '0 0 10px',
-              lineHeight: 1.45,
-            }}
-          >
-            Connect Stripe in your dashboard first to enable deposits.
-          </p>
-        )}
-
-        <label
-          className="qq-deposit-toggle"
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: 10,
-            cursor: stripeConnected ? 'pointer' : 'not-allowed',
-            opacity: stripeConnected ? 1 : 0.55,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={deposit.enabled === true}
-            disabled={!stripeConnected}
-            onChange={(e) => patchDeposit({ enabled: e.target.checked })}
-            data-testid="settings-deposit-enabled"
-            aria-label="Collect a deposit when customers book"
-          />
-          <span>
-            <span className="qq-deposit-toggle-title" style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              Collect a deposit when customers book
-              <InfoCue
-                testid="settings-deposit"
-                text="Optionally collect a deposit at booking time. Stripe Connect routes the money to your account; WeFixTrades takes a small platform fee per transaction."
-              />
-            </span>
-            <span style={{ display: 'block', fontSize: 12, color: p.colors.muted, marginTop: 2 }}>
-              Adds a "Secure your slot" step after the quote. Money flows directly to your Stripe account.
-            </span>
-          </span>
-        </label>
-
-        {deposit.enabled && stripeConnected && (
-          <div className="qq-settings-row" data-testid="settings-deposit-fields">
-            <label className="qq-style-label" style={{ marginTop: 4 }}>Deposit type</label>
-            <SegmentedControl<'percent' | 'fixed'>
-              name="deposit-mode"
-              testid="settings-segmented-deposit"
-              value={deposit.mode === 'fixed' ? 'fixed' : 'percent'}
-              options={[
-                { value: 'percent', label: 'Percent (%)' },
-                { value: 'fixed',   label: 'Fixed ($)' },
-              ]}
-              onChange={(mode) => patchDeposit({ mode })}
-            />
-
-            <div style={{ marginTop: 12 }}>
-              <FloatField
-                label={deposit.mode === 'fixed' ? 'Deposit amount ($)' : 'Deposit percentage (%)'}
-                htmlFor="qq-settings-deposit-value"
-                infoText={
-                  deposit.mode === 'fixed'
-                    ? 'Charged in dollars regardless of quote size. Stripe requires a $0.50 minimum.'
-                    : 'Charged as a percentage of the customer\'s quote total. E.g. 15 → 15%.'
-                }
-                infoTestid="settings-deposit-value-info"
-              >
-                <input
-                  id="qq-settings-deposit-value"
-                  type="number"
-                  min={0}
-                  step={deposit.mode === 'fixed' ? 1 : 0.5}
-                  className="premium-input"
-                  placeholder=" "
-                  value={deposit.value ?? ''}
-                  onChange={(e) => patchDeposit({ value: numOrUndef(e.target.value) })}
-                  data-testid="settings-input-deposit-value"
-                  aria-invalid={
-                    deposit.value !== undefined && Number(deposit.value) <= 0
-                      ? 'true'
-                      : 'false'
-                  }
-                />
-              </FloatField>
-              {deposit.value !== undefined && Number(deposit.value) <= 0 && (
-                <p
-                  className="qq-settings-error"
-                  data-testid="settings-deposit-value-error"
-                  style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
-                >
-                  Enter a positive amount.
-                </p>
-              )}
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <FloatField
-                label="Custom label (optional)"
-                htmlFor="qq-settings-deposit-label"
-                infoText='Overrides the deposit headline shown to customers. E.g. "Secure your slot — $50". Leave blank to use the default.'
-                infoTestid="settings-deposit-label-info"
-              >
-                <input
-                  id="qq-settings-deposit-label"
-                  type="text"
-                  className="premium-input"
-                  placeholder=" "
-                  value={deposit.label ?? ''}
-                  onChange={(e) => patchDeposit({ label: e.target.value })}
-                  data-testid="settings-input-deposit-label"
-                />
-              </FloatField>
-            </div>
-
-            <label
-              className="qq-deposit-required"
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                marginTop: 12, cursor: 'pointer',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={deposit.required === true}
-                onChange={(e) => patchDeposit({ required: e.target.checked })}
-                data-testid="settings-deposit-required"
-                aria-label="Require the deposit before booking is confirmed"
-              />
-              <span>
-                <span style={{ fontWeight: 700, fontSize: 12.5, color: p.colors.heading }}>
-                  Require deposit to confirm booking
-                </span>
-                <span style={{ display: 'block', fontSize: 11.5, color: p.colors.muted, marginTop: 2 }}>
-                  When off, customers can skip and arrange payment with you later.
-                </span>
-              </span>
-            </label>
-          </div>
-        )}
-        </div>
-      </fieldset>
-
-      {/* ── Online booking (Wave R-1) ─────────────────────────────
-       *  W2 #12 — moved up to pair with Deposit on one row. W-AO-7 legend
-       *  + InfoCue preserved so the section keeps a discoverable title. */}
-      <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-scheduling"
-                  region="step-content"
-                  text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
-                />
-                <span style={{ marginLeft: 6 }}>Online booking</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
-          <label className="qq-brand-badge-toggle">
-            <input
-              type="checkbox"
-              checked={scheduling.enabled}
-              onChange={(e) => patchScheduling({ enabled: e.target.checked })}
-              data-testid="scheduling-enabled-input"
-              aria-label="Enable online booking"
-            />
-            <span>
-              <span className="qq-brand-badge-title">
-                Let customers book a time on your calendar
-                <InfoCue
-                  testid="settings-online-booking"
-                  text="Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings."
-                />
-              </span>
-              <span className="qq-brand-badge-sub">
-                The widget shows a 14-day picker after the price reveal. Slots are local to your working hours.
-              </span>
-            </span>
-          </label>
-        </div>
-
-        {scheduling.enabled && (
-          <div className="qq-scheduling-body" data-testid="scheduling-body">
-            <p className="qq-scheduling-sublabel">Working days</p>
-            <div className="qq-scheduling-days" role="group" aria-label="Working days">
-              {SCHEDULING_DAYS.map((d) => {
-                const checked = scheduling.workingDays.includes(d.value);
-                return (
-                  <label
-                    key={d.value}
-                    className={`qq-scheduling-daychip${checked ? ' is-active' : ''}`}
-                    data-testid={`scheduling-day-${d.value}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleWorkingDay(d.value)}
-                      aria-label={`Working day ${d.label}`}
-                    />
-                    <span>{d.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="qq-style-grid" style={{ marginTop: 12 }}>
-              <FloatField label="Start time" htmlFor="qq-settings-sched-start">
-                <input
-                  id="qq-settings-sched-start"
-                  type="time"
-                  className="premium-input"
-                  placeholder=" "
-                  value={scheduling.workingHoursStart}
-                  onChange={(e) => patchScheduling({ workingHoursStart: e.target.value })}
-                  data-testid="scheduling-input-start"
-                />
-              </FloatField>
-              <FloatField label="End time" htmlFor="qq-settings-sched-end">
-                <input
-                  id="qq-settings-sched-end"
-                  type="time"
-                  className="premium-input"
-                  placeholder=" "
-                  value={scheduling.workingHoursEnd}
-                  onChange={(e) => patchScheduling({ workingHoursEnd: e.target.value })}
-                  data-testid="scheduling-input-end"
-                />
-              </FloatField>
-            </div>
-
-            <div className="qq-style-grid" style={{ marginTop: 12 }}>
-              <FloatField label="Slot duration" htmlFor="qq-settings-sched-duration" variant="select">
-                <select
-                  id="qq-settings-sched-duration"
-                  className="premium-input"
-                  value={scheduling.slotDurationMinutes}
-                  onChange={(e) =>
-                    patchScheduling({ slotDurationMinutes: Number(e.target.value) as ShellSlotDurationMinutes })
-                  }
-                  data-testid="scheduling-select-duration"
-                >
-                  {SLOT_DURATION_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </FloatField>
-              <FloatField label="Buffer between slots" htmlFor="qq-settings-sched-buffer" variant="select">
-                <select
-                  id="qq-settings-sched-buffer"
-                  className="premium-input"
-                  value={scheduling.bufferMinutes}
-                  onChange={(e) =>
-                    patchScheduling({ bufferMinutes: Number(e.target.value) as ShellBufferMinutes })
-                  }
-                  data-testid="scheduling-select-buffer"
-                >
-                  {BUFFER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </FloatField>
-            </div>
-          </div>
-        )}
-        </div>
-      </fieldset>
-      </div>
+      {/* ── Deposit + Online booking RELOCATED to the Action tab ──────
+       *  Both the PERSISTED Stripe deposit (settings.deposit) and the
+       *  built-in scheduler (settings.scheduling) now live in the Action
+       *  tab's "Advanced action" area, since they govern what happens after
+       *  the quote. Same state keys + save mapping — only the editing UI
+       *  moved. */}
 
       {/* ── PRICING-MODELS (U3) — Business location ───────────────────
        *  Single anchor address for `address_distance` fields. Writes

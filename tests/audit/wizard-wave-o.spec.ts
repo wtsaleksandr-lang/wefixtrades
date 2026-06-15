@@ -1,17 +1,15 @@
 /**
  * QuoteQuick wizard — Wave O hosted-link + platform-guide cards.
  *
- * IA REDESIGN (2026-06, editor IA / Elfsight-parity) — the standalone
- * **Install tab** was removed; the tab strip is now Build · Action · Style ·
- * Settings (+ Help). Everything the Install tab used to host (hosted link,
- * embed snippet, platform guides, done-for-you CTA) was folded VERBATIM into a
- * **Publish modal** that opens from the top-bar `quotequick-publish` button.
- * The modal renders the same <InstallTab> component, so every install-* testid
- * is preserved — only the navigation changed: instead of clicking
- * `editor-tab-install`, we click `quotequick-publish` and assert against
- * `editor-publish-overlay`.
+ * IA REDESIGN v2 (2026-06, logical tab IA) — the **Install tab** is RESTORED
+ * as a first-class tab (Build · Action · Style · Settings · Install + Help).
+ * The embed/language/slug/hosted-page CONFIG that briefly lived inside the
+ * Publish modal now lives in the Install TAB again, so every install-* testid
+ * resolves there. The Publish button is now a slim "go live" confirm that
+ * points users to the Install tab. This spec navigates via
+ * `editor-tab-install` and asserts against `editor-tabpanel-install`.
  *
- * What this spec asserts (Wave O behaviour, now inside the Publish modal):
+ * What this spec asserts (Wave O behaviour, now inside the Install tab):
  *   1. Hosted-link section is the first section in the Publish modal.
  *   2. Hosted URL display reflects the business name from the wizard
  *      (slugified via shared/slugUtils.slugify).
@@ -48,33 +46,32 @@ async function openWizard(page: Page) {
 }
 
 /**
- * IA redesign — the Install tab is gone. Open the Publish modal instead; it
- * renders the same InstallTab content, so all install-* testids resolve inside
- * the `editor-publish-overlay` portal.
+ * IA redesign v2 — the Install tab is back. Open it; all install-* testids
+ * resolve inside the `editor-tabpanel-install` panel.
  */
 async function openPublishModal(page: Page) {
   await openWizard(page);
-  await page.getByTestId('quotequick-publish').click();
-  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('editor-tab-install').click();
+  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId('install-section-hosted')).toBeVisible({ timeout: 2000 });
 }
 
 async function setBusinessName(page: Page, name: string) {
   // The business-name input lives on the Build tab (left pane). Set it, then
-  // open the Publish modal so the hosted link reflects the slugified name.
+  // open the Install tab so the hosted link reflects the slugified name.
   await openWizard(page);
   const input = page.getByTestId('input-business-name');
   if (await input.isVisible().catch(() => false)) {
     await input.fill(name);
   }
-  await page.getByTestId('quotequick-publish').click();
-  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('editor-tab-install').click();
+  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
 }
 
-test.describe('wizard Wave O — Publish modal hosted link', () => {
+test.describe('wizard Wave O — Install tab hosted link', () => {
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
-  test('Hosted-link section renders at the top of the Publish modal', async ({ page }) => {
+  test('Hosted-link section renders at the top of the Install tab', async ({ page }) => {
     await openPublishModal(page);
 
     const hosted = page.getByTestId('install-section-hosted');
@@ -95,7 +92,7 @@ test.describe('wizard Wave O — Publish modal hosted link', () => {
   test('Live badge is shown (Wave P — auto-publish on save)', async ({ page }) => {
     // Wave P removed the misleading "Reserved" badge — every save
     // auto-publishes server-side, so the hosted link is live as soon as
-    // the user opens the Publish modal. The badge reads 'Live'.
+    // the user opens the Install tab. The badge reads 'Live'.
     await openPublishModal(page);
     const badge = page.getByTestId('install-hosted-badge');
     await expect(badge).toBeVisible();
@@ -140,13 +137,26 @@ test.describe('wizard Wave O — Publish modal hosted link', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  test('Publish modal closes via the Done/close control', async ({ page }) => {
-    // IA redesign — the modal is dismissible via `editor-publish-close`
-    // (the "Done" button in the modal header). This replaces the old
-    // tab-navigation-away path the Install tab relied on.
-    await openPublishModal(page);
-    await page.getByTestId('editor-publish-close').click();
-    await expect(page.getByTestId('editor-publish-overlay')).toHaveCount(0);
+  test('Publish go-live modal points users to the Install tab', async ({ page }) => {
+    // IA redesign v2 — the Publish button is now a slim "go live" confirm.
+    // It no longer duplicates the install config; instead it offers a button
+    // that jumps to the Install tab and then closes the overlay.
+    await openWizard(page);
+    // Fill a business name so Publish opens the go-live modal (rather than
+    // routing an anonymous/empty draft to the sign-up nudge).
+    const input = page.getByTestId('input-business-name');
+    if (await input.isVisible().catch(() => false)) await input.fill('Acme Co');
+    await page.getByTestId('quotequick-publish').click();
+    const overlay = page.getByTestId('editor-publish-overlay');
+    // Anonymous sessions (audit config has no API) route to /signup instead
+    // of opening the modal — skip the assertion in that case.
+    if (!(await overlay.isVisible({ timeout: 2000 }).catch(() => false))) {
+      test.skip(true, 'Publish modal requires an authenticated session');
+      return;
+    }
+    await page.getByTestId('editor-publish-goto-install').click();
+    await expect(overlay).toHaveCount(0);
+    await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
   });
 });
 

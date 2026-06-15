@@ -45,16 +45,11 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
   AdvPremiumAnimations,
-  AdvBranding,
-  AdvFloatingLauncher, AdvFloatingLauncherPosition,
   AdvButtonCopy,
-  TemplateTiered, TemplateTier,
   TrustBadge,
 } from '@shared/templatePresets';
 import {
   inferDerivedCategoryFromBgFrom,
-  shouldDefaultTiered,
-  DEFAULT_TIERS,
 } from '@shared/templatePresets';
 import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
@@ -109,26 +104,10 @@ interface Props {
    * calculatorRoutes.ts).
    */
   planTier?: string;
-  /**
-   * BD-2a — owner override for the multi-step renderer. `'stepper'`
-   * (default, undefined-treated-as-stepper) shows the new multi-step
-   * layout; `'single'` reverts to the legacy single-form layout.
-   */
-  stepLayout?: 'stepper' | 'single';
-  /** BD-2a — change the step-layout mode. */
-  onStepLayoutChange?: (next: 'stepper' | 'single') => void;
-  /**
-   * BD-2b — Good/Better/Best 3-tier pricing override. When undefined, the
-   * renderer derives the effective tier state from the active template's
-   * category (scope-spectrum categories default-on). The StyleTab section
-   * shows the resolved state so the owner can flip it explicitly.
-   */
-  tiered?: TemplateTiered;
-  /** BD-2b — change the tiered config (toggle on/off; edit per-tier shape). */
-  onTieredChange?: (next: TemplateTiered | undefined) => void;
-  /** BD-2b — the active template's category — drives the default-on hint
-   *  + the resolved fallback when `tiered` is undefined. */
-  templateCategory?: string;
+  /* Step layout, Pricing tiers, AI chat visibility, and the Floating launcher
+     were RELOCATED out of the Style tab (structure / behavior / delivery, not
+     appearance) — see BuildTab, SettingsTab and InstallTab respectively. Their
+     props are no longer passed to StyleTab. */
   /**
    * BG-7 Item 1 — trust badges editor. Plumbed in from WizardShell as a
    * sibling slot to `style`, mirroring how `logo` rides alongside
@@ -148,9 +127,6 @@ interface Props {
    */
   currencySymbol?: string;
 }
-
-/** BD-2c — discrete values for the AI chat visibility toggle (Pro-tier). */
-type AiChatVisibility = 'rescue' | 'always';
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
@@ -252,12 +228,11 @@ const TOKEN_FALLBACKS = {
 
 export default function StyleTab({
   style, onChange, logo, onLogoChange, planTier = 'free',
-  stepLayout, onStepLayoutChange,
-  tiered, onTieredChange, templateCategory,
   trustBadges, onTrustBadgesChange,
-  // currencySymbol — formerly labelled the deposit-amount input, which has
-  // moved to ActionTab. Kept on Props (callers still pass it) but no longer
-  // destructured here.
+  // stepLayout / tiered / templateCategory / aiChatVisibility / floatingLauncher
+  // controls were relocated out of Style (see Build / Settings / Install). Those
+  // props are no longer passed. currencySymbol is still on Props (callers pass
+  // it) but no longer destructured — the deposit input that used it moved out.
 }: Props) {
   // Wave 57 — UNLOCK the builder. Trust Badges, Brand Studio, Button copy,
   // Floating-launcher icon + label, AI chat visibility, Brand Kits, and the
@@ -273,10 +248,6 @@ export default function StyleTab({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _planTierKept = planTier;
   const isProTier = true;
-  // Wave 57 — preserved derived flag for the OUTCOME-gated branding toggle
-  // (the live "Powered by WeFixTrades" badge). Mirrors the matrix used by
-  // the server-side strip in calculatorRoutes.ts (`paidTier`).
-  const isPaidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
   /** Patch a single style field (skipping `undefined` so blanks fall through). */
   const patch = useCallback(
     (next: Partial<ShellStyle>) => onChange({ ...style, ...next }),
@@ -309,28 +280,10 @@ export default function StyleTab({
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
 
-  // BD-3k — Inline preview features. Deposit (style.deposit) + Online
-  // booking (style.booking) have been RELOCATED to the Action tab; their
-  // derivations + setters now live in ActionTab.tsx. Only the "Powered by
-  // WeFixTrades" badge remains here (below). Free-tier patches that flip
-  // `branding.showPoweredBy` off are stripped server-side
-  // (BRAND_STUDIO_STYLE_KEYS), so the badge stays locked on for free.
-
-  // Branding badge — default ON when undefined. Free-tier locks it ON
-  // (server-side strip + renderer-side fallback in AdvancedCalculator).
-  const branding: AdvBranding = style.branding ?? { showPoweredBy: true };
-  const showPoweredBy = branding.showPoweredBy !== false;
-  // For free-tier users we display the toggle as disabled with a small
-  // "Pro" pill so they understand why they can't turn it off. Pro+ users
-  // see a normal interactive checkbox. Wave 57 — the "Powered by"
-  // badge is an OUTCOME gate (lives on the live widget) so this stays
-  // wired to the paid-tier check.
-  const brandingLocked = !isPaidTier;
-  const setBranding = (next: Partial<AdvBranding>) => {
-    patch({
-      branding: { showPoweredBy, ...(style.branding ?? {}), ...next },
-    });
-  };
+  // Deposit + Online booking RELOCATED to the Action tab. The "Powered by
+  // WeFixTrades" badge toggle RELOCATED to the Settings tab (settings
+  // .brandBadge is the canonical key → appearance.show_powered_by on save);
+  // the duplicate style.branding.showPoweredBy toggle was removed here.
 
   // fix/tmpl-editor-mobile (D) — trust-badge visibility toggle. Default ON:
   // the row shows when the flag is undefined or true; only an explicit
@@ -338,37 +291,9 @@ export default function StyleTab({
   // `showTrustBadges !== false` predicate.
   const showTrustBadges = style.showTrustBadges !== false;
 
-  // BD-3m — Floating launcher embed mode. `enabled` + `position` are
-  // free-tier allowed; `customIconUrl` + `label` are Pro-only (the server
-  // route strips them on save, see calculatorRoutes.ts). The StyleTab
-  // mirrors that gate visually — free-tier users see the icon-upload +
-  // label inputs disabled with a PRO pill.
-  const floatingLauncher: AdvFloatingLauncher = style.floatingLauncher ?? {};
-  const floatingEnabled = floatingLauncher.enabled === true;
-  const floatingPosition: AdvFloatingLauncherPosition = floatingLauncher.position ?? 'bottom-right';
-  const floatingCustomIconUrl = typeof floatingLauncher.customIconUrl === 'string'
-    ? floatingLauncher.customIconUrl : '';
-  const floatingLabel = typeof floatingLauncher.label === 'string' ? floatingLauncher.label : '';
-  const setFloatingLauncher = (next: Partial<AdvFloatingLauncher>) => {
-    patch({
-      floatingLauncher: {
-        ...(style.floatingLauncher ?? {}),
-        ...next,
-      },
-    });
-  };
-  const floatingIconFileRef = useRef<HTMLInputElement | null>(null);
-  const onFloatingIconFile = useCallback((file: File | null) => {
-    if (!file) { setFloatingLauncher({ customIconUrl: undefined }); return; }
-    if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint shown
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') setFloatingLauncher({ customIconUrl: result });
-    };
-    reader.readAsDataURL(file);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProTier, style.floatingLauncher]);
+  // BD-3m — Floating launcher RELOCATED to the Install tab (it's an
+  // embed/delivery concern, edited next to the embed snippet). Its state +
+  // setters now live in InstallTab; `style.floatingLauncher` is unchanged.
 
   // BD-3f Item 5 — ghost preview state. `ghost` holds the current
   // Success / Error demo banner key; null means no ghost mounted. The
@@ -981,119 +906,13 @@ export default function StyleTab({
           }}
         />
 
-        {/* ── BD-2a — Step layout subsection ───────────────────────
-         *
-         * Toggle between the multi-step renderer (default — ships the
-         * 3x-CVR lever from BD-0 research) and the legacy single-form
-         * layout. Owners on conservative templates can opt back; new
-         * templates get the stepper out of the box.
-         */}
-        {onStepLayoutChange && (
-          <div
-            data-testid="style-step-layout"
-            style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
-          >
-            <label className="qq-style-label">
-              <span className="qq-style-label-text">
-                Step layout
-                <InfoCue
-                  testid="style-step-layout-info"
-                  region="step-content"
-                  text="Multi-step (the default) renders one question per screen — ~3x higher quote completion in industry benchmarks. Single form keeps every field on one page."
-                />
-              </span>
-            </label>
-            <SegmentedControl<'stepper' | 'single'>
-              name="step-layout"
-              testid="style-segmented-step-layout"
-              value={stepLayout ?? 'stepper'}
-              options={[
-                { value: 'stepper', label: 'Multi-step' },
-                { value: 'single', label: 'Single form' },
-              ]}
-              onChange={(v) => onStepLayoutChange(v)}
-            />
-            <p
-              style={{
-                fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-                margin: '6px 0 0', lineHeight: 1.4,
-              }}
-            >
-              Recommended: Multi-step. Industry data shows multi-step quote forms
-              convert at ~13.85% vs ~4.53% for single-page forms.
-            </p>
-          </div>
-        )}
-
-        {/* ── BD-2b — Pricing tiers subsection ──────────────────────
-         *
-         * Good/Better/Best 3-tier pricing toggle + per-tier editor.
-         * Auto-enabled for scope-spectrum categories (Construction, Home
-         * Improvement, Outdoor); off by default for flat-fee categories.
-         * Owners can flip explicitly.
-         *
-         * Research (BD-0): tiered presentation consistently outperforms
-         * single-price AND 4+-tier alternatives (FieldPulse / Jobber /
-         * Journal of Business Research). The middle "Most Popular" tier
-         * anchors choice.
-         */}
-        {onTieredChange && (
-          <PricingTiersSubsection
-            tiered={tiered}
-            onTieredChange={onTieredChange}
-            templateCategory={templateCategory}
-          />
-        )}
-
-        {/* ── BD-2c — AI chat visibility subsection (Pro tier) ────────
-         *
-         * "Smart timing" (value 'rescue', default): bubble stays a "Need
-         * help?" pill until the user passes step 2, idles 30s, or clicks
-         * Help. "Always visible" (value 'always'): full chat button from
-         * page load. BD-0 research: always-on bubbles compete with the
-         * form; rescue lifts completion AND chat engagement.
-         *
-         * Enforcement is renderer-side: calculator.tsx forces free tier to
-         * 'rescue' and gates the bubble on an active AI Employee. (Wave 57
-         * cut the server BRAND_STUDIO_STYLE_KEYS strip to branding only.)
-         */}
-        <div
-          data-testid="style-ai-chat-visibility"
-          style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
-        >
-          <label className="qq-style-label">
-            <span className="qq-style-label-text">
-              AI chat visibility
-              <InfoCue
-                testid="style-ai-chat-visibility-info"
-                region="chat-bubble"
-                text="When should the AI chat assistant appear? Smart timing (recommended) keeps it out of the way as a small 'Need help?' pill and pops up only when a visitor seems stuck — idle for 30 seconds, deep into the form, or after tapping a help icon. Always visible puts the full chat button in the corner from page load. Smart timing gets more visitors to finish the form and use the chat."
-              />
-            </span>
-          </label>
-          <SegmentedControl<AiChatVisibility>
-            name="ai-chat-visibility"
-            testid="style-segmented-ai-chat-visibility"
-            value={(style.aiChatVisibility as AiChatVisibility) ?? 'rescue'}
-            options={[
-              { value: 'rescue', label: 'Smart timing' },
-              { value: 'always', label: 'Always visible' },
-            ]}
-            onChange={(v) => {
-              patch({ aiChatVisibility: v });
-            }}
-          />
-          <p
-            style={{
-              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-              margin: '6px 0 0', lineHeight: 1.4,
-            }}
-          >
-            Shown on your published calculator when the AI assistant is
-            active. Free calculators always use Smart timing; paid plans can
-            choose Always visible.
-          </p>
-        </div>
+        {/* Step layout, Pricing tiers, and AI chat visibility RELOCATED out
+         *  of Style (they are structure / behavior, not appearance):
+         *    - Step layout  → Build tab  (settings.stepLayout)
+         *    - Pricing tiers → Build tab (state.tiered)
+         *    - AI chat visibility → Settings tab (style.aiChatVisibility)
+         *  Style keeps appearance-only controls (theme, type, colour, width,
+         *  shape, branding logo, brand kit, button copy, trust badges). */}
         </div>
       </fieldset>
 
@@ -1261,70 +1080,12 @@ export default function StyleTab({
             onChange={(v) => patch({ logoSize: v })}
           />
 
-          {/* ── BD-3k — "Powered by WeFixTrades" badge toggle ────────────
-            *
-            * Renders a small text-only badge inside the sticky bottom
-            * action bar's footer area. Default ON for free tier (locked);
-            * Pro+ can toggle freely. The renderer also applies a defensive
-            * fallback: free-tier widgets render the badge regardless of
-            * stored value (server-side strip via BRAND_STUDIO_STYLE_KEYS
-            * is the primary gate; the renderer's plan check is defense in
-            * depth). Section-title pattern per BD-3f; help cue points to
-            * the sticky-footer region via the WidgetSchema diagram.
-            */}
-          <div
-            className="qq-bs-sub"
-            data-testid="style-sub-branding-powered-by"
-            style={{ marginTop: 12 }}
-          >
-            <p className="qq-bs-sub-title">
-              <span className="qq-bs-sub-title-text">
-                WeFixTrades badge
-                {brandingLocked && (
-                  <span
-                    className="qq-bs-pill"
-                    aria-label="Pro plan feature"
-                    style={{ marginLeft: 6 }}
-                  >
-                    <Sparkles size={10} aria-hidden="true" /> Pro
-                  </span>
-                )}
-              </span>
-              <InfoCue
-                testid="style-branding-powered-by-info"
-                region="sticky-footer"
-                text="Shows a small 'Powered by WeFixTrades' link centred under the action buttons in the widget footer. Free-tier calculators have this on by default and can't disable it; Pro plans can switch it off for a fully white-labelled widget."
-              />
-            </p>
-            <p className="qq-bs-sub-hint">
-              {brandingLocked
-                ? "Free plan widgets always show a small 'Powered by WeFixTrades' badge in the footer. Upgrade to Pro to remove it."
-                : "Show the small 'Powered by WeFixTrades' badge in the widget footer. Turn off for a fully white-labelled widget."}
-            </p>
-            <label
-              className="qq-style-label"
-              style={{
-                marginTop: 4,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: brandingLocked ? 'not-allowed' : 'pointer',
-                opacity: brandingLocked ? 0.7 : 1,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={brandingLocked ? true : showPoweredBy}
-                disabled={brandingLocked}
-                onChange={(e) => setBranding({ showPoweredBy: e.target.checked })}
-                data-testid="style-branding-powered-by"
-                aria-label="Show 'Powered by WeFixTrades' badge"
-              />
-              <span className="qq-style-label-text" style={{ margin: 0 }}>
-                Show "Powered by WeFixTrades" badge
-              </span>
-            </label>
-          </div>
+          {/* The "Powered by WeFixTrades" badge toggle was a DUPLICATE of the
+              canonical Settings-tab control (settings.brandBadge → appearance
+              .show_powered_by on save). It wrote a DIFFERENT key
+              (style.branding.showPoweredBy) that could disagree with the saved
+              value, so it was removed. The Settings toggle is the single
+              source of truth; the badge's visual design is unchanged. */}
           </div>
         </fieldset>
       )}
@@ -1451,165 +1212,10 @@ export default function StyleTab({
         *  sub-row. Same state keys + testids (style-deposit-*,
         *  style-booking-*) — moved out of Style, not duplicated. */}
 
-      {/* ── BD-3m — Floating launcher embed mode ───────────────────
-       *
-       * Section-title-in-container pattern + BD-3h help-cue with
-       * region="chat-bubble" (same region the AI chat visibility toggle
-       * uses — both controls live in the same neighbourhood of the
-       * rendered widget). Master toggle + position dropdown + Pro-tier
-       * custom icon + Pro-tier label.
-       *
-       * Tier gating: master + position are free-tier; the icon upload +
-       * label are Pro-only. Server-side strip handles the customIconUrl /
-       * label nested keys (calculatorRoutes.ts). The renderer also
-       * ignores the Pro fields when planTier is free (defense in depth,
-       * mirrored in CalculatorLauncher.tsx). */}
-      <fieldset className="qq-style-group" data-testid="style-group-floating-launcher">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-floating-launcher"
-                  region="chat-bubble"
-                  text="Shows a small circular calculator icon docked in a corner of the page. Clicking the icon expands the full widget into a panel. Use this when the widget shouldn't always be visible — it stays out of the way until the customer asks for it. Pro users can swap the icon for a custom image and change the screen-reader label."
-                />
-                <span style={{ marginLeft: 6 }}>Floating launcher</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-          <label
-            className="qq-style-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={floatingEnabled}
-              onChange={(e) => setFloatingLauncher({ enabled: e.target.checked })}
-              data-testid="style-floating-launcher-enabled"
-              aria-label="Enable floating launcher embed"
-            />
-            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
-              Use floating launcher
-            </span>
-          </label>
-          <p
-            style={{
-              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-              margin: '6px 0 0', lineHeight: 1.4,
-            }}
-          >
-            Recommended for sites where the widget doesn't fit a hero section. The
-            launcher icon docks in a corner; the panel expands on click.
-          </p>
-
-          {floatingEnabled && (
-            <div
-              style={{
-                marginTop: 10, paddingLeft: 12,
-                borderLeft: `2px solid ${p.colors.border}`,
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}
-              data-testid="style-floating-launcher-sub-fields"
-            >
-              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
-                  StyledSelect so the OS sheet stops covering the wizard's
-                  floating-launcher section on mobile. */}
-              <FloatField label="Corner" htmlFor="qq-style-floating-launcher-position" variant="select">
-                <StyledSelect
-                  value={floatingPosition}
-                  onChange={(next) => setFloatingLauncher({
-                    position: next as AdvFloatingLauncherPosition,
-                  })}
-                  options={[
-                    { value: 'bottom-right', label: 'Bottom right (default)' },
-                    { value: 'bottom-left', label: 'Bottom left' },
-                    { value: 'top-right', label: 'Top right' },
-                    { value: 'top-left', label: 'Top left' },
-                  ]}
-                  title="Launcher corner"
-                  ariaLabel="Launcher corner"
-                  testId="style-floating-launcher-position"
-                />
-              </FloatField>
-
-              {/* Pro-tier — custom icon upload. Mirrors the Branding logo
-               *  pattern: 1 MB cap, data URL, silent rejection over the cap.
-               *  Free-tier owners see the field disabled with a PRO pill. */}
-              <FloatField
-                label="Custom icon (optional)"
-                htmlFor="qq-style-floating-launcher-icon"
-                infoText="Upload a 1 MB max image to replace the default calculator icon. PNG / SVG / JPEG; transparent backgrounds work best. Free tier uses the default brand-blue calculator icon."
-                infoTestid="style-floating-launcher-icon"
-              >
-                <input
-                  id="qq-style-floating-launcher-icon"
-                  ref={floatingIconFileRef}
-                  type="file"
-                  accept="image/png,image/svg+xml,image/jpeg,image/webp"
-                  className="premium-input"
-                  data-testid="style-floating-launcher-icon-file"
-                  onChange={(e) => onFloatingIconFile(e.target.files?.[0] ?? null)}
-                  aria-label="Upload custom launcher icon"
-                />
-              </FloatField>
-              {floatingCustomIconUrl && (
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}
-                  data-testid="style-floating-launcher-icon-preview"
-                >
-                  <img
-                    src={floatingCustomIconUrl}
-                    alt=""
-                    width={36}
-                    height={36}
-                    style={{
-                      width: 36, height: 36, borderRadius: '50%',
-                      objectFit: 'cover', border: `1px solid ${p.colors.border}`,
-                      background: '#fff',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFloatingLauncher({ customIconUrl: undefined })}
-                    data-testid="style-floating-launcher-icon-clear"
-                    style={{
-                      background: 'transparent',
-                      border: `1px solid ${p.colors.border}`,
-                      borderRadius: 7,
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: p.colors.body,
-                    }}
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
-              <FloatField
-                label="Screen-reader label (optional)"
-                htmlFor="qq-style-floating-launcher-label"
-              >
-                <input
-                  id="qq-style-floating-launcher-label"
-                  type="text"
-                  className="premium-input"
-                  maxLength={120}
-                  placeholder=" "
-                  value={floatingLabel}
-                  data-testid="style-floating-launcher-label"
-                  onChange={(e) => setFloatingLauncher({ label: e.target.value })}
-                />
-              </FloatField>
-            </div>
-          )}
-        </div>
-      </fieldset>
+      {/* Floating launcher RELOCATED to the Install tab (it's an embed /
+          delivery concern, edited next to the embed snippet). The
+          style-floating-launcher-* controls + the `style.floatingLauncher`
+          state key live there now — not duplicated here. */}
       </AdvancedSection>
 
       {/* BD-3f Item 5 — Success / Error ghost preview. Mounts a demo
@@ -4031,203 +3637,9 @@ function BrandKitGroup({
   );
 }
 
-/* ─── BD-2b — Pricing tiers subsection ──────────────────────────────
- *
- * Renders the Good/Better/Best toggle + per-tier editor. Pure-presentation;
- * parent (StyleTab via WizardShell) owns the persisted `tiered` slot.
- *
- * Design-system compliance (per CLAUDE.md):
- *   - Floating-label inputs (label inside the field)
- *   - Max 2px vertical gap between stacked inputs
- *   - Help cue (?) at the top of the section, not duplicated per field
- *
- * Inputs are plain native fields styled to match the rest of StyleTab's
- * `.qq-style-input` look; the floating label is rendered with the same
- * `.float-field` helper class used by FloatField. We inline the wrapper
- * here rather than importing the wizard's <FloatField> so the
- * `qq-style-*` rhythm stays consistent.
- */
-function PricingTiersSubsection({
-  tiered, onTieredChange, templateCategory,
-}: {
-  tiered?: TemplateTiered;
-  onTieredChange: (next: TemplateTiered | undefined) => void;
-  templateCategory?: string;
-}) {
-  const categoryDefaultOn = shouldDefaultTiered(templateCategory);
-  // Resolved enabled state — explicit value wins, else the category default.
-  const enabled = typeof tiered?.enabled === 'boolean' ? tiered.enabled : categoryDefaultOn;
-  // Resolved tier list — explicit list wins, else the default 3.
-  const tiers: TemplateTier[] = tiered?.tiers && tiered.tiers.length > 0
-    ? tiered.tiers
-    : [...DEFAULT_TIERS];
-
-  const setEnabled = (next: boolean) => {
-    onTieredChange({ enabled: next, tiers });
-  };
-  const setTier = (idx: number, patch: Partial<TemplateTier>) => {
-    const nextTiers = tiers.map((t, i) => i === idx ? { ...t, ...patch } : t);
-    onTieredChange({ enabled, tiers: nextTiers });
-  };
-
-  return (
-    <div
-      data-testid="style-pricing-tiers"
-      data-edit-key="tiered"
-      style={{
-        marginTop: 16, paddingTop: 12,
-        borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))',
-      }}
-    >
-      <label className="qq-style-label">
-        <span className="qq-style-label-text">
-          Pricing tiers
-          <InfoCue
-            testid="style-pricing-tiers-info"
-            region="tier-cards"
-            text="Good/Better/Best presentation outperforms single-price AND 4+-tier alternatives. Auto-enabled for scope-spectrum work (roofing, windows, HVAC, landscaping); off for flat-fee categories like cleaning."
-          />
-        </span>
-      </label>
-      <label
-        className="qq-style-label"
-        style={{
-          marginTop: 2, display: 'flex', alignItems: 'center',
-          gap: 8, cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          data-testid="style-pricing-tiers-enabled"
-          aria-label="Show Good / Better / Best pricing tiers"
-        />
-        <span className="qq-style-label-text" style={{ margin: 0 }}>
-          Show Good / Better / Best tiers
-        </span>
-      </label>
-      <p
-        style={{
-          fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-          margin: '6px 0 8px', lineHeight: 1.4,
-        }}
-      >
-        {categoryDefaultOn
-          ? 'Recommended for this category — scope-spectrum work converts better with 3 price points.'
-          : 'Flat-fee category — single price is the safer default.'}
-      </p>
-
-      {enabled && (
-        <div
-          data-testid="style-pricing-tiers-editor"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}
-        >
-          {tiers.map((tier, idx) => (
-            <TierRow
-              key={idx}
-              idx={idx}
-              tier={tier}
-              onPatch={(patch) => setTier(idx, patch)}
-            />
-          ))}
-          <p
-            style={{
-              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
-              margin: '4px 0 0', lineHeight: 1.4,
-            }}
-          >
-            Each tier price = base quote × multiplier, rounded to $25.
-            Mark exactly one tier "Most Popular" so it anchors choice.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** BD-2b — single tier row (multiplier + label + tagline + popular toggle). */
-function TierRow({
-  idx, tier, onPatch,
-}: {
-  idx: number;
-  tier: TemplateTier;
-  onPatch: (patch: Partial<TemplateTier>) => void;
-}) {
-  const labelId = `qq-tier-${idx}-label`;
-  const multId = `qq-tier-${idx}-mult`;
-  const taglineId = `qq-tier-${idx}-tagline`;
-  return (
-    <div
-      data-testid={`style-pricing-tier-${idx}`}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 2,
-        padding: 8,
-        background: '#fafbfc',
-        borderRadius: 8,
-        border: `1px solid ${p.colors.borderLight}`,
-      }}
-    >
-      <div style={{ display: 'flex', gap: 2 }}>
-        <FloatField label="Tier name" htmlFor={labelId}>
-          <input
-            id={labelId}
-            data-testid={`style-pricing-tier-${idx}-label`}
-            className="premium-input"
-            placeholder=" "
-            value={tier.label}
-            onChange={(e) => onPatch({ label: e.target.value })}
-          />
-        </FloatField>
-        <FloatField label="Multiplier" htmlFor={multId}>
-          <input
-            id={multId}
-            data-testid={`style-pricing-tier-${idx}-multiplier`}
-            className="premium-input"
-            type="number"
-            step={0.05}
-            min={0.1}
-            max={5}
-            placeholder=" "
-            value={tier.multiplier}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              if (Number.isFinite(v) && v > 0) onPatch({ multiplier: v });
-            }}
-          />
-        </FloatField>
-      </div>
-      <FloatField label="Tagline" htmlFor={taglineId}>
-        <input
-          id={taglineId}
-          data-testid={`style-pricing-tier-${idx}-tagline`}
-          className="premium-input"
-          placeholder=" "
-          value={tier.tagline}
-          onChange={(e) => onPatch({ tagline: e.target.value })}
-        />
-      </FloatField>
-      <label
-        className="qq-style-label"
-        style={{
-          marginTop: 2, display: 'flex', alignItems: 'center',
-          gap: 6, cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={tier.mostPopular === true}
-          onChange={(e) => onPatch({ mostPopular: e.target.checked })}
-          data-testid={`style-pricing-tier-${idx}-popular`}
-          aria-label={`Mark ${tier.label} as Most Popular`}
-        />
-        <span className="qq-style-label-text" style={{ margin: 0 }}>
-          Most Popular
-        </span>
-      </label>
-    </div>
-  );
-}
+/* Pricing-tiers (Good/Better/Best) editor RELOCATED to the Build tab — see
+   WizardStructureControls.tsx. It edits the same `state.tiered` slot; only the
+   editing surface moved (structure, not appearance). */
 
 /* ─── BD-3f Item 5 — GhostBanner ────────────────────────────────────
  *

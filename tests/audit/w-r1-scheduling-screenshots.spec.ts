@@ -4,7 +4,11 @@
  * Captures the three screenshots called out in the W-R1 task brief:
  *   _screenshots/w-r1-widget-desktop.png  — scheduling step at 1440×900
  *   _screenshots/w-r1-widget-mobile.png   — scheduling step at 390×844
- *   _screenshots/w-r1-settings.png        — Build > Settings booking section
+ *   _screenshots/w-r1-settings.png        — Action > Online-booking section
+ *
+ * IA redesign — Online booking (settings.scheduling) moved from the Settings
+ * tab into the Action tab's "Advanced action" fold. This spec now opens the
+ * Action tab and expands that fold before toggling scheduling.
  *
  * Run after the dev server (or a static `vite preview`) is up on :5000:
  *
@@ -27,6 +31,21 @@ const __dirname = path.dirname(__filename);
 
 const SHOT_DIR = path.join(__dirname, '..', '..', '_screenshots');
 
+/** IA redesign — Online booking lives in the Action tab's "Advanced action"
+ *  fold. Open the Action tab and expand the fold so the scheduling toggle is
+ *  in the DOM. */
+async function openActionAdvanced(page: import('@playwright/test').Page) {
+  await page.getByTestId('editor-tab-action').click({ trial: false }).catch(() => {});
+  // The Advanced-action AdvancedSection is collapsed by default — expand it.
+  const toggle = page.getByTestId('advanced-toggle-action-advanced');
+  if (await toggle.count()) {
+    const section = page.getByTestId('advanced-section-action-advanced');
+    if ((await section.getAttribute('data-open')) === 'false') {
+      await toggle.click().catch(() => {});
+    }
+  }
+}
+
 // The two widget-step specs below walk the live wizard preview to the
 // scheduling step to capture screenshots. They're screenshot-collection
 // helpers, not regression checks — the navigation depends on the
@@ -44,8 +63,8 @@ test('W-R1 widget scheduling step (desktop)', async ({ page }) => {
   test.skip(!!process.env.CI, 'screenshot-collection only; runs locally');
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/wizard');
-  // Open Settings tab + flip the Booking toggle on.
-  await page.getByTestId('editor-tab-settings').click({ trial: false }).catch(() => { /* tab may already be active */ });
+  // Open the Action tab's Advanced-action fold + flip the Booking toggle on.
+  await openActionAdvanced(page);
   await page.getByTestId('scheduling-enabled-input').check();
   // Walk the preview to the scheduling step. The exact mechanic depends on
   // the pricing config + flow; in the default preview the scheduling step
@@ -62,17 +81,19 @@ test('W-R1 widget scheduling step (mobile)', async ({ page }) => {
   test.skip(!!process.env.CI, 'screenshot-collection only; runs locally');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/wizard');
-  await page.getByTestId('editor-tab-settings').click({ trial: false }).catch(() => {});
+  await openActionAdvanced(page);
   await page.getByTestId('scheduling-enabled-input').check();
   await page.getByRole('button', { name: /continue|see my quote|view results/i }).first().click().catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(SHOT_DIR, 'w-r1-widget-mobile.png'), fullPage: false });
 });
 
-test('W-R1 wizard settings booking section', async ({ page }) => {
+test('W-R1 wizard action booking section', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/wizard');
-  await page.getByTestId('editor-tab-settings').click({ trial: false }).catch(() => {});
+  // IA redesign — Online booking moved from Settings to the Action tab's
+  // Advanced-action fold (same testid: settings-group-scheduling).
+  await openActionAdvanced(page);
   const group = page.getByTestId('settings-group-scheduling');
   await expect(group).toBeVisible();
   // Expand by flipping enabled on so the full body shows.

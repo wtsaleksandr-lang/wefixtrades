@@ -14,7 +14,7 @@ import { Sparkles, ImagePlus, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
-import type { TemplateField, TemplateCalculation, TemplateStep } from '@shared/templatePresets';
+import type { TemplateField, TemplateCalculation, TemplateStep, TemplateTiered } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
@@ -23,6 +23,7 @@ import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
 import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { StepLayoutControl, PricingTiersSubsection } from './WizardStructureControls';
 import type { ShellHeader, ShellResults } from './types';
 
 const p = platformTheme;
@@ -53,6 +54,19 @@ interface Props {
    */
   steps?: TemplateStep[];
   onStepsChange?: (next: TemplateStep[]) => void;
+  /**
+   * Structure controls relocated from the Style tab (they describe the
+   * calculator's STRUCTURE, not its appearance). State keys are unchanged —
+   * only the editing surface moved.
+   *   - stepLayout / onStepLayoutChange → settings.stepLayout (stepper/single)
+   *   - tiered / onTieredChange         → state.tiered (Good/Better/Best)
+   *   - templateCategory                → drives the tiered default-on hint
+   */
+  stepLayout?: 'stepper' | 'single';
+  onStepLayoutChange?: (next: 'stepper' | 'single') => void;
+  tiered?: TemplateTiered;
+  onTieredChange?: (next: TemplateTiered | undefined) => void;
+  templateCategory?: string;
   /**
    * "Generate with AI" card → routes the typed prompt into the existing
    * floating AI assistant (seed + auto-send). Optional so the panel still
@@ -93,6 +107,8 @@ export default function BuildTab({
   results, onResultsChange,
   activeTemplateId, onApplyTemplate,
   steps, onStepsChange,
+  stepLayout, onStepLayoutChange,
+  tiered, onTieredChange, templateCategory,
   onGenerateWithAI,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -382,6 +398,37 @@ export default function BuildTab({
         fields={fields}
         onChange={onCalculationsChange}
       />
+
+      {/* Structure (RELOCATED from Style tab) — step layout + pricing tiers.
+          These shape HOW the calculator is structured, so they belong with
+          Build. State keys are unchanged: settings.stepLayout + state.tiered. */}
+      {(onStepLayoutChange || onTieredChange) && (
+        <>
+          <div className="qq-build-divider" />
+          <AdvancedSection
+            id="build-structure"
+            label="Layout & pricing tiers"
+            hint="step-by-step vs single form, Good/Better/Best tiers"
+          >
+            {onStepLayoutChange && (
+              <StepLayoutControl
+                stepLayout={stepLayout}
+                onStepLayoutChange={onStepLayoutChange}
+              />
+            )}
+            {onStepLayoutChange && onTieredChange && (
+              <div className="qq-build-divider" style={{ margin: '12px 0' }} />
+            )}
+            {onTieredChange && (
+              <PricingTiersSubsection
+                tiered={tiered}
+                onTieredChange={onTieredChange}
+                templateCategory={templateCategory}
+              />
+            )}
+          </AdvancedSection>
+        </>
+      )}
 
       {/* BG-7 Item 4 — per-step rich-text descriptions. Renders only
          when the active template ships explicit `steps[]`. */}
