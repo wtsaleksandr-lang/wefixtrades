@@ -9,6 +9,7 @@ import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import AnimatedNumber from "@/components/marketing/AnimatedNumber";
 import BeforeAfterSlider from "@/components/marketing/BeforeAfterSlider";
 import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShell";
+import PremiumModules from "@/components/marketing/PremiumModules";
 
 // ─── Free-Audit tab tools (lazy — each loads only when its tab opens) ───
 // These five tools are themselves backed by per-tool API endpoints under
@@ -1340,6 +1341,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const lowRatingCount = competitors.filter((c: any) => (c.rating || 0) < 4.3).length;
   const maxReviews = Math.max(businessReviews, ...competitors.map((c: any) => c.reviewsCount || 0), 1);
 
+  // ── Premium value-first block (backend PR #1848 → report.premium) ──────────
+  // Pure consume: each module self-nulls when absent (see PremiumModules). The
+  // review-gap chart is built from EXISTING report data so it renders even if
+  // `premium` is absent on an older cached report.
+  const premiumBlock = report?.premium ?? null;
+  const reviewChartData = {
+    you: businessReviews,
+    leaderName: marketLeader?.name ?? null,
+    leaderReviews: marketLeader?.reviewsCount ?? null,
+    areaAvg: areaAvgReviews || null,
+  };
+
   // ── Honest revenue-loss (CRO P0) ──────────────────────────────────────────
   // The backend now derives `estimatedRevenueLoss = {low, high, isReal, ...}`.
   // isReal=true  → render the business-specific $low–$high/mo band.
@@ -1903,34 +1916,20 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
           )}
 
-          {/* "Unlock to see" — concrete list of the REAL gated content, replacing
-              the old random-bar blur (fix #11). Names exactly what the visitor
-              gets so the gate is an honest value exchange, not a fake teaser. */}
-          <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '18px 20px', marginBottom: 10 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 12 }}>
-              Unlock the full audit to see:
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px 16px' }}>
-              {[
-                'Your 5×5 Google Maps Rank Grid',
-                'Full Score Breakdown by category',
-                'SEO Checklist — what to fix first',
-                'Site Speed vs your competitors',
-                'NAP consistency across the web',
-                'Market Sizer — demand in your area',
-                'Trust score & review-gap analysis',
-                'Full Action Plan + competitor breakdown',
-              ].map((label) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <Check size={16} color={GREEN} strokeWidth={2.6} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.4 }}>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* VALUE-FIRST (Alex's hard re-gate): show the REAL premium modules —
+              KPI tiles, you-vs-competitors table, GBP completeness, on-page
+              basics, keyword + review-gap charts — BEFORE the gate, instead of
+              swapping the report for a teaser list + email field. Each module
+              self-suppresses when its data is absent (no empty bands). The
+              single consolidated gate lands at the very END, below all of it. */}
+          <PremiumModules
+            premium={premiumBlock}
+            keywords={keywords}
+            reviewChart={reviewChartData}
+          />
 
-          {/* Gate — placed at the END so the readable section comes first and the
-              ask lands after the visitor has seen the value (fix #11). */}
+          {/* Gate — the SINGLE consolidated lock/CTA, at the very END so every
+              readable value module comes first and the ask lands last. */}
           <AuditGate
             businessName={business?.name}
             reportId={reportId}
@@ -2620,6 +2619,19 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         );
       })()}
+
+      {/* ═══ PREMIUM DEEP-DIVE MODULES (Overview) ═══
+          Value-first: KPI tiles, you-vs-competitors table, GBP completeness,
+          on-page basics, keyword-position + review-gap charts. Each sub-module
+          self-suppresses when its data is absent — no empty bands. Reads
+          report.premium (backend PR #1848) + existing report data for charts. */}
+      {unlocked && activeTab === 'maps' && (
+        <PremiumModules
+          premium={premiumBlock}
+          keywords={keywords}
+          reviewChart={reviewChartData}
+        />
+      )}
 
       {/* SECTION 6 — QUICK WIN (Tab 1, advisory only) */}
       {unlocked && activeTab === 'maps' && quickWin && (
