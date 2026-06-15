@@ -32,7 +32,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 async function main() {
-  const { calculateScores, analyzeWebsiteQuality, calculateDemandGaps } = await import("./auditRoutes");
+  const { calculateScores, analyzeWebsiteQuality, calculateDemandGaps, resolveSubjectReviewCount } = await import("./auditRoutes");
 
   /* ─── P2-6 — htmlChecks contribution never exceeds its 8-pt cap ─── */
   // A perfect QA score is 24 (sum of analyzeWebsiteQuality weights). With the
@@ -201,6 +201,58 @@ async function main() {
     // The pre-fix code path (`(null as any).replace(...)`) would throw — prove
     // the guarded expression does NOT.
     assert.doesNotThrow(() => safeNameOf(null, null), "safeName must never throw on a null business name");
+  }
+
+  /* ─── SUBJECT review count is authoritative from Google place-details ─── */
+  // Regression guard for the false "0 reviews" bug (Access Air Mississauga:
+  // Google user_ratings_total = 6, report showed 0). The /generate handler used
+  // to TRUST the client `business.reviewsCount` and fall back to 0 when absent.
+  // resolveSubjectReviewCount now re-fetches Google's count when the client
+  // value is missing/0, and a failed/empty downstream reviews provider can never
+  // zero it. We stub fetch so no real Google call is made.
+  {
+    const ratingsKey = "test-key";
+    // Stub Google place-details returning user_ratings_total: 6 (the Access Air
+    // case). This stands in for BOTH "client sent 0/undefined" AND "the E2
+    // reviews provider returned no bodies" — neither must zero the count.
+    const fetchSix: any = async () => ({
+      json: async () => ({ status: "OK", result: { user_ratings_total: 6, rating: 3.7 } }),
+    });
+
+    // (a) Client sent reviewsCount: 0 → Google's 6 wins (the exact bug).
+    {
+      const r = await resolveSubjectReviewCount("ChIJ_access_air", 0, ratingsKey, fetchSix);
+      assert.equal(r.reviewsCount, 6, "client 0 must be overridden by Google's user_ratings_total (6)");
+      assert.equal(r.rating, 3.7, "rating is backfilled from the same place-details call");
+    }
+    // (b) Client omitted reviewsCount entirely → still recovers Google's 6.
+    {
+      const r = await resolveSubjectReviewCount("ChIJ_access_air", undefined, ratingsKey, fetchSix);
+      assert.equal(r.reviewsCount, 6, "missing client count must be recovered from Google");
+    }
+    // (c) A present POSITIVE client count is authoritative — no network call,
+    //     value preserved unchanged (we never DOWNGRADE a real count).
+    {
+      let called = false;
+      const fetchSpy: any = async () => { called = true; return fetchSix(); };
+      const r = await resolveSubjectReviewCount("ChIJ_access_air", 42, ratingsKey, fetchSpy);
+      assert.equal(r.reviewsCount, 42, "a present positive client count is kept");
+      assert.equal(called, false, "no Google call when the client count is already positive");
+    }
+    // (d) Google unreachable (fetch throws) → degrade gracefully to the client
+    //     value, never crash, never silently fabricate.
+    {
+      const fetchThrows: any = async () => { throw new Error("ENOTFOUND maps.googleapis.com"); };
+      const r = await resolveSubjectReviewCount("ChIJ_access_air", 0, ratingsKey, fetchThrows);
+      assert.equal(r.reviewsCount, 0, "a Google failure degrades to the client value (0), no throw");
+    }
+    // (e) No placeId or no key → cannot recover; preserve the client value.
+    {
+      const r1 = await resolveSubjectReviewCount(null, 0, ratingsKey, fetchSix);
+      assert.equal(r1.reviewsCount, 0, "no placeId → keep client value");
+      const r2 = await resolveSubjectReviewCount("ChIJ_access_air", 0, undefined, fetchSix);
+      assert.equal(r2.reviewsCount, 0, "no Google key → keep client value");
+    }
   }
 
   console.log("auditScoring.test.ts — all assertions passed");
