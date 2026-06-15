@@ -18,11 +18,15 @@ import { mkt } from "@/theme/tokens";
 import type { CSSProperties } from "react";
 
 // ── Animation config ─────────────────────────────────────────────────────────
+// Snappy, near-instant unfold. The previous soft/underdamped spring
+// (stiffness 100, damping 11.5) bounced and took ~300ms+ to settle, which read
+// as a "delay before the submenu unfolds". Higher stiffness + critical-ish
+// damping makes the panel snap open crisply (~120ms) with no overshoot.
 const transition = {
   type: "spring" as const,
   mass: 0.5,
-  damping: 11.5,
-  stiffness: 100,
+  damping: 30,
+  stiffness: 360,
   restDelta: 0.001,
   restSpeed: 0.001,
 };
