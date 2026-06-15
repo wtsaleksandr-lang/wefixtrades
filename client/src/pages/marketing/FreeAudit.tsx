@@ -1701,6 +1701,53 @@ export default function FreeAudit() {
               .filter(Boolean)
               .join(" ");
             const rankTrade = lastTradeRef.current || (biz.types?.[0] as string | undefined);
+            // Pre-fill the Rank Grid keywords from the audit's own data so the
+            // tab opens with the box already filled (no blank SEO-jargon form).
+            // Priority: the report's "What Customers Search For" keywords
+            // (highest demand first), then a niche+city fallback/top-up.
+            const rankKeywords: string[] = (() => {
+              const out: string[] = [];
+              const seen = new Set<string>();
+              const add = (raw: any) => {
+                const v = String(raw || "").trim().toLowerCase().slice(0, 60);
+                if (!v || seen.has(v) || out.length >= 5) return;
+                seen.add(v);
+                out.push(v);
+              };
+              const fromAudit = [...(report?.keywords || [])]
+                .filter((k: any) => k && typeof k.keyword === "string" && k.keyword.trim())
+                .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0));
+              for (const k of fromAudit) add(k.keyword);
+              const city = (report?.city || "").toString().trim().toLowerCase();
+              // Niche term: prefer the audit's category/trade; otherwise fall back
+              // to what the user typed to find this business (the search query is
+              // the strongest niche signal for non-trade businesses, e.g. a freight
+              // forwarder), with the city stripped so we don't double it up.
+              let niche = (
+                (typeof report?.categoryLabel === "string" && report.categoryLabel.trim())
+                  ? report.categoryLabel
+                  : (report?.trade && report.trade !== "general" ? report.trade : (rankTrade || ""))
+              ).toString().trim().toLowerCase();
+              if (!niche) {
+                let q = (query || "").toString().trim().toLowerCase();
+                if (city) q = q.replace(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "").trim();
+                q = q.replace(/\s{2,}/g, " ").trim();
+                // Only use the query as a niche if it doesn't just echo the business
+                // name (avoids "sealion cargo near me"). A short generic phrase is fine.
+                const bizName = (biz.name || "").toString().trim().toLowerCase();
+                if (q && q !== bizName && !bizName.includes(q) && q.length <= 40) niche = q;
+              }
+              if (niche) {
+                if (city) add(`${niche} ${city}`);
+                add(`${niche} near me`);
+                add(niche);
+              } else if (city) {
+                // Absolute fallback — at least anchor to the city so the box is
+                // never blank and the user can refine with one edit.
+                add(`businesses near me ${city}`.replace(/\s+/g, " ").trim());
+              }
+              return out.slice(0, 5);
+            })();
             return (
               <div ref={reportRef} style={{
                 padding: isMobile ? '4px 0 48px' : '12px 0 64px',
@@ -1740,6 +1787,7 @@ export default function FreeAudit() {
                     <MapSnapshotShell
                       trade={rankTrade}
                       initialBusinessName={rankBusinessName}
+                      initialKeywords={rankKeywords}
                       autoSubmit
                     />
                   </TabsContent>

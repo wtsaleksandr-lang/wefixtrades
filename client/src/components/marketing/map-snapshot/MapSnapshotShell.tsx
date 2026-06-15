@@ -951,12 +951,20 @@ function AuditScorecard({ audit, slug }: { audit: AuditCard[]; slug?: string }) 
 export function MapSnapshotShell({
   trade,
   initialBusinessName,
+  initialKeywords,
   initialResult,
   readOnly,
   autoSubmit,
 }: {
   trade?: string;
   initialBusinessName?: string;
+  /**
+   * Pre-filled keyword terms when mounted inside the Free Audit "Rank Grid"
+   * tab. The audit already derived the business's relevant keywords (niche +
+   * city, from its own "What Customers Search For" data), so the visitor sees
+   * the box already filled instead of a blank SEO-jargon form. Capped at 5.
+   */
+  initialKeywords?: string[];
   initialResult?: SnapshotResult;
   readOnly?: boolean;
   /**
@@ -972,7 +980,12 @@ export function MapSnapshotShell({
   );
   const [businessName, setBusinessName] = useState(initialBusinessName || "");
   const [keywords, setKeywords] = useState<string[]>(
-    trade ? [`${trade} near me`] : [],
+    // Prefer the audit's pre-derived keywords; fall back to a trade seed; else blank.
+    initialKeywords && initialKeywords.length > 0
+      ? initialKeywords.slice(0, 5)
+      : trade
+        ? [`${trade} near me`]
+        : [],
   );
   const [result, setResult] = useState<SnapshotResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -1056,7 +1069,7 @@ export function MapSnapshotShell({
           textAlign: "center",
         }}
       >
-        ★★★★★ Built for plumbers, electricians, HVAC, roofers, and cleaners
+        ★★★★★ Built for local businesses — see where you rank on Google Maps
       </div>
 
       <div style={{ padding: "24px 20px 100px" }}>
