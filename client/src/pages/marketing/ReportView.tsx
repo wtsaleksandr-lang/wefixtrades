@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download, Shield } from "lucide-react";
 import { SERVICES, getServicesForIssues, getServiceBillingMeta, type Service } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
@@ -275,23 +276,34 @@ function getScoreColor(score: number): string {
 }
 
 /**
- * Build the ordered logo-fallback chain for a business avatar:
- *   1. Places photo (businessPhotoUrl)
- *   2. Places listing icon (business.icon, when present)
- *   3. Favicon of the business website (Google s2 favicons, 128px)
+ * Build the ordered logo-fallback chain for a business avatar. Ordered so the
+ * crispest, most logo-like source wins before any tiny upscaled favicon:
+ *   1. Places photo (businessPhotoUrl) — request a larger maxwidth so a small
+ *      stored thumbnail isn't upscaled into the avatar circle.
+ *   2. Places listing icon (business.icon, when present).
+ *   3. Favicon of the business website at 256px (NOT 128) so the browser has a
+ *      sharper source to letterbox (real og:image logos aren't readable
+ *      client-side, so the hi-res favicon is the reliable crisp fallback).
  *   4. (handled by caller) — the letter circle, last resort.
  * Returns the candidate image URLs in priority order; the caller renders a
  * letter circle once every candidate has failed.
  */
 function buildLogoCandidates(business: any): string[] {
   const out: string[] = [];
-  if (business?.businessPhotoUrl) out.push(business.businessPhotoUrl);
+  // Places photo — bump any `maxwidth=`/`maxWidthPx=` we control up to 256 so a
+  // small source isn't zoom-cropped into a blurry circle.
+  if (business?.businessPhotoUrl) {
+    const photo = String(business.businessPhotoUrl)
+      .replace(/([?&]maxwidth=)\d+/i, '$1256')
+      .replace(/([?&]maxWidthPx=)\d+/i, '$1256');
+    out.push(photo);
+  }
   if (business?.icon) out.push(business.icon);
   const site: string | undefined = business?.website;
   if (site) {
     try {
       const host = new URL(/^https?:\/\//.test(site) ? site : `https://${site}`).hostname;
-      if (host) out.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`);
+      if (host) out.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=256`);
     } catch { /* malformed website — skip the favicon candidate */ }
   }
   return out;
@@ -310,18 +322,28 @@ function BusinessLogo({ business, dimension, fontSize, borderColor }: { business
   useEffect(() => { setIdx(0); }, [business?.placeId, business?.name]);
   const src = candidates[idx];
   if (src) {
+    // contain (not cover): fit the WHOLE logo without zoom/crop so a small or
+    // non-square logo/favicon letterboxes cleanly on a neutral white circle
+    // instead of being upscaled + zoom-cropped into a pixelated blur.
     return (
-      <img
-        src={src}
-        alt={business?.name || 'Business'}
-        decoding="async"
-        onError={() => setIdx((i) => i + 1)}
-        style={{
-          width: dimension, height: dimension, borderRadius: '50%', objectFit: 'cover',
-          border: borderColor ? `3px solid ${borderColor}` : undefined,
-          display: 'block',
-        }}
-      />
+      <div data-theme="light" style={{
+        width: dimension, height: dimension, borderRadius: '50%',
+        background: WHITE, overflow: 'hidden',
+        border: borderColor ? `3px solid ${borderColor}` : undefined,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxSizing: 'border-box',
+      }}>
+        <img
+          src={src}
+          alt={business?.name || 'Business'}
+          decoding="async"
+          onError={() => setIdx((i) => i + 1)}
+          style={{
+            maxWidth: '82%', maxHeight: '82%', width: 'auto', height: 'auto',
+            objectFit: 'contain', display: 'block',
+          }}
+        />
+      </div>
     );
   }
   return (
@@ -1995,6 +2017,82 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         )}
       </div>}
 
+      {/* ACTION BAR — prominent Download-PDF + Share/Copy + social, surfaced at
+          the TOP of the report (owner couldn't find the bottom share section).
+          All handlers/endpoints already wired (handlePdfDownload + SHARE_BUTTONS
+          + shareUrl). data-print-hide so it's omitted from the printed/PDF view. */}
+      {unlocked && activeTab === 'maps' && (
+        <div data-print-hide data-testid="report-action-bar" style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`,
+          padding: isMobile ? '12px 14px' : '14px 18px', marginBottom: 10,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        }}>
+          <button
+            data-testid="report-action-pdf"
+            onClick={handlePdfDownload}
+            disabled={pdfDownloading}
+            {...hoverProps('action-pdf')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px', borderRadius: 12, border: 'none',
+              background: pdfDownloading ? 'rgba(15,23,42,0.55)' : DARK,
+              color: WHITE, fontWeight: 700, fontSize: 14,
+              cursor: pdfDownloading ? 'default' : 'pointer',
+              transform: hovered === 'action-pdf' && !pdfDownloading ? 'translateY(-1px)' : 'translateY(0)',
+              transition: 'all 0.15s ease', flexShrink: 0,
+            }}
+          >
+            <Download size={16} />
+            {pdfDownloading ? 'Preparing PDF…' : 'Download PDF'}
+          </button>
+          <button
+            data-testid="report-action-copy"
+            onClick={() => { navigator.clipboard.writeText(shareUrl).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }); }}
+            {...hoverProps('action-copy')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px', borderRadius: 12,
+              border: `1px solid ${copiedLink ? '#22C55E' : BORDER}`,
+              background: copiedLink ? 'rgba(34,197,94,0.10)' : WHITE,
+              color: copiedLink ? '#16A34A' : DARK, fontWeight: 600, fontSize: 14,
+              cursor: 'pointer',
+              transform: hovered === 'action-copy' ? 'translateY(-1px)' : 'translateY(0)',
+              transition: 'all 0.15s ease', flexShrink: 0,
+            }}
+          >
+            {copiedLink
+              ? (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12l5 5L20 7"/></svg>)
+              : (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={DARK} strokeWidth="1.8" strokeLinecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>)}
+            {copiedLink ? 'Link copied' : 'Copy link'}
+          </button>
+          {/* Social share icons — reuse the canonical SHARE_BUTTONS (X / Facebook
+              / email / WhatsApp), excluding the duplicate copy button above. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
+            {SHARE_BUTTONS.filter(b => b.id !== 'copy').map(btn => (
+              <button
+                key={btn.id}
+                data-testid={`report-action-social-${btn.id}`}
+                onClick={btn.onClick}
+                {...hoverProps('action-social-' + btn.id)}
+                title={`Share via ${btn.label}`}
+                aria-label={`Share via ${btn.label}`}
+                style={{
+                  width: 38, height: 38, padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 10, border: `1px solid ${BORDER}`, background: GREY_BG,
+                  cursor: 'pointer', flexShrink: 0,
+                  transform: hovered === 'action-social-' + btn.id ? 'translateY(-1px)' : 'translateY(0)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {btn.icon}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* SECTION 2 — SCORE BREAKDOWN */}
       {unlocked && activeTab === 'maps' && <div style={card()}>
         <style>{`
@@ -3567,11 +3665,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         ))}
       </div>}
 
-      {/* SCORE MODAL */}
-      {scoreModalOpen && (
+      {/* SCORE MODAL — portalled to document.body so it escapes this report
+          container. The container takes `transform: scale(...)` at non-100 zoom,
+          which makes it the containing block for position:fixed children and
+          would otherwise let the sticky beige header paint over the modal on
+          scroll-up. Portal + very-high z-index keeps it above the sticky header. */}
+      {scoreModalOpen && createPortal((
         <>
-          <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} />
-          <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 201, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+          <div onClick={() => setScoreModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 2147483000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} />
+          <div style={{ position: 'fixed', top: 'clamp(72px, 8dvh, 100px)', left: '50%', transform: 'translateX(-50%)', zIndex: 2147483001, width: 'min(420px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - clamp(72px, 8dvh, 100px) - 20px)', background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
             {/* Header — compact horizontal: ring left, grade right */}
             <div style={{ background: DARK, padding: '20px 20px', position: 'relative', flexShrink: 0 }}>
               <button onClick={() => setScoreModalOpen(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.1)', border: 'none', color: WHITE, width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
@@ -3651,7 +3753,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
           </div>
         </>
-      )}
+      ), document.body)}
 
       {/* ISSUE DETAIL MODAL */}
       {issueModal !== null && plan[issueModal] && (() => {
