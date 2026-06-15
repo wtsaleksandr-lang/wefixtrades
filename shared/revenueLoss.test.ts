@@ -118,6 +118,29 @@ function main() {
     assert.equal(r.high, 3600, "measured high preserved");
   }
 
+  /* ─── 7. roughEstimate honest-labeling flag ─── */
+  {
+    // A real band (demand-gap or floor) MUST be flagged roughEstimate:true so the
+    // UI labels it directional, not a precise forecast.
+    const dg = computeRevenueLoss({
+      trade: "plumbing",
+      demandLoss: { low: 820, high: 2380, monthlyMissedLeads: 6 },
+      floorMissedLeads: 0,
+    });
+    assert.equal(dg.roughEstimate, true, "a real demand-gap band must be flagged roughEstimate");
+
+    const floor = computeRevenueLoss({
+      trade: "hvac",
+      demandLoss: null,
+      floorMissedLeads: 2,
+    });
+    assert.equal(floor.roughEstimate, true, "a real floor band must be flagged roughEstimate");
+
+    // No real loss → nothing to qualify → roughEstimate:false.
+    const none = computeRevenueLoss({ trade: "plumbing", demandLoss: null, floorMissedLeads: 0 });
+    assert.equal(none.roughEstimate, false, "isReal:false → roughEstimate:false (no band to label)");
+  }
+
   console.log("revenueLoss.test.ts — all assertions passed");
 }
 

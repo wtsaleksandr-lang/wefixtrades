@@ -58,6 +58,7 @@ async function main() {
     leadNounForTrade,
     deriveRevenueLoss,
     buildTemplatedNarrative,
+    calculateDemandGaps,
   } = await import("./auditRoutes");
   const { fetchCompetitors, fetchPlacesCompetitors } = await import("./services/competitorSearch");
 
@@ -248,6 +249,127 @@ async function main() {
     } finally {
       globalThis.fetch = realFetch;
     }
+  }
+
+  /* ─── Financial-credibility fixes ─────────────────────────────────────── */
+
+  /* (a) $ isReal:false when search volume is placeholder (totalMonthlySearchVolume<=0) */
+  {
+    // Closed all hours → evening + weekend gaps both fire; volume 0 → placeholder.
+    const placeholder = await calculateDemandGaps("plumber near me", [], "plumbing", 0);
+    assert.equal(
+      placeholder.estimatedRevenueLoss.isRealVolume,
+      false,
+      "placeholder (fallback) volume must flag isRealVolume:false",
+    );
+    // deriveRevenueLoss must then suppress the demand-gap $ (no fabricated band
+    // off placeholder volume). With capture gaps it may still show a real FLOOR,
+    // but the basis must NEVER be 'demand-gap' when volume was placeholder.
+    const derivedFromPlaceholder = deriveRevenueLoss("plumbing", [], placeholder.estimatedRevenueLoss);
+    assert.notEqual(
+      derivedFromPlaceholder.basis,
+      "demand-gap",
+      "placeholder-volume $ must not be quoted as a measured demand-gap loss",
+    );
+    assert.equal(
+      derivedFromPlaceholder.isReal,
+      false,
+      "placeholder volume + no capture gaps → isReal:false (no fabricated $)",
+    );
+
+    // Control: REAL volume keeps a measured demand-gap loss.
+    const real = await calculateDemandGaps("plumber near me", [], "plumbing", 8000);
+    assert.equal(real.estimatedRevenueLoss.isRealVolume, true, "real volume → isRealVolume:true");
+    const derivedFromReal = deriveRevenueLoss("plumbing", [], real.estimatedRevenueLoss);
+    assert.equal(derivedFromReal.basis, "demand-gap", "real volume → measured demand-gap basis");
+    assert.equal(derivedFromReal.isReal, true, "real volume → isReal:true");
+  }
+
+  /* (c) combined missed-share is CAPPED below the raw sum of the gaps */
+  {
+    // Real volume, closed all hours → both 31% gaps fire. The raw sum would be
+    // 62% of monthly leads; the cap holds the combined total at ≤40%.
+    const vol = 10000;
+    const gaps = await calculateDemandGaps("plumber near me", [], "plumbing", vol);
+    const monthlyLeads = vol * 0.05 * 0.15; // mirrors clickRate * conversionRate
+    const rawSum = gaps.demandGaps.reduce(
+      (s: number, g: any) => s + g.estimatedMissedLeadsPerMonth,
+      0,
+    );
+    const capped = gaps.estimatedRevenueLoss.monthlyMissedLeads;
+    assert.ok(gaps.demandGaps.length === 2, "both evening + weekend gaps should be present");
+    assert.ok(capped < rawSum, "combined missed leads must be capped below the raw sum (no double-count)");
+    assert.ok(
+      capped <= Math.round(monthlyLeads * 0.40) + 1,
+      "combined missed share is capped at ~40% of monthly leads",
+    );
+  }
+
+  /* (b) general business → NO dollar string anywhere in the templated prose */
+  {
+    // deriveRevenueLoss for a general business is isReal:false; feed THAT typed
+    // estimate to the narrative — the prose must contain no "$" figure.
+    const generalEstimate = deriveRevenueLoss(
+      "general",
+      ["low-visibility", "not-in-maps-pack", "no-after-hours"],
+      { low: 400, high: 600, monthlyMissedLeads: 7, isRealVolume: true },
+    );
+    assert.equal(generalEstimate.isReal, false, "general estimate is not real");
+    const narrative = buildTemplatedNarrative({
+      businessName: "Acme Freight Co",
+      trade: "general",
+      categoryLabel: "freight forwarding service",
+      city: "Toronto",
+      scores: { grade: "D", total: 41, googleMaps: { score: 6 } },
+      reviewsCount: 3,
+      rating: 3.8,
+      hasWebsite: false,
+      mobileScore: null,
+      marketLeader: { name: "Best Freight", reviewsCount: 120 },
+      detectedIssues: ["low-reviews", "no-website", "low-visibility", "not-in-maps-pack", "no-after-hours"],
+      recommendedServices: [{ name: "Local SEO" }],
+      estimatedRevenueLoss: generalEstimate,
+      areaAverageReviews: 40,
+      topMissingKeyword: "freight forwarding toronto",
+    });
+    const dollarLeak = allStrings(narrative).find((s) => /\$\s*\d/.test(s));
+    assert.equal(
+      dollarLeak,
+      undefined,
+      `general business templated prose must contain NO dollar figure — leaked: ${dollarLeak}`,
+    );
+  }
+
+  /* (d) a grade-D business gets ≥1 HIGH-priority action item */
+  {
+    // Grade D, only a MEDIUM-class issue (low-visibility) + a LOW service pitch —
+    // previously could yield NO HIGH item. The guarantee must promote one.
+    const narrative = buildTemplatedNarrative({
+      businessName: "Joe's Plumbing",
+      trade: "plumbing",
+      categoryLabel: "plumbing",
+      city: "Toronto",
+      scores: { grade: "D", total: 44 },
+      reviewsCount: 12,
+      rating: 4.3,
+      hasWebsite: true,
+      mobileScore: 80,
+      marketLeader: { name: "Top Plumb", reviewsCount: 200 },
+      detectedIssues: ["low-visibility"],
+      recommendedServices: [{ name: "Local SEO" }],
+      estimatedRevenueLoss: deriveRevenueLoss("plumbing", ["low-visibility"], null),
+      areaAverageReviews: 60,
+      topMissingKeyword: "emergency plumber toronto",
+    });
+    const hasHigh = (narrative.actionPlan || []).some((i: any) => i.priority === "HIGH");
+    assert.ok(hasHigh, "a grade-D business must get at least one HIGH-priority action item");
+
+    // The data-cited content actually threaded the real keyword + benchmark.
+    const planStrings = allStrings(narrative.actionPlan);
+    assert.ok(
+      planStrings.some((s) => /emergency plumber toronto/i.test(s)),
+      "templated plan cites the real top-missing keyword",
+    );
   }
 
   console.log("✓ audit-general: all assertions passed");

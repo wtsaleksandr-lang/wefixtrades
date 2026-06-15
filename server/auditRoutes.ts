@@ -1373,7 +1373,7 @@ function isOpenInEvenings(hours: string[]): boolean {
 }
 
 /* ─── E5: Demand Gap ─── */
-async function calculateDemandGaps(
+export async function calculateDemandGaps(
   topKeyword: string, businessHours: string[], trade: string, totalMonthlySearchVolume: number
 ) {
   const weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
@@ -1387,7 +1387,14 @@ async function calculateDemandGaps(
     plumbing: 5000, hvac: 3000, electrical: 4000, cleaning: 6000,
     landscaping: 4000, roofing: 2000, locksmith: 4000, general: 3000,
   };
-  const effectiveVolume = totalMonthlySearchVolume > 0
+  // Fix (financial credibility, Task 2): when we have NO real DataForSEO/Serper
+  // search volume, the hardcoded fallback (plumbing:5000 / general:3000 …) is a
+  // placeholder, not a measurement. Building a customer-facing dollar figure on
+  // it fabricates revenue. We still surface the demand-GAP windows (open/closed
+  // hours are real), but flag the $ as not-real so deriveRevenueLoss suppresses
+  // the headline dollar band rather than quoting a number off placeholder demand.
+  const hasRealVolume = totalMonthlySearchVolume > 0;
+  const effectiveVolume = hasRealVolume
     ? totalMonthlySearchVolume
     : (fallbackVolume[trade.toLowerCase()] || 3000);
   const clickRate = 0.05;
@@ -1419,15 +1426,32 @@ async function calculateDemandGaps(
     });
   }
 
-  const totalMissedLeads = gaps.reduce((s, g) => s + g.estimatedMissedLeadsPerMonth, 0);
+  // Fix (financial credibility, Task 3): the raw sum double-counts after-hours
+  // demand. Evening (31%) + weekend (31%) = 62% of ALL leads counted as "missed"
+  // when a business is closed both — but many after-hours searchers simply call
+  // back during open hours, so the true *permanently-lost* share is far lower.
+  // Apply a recapture discount by capping the combined missed share at 40% of
+  // monthly leads (so two summed gaps can't claim more than ~40% is lost).
+  const rawMissedLeads = gaps.reduce((s, g) => s + g.estimatedMissedLeadsPerMonth, 0);
+  const MAX_MISSED_SHARE = 0.40;
+  const missedCap = monthlyLeads * MAX_MISSED_SHARE;
+  const totalMissedLeads = Math.round(Math.min(rawMissedLeads, missedCap));
 
   return {
     demandGaps: gaps,
     estimatedRevenueLoss: {
-      low: Math.round(totalMissedLeads * jobValue * 0.25 / 100) * 100,
-      high: Math.round(totalMissedLeads * jobValue * 0.35 / 100) * 100,
+      // Fix (Task 4 — honest band): widen the band beyond the old ±17%
+      // (0.25→0.35) to reflect the several-fold real driver uncertainty — vary
+      // both the CTR/conversion realization (0.20 low) and recapture (0.45 high).
+      low: Math.round(totalMissedLeads * jobValue * 0.20 / 100) * 100,
+      high: Math.round(totalMissedLeads * jobValue * 0.45 / 100) * 100,
       monthlyMissedLeads: totalMissedLeads,
       jobValue,
+      // When the $ is built on placeholder demand (no real search volume), flag
+      // it so deriveRevenueLoss/computeRevenueLoss suppress the headline figure.
+      isRealVolume: hasRealVolume,
+      // Honest labeling: this is a directional estimate, not a precise forecast.
+      roughEstimate: true,
     },
     isOpenEvenings,
     isOpenWeekends,
@@ -1943,9 +1967,20 @@ export function buildTemplatedNarrative(ctx: {
   marketLeader: any;
   detectedIssues: string[];
   recommendedServices: any[];
-  estimatedRevenueLoss: { low?: number; high?: number } | null;
+  /**
+   * The DERIVED, typed revenue-loss estimate. `isReal:false` (or absent) means
+   * NO dollar figure may appear in the templated prose. `roughEstimate` flags
+   * that the band is directional and must be labeled as such.
+   */
+  estimatedRevenueLoss:
+    | { low?: number; high?: number; isReal?: boolean; roughEstimate?: boolean }
+    | null;
   /** Honest human category for non-trade businesses ("" when truly unknown). */
   categoryLabel?: string;
+  /** Area-average review benchmark, threaded into the action plan when present. */
+  areaAverageReviews?: number;
+  /** Top keyword the business is missing/weak on (for a data-cited visibility fix). */
+  topMissingKeyword?: string | null;
 }): any {
   const { businessName, trade, city, scores, reviewsCount, rating, hasWebsite, mobileScore, marketLeader, detectedIssues, recommendedServices, estimatedRevenueLoss } = ctx;
   // Customer-facing descriptor: NEVER the literal "general". For a real trade
@@ -1983,8 +2018,16 @@ export function buildTemplatedNarrative(ctx: {
     detectedIssues.includes("bad-rating") ? "your average rating is dragging down click-through and ranking" :
     "there are clear opportunities to capture more local demand";
   summaryParts.push(`The biggest opportunity right now: ${biggestGap}.`);
-  if (estimatedRevenueLoss && (estimatedRevenueLoss.low || estimatedRevenueLoss.high)) {
-    summaryParts.push(`We estimate this is worth roughly $${estimatedRevenueLoss.low ?? 0}–$${estimatedRevenueLoss.high ?? 0}/month in recoverable revenue.`);
+  // Fix (financial credibility, Task 1): ONLY surface a dollar sentence when the
+  // derived estimate is real (isReal). For general businesses and any case where
+  // the $ was suppressed (placeholder volume / no defensible loss), isReal is
+  // false and we must NOT write a fabricated "$X–Y recoverable" line. When we do
+  // show it, label it a rough estimate — the real uncertainty is several-fold.
+  const revReal =
+    !!estimatedRevenueLoss?.isReal &&
+    ((estimatedRevenueLoss.low ?? 0) > 0 || (estimatedRevenueLoss.high ?? 0) > 0);
+  if (revReal) {
+    summaryParts.push(`As a rough estimate, this is worth on the order of $${estimatedRevenueLoss!.low ?? 0}–$${estimatedRevenueLoss!.high ?? 0}/month in recoverable revenue (a directional figure, not a precise forecast).`);
   }
   const executiveSummary = summaryParts.join(" ");
 
@@ -2019,36 +2062,72 @@ export function buildTemplatedNarrative(ctx: {
 
   // Action plan — derived from detected issues + recommended services, max 3,
   // HIGH→LOW, at least one free.
+  // Fix (templated-content quality, Task 5): thread the business's REAL audit
+  // data into the otherwise-generic action items so the FALLBACK path isn't
+  // content-free — the AI path already cites this data; this ports a simplified
+  // version. Data woven in: marketLeader name + review gap, areaAverageReviews
+  // benchmark, the top missing/weak keyword, and a simple break-even number.
   const svcByIssue = (recommendedServices || []).map((s: any) => s?.name || s?.title || String(s)).filter(Boolean);
+  const areaAvg = typeof ctx.areaAverageReviews === "number" && ctx.areaAverageReviews > 0
+    ? Math.round(ctx.areaAverageReviews)
+    : null;
+  const leaderName = marketLeader?.name && typeof marketLeader?.reviewsCount === "number" ? marketLeader.name : null;
+  const leaderReviewGap = leaderName ? Math.max(0, marketLeader.reviewsCount - (reviewsCount || 0)) : 0;
+  // Break-even: for a real trade, how many extra jobs cover ~$300/mo of help, at
+  // the canonical per-trade avg ticket. Suppressed for general (no ticket).
+  const avgTicket = isGeneral ? 0 : avgTicketForTrade(trade);
+  const breakEvenLine = avgTicket > 0
+    ? ` At an average ${trade} job worth $${avgTicket}, even one extra job a month more than covers the effort.`
+    : "";
+  const topKw = (ctx.topMissingKeyword || "").trim();
   // Each candidate carries DISTINCT problem (diagnosis) and fix (action) so the
   // Action-Plan card's two halves never echo (design M4). `detail` is kept for
   // backward-compat consumers; ensureProblemFix() backfills any gaps.
   const candidates: Array<{ priority: string; title: string; problem: string; fix: string; detail: string; estimatedImpact: string }> = [];
   if (detectedIssues.includes("low-reviews") || detectedIssues.includes("bad-rating")) {
-    const fix = `Ask your last 20 happy ${customerQualifier}customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`;
-    candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", problem: `Your review count is behind the bar to win the Maps pack, so you're being out-ranked on the searches that drive calls.`, fix, detail: fix, estimatedImpact: "Higher Maps ranking + more calls" });
+    const benchmark = areaAvg
+      ? ` Similar businesses in ${city || "your area"} average about ${areaAvg} reviews — you're at ${reviewsCount || 0}.`
+      : "";
+    const leaderBit = leaderName && leaderReviewGap > 0
+      ? ` ${leaderName} leads your market with ${marketLeader.reviewsCount} reviews — closing that ${leaderReviewGap}-review gap directly lifts your ranking.`
+      : "";
+    const problem = `Your review count (${reviewsCount || 0}) is behind the bar to win the Maps pack, so you're being out-ranked on the searches that drive calls.${benchmark}${leaderBit}`;
+    const fix = `Ask your last 20 happy ${customerQualifier}customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.${breakEvenLine}`;
+    candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", problem, fix, detail: fix, estimatedImpact: areaAvg ? `Close the ~${areaAvg}-review area benchmark` : "Higher Maps ranking + more calls" });
   }
   if (detectedIssues.includes("no-website") || detectedIssues.includes("slow-website")) {
     const problem = hasWebsite
       ? `Most customers reach you on mobile${mobileScore != null ? `, and your mobile speed score is ${mobileScore}/100` : ""}. A slow site means visitors leave before they contact you — every 1-second delay drops conversions ~7%.`
       : "Without a linked website you lose trust and conversions from your Maps listing — many customers won't call a business they can't vet online.";
-    const fix = hasWebsite
+    const fix = (hasWebsite
       ? "Compress images, trim heavy scripts, and tighten Core Web Vitals to recover the visitors who currently bounce before contacting you."
-      : "Stand up a fast 1-page site with your services, service area and a tap-to-call button — even a simple one materially lifts conversions from Maps.";
+      : "Stand up a fast 1-page site with your services, service area and a tap-to-call button — even a simple one materially lifts conversions from Maps.") + breakEvenLine;
     candidates.push({ priority: "HIGH", title: hasWebsite ? "Fix your mobile site speed" : "Get a fast, simple website live", problem, fix, detail: fix, estimatedImpact: "15–25% more visitors contact you" });
   }
   if (detectedIssues.includes("low-visibility") || detectedIssues.includes("not-in-maps-pack")) {
-    const problem = `You're not consistently visible for the searches ${audienceNoun} in ${city || "your area"} actually use, so competitors are capturing demand that should be yours.`;
-    const fix = `Tighten your profile categories, services and city-relevant content to lift you into the local pack where the clicks are.`;
-    candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", problem, fix, detail: fix, estimatedImpact: "More local-pack appearances" });
+    const kwBit = topKw ? ` In particular, you're not ranking for "${topKw}", a term ${audienceNoun} actively search.` : "";
+    const problem = `You're not consistently visible for the searches ${audienceNoun} in ${city || "your area"} actually use, so competitors are capturing demand that should be yours.${kwBit}`;
+    const fix = topKw
+      ? `Build a focused page targeting "${topKw}" and tighten your profile categories + city-relevant content to lift you into the local pack where the clicks are.`
+      : `Tighten your profile categories, services and city-relevant content to lift you into the local pack where the clicks are.`;
+    candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", problem, fix, detail: fix, estimatedImpact: topKw ? `Rank for "${topKw}" + more local-pack appearances` : "More local-pack appearances" });
   }
   if (svcByIssue.length && candidates.length < 3) {
-    const fix = `Based on your audit, ${svcByIssue.slice(0, 3).join(", ")} target the remaining gaps WeFixTrades can fix for you.`;
+    const fix = `Based on your audit, ${svcByIssue.slice(0, 3).join(", ")} target the remaining gaps WeFixTrades can fix for you.${breakEvenLine}`;
     candidates.push({ priority: "LOW", title: "Close remaining gaps", problem: "A few smaller gaps are still leaving leads on the table month after month.", fix, detail: fix, estimatedImpact: "Compounding visibility gains" });
   }
   if (candidates.length === 0) {
     const fix = `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${customerQualifier}visibility in ${city || "your area"}.`;
     candidates.push({ priority: "HIGH", title: "Keep your profile fresh (free)", problem: "Even a strong profile slips when it goes quiet — inactivity slowly cedes ranking to more active competitors.", fix, detail: fix, estimatedImpact: "Sustained ranking" });
+  }
+  // Fix (templated-content quality, Task 6): guarantee at least one HIGH-priority
+  // action item. A grade-D/F business could previously get a plan whose only
+  // items were MEDIUM "tighten categories" + a LOW product pitch — no urgency
+  // signal. If nothing is HIGH, promote the top candidate (and for a weak grade,
+  // always promote it) so the plan leads with a high-impact move.
+  const weakGrade = grade === "D" || grade === "F";
+  if (candidates.length > 0 && (!candidates.some((c) => c.priority === "HIGH") || weakGrade)) {
+    candidates[0].priority = "HIGH";
   }
   const actionPlan = candidates.slice(0, 3);
 
@@ -2094,7 +2173,13 @@ export function buildTemplatedNarrative(ctx: {
 export function deriveRevenueLoss(
   trade: string,
   detectedIssues: string[],
-  measuredLoss: { low?: number; high?: number; monthlyMissedLeads?: number } | null,
+  measuredLoss: {
+    low?: number;
+    high?: number;
+    monthlyMissedLeads?: number;
+    /** False when the demand $ was built on placeholder (non-measured) volume. */
+    isRealVolume?: boolean;
+  } | null,
 ): RevenueLossEstimate {
   const CAPTURE_GAP_ISSUES = [
     "no-after-hours",
@@ -2117,7 +2202,13 @@ export function deriveRevenueLoss(
         3,
         detectedIssues.filter((i) => CAPTURE_GAP_ISSUES.includes(i)).length,
       );
-  const demandLoss = general ? null : measuredLoss;
+  // Fix (financial credibility, Task 2): when the measured demand loss was built
+  // on placeholder volume (isRealVolume === false), discard it — never quote a
+  // headline $ off non-measured demand. The avg-ticket FLOOR (from real capture
+  // gaps) still applies, so a real trade with genuine gaps keeps a defensible
+  // floor; it just won't claim a fabricated demand-gap band.
+  const demandLoss =
+    general || measuredLoss?.isRealVolume === false ? null : measuredLoss;
   return computeRevenueLoss({ trade, demandLoss, floorMissedLeads });
 }
 
@@ -2989,6 +3080,26 @@ router.post("/generate", async (req: Request, res: Response) => {
     log.info('[audit] FINAL detectedIssues:', auditData.detectedIssues);
     log.info('[audit] scores used:', { detail: JSON.stringify(auditData.scores) });
 
+    // ─── Derive the honest revenue-loss estimate BEFORE composing the prompt ───
+    // Fix (financial credibility, Task 1): this used to run AFTER the AI prompt
+    // and templated narrative were built, so both wrote the RAW pre-derive
+    // demand-gap $ (or the $250-default for general businesses) into customer
+    // PROSE even when the structured figure was later zeroed (isReal:false).
+    // Deriving here means the prompt, the templated narrative, and the saved
+    // structured field all read the SAME typed {low,high,isReal,basis,...}
+    // estimate — no fabricated $ can leak into the written report.
+    auditData.estimatedRevenueLoss = deriveRevenueLoss(
+      trade,
+      auditData.detectedIssues || [],
+      auditData.estimatedRevenueLoss || null,
+    );
+    log.info('[audit] revenue-loss derived (pre-prompt)', {
+      isReal: auditData.estimatedRevenueLoss.isReal,
+      basis: auditData.estimatedRevenueLoss.basis,
+      low: auditData.estimatedRevenueLoss.low,
+      high: auditData.estimatedRevenueLoss.high,
+    });
+
     // ─── Legacy fields for backward compatibility ───
     const issues: Array<{ title: string; severity: "High" | "Medium"; impact: string; fix: string }> = [];
     if (reviewsCount < 20) issues.push({ title: "Low review count", severity: "High", impact: "Fewer reviews reduces trust and hurts your visibility in Maps.", fix: "Ask recent happy customers for reviews and follow up with a simple link." });
@@ -3026,11 +3137,24 @@ router.post("/generate", async (req: Request, res: Response) => {
           ? (categoryLabel ? categoryLabel : "local")
           : trade;
 
+        // Fix (financial credibility, Task 1): the revenue figure is now derived
+        // BEFORE the prompt. When it isn't real (general business, or $ built on
+        // placeholder/non-measured volume, or genuinely no loss), the AI must
+        // omit ANY dollar claim from the prose — not just zero the structured
+        // field. `revLoss` is the typed estimate; `revIsReal` gates the $ copy.
+        const revLoss: RevenueLossEstimate | null =
+          (auditData.estimatedRevenueLoss as RevenueLossEstimate) || null;
+        const revIsReal = !!revLoss?.isReal && (revLoss.low > 0 || revLoss.high > 0);
+        // Suppress the per-job ROI/break-even math whenever there's no defensible
+        // dollar figure (general business OR no real revenue band).
+        const suppressDollarRoi = isGeneralTrade(trade) || !revIsReal;
+
         const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps local service businesses get more leads.
 
 You are analyzing audit data for a ${promptBusinessDescriptor} business in ${city}.
 
 IMPORTANT: Never use the word "general" to describe this business or its customers. ${isGeneralTrade(trade) ? `This business does not fit a standard trade category${categoryLabel ? ` — describe it as a "${categoryLabel}" business or simply "your business"` : ` — refer to "your business" and "your customers" generically`}. Use "${leadNoun}" (not "jobs"/"calls") when referring to the leads it could capture, and do NOT state a dollar revenue-loss figure for it (estimatedMonthlyRevenueLoss must be { low: 0, high: 0 }).` : ""}
+${!revIsReal ? `IMPORTANT — NO DOLLAR FIGURE: We could not compute a defensible revenue-loss number for this business. Do NOT state, estimate, or imply any monthly-revenue-loss dollar amount anywhere — not in the executive summary, not in any action item, not in ROI math. Frame impact qualitatively (more ${leadNoun}, better visibility, faster contact). Set estimatedMonthlyRevenueLoss to { low: 0, high: 0 }.` : `When you cite the revenue-loss figure, present it as a ROUGH/DIRECTIONAL estimate (e.g. "roughly", "in the range of") — never a precise forecast.`}
 
 Your job is to write a compelling, specific audit report that:
 1. Explains their exact problems with data
@@ -3053,7 +3177,9 @@ AUDIT DATA AVAILABLE:
 - Competitors analyzed: ${competitors.length}
 - Market leader reviews: ${compData?.marketLeader?.reviewsCount ?? 'unknown'}
 - Business reviews: ${reviewsCount}
-- Revenue loss estimate: $${auditData.estimatedRevenueLoss?.low ?? 0}–$${auditData.estimatedRevenueLoss?.high ?? 0}/month
+- Revenue loss estimate: ${revIsReal
+    ? `$${revLoss!.low}–$${revLoss!.high}/month (ROUGH ESTIMATE, basis: ${revLoss!.basis}) — present it as a rough/directional figure, never a precise forecast`
+    : `NOT AVAILABLE — there is no defensible dollar figure for this business. DO NOT state, imply, or invent any monthly-revenue-loss dollar amount anywhere in the report.`}
 
 TRADE CONTEXT:
 Trade: ${trade}
@@ -3083,8 +3209,8 @@ WRITING RULES:
 ${serviceCatalogBlock}
 
 ROI FRAMING RULE:
-${isGeneralTrade(trade)
-  ? `This business has no defensible standard job value, so do NOT quote a per-job dollar figure or a "X jobs to break even" calculation. Frame ROI qualitatively (more ${leadNoun}, better visibility, faster contact) without inventing a dollar amount.`
+${suppressDollarRoi
+  ? `This business has no defensible dollar figure to quote, so do NOT state a per-job dollar value, a monthly-revenue-loss amount, or a "X jobs to break even" calculation. Frame ROI qualitatively (more ${leadNoun}, better visibility, faster contact) without inventing a dollar amount.`
   : `Use $${tradeCtx.avgJobValue} as the average ${trade} job value for ALL ROI math (this is the single canonical per-trade figure — do not substitute any other number).
 For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $${tradeCtx.avgJobValue}, you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / ${tradeCtx.avgJobValue}).)`}
 
@@ -3241,11 +3367,22 @@ ${JSON.stringify(auditData, null, 2)}`;
           // Timed out or returned empty/errored — ship a templated narrative
           // built from the already-gathered scores/data so the report still
           // has real prose. This is the 524-avoidance path; logged, never silent.
-          log.warn("[audit] narrative unavailable in budget — using templated fallback", {
-            reason: raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty",
+          // Fix (Task 7): emit a STRUCTURED metric line so we can measure how
+          // often users land on the templated path vs the AI narrative — it was
+          // previously invisible. Grep `[audit][metric] narrative_path` to count.
+          const fallbackReason = raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty";
+          log.warn("[audit][metric] narrative_path", {
+            path: "templated_fallback",
+            reason: fallbackReason,
             budgetMs: aiBudgetMs,
             elapsedMs: Date.now() - startTime,
           });
+          // Top keyword the business is NOT ranking for (highest-volume first) —
+          // threaded into the templated visibility action item so the fallback
+          // cites real data instead of a generic "tighten categories".
+          const topMissingKeyword = [...keywords]
+            .filter((k: any) => !k.organicRank)
+            .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0))[0]?.keyword || null;
           auditData.narrative = buildTemplatedNarrative({
             businessName: business.name || "",
             trade,
@@ -3260,6 +3397,8 @@ ${JSON.stringify(auditData, null, 2)}`;
             detectedIssues: dedupedIssues,
             recommendedServices,
             estimatedRevenueLoss: auditData.estimatedRevenueLoss || null,
+            areaAverageReviews: auditData.areaAverageReviews,
+            topMissingKeyword,
           });
         } else {
         log.info("═══ CLAUDE RESPONSE ═══");
@@ -3278,6 +3417,9 @@ ${JSON.stringify(auditData, null, 2)}`;
           const parsed = JSON.parse(cleaned);
           auditData.narrative = parsed;
           log.info("[audit] narrative parsed OK, keys:", { detail: Object.keys(parsed) });
+          // Fix (Task 7): counterpart metric to the templated-fallback counter, so
+          // the AI-vs-templated rate is measurable. Grep `[audit][metric] narrative_path`.
+          log.info("[audit][metric] narrative_path", { path: "ai" });
         } catch (parseErr: any) {
           log.warn("[audit] narrative JSON parse failed (templated fallback):", { error: parseErr?.message });
           // Try to salvage truncated JSON by closing open braces/brackets
@@ -3333,22 +3475,10 @@ ${JSON.stringify(auditData, null, 2)}`;
     // Runs on BOTH the AI and templated-narrative paths (after both have set
     // auditData.narrative), so every report carries the same honest shapes.
 
-    // Task 2 — replace any placeholder loss with a real per-business estimate.
-    // `auditData.estimatedRevenueLoss` here is the measured demand-gap loss
-    // (from calculateDemandGaps) or null; deriveRevenueLoss promotes it to the
-    // typed {low,high,isReal,...} contract, computing a conservative floor from
-    // the trade avg ticket when the measured loss is zero but capture gaps exist.
-    auditData.estimatedRevenueLoss = deriveRevenueLoss(
-      trade,
-      auditData.detectedIssues || [],
-      auditData.estimatedRevenueLoss || null,
-    );
-    log.info('[audit] revenue-loss derived', {
-      isReal: auditData.estimatedRevenueLoss.isReal,
-      basis: auditData.estimatedRevenueLoss.basis,
-      low: auditData.estimatedRevenueLoss.low,
-      high: auditData.estimatedRevenueLoss.high,
-    });
+    // Task 2 — revenue-loss is now derived EARLIER (pre-prompt, see above) so the
+    // AI prompt + templated narrative read the same typed isReal/low/high figure
+    // and never write a fabricated $ into prose. The derived estimate already
+    // lives on auditData.estimatedRevenueLoss; nothing to re-derive here.
 
     // Task 3 — guarantee distinct problem/fix on every action-plan item.
     ensureProblemFix(auditData.narrative);
