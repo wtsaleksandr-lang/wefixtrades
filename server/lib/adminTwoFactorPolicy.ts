@@ -22,6 +22,13 @@ export interface AdminTwoFactorPolicyInput {
   totpEnabled: boolean;
   /** users.admin_2fa_grace_used_at — null until the grace login happens. */
   graceUsedAt: Date | null;
+  /** Master switch for the mandatory-admin-2FA gate. When false (the
+   *  default — sourced from env ADMIN_2FA_MANDATORY at the call site), a
+   *  factor-less admin is NEVER forced into enrollment and NEVER blocked:
+   *  2FA stays available/encouraged but optional. Flip to true (Doppler:
+   *  ADMIN_2FA_MANDATORY=true) to restore the hard-gated Lane-C behavior
+   *  with zero code changes. Pure input → the function stays testable. */
+  mandatory: boolean;
 }
 
 export interface AdminTwoFactorPolicyDecision {
@@ -40,6 +47,12 @@ export const ADMIN_2FA_ENROLLMENT_CODE = "admin_2fa_enrollment_required";
 export function evaluateAdminTwoFactorPolicy(
   input: AdminTwoFactorPolicyInput,
 ): AdminTwoFactorPolicyDecision {
+  if (!input.mandatory) {
+    // Gate disabled (default): admin 2FA is optional — never force
+    // enrollment, never block. The enrollment UI stays reachable so an
+    // admin can still opt in voluntarily.
+    return { enrollmentRequired: false, graceLogin: false };
+  }
   if (input.role !== "admin") {
     return { enrollmentRequired: false, graceLogin: false };
   }
