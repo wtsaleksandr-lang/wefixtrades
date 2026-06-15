@@ -3603,7 +3603,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     // engine + report tolerate missing competitors/reviews/keywords/speed.
     const gatherAll = Promise.allSettled([
       serperPromise,                                                                  // 0: E3 Serper
-      fetchCompetitors(competitorSearchCategory, city, business.name, stateCode || undefined, getCached, setCached, bizCoords, business.placeId || undefined), // 1: E1 competitors (Places primary, Outscraper fallback; real category not "general", ~30km bias, type-filtered, self-excluded by placeId)
+      fetchCompetitors(competitorSearchCategory, city, business.name, stateCode || undefined, getCached, setCached, bizCoords, business.placeId || undefined, reviewsCount), // 1: E1 competitors (Places primary, Outscraper fallback; real category not "general", ~30km bias, type-filtered, self-excluded by placeId, peer-relevance filtered so national giants like FedEx/DHL are dropped from the head-to-head)
       (business.placeId && reviewsCount > 0) ? fetchReviewIntelligence({ placeId: business.placeId, businessName: business.name, locationLabel: stateCode ? city + ", " + stateCode : city }) : Promise.resolve(null), // 2: E2 reviews (Serper → Outscraper → DataForSEO)
       dataForSEOPromise,                                                              // 3: E4 volumes
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA
