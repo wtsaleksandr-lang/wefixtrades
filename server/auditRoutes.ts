@@ -3408,6 +3408,70 @@ function getTradeContext(trade: string, city: string): {
   return { ...ctx, avgJobValue: avgTicketForTrade(trade) };
 }
 
+/**
+ * Authoritative subject review count, sourced from Google place-details.
+ *
+ * The subject's review count drives the review sub-score, the competitor
+ * review-gap, and the "you have X reviews" copy. The client payload SHOULD carry
+ * it (from /place-details → user_ratings_total), but any path that drops the
+ * field — an older client build, a reconstructed/shared re-run, the
+ * findplacefromtext fallback, a value lost in transit — would otherwise yield a
+ * false "0 reviews" report even when Google has a real count for the placeId
+ * being audited (e.g. Access Air Mississauga: Google = 6, report showed 0).
+ *
+ * Google's own `user_ratings_total` is the reliable source of truth for the
+ * COUNT, so we re-fetch it whenever the client value is missing or 0 and a
+ * placeId is present. We only ever RAISE 0 → real: a present positive client
+ * count is returned unchanged (no network call). A failed/empty downstream
+ * reviews provider can never zero this — it supplies review BODIES, not counts.
+ *
+ * Exported (and given an injectable `fetchImpl`) so `check:audit-scoring` can
+ * assert the invariant DB-free without a live Google call.
+ */
+export async function resolveSubjectReviewCount(
+  placeId: string | null | undefined,
+  clientReviewsCount: unknown,
+  gmKey: string | undefined,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ reviewsCount: number | null; rating: number | null }> {
+  const clientCount =
+    typeof clientReviewsCount === "number" ? clientReviewsCount : null;
+
+  // A present positive client count is already authoritative — keep it, no call.
+  if (clientCount !== null && clientCount > 0) {
+    return { reviewsCount: clientCount, rating: null };
+  }
+  // Can't recover without a placeId + key — preserve whatever the client sent.
+  if (!placeId || !gmKey) {
+    return { reviewsCount: clientCount, rating: null };
+  }
+
+  try {
+    const url =
+      `https://maps.googleapis.com/maps/api/place/details/json?` +
+      `place_id=${encodeURIComponent(placeId)}` +
+      `&fields=${encodeURIComponent("user_ratings_total,rating")}` +
+      `&key=${encodeURIComponent(gmKey)}`;
+    const resp = await fetchImpl(url);
+    const data: any = await resp.json();
+    const result = data?.result;
+    if (result && typeof result.user_ratings_total === "number") {
+      const rating = typeof result.rating === "number" ? result.rating : null;
+      log.info("[audit] subject review count from Google place-details:", {
+        placeId,
+        reviewsCount: result.user_ratings_total,
+      });
+      return { reviewsCount: result.user_ratings_total, rating };
+    }
+  } catch (err: any) {
+    // Non-fatal: if Google is unreachable we keep whatever the client sent.
+    log.warn("[audit] subject review-count refetch failed (degraded):", {
+      error: err?.message,
+    });
+  }
+  return { reviewsCount: clientCount, rating: null };
+}
+
 /* ═══════════════════════════════════════════════════════ */
 router.post("/generate", async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -3481,6 +3545,41 @@ router.post("/generate", async (req: Request, res: Response) => {
         } catch (err: any) {
           log.error('[audit] Places enrichment failed:', err?.message);
         }
+      }
+    }
+
+    // ─── Authoritative subject review count from Google place-details ───
+    // The subject's review count is the single number that drives the review
+    // sub-score, the competitor review-gap, and the "you have X reviews" copy.
+    // Until now it was TRUST-THE-CLIENT: `reviewsCount` (computed below) read
+    // only `business.reviewsCount` from the request body and fell back to 0 when
+    // absent. /place-details DOES return it (user_ratings_total), but any path
+    // where the client payload arrives without the field — an older client
+    // build, a reconstructed/shared re-run, the findplacefromtext fallback, or a
+    // value dropped in transit — produced a false "0 reviews" report even though
+    // Google has a real count for the very placeId we're auditing
+    // (e.g. Access Air Mississauga: Google = 6, report showed 0).
+    //
+    // resolveSubjectReviewCount re-fetches Google's user_ratings_total whenever
+    // the client value is missing or 0 and we have a placeId. Google's own count
+    // is the reliable source of truth, so we only ever RAISE 0 → real; a present
+    // positive client count is left untouched. A failed/empty downstream reviews
+    // provider (E2) can never zero this — E2 supplies review BODIES, not counts.
+    {
+      const resolved = await resolveSubjectReviewCount(
+        business.placeId || null,
+        business.reviewsCount,
+        process.env.GOOGLE_MAPS_API_KEY,
+      );
+      if (typeof resolved.reviewsCount === "number") {
+        business.reviewsCount = resolved.reviewsCount;
+      }
+      // Backfill rating from the same Google call if the client omitted it.
+      if (
+        !(typeof business.rating === "number") &&
+        typeof resolved.rating === "number"
+      ) {
+        business.rating = resolved.rating;
       }
     }
 
