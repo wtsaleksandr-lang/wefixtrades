@@ -6,8 +6,13 @@
  * Primary:  Google Places API (New) — Text Search
  * Fallback: Outscraper maps/search-v3 (used only when Places throws or returns 0 results)
  *
- * Cache key: `competitors:<trade>:<city>` — 24 h TTL (managed by the
+ * Cache key: `competitors:<category>:<city>` — 24 h TTL (managed by the
  * orchestrator below so neither fetcher double-writes).
+ *
+ * The search "category" is a real, human category label (a trade vertical for
+ * trades, or the business's Google Places category for non-trades). It is NEVER
+ * the literal "general" — a business with no usable category yields an empty
+ * competitor block (null) rather than a junk "general near <city>" search.
  */
 
 import { createLogger } from "../lib/logger";
@@ -81,17 +86,35 @@ function aggregate(competitors: CompetitorEntry[]): CompetitorResult {
 /* ─── Primary: Google Places API (New) ─── */
 
 export async function fetchPlacesCompetitors(
-  trade: string,
+  searchCategory: string,
   city: string,
   businessName: string,
   stateCode?: string,
+  coords?: { lat: number; lng: number } | null,
 ): Promise<CompetitorResult> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY not set");
 
   const location = stateCode ? `${city}, ${stateCode}` : city;
-  const textQuery = `${trade} near ${location}`;
+  const textQuery = `${searchCategory} near ${location}`;
   log.info("[E1 Places competitors] query:", { detail: textQuery });
+
+  // Build the request body. When we have the business's coordinates, bias the
+  // search to a ~30km circle around it so competitors are genuinely local
+  // (not "general near Toronto" scattered across the metro).
+  const body: Record<string, any> = {
+    textQuery,
+    maxResultCount: 10,
+    languageCode: "en",
+  };
+  if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: coords.lat, longitude: coords.lng },
+        radius: 30000.0, // 30 km
+      },
+    };
+  }
 
   const { signal, clear } = withSignal(20000);
   let r: globalThis.Response;
@@ -106,11 +129,7 @@ export async function fetchPlacesCompetitors(
           "places.websiteUri,places.nationalPhoneNumber,places.formattedAddress," +
           "places.googleMapsUri,places.photos",
       },
-      body: JSON.stringify({
-        textQuery,
-        maxResultCount: 10,
-        languageCode: "en",
-      }),
+      body: JSON.stringify(body),
       signal,
     });
   } finally {
@@ -185,7 +204,7 @@ async function pollOutscraper(resultsUrl: string, maxWaitMs = 30000): Promise<an
 }
 
 export async function fetchOutscraperCompetitorsFallback(
-  trade: string,
+  searchCategory: string,
   city: string,
   businessName: string,
   stateCode?: string,
@@ -194,7 +213,7 @@ export async function fetchOutscraperCompetitorsFallback(
   if (!apiKey) throw new Error("OUTSCRAPER_API_KEY not set");
 
   const locationLabel = stateCode ? `${city}, ${stateCode}` : city;
-  const competitorQuery = `${trade} near ${locationLabel}`;
+  const competitorQuery = `${searchCategory} near ${locationLabel}`;
   log.info("[E1 Outscraper competitors] query:", { detail: competitorQuery });
 
   const params = new URLSearchParams({
@@ -291,14 +310,26 @@ export type CacheGet = (key: string) => any;
 export type CacheSet = (key: string, data: any) => void;
 
 export async function fetchCompetitors(
-  trade: string,
+  searchCategory: string,
   city: string,
   businessName: string,
   stateCode: string | undefined,
   getCached: CacheGet,
   setCached: CacheSet,
+  coords?: { lat: number; lng: number } | null,
 ): Promise<CompetitorResult | null> {
-  const compCacheKey = `competitors:${trade.toLowerCase().trim()}:${city.toLowerCase().trim()}`;
+  // No usable category (truly-unknown business): an empty competitor block is
+  // far better than searching "general near <city>" and returning junk. The
+  // report tolerates null competitors and excludes the category from the score.
+  const category = (searchCategory || "").toString().trim();
+  if (!category || category.toLowerCase() === "general") {
+    log.warn("[E1 competitors] no usable category — suppressing competitor search (returning null)", {
+      detail: searchCategory,
+    });
+    return null;
+  }
+
+  const compCacheKey = `competitors:${category.toLowerCase().trim()}:${city.toLowerCase().trim()}`;
 
   // 1. Cache check
   const cached = getCached(compCacheKey);
@@ -312,7 +343,7 @@ export async function fetchCompetitors(
   let usedFallback = false;
 
   try {
-    const placesResult = await fetchPlacesCompetitors(trade, city, businessName, stateCode);
+    const placesResult = await fetchPlacesCompetitors(category, city, businessName, stateCode, coords);
     if (placesResult.competitors.length > 0) {
       result = placesResult;
       log.info("[E1 competitors] Places succeeded:", { detail: placesResult.competitors.length });
@@ -327,7 +358,7 @@ export async function fetchCompetitors(
   if (!result) {
     usedFallback = true;
     try {
-      const outResult = await fetchOutscraperCompetitorsFallback(trade, city, businessName, stateCode);
+      const outResult = await fetchOutscraperCompetitorsFallback(category, city, businessName, stateCode);
       if (outResult.competitors.length > 0) {
         result = outResult;
         log.info("[E1 competitors] Outscraper fallback succeeded:", { detail: outResult.competitors.length });

@@ -1767,7 +1767,7 @@ const NAME_TRADE_MAP: Record<string, string> = {
   construct: "construction",
 };
 
-function detectTrade(businessName: string, types: string[]): string {
+export function detectTrade(businessName: string, types: string[]): string {
   const haystack = [businessName, ...types].join(" ");
   log.info(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
 
@@ -1802,6 +1802,95 @@ function detectTrade(businessName: string, types: string[]): string {
 
   log.info(`[trade] final: ${trade} for: ${businessName}`);
   return trade;
+}
+
+/* ─── Non-trade generalization (keystone) ───────────────────────────────────
+ * detectTrade() returns the literal "general" for any business that isn't in
+ * the trades allow-list (freight forwarder, logistics co, accountant, etc.).
+ * Feeding "general" downstream poisons the competitor search ("general near
+ * Toronto"), the revenue figure (a fabricated avg-ticket band), and the prose
+ * ("your last 20 happy general customers"). The helpers below let callers tell
+ * a real trade from a generic one and derive an HONEST human category label
+ * from the business's Google Places data instead of the word "general". */
+
+/** True when the resolved trade is the catch-all (no defensible trade vertical). */
+export function isGeneralTrade(trade?: string | null): boolean {
+  const t = (trade || "").toString().trim().toLowerCase();
+  return t === "" || t === "general";
+}
+
+/** Google Places `types` that are too generic to use as a category label. */
+const GENERIC_PLACE_TYPES = new Set<string>([
+  "point_of_interest", "establishment", "store", "premise", "general_contractor",
+  "food", "finance", "health", "place_of_worship", "local_government_office",
+]);
+
+/** Turn a snake_case Places type ("freight_forwarding_service") into a human
+ * label ("freight forwarding service"). */
+function humanizeType(type: string): string {
+  return type.replace(/_/g, " ").trim();
+}
+
+/**
+ * Derive an honest, human-readable category label for a (typically non-trade)
+ * business from its Google Places data — `primaryType`, `types`, and
+ * `displayName`/name. Returns "" when nothing usable is found, in which case
+ * callers should treat the business as truly-unknown (suppress competitors,
+ * use a generic noun) rather than inventing a category.
+ *
+ * Never returns the literal "general".
+ */
+export function deriveCategoryLabel(
+  businessName: string,
+  types: string[],
+  primaryType?: string | null,
+): string {
+  // 1. Prefer an explicit primaryType when it's specific.
+  const pt = (primaryType || "").toString().trim();
+  if (pt && !GENERIC_PLACE_TYPES.has(pt)) return humanizeType(pt);
+
+  // 2. First non-generic Places type.
+  for (const t of types || []) {
+    const norm = (t || "").toString().trim();
+    if (norm && !GENERIC_PLACE_TYPES.has(norm)) return humanizeType(norm);
+  }
+
+  // 3. No usable category — caller decides (empty competitors, generic noun).
+  return "";
+}
+
+/**
+ * Lead noun for the report's "Potential Missed Jobs/Calls" card and prose.
+ * Real trades use the trade-specific noun (jobs/calls); general/unknown
+ * businesses get a neutral "new enquiries" so we never imply a freight
+ * forwarder is missing "jobs". Mirrors the frontend TRADE_CALL_NOUN map.
+ */
+const TRADE_LEAD_NOUN: Record<string, string> = {
+  plumbing: "service calls", plumber: "service calls",
+  hvac: "service calls",
+  electrical: "service calls", electrician: "service calls",
+  roofing: "roof jobs", roofer: "roof jobs",
+  cleaning: "cleaning jobs",
+  landscaping: "landscaping jobs", landscaper: "landscaping jobs",
+  painting: "painting jobs", painter: "painting jobs",
+  flooring: "flooring jobs",
+  carpentry: "carpentry jobs",
+  renovation: "renovation jobs", remodeling: "renovation jobs",
+  handyman: "handyman jobs",
+  pest: "service calls",
+  moving: "moving jobs",
+  garage: "garage door jobs",
+  locksmith: "service calls",
+  construction: "projects",
+};
+
+/** Generic lead noun for non-trade / unknown businesses. */
+const GENERAL_LEAD_NOUN = "new enquiries";
+
+export function leadNounForTrade(trade?: string | null): string {
+  if (isGeneralTrade(trade)) return GENERAL_LEAD_NOUN;
+  const key = (trade || "").toString().trim().toLowerCase();
+  return TRADE_LEAD_NOUN[key] || GENERAL_LEAD_NOUN;
 }
 
 /* ─── Timeout helper for API calls ─── */
@@ -1842,7 +1931,7 @@ const AI_TIMEOUT_SENTINEL = "__AI_TIMEOUT__";
  * quickWin, demandGapInsight). Conservative, data-driven prose — no fabricated
  * numbers; every field falls back to a generic-but-true sentence when its
  * source datum is missing. */
-function buildTemplatedNarrative(ctx: {
+export function buildTemplatedNarrative(ctx: {
   businessName: string;
   trade: string;
   city: string;
@@ -1855,8 +1944,24 @@ function buildTemplatedNarrative(ctx: {
   detectedIssues: string[];
   recommendedServices: any[];
   estimatedRevenueLoss: { low?: number; high?: number } | null;
+  /** Honest human category for non-trade businesses ("" when truly unknown). */
+  categoryLabel?: string;
 }): any {
   const { businessName, trade, city, scores, reviewsCount, rating, hasWebsite, mobileScore, marketLeader, detectedIssues, recommendedServices, estimatedRevenueLoss } = ctx;
+  // Customer-facing descriptor: NEVER the literal "general". For a real trade
+  // we use the trade word ("plumbing customers"); for a general/unknown
+  // business we use the derived category if we have one, else a neutral
+  // "customers" — so prose never says "your last 20 happy general customers".
+  const isGeneral = isGeneralTrade(trade);
+  const categoryLabel = (ctx.categoryLabel || "").trim();
+  // Adjective slot inside "your last 20 happy ___ customers" / "___ customers in <city>".
+  // Real trade → the trade word; general w/ a category → "" (just "customers");
+  // truly unknown → "".
+  const customerQualifier = isGeneral ? "" : `${trade} `;
+  // Noun phrase for "the searches ___ in <city> actually use".
+  const audienceNoun = isGeneral
+    ? "your customers"
+    : `${trade} customers`;
   const grade = scores?.grade || "C";
   const total = typeof scores?.total === "number" ? scores.total : null;
   const name = businessName || "Your business";
@@ -1920,7 +2025,7 @@ function buildTemplatedNarrative(ctx: {
   // backward-compat consumers; ensureProblemFix() backfills any gaps.
   const candidates: Array<{ priority: string; title: string; problem: string; fix: string; detail: string; estimatedImpact: string }> = [];
   if (detectedIssues.includes("low-reviews") || detectedIssues.includes("bad-rating")) {
-    const fix = `Ask your last 20 happy ${trade} customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`;
+    const fix = `Ask your last 20 happy ${customerQualifier}customers for a Google review with a one-tap link. More reviews at a high rating is the single biggest lever on Maps ranking and click-through — and it costs nothing.`;
     candidates.push({ priority: "HIGH", title: "Win more reviews this month (free)", problem: `Your review count is behind the bar to win the Maps pack, so you're being out-ranked on the searches that drive calls.`, fix, detail: fix, estimatedImpact: "Higher Maps ranking + more calls" });
   }
   if (detectedIssues.includes("no-website") || detectedIssues.includes("slow-website")) {
@@ -1933,7 +2038,7 @@ function buildTemplatedNarrative(ctx: {
     candidates.push({ priority: "HIGH", title: hasWebsite ? "Fix your mobile site speed" : "Get a fast, simple website live", problem, fix, detail: fix, estimatedImpact: "15–25% more visitors contact you" });
   }
   if (detectedIssues.includes("low-visibility") || detectedIssues.includes("not-in-maps-pack")) {
-    const problem = `You're not consistently visible for the searches ${trade} customers in ${city || "your area"} actually use, so competitors are capturing demand that should be yours.`;
+    const problem = `You're not consistently visible for the searches ${audienceNoun} in ${city || "your area"} actually use, so competitors are capturing demand that should be yours.`;
     const fix = `Tighten your profile categories, services and city-relevant content to lift you into the local pack where the clicks are.`;
     candidates.push({ priority: "MEDIUM", title: "Improve local search visibility", problem, fix, detail: fix, estimatedImpact: "More local-pack appearances" });
   }
@@ -1942,13 +2047,13 @@ function buildTemplatedNarrative(ctx: {
     candidates.push({ priority: "LOW", title: "Close remaining gaps", problem: "A few smaller gaps are still leaving leads on the table month after month.", fix, detail: fix, estimatedImpact: "Compounding visibility gains" });
   }
   if (candidates.length === 0) {
-    const fix = `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${trade} visibility in ${city || "your area"}.`;
+    const fix = `Post updates, add recent photos, and respond to every review. Consistent activity on your Google Business Profile protects and grows your ${customerQualifier}visibility in ${city || "your area"}.`;
     candidates.push({ priority: "HIGH", title: "Keep your profile fresh (free)", problem: "Even a strong profile slips when it goes quiet — inactivity slowly cedes ranking to more active competitors.", fix, detail: fix, estimatedImpact: "Sustained ranking" });
   }
   const actionPlan = candidates.slice(0, 3);
 
   const quickWin = {
-    action: `Send a review request to your 10 most recent happy ${trade} customers today using a one-tap Google review link.`,
+    action: `Send a review request to your 10 most recent happy ${customerQualifier}customers today using a one-tap Google review link.`,
     timeRequired: "15 minutes",
     expectedResult: "Each new 5★ review measurably improves your Maps ranking and the trust customers see first.",
   };
@@ -1986,7 +2091,7 @@ function buildTemplatedNarrative(ctx: {
  * gap (no-after-hours / low-demand-coverage / low-visibility / not-in-maps-pack)
  * capped at 3 — a defensible "at least this much" floor, never a hype number.
  */
-function deriveRevenueLoss(
+export function deriveRevenueLoss(
   trade: string,
   detectedIssues: string[],
   measuredLoss: { low?: number; high?: number; monthlyMissedLeads?: number } | null,
@@ -1998,11 +2103,22 @@ function deriveRevenueLoss(
     "not-in-maps-pack",
     "no-quote-tool",
   ];
-  const floorMissedLeads = Math.min(
-    3,
-    detectedIssues.filter((i) => CAPTURE_GAP_ISSUES.includes(i)).length,
-  );
-  return computeRevenueLoss({ trade, demandLoss: measuredLoss, floorMissedLeads });
+  // For general/unknown businesses we have NO defensible average ticket: the
+  // $250 cross-trade default would fabricate an arbitrary "$400–600/7 missed
+  // jobs" band for, say, a freight forwarder. Suppress BOTH dollar paths:
+  //   - the measured demand-gap loss is computed off avgTicketForTrade(trade),
+  //     so for "general" it's that same $250 default → discard it (pass null);
+  //   - the avg-ticket FLOOR is suppressed (floorMissedLeads=0).
+  // computeRevenueLoss then returns isReal:false and the UI hides the $ band.
+  const general = isGeneralTrade(trade);
+  const floorMissedLeads = general
+    ? 0
+    : Math.min(
+        3,
+        detectedIssues.filter((i) => CAPTURE_GAP_ISSUES.includes(i)).length,
+      );
+  const demandLoss = general ? null : measuredLoss;
+  return computeRevenueLoss({ trade, demandLoss, floorMissedLeads });
 }
 
 /**
@@ -2139,7 +2255,7 @@ async function analyzeScreenshot(
             },
             {
               type: "text",
-              text: `You are analyzing a screenshot of ${businessName}'s website (${trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 7 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n6. Instant quote tool or calculator — Look for interactive quote forms, price calculators, cost estimators, or "get a quote" widgets. IMPORTANT: If you see a button like "Get Quote", "Get a Quote", "Free Quote", "Request Quote", or similar, you CANNOT determine from a screenshot alone whether it leads to an instant pricing tool or a simple contact form. In that case use status "warn" and note something like "A quote button is visible, but based on visual examination alone we cannot confirm whether it provides instant pricing or redirects to a contact form." Only use "pass" if you can clearly see an interactive calculator/estimator widget on the page. Only use "fail" if there is NO quote-related button or element visible at all.\n7. Live chat or voice widget (look for chat bubbles, chat icons, "chat with us" widgets, AI assistants, voice call widgets in corners of the page)\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or not visible`,
+              text: `You are analyzing a screenshot of ${businessName}'s website (${isGeneralTrade(trade) ? "local service" : trade} business).\n\nEvaluate ONLY what is visible in the screenshot. Respond in JSON only:\n{\n  "findings": [\n    {\n      "label": "Phone number visible",\n      "status": "pass|warn|fail",\n      "note": "one short sentence"\n    }\n  ],\n  "summary": "2 sentences max"\n}\n\nCheck these 7 things:\n1. Phone number visible above fold\n2. Clear call-to-action button\n3. Professional appearance\n4. Business name/logo visible\n5. Services mentioned\n6. Instant quote tool or calculator — Look for interactive quote forms, price calculators, cost estimators, or "get a quote" widgets. IMPORTANT: If you see a button like "Get Quote", "Get a Quote", "Free Quote", "Request Quote", or similar, you CANNOT determine from a screenshot alone whether it leads to an instant pricing tool or a simple contact form. In that case use status "warn" and note something like "A quote button is visible, but based on visual examination alone we cannot confirm whether it provides instant pricing or redirects to a contact form." Only use "pass" if you can clearly see an interactive calculator/estimator widget on the page. Only use "fail" if there is NO quote-related button or element visible at all.\n7. Live chat or voice widget (look for chat bubbles, chat icons, "chat with us" widgets, AI assistants, voice call widgets in corners of the page)\n\nStatus: pass=present and good, warn=present but could improve, fail=missing or not visible`,
             },
           ],
         }],
@@ -2474,6 +2590,43 @@ router.post("/generate", async (req: Request, res: Response) => {
     }
     log.info("[trade] final:", { arg0: trade, arg1: "for:", arg2: business.name });
 
+    // ─── Non-trade generalization (keystone) ───
+    // When the resolved trade is the catch-all "general", derive an honest human
+    // category from the business's Places data (primaryType / types / name) and
+    // use THAT as the customer-facing label + competitor-search term. A real
+    // trade keeps its trade exactly. `categoryLabel` may be "" for a
+    // truly-unknown business → competitors are suppressed and prose uses a
+    // generic noun. Never the literal "general".
+    const businessTypes = Array.isArray(business.types) ? business.types : [];
+    const businessPrimaryType =
+      typeof business.primaryType === "string" ? business.primaryType : null;
+    const categoryLabel = isGeneralTrade(trade)
+      ? deriveCategoryLabel(business.name || "", businessTypes, businessPrimaryType)
+      : trade;
+    // The term we hand to the competitor search: a real trade, or the derived
+    // category for a general business, or "" (→ competitors suppressed).
+    const competitorSearchCategory = isGeneralTrade(trade) ? categoryLabel : trade;
+    // Generic vs trade-specific lead noun for the "Potential Missed …" card + prose.
+    const leadNoun = leadNounForTrade(trade);
+    log.info("[trade] generalization:", {
+      trade,
+      categoryLabel: categoryLabel || "(none)",
+      competitorSearchCategory: competitorSearchCategory || "(suppressed)",
+      leadNoun,
+    });
+
+    // Business coordinates for competitor location bias (client may send lat/lng).
+    const bizLat =
+      typeof business.lat === "number" ? business.lat
+      : typeof req.body?.lat === "number" ? req.body.lat
+      : null;
+    const bizLng =
+      typeof business.lng === "number" ? business.lng
+      : typeof req.body?.lng === "number" ? req.body.lng
+      : null;
+    const bizCoords =
+      bizLat !== null && bizLng !== null ? { lat: bizLat, lng: bizLng } : null;
+
     const rating = typeof business.rating === "number" ? business.rating : null;
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
     const website = String(business.website || "");
@@ -2543,7 +2696,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     // engine + report tolerate missing competitors/reviews/keywords/speed.
     const gatherAll = Promise.allSettled([
       serperPromise,                                                                  // 0: E3 Serper
-      fetchCompetitors(trade, city, business.name, stateCode || undefined, getCached, setCached), // 1: E1 competitors (Places primary, Outscraper fallback)
+      fetchCompetitors(competitorSearchCategory, city, business.name, stateCode || undefined, getCached, setCached, bizCoords), // 1: E1 competitors (Places primary, Outscraper fallback; real category not "general", ~30km bias)
       (business.placeId && reviewsCount > 0) ? fetchReviewIntelligence({ placeId: business.placeId, businessName: business.name, locationLabel: stateCode ? city + ", " + stateCode : city }) : Promise.resolve(null), // 2: E2 reviews (Serper → Outscraper → DataForSEO)
       dataForSEOPromise,                                                              // 3: E4 volumes
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA
@@ -2693,6 +2846,13 @@ router.post("/generate", async (req: Request, res: Response) => {
         placeId: business.placeId || null,
       },
       trade,
+      // Honest customer-facing category for non-trade businesses ("" → unknown).
+      // The report uses this (not the literal "general") in copy + headings.
+      categoryLabel: categoryLabel || null,
+      // Noun for the "Potential Missed …" card + prose: trade-specific
+      // (jobs/calls) for real trades, "new enquiries" for general/unknown.
+      // The frontend renders this directly.
+      leadNoun,
       city,
       // Which external sources actually loaded this run. Drives score
       // renormalization (calculateScores), the missing-data note in the report
@@ -2859,9 +3019,18 @@ router.post("/generate", async (req: Request, res: Response) => {
           (s) => `  * ${s.name} (${s.priceLabel}) — ${s.tagline}. Fixes: ${s.fixesIssues.join(", ")}`
         ).join("\n");
 
-        const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps trades businesses get more leads.
+        // Customer-facing descriptor for the prompt — NEVER the literal "general".
+        // Real trade → the trade word; general business → its derived category or
+        // just "local" so the AI never writes "a general business".
+        const promptBusinessDescriptor = isGeneralTrade(trade)
+          ? (categoryLabel ? categoryLabel : "local")
+          : trade;
 
-You are analyzing audit data for a ${trade} business in ${city}.
+        const systemPrompt = `You are a senior local SEO and digital marketing analyst for WeFixTrades — a platform that helps local service businesses get more leads.
+
+You are analyzing audit data for a ${promptBusinessDescriptor} business in ${city}.
+
+IMPORTANT: Never use the word "general" to describe this business or its customers. ${isGeneralTrade(trade) ? `This business does not fit a standard trade category${categoryLabel ? ` — describe it as a "${categoryLabel}" business or simply "your business"` : ` — refer to "your business" and "your customers" generically`}. Use "${leadNoun}" (not "jobs"/"calls") when referring to the leads it could capture, and do NOT state a dollar revenue-loss figure for it (estimatedMonthlyRevenueLoss must be { low: 0, high: 0 }).` : ""}
 
 Your job is to write a compelling, specific audit report that:
 1. Explains their exact problems with data
@@ -2875,7 +3044,7 @@ AUDIT DATA AVAILABLE:
 - Search visibility: ${scores.searchVisibility?.score ?? 0}/20
 - Keywords ranking: ${keywords.filter((k: any) => k.organicRank).length} of ${keywords.length}
 - Local pack appearances: ${keywords.filter((k: any) => k.isInLocalPack).length} of ${keywords.length}
-- Business niche: ${businessNiche.primary || trade} (confidence: ${businessNiche.confidence})
+- Business niche: ${businessNiche.primary || categoryLabel || promptBusinessDescriptor} (confidence: ${businessNiche.confidence})
 - Keyword coverage: ${scores.keywordCoverage?.percent ?? 0}% (${scores.keywordCoverage?.level ?? 'unknown'}) — ${scores.keywordCoverage?.ranked ?? 0} of ${scores.keywordCoverage?.tested ?? 0} relevant keywords
 - Business presence level: ${scores.presenceLevel ?? 'unknown'}${auditData.nicheAlignment?.misaligned ? `\n- ⚠ NICHE MISALIGNMENT: ${scores.misalignmentPercent}% of visibility from loosely related searches` : ''}${scores.presenceLevel === 'strong' ? '\n- ℹ STRONG PRESENCE: Focus recommendations on website conversion, lead capture, and booking friction rather than visibility' : ''}
 - Competitor positioning: ${scores.competitorPositioning?.score ?? 0}/15
@@ -2914,8 +3083,10 @@ WRITING RULES:
 ${serviceCatalogBlock}
 
 ROI FRAMING RULE:
-Use $${tradeCtx.avgJobValue} as the average ${trade} job value for ALL ROI math (this is the single canonical per-trade figure — do not substitute any other number).
-For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $${tradeCtx.avgJobValue}, you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / ${tradeCtx.avgJobValue}).)
+${isGeneralTrade(trade)
+  ? `This business has no defensible standard job value, so do NOT quote a per-job dollar figure or a "X jobs to break even" calculation. Frame ROI qualitatively (more ${leadNoun}, better visibility, faster contact) without inventing a dollar amount.`
+  : `Use $${tradeCtx.avgJobValue} as the average ${trade} job value for ALL ROI math (this is the single canonical per-trade figure — do not substitute any other number).
+For each recommended service in the detail field, include: "At $[price]/month and an average ${trade} job worth $${tradeCtx.avgJobValue}, you only need [X] extra jobs per month to break even. Based on your current gaps, we estimate you could recover this cost in month one." (Calculate X = ceil(price / ${tradeCtx.avgJobValue}).)`}
 
 WEBSITE SPEED RULE:
 If website speed mobile score is below 70 (or unavailable), include in the relevant action plan item: "Every 1-second delay reduces conversions by 7%. Fixing your mobile speed typically recovers 15–25% of visitors who currently leave before contacting you."
@@ -3078,6 +3249,7 @@ ${JSON.stringify(auditData, null, 2)}`;
           auditData.narrative = buildTemplatedNarrative({
             businessName: business.name || "",
             trade,
+            categoryLabel,
             city,
             scores,
             reviewsCount,

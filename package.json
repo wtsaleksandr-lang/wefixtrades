@@ -41,6 +41,7 @@
     "check:serp-country": "tsx shared/locationCountry.test.ts",
     "check:reviews-providers": "tsx server/lib/dataforseoReviews.test.ts",
     "check:audit-scoring": "tsx server/auditScoring.test.ts",
+    "check:audit-general": "tsx server/auditRoutes.audit-general.test.ts",
     "check:revenue-loss": "tsx shared/revenueLoss.test.ts",
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
     "check:template-formula-refs": "tsx scripts/check-template-formula-refs.ts",
