@@ -93,6 +93,34 @@ async function main() {
       "general",
       "deriveCategoryLabel never returns 'general'",
     );
+
+    // Places v1 primaryTypeDisplayName (human label) is preferred over the raw
+    // primaryType / types — this is the field the v1 enrichment now supplies.
+    assert.equal(
+      deriveCategoryLabel(
+        "Access Air",
+        ["establishment", "point_of_interest"],
+        "freight_forwarding_service",
+        "Freight Forwarding Service",
+      ),
+      "Freight Forwarding Service",
+      "prefers the human primaryTypeDisplayName when present",
+    );
+    // A non-trade business whose Places primaryType is a real category yields a
+    // non-null (non-empty) categoryLabel even when types are all generic — this
+    // is exactly the freight-forwarder half-blank-report fix.
+    {
+      const label = deriveCategoryLabel(
+        "Access Air Mississauga",
+        ["establishment", "point_of_interest"],
+        "freight_forwarding_service",
+      );
+      assert.ok(
+        label && label.length > 0,
+        "real primaryType yields a non-empty categoryLabel (no half-blank report)",
+      );
+      assert.notEqual(label, "", "categoryLabel is not the suppressed empty string");
+    }
   }
 
   /* ─── (c) leadNoun is the generic noun for general, trade-noun for trades ─── */

@@ -224,6 +224,57 @@ async function fetchJson(url: string) {
   return data;
 }
 
+/**
+ * Fetch the high-confidence Google category for a place via the Places API v1
+ * `places:get` endpoint. The legacy Place Details API (used by /place-details
+ * and the /generate enrichment) only returns the generic `types` array
+ * ("establishment", "point_of_interest", …) and NEVER `primaryType` — the
+ * structured category that detectTrade()/deriveCategoryLabel() are built
+ * around. Without it, a non-trade business (e.g. a freight forwarder) resolves
+ * to no category → competitors + keyword table get suppressed → half-blank
+ * report. This lightweight v1 call (reusing the GOOGLE_MAPS_API_KEY that
+ * competitorSearch already calls Places v1 with) recovers `primaryType` and the
+ * human `primaryTypeDisplayName` so non-trade businesses get a real category.
+ *
+ * Returns { primaryType, primaryTypeDisplayName } — either may be "" on miss.
+ * Never throws into the caller (best-effort enrichment); failures degrade to
+ * the legacy types-only path.
+ */
+async function fetchPlacePrimaryType(
+  placeId: string,
+  apiKey: string,
+): Promise<{ primaryType: string; primaryTypeDisplayName: string }> {
+  const empty = { primaryType: "", primaryTypeDisplayName: "" };
+  const id = (placeId || "").trim();
+  if (!id) return empty;
+  try {
+    const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`;
+    const r = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "primaryType,primaryTypeDisplayName",
+      },
+    });
+    if (!r.ok) {
+      const errText = await r.text();
+      log.info("[place-primaryType] v1 HTTP error:", { arg0: r.status, arg1: errText.slice(0, 300) });
+      return empty;
+    }
+    const data: any = await r.json();
+    return {
+      primaryType: typeof data?.primaryType === "string" ? data.primaryType : "",
+      primaryTypeDisplayName:
+        typeof data?.primaryTypeDisplayName?.text === "string"
+          ? data.primaryTypeDisplayName.text
+          : "",
+    };
+  } catch (err: any) {
+    log.info("[place-primaryType] v1 fetch failed:", { detail: err?.message });
+    return empty;
+  }
+}
+
 router.post("/search-places", async (req: Request, res: Response) => {
   try {
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
@@ -696,12 +747,22 @@ router.post("/place-details", async (req: Request, res: Response) => {
       ? resolvePhotoUrl(photosRefs[0]?.photo_reference, key, 800)
       : null;
 
+    // The legacy Place Details call above never returns primaryType — fetch the
+    // high-confidence Google category via Places v1 so non-trade businesses get
+    // a real category downstream (competitors + keyword table) instead of blank.
+    const { primaryType, primaryTypeDisplayName } = await fetchPlacePrimaryType(
+      result.place_id || placeId,
+      key,
+    );
+
     const payload = {
       placeId: result.place_id || placeId,
       name: result.name || "",
       formattedAddress: result.formatted_address || "",
       addressComponents: Array.isArray(result.address_components) ? result.address_components : [],
       types: Array.isArray(result.types) ? result.types : [],
+      primaryType,
+      primaryTypeDisplayName,
       rating: typeof result.rating === "number" ? result.rating : null,
       reviewsCount:
         typeof result.user_ratings_total === "number"
@@ -2003,8 +2064,14 @@ export function deriveCategoryLabel(
   businessName: string,
   types: string[],
   primaryType?: string | null,
+  primaryTypeDisplayName?: string | null,
 ): string {
-  // 1. Prefer an explicit primaryType when it's specific.
+  // 0. Prefer Google's human display name for the primary type when present
+  //    ("Freight Forwarding Service") — it's the cleanest customer-facing label.
+  const ptDisplay = (primaryTypeDisplayName || "").toString().trim();
+  if (ptDisplay) return ptDisplay;
+
+  // 1. Else an explicit primaryType when it's specific.
   const pt = (primaryType || "").toString().trim();
   if (pt && !GENERIC_PLACE_TYPES.has(pt)) return humanizeType(pt);
 
@@ -2992,6 +3059,29 @@ router.post("/generate", async (req: Request, res: Response) => {
       }
     }
 
+    // ─── Enrich primaryType via Places v1 (independent of hours/types) ───
+    // The legacy enrichment above never returns primaryType, and the client's
+    // /place-details payload may predate this fix. primaryType is the
+    // high-confidence Google category detectTrade()/deriveCategoryLabel() rely
+    // on — without it a non-trade business (freight forwarder, etc.) gets no
+    // category and the competitors + keyword sections suppress (half-blank
+    // report). Fetch it defensively here whenever it's missing.
+    if (business.placeId && (typeof business.primaryType !== "string" || !business.primaryType)) {
+      const gmKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (gmKey) {
+        const { primaryType, primaryTypeDisplayName } = await fetchPlacePrimaryType(business.placeId, gmKey);
+        if (primaryType) business.primaryType = primaryType;
+        if (primaryTypeDisplayName && !business.primaryTypeDisplayName) {
+          business.primaryTypeDisplayName = primaryTypeDisplayName;
+        }
+        log.info('[audit] primaryType enrichment:', {
+          arg0: business.primaryType || '(none)',
+          arg1: 'display:',
+          arg2: business.primaryTypeDisplayName || '(none)',
+        });
+      }
+    }
+
     // Extract city from place details if not provided by client
     const city = String(req.body?.city || "").trim() || extractCity(business);
     log.info("[audit] Resolved city:", { detail: JSON.stringify(city) });
@@ -3025,8 +3115,10 @@ router.post("/generate", async (req: Request, res: Response) => {
     const businessTypes = Array.isArray(business.types) ? business.types : [];
     const businessPrimaryType =
       typeof business.primaryType === "string" ? business.primaryType : null;
+    const businessPrimaryTypeDisplayName =
+      typeof business.primaryTypeDisplayName === "string" ? business.primaryTypeDisplayName : null;
     const categoryLabel = isGeneralTrade(trade)
-      ? deriveCategoryLabel(business.name || "", businessTypes, businessPrimaryType)
+      ? deriveCategoryLabel(business.name || "", businessTypes, businessPrimaryType, businessPrimaryTypeDisplayName)
       : trade;
     // The term we hand to the competitor search: a real trade, or the derived
     // category for a general business, or "" (→ competitors suppressed).
