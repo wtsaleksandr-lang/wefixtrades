@@ -49,6 +49,8 @@ jobs:
         run: npm run check:reviews-providers
       - name: Audit-scoring guard (no false slow-website; blocked-fetch excludes website from denominator not zero-scores it; htmlChecks capped at 8)
         run: npm run check:audit-scoring
+      - name: Audit-general guard (non-trade businesses use a real Places category not "general" for competitors/copy; isReal:false instead of a fabricated $; leadNoun is the generic noun; prose never says "general customers")
+        run: npm run check:audit-general
       - name: Revenue-loss guard (honest per-business loss — real demand-gap or avg-ticket floor; isReal:false instead of a fake placeholder when zero)
         run: npm run check:revenue-loss
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
