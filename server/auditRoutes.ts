@@ -2450,6 +2450,67 @@ export async function resolveCategoryLabelCascade(input: {
 }
 
 /**
+ * Route-level INTEGRATION seam: run the exact trade-detection → general gate →
+ * niche cascade sequence the /generate handler uses, on an already-enriched
+ * business object (primaryType/types already fetched). Extracted so the FULL
+ * flow's wiring — detectTrade() deciding "general" → resolveCategoryLabelCascade()
+ * threading the enriched primaryType/displayName/types → a real categoryLabel —
+ * is unit-testable end-to-end (#1839/#1840 shipped the layers; this guards that
+ * they actually compose in the route). Real trades short-circuit (no cascade,
+ * no cost); only "general" enters the cascade.
+ *
+ * Mirrors auditRoutes.ts:3461-3508. `clientTrade`/`tradeOverride` are the raw
+ * req.body strings; the cascade fields come off the enriched `business`.
+ */
+export async function resolveTradeAndCategory(input: {
+  businessName: string;
+  types: string[];
+  primaryType?: string | null;
+  primaryTypeDisplayName?: string | null;
+  placeId?: string | null;
+  website?: string | null;
+  /** Raw req.body.trade (client-provided trade), if any. */
+  clientTrade?: string | null;
+  /** Raw req.body.tradeOverride (user-confirmed override), if any. */
+  tradeOverride?: string | null;
+  /** Injectable chat() for tests (forwarded to the LLM layer). */
+  chatFn?: (opts: any) => Promise<string>;
+}): Promise<{ trade: string; categoryLabel: string; nicheLayer: NicheLayer }> {
+  const types = Array.isArray(input.types) ? input.types : [];
+  const clientTrade = (input.clientTrade || "").toString().trim();
+  let trade =
+    clientTrade && clientTrade !== "general"
+      ? clientTrade
+      : detectTrade(
+          input.businessName || "",
+          types,
+          typeof input.primaryType === "string" ? input.primaryType : null,
+        );
+  const tradeOverride = (input.tradeOverride || "").toString().trim();
+  if (tradeOverride && tradeOverride !== "general") {
+    trade = tradeOverride;
+  }
+
+  let categoryLabel = trade;
+  let nicheLayer: NicheLayer = "none";
+  if (isGeneralTrade(trade)) {
+    const cascade = await resolveCategoryLabelCascade({
+      businessName: input.businessName || "",
+      types,
+      primaryType: typeof input.primaryType === "string" ? input.primaryType : null,
+      primaryTypeDisplayName:
+        typeof input.primaryTypeDisplayName === "string" ? input.primaryTypeDisplayName : null,
+      placeId: input.placeId || null,
+      website: input.website || null,
+      chatFn: input.chatFn,
+    });
+    categoryLabel = cascade.categoryLabel;
+    nicheLayer = cascade.layer;
+  }
+  return { trade, categoryLabel, nicheLayer };
+}
+
+/**
  * Lead noun for the report's "Potential Missed Jobs/Calls" card and prose.
  * Real trades use the trade-specific noun (jobs/calls); general/unknown
  * businesses get a neutral "new enquiries" so we never imply a freight
@@ -3456,56 +3517,35 @@ router.post("/generate", async (req: Request, res: Response) => {
       return lvl1?.short_name || null;
     })();
 
-    // Detect trade from business name + types if not provided by client
-    const clientTrade = String(req.body?.trade || "").trim();
-    let trade = clientTrade && clientTrade !== "general"
-      ? clientTrade
-      : detectTrade(business.name || "", Array.isArray(business.types) ? business.types : [], typeof business.primaryType === "string" ? business.primaryType : null);
-    // Apply user-confirmed trade override from frontend
-    const tradeOverride = String(req.body?.tradeOverride || "").trim();
-    if (tradeOverride && tradeOverride !== "general") {
-      trade = tradeOverride;
-      log.info('[trade] using override:', { detail: trade });
-    }
-    log.info("[trade] final:", { arg0: trade, arg1: "for:", arg2: business.name });
-
-    // ─── Non-trade generalization (keystone) ───
-    // When the resolved trade is the catch-all "general", derive an honest human
-    // category from the business's Places data (primaryType / types / name) and
-    // use THAT as the customer-facing label + competitor-search term. A real
-    // trade keeps its trade exactly. `categoryLabel` may be "" for a
-    // truly-unknown business → competitors are suppressed and prose uses a
-    // generic noun. Never the literal "general".
-    const businessTypes = Array.isArray(business.types) ? business.types : [];
-    const businessPrimaryType =
-      typeof business.primaryType === "string" ? business.primaryType : null;
-    const businessPrimaryTypeDisplayName =
-      typeof business.primaryTypeDisplayName === "string" ? business.primaryTypeDisplayName : null;
     // Website URL is needed by the niche cascade (layer 2 reads the homepage), so
     // resolve it here — before the gather — rather than the later const below.
     const website = String(business.website || "");
-    // For a non-trade ("general") business resolve the honest category via the
-    // 3-layer cascade: Google primaryType (layer 1) → website-content inference
-    // (layer 2) → LLM classifier (layer 3) → "" (honest suppression). A real
-    // trade is passed through unchanged (no cascade, no cost). `categoryLabel`
-    // may be "" for a truly-unknown business → competitors suppressed + generic
-    // prose. NEVER the literal "general". The cascade's structural cost guard
-    // runs each layer only when the prior left the label empty, so layer 3 (the
-    // only paid layer) fires only when name + Google category + website all miss.
-    let categoryLabel = trade;
-    let nicheLayer: NicheLayer = "none";
-    if (isGeneralTrade(trade)) {
-      const cascade = await resolveCategoryLabelCascade({
-        businessName: business.name || "",
-        types: businessTypes,
-        primaryType: businessPrimaryType,
-        primaryTypeDisplayName: businessPrimaryTypeDisplayName,
-        placeId: business.placeId || null,
-        website: website || null,
-      });
-      categoryLabel = cascade.categoryLabel;
-      nicheLayer = cascade.layer;
-    }
+
+    // ─── Trade detection + non-trade generalization (keystone) ───
+    // Single integration seam (resolveTradeAndCategory): detectTrade() → the
+    // isGeneralTrade gate → the 3-layer niche cascade, on the ALREADY-enriched
+    // business (primaryType fetched above at line ~3433). For a real trade the
+    // trade passes through unchanged (no cascade, no cost). For "general" the
+    // cascade derives an honest human category from Google primaryType (layer 1)
+    // → website-content inference (layer 2) → LLM classifier (layer 3) → ""
+    // (honest suppression). `categoryLabel` may be "" for a truly-unknown
+    // business → competitors suppressed + generic prose. NEVER the literal
+    // "general". The cascade's structural cost guard runs each layer only when
+    // the prior left the label empty, so layer 3 (the only paid layer) fires
+    // only when name + Google category + website all miss.
+    const businessTypes = Array.isArray(business.types) ? business.types : [];
+    const { trade, categoryLabel, nicheLayer } = await resolveTradeAndCategory({
+      businessName: business.name || "",
+      types: businessTypes,
+      primaryType: typeof business.primaryType === "string" ? business.primaryType : null,
+      primaryTypeDisplayName:
+        typeof business.primaryTypeDisplayName === "string" ? business.primaryTypeDisplayName : null,
+      placeId: business.placeId || null,
+      website: website || null,
+      clientTrade: String(req.body?.trade || ""),
+      tradeOverride: String(req.body?.tradeOverride || ""),
+    });
+    log.info("[trade] final:", { arg0: trade, arg1: "for:", arg2: business.name });
     // The term we hand to the competitor search: a real trade, or the derived
     // category for a general business, or "" (→ competitors suppressed).
     const competitorSearchCategory = isGeneralTrade(trade) ? categoryLabel : trade;
@@ -3777,6 +3817,11 @@ router.post("/generate", async (req: Request, res: Response) => {
       },
       speedData: { mobile: resolvedSpeedData?.mobile || null, desktop: resolvedSpeedData?.desktop || null },
       competitors,
+      // National/giant competitors that applyPeerRelevance() dropped from the
+      // same-size local peer set (e.g. FedEx, Purolator for a small shipping
+      // service). Surfaced for a future "national players" note in the UI; the
+      // local-peer competitors above remain the apples-to-apples comparison.
+      nationalPlayers: compData?.nationalPlayers || [],
       areaAverageReviews: compData?.areaAverageReviews || 0,
       areaAverageRating: compData?.areaAverageRating || 0,
       marketLeader: compData?.marketLeader || null,

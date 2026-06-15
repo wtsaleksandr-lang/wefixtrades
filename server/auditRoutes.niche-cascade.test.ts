@@ -195,6 +195,87 @@ async function main() {
     assert.ok(r.categoryLabel.length > 0, "layer 1 yields a non-empty label");
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+   * INTEGRATION SEAM — resolveTradeAndCategory()
+   *
+   * The pieces above were unit-tested but the FULL /generate flow wasn't: a live
+   * "Access Air" audit was reported to return categoryLabel:null even though
+   * primaryType fetched "shipping_service" and the cascade resolved it in
+   * isolation. This guards the exact route seam — detectTrade() deciding
+   * "general" → the isGeneralTrade gate → resolveCategoryLabelCascade()
+   * threading the enriched primaryType/displayName/types into a real category —
+   * so the full-flow wiring can't regress.
+   * ───────────────────────────────────────────────────────────────────────── */
+  const { resolveTradeAndCategory, detectTrade } = await import("./auditRoutes");
+  {
+    // THE REGRESSION CASE. Access Air: Google files it as "shipping_service"
+    // (not a trade → detectTrade returns "general"), so the route MUST run the
+    // cascade and layer 1 MUST yield the display name "Shipping Service".
+    // Pre-flight: confirm primaryType genuinely is NOT a trade, else the cascade
+    // would never run and this would be a false pass.
+    assert.equal(
+      detectTrade("Access Air", ["shipping_service", "transportation_service", "establishment"], "shipping_service"),
+      "general",
+      "shipping_service must resolve to 'general' so the cascade actually runs",
+    );
+    let called = 0;
+    const chatFn = async () => { called++; return JSON.stringify({ niche: "x", confidence: 1 }); };
+    const r = await resolveTradeAndCategory({
+      businessName: "Access Air",
+      types: ["shipping_service", "transportation_service", "service", "point_of_interest", "establishment"],
+      primaryType: "shipping_service",
+      primaryTypeDisplayName: "Shipping Service",
+      placeId: "p-access-air",
+      website: "http://www.accessair.ca/",
+      chatFn,
+    });
+    assert.equal(r.trade, "general", "Access Air is a non-trade business");
+    assert.equal(r.nicheLayer, "primaryType", "layer 1 (Google display name) resolves it");
+    assert.equal(r.categoryLabel, "Shipping Service", "FULL-FLOW seam yields the real category, NOT null/empty");
+    assert.notEqual(r.categoryLabel, "", "categoryLabel must never be empty for Access Air");
+    assert.notEqual(r.categoryLabel.toLowerCase(), "general", "never the literal 'general'");
+    assert.equal(called, 0, "COST GUARD: layer 1 resolved → no LLM call");
+  }
+  {
+    // Real trade short-circuits: detectTrade finds "plumber" → no cascade.
+    let called = 0;
+    const chatFn = async () => { called++; return ""; };
+    const r = await resolveTradeAndCategory({
+      businessName: "Bob's Plumbing", types: ["plumber"], primaryType: "plumber",
+      placeId: "p-bob", chatFn,
+    });
+    assert.equal(r.trade, "plumbing", "real trade detected (plumber → plumbing via TYPE_TRADE_MAP)");
+    assert.equal(r.categoryLabel, "plumbing", "real trade passes through as its own label");
+    assert.equal(r.nicheLayer, "none", "real trade never enters the cascade");
+    assert.equal(called, 0, "real trade → no LLM call");
+  }
+  {
+    // Name-less non-trade with no Google category + no website → seam reaches
+    // layer 3 (LLM) and threads its result through to categoryLabel.
+    let called = 0;
+    const chatFn = async () => { called++; return JSON.stringify({ niche: "managed IT services", confidence: 0.9 }); };
+    const r = await resolveTradeAndCategory({
+      businessName: "Northwind Solutions Inc", types: ["establishment", "point_of_interest"],
+      primaryType: "establishment", placeId: "p-northwind", website: null, chatFn,
+    });
+    assert.equal(r.trade, "general");
+    assert.equal(r.nicheLayer, "llm", "layers 1 & 2 miss → LLM layer 3 resolves it");
+    assert.equal(r.categoryLabel, "managed IT services", "LLM result threads through to categoryLabel");
+    assert.equal(called, 1, "layer 3 (only paid layer) ran once");
+  }
+  {
+    // tradeOverride from the frontend wins over detection and skips the cascade.
+    let called = 0;
+    const chatFn = async () => { called++; return ""; };
+    const r = await resolveTradeAndCategory({
+      businessName: "Access Air", types: ["shipping_service"], primaryType: "shipping_service",
+      primaryTypeDisplayName: "Shipping Service", tradeOverride: "electrician", chatFn,
+    });
+    assert.equal(r.trade, "electrician", "user override wins");
+    assert.equal(r.categoryLabel, "electrician", "override passes through as the label");
+    assert.equal(called, 0, "override → no cascade, no LLM call");
+  }
+
   console.log("auditRoutes.niche-cascade.test.ts — all assertions passed");
 }
 
