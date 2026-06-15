@@ -1011,6 +1011,15 @@ export default function FreeAudit() {
           overflow: visible;
         }
 
+        /* fix #3 — once a report is on screen the warm hero goes FULL-BLEED
+           (edge-to-edge, no side margin / corner radius) and the report becomes
+           a rounded card that overlaps it. This kills the two-flat-bands-with-a-
+           void look in favour of one canvas + a layered card on top. */
+        .audit-hero-island.is-report {
+          margin: 0;
+          border-radius: 0;
+        }
+
         /* Help-cue ring needs more contrast on the cream island than the
            default #E5E7EB gives on white surfaces. */
         .audit-hero-island .qq-info-cue {
@@ -1024,6 +1033,35 @@ export default function FreeAudit() {
           margin-top: -20px;
           position: relative;
           z-index: 2;
+        }
+
+        /* fix #3 — report mode: the body zone becomes a rounded white card that
+           clearly overlaps the warm hero (bigger negative margin + shadow + a
+           comfortable max width so the warm canvas frames it on desktop). */
+        .audit-body-zone.is-report {
+          background: #FFFFFF;
+          max-width: 1180px;
+          margin: -48px auto 0;
+          border-radius: 24px;
+          box-shadow: 0 -2px 0 rgba(0,0,0,0.02), 0 24px 60px -28px rgba(13,21,20,0.28);
+          padding-top: 8px;
+        }
+        @media (max-width: 760px) {
+          .audit-body-zone.is-report {
+            margin: -28px 10px 0;
+            border-radius: 18px;
+          }
+        }
+
+        /* fix #3 — trim the hero's tall bottom padding once a report is shown so
+           there's no large empty warm band between the search bar and the card. */
+        .audit-hero-inner.is-report {
+          padding-bottom: 56px;
+        }
+        @media (max-width: 900px) {
+          .audit-hero-inner.is-report {
+            padding-bottom: 40px;
+          }
         }
 
         /* ─── Hero inner layout ─── */
@@ -1149,8 +1187,8 @@ export default function FreeAudit() {
       <div className="audit-page">
 
         {/* ─── SECTION A: Split Hero ─── */}
-        <div className="audit-hero-island">
-          <div data-theme="light" className="audit-hero-inner">
+        <div className={`audit-hero-island${reportReady ? " is-report" : ""}`}>
+          <div data-theme="light" className={`audit-hero-inner${reportReady ? " is-report" : ""}`}>
 
             {/* LEFT column */}
             <div>
@@ -1623,7 +1661,7 @@ export default function FreeAudit() {
                     "Instant report",
                     "No signup",
                     "Takes ~30 seconds",
-                    "100+ home-service trades",
+                    "2,370+ businesses",
                   ].map((chip) => (
                     <div
                       key={chip}
@@ -1654,7 +1692,7 @@ export default function FreeAudit() {
         </div>
 
         {/* ─── Body zone (light) ─── */}
-        <div className="audit-body-zone">
+        <div className={`audit-body-zone${reportReady ? " is-report" : ""}`}>
 
           {/* Report (full width inside body zone) */}
           {reportReady && report && (() => {
@@ -1665,8 +1703,7 @@ export default function FreeAudit() {
             const rankTrade = lastTradeRef.current || (biz.types?.[0] as string | undefined);
             return (
               <div ref={reportRef} style={{
-                minHeight: '100vh',
-                padding: isMobile ? '0 0 48px' : '32px 0 64px',
+                padding: isMobile ? '4px 0 48px' : '12px 0 64px',
               }}>
                 {fromCache && (
                   <div style={{
