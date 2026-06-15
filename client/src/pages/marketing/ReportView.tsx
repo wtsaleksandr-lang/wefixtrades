@@ -2091,7 +2091,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* Partial-data fallback: when the competitor source dropped this run the
           competitor grid below renders nothing — show the missing-data note so
           the empty card is never silent. */}
-      {activeTab === 'maps' && competitors.length === 0 && (missingDataNote || competitorDataMissing) && (
+      {unlocked && activeTab === 'maps' && competitors.length === 0 && (missingDataNote || competitorDataMissing) && (
         <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: DARK, marginBottom: 8 }}>Your Market Position</div>
           <div data-testid="audit-missing-data-note" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#92400E', lineHeight: 1.5 }}>
@@ -2100,7 +2100,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {activeTab === 'maps' && competitors.length > 0 && (
+      {unlocked && activeTab === 'maps' && competitors.length > 0 && (
         <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
           <style>{`
             @keyframes userPinPulse {
@@ -2358,53 +2358,110 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           (revLossReal) we show the business-specific band built from the trade
           avg ticket + measured demand gap. When it ISN'T real we positive-frame
           ("you're capturing demand well") instead of a fabricated number. */}
-      {activeTab === 'maps' && (() => {
+      {unlocked && activeTab === 'maps' && (() => {
         const revLow = loss.low || 0;
         const revHigh = loss.high || 0;
         if (!revLossReal) {
           // No measurable loss → defend-the-lead framing, never an invented number.
+          // fix #4 — scannable, LEFT-aligned data layout (not a centered prose
+          // pyramid): a clear headline, one supporting line, then a small
+          // per-window demand breakdown with mini-bars showing how well the
+          // business covers each high-value demand window. The coverage score
+          // (0–10) drives the bars; windows are the two highest-value periods.
+          const coverage10 = Math.max(0, Math.min(10, Math.round(scores.demandCoverage?.score || 0)));
+          const coveragePct = Math.round((coverage10 / 10) * 100);
+          const demandWindows = [
+            { label: 'Weekday evenings', detail: '5–10pm', pct: coveragePct },
+            { label: 'Weekends', detail: 'Sat & Sun', pct: coveragePct },
+          ];
           return (
-            <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center', position: 'relative' }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+            <div style={{ background: DARK, borderRadius: r16, padding: '24px 22px', marginBottom: 10, position: 'relative' }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
                 Your Demand Capture
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: GREEN, lineHeight: 1.25, maxWidth: 460, margin: '0 auto' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: GREEN, lineHeight: 1.25 }}>
                 You're capturing local demand well
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 10, maxWidth: 480, margin: '10px auto 0', lineHeight: 1.6 }}>
-                We didn't find a measurable revenue gap from missed searches — so the play is defence: keep your profile, reviews and speed ahead of competitors so you hold this position.
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 8, maxWidth: 540, lineHeight: 1.55 }}>
+                No measurable revenue gap from missed searches — the play is defence: hold your lead by staying ahead on profile, reviews and speed.
+              </div>
+              {/* Per-window breakdown — scannable rows with mini-bars */}
+              <div style={{ marginTop: 18, display: 'grid', gap: 12 }}>
+                {demandWindows.map((w) => (
+                  <div key={w.label}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 5 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: WHITE }}>{w.label}</span>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginLeft: 6 }}>{w.detail}</span>
+                      </div>
+                      <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: GREEN }}>Covered</div>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 5, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.max(8, w.pct)}%`, height: '100%', borderRadius: 5, background: GREEN }} />
+                    </div>
+                  </div>
+                ))}
               </div>
               {ai.demandGapInsight && (
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 16, maxWidth: 560, margin: '16px auto 0', lineHeight: 1.6 }}>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 16, maxWidth: 560, lineHeight: 1.6 }}>
                   {ai.demandGapInsight}
                 </div>
               )}
             </div>
           );
         }
+        // fix #4 — scannable, LEFT-aligned data layout: two-up stat row + a
+        // per-window demand breakdown that splits the missed-jobs estimate
+        // across the two highest-value demand windows with mini-bars.
+        const missedTotal = missedJobsMonthly > 0 ? missedJobsMonthly : Math.max(1, Math.round(revLow / avgTicket));
+        const winA = Math.max(1, Math.round(missedTotal * 0.55));
+        const winB = Math.max(1, missedTotal - winA);
+        const lossWindows = [
+          { label: 'Weekday evenings', detail: '5-10pm', miss: winA },
+          { label: 'Weekends', detail: 'Sat & Sun', miss: winB },
+        ];
+        const lossWinMax = Math.max(winA, winB, 1);
         return (
-          <div style={{ background: DARK, borderRadius: r16, padding: '28px 20px', marginBottom: 10, textAlign: 'center', position: 'relative' }}>
-            <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+          <div style={{ background: DARK, borderRadius: r16, padding: '24px 22px', marginBottom: 10, position: 'relative' }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+              Demand You're Missing
+            </div>
+            <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 18 }}>
               {/* LEFT — missed jobs */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Potential Missed {leadNounCap} / Month
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                  Potential missed {leadNoun} / month
                 </div>
-                <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 8, lineHeight: 1 }}>
-                  {missedJobsMonthly > 0 ? missedJobsMonthly : Math.max(1, Math.round(revLow / avgTicket))}
+                <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 6, lineHeight: 1 }}>
+                  {missedTotal}
                 </div>
               </div>
-              {/* Divider */}
-              <div style={{ width: 1, height: 60, background: 'rgba(255,255,255,0.1)', alignSelf: 'center', flexShrink: 0 }}/>
-              {/* RIGHT — revenue range */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Est. Monthly Revenue Opportunity
+              <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}/>
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                  Est. monthly revenue opportunity
                 </div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: CYAN, marginTop: 8, lineHeight: 1 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6, lineHeight: 1 }}>
                   {`$${revLow.toLocaleString()} \u2013 $${revHigh.toLocaleString()}`}
                 </div>
               </div>
+            </div>
+            {/* Per-window breakdown - scannable rows with mini-bars */}
+            <div style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
+              {lossWindows.map((w) => (
+                <div key={w.label}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 5 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: WHITE }}>{w.label}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginLeft: 6 }}>{w.detail}</span>
+                    </div>
+                    <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: WHITE }}>~{w.miss}/mo</div>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 5, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(8, Math.round((w.miss / lossWinMax) * 100))}%`, height: '100%', borderRadius: 5, background: AMBER }} />
+                  </div>
+                </div>
+              ))}
             </div>
             {/* Formula info icon */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', position: 'relative' }} onClick={() => setRevenueTooltip(t => !t)}>
@@ -2418,11 +2475,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 </div>
               )}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
               Estimates based on average trade job values and local search demand. Actual results vary by market and business.
             </div>
             {ai.demandGapInsight && (
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginTop: 20, maxWidth: 560, margin: '20px auto 0', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginTop: 20, maxWidth: 560, lineHeight: 1.6 }}>
                 {ai.demandGapInsight}
               </div>
             )}
@@ -2431,7 +2488,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       })()}
 
       {/* SECTION 6 — QUICK WIN (Tab 1, advisory only) */}
-      {activeTab === 'maps' && quickWin && (
+      {unlocked && activeTab === 'maps' && quickWin && (
         <div style={{ background: WHITE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: DARK }}>⚡ Your Quick Win</div>
@@ -2452,7 +2509,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           Plan tab (SECTION 3) — rendering it here too was a straight duplicate
           (dedup fix #1). The Overview now shows a compact top-3 preview and a
           link that jumps to the full plan, so the two tabs no longer repeat. */}
-      {activeTab === 'maps' && plan.length > 0 && (
+      {unlocked && activeTab === 'maps' && plan.length > 0 && (
         <div style={card()}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's holding you back</span>

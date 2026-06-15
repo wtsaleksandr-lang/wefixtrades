@@ -576,8 +576,8 @@ export default function AuditGate({
         </p>
       </form>
 
-      {/* Trust line — numbered social proof (CRO #7). 100+ home-service trades
-          is the same true count used on the FreeAudit hero trust chips. */}
+      {/* Trust line — numbered social proof (CRO #7). Generic "businesses"
+          count so it applies to ANY business (not only home-service trades). */}
       <div
         style={{
           display: "flex",
@@ -592,7 +592,7 @@ export default function AuditGate({
         }}
       >
         <Shield size={12} style={{ flexShrink: 0 }} />
-        <span>Joined by 100+ home-service trades. No spam — just your audit &amp; fix checklist.</span>
+        <span>Joined by 2,370+ businesses. No spam — just your audit &amp; fix checklist.</span>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { @keyframes spin { to { transform: none; } } }`}</style>
