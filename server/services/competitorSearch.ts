@@ -82,6 +82,32 @@ const TRADE_PLACES_TYPES: Record<string, string[]> = {
   construction: ["general_contractor"],
 };
 
+/* ─── Sub-type exclusion (adjacent-but-different niches) ──────────────────────
+ * Google's `primaryType` for a freight forwarder is the BROAD umbrella
+ * "shipping_service", so a "freight forwarder" search drags in couriers,
+ * moving companies and short-haul truckers that share that umbrella but are a
+ * DIFFERENT business. When the subject niche is specific (resolved by the
+ * cascade — e.g. "freight forwarding"), we drop competitors whose own Places
+ * type/primaryType is one of these adjacent-but-different types, even though
+ * they'd pass the broad token check.
+ *
+ * Keyed by a token that identifies the specific subject niche → the set of
+ * competitor Places types to EXCLUDE for that niche. Matched on the search
+ * category text (token presence) so it fires for "freight forwarding",
+ * "freight forwarder", "logistics" etc. without needing an exact label. */
+const NICHE_EXCLUDED_TYPES: Array<{ when: string[]; exclude: string[] }> = [
+  {
+    // Freight forwarding / logistics: exclude couriers, movers, local truckers,
+    // taxi/limo and parcel/post — adjacent under "shipping_service" but not peers.
+    when: ["freight", "forwarder", "forwarding", "logistics", "customs", "brokerage"],
+    exclude: [
+      "courier_service", "moving_company", "mover", "trucking_company",
+      "local_truck_company", "delivery", "post_office", "taxi_service",
+      "limo_service", "car_rental",
+    ],
+  },
+];
+
 /** Tokens that are too generic to anchor a token-overlap niche match. */
 const STOP_TOKENS = new Set([
   "service", "services", "company", "co", "inc", "ltd", "llc", "the", "and",
@@ -94,6 +120,48 @@ function tokenize(s: string): string[] {
     .replace(/[_-]/g, " ")
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 3 && !STOP_TOKENS.has(t));
+}
+
+/**
+ * True when a competitor is an ADJACENT-BUT-DIFFERENT niche that should be
+ * excluded for a specific subject niche (e.g. a courier or moving company under
+ * a "freight forwarding" search). Matches the search category text against the
+ * NICHE_EXCLUDED_TYPES table, then checks the competitor's Places
+ * types/primaryType (lowercased) against that niche's exclude set.
+ *
+ * Only fires for SPECIFIC niches in the table — broad/generic searches return
+ * false so nothing is excluded. Exported for tests.
+ */
+export function isExcludedSubType(
+  searchCategory: string,
+  competitorTypes: string[],
+  competitorPrimaryType?: string | null,
+): boolean {
+  const catTokens = new Set(tokenize(searchCategory || ""));
+  if (catTokens.size === 0) return false;
+
+  const sigTypes = [
+    ...(competitorPrimaryType ? [competitorPrimaryType] : []),
+    ...(Array.isArray(competitorTypes) ? competitorTypes : []),
+  ]
+    .map((t) => (t || "").toString().trim().toLowerCase())
+    .filter(Boolean);
+  if (sigTypes.length === 0) return false;
+
+  for (const rule of NICHE_EXCLUDED_TYPES) {
+    const ruleApplies = rule.when.some((w) => catTokens.has(w));
+    if (!ruleApplies) continue;
+    // The subject niche IS one of these specific niches (e.g. freight). Drop the
+    // competitor when its OWN type is an excluded adjacent type — UNLESS it also
+    // exposes a type that affirmatively matches the subject niche token (a true
+    // freight forwarder that ALSO tags courier_service stays in).
+    const competitorMatchesNiche = sigTypes.some((t) =>
+      tokenize(t).some((tk) => rule.when.includes(tk)),
+    );
+    if (competitorMatchesNiche) continue;
+    if (sigTypes.some((t) => rule.exclude.includes(t))) return true;
+  }
+  return false;
 }
 
 /**
@@ -121,6 +189,11 @@ export function isSameNiche(
   ]
     .map((t) => (t || "").toString().trim().toLowerCase())
     .filter(Boolean);
+
+  // Sub-type exclusion (highest precedence): for a SPECIFIC subject niche, drop
+  // adjacent-but-different competitors (a courier/mover under a freight search)
+  // even if the broad token check would otherwise keep them.
+  if (isExcludedSubType(cat, competitorTypes, competitorPrimaryType)) return false;
 
   const allowed = TRADE_PLACES_TYPES[cat];
   if (allowed) {

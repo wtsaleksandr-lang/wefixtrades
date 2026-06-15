@@ -208,9 +208,12 @@ async function main() {
    * ───────────────────────────────────────────────────────────────────────── */
   const { resolveTradeAndCategory, detectTrade } = await import("./auditRoutes");
   {
-    // THE REGRESSION CASE. Access Air: Google files it as "shipping_service"
-    // (not a trade → detectTrade returns "general"), so the route MUST run the
-    // cascade and layer 1 MUST yield the display name "Shipping Service".
+    // SUB-NICHE PRECISION CASE (Fix 1, 2026-06-15). Access Air: Google files it
+    // as "shipping_service" → display "Shipping Service" — a BROAD umbrella that
+    // surfaces couriers + short-haul truckers, NOT actual freight forwarders.
+    // The cascade now treats a broad Google label as a poor SEARCH term: it keeps
+    // it for DISPLAY (categoryLabel) but runs the website/LLM layers to find a
+    // MORE SPECIFIC sub-niche to drive the competitor SEARCH (searchCategory).
     // Pre-flight: confirm primaryType genuinely is NOT a trade, else the cascade
     // would never run and this would be a false pass.
     assert.equal(
@@ -219,22 +222,44 @@ async function main() {
       "shipping_service must resolve to 'general' so the cascade actually runs",
     );
     let called = 0;
-    const chatFn = async () => { called++; return JSON.stringify({ niche: "x", confidence: 1 }); };
+    // No website text resolves here (site fetch in-test returns nothing usable),
+    // so the broad label drives layer 3 (LLM), which returns the specific niche.
+    const chatFn = async () => { called++; return JSON.stringify({ niche: "freight forwarding", confidence: 0.9 }); };
     const r = await resolveTradeAndCategory({
       businessName: "Access Air",
       types: ["shipping_service", "transportation_service", "service", "point_of_interest", "establishment"],
       primaryType: "shipping_service",
       primaryTypeDisplayName: "Shipping Service",
-      placeId: "p-access-air",
-      website: "http://www.accessair.ca/",
+      placeId: "p-access-air-subniche",
+      website: null,
       chatFn,
     });
     assert.equal(r.trade, "general", "Access Air is a non-trade business");
-    assert.equal(r.nicheLayer, "primaryType", "layer 1 (Google display name) resolves it");
-    assert.equal(r.categoryLabel, "Shipping Service", "FULL-FLOW seam yields the real category, NOT null/empty");
-    assert.notEqual(r.categoryLabel, "", "categoryLabel must never be empty for Access Air");
+    // Broad Google label is NOT accepted as the final search term — the cascade
+    // pushed past layer 1 to find a specific sub-niche.
+    assert.notEqual(r.nicheLayer, "primaryType", "broad Google label is not the final layer when a sub-niche exists");
+    assert.equal(r.searchCategory, "freight forwarding", "competitor SEARCH uses the specific sub-niche, not the broad category");
+    assert.equal(r.categoryLabel, "Shipping Service", "DISPLAY keeps the clean Google label");
     assert.notEqual(r.categoryLabel.toLowerCase(), "general", "never the literal 'general'");
-    assert.equal(called, 0, "COST GUARD: layer 1 resolved → no LLM call");
+    assert.equal(called, 1, "broad label → layer 3 ran once to recover the sub-niche");
+  }
+  {
+    // Broad label + NO more-specific signal anywhere → broad label is used for
+    // BOTH display and search (better a real broad category than nothing), and
+    // we never collapse to empty/general.
+    const chatFn = async () => JSON.stringify({ niche: null, confidence: 0 });
+    const r = await resolveTradeAndCategory({
+      businessName: "Generic Shipping Co",
+      types: ["shipping_service", "establishment"],
+      primaryType: "shipping_service",
+      primaryTypeDisplayName: "Shipping Service",
+      placeId: "p-generic-shipping",
+      website: null,
+      chatFn,
+    });
+    assert.equal(r.trade, "general");
+    assert.equal(r.categoryLabel, "Shipping Service", "broad label kept for display");
+    assert.equal(r.searchCategory, "Shipping Service", "no sub-niche found → broad label drives search too (never empty)");
   }
   {
     // Real trade short-circuits: detectTrade finds "plumber" → no cascade.

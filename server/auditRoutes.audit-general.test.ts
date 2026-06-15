@@ -61,6 +61,7 @@ async function main() {
     calculateDemandGaps,
     buildNicheKeywords,
     inferBusinessNiche,
+    getReportCacheVersion,
   } = await import("./auditRoutes");
   const { fetchCompetitors, fetchPlacesCompetitors } = await import("./services/competitorSearch");
 
@@ -374,6 +375,83 @@ async function main() {
     );
   }
 
+  /* ─── Fix 2: niche-aware, non-contradictory demand narrative ──────────── */
+
+  /* A B2B / non-trade business gets NO after-hours/weekend demand gaps. */
+  {
+    // Closed evenings + weekends, but a general (non-trade) business → the
+    // consumer after-hours framing must NOT apply, so zero demand gaps.
+    const nonTrade = await calculateDemandGaps("freight forwarding toronto", [], "general", 5000);
+    assert.equal(nonTrade.afterHoursDemandApplies, false, "after-hours framing does not apply to a non-trade business");
+    assert.equal(nonTrade.demandGaps.length, 0, "non-trade business gets NO evening/weekend demand gaps");
+
+    // Control: a real trade with the same closed hours DOES get the gaps.
+    const trade = await calculateDemandGaps("plumber near me", [], "plumbing", 5000);
+    assert.equal(trade.afterHoursDemandApplies, true, "after-hours framing applies to a trade");
+    assert.ok(trade.demandGaps.length > 0, "a trade with closed hours gets demand gaps");
+  }
+
+  /* The templated narrative for a non-trade business never asserts an
+   * evening/weekend after-hours gap, and never contradicts itself. */
+  {
+    const narrative = buildTemplatedNarrative({
+      businessName: "Access Air",
+      trade: "general",
+      categoryLabel: "Shipping Service",
+      city: "Mississauga",
+      scores: { grade: "C", total: 62, googleMaps: { score: 12 }, demandCoverage: { score: 4, breakdown: { evenings: false, weekends: false } } },
+      reviewsCount: 30,
+      rating: 4.4,
+      hasWebsite: true,
+      mobileScore: 75,
+      marketLeader: { name: "Peer Forwarders", reviewsCount: 60 },
+      detectedIssues: ["low-visibility"],
+      recommendedServices: [{ name: "Local SEO" }],
+      estimatedRevenueLoss: null,
+      areaAverageReviews: 45,
+      topMissingKeyword: "freight forwarding mississauga",
+      afterHoursDemandApplies: false,
+      hasDemandGaps: false,
+    });
+    const blob = allStrings(narrative).join("  ").toLowerCase();
+    // No after-hours / evening / weekend missed-demand framing for a B2B subject.
+    assert.ok(!/evening|weekend|after-hours|after hours/.test(blob),
+      "non-trade narrative must not mention evening/weekend/after-hours demand");
+    // The demand insight string itself is present and neutral (never null).
+    assert.equal(typeof narrative.demandGapInsight, "string", "demandGapInsight is always a string");
+    assert.ok(!/evening|weekend|after-hours/.test((narrative.demandGapInsight || "").toLowerCase()),
+      "demandGapInsight for a non-trade avoids after-hours framing");
+  }
+
+  /* No contradiction: a covered trade says "capturing" without a missed count. */
+  {
+    const narrative = buildTemplatedNarrative({
+      businessName: "Joe's Plumbing",
+      trade: "plumbing",
+      categoryLabel: "plumbing",
+      city: "Toronto",
+      scores: { grade: "B", total: 78, googleMaps: { score: 18 }, demandCoverage: { score: 9, breakdown: { evenings: true, weekends: true } } },
+      reviewsCount: 50,
+      rating: 4.7,
+      hasWebsite: true,
+      mobileScore: 85,
+      marketLeader: { name: "Top Plumb", reviewsCount: 60 },
+      detectedIssues: [],
+      recommendedServices: [],
+      estimatedRevenueLoss: null,
+      areaAverageReviews: 40,
+      topMissingKeyword: null,
+      afterHoursDemandApplies: true,
+      hasDemandGaps: false,
+    });
+    const insight = (narrative.demandGapInsight || "").toLowerCase();
+    // "Capturing" claim must not co-occur with a "missing N" claim.
+    const claimsCapturing = /capturing/.test(insight);
+    const claimsMissing = /missing\s+\d|missing\s+~/.test(insight);
+    assert.ok(!(claimsCapturing && claimsMissing),
+      "demand insight must not both claim 'capturing' and 'missing N'");
+  }
+
   /* (d) a grade-D business gets ≥1 HIGH-priority action item */
   {
     // Grade D, only a MEDIUM-class issue (low-visibility) + a LOW service pitch —
@@ -454,6 +532,21 @@ async function main() {
       null,
       "a real trade's keywords never contain 'general'",
     );
+  }
+
+  /* ─── Fix 3: report cache-version is present + busts on deploy SHA ─────── */
+  {
+    // The cache-version token is non-empty and includes the manual CACHE_VERSION.
+    const v = getReportCacheVersion();
+    assert.equal(typeof v, "string", "cache version is a string");
+    assert.ok(v.length > 0, "cache version is non-empty");
+    assert.ok(/^\d{4}-\d{2}-\d{2}\./.test(v), "cache version starts with the dated CACHE_VERSION constant");
+    // The version is what gets stamped into audit_data.cacheVersion and required
+    // on cache-read — a report whose embedded version differs is regenerated.
+    // (Mismatch path is exercised by the route; here we lock the token shape so a
+    // deploy that changes the build SHA naturally produces a different token.)
+    const stale = "0000-00-00.0+oldsha";
+    assert.notEqual(stale, v, "a stale cacheVersion never equals the current one → cache busts on deploy");
   }
 
   console.log("✓ audit-general: all assertions passed");

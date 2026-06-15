@@ -45,6 +45,7 @@ async function main() {
   const {
     fetchPlacesCompetitors,
     isSameNiche,
+    isExcludedSubType,
     haversineKm,
     matchesNationalBrand,
     isOutOfLeague,
@@ -81,6 +82,53 @@ async function main() {
       isSameNiche("freight forwarding service", ["restaurant"], "restaurant"),
       false,
       "a restaurant is not a freight forwarder",
+    );
+  }
+
+  /* ─── Sub-type exclusion: adjacent-but-different niches (Fix 1) ─── */
+  {
+    // A freight-forwarding subject must DROP couriers / movers / local truckers
+    // that share the broad "shipping_service" umbrella but are a different niche.
+    assert.equal(
+      isExcludedSubType("freight forwarding", ["courier_service"], "courier_service"),
+      true,
+      "a courier is excluded for a freight-forwarding subject",
+    );
+    assert.equal(
+      isExcludedSubType("freight forwarder", ["moving_company"], "moving_company"),
+      true,
+      "a moving company is excluded for a freight forwarder",
+    );
+    assert.equal(
+      isExcludedSubType("logistics", ["taxi_service"], "taxi_service"),
+      true,
+      "a taxi service is excluded for a logistics subject",
+    );
+    // A real freight forwarder that ALSO carries courier_service stays in (its
+    // own type affirmatively matches the subject niche).
+    assert.equal(
+      isExcludedSubType("freight forwarding", ["freight_forwarding_service", "courier_service"], "freight_forwarding_service"),
+      false,
+      "a true freight forwarder that also tags courier is NOT excluded",
+    );
+    // A genuine freight forwarder is NOT excluded.
+    assert.equal(
+      isExcludedSubType("freight forwarding", ["freight_forwarding_service"], "freight_forwarding_service"),
+      false,
+      "a freight forwarder is kept",
+    );
+    // The rule only applies to niches in the table — a plumbing search never
+    // excludes a courier via this path.
+    assert.equal(
+      isExcludedSubType("plumbing", ["courier_service"], "courier_service"),
+      false,
+      "sub-type exclusion does not fire for unrelated niches",
+    );
+    // And isSameNiche enforces the exclusion (a courier fails the freight gate).
+    assert.equal(
+      isSameNiche("freight forwarding", ["courier_service"], "courier_service", "Speedy Couriers"),
+      false,
+      "isSameNiche drops a courier from a freight-forwarding search",
     );
   }
 
@@ -210,6 +258,34 @@ async function main() {
       const res = await fetchPlacesCompetitors("plumbing", "Toronto", "Bob's Plumbing", "ON", { lat: 43.65, lng: -79.38 }, "S");
       assert.equal(res.competitors.length, 0, "all wrong-niche → empty competitor set (suppressed, not junk)");
       assert.equal(res.marketLeader, null, "no leader when no genuine competitors");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  /* ─── Freight forwarder: couriers/movers dropped, real forwarders kept (Fix 1) ─── */
+  {
+    const coords = { lat: 43.589, lng: -79.6441 }; // Mississauga
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      placesResponse([
+        // Real freight forwarders — KEEP.
+        { id: "FF_A", displayName: { text: "Apex Freight Forwarding" }, rating: 4.5, userRatingCount: 80, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service", "shipping_service"], location: { latitude: 43.59, longitude: -79.64 } },
+        { id: "FF_B", displayName: { text: "Global Forwarders Inc" }, rating: 4.3, userRatingCount: 60, primaryType: "freight_forwarding_service", types: ["freight_forwarding_service"], location: { latitude: 43.6, longitude: -79.62 } },
+        // Adjacent-but-different under the "shipping_service" umbrella — DROP.
+        { id: "CR", displayName: { text: "Speedy Couriers" }, rating: 4.6, userRatingCount: 400, primaryType: "courier_service", types: ["courier_service", "shipping_service"], location: { latitude: 43.59, longitude: -79.63 } },
+        { id: "MV", displayName: { text: "QuickMove Movers" }, rating: 4.2, userRatingCount: 200, primaryType: "moving_company", types: ["moving_company", "shipping_service"], location: { latitude: 43.6, longitude: -79.65 } },
+      ])) as any;
+    try {
+      const res = await fetchPlacesCompetitors("freight forwarding", "Mississauga", "Access Air", "ON", coords, "ACCESS_AIR");
+      const names = res.competitors.map((c) => c.name).sort();
+      assert.deepEqual(
+        names,
+        ["Apex Freight Forwarding", "Global Forwarders Inc"].sort(),
+        "real freight forwarders kept; couriers + movers dropped",
+      );
+      assert.ok(!names.includes("Speedy Couriers"), "courier dropped from freight search");
+      assert.ok(!names.includes("QuickMove Movers"), "moving company dropped from freight search");
     } finally {
       globalThis.fetch = realFetch;
     }
