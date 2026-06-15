@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download, Shield } from "lucide-react";
 import { SERVICES, getServicesForIssues, getServiceBillingMeta, type Service } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
@@ -933,6 +933,19 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [hovered, setHovered] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [email, setEmail] = useState('');
+  // Contact captured at the audit gate (email/name/phone). Used to prefill the
+  // checkout intake modal so we don't re-ask at the highest-intent moment.
+  // Seeded from localStorage on mount (survives a reload) and updated live when
+  // the gate's onUnlock fires this session.
+  const [capturedLead, setCapturedLead] = useState<{ email?: string; name?: string; phone?: string } | null>(() => {
+    if (typeof window === 'undefined' || !reportId) return null;
+    try {
+      const raw = localStorage.getItem(`audit-lead-${reportId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [activeReview, setActiveReview] = useState(0);
@@ -1589,10 +1602,10 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
               flexShrink: 0,
             }}>
-              {tab==='maps' ? 'Google Maps'
+              {tab==='maps' ? 'Overview'
                 : tab==='rank' ? 'Rank Grid'
                 : tab==='seo' ? 'SEO Checklist'
-                : tab==='speed' ? 'Site Speed'
+                : tab==='speed' ? 'Speed vs Rivals'
                 : tab==='website' ? 'Website'
                 : tab==='nap' ? 'NAP'
                 : tab==='market' ? 'Market'
@@ -1630,15 +1643,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* ═══ FRIENDLY HERO SUMMARY — plain English on every tab ═══
-          Visible on Maps / Website / Plan when unlocked. Reuses the
-          existing missed-jobs estimate (loss.* / demandGaps[0]) and the
-          businessRank computed above. Trade → noun phrasing keeps it
-          conversational ("roof inspections" for roofers etc.); revenue
-          uses the per-trade mid-ticket from TRADE_AVG_TICKET (default
-          $250). AnimatedNumber count-up respects prefers-reduced-motion.
+      {/* ═══ FRIENDLY HERO SUMMARY — the "bottom line" ═══
+          Shown ONCE on the Overview tab (+ the Action Plan tab where it frames
+          the buy) — NOT on every tab, where it was repeating verbatim 9×
+          (dedup fix #2). Reuses the honest missed-jobs estimate + businessRank.
+          When there's no real dollar loss it still anchors a concrete NON-dollar
+          stake (review gap / competitors outranking you) so the headline line is
+          never stakes-free (conversion fix #7).
       */}
-      {unlocked && (() => {
+      {unlocked && (activeTab === 'maps' || activeTab === 'plan') && (() => {
         // Uses the honest, component-scope revenue values (revLossReal /
         // lostRevenueMonthly / missedJobsMonthly / avgTicket) so the hero never
         // shows an invented loss. When the loss isn't real we positive-frame.
@@ -1655,6 +1668,21 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           businessRank > 3
             ? `Moving to the top 3 would mean ${missedJobsMonthly > 0 ? `roughly ${missedJobsMonthly} more` : 'more'} ${noun} per month`
             : `You're already in the top 3 — small wins could push you to #1`;
+
+        // Non-dollar stake (conversion fix #7). When we have no honest revenue
+        // figure, never leave the highest-visibility line stakes-free — anchor a
+        // concrete, true non-$ stake: competitors outranking you, the review gap
+        // vs the leader, or missed jobs. Picked in order of how tangible it is.
+        const competitorsAhead = totalInMarket > 1 && businessRank > 1 ? businessRank - 1 : 0;
+        const reviewsBehind = marketLeader && reviewGap < 0 ? Math.abs(reviewGap) : 0;
+        const nonRevenueStake = (() => {
+          if (showRevenue) return null;
+          if (missedJobsMonthly > 0) return `That's roughly ${missedJobsMonthly} ${noun} a month going to competitors.`;
+          if (competitorsAhead > 0) return `Right now ${competitorsAhead} competitor${competitorsAhead > 1 ? 's' : ''} rank ahead of you for these searches.`;
+          if (reviewsBehind > 0) return `You're ${reviewsBehind} review${reviewsBehind > 1 ? 's' : ''} behind ${marketLeader!.name} — the leader in your area.`;
+          if (businessRank > 3) return 'Closing these gaps is what moves you into the top 3.';
+          return 'Hold these wins and competitors stay behind you.';
+        })();
 
         return (
           <div
@@ -1712,6 +1740,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 )}
               </span>
             </div>
+            {/* Concrete non-dollar stake — only when there's no honest $ figure,
+                so the bottom line is never stakes-free (conversion fix #7). */}
+            {!showRevenue && nonRevenueStake && (
+              <div style={{ fontSize: 'clamp(13px, 2.4vw, 15px)', fontWeight: 600, color: '#374151', lineHeight: 1.4 }}>
+                {nonRevenueStake}
+              </div>
+            )}
             <div
               style={{
                 fontSize: 12,
@@ -1847,7 +1882,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             recommendedServices={recommendedServices?.slice(0, 3)}
             lostRevenueMonthly={lostRevenueMonthly}
             leadNoun={leadNoun}
-            onUnlock={() => onUnlock?.()}
+            onUnlock={(lead) => { if (lead) setCapturedLead(lead); onUnlock?.(); }}
           />
         </>
       )}
@@ -2398,37 +2433,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       )}
 
-      {/* SECTION 6b — DIAGNOSTIC ACTION PLAN (Tab 1, advisory only — no CTAs) */}
+      {/* SECTION 6b — OVERVIEW TEASER for the action plan.
+          The FULL interactive "What's Holding You Back" list lives on the Action
+          Plan tab (SECTION 3) — rendering it here too was a straight duplicate
+          (dedup fix #1). The Overview now shows a compact top-3 preview and a
+          link that jumps to the full plan, so the two tabs no longer repeat. */}
       {activeTab === 'maps' && plan.length > 0 && (
         <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, position: 'relative' }}>
-            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's Holding You Back</span>
-            <span style={{ position: 'relative', display: 'inline-flex' }}>
-              <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(p => !p); }} />
-              {holdingBackPopover && (
-                <div style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', width: 260, background: DARK, color: WHITE, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>How this list works</div>
-                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate {leadNoun}.
-                  <button onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
-                </div>
-              )}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>What's holding you back</span>
           </div>
-          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>Tap each item to see how to fix it</div>
-          {plan.map((item: any, i: number) => {
+          <div style={{ fontSize: 12, color: GREY, marginBottom: 14 }}>
+            Your top {Math.min(3, plan.length)} highest-impact fixes — see the full list and how to fix each on the Action Plan tab.
+          </div>
+          {plan.slice(0, 3).map((item: any, i: number) => {
             const dotColor = item.priority === 'HIGH' ? RED : item.priority === 'MEDIUM' ? AMBER : '#9CA3AF';
             return (
               <div key={i}>
                 {i > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '12px 0' }}/>}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setIssueModal(i)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIssueModal(i); } }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', cursor: 'pointer', borderRadius: 8, transition: 'background 0.15s ease' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.035)'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(2px)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; const chev = e.currentTarget.querySelector('.issue-chevron') as HTMLElement; if (chev) chev.style.transform = 'translateX(0)'; }}
-                >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -2447,11 +2470,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                       <div style={{ fontSize: 12, color: GREY, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.estimatedImpact}</div>
                     )}
                   </div>
-                  <ChevronRight className="issue-chevron" size={16} color={GREY} style={{ flexShrink: 0, opacity: 0.4, transition: 'transform 0.15s ease' }} />
                 </div>
               </div>
             );
           })}
+          <button
+            type="button"
+            onClick={() => openTab('plan')}
+            {...hoverProps('overview-plan-link')}
+            style={{
+              marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+              color: hovered === 'overview-plan-link' ? '#0a2fd6' : CYAN,
+            }}
+          >
+            See your full action plan
+            <ChevronRight size={16} style={{ flexShrink: 0 }} />
+          </button>
         </div>
       )}
 
@@ -2469,7 +2505,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             {/* Device tab switcher */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Website Speed</span>
+                <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>Your site speed</span>
                 <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
               </div>
               <div style={{ display: 'inline-flex', background: '#F3F4F6', borderRadius: 20, padding: 2, gap: 2 }}>
@@ -3225,17 +3261,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* STICKY PACKAGE BAR — fixed at bottom when services selected on plan tab */}
       {unlocked && activeTab === 'plan' && selected.length > 0 && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, padding: '0 16px 16px', pointerEvents: 'none' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', background: DARK, borderRadius: 14, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 -2px 24px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: WHITE }}>
-              {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>{billingAwarePriceLabel}</span>
-            </span>
-            <button
-              onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); setCheckoutOpen(true); }}
-              {...hoverProps('getstarted')}
-              style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none' }}
-            >
-              Get Started →
-            </button>
+          <div style={{ maxWidth: 960, margin: '0 auto', background: DARK, borderRadius: 14, padding: '14px 20px', boxShadow: '0 -2px 24px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: WHITE }}>
+                {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>{billingAwarePriceLabel}</span>
+              </span>
+              <button
+                onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); setCheckoutOpen(true); }}
+                {...hoverProps('getstarted')}
+                style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none', flexShrink: 0 }}
+              >
+                Get Started →
+              </button>
+            </div>
+            {/* Guarantee directly under the primary buy CTA (conversion fix #8). */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>
+              <Shield size={12} color={GREEN} style={{ flexShrink: 0 }} />
+              <span>No contracts — cancel anytime. Secure checkout via Stripe.</span>
+            </div>
           </div>
         </div>
       )}
@@ -3250,6 +3293,19 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           ? (SERVICES.find(s => s.id === selected[0])?.name ?? "your services")
           : `${selected.length} services`}
         priceLabel={billingAwarePriceLabel}
+        billingNote={
+          recurringTotal > 0 && oneTimeTotal > 0
+            ? "mixed — recurring + one-time. Cancel the subscription anytime."
+            : recurringTotal > 0
+            ? "billed monthly. Cancel anytime."
+            : "One-time payment · No subscription."
+        }
+        prefill={{
+          businessName: business?.name,
+          contactName: capturedLead?.name,
+          email: capturedLead?.email,
+          phone: capturedLead?.phone,
+        }}
       />
 
       {/* Secondary CTA — tools-consolidation removed the missed-call funnel
