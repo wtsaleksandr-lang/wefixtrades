@@ -191,7 +191,10 @@ interface AuditGateProps {
    * a trade vertical. Defaults to "jobs" for backwards-compatibility.
    */
   leadNoun?: string;
-  onUnlock: () => void;
+  /** Fired once the lead is saved and the gate unlocks. The captured contact
+   *  details are passed back so downstream surfaces (e.g. the checkout intake
+   *  modal) can prefill them instead of re-asking at the highest-intent moment. */
+  onUnlock: (lead?: { email?: string; name?: string; phone?: string }) => void;
 }
 
 export default function AuditGate({
@@ -283,19 +286,25 @@ export default function AuditGate({
       setSubmitted(true);
       trackEvent("audit_lead_submitted", { businessName, score });
 
-      // Store unlock in localStorage
+      // Store unlock + captured contact in localStorage so a checkout started
+      // after a page reload can still prefill (the gate is gone by then).
       if (reportId) {
         try {
           localStorage.setItem(`audit-unlocked-${reportId}`, "1");
+          localStorage.setItem(
+            `audit-lead-${reportId}`,
+            JSON.stringify({ email: trimmed, name: name.trim() || "", phone: phone.trim() || "" }),
+          );
         } catch {
           /* localStorage unavailable (private mode / blocked) — non-fatal,
              the in-memory unlock below still reveals the report this session */
         }
       }
 
-      // Brief confirmation then unlock
+      // Brief confirmation then unlock — hand the captured contact back so the
+      // checkout intake can prefill instead of re-asking (conversion fix #6).
       setTimeout(() => {
-        onUnlock();
+        onUnlock({ email: trimmed, name: name.trim() || undefined, phone: phone.trim() || undefined });
       }, 2000);
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
@@ -549,8 +558,22 @@ export default function AuditGate({
           ) : (
             <Send size={16} />
           )}
-          {fixes > 0 ? `Email me my ${fixes}-fix checklist` : "Email me my fix checklist"}
+          Unlock my full report &rarr;
         </button>
+
+        {/* Sub-note: the report unlocks on-screen instantly; the email is a
+            bonus, not the payload. Avoids underselling the CTA. */}
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 12,
+            color: GREY,
+            textAlign: "center",
+            lineHeight: 1.5,
+          }}
+        >
+          Opens instantly on this page (also emailed to you).
+        </p>
       </form>
 
       {/* Trust line — numbered social proof (CRO #7). 100+ home-service trades

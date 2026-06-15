@@ -38,6 +38,16 @@ export interface CheckoutIntakeModalProps {
    *  language. Pass a one-time note (e.g. "One-time payment · No subscription")
    *  for one-time SKUs so the copy never contradicts the price. */
   billingNote?: string;
+  /** Pre-filled contact details captured earlier in the funnel (audit business,
+   *  gate email/name/phone). Any field supplied here is seeded into the form so
+   *  the modal only re-asks what it genuinely still needs — reducing the 4-field
+   *  re-ask at the highest-intent moment. */
+  prefill?: {
+    businessName?: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+  };
 }
 
 interface FormState {
@@ -62,19 +72,41 @@ export default function CheckoutIntakeModal({
   bundleName,
   priceLabel,
   billingNote = "billed monthly. Cancel anytime.",
+  prefill,
 }: CheckoutIntakeModalProps) {
-  const [form, setForm] = useState<FormState>(INITIAL);
+  /* Seed the form from any prefilled values captured earlier in the funnel. */
+  const seeded = (): FormState => ({
+    business_name: prefill?.businessName?.trim() || "",
+    contact_name: prefill?.contactName?.trim() || "",
+    contact_email: prefill?.email?.trim() || "",
+    contact_phone: prefill?.phone?.trim() || "",
+  });
+
+  const [form, setForm] = useState<FormState>(seeded);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* Reset state whenever the modal closes so reopening is fresh */
+  /* Re-seed every time the modal opens (prefill may have arrived after the
+     first mount), and reset cleanly on close so reopening is fresh. */
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setForm(seeded());
+      setError(null);
+      setSubmitting(false);
+    } else {
       setForm(INITIAL);
       setError(null);
       setSubmitting(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /* Which prefilled fields are known up-front — these are hidden so the modal
+     only shows what it still needs (conversion fix #6). Business name + email
+     are typically known from the audit + gate; contact name is the usual ask. */
+  const haveBusiness = !!prefill?.businessName?.trim();
+  const haveEmail = !!prefill?.email?.trim() && /^\S+@\S+\.\S+$/.test(prefill.email.trim());
+  const haveName = !!prefill?.contactName?.trim();
 
   /* Body scroll lock + ESC to close while open */
   useEffect(() => {
@@ -96,8 +128,16 @@ export default function CheckoutIntakeModal({
      the sibling CheckoutModal uses. */
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => document.getElementById("intake-business-name")?.focus(), 100);
+    const firstId = !haveBusiness
+      ? "intake-business-name"
+      : !haveName
+      ? "intake-contact-name"
+      : !haveEmail
+      ? "intake-contact-email"
+      : "intake-contact-phone";
+    const t = setTimeout(() => document.getElementById(firstId)?.focus(), 100);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -222,17 +262,35 @@ export default function CheckoutIntakeModal({
         <FreeToolFormFieldStyles />
         <form onSubmit={submit} style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <FreeToolFormField
-              id="intake-business-name"
-              testId="intake-business-name"
-              theme="light"
-              label="Business name"
-              helpText="The trading name we'll put on your account and invoices."
-              value={form.business_name}
-              onChange={(v) => setForm({ ...form, business_name: v })}
-              autoComplete="organization"
-              required
-            />
+            {/* Confirmation line for details we already captured, so the visitor
+                sees them carried over (and can correct via the visible fields). */}
+            {(haveBusiness || haveEmail) && (
+              <p
+                data-testid="intake-prefill-note"
+                style={{ margin: "0 0 8px", fontSize: 12.5, color: "#6B7280", lineHeight: 1.5 }}
+              >
+                Using{" "}
+                {haveBusiness && (
+                  <strong style={{ color: "#0F1418" }}>{prefill!.businessName!.trim()}</strong>
+                )}
+                {haveBusiness && haveEmail && " · "}
+                {haveEmail && <strong style={{ color: "#0F1418" }}>{prefill!.email!.trim()}</strong>}
+                {" "}from your audit. Just confirm your name below.
+              </p>
+            )}
+            {!haveBusiness && (
+              <FreeToolFormField
+                id="intake-business-name"
+                testId="intake-business-name"
+                theme="light"
+                label="Business name"
+                helpText="The trading name we'll put on your account and invoices."
+                value={form.business_name}
+                onChange={(v) => setForm({ ...form, business_name: v })}
+                autoComplete="organization"
+                required
+              />
+            )}
             <FreeToolFormField
               id="intake-contact-name"
               testId="intake-contact-name"
@@ -244,19 +302,21 @@ export default function CheckoutIntakeModal({
               autoComplete="name"
               required
             />
-            <FreeToolFormField
-              id="intake-contact-email"
-              testId="intake-contact-email"
-              theme="light"
-              label="Email"
-              type="email"
-              helpText="Where we'll send your receipt and account access."
-              value={form.contact_email}
-              onChange={(v) => setForm({ ...form, contact_email: v })}
-              inputMode="email"
-              autoComplete="email"
-              required
-            />
+            {!haveEmail && (
+              <FreeToolFormField
+                id="intake-contact-email"
+                testId="intake-contact-email"
+                theme="light"
+                label="Email"
+                type="email"
+                helpText="Where we'll send your receipt and account access."
+                value={form.contact_email}
+                onChange={(v) => setForm({ ...form, contact_email: v })}
+                inputMode="email"
+                autoComplete="email"
+                required
+              />
+            )}
             <FreeToolFormField
               id="intake-contact-phone"
               testId="intake-contact-phone"
@@ -319,6 +379,9 @@ export default function CheckoutIntakeModal({
             )}
           </button>
 
+          <p style={{ margin: 0, fontSize: 12, color: "#16A34A", fontWeight: 600, textAlign: "center" }}>
+            No contracts — cancel anytime.
+          </p>
           <p style={{ margin: 0, fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>
             You'll be redirected to Stripe to complete payment.
           </p>
