@@ -389,6 +389,10 @@ export default function ActionTab({
               className={`qq-action-card${stripeConnected ? '' : ' is-disabled'}`}
               data-testid="settings-group-deposit"
               data-stripe-connected={stripeConnected ? 'true' : 'false'}
+              /* Click-to-edit anchor — a tap on the preview deposit badge
+                 (data-component-type="deposit") resolves here. Mirrors the
+                 online-booking card below. */
+              data-edit-key="deposit"
             >
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">

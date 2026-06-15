@@ -353,6 +353,11 @@ const COMPONENT_EDIT_MAP: Record<string, { tab: EditorTab; targetKey: string }> 
   // routes a booking-slot click to the Action tab's Online-booking card
   // (`[data-edit-key="online-booking"]`), where the calendar is configured.
   'online-booking': { tab: 'action', targetKey: 'online-booking' },
+  // Deposit badge/card → the Action tab's Deposit card
+  // (`[data-edit-key="deposit"]`). Mirrors online-booking above: the deposit
+  // block sits INSIDE the result panel, so without its own component-type a
+  // click on the badge walked up to `results` and selected the wrong section.
+  deposit: { tab: 'action', targetKey: 'deposit' },
   // Trust visuals → Style (badge editor).
   'trust-badges': { tab: 'style', targetKey: 'trust-badges' },
   'trust-strip':  { tab: 'style', targetKey: 'trust-badges' },

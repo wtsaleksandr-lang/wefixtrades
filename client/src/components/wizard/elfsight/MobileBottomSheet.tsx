@@ -40,7 +40,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronsUpDown, HelpCircle, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronsUpDown, HelpCircle, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -406,10 +406,32 @@ export default function MobileBottomSheet({
     setPeeked((cur) => !cur);
   }, []);
 
+  // CHANGE A — whether a pointerdown began over the grabber pill. Drag works
+  // from the WHOLE header, but a sub-threshold TAP only toggles the peek when
+  // it started on the grabber (expanded state) — matching the pill's role as
+  // the explicit collapse/expand control. While COLLAPSED, a tap anywhere on
+  // the visible peek bar expands (the whole peek bar is the affordance).
+  const tapFromGrabberRef = useRef(false);
+
   // ── Drag-to-resize (pointer) ──────────────────────────────────────
   const dragRef = useRef<{ startY: number; startH: number; moved: number } | null>(null);
 
+  // CHANGE A — the drag handlers are bound to the WHOLE header (.qq-sheet-header:
+  // grabber row + title row), so a drag starting anywhere on the top bar resizes
+  // the sheet — not just the 38px grabber pill. A pointerdown that lands on the
+  // close chevron is ignored here so the close button's own tap still fires (it
+  // must never be hijacked into a resize). Everything else on the header — and
+  // the entire peek bar while collapsed — is a drag surface.
   const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
+    // Don't start a drag from the close chevron — let it close on tap. (Also
+    // ignore the secondary mouse buttons so a right-click never arms a drag.)
+    if (ev.button != null && ev.button !== 0) return;
+    const startTarget = ev.target as HTMLElement | null;
+    if (startTarget && startTarget.closest('.qq-sheet-close')) return;
+    // Record whether the gesture began on the grabber pill so a sub-threshold
+    // tap there toggles the peek (see endDrag). A tap while collapsed expands
+    // from anywhere on the peek bar.
+    tapFromGrabberRef.current = !!(startTarget && startTarget.closest('.qq-sheet-grabber'));
     dismissHint();
     computeGeom();
     // Start from whatever is currently rendered (peek or open resting height).
@@ -438,9 +460,21 @@ export default function MobileBottomSheet({
     try { (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
     if (!drag) { setDragHeight(null); return; }
     if (drag.moved < TAP_THRESHOLD_PX) {
-      // Treated as a tap → let the synthetic click toggle the peek; just drop
-      // the live height so the resting height renders.
+      // Treated as a TAP. Toggle the peek when the tap began on the grabber
+      // pill (its explicit control role) OR when the sheet is currently
+      // collapsed (the whole peek bar expands on tap — CHANGE A/B). A tap on
+      // the EXPANDED header's title row is a no-op (it isn't a control). We
+      // drive the toggle directly here rather than relying on the grabber's
+      // synthetic onClick, because pointer-capture now lives on the header and
+      // the click target can differ. suppressClickRef still stops the grabber's
+      // own onClick from double-toggling.
       setDragHeight(null);
+      // `peeked` is the resting-collapsed source of truth here (dragHeight is
+      // being cleared this tick, so the derived isCollapsed isn't usable yet).
+      if (tapFromGrabberRef.current || peeked) {
+        suppressClickRef.current = true;
+        setPeeked((cur) => !cur);
+      }
       return;
     }
     // Real drag → the user has now LEARNED the gesture; record it so the
@@ -461,7 +495,7 @@ export default function MobileBottomSheet({
       setPeeked(false);
     }
     setDragHeight(null);
-  }, [dragHeight, setOpenHeight]);
+  }, [dragHeight, setOpenHeight, peeked]);
 
   // ── `qq-wizard:focus-field` listener ──────────────────────────────
   useEffect(() => {
@@ -541,8 +575,21 @@ export default function MobileBottomSheet({
           height: `${Math.round(open ? currentHeightPx : lastOpenHeightRef.current)}px`,
         }}
       >
-        {/* ── Drag handle row — grabber + title + close chevron ───────── */}
-        <div className="qq-sheet-header">
+        {/* ── Drag handle row — grabber + title + close chevron ─────────
+            CHANGE A — the drag handlers live on the WHOLE header, so a drag
+            starting anywhere on the top bar (grabber row OR title row, and the
+            entire peek bar while collapsed) resizes the sheet. A pointerdown on
+            the close chevron is ignored in onHandlePointerDown so its tap still
+            closes. touch-action:none on the header makes the vertical drag own
+            the gesture (no native scroll/zoom fighting it). */}
+        <div
+          className="qq-sheet-header"
+          data-testid="wizard-sheet-header"
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
           <button
             type="button"
             className="qq-sheet-grabber"
@@ -550,12 +597,21 @@ export default function MobileBottomSheet({
             aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
             aria-expanded={!isCollapsed}
             onClick={toggleCollapsed}
-            onPointerDown={onHandlePointerDown}
-            onPointerMove={onHandlePointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
           >
             <span className="qq-sheet-grabber-bar" aria-hidden="true" />
+            {/* CHANGE B — persistent folded-bar resize affordance. Only rendered
+                while collapsed; a faint up-chevron that breathes (steady accent
+                tint under reduced-motion) so the peek bar always reads "drag me
+                up to resize". Separate from the expanded first-run teaching cue
+                above. aria-hidden — the grabber button already announces
+                Expand/Collapse. */}
+            {isCollapsed && (
+              <ChevronUp
+                className="qq-sheet-peek-cue"
+                size={14}
+                aria-hidden="true"
+              />
+            )}
           </button>
           {/* Teaching caption — only while the cue is active. Absolutely
               positioned over the grabber row so it never shifts layout, never
@@ -675,12 +731,21 @@ export default function MobileBottomSheet({
             flex-shrink: 0;
             /* Anchor the absolutely-positioned teaching caption. */
             position: relative;
+            /* CHANGE A — the whole header is the drag surface; touch-action:none
+               here (not just on the grabber) so a vertical drag that starts on
+               the title row owns the gesture instead of triggering native
+               scroll/zoom. The close chevron re-enables auto below so its tap is
+               unaffected. */
+            touch-action: none;
+            cursor: grab;
           }
+          .qq-sheet-header:active { cursor: grabbing; }
           .qq-sheet-grabber {
             display: flex; align-items: center; justify-content: center;
             width: 100%; min-height: 28px; padding: 10px 0 4px;
-            background: transparent; border: none; cursor: grab;
-            touch-action: none;
+            background: transparent; border: none; cursor: inherit;
+            /* The grabber inherits the header's touch-action:none. */
+            position: relative;
           }
           .qq-sheet-grabber:active { cursor: grabbing; }
           .qq-sheet-grabber:focus-visible {
@@ -775,6 +840,9 @@ export default function MobileBottomSheet({
             background: transparent; border: none; cursor: pointer;
             color: ${AE.color.secondary};
             border-radius: ${AE.radius.md};
+            /* Re-enable native touch behaviour on the close target so its tap is
+               never swallowed by the header's touch-action:none drag region. */
+            touch-action: auto;
           }
           .qq-sheet-close:active { background: ${AE.color.surface}; }
           .qq-sheet-close:focus-visible {
@@ -789,6 +857,42 @@ export default function MobileBottomSheet({
           }
           .qq-sheet.is-collapsed .qq-sheet-header-row {
             border-bottom: none;
+          }
+
+          /* ── CHANGE B — persistent folded-bar resize affordance ──────
+             Unlike the one-time "show-until-learned" teaching cue (which only
+             plays in the EXPANDED state until the first real drag), the FOLDED
+             peek bar must ALWAYS signal it's draggable/resizable. While
+             collapsed: the grabber pill takes an accent tint and gently
+             breathes upward, and a faint accent up-chevron pulses just below it
+             — quiet/Apple-like, reading "drag me up to resize". Both honor
+             prefers-reduced-motion (steady accent tint + static up-cue, no
+             motion) in the reduced-motion block below. */
+          .qq-sheet.is-collapsed .qq-sheet-grabber {
+            /* A touch more vertical room so the up-chevron cue has space under
+               the pill without growing the 64px peek row. */
+            padding-bottom: 2px;
+          }
+          .qq-sheet.is-collapsed .qq-sheet-grabber-bar {
+            background: ${AE.color.accent};
+            animation: qq-sheet-peek-breathe 2.4s ease-in-out infinite;
+          }
+          @keyframes qq-sheet-peek-breathe {
+            0%, 100% { transform: translateY(0) scaleX(1); opacity: 0.85; }
+            50%      { transform: translateY(-2px) scaleX(1.08); opacity: 1; }
+          }
+          .qq-sheet-peek-cue {
+            position: absolute;
+            top: 18px; left: 50%;
+            transform: translateX(-50%);
+            color: ${AE.color.accent};
+            pointer-events: none;
+            opacity: 0.9;
+            animation: qq-sheet-peek-cue-pulse 2.4s ease-in-out infinite;
+          }
+          @keyframes qq-sheet-peek-cue-pulse {
+            0%, 100% { transform: translateX(-50%) translateY(0);   opacity: 0.45; }
+            50%      { transform: translateX(-50%) translateY(-2px); opacity: 0.95; }
           }
 
           /* ── Scrollable content ────────────────────────────────── */
@@ -904,6 +1008,17 @@ export default function MobileBottomSheet({
           .qq-sheet-grabber-bar {
             animation: none !important;
             transition: none !important;
+          }
+          /* CHANGE B under reduced-motion — kill the breathing/pulse but KEEP
+             the static accent cue so the folded bar still reads "resizable":
+             the pill stays accent-tinted and the up-chevron stays visible. */
+          .qq-sheet.is-collapsed .qq-sheet-grabber-bar {
+            animation: none !important;
+            background: ${AE.color.accent};
+          }
+          .qq-sheet-peek-cue {
+            animation: none !important;
+            opacity: 0.7;
           }
           /* Caption is never mounted under reduced-motion (JS gates hintActive),
              but defensively kill its fade animation too. */

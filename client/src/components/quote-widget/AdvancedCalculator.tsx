@@ -1228,6 +1228,12 @@ function DepositPreviewBadge({
     <div
       data-testid="advanced-deposit-block"
       data-component-name="Deposit preview"
+      /* Click-to-edit — stamp the deposit block so a tap on the badge/card maps
+         to the Action tab's Deposit config (COMPONENT_EDIT_MAP['deposit'] →
+         [data-edit-key="deposit"]). Without this the click walked up to the
+         enclosing result panel and wrongly selected Results — the same class of
+         bug the online-booking block's data-component-type fixed. */
+      data-component-type="deposit"
       style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
     >
       <button
