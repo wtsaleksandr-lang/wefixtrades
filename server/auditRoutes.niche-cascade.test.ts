@@ -198,7 +198,9 @@ async function main() {
   console.log("auditRoutes.niche-cascade.test.ts — all assertions passed");
 }
 
-main().catch((err) => {
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
   console.error(err);
   process.exit(1);
 });
