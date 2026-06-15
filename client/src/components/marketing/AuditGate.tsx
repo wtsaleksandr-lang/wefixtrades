@@ -185,6 +185,12 @@ interface AuditGateProps {
    * → the gate falls back to a concrete issue-count loss frame.
    */
   lostRevenueMonthly?: number;
+  /**
+   * Generic lead noun for the loss-framed copy ("jobs", "calls", "new
+   * enquiries"). Supplied by the report's `leadNoun` so the gate never assumes
+   * a trade vertical. Defaults to "jobs" for backwards-compatibility.
+   */
+  leadNoun?: string;
   onUnlock: () => void;
 }
 
@@ -200,6 +206,7 @@ export default function AuditGate({
   detectedIssues,
   recommendedServices,
   lostRevenueMonthly,
+  leadNoun = "jobs",
   onUnlock,
 }: AuditGateProps) {
   const [email, setEmail] = useState("");
@@ -223,10 +230,10 @@ export default function AuditGate({
   const headline =
     fixes > 0
       ? revenue > 0
-        ? `See the ${fixes} fix${fixes !== 1 ? "es" : ""} that could recover ~$${revenue.toLocaleString()}/mo in missed jobs`
-        : `See the ${fixes} fix${fixes !== 1 ? "es" : ""} costing you jobs on Google`
+        ? `See the ${fixes} fix${fixes !== 1 ? "es" : ""} that could recover ~$${revenue.toLocaleString()}/mo in missed ${leadNoun}`
+        : `See the ${fixes} fix${fixes !== 1 ? "es" : ""} costing you ${leadNoun} on Google`
       : revenue > 0
-        ? `See how to recover ~$${revenue.toLocaleString()}/mo in missed jobs`
+        ? `See how to recover ~$${revenue.toLocaleString()}/mo in missed ${leadNoun}`
         : "See your full fix plan and competitor breakdown";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -369,26 +376,34 @@ export default function AuditGate({
       )}
 
       <div style={{ textAlign: "center", marginBottom: 20 }}>
+        {/* Lock cue as a tied-in pill (not a floating box) so it reads as one
+            unit with the headline — top of the gate, clean alignment. */}
         <div
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: `${CYAN}18`,
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 14px",
+            gap: 6,
+            padding: "5px 12px",
+            borderRadius: 999,
+            background: `${CYAN}14`,
+            color: CYAN,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            marginBottom: 12,
           }}
         >
-          <Lock size={20} color={CYAN} />
+          <Lock size={14} color={CYAN} />
+          Locked — free to unlock
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, color: DARK, marginBottom: 8, lineHeight: 1.25 }}>
           {headline}
         </div>
         <div style={{ fontSize: 14, color: GREY, lineHeight: 1.5 }}>
-          Emailed as a step-by-step checklist — plus your competitor breakdown and
-          exactly what to fix first. Free, no card.
+          Enter your email to unlock the full report — Rank Grid, SEO checklist,
+          site speed, NAP, market sizer, trust score and your complete action plan
+          with competitor breakdown. Free, no card.
         </div>
       </div>
 

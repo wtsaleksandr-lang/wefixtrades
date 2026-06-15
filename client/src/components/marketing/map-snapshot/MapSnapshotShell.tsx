@@ -19,7 +19,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, MapPin } from "lucide-react";
+import { ExternalLink, MapPin, Maximize2, X } from "lucide-react";
 import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
 
 const BRAND_PRIMARY = "#0d3cfc";
@@ -434,6 +434,25 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
   const mapSrc = `/api/audit/static-map?lat=${map.centerLat.toFixed(6)}&lng=${map.centerLng.toFixed(6)}&zoom=${map.zoom}&w=${SM_W}&h=${SM_H}`;
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
+  // Mobile gets a full-bleed map + a "View larger" tap → fullscreen modal so
+  // the rank grid never reads as a tiny, cramped thumbnail (fix #6).
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  );
+  const [mapZoomOpen, setMapZoomOpen] = useState(false);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  useEffect(() => {
+    if (!mapZoomOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMapZoomOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
+  }, [mapZoomOpen]);
 
   // High / Med / Low buckets for the header legend bars (matches reference).
   const hml = useMemo(() => {
@@ -468,6 +487,133 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
     const milesLabel = miles < 0.15 ? "right here" : `${miles.toFixed(1)} mi ${dir}`;
     return `Rank #${c.rank >= 21 ? "20+" : c.rank} · ${milesLabel}`;
   };
+
+  // Map img + average badge + numbered pins + your-business marker. Shared by
+  // the inline view and the fullscreen "View larger" modal so they stay in sync.
+  const mapInner = (
+    <>
+      {!mapFailed && (
+        <img
+          src={mapSrc}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setMapLoaded(true)}
+          onError={() => setMapFailed(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: mapLoaded ? 1 : 0,
+            transition: "opacity 400ms ease",
+          }}
+        />
+      )}
+
+      {/* Average Map Rank badge — top-left, color-coded by the average */}
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 3,
+          background: avgColor,
+          borderRadius: 12,
+          padding: "8px 12px",
+          color: "#fff",
+          boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
+          textAlign: "center",
+          minWidth: 64,
+        }}
+      >
+        <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>
+          {stats.avg ? stats.avg.toFixed(1) : "—"}
+        </div>
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            marginTop: 3,
+            opacity: 0.95,
+          }}
+        >
+          Average Map Rank
+        </div>
+      </div>
+
+      {/* Numbered, color-coded rank pins */}
+      {cells.map((c) => {
+        const p = map.project(c.lat, c.lng);
+        const label = c.rank >= 21 ? "20+" : String(c.rank);
+        const cascadeIdx = c.row * grid + c.col;
+        const delayMs = Math.min(cascadeIdx * 24, 600);
+        return (
+          <div
+            key={`${c.row}-${c.col}`}
+            data-testid={`rank-pin-${c.row}-${c.col}`}
+            aria-label={describeCell(c)}
+            title={describeCell(c)}
+            className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-300"
+            style={{
+              position: "absolute",
+              left: `${(p.x / SM_W) * 100}%`,
+              top: `${(p.y / SM_H) * 100}%`,
+              transform: "translate(-50%, -50%)",
+              zIndex: 2,
+              width: "clamp(20px, 4.6vw, 28px)",
+              height: "clamp(20px, 4.6vw, 28px)",
+              borderRadius: 999,
+              background: rankPinColor(c.rank),
+              border: "1.5px solid rgba(255,255,255,0.92)",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontSize: "clamp(9px, 2vw, 12px)",
+              fontWeight: 700,
+              fontVariantNumeric: "tabular-nums",
+              animationDelay: `${delayMs}ms`,
+              animationFillMode: "both",
+            }}
+          >
+            {label}
+          </div>
+        );
+      })}
+
+      {/* Your business marker */}
+      {(() => {
+        const p = map.project(result.lat, result.lng);
+        return (
+          <div
+            aria-label="Your business location"
+            title={result.businessName}
+            style={{
+              position: "absolute",
+              left: `${(p.x / SM_W) * 100}%`,
+              top: `${(p.y / SM_H) * 100}%`,
+              transform: "translate(-50%, -50%)",
+              zIndex: 4,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              borderRadius: 999,
+              background: "#fff",
+              border: `2px solid ${BRAND_PRIMARY}`,
+              boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+            }}
+          >
+            <MapPin size={14} color={BRAND_PRIMARY} aria-hidden="true" />
+          </div>
+        );
+      })()}
+    </>
+  );
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
@@ -537,142 +683,121 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
         </div>
       </div>
 
-      {/* Real Google map (server-proxied) with geo-projected rank pins */}
+      {/* Real Google map (server-proxied) with geo-projected rank pins.
+          On mobile the map goes full-bleed (negative margins escape the shell's
+          20px padding) and taller so it never reads as a cramped thumbnail, plus
+          a "View larger" tap opens a fullscreen modal (fix #6). */}
       <div
         style={{
           position: "relative",
-          width: "100%",
-          aspectRatio: `${SM_W} / ${SM_H}`,
-          borderRadius: 18,
+          width: isMobile ? "auto" : "100%",
+          marginLeft: isMobile ? -20 : 0,
+          marginRight: isMobile ? -20 : 0,
+          aspectRatio: isMobile ? undefined : `${SM_W} / ${SM_H}`,
+          minHeight: isMobile ? "62vh" : undefined,
+          borderRadius: isMobile ? 0 : 18,
           overflow: "hidden",
-          border: "1px solid #e2e8f0",
+          border: isMobile ? "none" : "1px solid #e2e8f0",
+          borderTop: isMobile ? "1px solid #e2e8f0" : undefined,
+          borderBottom: isMobile ? "1px solid #e2e8f0" : undefined,
           background: "#eef2f7",
-          boxShadow:
-            "0 1px 2px rgba(13,60,252,0.04), 0 8px 24px rgba(15,23,42,0.06)",
+          boxShadow: isMobile
+            ? "none"
+            : "0 1px 2px rgba(13,60,252,0.04), 0 8px 24px rgba(15,23,42,0.06)",
         }}
         aria-label={`Rank grid map for ${result.businessName}${trade ? ` (${trade})` : ""}`}
       >
-        {!mapFailed && (
-          <img
-            src={mapSrc}
-            alt=""
-            aria-hidden="true"
-            onLoad={() => setMapLoaded(true)}
-            onError={() => setMapFailed(true)}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: mapLoaded ? 1 : 0,
-              transition: "opacity 400ms ease",
-            }}
-          />
-        )}
+        {mapInner}
 
-        {/* Average Map Rank badge — top-left, color-coded by the average */}
-        <div
+        {/* View larger — opens the fullscreen modal */}
+        <button
+          type="button"
+          onClick={() => setMapZoomOpen(true)}
+          aria-label="View larger map"
           style={{
             position: "absolute",
-            top: 10,
-            left: 10,
-            zIndex: 3,
-            background: avgColor,
-            borderRadius: 12,
-            padding: "8px 12px",
+            bottom: 10,
+            right: 10,
+            zIndex: 5,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "7px 12px",
+            borderRadius: 999,
+            border: "none",
+            background: "rgba(30,30,30,0.82)",
             color: "#fff",
-            boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
-            textAlign: "center",
-            minWidth: 64,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.3)",
           }}
         >
-          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>
-            {stats.avg ? stats.avg.toFixed(1) : "—"}
-          </div>
-          <div
+          <Maximize2 size={14} aria-hidden="true" />
+          View larger
+        </button>
+      </div>
+
+      {/* Fullscreen map modal */}
+      {mapZoomOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rank grid map — fullscreen"
+          onClick={() => setMapZoomOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(15,23,42,0.92)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 12,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setMapZoomOpen(false)}
+            aria-label="Close map"
             style={{
-              fontSize: 9,
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-              marginTop: 3,
-              opacity: 0.95,
+              position: "absolute",
+              top: 14,
+              right: 14,
+              zIndex: 2,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              border: "none",
+              background: "rgba(255,255,255,0.16)",
+              color: "#fff",
+              cursor: "pointer",
             }}
           >
-            Average Map Rank
+            <X size={20} aria-hidden="true" />
+          </button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 720,
+              aspectRatio: `${SM_W} / ${SM_H}`,
+              maxHeight: "88vh",
+              borderRadius: 16,
+              overflow: "hidden",
+              background: "#eef2f7",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
+            }}
+            aria-label={`Rank grid map for ${result.businessName}${trade ? ` (${trade})` : ""}`}
+          >
+            {mapInner}
           </div>
         </div>
-
-        {/* Numbered, color-coded rank pins */}
-        {cells.map((c) => {
-          const p = map.project(c.lat, c.lng);
-          const label = c.rank >= 21 ? "20+" : String(c.rank);
-          const cascadeIdx = c.row * grid + c.col;
-          const delayMs = Math.min(cascadeIdx * 24, 600);
-          return (
-            <div
-              key={`${c.row}-${c.col}`}
-              data-testid={`rank-pin-${c.row}-${c.col}`}
-              aria-label={describeCell(c)}
-              title={describeCell(c)}
-              className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-300"
-              style={{
-                position: "absolute",
-                left: `${(p.x / SM_W) * 100}%`,
-                top: `${(p.y / SM_H) * 100}%`,
-                transform: "translate(-50%, -50%)",
-                zIndex: 2,
-                width: "clamp(20px, 4.6vw, 28px)",
-                height: "clamp(20px, 4.6vw, 28px)",
-                borderRadius: 999,
-                background: rankPinColor(c.rank),
-                border: "1.5px solid rgba(255,255,255,0.92)",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.35)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                fontSize: "clamp(9px, 2vw, 12px)",
-                fontWeight: 700,
-                fontVariantNumeric: "tabular-nums",
-                animationDelay: `${delayMs}ms`,
-                animationFillMode: "both",
-              }}
-            >
-              {label}
-            </div>
-          );
-        })}
-
-        {/* Your business marker */}
-        {(() => {
-          const p = map.project(result.lat, result.lng);
-          return (
-            <div
-              aria-label="Your business location"
-              title={result.businessName}
-              style={{
-                position: "absolute",
-                left: `${(p.x / SM_W) * 100}%`,
-                top: `${(p.y / SM_H) * 100}%`,
-                transform: "translate(-50%, -50%)",
-                zIndex: 4,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 26,
-                height: 26,
-                borderRadius: 999,
-                background: "#fff",
-                border: `2px solid ${BRAND_PRIMARY}`,
-                boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
-              }}
-            >
-              <MapPin size={14} color={BRAND_PRIMARY} aria-hidden="true" />
-            </div>
-          );
-        })()}
-      </div>
+      )}
 
       {/* Insight callouts: best, worst, opportunity */}
       <div

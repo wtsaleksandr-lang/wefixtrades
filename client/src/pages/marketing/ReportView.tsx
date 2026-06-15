@@ -274,6 +274,67 @@ function getScoreColor(score: number): string {
   return '#EF4444';
 }
 
+/**
+ * Build the ordered logo-fallback chain for a business avatar:
+ *   1. Places photo (businessPhotoUrl)
+ *   2. Places listing icon (business.icon, when present)
+ *   3. Favicon of the business website (Google s2 favicons, 128px)
+ *   4. (handled by caller) — the letter circle, last resort.
+ * Returns the candidate image URLs in priority order; the caller renders a
+ * letter circle once every candidate has failed.
+ */
+function buildLogoCandidates(business: any): string[] {
+  const out: string[] = [];
+  if (business?.businessPhotoUrl) out.push(business.businessPhotoUrl);
+  if (business?.icon) out.push(business.icon);
+  const site: string | undefined = business?.website;
+  if (site) {
+    try {
+      const host = new URL(/^https?:\/\//.test(site) ? site : `https://${site}`).hostname;
+      if (host) out.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`);
+    } catch { /* malformed website — skip the favicon candidate */ }
+  }
+  return out;
+}
+
+/**
+ * BusinessLogo — renders the best available avatar for a business, walking the
+ * candidate chain on each image error and falling back to a brand letter-circle
+ * only when every real image source has failed. Used by both cover-card variants
+ * (locked + unlocked) so the fallback behaviour is identical.
+ */
+function BusinessLogo({ business, dimension, fontSize, borderColor }: { business: any; dimension: number; fontSize: number; borderColor?: string }) {
+  const candidates = useMemo(() => buildLogoCandidates(business), [business]);
+  const [idx, setIdx] = useState(0);
+  // Reset to the first candidate whenever the business changes.
+  useEffect(() => { setIdx(0); }, [business?.placeId, business?.name]);
+  const src = candidates[idx];
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={business?.name || 'Business'}
+        decoding="async"
+        onError={() => setIdx((i) => i + 1)}
+        style={{
+          width: dimension, height: dimension, borderRadius: '50%', objectFit: 'cover',
+          border: borderColor ? `3px solid ${borderColor}` : undefined,
+          display: 'block',
+        }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: dimension, height: dimension, borderRadius: '50%', background: CYAN,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize, fontWeight: 700, color: DARK,
+    }}>
+      {(business?.name || 'B').charAt(0)}
+    </div>
+  );
+}
+
 function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: number; grade: string; onClick?: () => void; displayScore?: number; pulsing?: boolean }) {
   const shown = displayScore ?? score;
   const r = 45;
@@ -343,8 +404,11 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
               opacity={0.35}
               style={{ animation: 'scoreSweep 2s linear infinite' }}/>
           )}
-          <text x="60" y="55" textAnchor="middle" fill={color} fontSize="22" fontWeight="700">{shown}</text>
-          <text x="60" y="70" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
+          {/* Score number — larger and vertically centred inside the 42px ring
+              so it never clips the ticks or crowds the "/100" suffix. The big
+              number sits on the optical centre; the suffix tucks just below. */}
+          <text x="60" y="58" textAnchor="middle" fill={color} fontSize="30" fontWeight="800" letterSpacing="-0.5">{shown}</text>
+          <text x="60" y="76" textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="11" fontWeight="600">/100</text>
         </svg>
       </div>
       <div style={{
@@ -663,6 +727,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const detectedIssues: string[] = report?.detectedIssues || [];
   const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
 
+  // Generic lead-noun for the missed-demand copy (fix #9). The backend supplies
+  // `report.leadNoun` (e.g. "new enquiries" for non-trades, "jobs"/"calls" for
+  // trades). When absent — including before the sibling backend PR lands — we
+  // fall back to the neutral, trade-agnostic "new enquiries" so the report never
+  // assumes a trade vertical that may not apply. `leadNounCap` capitalises it for
+  // sentence-start / label use.
+  const leadNoun: string = (typeof report?.leadNoun === 'string' && report.leadNoun.trim())
+    ? report.leadNoun.trim()
+    : 'new enquiries';
+  const leadNounCap: string = leadNoun.charAt(0).toUpperCase() + leadNoun.slice(1);
+
   // Task 7 — prefetch lazy-tab chunks + payloads once the report is unlocked,
   // during browser idle, so a tab open is instant (chunk + sessionStorage cache
   // already warm) instead of showing a fresh loading state. Each request is
@@ -869,6 +944,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [visualAnalysisModal, setVisualAnalysisModal] = useState(false);
   const [screenshotLightbox, setScreenshotLightbox] = useState(false);
   const [reportZoom, setReportZoom] = useState(100);
+  // Tab-bar overflow affordance (fix #4): track whether more tabs exist to the
+  // right of the scroll viewport so we can show a fade + chevron hint.
+  const tabScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tabsCanScrollRight, setTabsCanScrollRight] = useState(false);
+  const updateTabOverflow = useCallback(() => {
+    const el = tabScrollRef.current;
+    if (!el) return;
+    // 2px slack so sub-pixel rounding doesn't leave the hint stuck on.
+    setTabsCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+  useEffect(() => {
+    updateTabOverflow();
+    window.addEventListener('resize', updateTabOverflow);
+    return () => window.removeEventListener('resize', updateTabOverflow);
+  }, [updateTabOverflow, unlocked]);
+  // Locked-state issue chips: show 6 by default, expand the rest on tap (fix #7).
+  const [issuesExpanded, setIssuesExpanded] = useState(false);
   const [holdingBackPopover, setHoldingBackPopover] = useState(false);
   const [revenueTooltip, setRevenueTooltip] = useState(false);
   const [kwColTooltip, setKwColTooltip] = useState<string | null>(null);
@@ -1464,9 +1556,16 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* TAB BAR — only shown when unlocked. 9 peer tabs; horizontal scroll
           on narrow screens so the bar never breaks. Each tab is one click;
           per-tab content is lazy-mounted (see openTab + lazy-import block). */}
-      {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
+      {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', boxSizing:'border-box', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
+        {/* Relative wrapper hosts the right-edge "more tabs" fade + chevron so
+            visitors see the bar scrolls when tabs overflow (fix #4). width:100%
+            + minWidth:0 bound it to the (padded) sticky bar so the off-screen
+            tabs scroll inside the inner bar instead of widening the page. */}
+        <div style={{ position:'relative', width:'100%', minWidth:0, display:'flex', justifyContent:'center' }}>
         <div
           data-testid="audit-tab-bar"
+          ref={tabScrollRef}
+          onScroll={updateTabOverflow}
           style={{
             display:'inline-flex',
             background:'#F3F4F6',
@@ -1501,6 +1600,24 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 : 'Action Plan'}
             </button>
           ))}
+        </div>
+        {/* Right-edge fade + chevron — only while more tabs sit off-screen.
+            Tapping nudges the bar rightward so the affordance is functional,
+            not just decorative. */}
+        {tabsCanScrollRight && (
+          <div
+            aria-hidden="true"
+            onClick={() => { const el = tabScrollRef.current; if (el) el.scrollBy({ left: 120, behavior: 'smooth' }); }}
+            style={{
+              position:'absolute', top:0, right:0, bottom:0, width:48,
+              display:'flex', alignItems:'center', justifyContent:'flex-end',
+              paddingRight:6, cursor:'pointer', borderRadius:'0 28px 28px 0',
+              background:'linear-gradient(to right, rgba(243,244,246,0), rgba(243,244,246,0.95) 55%)',
+            }}
+          >
+            <ChevronRight size={16} color="#6B7280" />
+          </div>
+        )}
         </div>
       </div>}
 
@@ -1620,26 +1737,16 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
               backgroundSize: '18px 18px', opacity: 0.45, pointerEvents: 'none',
             }}/>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                {business?.businessPhotoUrl ? (
-                  <img src={business.businessPhotoUrl} alt={business.name} decoding="async" style={{
-                    width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
-                    border: `3px solid ${CYAN}`, marginBottom: 8, display: 'block'
-                  }} />
-                ) : (
-                  <div style={{
-                    width: 72, height: 72, borderRadius: '50%', background: CYAN,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, fontWeight: 700, color: DARK, marginBottom: 8
-                  }}>
-                    {(business?.name || 'B').charAt(0)}
-                  </div>
-                )}
-                <div style={{ fontSize: 22, fontWeight: 700, color: WHITE, marginBottom: 8, lineHeight: 1.3 }}>
+            {/* 2-col layout — info left, score top-right. Grid (not flex-wrap)
+                so the ScoreCircle stays beside the name at EVERY width, never
+                wrapping under it on mobile (fix #1/#3). */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'start', position: 'relative', zIndex: 1 }}>
+              <div style={{ minWidth: 0 }}>
+                <BusinessLogo business={business} dimension={72} fontSize={24} borderColor={CYAN} />
+                <div style={{ fontSize: 22, fontWeight: 700, color: WHITE, margin: '8px 0', lineHeight: 1.3, wordBreak: 'break-word' }}>
                   {business?.name}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: AMBER, fontSize: 14 }}>{'★'.repeat(Math.round(business?.rating || 0))}</span>
                   <span style={{ color: WHITE, fontWeight: 600, fontSize: 14 }}>{business?.rating}</span>
                   <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>({business?.reviewsCount?.toLocaleString()} reviews)</span>
@@ -1648,7 +1755,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {/* Task 9 — locked teaser score is now explained: tap opens the
                   score-explanation modal (same one the unlocked view uses) so the
                   hero number isn't an unexplained black box. */}
-              <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+              <div style={{ justifySelf: 'end' }}>
+                <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+              </div>
             </div>
           </div>
 
@@ -1659,7 +1768,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 {detectedIssues.length} issue{detectedIssues.length !== 1 ? 's' : ''} found
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {detectedIssues.slice(0, 3).map((issue: string) => (
+                {(issuesExpanded ? detectedIssues : detectedIssues.slice(0, 6)).map((issue: string) => (
                   <span key={issue} style={{
                     padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                     background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
@@ -1667,16 +1776,64 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     {issue.replace(/-/g, ' ')}
                   </span>
                 ))}
-                {detectedIssues.length > 3 && (
-                  <span style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: GREY }}>
-                    +{detectedIssues.length - 3} more
-                  </span>
+                {!issuesExpanded && detectedIssues.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setIssuesExpanded(true)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                      color: CYAN, background: 'transparent', border: `1px solid ${CYAN}`,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    +{detectedIssues.length - 6} more
+                  </button>
+                )}
+                {issuesExpanded && detectedIssues.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setIssuesExpanded(false)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                      color: GREY, background: 'transparent', border: 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Show less
+                  </button>
                 )}
               </div>
             </div>
           )}
 
-          {/* Gate */}
+          {/* "Unlock to see" — concrete list of the REAL gated content, replacing
+              the old random-bar blur (fix #11). Names exactly what the visitor
+              gets so the gate is an honest value exchange, not a fake teaser. */}
+          <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: '18px 20px', marginBottom: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 12 }}>
+              Unlock the full audit to see:
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px 16px' }}>
+              {[
+                'Your 5×5 Google Maps Rank Grid',
+                'Full Score Breakdown by category',
+                'SEO Checklist — what to fix first',
+                'Site Speed vs your competitors',
+                'NAP consistency across the web',
+                'Market Sizer — demand in your area',
+                'Trust score & review-gap analysis',
+                'Full Action Plan + competitor breakdown',
+              ].map((label) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <Check size={16} color={GREEN} strokeWidth={2.6} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.4 }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Gate — placed at the END so the readable section comes first and the
+              ask lands after the visitor has seen the value (fix #11). */}
           <AuditGate
             businessName={business?.name}
             reportId={reportId}
@@ -1689,33 +1846,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             detectedIssues={detectedIssues}
             recommendedServices={recommendedServices?.slice(0, 3)}
             lostRevenueMonthly={lostRevenueMonthly}
+            leadNoun={leadNoun}
             onUnlock={() => onUnlock?.()}
           />
-
-          {/* Blurred teaser of what's below */}
-          <div style={{
-            position: 'relative', overflow: 'hidden',
-            maxHeight: 220, borderRadius: r16,
-            pointerEvents: 'none', userSelect: 'none',
-          }}>
-            <div style={{ filter: 'blur(6px)', opacity: 0.4 }}>
-              <div style={{ background: WHITE, borderRadius: r16, border: `1px solid ${BORDER}`, padding: 20, marginBottom: 10 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: DARK, marginBottom: 12 }}>Your Score Breakdown</div>
-                {['Google Maps Profile', 'Website Quality', 'Online Presence', 'Content & Keywords'].map(label => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontSize: 13, color: DARK, flex: 1 }}>{label}</span>
-                    <div style={{ width: 80, height: 8, borderRadius: 4, background: '#E5E7EB' }}>
-                      <div style={{ width: `${30 + Math.random() * 50}%`, height: '100%', background: CYAN, borderRadius: 4 }}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: 100,
-              background: 'linear-gradient(transparent, white)',
-            }}/>
-          </div>
         </>
       )}
 
@@ -1779,40 +1912,31 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
           backgroundSize: '18px 18px', opacity: 0.45, pointerEvents: 'none',
         }}/>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            {business?.businessPhotoUrl ? (
-              <img src={business.businessPhotoUrl} alt={business.name} style={{
-                width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
-                border: `3px solid ${CYAN}`, marginBottom: 8, display: 'block'
-              }} />
-            ) : (
-              <div style={{
-                width: 72, height: 72, borderRadius: '50%', background: CYAN,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, fontWeight: 700, color: DARK, marginBottom: 8
-              }}>
-                {(business?.name || 'B').charAt(0)}
-              </div>
-            )}
-            <div style={{ fontSize: 22, fontWeight: 700, color: WHITE, marginBottom: 8, lineHeight: 1.3 }}>
+        {/* 2-col layout — info left, score top-right. Grid (not flex-wrap) so
+            the ScoreCircle stays beside the name at every width (fix #1/#3). */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'start', position: 'relative', zIndex: 1 }}>
+          <div style={{ minWidth: 0 }}>
+            <BusinessLogo business={business} dimension={72} fontSize={24} borderColor={CYAN} />
+            <div style={{ fontSize: 22, fontWeight: 700, color: WHITE, margin: '8px 0', lineHeight: 1.3, wordBreak: 'break-word' }}>
               {business?.name}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
               <span style={{ color: AMBER, fontSize: 14 }}>{'★'.repeat(Math.round(business?.rating || 0))}</span>
               <span style={{ color: WHITE, fontWeight: 600, fontSize: 14 }}>{business?.rating}</span>
               <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>({business?.reviewsCount?.toLocaleString()} reviews)</span>
             </div>
             {[business?.address, business?.phone].filter(Boolean).map((v, i) => (
-              <div key={i} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>{v}</div>
+              <div key={i} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3, wordBreak: 'break-word' }}>{v}</div>
             ))}
             {business?.website && (
-              <a href={business.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: CYAN, display: 'block', marginTop: 3, textDecoration: 'none' }}>
+              <a href={business.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: CYAN, display: 'block', marginTop: 3, textDecoration: 'none', wordBreak: 'break-all' }}>
                 {business.website.replace(/^https?:\/\//, '').split('/')[0]}
               </a>
             )}
           </div>
-          <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+          <div style={{ justifySelf: 'end' }}>
+            <ScoreCircle score={liveTotal} grade={scores.grade || 'D'} onClick={() => setScoreModalOpen(true)} displayScore={displayScore} pulsing={liveWebsiteScore === null && !!speedLoading} />
+          </div>
         </div>
         {ai.executiveSummary && (
           <>
@@ -2133,7 +2257,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {holdingBackPopover && (
                 <div style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', width: 260, background: DARK, color: WHITE, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>How this list works</div>
-                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate new jobs.
+                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate {leadNoun}.
                   <button onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
                 </div>
               )}
@@ -2215,7 +2339,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {/* LEFT — missed jobs */}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Potential Missed Jobs / Month
+                  Potential Missed {leadNounCap} / Month
                 </div>
                 <div style={{ fontSize: 36, fontWeight: 800, color: WHITE, marginTop: 8, lineHeight: 1 }}>
                   {missedJobsMonthly > 0 ? missedJobsMonthly : Math.max(1, Math.round(revLow / avgTicket))}
@@ -2284,7 +2408,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {holdingBackPopover && (
                 <div style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', width: 260, background: DARK, color: WHITE, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>How this list works</div>
-                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate new jobs.
+                  These are the highest-impact actions for your business right now, ranked by how fast they typically generate {leadNoun}.
                   <button onClick={(e) => { e.stopPropagation(); setHoldingBackPopover(false); }} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
                 </div>
               )}
