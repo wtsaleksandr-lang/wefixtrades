@@ -21,10 +21,9 @@
  *  - "Get a quote" flow: clicking CTA reveals form WITH a Back button.
  *  - Publish-modal language picker: shows 5 options, FloatField pattern.
  *
- * IA REDESIGN (2026-06) — the Install tab was folded into the Publish modal
- * (opened via `quotequick-publish`, content `editor-publish-overlay`); the tab
- * strip is now Build · Action · Style · Settings (no Install). Install-related
- * screenshots now drive the Publish modal instead of `editor-tab-install`.
+ * IA REDESIGN v2 (2026-06) — the Install tab is restored as a first-class tab
+ * (Build · Action · Style · Settings · Install). Install-related screenshots
+ * drive `editor-tab-install` again.
  *
  * Each screenshot is named `vN-<area>-<viewport>.png`.
  *
@@ -114,11 +113,11 @@ test.describe('Wave R-pre v2 — desktop 1440', () => {
     await shoot(page, 'v2-header-results-desktop');
   });
 
-  test('Publish modal — hosted-page section + language picker (5 options) + FloatField for headline/sub', async ({ page }) => {
-    // IA redesign — Install tab folded into the Publish modal.
+  test('Install tab — hosted-page section + language picker (5 options) + FloatField for headline/sub', async ({ page }) => {
+    // IA redesign v2 — Install is a first-class tab again.
     await openWizard(page);
-    await page.getByTestId('quotequick-publish').click();
-    await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 1500 });
+    await page.getByTestId('editor-tab-install').click();
+    await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 1500 });
     await page.waitForTimeout(400);
     await shoot(page, 'v2-install-tab-desktop');
 

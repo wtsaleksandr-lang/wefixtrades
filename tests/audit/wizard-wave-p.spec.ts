@@ -1,12 +1,10 @@
 /**
  * QuoteQuick wizard — Wave P hosted-page chrome + slug conflict UX.
  *
- * IA REDESIGN (2026-06, Elfsight-parity) — the standalone Install tab was
- * folded into a **Publish modal** opened from the top-bar `quotequick-publish`
- * button. The modal renders the same <InstallTab> component (which embeds
- * <HostedPageSection>), so every hosted-* / install-* testid is preserved.
- * Only navigation changed: instead of `editor-tab-install`, we open the
- * Publish modal and assert inside `editor-publish-overlay`.
+ * IA REDESIGN v2 (2026-06, logical tab IA) — the Install tab is RESTORED as a
+ * first-class tab; the hosted-page + slug config lives there again (no longer
+ * in the Publish modal). Navigation: click `editor-tab-install` and assert
+ * inside `editor-tabpanel-install`.
  *
  *   Editor / wizard side:
  *     1. Publish modal exposes the "Hosted page customisation" section.
@@ -43,13 +41,13 @@ async function openWizard(page: Page) {
 }
 
 /**
- * IA redesign — open the Publish modal (replaces the removed Install tab).
- * The same InstallTab content renders inside the overlay.
+ * IA redesign v2 — open the restored Install tab. The hosted-page + install
+ * content renders inside `editor-tabpanel-install`.
  */
 async function openPublishModal(page: Page) {
   await openWizard(page);
-  await page.getByTestId('quotequick-publish').click();
-  await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+  await page.getByTestId('editor-tab-install').click();
+  await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId('install-section-hosted')).toBeVisible({ timeout: 2000 });
 }
 
@@ -114,9 +112,9 @@ test.describe('wizard Wave P — Slug conflict UX', () => {
     if (await nameInput.isVisible().catch(() => false)) {
       await nameInput.fill('Joes Plumbing');
     }
-    // Open the Publish modal — hosted link reflects the slugified name.
-    await page.getByTestId('quotequick-publish').click();
-    await expect(page.getByTestId('editor-publish-overlay')).toBeVisible({ timeout: 2000 });
+    // Open the Install tab — hosted link reflects the slugified name.
+    await page.getByTestId('editor-tab-install').click();
+    await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId('install-hosted-url')).toContainText('joes-plumbing');
 
     // Open the slug editor.

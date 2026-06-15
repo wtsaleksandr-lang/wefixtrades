@@ -5,41 +5,43 @@
 // card, the captured fields list, and drill-in sub-sections for the heavier
 // features) but is populated entirely with OUR features and OUR copy.
 //
-// State ownership (relocated here — same keys, no new state except actionMode,
-// ctaHeading, ctaCaption, redirectUrl):
-//   - settings.actionMode  (NEW — 'redirect' | 'lead-form' | 'no-action')
-//   - settings.ctaHeading  (NEW — lead-form CTA card heading)
-//   - settings.ctaCaption  (NEW — lead-form CTA card caption)
+// State ownership (relocated here — same keys, no renamed persisted state):
+//   - settings.actionMode  ('redirect' | 'lead-form' | 'no-action')
+//   - settings.ctaHeading  (lead-form CTA card heading)
+//   - settings.ctaCaption  (lead-form CTA card caption)
 //   - settings.ctaLabel    (MOVED from SettingsTab — open-form button text)
 //   - settings.leadEmail   (MOVED from SettingsTab — Email-notifications sub-row)
-//   - settings.redirectUrl (NEW — redirect destination URL)
-//   - style.deposit        (MOVED from StyleTab — Payment sub-row, AdvDeposit)
-//   - style.booking        (MOVED from StyleTab — Online-booking sub-row, AdvBooking)
-//
-// Surfaces we don't have yet (configurable lead fields, Submit-button config,
-// Integrations, Spam protection) are rendered as disabled rows with a small
-// "Coming soon" hint so the LAYOUT matches without faking functionality.
+//   - settings.redirectUrl (redirect destination URL)
+//   - settings.deposit     (MOVED from SettingsTab — Payment sub-row. This is the
+//                           PERSISTED Stripe deposit → appearance.deposit on save.
+//                           The old non-persisting style.deposit control was removed.)
+//   - settings.scheduling  (MOVED from SettingsTab — Online-booking sub-row. The
+//                           PERSISTED built-in scheduler → appearance.scheduling on
+//                           save. The old non-persisting style.booking was removed.)
 
 import { useCallback, useEffect, useState } from 'react';
 import {
   User, Mail, Phone, Plus,
   CreditCard, BellRing, CalendarDays,
   MousePointerClick, Plug, ShieldCheck,
-  Lock, Shield, Check, CheckCircle, Calendar, Clock, BadgeCheck, FileCheck, Award,
   Copy, RefreshCw, Send, ExternalLink, Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { AE } from './appleEditor';
 import type {
   ShellSettings,
-  ShellStyle,
   LeadCustomField,
   LeadFieldType,
+  ShellDeposit,
+  ShellSchedulingSettings,
+  ShellSlotDurationMinutes,
+  ShellBufferMinutes,
+  ShellWorkingDay,
 } from './types';
-import { LEAD_FIELD_TYPE_OPTIONS } from './types';
-import type {
-  AdvDeposit, AdvDepositIconName, AdvBooking, AdvBookingSource,
-} from '@shared/templatePresets';
+import {
+  LEAD_FIELD_TYPE_OPTIONS,
+  DEFAULT_SHELL_SCHEDULING,
+} from './types';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
@@ -47,9 +49,6 @@ import AdvancedSection from './AdvancedSection';
 import { StyledSelect } from './StyledSelect';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** ShellStyle is an alias of AdvStyle; the data contract names it AdvStyle. */
-type AdvStyle = ShellStyle;
 
 type ActionMode = 'redirect' | 'lead-form' | 'no-action';
 
@@ -74,26 +73,46 @@ function newLeadFieldId(): string {
   return `lf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/* P2 UX — deposit-badge icon picker. Mirrors the whitelist used elsewhere so a
-   saved name resolves back to its lucide component. */
-const DEPOSIT_ICON_OPTIONS: ReadonlyArray<{ name: AdvDepositIconName; Icon: LucideIcon; label: string }> = [
-  { name: 'Lock',        Icon: Lock,        label: 'Lock' },
-  { name: 'Shield',      Icon: Shield,      label: 'Shield' },
-  { name: 'ShieldCheck', Icon: ShieldCheck, label: 'Shield + check' },
-  { name: 'Check',       Icon: Check,       label: 'Check' },
-  { name: 'CheckCircle', Icon: CheckCircle, label: 'Check circle' },
-  { name: 'Calendar',    Icon: Calendar,    label: 'Calendar' },
-  { name: 'Clock',       Icon: Clock,       label: 'Clock' },
-  { name: 'BadgeCheck',  Icon: BadgeCheck,  label: 'Badge check' },
-  { name: 'FileCheck',   Icon: FileCheck,   label: 'File check' },
-  { name: 'Award',       Icon: Award,       label: 'Award' },
+/** Parse a number input — blank string returns `undefined` so the field
+ *  doesn't get pinned to `0` when the user clears it. (Relocated alongside
+ *  the deposit config from SettingsTab.) */
+function numOrUndef(raw: string): number | undefined {
+  if (raw.trim() === '') return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/* Wave R-1 — Online booking constants (RELOCATED from SettingsTab). Mon-Sun in
+   calendar order; we store 0=Sun..6=Sat under the hood (matches JS
+   Date.getDay()), so the UI flips the index but the persisted value is always
+   the standard JS day index. */
+const SCHEDULING_DAYS: ReadonlyArray<{ value: ShellWorkingDay; label: string }> = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+];
+
+const SLOT_DURATION_OPTIONS: ReadonlyArray<{ value: ShellSlotDurationMinutes; label: string }> = [
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 45, label: '45 minutes' },
+  { value: 60, label: '60 minutes' },
+];
+
+const BUFFER_OPTIONS: ReadonlyArray<{ value: ShellBufferMinutes; label: string }> = [
+  { value: 0,  label: 'No buffer' },
+  { value: 5,  label: '5 minutes' },
+  { value: 10, label: '10 minutes' },
+  { value: 15, label: '15 minutes' },
 ];
 
 interface Props {
   settings: ShellSettings;
   onChange: (next: ShellSettings) => void;
-  style: AdvStyle;
-  onStyleChange: (next: AdvStyle) => void;
   /** Owner plan tier — drives the "Pro" hint on coming-soon rows. */
   planTier?: string;
   /** Calculator edit token — the Integrations panel uses it to read/save its
@@ -102,15 +121,11 @@ interface Props {
 }
 
 export default function ActionTab({
-  settings, onChange, style, onStyleChange, editToken = '',
+  settings, onChange, editToken = '',
 }: Props) {
   const patch = useCallback(
     (next: Partial<ShellSettings>) => onChange({ ...settings, ...next }),
     [settings, onChange],
-  );
-  const patchStyle = useCallback(
-    (next: Partial<AdvStyle>) => onStyleChange({ ...style, ...next }),
-    [style, onStyleChange],
   );
 
   const actionMode: ActionMode = settings.actionMode ?? 'lead-form';
@@ -149,48 +164,37 @@ export default function ActionTab({
     [leadFields, setLeadFields],
   );
 
-  // ── Payment (relocated from StyleTab — style.deposit, AdvDeposit) ──
-  const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
-  const depositEnabled = deposit.enabled === true;
-  const depositAmount = (() => {
-    const raw = deposit.amount;
-    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 200;
-    return Math.max(1, Math.min(100000, Math.round(raw)));
-  })();
-  const depositLabel = typeof deposit.label === 'string' ? deposit.label : '';
-  const depositIconName: AdvDepositIconName = (
-    DEPOSIT_ICON_OPTIONS.some((o) => o.name === deposit.iconName)
-      ? (deposit.iconName as AdvDepositIconName)
-      : 'Lock'
+  // ── Deposit (RELOCATED from SettingsTab — settings.deposit, the
+  //    PERSISTED Stripe deposit that maps to appearance.deposit on save).
+  //    Replaces the old non-persisting style.deposit control. ──
+  const deposit: ShellDeposit = settings.deposit ?? {
+    enabled: false, mode: 'percent', value: 15, label: '', required: false,
+  };
+  const stripeConnected = settings.stripeConnected !== false;
+  const patchDeposit = useCallback(
+    (next: Partial<ShellDeposit>) => patch({ deposit: { ...deposit, ...next } }),
+    [patch, deposit],
   );
-  const setDeposit = (next: Partial<AdvDeposit>) => {
-    patchStyle({
-      deposit: {
-        enabled: depositEnabled,
-        amount: depositAmount,
-        ...(depositLabel ? { label: depositLabel } : null),
-        ...(style.deposit ?? {}),
-        ...next,
-      },
-    });
-  };
 
-  // ── Online booking (relocated from StyleTab — style.booking, AdvBooking) ──
-  const booking: AdvBooking = style.booking ?? { enabled: false, source: 'wefixtrades-default' };
-  const bookingEnabled = booking.enabled === true;
-  const bookingSource: AdvBookingSource = booking.source ?? 'wefixtrades-default';
-  const bookingUrl = typeof booking.url === 'string' ? booking.url : '';
-  const setBooking = (next: Partial<AdvBooking>) => {
-    patchStyle({
-      booking: {
-        enabled: bookingEnabled,
-        source: bookingSource,
-        ...(bookingUrl ? { url: bookingUrl } : null),
-        ...(style.booking ?? {}),
-        ...next,
-      },
-    });
-  };
+  // ── Online booking (RELOCATED from SettingsTab — settings.scheduling,
+  //    the PERSISTED built-in scheduler that maps to appearance.scheduling
+  //    on save). Replaces the old non-persisting style.booking control. ──
+  const scheduling: ShellSchedulingSettings =
+    settings.scheduling ?? { ...DEFAULT_SHELL_SCHEDULING };
+  const patchScheduling = useCallback(
+    (next: Partial<ShellSchedulingSettings>) =>
+      patch({ scheduling: { ...scheduling, ...next } }),
+    [patch, scheduling],
+  );
+  const toggleWorkingDay = useCallback(
+    (day: ShellWorkingDay) => {
+      const set = new Set<ShellWorkingDay>(scheduling.workingDays);
+      if (set.has(day)) set.delete(day);
+      else set.add(day);
+      patchScheduling({ workingDays: Array.from(set).sort((a, b) => a - b) as ShellWorkingDay[] });
+    },
+    [patchScheduling, scheduling.workingDays],
+  );
 
   const leadEmailInvalid = leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim());
 
@@ -377,93 +381,142 @@ export default function ActionTab({
             label="Advanced action"
             hint="payment, email notifications, booking & more"
           >
-            {/* Payment — relocated style.deposit */}
-            <div className="qq-action-card" data-testid="action-group-payment">
+            {/* Payment — RELOCATED from SettingsTab. The PERSISTED Stripe
+                deposit (settings.deposit → appearance.deposit on save).
+                Disables itself when no Stripe account is connected. Testids
+                preserved from SettingsTab so existing tests resolve here. */}
+            <div
+              className={`qq-action-card${stripeConnected ? '' : ' is-disabled'}`}
+              data-testid="settings-group-deposit"
+              data-stripe-connected={stripeConnected ? 'true' : 'false'}
+            >
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
                   <CreditCard size={16} />
                 </span>
-                <span className="qq-action-card-title">Payment</span>
+                <span className="qq-action-card-title">Deposit</span>
                 <InfoCue
-                  testid="action-section-payment"
-                  region="result"
-                  text="Show a deposit badge on the result step so customers can secure their slot. The actual checkout is wired to Stripe separately — the preview never charges money."
+                  testid="settings-section-deposit"
+                  region="step-content"
+                  text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
                 />
               </div>
               <div className="qq-action-card-body">
-                <label className="qq-action-toggle">
+                {!stripeConnected && (
+                  <p
+                    className="qq-action-seg-hint"
+                    data-testid="settings-deposit-no-stripe"
+                    style={{ margin: '0 0 10px' }}
+                  >
+                    Connect Stripe in your dashboard first to enable deposits.
+                  </p>
+                )}
+
+                <label
+                  className="qq-action-toggle"
+                  style={{ cursor: stripeConnected ? 'pointer' : 'not-allowed', opacity: stripeConnected ? 1 : 0.55 }}
+                >
                   <input
                     type="checkbox"
-                    checked={depositEnabled}
-                    onChange={(e) => setDeposit({ enabled: e.target.checked })}
-                    data-testid="style-deposit-enabled"
-                    aria-label="Require deposit to schedule"
+                    checked={deposit.enabled === true}
+                    disabled={!stripeConnected}
+                    onChange={(e) => patchDeposit({ enabled: e.target.checked })}
+                    data-testid="settings-deposit-enabled"
+                    aria-label="Collect a deposit when customers book"
                   />
-                  <span className="qq-action-toggle-title">Require deposit to schedule</span>
+                  <span className="qq-action-toggle-title">Collect a deposit when customers book</span>
                 </label>
+                <p className="qq-action-seg-hint" data-testid="settings-deposit-hint">
+                  Adds a "Secure your slot" step after the quote. Money flows directly to your Stripe account.
+                </p>
 
-                {depositEnabled && (
-                  <div className="qq-action-subfields" data-testid="style-deposit-sub-fields">
-                    <FloatField label="Deposit amount" htmlFor="qq-action-deposit-amount">
+                {deposit.enabled && stripeConnected && (
+                  <div className="qq-action-subfields" data-testid="settings-deposit-fields">
+                    <div
+                      className="qq-action-seg"
+                      role="radiogroup"
+                      aria-label="Deposit type"
+                      data-testid="settings-segmented-deposit"
+                    >
+                      {([
+                        { value: 'percent' as const, label: 'Percent (%)' },
+                        { value: 'fixed' as const,   label: 'Fixed ($)' },
+                      ]).map((o) => {
+                        const selected = (deposit.mode === 'fixed' ? 'fixed' : 'percent') === o.value;
+                        return (
+                          <button
+                            key={o.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            className={`qq-action-seg-btn${selected ? ' is-active' : ''}`}
+                            data-testid={`settings-segmented-deposit-${o.value}`}
+                            onClick={() => patchDeposit({ mode: o.value })}
+                          >
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <FloatField
+                      label={deposit.mode === 'fixed' ? 'Deposit amount ($)' : 'Deposit percentage (%)'}
+                      htmlFor="qq-action-deposit-value"
+                      infoText={
+                        deposit.mode === 'fixed'
+                          ? 'Charged in dollars regardless of quote size. Stripe requires a $0.50 minimum.'
+                          : "Charged as a percentage of the customer's quote total. E.g. 15 → 15%."
+                      }
+                      infoTestid="settings-deposit-value-info"
+                    >
                       <input
-                        id="qq-action-deposit-amount"
+                        id="qq-action-deposit-value"
                         type="number"
+                        min={0}
+                        step={deposit.mode === 'fixed' ? 1 : 0.5}
                         className="premium-input"
-                        min={1}
-                        max={100000}
-                        step={1}
-                        inputMode="numeric"
                         placeholder=" "
-                        value={depositAmount}
-                        data-testid="style-deposit-amount"
-                        onChange={(e) => {
-                          const raw = Number(e.target.value);
-                          if (!Number.isFinite(raw)) return;
-                          setDeposit({ amount: Math.max(1, Math.min(100000, Math.round(raw))) });
-                        }}
+                        value={deposit.value ?? ''}
+                        onChange={(e) => patchDeposit({ value: numOrUndef(e.target.value) })}
+                        data-testid="settings-input-deposit-value"
+                        aria-invalid={
+                          deposit.value !== undefined && Number(deposit.value) <= 0 ? 'true' : 'false'
+                        }
                       />
                     </FloatField>
-                    <FloatField label="Badge label (optional)" htmlFor="qq-action-deposit-label">
+                    {deposit.value !== undefined && Number(deposit.value) <= 0 && (
+                      <p className="qq-action-error" data-testid="settings-deposit-value-error">
+                        Enter a positive amount.
+                      </p>
+                    )}
+
+                    <FloatField
+                      label="Custom label (optional)"
+                      htmlFor="qq-action-deposit-label"
+                      infoText='Overrides the deposit headline shown to customers. E.g. "Secure your slot — $50". Leave blank to use the default.'
+                      infoTestid="settings-deposit-label-info"
+                    >
                       <input
                         id="qq-action-deposit-label"
                         type="text"
                         className="premium-input"
-                        maxLength={120}
                         placeholder=" "
-                        value={depositLabel}
-                        data-testid="style-deposit-label"
-                        onChange={(e) => setDeposit({ label: e.target.value })}
+                        value={deposit.label ?? ''}
+                        onChange={(e) => patchDeposit({ label: e.target.value })}
+                        data-testid="settings-input-deposit-label"
                       />
                     </FloatField>
-                    <div className="qq-action-iconrow" data-testid="style-deposit-icon-row">
-                      <div className="qq-action-iconrow-label" id="action-deposit-icon-label">
-                        Badge icon
-                      </div>
-                      <div
-                        className="qq-action-iconscroll"
-                        role="radiogroup"
-                        aria-labelledby="action-deposit-icon-label"
-                      >
-                        {DEPOSIT_ICON_OPTIONS.map(({ name, Icon, label }) => {
-                          const selected = depositIconName === name;
-                          return (
-                            <button
-                              key={name}
-                              type="button"
-                              role="radio"
-                              aria-checked={selected}
-                              aria-label={label}
-                              title={label}
-                              data-testid={`style-deposit-icon-${name}`}
-                              className={`qq-action-iconbtn${selected ? ' is-selected' : ''}`}
-                              onClick={() => setDeposit({ iconName: name })}
-                            >
-                              <Icon size={16} aria-hidden="true" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+
+                    <label className="qq-action-toggle">
+                      <input
+                        type="checkbox"
+                        checked={deposit.required === true}
+                        onChange={(e) => patchDeposit({ required: e.target.checked })}
+                        data-testid="settings-deposit-required"
+                        aria-label="Require the deposit before booking is confirmed"
+                      />
+                      <span className="qq-action-toggle-title">Require deposit to confirm booking</span>
+                    </label>
                   </div>
                 )}
               </div>
@@ -510,60 +563,113 @@ export default function ActionTab({
               </div>
             </div>
 
-            {/* Online booking — relocated style.booking */}
-            <div className="qq-action-card" data-testid="action-group-booking" data-edit-key="online-booking">
+            {/* Online booking — RELOCATED from SettingsTab. The PERSISTED
+                built-in scheduler (settings.scheduling → appearance.scheduling
+                on save). Testids preserved from SettingsTab. */}
+            <div
+              className="qq-action-card"
+              data-testid="settings-group-scheduling"
+              data-edit-key="online-booking"
+            >
               <div className="qq-action-card-head">
                 <span className="qq-action-card-headicon" aria-hidden="true">
                   <CalendarDays size={16} />
                 </span>
                 <span className="qq-action-card-title">Online booking</span>
                 <InfoCue
-                  testid="action-section-booking"
-                  region="result"
-                  text="Add a slot picker beneath the price on the result step. Use the built-in slots, or point it at a Cal.com or Calendly URL."
+                  testid="settings-section-scheduling"
+                  region="step-content"
+                  text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
                 />
               </div>
               <div className="qq-action-card-body">
-                <label className="qq-action-toggle">
-                  <input
-                    type="checkbox"
-                    checked={bookingEnabled}
-                    onChange={(e) => setBooking({ enabled: e.target.checked })}
-                    data-testid="style-booking-enabled"
-                    aria-label="Show calendar in widget"
-                  />
-                  <span className="qq-action-toggle-title">Show calendar in widget</span>
-                </label>
+                <div data-testid="scheduling-toggle-row">
+                  <label className="qq-action-toggle">
+                    <input
+                      type="checkbox"
+                      checked={scheduling.enabled}
+                      onChange={(e) => patchScheduling({ enabled: e.target.checked })}
+                      data-testid="scheduling-enabled-input"
+                      aria-label="Enable online booking"
+                    />
+                    <span className="qq-action-toggle-title">Let customers book a time on your calendar</span>
+                  </label>
+                  <p className="qq-action-seg-hint">
+                    The widget shows a 14-day picker after the price reveal. Slots are local to your working hours.
+                  </p>
+                </div>
 
-                {bookingEnabled && (
-                  <div className="qq-action-subfields" data-testid="style-booking-sub-fields">
-                    <FloatField label="Calendar source" htmlFor="qq-action-booking-source" variant="select">
-                      <StyledSelect
-                        value={bookingSource}
-                        onChange={(next) => setBooking({ source: next as AdvBookingSource })}
-                        options={[
-                          { value: 'wefixtrades-default', label: 'WeFixTrades default (built-in slots)' },
-                          { value: 'cal.com-url', label: 'Cal.com URL' },
-                          { value: 'calendly-url', label: 'Calendly URL' },
-                        ]}
-                        title="Calendar source"
-                        ariaLabel="Calendar source"
-                        testId="style-booking-source"
-                      />
-                    </FloatField>
-                    {(bookingSource === 'cal.com-url' || bookingSource === 'calendly-url') && (
-                      <FloatField label="Scheduler URL" htmlFor="qq-action-booking-url">
+                {scheduling.enabled && (
+                  <div className="qq-action-subfields" data-testid="scheduling-body">
+                    <div className="qq-action-iconrow-label">Working days</div>
+                    <div className="qq-sched-days" role="group" aria-label="Working days">
+                      {SCHEDULING_DAYS.map((d) => {
+                        const checked = scheduling.workingDays.includes(d.value);
+                        return (
+                          <label
+                            key={d.value}
+                            className={`qq-sched-daychip${checked ? ' is-active' : ''}`}
+                            data-testid={`scheduling-day-${d.value}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleWorkingDay(d.value)}
+                              aria-label={`Working day ${d.label}`}
+                            />
+                            <span>{d.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div className="qq-sched-grid">
+                      <FloatField label="Start time" htmlFor="qq-action-sched-start">
                         <input
-                          id="qq-action-booking-url"
-                          type="url"
+                          id="qq-action-sched-start"
+                          type="time"
                           className="premium-input"
                           placeholder=" "
-                          value={bookingUrl}
-                          data-testid="style-booking-url"
-                          onChange={(e) => setBooking({ url: e.target.value })}
+                          value={scheduling.workingHoursStart}
+                          onChange={(e) => patchScheduling({ workingHoursStart: e.target.value })}
+                          data-testid="scheduling-input-start"
                         />
                       </FloatField>
-                    )}
+                      <FloatField label="End time" htmlFor="qq-action-sched-end">
+                        <input
+                          id="qq-action-sched-end"
+                          type="time"
+                          className="premium-input"
+                          placeholder=" "
+                          value={scheduling.workingHoursEnd}
+                          onChange={(e) => patchScheduling({ workingHoursEnd: e.target.value })}
+                          data-testid="scheduling-input-end"
+                        />
+                      </FloatField>
+                    </div>
+
+                    <div className="qq-sched-grid">
+                      <FloatField label="Slot duration" htmlFor="qq-action-sched-duration" variant="select">
+                        <StyledSelect
+                          value={String(scheduling.slotDurationMinutes)}
+                          onChange={(next) => patchScheduling({ slotDurationMinutes: Number(next) as ShellSlotDurationMinutes })}
+                          options={SLOT_DURATION_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+                          title="Slot duration"
+                          ariaLabel="Slot duration"
+                          testId="scheduling-select-duration"
+                        />
+                      </FloatField>
+                      <FloatField label="Buffer between slots" htmlFor="qq-action-sched-buffer" variant="select">
+                        <StyledSelect
+                          value={String(scheduling.bufferMinutes)}
+                          onChange={(next) => patchScheduling({ bufferMinutes: Number(next) as ShellBufferMinutes })}
+                          options={BUFFER_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+                          title="Buffer between slots"
+                          ariaLabel="Buffer between slots"
+                          testId="scheduling-select-buffer"
+                        />
+                      </FloatField>
+                    </div>
                   </div>
                 )}
               </div>
@@ -944,6 +1050,42 @@ export default function ActionTab({
           letter-spacing: 0.04em; text-transform: uppercase;
           color: ${AE.color.secondary};
         }
+        /* Online-booking scheduler (relocated from SettingsTab). Day chips +
+           two-up time/duration grids, matched to the Action panel surfaces. */
+        .qq-sched-days {
+          display: grid; gap: 6px;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+        @media (max-width: 480px) {
+          .qq-sched-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .qq-sched-daychip {
+          display: flex; align-items: center; justify-content: center;
+          padding: 6px 2px;
+          font-size: 12.5px; font-weight: 600;
+          border-radius: ${AE.radius.sm};
+          background: ${AE.color.bg};
+          border: 1px solid ${AE.color.hairline};
+          color: ${AE.color.text};
+          cursor: pointer; user-select: none;
+          transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+        .qq-sched-daychip:hover { border-color: ${AE.color.accent}; }
+        .qq-sched-daychip input[type="checkbox"] {
+          position: absolute; opacity: 0; pointer-events: none;
+        }
+        .qq-sched-daychip.is-active {
+          background: ${AE.color.accentTint};
+          border-color: ${AE.color.accent};
+          color: ${AE.color.accent};
+        }
+        .qq-sched-grid {
+          display: grid; gap: 10px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        @media (max-width: 480px) {
+          .qq-sched-grid { grid-template-columns: 1fr; }
+        }
         .qq-action-iconscroll {
           display: flex; gap: 6px;
           overflow-x: auto; padding: 2px 0 4px;
@@ -1179,6 +1321,16 @@ export default function ActionTab({
         }
         .qq-editor-shell[data-theme="dark"] .qq-action-soonrow-chevron {
           color: var(--qq-muted);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-sched-daychip {
+          background: rgba(255, 255, 255, 0.04);
+          border-color: var(--qq-border);
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-sched-daychip.is-active {
+          background: ${AE.color.accentTint};
+          border-color: ${AE.color.accent};
+          color: ${AE.color.accent};
         }
       `}</style>
     </section>

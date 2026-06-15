@@ -49,6 +49,7 @@ import {
 } from '@shared/templatePresets';
 import {
   SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
+  Code2,
 } from 'lucide-react';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -2023,6 +2024,7 @@ export default function WizardShell({ embed = false }: Props) {
                       id === 'build' ? SlidersHorizontal
                       : id === 'action' ? MousePointerClick
                       : id === 'style' ? Palette
+                      : id === 'install' ? Code2
                       : SettingsIcon; // settings
                     return (
                       <button
@@ -2105,6 +2107,18 @@ export default function WizardShell({ embed = false }: Props) {
                          template ships explicit `steps[]`. */
                       steps={state.steps}
                       onStepsChange={setSteps}
+                      /* Structure controls (relocated from Style): step layout
+                         + Good/Better/Best pricing tiers. State keys unchanged
+                         (settings.stepLayout / state.tiered). */
+                      stepLayout={state.stepLayout}
+                      onStepLayoutChange={setStepLayout}
+                      tiered={state.tiered}
+                      onTieredChange={setTiered}
+                      templateCategory={
+                        state.activeTemplateId
+                          ? getTemplatePreset(state.activeTemplateId)?.category
+                          : undefined
+                      }
                       onGenerateWithAI={handleAIGenerate}
                     />
                   ) : activeTab === 'style' ? (
@@ -2114,20 +2128,6 @@ export default function WizardShell({ embed = false }: Props) {
                       logo={state.logo ?? null}
                       onLogoChange={setLogo}
                       planTier={planTier}
-                      stepLayout={state.stepLayout}
-                      onStepLayoutChange={setStepLayout}
-                      /* BD-2b — Pricing tiers (Good/Better/Best). The
-                         StyleTab section toggles tiered on/off and lets the
-                         owner edit per-tier multiplier / label / tagline.
-                         Category is sourced from the active template so the
-                         "recommended for this category" hint reads correctly. */
-                      tiered={state.tiered}
-                      onTieredChange={setTiered}
-                      templateCategory={
-                        state.activeTemplateId
-                          ? getTemplatePreset(state.activeTemplateId)?.category
-                          : undefined
-                      }
                       /* BG-7 Item 1 — trust-badge editor. Free-tier users
                          see the 4 defaults read-only; Pro+ can edit. */
                       trustBadges={state.trustBadges}
@@ -2139,15 +2139,25 @@ export default function WizardShell({ embed = false }: Props) {
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                       planTier={planTier}
+                      style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                      onStyleChange={setStyle}
                     />
                   ) : activeTab === 'action' ? (
                     <ActionTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
+                      planTier={planTier}
+                      editToken={editToken}
+                    />
+                  ) : activeTab === 'install' ? (
+                    <InstallTab
+                      settings={state.settings ?? {}}
+                      onChange={setSettings}
+                      businessName={state.businessName}
+                      logoUrl={state.logo}
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                       onStyleChange={setStyle}
                       planTier={planTier}
-                      editToken={editToken}
                     />
                   ) : (
                     <TabPlaceholder
@@ -2283,11 +2293,11 @@ export default function WizardShell({ embed = false }: Props) {
                   /* Wave 61 — wires the floating <InlineStyleToolbar /> to
                      the existing setFields-based undo stack. */
                   onUpdateField={updateField}
-                  /* Wave P — when the Install tab is active, render the
-                   * widget inside the user's chosen hosted-page chrome so
-                   * the preview matches what visitors at {slug}.your-quote
-                   * .net actually see. */
-                  hostedFrame={publishOpen}
+                  /* Wave P — when the Install tab is active (or the Publish
+                   * go-live modal is open), render the widget inside the
+                   * user's chosen hosted-page chrome so the preview matches
+                   * what visitors at {slug}.your-quote.net actually see. */
+                  hostedFrame={publishOpen || activeTab === 'install'}
                   /* BD-3b — session id for zoom persistence. Uses the
                    * active template id when present (per-calculator) and
                    * falls back to 'draft' for unsaved calculators. */
@@ -2366,15 +2376,6 @@ export default function WizardShell({ embed = false }: Props) {
                     onApplyTemplate={requestApplyTemplate}
                     steps={state.steps}
                     onStepsChange={setSteps}
-                    onGenerateWithAI={handleAIGenerate}
-                  />
-                ) : activeTab === 'style' ? (
-                  <StyleTab
-                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
-                    onChange={setStyle}
-                    logo={state.logo ?? null}
-                    onLogoChange={setLogo}
-                    planTier={planTier}
                     stepLayout={state.stepLayout}
                     onStepLayoutChange={setStepLayout}
                     tiered={state.tiered}
@@ -2384,6 +2385,15 @@ export default function WizardShell({ embed = false }: Props) {
                         ? getTemplatePreset(state.activeTemplateId)?.category
                         : undefined
                     }
+                    onGenerateWithAI={handleAIGenerate}
+                  />
+                ) : activeTab === 'style' ? (
+                  <StyleTab
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                    onChange={setStyle}
+                    logo={state.logo ?? null}
+                    onLogoChange={setLogo}
+                    planTier={planTier}
                     trustBadges={state.trustBadges}
                     onTrustBadgesChange={setTrustBadges}
                     currencySymbol={currencySymbol}
@@ -2393,15 +2403,25 @@ export default function WizardShell({ embed = false }: Props) {
                     settings={state.settings ?? {}}
                     onChange={setSettings}
                     planTier={planTier}
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                    onStyleChange={setStyle}
                   />
                 ) : activeTab === 'action' ? (
                   <ActionTab
                     settings={state.settings ?? {}}
                     onChange={setSettings}
+                    planTier={planTier}
+                    editToken={editToken}
+                  />
+                ) : activeTab === 'install' ? (
+                  <InstallTab
+                    settings={state.settings ?? {}}
+                    onChange={setSettings}
+                    businessName={state.businessName}
+                    logoUrl={state.logo}
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                     onStyleChange={setStyle}
                     planTier={planTier}
-                    editToken={editToken}
                   />
                 ) : (
                   <TabPlaceholder
@@ -2488,7 +2508,7 @@ export default function WizardShell({ embed = false }: Props) {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: p.colors.heading }}>
-                      Publish your calculator
+                      Your calculator is live
                     </p>
                     <button
                       type="button"
@@ -2501,13 +2521,28 @@ export default function WizardShell({ embed = false }: Props) {
                       Done
                     </button>
                   </div>
-                  <InstallTab
-                    settings={state.settings ?? {}}
-                    onChange={setSettings}
-                    businessName={state.businessName}
-                    logoUrl={state.logo}
-                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
-                  />
+                  {/* IA redesign — the embed/language/slug/hosted-page CONFIG now
+                      lives in the Install TAB (no longer duplicated here). The
+                      Publish flow stays the "go live" action: it saves the draft,
+                      confirms the calculator is live, and points the user to the
+                      Install tab for their hosted link + embed snippet. */}
+                  <p
+                    style={{ fontSize: 13, lineHeight: 1.5, margin: '0 0 16px', color: p.colors.muted }}
+                    data-testid="editor-publish-body"
+                  >
+                    Your changes are saved and your calculator is live. Grab your
+                    hosted link, embed snippet, language and slug from the{' '}
+                    <strong style={{ color: p.colors.heading }}>Install</strong> tab.
+                  </p>
+                  <button
+                    type="button"
+                    className="qq-editor-btn"
+                    data-testid="editor-publish-goto-install"
+                    onClick={() => { setActiveTab('install'); setPublishOpen(false); }}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Open the Install tab
+                  </button>
                 </div>
               </div>,
               document.body,
