@@ -57,6 +57,8 @@ jobs:
         run: npm run check:audit-niche
       - name: Audit-narrative guard (premium AI narrative via background-merge job — parseNarrativeJSON recovers clean/fenced/truncated output, buildNarrativePatch shapes it + reports ready/failed, isReal $-gating preserved so no fabricated dollar figure)
         run: npm run check:audit-narrative
+      - name: Audit-premium guard (premium value-first data block — comparison rank math, GBP completeness pct + missing list, on-page checks null without HTML, reviewDepth null without review data, KPI tiles omit absent sources; nothing fabricates a value)
+        run: npm run check:audit-premium
       - name: Revenue-loss guard (honest per-business loss — real demand-gap or avg-ticket floor; isReal:false instead of a fake placeholder when zero)
         run: npm run check:revenue-loss
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)

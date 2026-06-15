@@ -45,6 +45,7 @@
     "check:audit-competitors": "tsx server/auditRoutes.competitors.test.ts",
     "check:audit-niche": "tsx server/auditRoutes.niche-cascade.test.ts",
     "check:audit-narrative": "tsx server/auditRoutes.narrative-bg.test.ts",
+    "check:audit-premium": "tsx server/auditRoutes.premium.test.ts",
     "check:revenue-loss": "tsx shared/revenueLoss.test.ts",
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
     "check:template-formula-refs": "tsx scripts/check-template-formula-refs.ts",

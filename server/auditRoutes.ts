@@ -3332,6 +3332,387 @@ async function analyzeScreenshot(
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * PREMIUM VALUE-FIRST DATA BLOCK
+ * ────────────────────────────────────────────────────────────────────────────
+ * Derived, render-ready data for the premium report modules (head-to-head
+ * comparison, KPI tiles, GBP-completeness checklist, on-page SEO, review
+ * recency). BACKEND-ONLY: these functions only re-shape data already gathered
+ * for the report — they never make a network call and never fabricate a value.
+ *
+ * HONESTY CONTRACT (the owner specifically complained about "empty bands"):
+ *   - Every module returns `null` when its SOURCE data is absent. We never emit
+ *     a zero/empty shell that implies data we don't have.
+ *   - KPI tiles are omitted (not zeroed) when their source is missing.
+ *   - We deliberately DO NOT compute review velocity or owner-response-rate as
+ *     premium signals — they aren't reliably available — so they're not in the
+ *     contract at all.
+ *
+ * All builders are pure + exported so the premium test can unit-test the math
+ * without a DB. `buildPremiumBlock()` is the single orchestrator the route calls.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** On-page SEO signals captured from the already-parsed website HTML. */
+export interface OnPageMeta {
+  titleLength: number;
+  metaDescriptionLength: number;
+  h1Count: number;
+  hasTelLink: boolean;
+  hasJsonLd: boolean;
+  hasViewport: boolean;
+}
+
+export interface PremiumComparisonRow {
+  name: string;
+  reviews: number;
+  rating: number;
+  distanceLabel: string | null;
+}
+export interface PremiumComparison {
+  you: PremiumComparisonRow & { isYou: true };
+  rows: PremiumComparisonRow[];
+  yourRank: number;
+}
+export interface PremiumKpi {
+  key: string;
+  label: string;
+  value: number | string;
+  suffix?: string;
+  benchmark?: number;
+  trend?: "up" | "down" | "flat";
+}
+export interface PremiumGbpCheck {
+  key: string;
+  label: string;
+  pass: boolean;
+  hint?: string;
+}
+export interface PremiumGbp {
+  completenessPct: number;
+  checks: PremiumGbpCheck[];
+  missing: string[];
+}
+export interface PremiumOnPageCheck {
+  key: string;
+  label: string;
+  status: "pass" | "warn" | "fail";
+  detail?: string;
+}
+export interface PremiumOnPage {
+  checks: PremiumOnPageCheck[];
+}
+export interface PremiumReviewDepth {
+  newestReviewAgeDays: number | null;
+  sentimentHint: string | null;
+}
+export interface PremiumBlock {
+  comparison: PremiumComparison | null;
+  kpis: PremiumKpi[];
+  gbp: PremiumGbp;
+  onPage: PremiumOnPage | null;
+  reviewDepth: PremiumReviewDepth | null;
+}
+
+/** "2.3 km away" from a numeric distance; null when distance is unknown. */
+function distanceLabelFromKm(km: unknown): string | null {
+  if (typeof km !== "number" || !isFinite(km) || km < 0) return null;
+  const rounded = km < 10 ? Math.round(km * 10) / 10 : Math.round(km);
+  return `${rounded} km away`;
+}
+
+/**
+ * Head-to-head comparison: the subject vs. its real local competitors, ranked by
+ * review count. Returns null when there are no competitors (never a lone "you"
+ * row that implies a comparison we can't make).
+ */
+export function buildPremiumComparison(input: {
+  name: string;
+  reviews: number;
+  rating: number;
+  competitors: Array<{ name?: string; reviewsCount?: number; rating?: number; distanceKm?: number | null; distanceLabel?: string | null }>;
+  maxRows?: number;
+}): PremiumComparison | null {
+  const competitors = Array.isArray(input.competitors) ? input.competitors : [];
+  if (competitors.length === 0) return null;
+
+  const youReviews = Number(input.reviews) || 0;
+  const youRating = Number(input.rating) || 0;
+
+  const rows: PremiumComparisonRow[] = competitors
+    .map((c) => ({
+      name: (c?.name || "").toString(),
+      reviews: Number(c?.reviewsCount) || 0,
+      rating: Number(c?.rating) || 0,
+      distanceLabel:
+        (typeof c?.distanceLabel === "string" && c.distanceLabel) ||
+        distanceLabelFromKm(c?.distanceKm),
+    }))
+    .filter((r) => r.name.trim().length > 0)
+    .sort((a, b) => b.reviews - a.reviews);
+
+  if (rows.length === 0) return null;
+
+  // 1-based rank of the subject by review count among (you + competitors).
+  // Strictly-greater = ranks ahead of you; ties don't push you down.
+  const ahead = rows.filter((r) => r.reviews > youReviews).length;
+  const yourRank = ahead + 1;
+
+  const maxRows = input.maxRows ?? 5;
+  return {
+    you: { name: input.name || "", reviews: youReviews, rating: youRating, distanceLabel: null, isYou: true },
+    rows: rows.slice(0, maxRows),
+    yourRank,
+  };
+}
+
+/**
+ * GBP completeness checklist from REAL profile fields. completenessPct =
+ * passed/total ×100 (rounded). `missing` = labels of the failed checks.
+ */
+export function buildPremiumGbp(business: {
+  description?: string | null;
+  website?: string | null;
+  hours?: any[] | null;
+  photos?: any[] | null;
+  primaryType?: string | null;
+  primaryTypeDisplayName?: string | null;
+  rating?: number | null;
+}): PremiumGbp {
+  const nonEmptyStr = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  const checks: PremiumGbpCheck[] = [
+    { key: "description", label: "Business description", pass: nonEmptyStr(business.description),
+      hint: "Add a keyword-rich description to your Google Business Profile." },
+    { key: "website", label: "Website link", pass: nonEmptyStr(business.website),
+      hint: "Add your website URL so customers can reach you from Maps." },
+    { key: "hours", label: "Opening hours", pass: Array.isArray(business.hours) && business.hours.length > 0,
+      hint: "Publish your hours so you appear in 'open now' searches." },
+    { key: "photos", label: "At least 3 photos", pass: Array.isArray(business.photos) && business.photos.length >= 3,
+      hint: "Upload at least 3 photos — profiles with photos get more clicks." },
+    { key: "category", label: "Business category", pass: nonEmptyStr(business.primaryType) || nonEmptyStr(business.primaryTypeDisplayName),
+      hint: "Set your primary category so Google shows you for the right searches." },
+    { key: "rating", label: "Star rating present", pass: typeof business.rating === "number" && business.rating > 0,
+      hint: "Earn your first reviews to show a star rating on Maps." },
+  ];
+  const passed = checks.filter((c) => c.pass).length;
+  const completenessPct = checks.length === 0 ? 0 : Math.round((passed / checks.length) * 100);
+  const missing = checks.filter((c) => !c.pass).map((c) => c.label);
+  return { completenessPct, checks, missing };
+}
+
+/**
+ * On-page SEO checks from the ALREADY-FETCHED website HTML (OnPageMeta). Returns
+ * null when the site wasn't fetched/parsed (no website or fetch blocked) — we
+ * never imply checks we couldn't run.
+ */
+export function buildPremiumOnPage(meta: OnPageMeta | null | undefined): PremiumOnPage | null {
+  if (!meta) return null;
+  const checks: PremiumOnPageCheck[] = [
+    {
+      key: "clickToCall",
+      label: "Click-to-call link",
+      status: meta.hasTelLink ? "pass" : "warn",
+      detail: meta.hasTelLink ? "A tap-to-call link is present." : "No tel: link — mobile visitors can't tap to call.",
+    },
+    {
+      key: "schema",
+      label: "Structured data (JSON-LD)",
+      status: meta.hasJsonLd ? "pass" : "warn",
+      detail: meta.hasJsonLd ? "JSON-LD schema found." : "No JSON-LD schema — add LocalBusiness markup for rich results.",
+    },
+    {
+      key: "viewport",
+      label: "Mobile viewport tag",
+      status: meta.hasViewport ? "pass" : "fail",
+      detail: meta.hasViewport ? "Responsive viewport tag present." : "Missing viewport meta — the site won't scale on phones.",
+    },
+    {
+      key: "title",
+      label: "Title tag length",
+      status: meta.titleLength >= 10 && meta.titleLength <= 60 ? "pass" : "warn",
+      detail:
+        meta.titleLength === 0 ? "No title tag found."
+          : meta.titleLength < 10 ? `Title is short (${meta.titleLength} chars) — aim for 10–60.`
+            : meta.titleLength > 60 ? `Title is long (${meta.titleLength} chars) — it may be truncated in results.`
+              : `Title length is healthy (${meta.titleLength} chars).`,
+    },
+    {
+      key: "metaDescription",
+      label: "Meta description",
+      status: meta.metaDescriptionLength === 0 || meta.metaDescriptionLength > 160 ? "warn" : "pass",
+      detail:
+        meta.metaDescriptionLength === 0 ? "No meta description — add one to control your search snippet."
+          : meta.metaDescriptionLength > 160 ? `Meta description is long (${meta.metaDescriptionLength} chars) — it may be cut off at ~160.`
+            : `Meta description length is healthy (${meta.metaDescriptionLength} chars).`,
+    },
+    {
+      key: "singleH1",
+      label: "Single H1 heading",
+      status: meta.h1Count === 1 ? "pass" : meta.h1Count === 0 ? "fail" : "warn",
+      detail:
+        meta.h1Count === 0 ? "No H1 heading — add one clear page headline."
+          : meta.h1Count === 1 ? "Exactly one H1 — ideal."
+            : `${meta.h1Count} H1 tags — use a single primary H1.`,
+    },
+  ];
+  return { checks };
+}
+
+/** Days between `dateStr` and now; null when unparseable/absent/in the future. */
+function ageInDays(dateStr: unknown): number | null {
+  if (typeof dateStr !== "string" || !dateStr.trim()) return null;
+  const t = Date.parse(dateStr);
+  if (isNaN(t)) return null;
+  const days = Math.floor((Date.now() - t) / 86400000);
+  return days < 0 ? 0 : days;
+}
+
+/**
+ * Review recency + a light sentiment hint, ONLY from review-level data the E2
+ * fetch actually returned (mostRecentReviewDate + ratingDistribution). Returns
+ * null when no such data exists. No velocity, no response-rate — not defensible.
+ */
+export function buildPremiumReviewDepth(reviewIntel: {
+  mostRecentReviewDate?: string | null;
+  ratingDistribution?: Record<number, number> | null;
+  totalFetched?: number | null;
+} | null | undefined): PremiumReviewDepth | null {
+  if (!reviewIntel) return null;
+  const newestReviewAgeDays = ageInDays(reviewIntel.mostRecentReviewDate);
+
+  let sentimentHint: string | null = null;
+  const dist = reviewIntel.ratingDistribution;
+  if (dist && typeof dist === "object") {
+    const total = Object.values(dist).reduce((a, b) => a + (Number(b) || 0), 0);
+    if (total > 0) {
+      const positive = (Number(dist[4]) || 0) + (Number(dist[5]) || 0);
+      const pct = Math.round((positive / total) * 100);
+      sentimentHint =
+        pct >= 80 ? `${pct}% of recent reviews are 4–5★ — strong sentiment.`
+          : pct >= 50 ? `${pct}% of recent reviews are 4–5★ — mixed sentiment.`
+            : `${pct}% of recent reviews are 4–5★ — sentiment needs attention.`;
+    }
+  }
+
+  if (newestReviewAgeDays === null && sentimentHint === null) return null;
+  return { newestReviewAgeDays, sentimentHint };
+}
+
+/**
+ * KPI tiles derived from existing report data. A tile is INCLUDED ONLY when its
+ * source data exists (never a fabricated zero). `benchmark`/`trend` are set only
+ * when a real benchmark is available.
+ */
+export function buildPremiumKpis(input: {
+  reviews?: number | null;
+  areaAverageReviews?: number | null;
+  rating?: number | null;
+  keywords?: Array<{ organicRank?: number | null }> | null;
+  gbpCompletenessPct?: number | null;
+}): PremiumKpi[] {
+  const kpis: PremiumKpi[] = [];
+
+  // Reviews — benchmark + trend vs the local-area average when we have one.
+  if (typeof input.reviews === "number") {
+    const benchmark = typeof input.areaAverageReviews === "number" && input.areaAverageReviews > 0
+      ? Math.round(input.areaAverageReviews) : undefined;
+    const tile: PremiumKpi = { key: "reviews", label: "Google reviews", value: input.reviews };
+    if (benchmark !== undefined) {
+      tile.benchmark = benchmark;
+      tile.trend = input.reviews > benchmark ? "up" : input.reviews < benchmark ? "down" : "flat";
+    }
+    kpis.push(tile);
+  }
+
+  // Rating.
+  if (typeof input.rating === "number" && input.rating > 0) {
+    kpis.push({ key: "rating", label: "Average rating", value: input.rating, suffix: "★" });
+  }
+
+  // Average map/keyword position over the keywords that actually rank.
+  const kws = Array.isArray(input.keywords) ? input.keywords : [];
+  const ranked = kws.filter((k) => typeof k?.organicRank === "number" && (k!.organicRank as number) > 0);
+  if (ranked.length > 0) {
+    const avgPos = Math.round(
+      ranked.reduce((s, k) => s + (k.organicRank as number), 0) / ranked.length,
+    );
+    kpis.push({ key: "avgPosition", label: "Avg. search position", value: avgPos });
+  }
+
+  // Visibility % = ranked keywords / tracked keywords ×100. Only when we tracked any.
+  if (kws.length > 0) {
+    const visibilityPct = Math.round((ranked.length / kws.length) * 100);
+    kpis.push({ key: "visibility", label: "Keyword visibility", value: visibilityPct, suffix: "%" });
+  }
+
+  // GBP completeness % (from buildPremiumGbp).
+  if (typeof input.gbpCompletenessPct === "number") {
+    kpis.push({ key: "gbpCompleteness", label: "Profile completeness", value: input.gbpCompletenessPct, suffix: "%" });
+  }
+
+  return kpis;
+}
+
+/**
+ * Single orchestrator the route calls. Re-shapes already-gathered report data
+ * into the frozen `premium` contract. Pure: no network, no fabrication.
+ */
+export function buildPremiumBlock(input: {
+  business: {
+    name?: string | null;
+    reviewsCount?: number | null;
+    rating?: number | null;
+    description?: string | null;
+    website?: string | null;
+    hours?: any[] | null;
+    photos?: any[] | null;
+    primaryType?: string | null;
+    primaryTypeDisplayName?: string | null;
+  };
+  competitors?: Array<any> | null;
+  areaAverageReviews?: number | null;
+  keywords?: Array<{ organicRank?: number | null }> | null;
+  onPageMeta?: OnPageMeta | null;
+  reviewIntel?: {
+    mostRecentReviewDate?: string | null;
+    ratingDistribution?: Record<number, number> | null;
+    totalFetched?: number | null;
+  } | null;
+}): PremiumBlock {
+  const b = input.business || {};
+  const reviews = Number(b.reviewsCount) || 0;
+  const rating = typeof b.rating === "number" ? b.rating : 0;
+
+  const comparison = buildPremiumComparison({
+    name: b.name || "",
+    reviews,
+    rating,
+    competitors: input.competitors || [],
+  });
+
+  const gbp = buildPremiumGbp({
+    description: b.description ?? null,
+    website: b.website ?? null,
+    hours: b.hours ?? null,
+    photos: b.photos ?? null,
+    primaryType: b.primaryType ?? null,
+    primaryTypeDisplayName: b.primaryTypeDisplayName ?? null,
+    rating: typeof b.rating === "number" ? b.rating : null,
+  });
+
+  const kpis = buildPremiumKpis({
+    reviews,
+    areaAverageReviews: input.areaAverageReviews ?? null,
+    rating: typeof b.rating === "number" ? b.rating : null,
+    keywords: input.keywords ?? null,
+    gbpCompletenessPct: gbp.completenessPct,
+  });
+
+  const onPage = buildPremiumOnPage(input.onPageMeta ?? null);
+  const reviewDepth = buildPremiumReviewDepth(input.reviewIntel ?? null);
+
+  return { comparison, kpis, gbp, onPage, reviewDepth };
+}
+
 /* ─── Website Quality Analysis (cheerio) ─── */
 export async function analyzeWebsiteQuality(url: string): Promise<{
   checks: Record<string, boolean>;
@@ -3346,6 +3727,10 @@ export async function analyzeWebsiteQuality(url: string): Promise<{
   // HTTP status of the fetch attempt (null on network error/timeout). Lets the
   // UI tell "we couldn't reach it" from "it blocked our bot (403)".
   httpStatus: number | null;
+  // Lightweight on-page SEO signals read from the SAME parsed HTML (no extra
+  // fetch). Null until we actually parse a 2xx page. Feeds the premium on-page
+  // module (title/meta length, single-H1, tel:/JSON-LD/viewport).
+  onPageMeta: OnPageMeta | null;
 }> {
   const checks: Record<string, boolean> = {
     hasPhone: false,
@@ -3366,6 +3751,7 @@ export async function analyzeWebsiteQuality(url: string): Promise<{
 
   let fetchOk = false;
   let httpStatus: number | null = null;
+  let onPageMeta: OnPageMeta | null = null;
 
   try {
     const cleanUrl = (u: string) => {
@@ -3433,6 +3819,18 @@ export async function analyzeWebsiteQuality(url: string): Promise<{
     // Mobile viewport
     checks.hasMobileViewport = $('meta[name="viewport"]').length > 0;
 
+    // ─── On-page SEO signals (read from the SAME parsed HTML — no extra fetch).
+    // Feeds the premium on-page module: tel: click-to-call, JSON-LD schema,
+    // viewport, title/meta length, single-H1.
+    onPageMeta = {
+      titleLength: ($("title").first().text() || "").trim().length,
+      metaDescriptionLength: metaDesc.trim().length,
+      h1Count: $("h1").length,
+      hasTelLink: $('a[href^="tel:"]').length > 0,
+      hasJsonLd: schemaScripts.length > 0,
+      hasViewport: checks.hasMobileViewport,
+    };
+
     // Instant quote tool / calculator
     const bodyLower = bodyText.toLowerCase();
     const htmlLower = html.toLowerCase();
@@ -3484,7 +3882,7 @@ export async function analyzeWebsiteQuality(url: string): Promise<{
     if (checks[key]) score += weight;
   }
 
-  return { checks, score, maxScore, fetchOk, httpStatus };
+  return { checks, score, maxScore, fetchOk, httpStatus, onPageMeta };
 }
 
 /* ─── Trade Context for AI ─── */
@@ -4579,6 +4977,30 @@ ${JSON.stringify(auditData, null, 2)}`;
 
     // Task 4 — guarantee + soft honest urgency copy, as data near the CTA.
     auditData.offer = buildOfferCopy(trade, compData?.marketLeader || null);
+
+    // ─── Premium value-first data block (derived; no network, no fabrication) ───
+    // Re-shapes already-gathered data for the premium report modules. Each module
+    // self-nulls when its source is absent (onPageMeta only when the site was
+    // actually parsed; reviewDepth only when E2 returned review-level data).
+    auditData.premium = buildPremiumBlock({
+      business: {
+        name: business.name || "",
+        reviewsCount,
+        rating,
+        description: business.description ?? null,
+        website,
+        hours: business.hours ?? null,
+        photos: business.photos ?? null,
+        primaryType: typeof business.primaryType === "string" ? business.primaryType : null,
+        primaryTypeDisplayName: typeof business.primaryTypeDisplayName === "string" ? business.primaryTypeDisplayName : null,
+      },
+      competitors,
+      areaAverageReviews: compData?.areaAverageReviews ?? null,
+      keywords,
+      // Only available when the QA fetch actually parsed a 2xx page.
+      onPageMeta: websiteQaData?.fetchOk ? (websiteQaData?.onPageMeta ?? null) : null,
+      reviewIntel: reviewData || null,
+    });
 
     // ─── Save report to database ───
     let reportId: string | null = null;
