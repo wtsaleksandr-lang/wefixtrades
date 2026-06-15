@@ -46,6 +46,9 @@ export interface PremiumComparison {
   you: PremiumComparisonRow & { isYou: true };
   rows: PremiumComparisonRow[];
   yourRank: number;
+  /** Total ranked entities (all competitors + you), pre-slice. Optional for
+   *  backward-compat with reports cached before this field existed. */
+  total?: number;
 }
 export interface PremiumKpi {
   key: string;
@@ -160,7 +163,10 @@ function ComparisonTable({ comparison }: { comparison: PremiumComparison }) {
   // sits in its true position; the table reads top-to-bottom like a leaderboard.
   const merged: PremiumComparisonRow[] = [...comparison.rows, comparison.you]
     .sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
-  const total = comparison.rows.length + 1;
+  // True total = all competitors + you (backend, pre-slice). Fall back to the
+  // displayed count for reports cached before `total` existed. Never let the
+  // badge total be smaller than yourRank.
+  const total = Math.max(comparison.total ?? comparison.rows.length + 1, comparison.yourRank);
   const rankSuffix = comparison.yourRank === 1 ? "st" : comparison.yourRank === 2 ? "nd" : comparison.yourRank === 3 ? "rd" : "th";
 
   const th: React.CSSProperties = {
@@ -215,7 +221,7 @@ function ComparisonTable({ comparison }: { comparison: PremiumComparison }) {
                         display: "inline-flex", alignItems: "center", justifyContent: "center",
                         fontSize: 11, fontWeight: 700,
                         background: you ? CYAN : "#E5E7EB", color: you ? WHITE : GREY,
-                      }}>{i + 1}</span>
+                      }}>{you ? comparison.yourRank : i + 1}</span>
                       <span style={{ fontWeight: you ? 800 : 600, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {row.name || "Unknown"}{you ? " (you)" : ""}
                       </span>

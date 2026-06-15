@@ -79,6 +79,23 @@ async function main() {
     })!;
     assert.equal(c.rows.length, 5, "rows capped at maxRows");
     assert.equal(c.yourRank, 10, "rank is over the FULL set, not just shown rows");
+    // REGRESSION GUARD: total = all competitors + you, computed PRE-slice — so
+    // the UI badge ("#N of total") can never be smaller than yourRank (the
+    // "#10 of 6" bug when there are more competitors than displayed rows).
+    assert.equal(c.total, 10, "total counts ALL competitors + you, not just shown rows");
+    assert.ok(c.yourRank <= c.total, "yourRank never exceeds total (badge stays sane)");
+  }
+  {
+    // total stays consistent in the common small-field case.
+    const c = buildPremiumComparison({
+      name: "You", reviews: 40, rating: 4.6,
+      competitors: [
+        { name: "Alpha", reviewsCount: 120, rating: 4.8 },
+        { name: "Bravo", reviewsCount: 10, rating: 4.2 },
+      ],
+    })!;
+    assert.equal(c.total, 3, "total = 2 competitors + you");
+    assert.ok(c.yourRank <= c.total, "yourRank within total");
   }
   {
     // No competitors → null (never a lone "you" row implying a comparison).

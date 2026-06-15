@@ -3372,6 +3372,11 @@ export interface PremiumComparison {
   you: PremiumComparisonRow & { isYou: true };
   rows: PremiumComparisonRow[];
   yourRank: number;
+  /** Total ranked entities = ALL named competitors + you, computed BEFORE
+   *  `rows` is sliced for display. The UI's "#N of {total}" badge must use
+   *  this, never rows.length+1 — otherwise a business that ranks below the
+   *  displayed top-N shows an impossible "#9 of 6". */
+  total: number;
 }
 export interface PremiumKpi {
   key: string;
@@ -3457,11 +3462,17 @@ export function buildPremiumComparison(input: {
   const ahead = rows.filter((r) => r.reviews > youReviews).length;
   const yourRank = ahead + 1;
 
+  // Total ranked entities = all named competitors + you. Computed BEFORE the
+  // display slice so the "#N of total" badge can never be smaller than
+  // yourRank (the "#9 of 6" bug when there are >maxRows competitors).
+  const total = rows.length + 1;
+
   const maxRows = input.maxRows ?? 5;
   return {
     you: { name: input.name || "", reviews: youReviews, rating: youRating, distanceLabel: null, isYou: true },
     rows: rows.slice(0, maxRows),
     yourRank,
+    total,
   };
 }
 
