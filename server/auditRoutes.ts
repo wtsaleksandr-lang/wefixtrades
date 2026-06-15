@@ -7,6 +7,7 @@ import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
 import { chat, getSharedClient, assertCircuitAllowsRequest, recordSuccess, recordFailure } from "./services/aiService";
+import { CLAUDE_HAIKU } from "./services/aiModels";
 import {
   auditGenerateRateLimiter,
   auditWriteRateLimiter,
@@ -2085,6 +2086,369 @@ export function deriveCategoryLabel(
   return "";
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * NICHE-RECOGNITION CASCADE (layers 2 & 3)
+ *
+ * Layer 1 (Google Places `primaryTypeDisplayName` / `primaryType`) is handled by
+ * deriveCategoryLabel() above (#1839). For a name-less business whose Google
+ * category is ALSO generic/absent (e.g. "Mike's Solutions Inc", a plumber Google
+ * filed as `establishment`), layer 1 leaves categoryLabel empty and the report
+ * suppresses competitors + keywords (half-blank). Layers 2 & 3 recover a real
+ * niche WITHOUT fabricating one:
+ *
+ *   Layer 2  — website-content inference. Cheap, no LLM. Reads the homepage
+ *              <title> + meta description + H1/headings and matches that text
+ *              against the existing trade taxonomy + a service-category map.
+ *   Layer 3  — LLM classifier fallback. Only when 1 & 2 both miss. One cheap
+ *              Haiku call with strict JSON output; honest-null when unclassifiable.
+ *
+ * Cost guard: layers 2 and 3 run ONLY when the earlier layer left the label
+ * empty. Layer 3 (the only paid layer) runs ONLY when layers 1 AND 2 missed.
+ * Nothing here ever returns the literal "general"; truly-unknown → "" (suppress).
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** Lightweight homepage text we extract for niche inference (layer 2/3 input). */
+export interface WebsiteNicheText {
+  /** true when the page was fetched + parsed; false → skip layers 2/3 → layer 3 may still run on Places signals only. */
+  ok: boolean;
+  title: string;
+  metaDescription: string;
+  /** H1 + first couple of H2 headings, joined. */
+  headings: string;
+  /** First ~500 chars of visible body text. */
+  bodySnippet: string;
+}
+
+const EMPTY_WEBSITE_TEXT: WebsiteNicheText = {
+  ok: false, title: "", metaDescription: "", headings: "", bodySnippet: "",
+};
+
+/**
+ * Fetch a homepage and extract the niche-relevant text (title, meta description,
+ * H1/H2 headings, first ~500 chars of body). Bounded + defensive: any
+ * fetch/parse failure (timeout, WAF 403, network error) returns ok:false so the
+ * cascade simply skips layer 2 and proceeds to layer 3. Never throws.
+ */
+export async function fetchWebsiteNicheText(url: string): Promise<WebsiteNicheText> {
+  if (!url || typeof url !== "string") return EMPTY_WEBSITE_TEXT;
+  try {
+    const cleanUrl = (u: string) => {
+      try { const p = new URL(u); return p.origin + p.pathname; } catch { return u; }
+    };
+    const fetchUrl = cleanUrl(url);
+    const res = await fetch(fetchUrl, {
+      signal: AbortSignal.timeout(10000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; WeFixTrades Audit Bot/1.0)" },
+    });
+    if (!res.ok) {
+      log.warn("[niche-l2] website fetch non-OK — skipping layer 2:", { status: res.status, url: fetchUrl });
+      return EMPTY_WEBSITE_TEXT;
+    }
+    const html = await res.text();
+    const { load } = await import("cheerio");
+    const $ = load(html);
+    const title = ($("title").first().text() || "").trim();
+    const metaDescription = ($('meta[name="description"]').attr("content") || "").trim();
+    const headingParts: string[] = [];
+    const h1 = $("h1").first().text().trim();
+    if (h1) headingParts.push(h1);
+    $("h2").slice(0, 3).each((_: any, el: any) => {
+      const t = $(el).text().trim();
+      if (t) headingParts.push(t);
+    });
+    const headings = headingParts.join(" — ");
+    // Strip scripts/styles before reading body text.
+    $("script, style, noscript").remove();
+    const bodySnippet = ($("body").text() || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 500);
+    return { ok: true, title, metaDescription, headings, bodySnippet };
+  } catch (err: any) {
+    log.warn("[niche-l2] website text fetch failed — skipping layer 2:", { error: err?.message });
+    return EMPTY_WEBSITE_TEXT;
+  }
+}
+
+/**
+ * Service-category taxonomy for layer-2 website-text inference. Each entry maps a
+ * text pattern to an HONEST, customer-facing niche label (2-4 words). Ordered
+ * most-specific → least so "commercial plumbing" wins over "plumbing". This
+ * EXTENDS the trade list with common non-trade local-business categories that
+ * Google often files as a generic type but whose website text is unambiguous.
+ */
+const WEBSITE_NICHE_PATTERNS: Array<{ pattern: RegExp; niche: string }> = [
+  // Trades (specific variants first)
+  { pattern: /commercial\s+plumb/i, niche: "commercial plumbing" },
+  { pattern: /drain|sewer|rooter/i, niche: "drain & sewer services" },
+  { pattern: /\bplumb|\bplomb/i, niche: "plumbing" },
+  { pattern: /\bhvac\b|heating\s*(and|&|\/)?\s*cooling|furnace|air\s*condition/i, niche: "HVAC services" },
+  { pattern: /electric(ian|al)/i, niche: "electrical services" },
+  { pattern: /roof|couvreur/i, niche: "roofing" },
+  { pattern: /landscap|lawn\s*care|lawn\s*maintenance/i, niche: "landscaping" },
+  { pattern: /window\s*clean/i, niche: "window cleaning" },
+  { pattern: /pressure\s*wash|power\s*wash/i, niche: "pressure washing" },
+  { pattern: /carpet\s*clean/i, niche: "carpet cleaning" },
+  { pattern: /janitorial|commercial\s*clean|office\s*clean/i, niche: "commercial cleaning" },
+  { pattern: /\bclean(ing)?\s*(service|company|co\b)|maid\s*service/i, niche: "cleaning services" },
+  { pattern: /paint(ing|er)/i, niche: "painting" },
+  { pattern: /floor(ing)?\b/i, niche: "flooring" },
+  { pattern: /locksmith|serrurier/i, niche: "locksmith" },
+  { pattern: /garage\s*door/i, niche: "garage door services" },
+  { pattern: /pest\s*control|extermina/i, niche: "pest control" },
+  { pattern: /\bmov(ing|ers)\b|relocation/i, niche: "moving services" },
+  { pattern: /renovat|remodel/i, niche: "renovation" },
+  { pattern: /handyman/i, niche: "handyman services" },
+  { pattern: /\bconstruct(ion)?\b|general\s*contractor/i, niche: "construction" },
+  { pattern: /\btree\s*(service|removal|care)|arborist/i, niche: "tree services" },
+  { pattern: /\bconcrete|masonry|paving/i, niche: "concrete & masonry" },
+  // Non-trade local-business categories (Google often files these generically)
+  { pattern: /freight\s*forward|customs\s*broker|drayage/i, niche: "freight forwarding" },
+  { pattern: /logistics|supply\s*chain|warehous|fulfillment/i, niche: "logistics services" },
+  { pattern: /\btrucking|\bcarrier\b|trucking\s*company|less.than.truckload|\bltl\b/i, niche: "trucking services" },
+  { pattern: /courier|same.day\s*deliver|parcel\s*deliver/i, niche: "courier services" },
+  { pattern: /personal\s*injury|injury\s*lawyer|injury\s*attorney/i, niche: "personal injury law firm" },
+  { pattern: /law\s*firm|attorney|lawyer|legal\s*services/i, niche: "law firm" },
+  { pattern: /accounting|accountant|bookkeep|\bcpa\b|tax\s*(prep|service)/i, niche: "accounting services" },
+  { pattern: /real\s*estate|realtor|realty/i, niche: "real estate services" },
+  { pattern: /mortgage|home\s*loan/i, niche: "mortgage services" },
+  { pattern: /insurance\s*(agen|broker|service)/i, niche: "insurance services" },
+  { pattern: /auto\s*(repair|body|service)|mechanic|collision\s*repair/i, niche: "auto repair" },
+  { pattern: /dental|dentist|orthodont/i, niche: "dental services" },
+  { pattern: /chiropract/i, niche: "chiropractic services" },
+  { pattern: /physio|physical\s*therap/i, niche: "physiotherapy" },
+  { pattern: /\bsalon\b|hair\s*(salon|stylist)|barber/i, niche: "hair salon" },
+  { pattern: /\bspa\b|esthetic|skincare|medspa|med\s*spa/i, niche: "spa & esthetics" },
+  { pattern: /\bdental\s*lab|medical\s*device/i, niche: "medical services" },
+  { pattern: /catering|caterer/i, niche: "catering services" },
+  { pattern: /\bbakery|baked\s*goods/i, niche: "bakery" },
+  { pattern: /restaurant|\bcafe\b|\bbistro\b|\beatery\b/i, niche: "restaurant" },
+  { pattern: /\bIT\s*(support|services|solutions)|managed\s*(it|service)|msp\b|computer\s*repair/i, niche: "IT services" },
+  { pattern: /web\s*design|web\s*development|digital\s*agency|marketing\s*agency/i, niche: "digital agency" },
+  { pattern: /photograph(y|er)/i, niche: "photography services" },
+  { pattern: /security\s*(system|service|guard)|alarm\s*(system|monitoring)/i, niche: "security services" },
+  { pattern: /landscap\s*architect|architect(ure|ural)\s*(firm|service)/i, niche: "architecture services" },
+  { pattern: /property\s*manage/i, niche: "property management" },
+  { pattern: /staffing|recruit(ment|ing)|employment\s*agency/i, niche: "staffing & recruiting" },
+  { pattern: /printing|print\s*shop|signage|sign\s*company/i, niche: "printing & signage" },
+  { pattern: /\btowing|tow\s*truck/i, niche: "towing services" },
+  { pattern: /\bhauling|junk\s*removal|debris\s*removal/i, niche: "junk removal" },
+  { pattern: /fitness|\bgym\b|personal\s*train/i, niche: "fitness services" },
+  { pattern: /veterinar|animal\s*hospital|\bvet\s*clinic/i, niche: "veterinary services" },
+  { pattern: /\bwelding|fabricat(ion|or)|machine\s*shop/i, niche: "welding & fabrication" },
+  { pattern: /solar\s*(panel|install|energy)/i, niche: "solar installation" },
+  { pattern: /\bappliance\s*repair/i, niche: "appliance repair" },
+];
+
+/**
+ * LAYER 2 — infer an honest niche from a business's homepage text.
+ * Matches the title + meta + headings + body snippet against
+ * WEBSITE_NICHE_PATTERNS (most-specific first). Returns "" when nothing matches
+ * (→ caller proceeds to layer 3). Never returns "general". No LLM.
+ */
+export function inferNicheFromWebsiteText(site: WebsiteNicheText): string {
+  if (!site || !site.ok) return "";
+  // Two-pass to avoid an incidental body-text keyword (e.g. a PI firm's
+  // "construction accident" practice area) beating the page's actual niche.
+  //   Pass 1 — the HIGH-SIGNAL fields only (title + meta + H1/headings). These
+  //            describe what the business IS, so the first matching pattern here
+  //            is authoritative.
+  //   Pass 2 — only if pass 1 found nothing, scan the broader body snippet to
+  //            catch a niche the title omitted (bare-brand titles).
+  const highSignal = [site.title, site.metaDescription, site.headings].join("  ").toLowerCase();
+  if (highSignal.trim()) {
+    for (const { pattern, niche } of WEBSITE_NICHE_PATTERNS) {
+      if (pattern.test(highSignal)) {
+        log.info("[niche-l2] website-text inferred niche (title/meta):", { niche, from: site.title || site.headings });
+        return niche;
+      }
+    }
+  }
+  const body = (site.bodySnippet || "").toLowerCase();
+  if (body.trim()) {
+    for (const { pattern, niche } of WEBSITE_NICHE_PATTERNS) {
+      if (pattern.test(body)) {
+        log.info("[niche-l2] website-text inferred niche (body):", { niche });
+        return niche;
+      }
+    }
+  }
+  return "";
+}
+
+/** Per-process cache of layer-3 LLM classifications, keyed by placeId. Avoids
+ *  re-paying for the same business across audit re-runs within a process. */
+const llmNicheCache = new Map<string, string>();
+
+/** Parse the strict JSON the layer-3 classifier is asked to emit. Tolerates the
+ *  model wrapping JSON in prose/fences. Returns { niche, confidence } or null. */
+function parseNicheClassification(raw: string): { niche: string; confidence: number } | null {
+  if (!raw || typeof raw !== "string") return null;
+  // Pull the first {...} block so a chatty model still parses.
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  let obj: any;
+  try {
+    obj = JSON.parse(match[0]);
+  } catch {
+    return null;
+  }
+  if (!obj || typeof obj !== "object") return null;
+  const nicheRaw = obj.niche;
+  // Honest-null: the model says it can't classify.
+  if (nicheRaw === null || nicheRaw === undefined) return null;
+  const niche = String(nicheRaw).trim();
+  if (!niche || isGeneralTrade(niche)) return null;
+  const confidence = typeof obj.confidence === "number" ? obj.confidence : 0;
+  return { niche, confidence };
+}
+
+/**
+ * LAYER 3 — LLM classifier fallback. Calls Haiku with the business name, Google
+ * type signals, and website text, asking for ONE specific service niche as
+ * strict JSON. Returns "" (honest suppression) when the model says null, when
+ * confidence is below threshold, or on any error. Caches by placeId.
+ *
+ * Cost guard: the caller (resolveCategoryLabelCascade) only invokes this when
+ * layers 1 AND 2 both missed. NEVER fabricates a niche.
+ */
+export async function classifyNicheWithLLM(input: {
+  businessName: string;
+  placeId?: string | null;
+  primaryType?: string | null;
+  types?: string[];
+  site?: WebsiteNicheText | null;
+  /** Minimum confidence to accept the model's niche. Default 0.6. */
+  minConfidence?: number;
+  /** Injectable chat() for tests. Defaults to the real aiService chat. */
+  chatFn?: (opts: any) => Promise<string>;
+}): Promise<string> {
+  const placeId = (input.placeId || "").toString().trim();
+  if (placeId && llmNicheCache.has(placeId)) {
+    return llmNicheCache.get(placeId) || "";
+  }
+  const minConfidence = typeof input.minConfidence === "number" ? input.minConfidence : 0.6;
+  const chatFn = input.chatFn || chat;
+  const site = input.site || EMPTY_WEBSITE_TEXT;
+  const types = Array.isArray(input.types) ? input.types : [];
+
+  // If we have literally no signal (no name, no types, no site text), don't pay
+  // for a guess that can only hallucinate — suppress honestly.
+  const haveSignal =
+    !!(input.businessName || "").trim() ||
+    !!(input.primaryType || "").trim() ||
+    types.length > 0 ||
+    site.ok;
+  if (!haveSignal) return "";
+
+  const system =
+    "You are a precise local-business classifier. Classify the business into ONE " +
+    "specific service niche of 2-4 words (e.g. 'commercial plumbing', 'freight forwarding', " +
+    "'personal injury law firm', 'auto repair', 'managed IT services'). Use the actual service " +
+    "the business sells — not a generic word like 'business', 'company', 'services', or 'general'. " +
+    "If the signals are genuinely insufficient to name a specific niche, return null for niche — " +
+    "do NOT guess. Respond with ONLY minified JSON: {\"niche\": string|null, \"confidence\": number} " +
+    "where confidence is 0-1.";
+
+  const userPayload = [
+    `Business name: ${input.businessName || "(unknown)"}`,
+    `Google primaryType: ${input.primaryType || "(none)"}`,
+    `Google types: ${types.length ? types.join(", ") : "(none)"}`,
+    `Website title: ${site.title || "(none)"}`,
+    `Website meta description: ${site.metaDescription || "(none)"}`,
+    `Website headings: ${site.headings || "(none)"}`,
+    `Website body (first 500 chars): ${site.bodySnippet || "(none)"}`,
+  ].join("\n");
+
+  try {
+    const raw = await chatFn({
+      system,
+      messages: [{ role: "user", content: userPayload }],
+      modelOverride: CLAUDE_HAIKU,
+      maxTokens: 80,
+      timeoutMs: 12000,
+      // Reuse the existing audit surface so this cheap Haiku classify rolls into
+      // the audit AI budget/kill-switch (no new surface row to seed).
+      surface: "wft_audit",
+    });
+    const parsed = parseNicheClassification(raw);
+    if (!parsed) {
+      log.info("[niche-l3] LLM returned no usable niche (null/unparseable) — suppressing");
+      if (placeId) llmNicheCache.set(placeId, "");
+      return "";
+    }
+    if (parsed.confidence < minConfidence) {
+      log.info("[niche-l3] LLM confidence below threshold — suppressing:", {
+        niche: parsed.niche, confidence: parsed.confidence, minConfidence,
+      });
+      if (placeId) llmNicheCache.set(placeId, "");
+      return "";
+    }
+    log.info("[niche-l3] LLM classified niche:", { niche: parsed.niche, confidence: parsed.confidence });
+    if (placeId) llmNicheCache.set(placeId, parsed.niche);
+    return parsed.niche;
+  } catch (err: any) {
+    log.warn("[niche-l3] LLM classify failed — suppressing (no fabrication):", { error: err?.message });
+    return "";
+  }
+}
+
+/** Which cascade layer produced the resolved category (for logging/telemetry). */
+export type NicheLayer = "primaryType" | "website" | "llm" | "none";
+
+/**
+ * Resolve the honest category label for a NON-TRADE ("general") business via the
+ * full cascade:  layer 1 (Google primaryType) → layer 2 (website text) →
+ * layer 3 (LLM) → "" (honest suppression). Real trades never reach here (the
+ * caller passes trade through unchanged). Returns the label + which layer made it.
+ *
+ * Cost guard is structural: each layer runs only if the previous returned "".
+ */
+export async function resolveCategoryLabelCascade(input: {
+  businessName: string;
+  types: string[];
+  primaryType?: string | null;
+  primaryTypeDisplayName?: string | null;
+  placeId?: string | null;
+  website?: string | null;
+  /** Pre-fetched website text (so we don't double-fetch). When omitted and a
+   *  website is provided, this fetches it for layer 2. */
+  site?: WebsiteNicheText | null;
+  /** Injectable chat() for tests. */
+  chatFn?: (opts: any) => Promise<string>;
+}): Promise<{ categoryLabel: string; layer: NicheLayer }> {
+  // ── Layer 1: Google Places primaryType / display name / types ──
+  const l1 = deriveCategoryLabel(
+    input.businessName,
+    Array.isArray(input.types) ? input.types : [],
+    input.primaryType,
+    input.primaryTypeDisplayName,
+  );
+  if (l1) return { categoryLabel: l1, layer: "primaryType" };
+
+  // ── Layer 2: website-content inference (cheap, no LLM) ──
+  let site = input.site || null;
+  if (!site && input.website) {
+    site = await fetchWebsiteNicheText(input.website);
+  }
+  const l2 = inferNicheFromWebsiteText(site || EMPTY_WEBSITE_TEXT);
+  if (l2) return { categoryLabel: l2, layer: "website" };
+
+  // ── Layer 3: LLM classifier (only reached when 1 & 2 missed) ──
+  const l3 = await classifyNicheWithLLM({
+    businessName: input.businessName,
+    placeId: input.placeId,
+    primaryType: input.primaryType,
+    types: input.types,
+    site: site || EMPTY_WEBSITE_TEXT,
+    chatFn: input.chatFn,
+  });
+  if (l3) return { categoryLabel: l3, layer: "llm" };
+
+  // ── Honest suppression — never fabricate, never "general". ──
+  return { categoryLabel: "", layer: "none" };
+}
+
 /**
  * Lead noun for the report's "Potential Missed Jobs/Calls" card and prose.
  * Real trades use the trade-specific noun (jobs/calls); general/unknown
@@ -3117,9 +3481,31 @@ router.post("/generate", async (req: Request, res: Response) => {
       typeof business.primaryType === "string" ? business.primaryType : null;
     const businessPrimaryTypeDisplayName =
       typeof business.primaryTypeDisplayName === "string" ? business.primaryTypeDisplayName : null;
-    const categoryLabel = isGeneralTrade(trade)
-      ? deriveCategoryLabel(business.name || "", businessTypes, businessPrimaryType, businessPrimaryTypeDisplayName)
-      : trade;
+    // Website URL is needed by the niche cascade (layer 2 reads the homepage), so
+    // resolve it here — before the gather — rather than the later const below.
+    const website = String(business.website || "");
+    // For a non-trade ("general") business resolve the honest category via the
+    // 3-layer cascade: Google primaryType (layer 1) → website-content inference
+    // (layer 2) → LLM classifier (layer 3) → "" (honest suppression). A real
+    // trade is passed through unchanged (no cascade, no cost). `categoryLabel`
+    // may be "" for a truly-unknown business → competitors suppressed + generic
+    // prose. NEVER the literal "general". The cascade's structural cost guard
+    // runs each layer only when the prior left the label empty, so layer 3 (the
+    // only paid layer) fires only when name + Google category + website all miss.
+    let categoryLabel = trade;
+    let nicheLayer: NicheLayer = "none";
+    if (isGeneralTrade(trade)) {
+      const cascade = await resolveCategoryLabelCascade({
+        businessName: business.name || "",
+        types: businessTypes,
+        primaryType: businessPrimaryType,
+        primaryTypeDisplayName: businessPrimaryTypeDisplayName,
+        placeId: business.placeId || null,
+        website: website || null,
+      });
+      categoryLabel = cascade.categoryLabel;
+      nicheLayer = cascade.layer;
+    }
     // The term we hand to the competitor search: a real trade, or the derived
     // category for a general business, or "" (→ competitors suppressed).
     const competitorSearchCategory = isGeneralTrade(trade) ? categoryLabel : trade;
@@ -3128,6 +3514,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     log.info("[trade] generalization:", {
       trade,
       categoryLabel: categoryLabel || "(none)",
+      nicheLayer,
       competitorSearchCategory: competitorSearchCategory || "(suppressed)",
       leadNoun,
     });
@@ -3146,7 +3533,7 @@ router.post("/generate", async (req: Request, res: Response) => {
 
     const rating = typeof business.rating === "number" ? business.rating : null;
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
-    const website = String(business.website || "");
+    // `website` resolved earlier (above) for the niche cascade.
     const photosLen = Array.isArray(business.photos) ? business.photos.length : 0;
     // mobileScore/desktopScore set after parallel fetch below
 

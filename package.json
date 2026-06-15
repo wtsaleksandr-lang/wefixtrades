@@ -43,6 +43,7 @@
     "check:audit-scoring": "tsx server/auditScoring.test.ts",
     "check:audit-general": "tsx server/auditRoutes.audit-general.test.ts",
     "check:audit-competitors": "tsx server/auditRoutes.competitors.test.ts",
+    "check:audit-niche": "tsx server/auditRoutes.niche-cascade.test.ts",
     "check:audit-narrative": "tsx server/auditRoutes.narrative-bg.test.ts",
     "check:revenue-loss": "tsx shared/revenueLoss.test.ts",
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
