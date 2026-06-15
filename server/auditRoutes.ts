@@ -941,7 +941,10 @@ router.post("/speed", async (req: Request, res: Response) => {
       const exKeywordAvailable = exDq.keywordDataAvailable !== false;
       const exCompetitorAvailable = exDq.competitorDataAvailable !== false;
       const totalParts: Array<{ score: number; max: number }> = [
-        { score: exScores.googleMaps?.score || 0, max: 25 },
+        // Use the persisted googleMaps.max (17 when the review sub-score was
+        // excluded for lack of a real area benchmark; else 25) so the
+        // renormalization here agrees with calculateScores.
+        { score: exScores.googleMaps?.score || 0, max: typeof exScores.googleMaps?.max === "number" ? exScores.googleMaps.max : 25 },
         { score: exScores.demandCoverage?.score || 0, max: 10 },
         // Website now has speed data, so it always counts post-speed.
         { score: newWebsiteScore, max: 20 },
@@ -1474,11 +1477,25 @@ export function calculateScores(auditData: any) {
   else if (bd.rating >= 4.0) gmRating = 7;
   else if (bd.rating >= 3.5) gmRating = 4;
 
-  const avgRevs = auditData.areaAverageReviews || 50;
-  let gmReviews = 1;
-  if (bd.reviewsCount >= avgRevs) gmReviews = 8;
-  else if (bd.reviewsCount >= avgRevs * 0.75) gmReviews = 5;
-  else if (bd.reviewsCount >= avgRevs * 0.5) gmReviews = 3;
+  // Reviews sub-score is benchmark-RELATIVE (reviewsCount vs the local area
+  // average). When we have no real area average (competitors suppressed /
+  // filtered to none → areaAverageReviews is 0), comparing against the old
+  // hardcoded `|| 50` guess silently swung up to 8 pts of the 25-pt Maps
+  // category off an invented benchmark. Instead, EXCLUDE the review sub-score
+  // entirely: drop it from both the earned points and the category max, so the
+  // Maps category is scored out of 17 and renormalized honestly.
+  const realAvgRevs =
+    typeof auditData.areaAverageReviews === "number" && auditData.areaAverageReviews > 0
+      ? auditData.areaAverageReviews
+      : null;
+  const REVIEW_SUBSCORE_MAX = 8;
+  let gmReviews: number | null = null;
+  if (realAvgRevs !== null) {
+    gmReviews = 1;
+    if (bd.reviewsCount >= realAvgRevs) gmReviews = 8;
+    else if (bd.reviewsCount >= realAvgRevs * 0.75) gmReviews = 5;
+    else if (bd.reviewsCount >= realAvgRevs * 0.5) gmReviews = 3;
+  }
 
   const photosLen = Array.isArray(bd.photos) ? bd.photos.length : 0;
   let gmPhotos = 0;
@@ -1487,7 +1504,12 @@ export function calculateScores(auditData: any) {
 
   const gmDesc = bd.description ? 2 : 0;
   const gmWeb = bd.website ? 1 : 0;
-  const googleMapsScore = Math.min(gmRating + gmReviews + gmPhotos + gmDesc + gmWeb, 25);
+  // Category max shrinks by the review sub-score when it's excluded (25 → 17).
+  const googleMapsMax = 25 - (gmReviews === null ? REVIEW_SUBSCORE_MAX : 0);
+  const googleMapsScore = Math.min(
+    gmRating + (gmReviews ?? 0) + gmPhotos + gmDesc + gmWeb,
+    googleMapsMax,
+  );
 
   // Website Quality — 20pts (speed 8pts + QA checks 12pts)
   const speedDataAvailable = typeof speedMobile === "number" || typeof speedDesktop === "number";
@@ -1637,7 +1659,7 @@ export function calculateScores(auditData: any) {
   const keywordAvailable = dq.keywordDataAvailable !== false;
   const competitorAvailable = dq.competitorDataAvailable !== false;
   const categoryParts: Array<{ score: number; max: number }> = [
-    { score: googleMapsScore, max: 25 },
+    { score: googleMapsScore, max: googleMapsMax },
     { score: demandScore, max: 10 },
   ];
   if (websiteScore !== null) categoryParts.push({ score: websiteScore, max: 20 });
@@ -1660,7 +1682,7 @@ export function calculateScores(auditData: any) {
   else grade = "D";
 
   return {
-    googleMaps: { score: googleMapsScore, max: 25, breakdown: { rating: gmRating, reviews: gmReviews, photos: gmPhotos, description: gmDesc, website: gmWeb } },
+    googleMaps: { score: googleMapsScore, max: googleMapsMax, breakdown: { rating: gmRating, reviews: gmReviews, reviewsExcluded: gmReviews === null, photos: gmPhotos, description: gmDesc, website: gmWeb } },
     websiteQuality: { score: websiteScore, max: websiteScore === null ? null : 20, breakdown: { speed: speedPts, htmlChecks: qaPoints, aiVisual: aiVisualPts, mobile: webMobile, desktop: webDesktop } },
     searchVisibility: { score: searchVisibilityScore, max: 20, breakdown: { keywordPoints: organicPts, localPackBonus: localPackPts, bestLocalPackPos: hasLocalPack ? bestLocalPackPos : null } },
     competitorPositioning: { score: competitorScore, max: 15, breakdown: {} },
@@ -1726,14 +1748,21 @@ function extractCity(business: any): string {
 }
 
 /* ─── Trade Detection ─── */
+// Word-bounded so a substring inside an unrelated brand name doesn't trigger a
+// false trade: e.g. "Electrolux Appliance Repair" must NOT class as electrical,
+// "Pipeline Logistics" must NOT class as plumbing. \b anchors the start so we
+// match "electrician"/"electrical" (start "electr") but not "electrolux"… which
+// also starts "electr" — so for the genuinely ambiguous stems we require the
+// trade-word root specifically. Prefer the Places `primaryType`/`types` signal
+// (handled in detectTrade) before falling back to these name patterns.
 const TRADE_PATTERNS: Array<{ pattern: RegExp; trade: string }> = [
-  { pattern: /plumb|plomb|drain|rooter|pipe|tuyau/i, trade: "plumbing" },
-  { pattern: /hvac|heating|cooling|air.?condition|furnace|chauffage|climatisation/i, trade: "hvac" },
-  { pattern: /electr/i, trade: "electrical" },
-  { pattern: /clean|maid|janitorial|nettoy/i, trade: "cleaning" },
-  { pattern: /landscape|lawn|garden|gazon|jardin/i, trade: "landscaping" },
-  { pattern: /roof|toit|couvreur/i, trade: "roofing" },
-  { pattern: /lock|serrurier/i, trade: "locksmith" },
+  { pattern: /\b(plumb|plomb|drain|rooter|tuyau)|\bpipe\b/i, trade: "plumbing" },
+  { pattern: /\b(hvac|heating|cooling|furnace|chauffage|climatisation)\b|\bair.?condition/i, trade: "hvac" },
+  { pattern: /\belectric(ian|al)?\b/i, trade: "electrical" },
+  { pattern: /\b(clean|maid|janitorial|nettoy)/i, trade: "cleaning" },
+  { pattern: /\b(landscap|lawn|garden|gazon|jardin)/i, trade: "landscaping" },
+  { pattern: /\b(roof|toit|couvreur)/i, trade: "roofing" },
+  { pattern: /\b(locksmith|serrurier)\b|\block\b/i, trade: "locksmith" },
 ];
 
 const TYPE_TRADE_MAP: Record<string, string> = {
@@ -1791,21 +1820,52 @@ const NAME_TRADE_MAP: Record<string, string> = {
   construct: "construction",
 };
 
-export function detectTrade(businessName: string, types: string[]): string {
-  const haystack = [businessName, ...types].join(" ");
-  log.info(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
+/** NAME_TRADE_MAP keys that must match as a WHOLE word (boundary both sides) so
+ *  they don't fire inside an unrelated brand word: "key" ⊄ "Turnkey", "pipe" ⊄
+ *  "Pipeline", "lock" ⊄ "Gridlock", "wash" ⊄ "Washington", "snow" ⊄ "Snowden". */
+const NAME_TRADE_WHOLE_WORD = new Set<string>([
+  "key", "pipe", "lock", "wash", "snow", "lawn", "maid", "carpet", "gutter",
+]);
 
-  // Step 1: pattern match on combined haystack (name + types)
+/** Roots whose desired surface forms aren't a clean prefix or whole word —
+ *  give them an explicit regex. "mov" → "move/moving/mover/movers" but never
+ *  "remove/movie"; "paint" must avoid "painting drywall" false hits is fine as
+ *  prefix, so only mov needs an override. */
+const NAME_TRADE_PATTERN_OVERRIDE: Record<string, RegExp> = {
+  mov: /\bmov(e|es|ed|ing|er|ers)\b/i,
+};
+
+export function detectTrade(businessName: string, types: string[], primaryType?: string | null): string {
+  log.info(`[detectTrade] businessName: ${businessName}, primaryType: ${primaryType ?? "none"}, types: ${JSON.stringify(types)}`);
+
+  // Step 1 (highest confidence): the Google Places category. primaryType, then
+  // any type, mapped through TYPE_TRADE_MAP. Trusting structured Places category
+  // BEFORE a name-substring guess stops "Electrolux Appliance Repair" (an
+  // appliance_repair_service) being misread as electrical from its name.
+  const pt = (primaryType || "").toString().trim();
+  if (pt && TYPE_TRADE_MAP[pt] && TYPE_TRADE_MAP[pt] !== "general") {
+    log.info(`[trade] from primaryType ${pt}: ${TYPE_TRADE_MAP[pt]}`);
+    return TYPE_TRADE_MAP[pt];
+  }
+  for (const type of types) {
+    if (TYPE_TRADE_MAP[type] && TYPE_TRADE_MAP[type] !== "general") {
+      log.info(`[trade] from type ${type}: ${TYPE_TRADE_MAP[type]}`);
+      return TYPE_TRADE_MAP[type];
+    }
+  }
+
+  // Step 2: word-bounded name/type pattern match (only when Places gave nothing).
+  const haystack = [businessName, ...types].join(" ");
   for (const { pattern, trade } of TRADE_PATTERNS) {
     if (pattern.test(haystack)) {
-      log.info(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
+      log.info(`[audit] Detected trade: ${trade} from name/type pattern: ${businessName}`);
       return trade;
     }
   }
 
   let trade = "general";
 
-  // Step 2: type-based fallback
+  // Step 3: type map for the generic-mapped entries (e.g. general_contractor).
   for (const type of types) {
     if (TYPE_TRADE_MAP[type]) {
       trade = TYPE_TRADE_MAP[type];
@@ -1813,11 +1873,22 @@ export function detectTrade(businessName: string, types: string[]): string {
     }
   }
 
-  // Step 3: name word fallback
+  // Step 4: name word fallback. Word-bounded so short ambiguous keys don't fire
+  // inside unrelated words. Keys in NAME_TRADE_WHOLE_WORD require a boundary on
+  // BOTH sides (\bkey\b — "key"/"keys" but not "Turnkey"/"Mickey"; \bpipe\b —
+  // "pipe" but not "Pipeline"; \bmov\b is pointless so "mov" uses a controlled
+  // \bmov(e|ing|er) form). Everything else is a deliberate prefix root
+  // (\blandscap matches "landscaping", \bclean matches "cleaning").
   if (trade === "general") {
     const nameLower = businessName.toLowerCase();
     for (const [word, t] of Object.entries(NAME_TRADE_MAP)) {
-      if (nameLower.includes(word)) {
+      const esc = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = NAME_TRADE_PATTERN_OVERRIDE[word]
+        ? NAME_TRADE_PATTERN_OVERRIDE[word]
+        : NAME_TRADE_WHOLE_WORD.has(word)
+        ? new RegExp(`\\b${esc}\\b`, "i")
+        : new RegExp(`\\b${esc}`, "i");
+      if (re.test(nameLower)) {
         trade = t;
         break;
       }
@@ -2672,7 +2743,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     const clientTrade = String(req.body?.trade || "").trim();
     let trade = clientTrade && clientTrade !== "general"
       ? clientTrade
-      : detectTrade(business.name || "", Array.isArray(business.types) ? business.types : []);
+      : detectTrade(business.name || "", Array.isArray(business.types) ? business.types : [], typeof business.primaryType === "string" ? business.primaryType : null);
     // Apply user-confirmed trade override from frontend
     const tradeOverride = String(req.body?.tradeOverride || "").trim();
     if (tradeOverride && tradeOverride !== "general") {
@@ -2787,7 +2858,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     // engine + report tolerate missing competitors/reviews/keywords/speed.
     const gatherAll = Promise.allSettled([
       serperPromise,                                                                  // 0: E3 Serper
-      fetchCompetitors(competitorSearchCategory, city, business.name, stateCode || undefined, getCached, setCached, bizCoords), // 1: E1 competitors (Places primary, Outscraper fallback; real category not "general", ~30km bias)
+      fetchCompetitors(competitorSearchCategory, city, business.name, stateCode || undefined, getCached, setCached, bizCoords, business.placeId || undefined), // 1: E1 competitors (Places primary, Outscraper fallback; real category not "general", ~30km bias, type-filtered, self-excluded by placeId)
       (business.placeId && reviewsCount > 0) ? fetchReviewIntelligence({ placeId: business.placeId, businessName: business.name, locationLabel: stateCode ? city + ", " + stateCode : city }) : Promise.resolve(null), // 2: E2 reviews (Serper → Outscraper → DataForSEO)
       dataForSEOPromise,                                                              // 3: E4 volumes
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),               // 4: website QA

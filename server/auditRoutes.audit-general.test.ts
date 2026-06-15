@@ -212,17 +212,21 @@ async function main() {
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async (_url: any, init: any) => {
       capturedBody = JSON.parse(init.body);
-      // Return one competitor so the result is non-empty.
+      // Return one SAME-NICHE competitor (matching type + nearby location) so it
+      // survives the same-niche + distance filters and the result is non-empty.
       return new Response(
         JSON.stringify({
           places: [
             {
               id: "p1",
-              displayName: { text: "Some Competitor" },
+              displayName: { text: "Rival Freight Forwarding" },
               rating: 4.5,
               userRatingCount: 50,
               websiteUri: "https://x.example",
               formattedAddress: "1 Main St",
+              primaryType: "freight_forwarding_service",
+              types: ["freight_forwarding_service"],
+              location: { latitude: 43.66, longitude: -79.39 },
             },
           ],
         }),
