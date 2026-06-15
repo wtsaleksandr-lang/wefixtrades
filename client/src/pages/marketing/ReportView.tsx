@@ -1268,6 +1268,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   })();
   const competitorDataMissing = dataQuality.competitorDataAvailable === false;
   const keywords = report?.keywords || [];
+  // Rank Grid pre-fill — the audit already knows what this business is and where.
+  // Derive up to 5 relevant keyword terms so the Rank Grid tab opens with the
+  // box already filled (zero SEO jargon for the user). Source priority:
+  //   1. The audit's own "What Customers Search For" keyword table (report.keywords),
+  //      highest monthly-search-volume first — these are the real terms we found.
+  //   2. Niche/category + city derivation when the keyword table is empty
+  //      (e.g. "freight forwarder london", "freight forwarder near me").
+  const rankGridKeywords = useMemo<string[]>(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const push = (raw: any) => {
+      const v = String(raw || '').trim().toLowerCase().slice(0, 60);
+      if (!v || seen.has(v) || out.length >= 5) return;
+      seen.add(v);
+      out.push(v);
+    };
+    // 1) Real keywords the audit surfaced, ranked by demand.
+    const fromAudit = [...keywords]
+      .filter((k: any) => k && typeof k.keyword === 'string' && k.keyword.trim())
+      .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0));
+    for (const k of fromAudit) push(k.keyword);
+    // 2) Niche + city fallback / top-up.
+    const niche = (
+      (typeof report?.categoryLabel === 'string' && report.categoryLabel.trim())
+        ? report.categoryLabel
+        : (report?.trade && report.trade !== 'general' ? report.trade : '')
+    ).toString().trim().toLowerCase();
+    const city = (report?.city || '').toString().trim().toLowerCase();
+    if (niche) {
+      if (city) push(`${niche} ${city}`);
+      push(`${niche} near me`);
+      push(niche);
+    }
+    return out.slice(0, 5);
+  }, [keywords, report?.categoryLabel, report?.trade, report?.city]);
   const loss = report?.estimatedRevenueLoss || {};
   // CRO P0 — honest offer copy (guarantee + soft urgency) authored server-side
   // as data (report.offer). Surfaced near the CTAs; never hardcoded here.
@@ -1930,7 +1965,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <MapSnapshotShell
             trade={(report?.trade || '').toLowerCase() || undefined}
             initialBusinessName={business?.name || ''}
-            autoSubmit={!!business?.name}
+            initialKeywords={rankGridKeywords}
+            autoSubmit={!!business?.name && rankGridKeywords.length > 0}
           />
         </div>
       )}
