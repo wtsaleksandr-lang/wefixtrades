@@ -1332,10 +1332,18 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     if (!kw) return;
     // search_volume/live returns fields directly on item (not nested under keyword_info)
     const info = item?.keyword_info;
+    // P1-9: DataForSEO can return these as strings (or null/NaN). `??` only
+    // guards null/undefined — a string would flow straight into the
+    // customer-facing "missed leads" revenue math and surface as NaN. Coerce
+    // every numeric field with `Number(x) || 0` so only finite numbers escape.
+    const toNum = (x: any): number => {
+      const n = Number(x);
+      return Number.isFinite(n) ? n : 0;
+    };
     const val = {
-      searchVolume: item?.search_volume ?? info?.search_volume ?? 0,
-      cpc: item?.cpc ?? info?.cpc ?? 0,
-      competition: item?.competition_index ?? item?.competition ?? info?.competition ?? 0,
+      searchVolume: toNum(item?.search_volume ?? info?.search_volume ?? 0),
+      cpc: toNum(item?.cpc ?? info?.cpc ?? 0),
+      competition: toNum(item?.competition_index ?? item?.competition ?? info?.competition ?? 0),
     };
     const norm = normalizeKw(kw);
     volumeMap[norm] = val;
@@ -1381,6 +1389,14 @@ export async function calculateDemandGaps(
 ) {
   const weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
   log.info("[audit] Using hardcoded demand distribution");
+
+  // P1-9: defend the revenue arithmetic. If a non-finite value (string, NaN
+  // from a degraded DataForSEO response, etc.) reaches here it would flow
+  // through monthlyLeads → Math.round(NaN) → NaN and surface in the
+  // customer-facing "missed leads" / revenue band. Coerce to a finite,
+  // non-negative number so only real measurements drive the dollar figure.
+  const _vol = Number(totalMonthlySearchVolume);
+  totalMonthlySearchVolume = Number.isFinite(_vol) && _vol > 0 ? _vol : 0;
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
   const isOpenEvenings = isOpenInEvenings(businessHours || []);
@@ -3772,17 +3788,14 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       source_page: source_page || null,
     });
 
-      // 2. Send PDF email (non-blocking)
-      if (reportId) {
-        import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
-          const origin = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
-          sendAuditReportEmail({ reportId, recipientEmail: email.trim(), origin }).catch((err) => {
-            log.error("[audit-lead] PDF email error:", { error: err?.message, err });
-          });
-        });
-      }
+    // 2. Day-0 report email is now DURABLE: enqueued as a step='day0' follow-up
+    //    row inside enqueueAuditFollowupSequence (below) so the worker retries
+    //    on transient SMTP failure and the UNIQUE (audit_submission_id, step)
+    //    index makes it idempotent across double-submits. Previously this was a
+    //    fire-and-forget dynamic import().then() with no retry and an unhandled
+    //    rejection risk (P0-2) — removed.
 
-    // 3. Enqueue follow-up sequence (non-blocking)
+    // 3. Enqueue follow-up sequence + durable Day-0 report email (non-blocking)
     enqueueAuditFollowupSequence({
       auditSubmissionId: submission.id,
       auditReportId: reportId || null,

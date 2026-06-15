@@ -2,9 +2,25 @@ import { storage } from "../storage";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { buildUnsubscribeUrl } from "../lib/unsubscribeToken";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { sendAuditReportEmail } from "../lib/sendAuditReport";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("AuditFollowupWorker");
+
+// P1-11: connection-class SMTP / network errors are transient — defer (keep
+// the row pending, don't burn an attempt) rather than counting them toward
+// max_attempts, which would permanently fail a row over a passing blip.
+function isTransientSmtpError(err: any): boolean {
+  const code = String(err?.code || "").toUpperCase();
+  if (["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "ESOCKET", "EAI_AGAIN", "EPIPE", "ECONNECTION", "ETIMEOUT", "EDNS"].includes(code)) {
+    return true;
+  }
+  // Nodemailer surfaces transient SMTP failures (e.g. 421/451) with a numeric
+  // responseCode in the 4xx range.
+  const rc = Number(err?.responseCode);
+  if (Number.isFinite(rc) && rc >= 400 && rc < 500) return true;
+  return false;
+}
 
 function buildHtml(body: string, unsubscribeUrl?: string): string {
   const htmlBody = body.replace(/\n/g, "<br/>");
@@ -26,13 +42,18 @@ export async function processAuditFollowups(): Promise<{ processed: number; erro
   const errors: string[] = [];
   let processed = 0;
 
-  const dueJobs = await storage.fetchDueAuditFollowups(20);
-  if (dueJobs.length === 0) return { processed: 0, errors: [] };
-
   const mail = getEmailTransporter();
   if (!mail) {
+    // P1-11 / P0-2: SMTP not configured is transient — do NOT claim rows (which
+    // would flip them to 'processing' and strand them). Leave them pending so a
+    // later tick with SMTP available retries them.
     return { processed: 0, errors: ["SMTP not configured"] };
   }
+
+  // P1-11: atomically lease due rows (pending → processing, FOR UPDATE SKIP
+  // LOCKED) so a second worker instance can't grab and double-send the same row.
+  const dueJobs = await storage.claimDueAuditFollowups(20);
+  if (dueJobs.length === 0) return { processed: 0, errors: [] };
 
   const from = getFromAddress();
 
@@ -51,6 +72,48 @@ export async function processAuditFollowups(): Promise<{ processed: number; erro
       }
 
       const payload = job.payload as any;
+
+      // P0-2: the Day-0 report email is enqueued as a durable step='day0' row
+      // (kind='report') so a transient SMTP failure retries instead of losing
+      // the report. Route it through sendAuditReportEmail (PDF attachment +
+      // report template) rather than the plain follow-up text template.
+      if (job.step === "day0" || payload?.kind === "report") {
+        const reportId = payload?.reportId || job.audit_report_id;
+        if (!reportId) {
+          await storage.updateAuditFollowup(job.id, {
+            status: "cancelled",
+            last_error: "No reportId for day0 report email",
+            processed_at: new Date(),
+            attempts: (job.attempts || 0) + 1,
+          });
+          continue;
+        }
+        const origin = payload?.origin || process.env.APP_URL || "https://wefixtrades.com";
+        const result = await sendAuditReportEmail({
+          reportId,
+          recipientEmail: job.email,
+          origin,
+        });
+        if (result.ok) {
+          await storage.updateAuditFollowup(job.id, {
+            status: "sent",
+            processed_at: new Date(),
+            attempts: (job.attempts || 0) + 1,
+          });
+          processed++;
+        } else {
+          // Terminal {ok:false} (unsubscribed / report not found / no
+          // transporter) — don't retry forever; mark and move on.
+          await storage.updateAuditFollowup(job.id, {
+            status: "cancelled",
+            last_error: result.error || "report email not sent",
+            processed_at: new Date(),
+            attempts: (job.attempts || 0) + 1,
+          });
+        }
+        continue;
+      }
+
       const subject = payload?.subject || "Your WeFixTrades Audit Follow-up";
       const body = payload?.body || "";
       const unsubscribeUrl = buildUnsubscribeUrl(job.email);
@@ -73,6 +136,17 @@ export async function processAuditFollowups(): Promise<{ processed: number; erro
       });
       processed++;
     } catch (err: any) {
+      // P1-11: connection-class SMTP errors are transient — defer (back to
+      // pending, attempt NOT incremented) so a passing blip doesn't burn the
+      // row's attempts toward a permanent 'failed'. Everything else counts.
+      if (isTransientSmtpError(err)) {
+        await storage.updateAuditFollowup(job.id, {
+          status: "pending",
+          last_error: `transient: ${err.message}`,
+        });
+        errors.push(`AuditFollowup ${job.id} (deferred): ${err.message}`);
+        continue;
+      }
       const attempts = (job.attempts || 0) + 1;
       await storage.updateAuditFollowup(job.id, {
         status: attempts >= (job.max_attempts || 3) ? "failed" : "pending",

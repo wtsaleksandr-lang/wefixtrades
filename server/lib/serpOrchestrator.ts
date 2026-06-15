@@ -141,6 +141,25 @@ const PROVIDER_ORDER: Record<SerpEngine, string[]> = {
 
 const REQUEST_TIMEOUT_MS = 5_000;
 
+// P1-7: aggregate ceiling for a single searchSerp() call. Without this the
+// provider loop tries up to 6 providers at REQUEST_TIMEOUT_MS each
+// sequentially (≈30s worst case), and the E3→E4 rank chain that fires two
+// such calls back-to-back can eat ≈45s of the overall ~55s gather budget —
+// starving the other audit phases. The orchestrator stops trying further
+// providers once this wall-clock budget is spent and races each individual
+// provider call against the remaining budget so no single hung provider can
+// blow past the ceiling.
+const AGGREGATE_TIMEOUT_MS = 13_000;
+
+function deadlineRace<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  if (ms <= 0) return Promise.reject(new Error(`${label}: aggregate SERP budget exhausted`));
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label}: aggregate SERP budget exceeded`)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
 /* ─── Cache ─────────────────────────────────────────────────────────── */
 
 interface CacheEntry {
@@ -296,6 +315,9 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
   const order = PROVIDER_ORDER[engine] ?? PROVIDER_ORDER.google_web;
   const errors: Array<{ provider: string; error: string }> = [];
 
+  // P1-7: aggregate wall-clock deadline for this whole call.
+  const aggregateDeadline = Date.now() + AGGREGATE_TIMEOUT_MS;
+
   for (const providerId of order) {
     const mod = PROVIDERS[providerId];
     if (!mod) continue;
@@ -317,9 +339,21 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
       continue;
     }
 
+    // P1-7: stop trying further providers once the aggregate budget is spent.
+    const budgetLeft = aggregateDeadline - Date.now();
+    if (budgetLeft <= 0) {
+      log.warn(`[serp] aggregate budget (${AGGREGATE_TIMEOUT_MS}ms) exhausted before ${providerId} — stopping fallthrough`);
+      errors.push({ provider: providerId, error: "aggregate SERP budget exhausted" });
+      break;
+    }
+
     const started = Date.now();
     try {
-      const result = await mod.call(req, REQUEST_TIMEOUT_MS);
+      // Race the provider call against the smaller of its own per-request
+      // timeout and the remaining aggregate budget so neither a slow chain of
+      // providers nor one hung provider can exceed AGGREGATE_TIMEOUT_MS.
+      const perCallBudget = Math.min(REQUEST_TIMEOUT_MS, budgetLeft);
+      const result = await deadlineRace(mod.call(req, perCallBudget), perCallBudget, providerId);
       recordSuccess(providerId, mod.MONTHLY_LIMIT);
       cacheSet(key, result);
       const resultCount = result.organic.length + (result.localPack?.length ?? 0);

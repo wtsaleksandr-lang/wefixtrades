@@ -32,7 +32,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 async function main() {
-  const { calculateScores, analyzeWebsiteQuality } = await import("./auditRoutes");
+  const { calculateScores, analyzeWebsiteQuality, calculateDemandGaps } = await import("./auditRoutes");
 
   /* ─── P2-6 — htmlChecks contribution never exceeds its 8-pt cap ─── */
   // A perfect QA score is 24 (sum of analyzeWebsiteQuality weights). With the
@@ -126,6 +126,81 @@ async function main() {
     } finally {
       globalThis.fetch = realFetch;
     }
+  }
+
+  /* ─── P1-9 — calculateDemandGaps coerces non-finite volume, never emits NaN ─── */
+  // A degraded DataForSEO response can hand a string / NaN as the
+  // totalMonthlySearchVolume. Without the Number.isFinite guard this flows
+  // through monthlyLeads → Math.round(NaN) → NaN into the customer-facing
+  // "missed leads" + revenue band. Each bad input must behave exactly like a
+  // zero-volume (placeholder) run: a finite, non-negative band flagged
+  // isRealVolume=false.
+  {
+    // Every one of these must produce a FINITE, non-negative band (never NaN),
+    // regardless of how the volume was coerced.
+    const allInputs: any[] = [NaN, "1200", "not-a-number", undefined, null, -5, Infinity, 0, 4000];
+    for (const v of allInputs) {
+      const r = await calculateDemandGaps("plumber near me", [], "plumbing", v as number);
+      const { low, high, monthlyMissedLeads } = r.estimatedRevenueLoss;
+      assert.ok(Number.isFinite(low), `low must be finite for input ${String(v)}, got ${low}`);
+      assert.ok(Number.isFinite(high), `high must be finite for input ${String(v)}, got ${high}`);
+      assert.ok(
+        Number.isFinite(monthlyMissedLeads),
+        `monthlyMissedLeads must be finite for input ${String(v)}, got ${monthlyMissedLeads}`,
+      );
+      assert.ok(low >= 0 && high >= 0, `revenue band must be non-negative for input ${String(v)}`);
+    }
+
+    // Non-finite / non-positive volume is treated as "no real measurement"
+    // (placeholder) → isRealVolume=false. NaN/garbage/null/negative/Infinity/0.
+    for (const bad of [NaN, "not-a-number", undefined, null, -5, Infinity, 0]) {
+      const r = await calculateDemandGaps("plumber near me", [], "plumbing", bad as number);
+      assert.equal(
+        r.estimatedRevenueLoss.isRealVolume,
+        false,
+        `a non-finite/non-positive volume (${String(bad)}) must flag isRealVolume=false`,
+      );
+    }
+
+    // A numeric STRING that parses to a real positive number IS a real
+    // measurement after coercion — and a real number obviously is.
+    for (const goodVal of ["1200", 4000]) {
+      const r = await calculateDemandGaps("plumber near me", [], "plumbing", goodVal as any);
+      assert.equal(
+        r.estimatedRevenueLoss.isRealVolume,
+        true,
+        `a coercible positive volume (${String(goodVal)}) must flag isRealVolume=true`,
+      );
+      assert.ok(Number.isFinite(r.estimatedRevenueLoss.high), "a real-volume high must be finite");
+    }
+  }
+
+  /* ─── P1-3 — PDF filename safeName never throws on a null business name ─── */
+  // pdfGenerator builds `safeName = (row.business_name || data.businessName ||
+  // "audit").replace(...)`. The bug was a bare `row.business_name.replace(...)`
+  // which throws "Cannot read properties of null" and bricks the PDF forever
+  // for any report whose business_name is null. This replicates the exact
+  // expression to prove the fallback chain produces a usable slug instead of
+  // throwing. (pdfGenerator pulls pdfkit; the load-bearing logic is this
+  // one-liner, asserted directly.)
+  {
+    const safeNameOf = (businessName: string | null, fallback: string | null): string =>
+      (businessName || fallback || "audit")
+        .replace(/[^a-zA-Z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .slice(0, 60);
+
+    // Null row name → falls back to data.businessName.
+    assert.equal(safeNameOf(null, "Bob's Plumbing & Co"), "Bobs-Plumbing-Co");
+    // Both null → "audit" sentinel, never a throw.
+    assert.equal(safeNameOf(null, null), "audit");
+    // Empty strings are falsy → same fallback behaviour.
+    assert.equal(safeNameOf("", ""), "audit");
+    // Sanity: a real name still slugifies.
+    assert.equal(safeNameOf("Ace HVAC", null), "Ace-HVAC");
+    // The pre-fix code path (`(null as any).replace(...)`) would throw — prove
+    // the guarded expression does NOT.
+    assert.doesNotThrow(() => safeNameOf(null, null), "safeName must never throw on a null business name");
   }
 
   console.log("auditScoring.test.ts — all assertions passed");

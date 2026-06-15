@@ -729,7 +729,16 @@ export const auditFollowupEmails = pgTable("audit_followup_emails", {
   payload: jsonb("payload"),
   created_at: timestamp("created_at").defaultNow(),
   processed_at: timestamp("processed_at"),
-});
+}, (table) => ({
+  // migrations/0090_audit_followup_idempotency.sql — P0-1 idempotency guard.
+  // UNIQUE (audit_submission_id, step) lets enqueueAuditFollowups insert the
+  // whole sequence (incl. the durable step='day0' report row) with
+  // .onConflictDoNothing(), so a double-click / client retry can't send a
+  // real lead the sequence twice. Name + columns must match the migration
+  // exactly for check:schema-drift.
+  submissionStepIdx: uniqueIndex("idx_audit_followup_emails_submission_step")
+    .on(table.audit_submission_id, table.step),
+}));
 
 export const insertAuditFollowupEmailSchema = createInsertSchema(auditFollowupEmails).omit({
   id: true,
