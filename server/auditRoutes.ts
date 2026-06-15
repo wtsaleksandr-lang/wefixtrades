@@ -1078,6 +1078,12 @@ const SPECIFIC_SERVICE_MAP: Record<string, string> = {
   locksmith: "locksmith", general: "home renovation",
 };
 function buildSeedKeywords(trade: string, city: string): string[] {
+  // Never seed customer-facing keywords from the literal "general" (or an
+  // empty term). For a non-trade business the caller passes the derived
+  // category label instead ("freight forwarding"); when even that is missing
+  // we emit NO seeds and the "What Customers Search For" table is suppressed,
+  // rather than rendering nonsense like "general near me / general Toronto".
+  if (isGeneralTrade(trade)) return [];
   const specific = SPECIFIC_SERVICE_MAP[trade.toLowerCase()] || trade;
   return [
     `${trade} ${city}`,
@@ -1092,7 +1098,7 @@ function buildSeedKeywords(trade: string, city: string): string[] {
 /* ─── Niche Inference ─── */
 // Infer specific business niche from name, types, and description
 // Returns { primary, secondary[], nicheTerms[] }
-function inferBusinessNiche(businessName: string, types: string[], description?: string | null): {
+export function inferBusinessNiche(businessName: string, types: string[], description?: string | null): {
   primary: string;
   secondary: string[];
   nicheTerms: string[];
@@ -1148,8 +1154,15 @@ function inferBusinessNiche(businessName: string, types: string[], description?:
 }
 
 /* ─── Niche-Aware Keyword Generation ─── */
-function buildNicheKeywords(trade: string, city: string, niche: ReturnType<typeof inferBusinessNiche>, businessName: string): string[] {
-  const base = buildSeedKeywords(trade, city);
+export function buildNicheKeywords(trade: string, city: string, niche: ReturnType<typeof inferBusinessNiche>, businessName: string, keywordTerm?: string): string[] {
+  // `keywordTerm` is the honest term to seed customer-facing keywords from:
+  // the real trade, or — for a non-trade ("general") business — the derived
+  // category label ("freight forwarding"). When it's empty/"general" (truly
+  // unknown business), buildSeedKeywords returns [] and we suppress the table
+  // entirely rather than emitting "general near me" placeholders.
+  const seedTerm = (keywordTerm ?? trade).toString().trim();
+  if (isGeneralTrade(seedTerm)) return [];
+  const base = buildSeedKeywords(seedTerm, city);
   if (!niche.primary || niche.confidence === 'low') return base;
 
   // Add niche-specific keywords
@@ -3054,7 +3067,10 @@ router.post("/generate", async (req: Request, res: Response) => {
     log.info('[niche] inferred:', { detail: JSON.stringify(businessNiche) });
 
     // ─── Build seed keywords (niche-aware) ───
-    const seedKeywords = buildNicheKeywords(trade, city, businessNiche, business.name || '');
+    // For a non-trade business, seed keywords from the derived category label
+    // ("freight forwarding"), not the literal "general". categoryLabel is ""
+    // for a truly-unknown business → seeds are empty → table is suppressed.
+    const seedKeywords = buildNicheKeywords(trade, city, businessNiche, business.name || '', categoryLabel);
     log.info('[keywords] niche-aware seeds:', { detail: seedKeywords });
 
     // Strip query params from website URL before passing to PageSpeed

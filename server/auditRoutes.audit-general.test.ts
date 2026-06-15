@@ -59,6 +59,8 @@ async function main() {
     deriveRevenueLoss,
     buildTemplatedNarrative,
     calculateDemandGaps,
+    buildNicheKeywords,
+    inferBusinessNiche,
   } = await import("./auditRoutes");
   const { fetchCompetitors, fetchPlacesCompetitors } = await import("./services/competitorSearch");
 
@@ -373,6 +375,56 @@ async function main() {
     assert.ok(
       planStrings.some((s) => /emergency plumber toronto/i.test(s)),
       "templated plan cites the real top-missing keyword",
+    );
+  }
+
+  /* ─── (e) customer-facing keyword SEEDS never use the literal 'general' ─── */
+  {
+    // A non-trade ("general") business with a derived category label seeds its
+    // "What Customers Search For" keywords from the CATEGORY ("freight
+    // forwarding service"), never from the literal "general".
+    const freightNiche = inferBusinessNiche("Acme Freight Co", ["freight_forwarding_service"], null);
+    const freightKws = buildNicheKeywords(
+      "general", "Toronto", freightNiche, "Acme Freight Co", "freight forwarding service",
+    );
+    assert.ok(freightKws.length > 0, "general biz WITH a category label still gets keyword seeds");
+    const freightLeak = hasStandaloneGeneral(freightKws);
+    assert.equal(
+      freightLeak,
+      null,
+      `non-trade keyword seeds must never contain standalone 'general' — leaked: ${freightLeak}`,
+    );
+    assert.ok(
+      freightKws.some((k) => /freight forwarding/i.test(k)),
+      "non-trade keyword seeds are built from the real category label",
+    );
+
+    // A TRULY-unknown business (empty category label) suppresses the table:
+    // zero seeds → frontend `keywords.some(...)` gate hides the section.
+    const unknownNiche = inferBusinessNiche("Mystery LLC", ["establishment"], null);
+    const unknownKws = buildNicheKeywords("general", "Toronto", unknownNiche, "Mystery LLC", "");
+    assert.equal(
+      unknownKws.length,
+      0,
+      "general biz with NO usable category → zero keyword seeds (table suppressed, no placeholders)",
+    );
+    // Even if a caller forgets to pass the category and the literal "general"
+    // leaks through, the seed builder must still suppress rather than emit junk.
+    const fallbackKws = buildNicheKeywords("general", "Toronto", unknownNiche, "Mystery LLC");
+    assert.equal(fallbackKws.length, 0, "literal 'general' trade with no category → zero seeds (never 'general near me')");
+
+    // Control: a REAL trade keeps its existing keyword behavior unchanged.
+    const plumbingNiche = inferBusinessNiche("Joe's Plumbing", ["plumber"], null);
+    const plumbingKws = buildNicheKeywords("plumbing", "Toronto", plumbingNiche, "Joe's Plumbing");
+    assert.ok(plumbingKws.length > 0, "a real trade still gets keyword seeds");
+    assert.ok(
+      plumbingKws.some((k) => /plumbing near me/i.test(k)),
+      "a real trade keeps its trade-seeded keywords (regression guard)",
+    );
+    assert.equal(
+      hasStandaloneGeneral(plumbingKws),
+      null,
+      "a real trade's keywords never contain 'general'",
     );
   }
 
