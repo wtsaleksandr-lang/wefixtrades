@@ -166,6 +166,15 @@ export interface ChatOptions {
    * Omitting this parameter preserves legacy behavior (no gate, no log).
    */
   surface?: string;
+  /**
+   * Optional per-request SDK timeout (ms) for THIS call only. When set, it
+   * overrides the client-level default ({@link TIMEOUT_MS}) via the Anthropic
+   * SDK's per-request RequestOptions. Use for off-request-path callers (e.g.
+   * the background audit-narrative job) that have a large prompt and need more
+   * than the tight 30s default. Unset → the SDK uses the client default, so all
+   * existing callers are unaffected.
+   */
+  timeoutMs?: number;
   /** Optional user_id for ai_usage_logs attribution. */
   userId?: number;
   /** Optional session_id for ai_usage_logs attribution. */
@@ -408,7 +417,10 @@ export async function chat(opts: ChatOptions): Promise<string> {
         messages: mapMessages(opts.messages, opts.userImageBlocks) as any,
       };
       if (opts.tools?.length) (params as any).tools = opts.tools;
-      const response = await c.messages.create(params) as Anthropic.Message;
+      // Per-request SDK timeout override (off-request-path callers with large
+      // prompts pass a larger timeoutMs). Unset → SDK client default (30s).
+      const requestOptions = opts.timeoutMs ? { timeout: opts.timeoutMs } : undefined;
+      const response = await c.messages.create(params, requestOptions) as Anthropic.Message;
 
       const usage = response.usage as any;
       if (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) {

@@ -1036,6 +1036,41 @@ router.get("/speed/:reportId", async (req: Request, res: Response) => {
   }
 });
 
+/* ─── Background narrative poll endpoint (KEYSTONE) ─── */
+// The report shipped with the templated narrative + narrativeStatus 'pending';
+// the bg job (runNarrativeInBackground) generates the premium Sonnet narrative
+// and flips the status to 'ready'. The client polls this to swap the templated
+// prose for the AI prose. `ready` is true once the upgrade has landed OR the job
+// reached a terminal non-pending state (failed/unavailable), so the client knows
+// to stop polling either way.
+router.get("/narrative/:reportId", async (req: Request, res: Response) => {
+  try {
+    const reportId = req.params.reportId as string;
+    const rows = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
+    if (!rows.length) return safeJsonError(res, 404, "Report not found");
+
+    const auditData = rows[0].audit_data as any;
+    const status: string = auditData?.narrativeStatus || 'unavailable';
+    const ready = status === 'ready';
+    // Terminal = the client should stop polling (upgrade landed, or it won't).
+    const done = status !== 'pending';
+
+    return res.json({
+      ok: true,
+      status,
+      ready,
+      done,
+      // Only return the narrative payload once the AI upgrade is actually ready,
+      // so the client never swaps the (identical) templated prose back in.
+      narrative: ready ? (auditData?.narrative || null) : null,
+      offer: ready ? (auditData?.offer || null) : null,
+    });
+  } catch (err) {
+    log.error('[narrative-poll] error:', { error: String(err) });
+    return safeJsonError(res, 500, "Failed to check narrative");
+  }
+});
+
 /* ─── Specific Service Mapping ─── */
 const SPECIFIC_SERVICE_MAP: Record<string, string> = {
   plumbing: "drain cleaning", hvac: "ac repair", electrical: "electrician",
@@ -2032,6 +2067,18 @@ const HANDLER_DEADLINE_MS = 80_000; // hard ceiling for the whole /generate hand
 const AI_BUDGET_MS = 28_000;        // preferred narrative budget when time allows
 const AI_SAVE_RESERVE_MS = 6_000;   // reserve for DB save + JSON response after AI
 const AI_MIN_BUDGET_MS = 8_000;     // never give the model less than this if we call it at all
+// Background narrative job runs OUTSIDE the request, so it has no Cloudflare-524
+// ceiling — give Sonnet a generous budget so the premium narrative finishes
+// instead of starving into the templated fallback (the keystone fix). Sized to
+// comfortably clear the aiService SDK's worst-case retry chain (per-request
+// timeout 30s × up to 3 attempts + ~3s backoff ≈ 93s) so a slow-but-successful
+// Sonnet response is never cut off by THIS wrapper firing first.
+const NARRATIVE_BG_BUDGET_MS = 120_000;
+// Per-request SDK timeout for the bg narrative call (overrides the aiService
+// client's tight 30s default, which was starving every large-prompt attempt).
+// One slow-but-successful generation completes within this; the BUDGET_MS
+// wrapper still hard-caps the total (incl. any SDK retries).
+const NARRATIVE_BG_PER_REQUEST_TIMEOUT_MS = 110_000;
 // Distinct sentinel so a genuine empty model reply ("") is not mistaken for a timeout.
 const AI_TIMEOUT_SENTINEL = "__AI_TIMEOUT__";
 
@@ -2339,6 +2386,193 @@ function ensureProblemFix(narrative: any): void {
     }
     return { ...item, problem, fix };
   });
+}
+
+/**
+ * Inject DataForSEO search-volume/CPC into the narrative's contentGaps, in place.
+ * Shared by the inline templated path and the background AI-narrative job so both
+ * apply identical enrichment. `volumeMap` may be null/undefined (no-op then).
+ */
+export function injectContentGapVolumes(narrative: any, volumeMap: Record<string, any> | null | undefined): void {
+  if (!narrative?.contentGaps || !Array.isArray(narrative.contentGaps) || !volumeMap) return;
+  narrative.contentGaps = narrative.contentGaps.map((gap: any) => {
+    const kw = gap.targetKeyword?.toLowerCase()?.trim();
+    const vol = kw ? (volumeMap[kw] || volumeMap[kw?.split(' ')[0]]) : null;
+    return {
+      ...gap,
+      monthlySearches: gap.monthlySearches || vol?.searchVolume || null,
+      cpc: gap.cpc || vol?.cpc || null,
+    };
+  });
+}
+
+/**
+ * Apply the post-parse narrative shaping that must run on EVERY narrative
+ * (templated or AI), so the report carries the same honest shapes regardless of
+ * which path produced the prose. Mutates `narrative` in place.
+ */
+export function finalizeNarrativeShapes(narrative: any, volumeMap: Record<string, any> | null | undefined): void {
+  injectContentGapVolumes(narrative, volumeMap);
+  ensureProblemFix(narrative);
+}
+
+/**
+ * Parse the model's narrative response into a structured object. Strips markdown
+ * fences, extracts the outer JSON object, and salvages truncated JSON by closing
+ * open braces/brackets. Returns null if nothing usable can be recovered.
+ * Extracted from the inline /generate path so the background narrative job reuses
+ * the exact same parsing.
+ */
+export function parseNarrativeJSON(raw: string): any | null {
+  if (!raw || raw === AI_TIMEOUT_SENTINEL) return null;
+  try {
+    let cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+    if (!cleaned.startsWith("{")) {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+      }
+    }
+    return JSON.parse(cleaned);
+  } catch {
+    // Salvage truncated JSON by closing open braces/brackets.
+    try {
+      let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+      const firstBrace = salvaged.indexOf("{");
+      if (firstBrace !== -1) salvaged = salvaged.substring(firstBrace);
+      let openBraces = 0, openBrackets = 0;
+      let inString = false, escaped = false;
+      for (const ch of salvaged) {
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\') { escaped = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === '{') openBraces++;
+        if (ch === '}') openBraces--;
+        if (ch === '[') openBrackets++;
+        if (ch === ']') openBrackets--;
+      }
+      salvaged = salvaged.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}[\]]*$/, "");
+      while (openBrackets > 0) { salvaged += "]"; openBrackets--; }
+      while (openBraces > 0) { salvaged += "}"; openBraces--; }
+      return JSON.parse(salvaged);
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Pure core of the background narrative job: given the raw model output and the
+ * volume map, produce the audit_data patch to merge. Returns:
+ *   - { status:'ready', narrative } when the AI narrative parsed + shaped OK;
+ *   - { status:'failed' } when nothing usable could be recovered.
+ * Extracted so the bg job is DB-free testable. It does NOT touch the DB and does
+ * NOT fabricate any dollar figure — the isReal/$ gating lives in the prompt text
+ * /generate built, so whatever the model returns under that prompt is preserved
+ * verbatim (we only shape contentGaps volumes + problem/fix split).
+ */
+export function buildNarrativePatch(
+  raw: string,
+  volumeMap: Record<string, any> | null | undefined,
+): { status: 'ready'; narrative: any } | { status: 'failed' } {
+  const parsed = parseNarrativeJSON(raw);
+  if (!parsed) return { status: 'failed' };
+  finalizeNarrativeShapes(parsed, volumeMap);
+  return { status: 'ready', narrative: parsed };
+}
+
+/**
+ * Background AI-narrative job. Mirrors the /speed background job: the report has
+ * already shipped to the client with the templated narrative + narrativeStatus
+ * 'pending'; this runs the premium Sonnet narrative with a GENEROUS budget (no
+ * request-time / Cloudflare-524 pressure), then PATCHES the AI narrative into the
+ * saved report and flips narrativeStatus to 'ready'. The client polls
+ * /api/audit/narrative/:reportId to pick up the upgrade.
+ *
+ * The prompt strings are built in /generate (where all the context vars are in
+ * scope) and passed in fully-rendered, so this job needs no audit-context
+ * reconstruction — it just runs chat(), parses, shapes, and saves. The isReal
+ * dollar gating is therefore preserved verbatim (it's already baked into the
+ * prompt text that /generate built).
+ */
+function runNarrativeInBackground(args: {
+  reportId: string;
+  systemPrompt: string;
+  userPrompt: string;
+  volumeMap: Record<string, any> | null | undefined;
+}): void {
+  const { reportId, systemPrompt, userPrompt, volumeMap } = args;
+  (async () => {
+    const startBg = Date.now();
+    try {
+      log.info('[narrative-bg] starting for report:', { reportId });
+      // Generous budget — this is NOT in the request path, so no 524 pressure.
+      const raw = await withApiTimeout(
+        chat({
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+          maxTokens: 4096,
+          modelOverride: "claude-sonnet-4-6",
+          surface: "wft_audit",
+          // The audit-narrative prompt is large (it embeds the full auditData),
+          // so a single generation routinely needs >30s. The aiService client's
+          // default 30s per-request timeout was the ROOT CAUSE of the starvation
+          // — every attempt timed out at 30s and retried, blowing the whole
+          // budget without ever returning. Off the request path we can afford a
+          // generous per-attempt timeout so one slow-but-successful generation
+          // completes. The withApiTimeout wrapper below still hard-caps the
+          // TOTAL (incl. SDK retries) at NARRATIVE_BG_BUDGET_MS.
+          timeoutMs: NARRATIVE_BG_PER_REQUEST_TIMEOUT_MS,
+        }).catch((e: any) => {
+          log.warn("[narrative-bg] chat() failed:", { error: e?.message });
+          return AI_TIMEOUT_SENTINEL;
+        }),
+        NARRATIVE_BG_BUDGET_MS,
+        AI_TIMEOUT_SENTINEL,
+      );
+
+      const patch = buildNarrativePatch(raw, volumeMap);
+      if (patch.status === 'failed') {
+        // AI failed even with the generous budget — leave the templated narrative
+        // in place and mark the status so the client stops polling. The report is
+        // still complete (templated prose already shipped); never silent.
+        log.warn("[narrative-bg][metric] narrative_path", {
+          path: "templated_fallback",
+          reason: raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty_or_unparseable",
+          budgetMs: NARRATIVE_BG_BUDGET_MS,
+          elapsedMs: Date.now() - startBg,
+        });
+        await db.update(auditReports)
+          .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify({ narrativeStatus: 'failed' })}::jsonb` })
+          .where(eq(auditReports.id, reportId));
+        return;
+      }
+
+      // Patch the AI narrative into the saved report + flip status to 'ready'.
+      // Merge into audit_data (so report/:id and the lazy tabs read it) AND
+      // overwrite the ai_narrative column (used by OG/email/PDF).
+      const mergeData = { narrative: patch.narrative, narrativeStatus: 'ready' as const };
+      await db.update(auditReports)
+        .set({
+          audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb`,
+          ai_narrative: patch.narrative,
+        })
+        .where(eq(auditReports.id, reportId));
+
+      log.info("[narrative-bg][metric] narrative_path", { path: "ai", elapsedMs: Date.now() - startBg });
+      log.info("[narrative-bg] AI narrative merged into report:", { reportId, keys: Object.keys(patch.narrative) });
+    } catch (err) {
+      log.error('[narrative-bg] error:', { error: String(err), reportId });
+      // Best-effort: stop the client polling forever.
+      try {
+        await db.update(auditReports)
+          .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify({ narrativeStatus: 'failed' })}::jsonb` })
+          .where(eq(auditReports.id, reportId));
+      } catch { /* swallow — already in the error path */ }
+    }
+  })();
 }
 
 /**
@@ -3201,6 +3435,12 @@ router.post("/generate", async (req: Request, res: Response) => {
     log.info(JSON.stringify(auditData, null, 2));
 
     // ─── AI Narrative (Anthropic Claude — Part F prompt) ───
+    // KEYSTONE: the AI narrative no longer runs inline (it starved under the
+    // request budget → most reports shipped the templated fallback). The
+    // templated narrative ships immediately; the rendered prompts are captured
+    // here and the premium Sonnet narrative runs in a background job AFTER the
+    // report is saved, then patches the report (see runNarrativeInBackground).
+    let pendingNarrativePrompts: { systemPrompt: string; userPrompt: string } | null = null;
     try {
       const anthropicKey = process.env.ANTHROPIC_API_KEY;
       if (anthropicKey) {
@@ -3409,166 +3649,91 @@ ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
-        // P1 fix (2026-06-07): bound the narrative call so the handler can
-        // never blow past Cloudflare's ~100s 524 limit. aiService has no
-        // AbortSignal, so we race chat() against a hard time budget. The budget
-        // is the smaller of AI_BUDGET_MS and whatever time is left under
-        // HANDLER_DEADLINE_MS after reserving AI_SAVE_RESERVE_MS for the DB
-        // save + response — so gather + AI + save stays under the ceiling.
-        const aiElapsed = Date.now() - startTime;
-        // Time left under the hard ceiling once we reserve room for save+response.
-        const aiTimeLeftMs = HANDLER_DEADLINE_MS - aiElapsed - AI_SAVE_RESERVE_MS;
-        const aiBudgetMs = Math.min(AI_BUDGET_MS, aiTimeLeftMs);
-        // If gather already ate most of the ceiling, skip the AI entirely and go
-        // straight to the templated narrative — calling it would risk a 524.
-        let raw: string;
-        if (aiBudgetMs < AI_MIN_BUDGET_MS) {
-          log.warn("[audit] insufficient time for narrative AI — skipping to templated fallback", {
-            timeLeftMs: aiTimeLeftMs,
-            elapsedMs: aiElapsed,
-          });
-          raw = AI_TIMEOUT_SENTINEL;
-        } else {
-          log.info("[audit] narrative AI budget", { budgetMs: aiBudgetMs, elapsedMs: aiElapsed });
-          raw = await withApiTimeout(
-            chat({
-              system: systemPrompt,
-              messages: [{ role: "user", content: userPrompt }],
-              maxTokens: 4096,
-              modelOverride: "claude-sonnet-4-6",
-              // audit/ai 2026-05-24: audit narrative generation — gate
-              // under wft_audit (same surface as webfixAuditService).
-              surface: "wft_audit",
-            }).catch((e: any) => {
-              // Surface the underlying AI error here (instead of letting it reject
-              // the race) so we can deterministically fall back to a templated
-              // narrative below rather than throwing past the handler deadline.
-              log.warn("[audit] narrative chat() failed — will use templated fallback:", { error: e?.message });
-              return AI_TIMEOUT_SENTINEL;
-            }),
-            aiBudgetMs,
-            AI_TIMEOUT_SENTINEL,
-          );
-        }
-        if (raw === AI_TIMEOUT_SENTINEL || !raw) {
-          // Timed out or returned empty/errored — ship a templated narrative
-          // built from the already-gathered scores/data so the report still
-          // has real prose. This is the 524-avoidance path; logged, never silent.
-          // Fix (Task 7): emit a STRUCTURED metric line so we can measure how
-          // often users land on the templated path vs the AI narrative — it was
-          // previously invisible. Grep `[audit][metric] narrative_path` to count.
-          const fallbackReason = raw === AI_TIMEOUT_SENTINEL ? "timeout_or_error" : "empty";
-          log.warn("[audit][metric] narrative_path", {
-            path: "templated_fallback",
-            reason: fallbackReason,
-            budgetMs: aiBudgetMs,
-            elapsedMs: Date.now() - startTime,
-          });
-          // Top keyword the business is NOT ranking for (highest-volume first) —
-          // threaded into the templated visibility action item so the fallback
-          // cites real data instead of a generic "tighten categories".
-          const topMissingKeyword = [...keywords]
-            .filter((k: any) => !k.organicRank)
-            .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0))[0]?.keyword || null;
-          auditData.narrative = buildTemplatedNarrative({
-            businessName: business.name || "",
-            trade,
-            categoryLabel,
-            city,
-            scores,
-            reviewsCount,
-            rating,
-            hasWebsite: !!website,
-            mobileScore,
-            marketLeader: compData?.marketLeader || null,
-            detectedIssues: dedupedIssues,
-            recommendedServices,
-            estimatedRevenueLoss: auditData.estimatedRevenueLoss || null,
-            areaAverageReviews: auditData.areaAverageReviews,
-            topMissingKeyword,
-          });
-        } else {
-        log.info("═══ CLAUDE RESPONSE ═══");
-        log.info(raw);
-        try {
-          // Strip markdown fences and any surrounding text, extract JSON object
-          let cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
-          // If cleaning didn't produce valid JSON start, extract from first { to last }
-          if (!cleaned.startsWith("{")) {
-            const firstBrace = cleaned.indexOf("{");
-            const lastBrace = cleaned.lastIndexOf("}");
-            if (firstBrace !== -1 && lastBrace > firstBrace) {
-              cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-            }
-          }
-          const parsed = JSON.parse(cleaned);
-          auditData.narrative = parsed;
-          log.info("[audit] narrative parsed OK, keys:", { detail: Object.keys(parsed) });
-          // Fix (Task 7): counterpart metric to the templated-fallback counter, so
-          // the AI-vs-templated rate is measurable. Grep `[audit][metric] narrative_path`.
-          log.info("[audit][metric] narrative_path", { path: "ai" });
-        } catch (parseErr: any) {
-          log.warn("[audit] narrative JSON parse failed (templated fallback):", { error: parseErr?.message });
-          // Try to salvage truncated JSON by closing open braces/brackets
-          try {
-            let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
-            const firstBrace = salvaged.indexOf("{");
-            if (firstBrace !== -1) salvaged = salvaged.substring(firstBrace);
-            // Count open braces/brackets and close them
-            let openBraces = 0, openBrackets = 0;
-            let inString = false, escaped = false;
-            for (const ch of salvaged) {
-              if (escaped) { escaped = false; continue; }
-              if (ch === '\\') { escaped = true; continue; }
-              if (ch === '"') { inString = !inString; continue; }
-              if (inString) continue;
-              if (ch === '{') openBraces++;
-              if (ch === '}') openBraces--;
-              if (ch === '[') openBrackets++;
-              if (ch === ']') openBrackets--;
-            }
-            // Trim trailing incomplete values and close
-            salvaged = salvaged.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}[\]]*$/, "");
-            while (openBrackets > 0) { salvaged += "]"; openBrackets--; }
-            while (openBraces > 0) { salvaged += "}"; openBraces--; }
-            const parsed2 = JSON.parse(salvaged);
-            auditData.narrative = parsed2;
-            log.info("[audit] narrative salvaged OK, keys:", { detail: Object.keys(parsed2) });
-          } catch {
-            auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
-          }
-        }
-        } // close else (message exists)
+        // ─── KEYSTONE (2026-06-15): narrative now generates in a BACKGROUND
+        // job, not inline. The old inline path raced Sonnet against a ~28s
+        // budget that the 40-55s data-gather routinely starved, so most reports
+        // shipped the GENERIC templated fallback (the "content lacks value"
+        // complaint). We now ALWAYS ship the templated narrative immediately
+        // (instant, real prose) with narrativeStatus 'pending', then run the
+        // premium Sonnet narrative in the background with a generous 90s budget
+        // (no Cloudflare-524 pressure off the request path) and PATCH it into
+        // the saved report. The client polls /api/audit/narrative/:reportId and
+        // swaps the templated prose for the AI prose when ready — so EVERY
+        // report ends up with the premium narrative, not the boilerplate.
+        //
+        // The systemPrompt/userPrompt built above carry tonight's full gating
+        // (derive-before-prompt isReal $ suppression, leadNoun, competitor
+        // framing). We hand those rendered strings to the bg job verbatim, so
+        // the gating is preserved with zero context reconstruction.
+
+        // Top keyword the business is NOT ranking for (highest-volume first) —
+        // threaded into the templated visibility action item so the templated
+        // narrative cites real data instead of a generic "tighten categories".
+        const topMissingKeyword = [...keywords]
+          .filter((k: any) => !k.organicRank)
+          .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0))[0]?.keyword || null;
+        auditData.narrative = buildTemplatedNarrative({
+          businessName: business.name || "",
+          trade,
+          categoryLabel,
+          city,
+          scores,
+          reviewsCount,
+          rating,
+          hasWebsite: !!website,
+          mobileScore,
+          marketLeader: compData?.marketLeader || null,
+          detectedIssues: dedupedIssues,
+          recommendedServices,
+          estimatedRevenueLoss: auditData.estimatedRevenueLoss || null,
+          areaAverageReviews: auditData.areaAverageReviews,
+          topMissingKeyword,
+        });
+        // 'pending' tells the client the AI upgrade is in flight; the bg job
+        // flips it to 'ready' (or 'failed') once it has run.
+        auditData.narrativeStatus = 'pending';
+        // Stash the rendered prompts so the bg job (kicked off AFTER the report
+        // is saved + the reportId exists) can run without rebuilding context.
+        pendingNarrativePrompts = { systemPrompt, userPrompt };
+        log.info("[audit] narrative deferred to background job (templated shipped, AI upgrade pending)");
+      } else {
+        // No Anthropic key at all → templated narrative is the final state.
+        const topMissingKeyword = [...keywords]
+          .filter((k: any) => !k.organicRank)
+          .sort((a: any, b: any) => (b.monthlySearches || 0) - (a.monthlySearches || 0))[0]?.keyword || null;
+        auditData.narrative = buildTemplatedNarrative({
+          businessName: business.name || "",
+          trade,
+          categoryLabel,
+          city,
+          scores,
+          reviewsCount,
+          rating,
+          hasWebsite: !!website,
+          mobileScore,
+          marketLeader: compData?.marketLeader || null,
+          detectedIssues: dedupedIssues,
+          recommendedServices,
+          estimatedRevenueLoss: auditData.estimatedRevenueLoss || null,
+          areaAverageReviews: auditData.areaAverageReviews,
+          topMissingKeyword,
+        });
+        auditData.narrativeStatus = 'unavailable';
+        log.warn("[audit] no ANTHROPIC_API_KEY — shipping templated narrative only (no AI upgrade)");
       }
     } catch (aiErr: any) {
       log.error("AI narrative generation failed:", aiErr?.message);
     }
 
-    // ─── Inject DataForSEO volumes into contentGaps ───
-    if (auditData.narrative?.contentGaps && volumeMap) {
-      auditData.narrative.contentGaps = auditData.narrative.contentGaps.map((gap: any) => {
-        const kw = gap.targetKeyword?.toLowerCase()?.trim();
-        const vol = kw ? (volumeMap[kw] || volumeMap[kw?.split(' ')[0]]) : null;
-        return {
-          ...gap,
-          monthlySearches: gap.monthlySearches || vol?.searchVolume || null,
-          cpc: gap.cpc || vol?.cpc || null,
-        };
-      });
-      log.info('[audit] contentGaps enriched with volume data');
-    }
-
     // ─── Free-Audit Wave 2 (Agent D): honest revenue-loss + problem/fix split + offer copy ───
-    // Runs on BOTH the AI and templated-narrative paths (after both have set
-    // auditData.narrative), so every report carries the same honest shapes.
+    // Runs on the (now always templated) initial narrative so every report
+    // carries the same honest shapes. The background AI narrative re-applies the
+    // identical shaping (finalizeNarrativeShapes) before it patches the report.
 
-    // Task 2 — revenue-loss is now derived EARLIER (pre-prompt, see above) so the
-    // AI prompt + templated narrative read the same typed isReal/low/high figure
-    // and never write a fabricated $ into prose. The derived estimate already
-    // lives on auditData.estimatedRevenueLoss; nothing to re-derive here.
-
-    // Task 3 — guarantee distinct problem/fix on every action-plan item.
-    ensureProblemFix(auditData.narrative);
+    // Inject DataForSEO volumes into contentGaps + guarantee distinct problem/fix.
+    // Task 2 — revenue-loss is derived EARLIER (pre-prompt, see above) so the
+    // prompt + templated narrative read the same typed isReal/low/high figure.
+    finalizeNarrativeShapes(auditData.narrative, volumeMap);
 
     // Task 4 — guarantee + soft honest urgency copy, as data near the CTA.
     auditData.offer = buildOfferCopy(trade, compData?.marketLeader || null);
@@ -3586,6 +3751,19 @@ ${JSON.stringify(auditData, null, 2)}`;
       log.info(`[audit] Report saved: ${reportId}`);
     } catch (dbErr: any) {
       log.error("[audit] Failed to save report:", { error: dbErr?.message, err: dbErr });
+    }
+
+    // ─── KEYSTONE: kick off the background AI-narrative job ───
+    // Now that the report is saved (reportId exists) and the templated narrative
+    // has already shipped, run the premium Sonnet narrative off the request path
+    // with a generous budget and patch it in. Mirrors the /speed background job.
+    if (reportId && pendingNarrativePrompts) {
+      runNarrativeInBackground({
+        reportId,
+        systemPrompt: pendingNarrativePrompts.systemPrompt,
+        userPrompt: pendingNarrativePrompts.userPrompt,
+        volumeMap,
+      });
     }
 
     const elapsed = Date.now() - startTime;
