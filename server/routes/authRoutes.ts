@@ -281,6 +281,10 @@ async function applyAdminTwoFactorEnrollmentPolicy(
       role,
       totpEnabled: !!row?.totp_enabled,
       graceUsedAt: (row?.admin_2fa_grace_used_at as Date | null) ?? null,
+      // Mandatory-admin-2FA is OPT-IN via env (default off): a factor-less
+      // admin is not locked out. Set ADMIN_2FA_MANDATORY=true (Doppler) to
+      // restore the hard gate.
+      mandatory: process.env.ADMIN_2FA_MANDATORY === "true",
     });
     if (!decision.enrollmentRequired) return ADMIN_2FA_NO_ENROLLMENT;
 

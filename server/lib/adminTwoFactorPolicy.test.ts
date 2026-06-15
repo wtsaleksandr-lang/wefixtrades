@@ -39,46 +39,60 @@ function check(label: string, fn: () => void): void {
   }
 }
 
+// 0 — master switch: when NOT mandatory (the default), a factor-less admin
+// is never forced into enrollment and never blocked, regardless of grace.
+check("gate OFF (mandatory:false) → factor-less admin is never forced/blocked", () => {
+  const fresh = evaluateAdminTwoFactorPolicy({ role: "admin", totpEnabled: false, graceUsedAt: null, mandatory: false });
+  assert.equal(fresh.enrollmentRequired, false);
+  assert.equal(fresh.graceLogin, false);
+  const spent = evaluateAdminTwoFactorPolicy({
+    role: "admin", totpEnabled: false, graceUsedAt: new Date("2026-06-01T00:00:00Z"), mandatory: false,
+  });
+  assert.equal(spent.enrollmentRequired, false, "even a spent-grace admin is not blocked when the gate is off");
+});
+
 // 1
-check("admin without factor, grace unused → enrollment required + grace login", () => {
-  const d = evaluateAdminTwoFactorPolicy({ role: "admin", totpEnabled: false, graceUsedAt: null });
+check("gate ON: admin without factor, grace unused → enrollment required + grace login", () => {
+  const d = evaluateAdminTwoFactorPolicy({ role: "admin", totpEnabled: false, graceUsedAt: null, mandatory: true });
   assert.equal(d.enrollmentRequired, true);
   assert.equal(d.graceLogin, true);
 });
 
 // 2
-check("admin without factor, grace spent → enrollment required, NO grace", () => {
+check("gate ON: admin without factor, grace spent → enrollment required, NO grace", () => {
   const d = evaluateAdminTwoFactorPolicy({
     role: "admin",
     totpEnabled: false,
     graceUsedAt: new Date("2026-06-01T00:00:00Z"),
+    mandatory: true,
   });
   assert.equal(d.enrollmentRequired, true);
   assert.equal(d.graceLogin, false);
 });
 
 // 3
-check("admin WITH enrolled factor → policy is silent (normal TOTP challenge)", () => {
-  const d = evaluateAdminTwoFactorPolicy({ role: "admin", totpEnabled: true, graceUsedAt: null });
+check("gate ON: admin WITH enrolled factor → policy is silent (normal TOTP challenge)", () => {
+  const d = evaluateAdminTwoFactorPolicy({ role: "admin", totpEnabled: true, graceUsedAt: null, mandatory: true });
   assert.equal(d.enrollmentRequired, false);
   // Even with a stale grace stamp, an enrolled admin is never flagged.
   const d2 = evaluateAdminTwoFactorPolicy({
     role: "admin",
     totpEnabled: true,
     graceUsedAt: new Date(),
+    mandatory: true,
   });
   assert.equal(d2.enrollmentRequired, false);
 });
 
 // 4
-check("client users unaffected (2FA stays optional for the portal)", () => {
+check("gate ON: client users unaffected (2FA stays optional for the portal)", () => {
   for (const totpEnabled of [false, true]) {
-    const d = evaluateAdminTwoFactorPolicy({ role: "client", totpEnabled, graceUsedAt: null });
+    const d = evaluateAdminTwoFactorPolicy({ role: "client", totpEnabled, graceUsedAt: null, mandatory: true });
     assert.equal(d.enrollmentRequired, false, `client totpEnabled=${totpEnabled} must be unaffected`);
   }
   // Unknown / missing roles fail safe (no forced enrollment).
   assert.equal(
-    evaluateAdminTwoFactorPolicy({ role: undefined, totpEnabled: false, graceUsedAt: null }).enrollmentRequired,
+    evaluateAdminTwoFactorPolicy({ role: undefined, totpEnabled: false, graceUsedAt: null, mandatory: true }).enrollmentRequired,
     false,
   );
 });
