@@ -1756,7 +1756,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             >
               Estimate based on your local search demand and a {' '}
               {showRevenue ? `$${avgTicket.toLocaleString()} average job value` : 'mid-range job value'}{' '}
-              for {report?.trade ? `${report.trade}` : 'your trade'}. Actual results vary by market.
+              for {(typeof report?.categoryLabel === 'string' && report.categoryLabel.trim())
+                ? report.categoryLabel.trim()
+                : (report?.trade && report.trade !== 'general' ? report.trade : 'your business')}. Actual results vary by market.
             </div>
           </div>
         );
