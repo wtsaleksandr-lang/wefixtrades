@@ -682,7 +682,7 @@ const ShareIcons = {
   ),
 };
 
-export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteScreenshot, liveWebsiteQualityCheckScore, unlocked = true, onUnlock }: {
+export default function ReportView({ report, business, reportId, liveSpeedData, speedLoading, liveWebsiteAIAnalysis, liveWebsiteScreenshot, liveWebsiteQualityCheckScore, narrativeUpgrading = false, unlocked = true, onUnlock }: {
   report: any;
   business: any;
   reportId?: string | null;
@@ -691,6 +691,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   liveWebsiteAIAnalysis?: any;
   liveWebsiteScreenshot?: string | null;
   liveWebsiteQualityCheckScore?: number;
+  // KEYSTONE: true while the premium AI narrative is still generating in the
+  // background (the templated narrative is showing in the meantime).
+  narrativeUpgrading?: boolean;
   unlocked?: boolean;
   onUnlock?: () => void;
 }) {
@@ -1979,6 +1982,15 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           <>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '12px 0 14px', position: 'relative', zIndex: 1 }}/>
             <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0, position: 'relative', zIndex: 1 }}>{ai.executiveSummary}</p>
+            {/* KEYSTONE: while the premium AI narrative is still generating in the
+                background, show a subtle indicator. It vanishes the moment the
+                poll swaps the AI prose in. */}
+            {narrativeUpgrading && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', position: 'relative', zIndex: 1 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 6px #34D399', animation: 'pulse 1.4s ease-in-out infinite' }}/>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: 500, letterSpacing: 0.2 }}>Sharpening your insights…</span>
+              </div>
+            )}
           </>
         )}
       </div>}

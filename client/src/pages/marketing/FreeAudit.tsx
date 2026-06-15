@@ -566,6 +566,12 @@ export default function FreeAudit() {
   const [websiteScreenshot, setWebsiteScreenshot] = useState<string | null>(null);
   const [websiteQualityChecks, setWebsiteQualityChecks] = useState<any>(null);
   const [websiteQualityCheckScore, setWebsiteQualityCheckScore] = useState<number>(0);
+  // KEYSTONE: the report ships with the templated narrative; the premium AI
+  // narrative arrives via a background job. True while we're polling for it.
+  const [narrativeUpgrading, setNarrativeUpgrading] = useState(false);
+  // Guards the narrative poll the same way activeSpeedReportIdRef guards speed:
+  // a newer audit must not have an older poll write its narrative onto it.
+  const activeNarrativeReportIdRef = useRef<string | null>(null);
 
   const lastTradeRef = useRef<string>('');
   const [prefillTrade, setPrefillTrade] = useState<string | null>(null);
@@ -911,6 +917,57 @@ export default function FreeAudit() {
         };
 
         fetchSpeedInBackground(siteUrl, rId);
+      }
+
+      // ─── KEYSTONE: poll for the premium AI-narrative background upgrade ───
+      // The report rendered with the templated narrative + narrativeStatus
+      // 'pending'. The server runs Sonnet off the request path and flips it to
+      // 'ready'; we poll and swap the prose in when it lands. Mirrors the speed
+      // poll's supersession guard so a newer audit never gets an old narrative.
+      const narrId = rep.reportId;
+      if (narrId && rep.report_json?.narrativeStatus === 'pending') {
+        activeNarrativeReportIdRef.current = narrId;
+        setNarrativeUpgrading(true);
+        const isCurrentNarr = () => activeNarrativeReportIdRef.current === narrId;
+        let nAttempts = 0;
+        const nMax = 30; // 30 × 3s ≈ 90s, matching the server bg budget
+        const pollNarrative = async () => {
+          if (!isCurrentNarr()) return;
+          if (nAttempts >= nMax) {
+            if (isCurrentNarr()) setNarrativeUpgrading(false);
+            return;
+          }
+          nAttempts++;
+          try {
+            const r = await fetch(`/api/audit/narrative/${narrId}`);
+            const data = await r.json();
+            if (!isCurrentNarr()) return; // superseded while awaiting — drop
+            if (data.ready && data.narrative) {
+              // Swap the templated narrative for the premium AI one in place.
+              setReport((prev: any) => prev ? {
+                ...prev,
+                narrative: data.narrative,
+                narrativeStatus: 'ready',
+                ...(data.offer ? { offer: data.offer } : {}),
+              } : prev);
+              setNarrativeUpgrading(false);
+              return;
+            }
+            if (data.done) {
+              // Terminal but not 'ready' (failed/unavailable) — keep templated,
+              // stop polling.
+              setNarrativeUpgrading(false);
+              return;
+            }
+            setTimeout(pollNarrative, 3000);
+          } catch (err) {
+            if (!isCurrentNarr()) return;
+            console.error('[narrative] poll error:', err);
+            setTimeout(pollNarrative, 3000);
+          }
+        };
+        // Give the bg job a head start before the first poll.
+        setTimeout(pollNarrative, 4000);
       }
 
       setTimeout(() => {
@@ -1637,6 +1694,7 @@ export default function FreeAudit() {
                       liveWebsiteAIAnalysis={websiteAIAnalysis}
                       liveWebsiteScreenshot={websiteScreenshot}
                       liveWebsiteQualityCheckScore={websiteQualityCheckScore}
+                      narrativeUpgrading={narrativeUpgrading}
                       unlocked={auditUnlocked}
                       onUnlock={() => { trackEvent("audit_unlocked"); setAuditUnlocked(true); }}
                     />

@@ -53,6 +53,8 @@ jobs:
         run: npm run check:audit-general
       - name: Audit-competitors guard (competitors filtered to the genuine same niche; subject self-excluded by placeId; distanceKm + category exposed and out-of-radius dropped; marketLeader == highest-reviewsCount; detectTrade prefers Places primaryType and is word-bounded)
         run: npm run check:audit-competitors
+      - name: Audit-narrative guard (premium AI narrative via background-merge job — parseNarrativeJSON recovers clean/fenced/truncated output, buildNarrativePatch shapes it + reports ready/failed, isReal $-gating preserved so no fabricated dollar figure)
+        run: npm run check:audit-narrative
       - name: Revenue-loss guard (honest per-business loss — real demand-gap or avg-ticket floor; isReal:false instead of a fake placeholder when zero)
         run: npm run check:revenue-loss
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
