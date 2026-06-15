@@ -425,6 +425,14 @@ export type RevenueLossEstimate = {
   avgTicket: number;
   /** Where the number came from: measured demand gap, computed floor, or none. */
   basis: "demand-gap" | "floor" | "none";
+  /**
+   * Honest-labeling flag (financial-credibility fix): true whenever a non-zero
+   * band is shown (basis "demand-gap" or "floor"). The real uncertainty on these
+   * figures is several-fold, so the UI MUST caption them as a rough/directional
+   * estimate ("rough estimate", "directional") — never a precise forecast.
+   * False when isReal is false (nothing to qualify).
+   */
+  roughEstimate: boolean;
 };
 
 /** Round a dollar amount to the nearest $100 for clean display bands. */
@@ -460,6 +468,7 @@ export function computeRevenueLoss(args: {
       monthlyMissedLeads: Math.round(dl.monthlyMissedLeads ?? 0),
       avgTicket,
       basis: "demand-gap",
+      roughEstimate: true,
     };
   }
 
@@ -476,6 +485,7 @@ export function computeRevenueLoss(args: {
       monthlyMissedLeads: floorLeads,
       avgTicket,
       basis: "floor",
+      roughEstimate: true,
     };
   }
 
@@ -487,6 +497,7 @@ export function computeRevenueLoss(args: {
     monthlyMissedLeads: 0,
     avgTicket,
     basis: "none",
+    roughEstimate: false,
   };
 }
 
