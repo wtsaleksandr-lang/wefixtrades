@@ -146,6 +146,84 @@ export function buildAdvancedConfig(
       style: { ...(merged.style ?? {}), ...style },
     };
   }
+
+  // CHANGE C2 — deposit / booking PREVIEW FIDELITY.
+  //
+  // The renderer (AdvancedCalculator: DepositPreviewBadge / BookingCalendar-
+  // Preview) reads `advanced.style.deposit` / `advanced.style.booking`. Those
+  // keys are NO LONGER written by the editor — the canonical, PERSISTED config
+  // moved to `settings.deposit` ({enabled,mode,value,label,required}) and
+  // `settings.scheduling` ({enabled,workingDays,workingHours…}). So toggling
+  // deposit/booking in the Action tab didn't update the preview (regression
+  // from #1853). Adapt the canonical settings into the `style.deposit` /
+  // `style.booking` shapes the preview consumes, so the editor preview tracks
+  // the canonical config live. (The SAVE path persists settings.deposit /
+  // settings.scheduling into appearance.* separately — this adapter only feeds
+  // the preview renderer; it never changes what's persisted.)
+  {
+    const sd = settings?.deposit;
+    if (sd && sd.enabled === true) {
+      const value = typeof sd.value === 'number' && Number.isFinite(sd.value)
+        ? Math.max(0, sd.value)
+        : 0;
+      // The preview badge shows a flat currency figure. `fixed` → the dollar
+      // value directly. `percent` → the editor preview has no live quote total
+      // here, so show a representative deposit = value% of a nominal sample
+      // quote, and surface the percentage in the label so the figure reads
+      // honestly (mirrors DepositStep's "{value}% deposit ($X)" copy).
+      const PERCENT_SAMPLE_QUOTE = 1000;
+      const isPercent = sd.mode === 'percent';
+      const amount = isPercent
+        ? Math.round((PERCENT_SAMPLE_QUOTE * value) / 100)
+        : Math.round(value);
+      const ownLabel = (sd.label ?? '').trim();
+      const label = ownLabel !== ''
+        ? ownLabel
+        : (isPercent && value > 0
+            ? `${value}% deposit required to schedule`
+            : 'Deposit required to schedule');
+      merged = {
+        ...merged,
+        style: {
+          ...(merged.style ?? {}),
+          deposit: { enabled: true, amount, label },
+        },
+      };
+    } else if (sd && sd.enabled === false) {
+      // Explicitly disabled → ensure any inherited template `style.deposit` is
+      // turned off so the preview hides the badge live when the owner unticks.
+      merged = {
+        ...merged,
+        style: {
+          ...(merged.style ?? {}),
+          deposit: { ...(merged.style?.deposit ?? { amount: 0 }), enabled: false },
+        },
+      };
+    }
+
+    const sched = settings?.scheduling;
+    if (sched && sched.enabled === true) {
+      merged = {
+        ...merged,
+        style: {
+          ...(merged.style ?? {}),
+          // The built-in scheduler maps to the in-widget mock slot picker.
+          booking: { enabled: true, source: 'wefixtrades-default' },
+        },
+      };
+    } else if (sched && sched.enabled === false) {
+      merged = {
+        ...merged,
+        style: {
+          ...(merged.style ?? {}),
+          booking: {
+            ...(merged.style?.booking ?? { source: 'wefixtrades-default' as const }),
+            enabled: false,
+          },
+        },
+      };
+    }
+  }
   if (stepLayout) {
     merged = { ...merged, stepLayout };
   }
