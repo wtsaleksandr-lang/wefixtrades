@@ -76,7 +76,7 @@ export async function generateReportPdf(
       return { ok: false, error: "PDF generation produced invalid output" };
     }
 
-    const safeName = row.business_name
+    const safeName = (row.business_name || data.businessName || "audit")
       .replace(/[^a-zA-Z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .slice(0, 60);

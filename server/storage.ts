@@ -346,6 +346,7 @@ export interface IStorage {
 
   enqueueAuditFollowups(data: InsertAuditFollowupEmail[]): Promise<AuditFollowupEmail[]>;
   fetchDueAuditFollowups(limit?: number): Promise<AuditFollowupEmail[]>;
+  claimDueAuditFollowups(limit?: number): Promise<AuditFollowupEmail[]>;
   updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void>;
 
   createMissedCallLead(data: InsertMissedCallLead): Promise<MissedCallLead>;
@@ -969,7 +970,19 @@ export class DatabaseStorage implements IStorage {
 
   async enqueueAuditFollowups(data: InsertAuditFollowupEmail[]): Promise<AuditFollowupEmail[]> {
     if (data.length === 0) return [];
-    return db.insert(auditFollowupEmails).values(data).returning();
+    // P0-1: idempotent enqueue. The UNIQUE (audit_submission_id, step) index
+    // (migration 0090) plus onConflictDoNothing means a double-click / client
+    // retry of POST /save-lead re-inserts the same submission's steps as a
+    // no-op instead of sending the whole sequence (and the durable Day-0
+    // report) a second time. RETURNING only yields the rows actually inserted,
+    // so callers can tell whether this was the first enqueue.
+    return db
+      .insert(auditFollowupEmails)
+      .values(data)
+      .onConflictDoNothing({
+        target: [auditFollowupEmails.audit_submission_id, auditFollowupEmails.step],
+      })
+      .returning();
   }
 
   async fetchDueAuditFollowups(limit = 20): Promise<AuditFollowupEmail[]> {
@@ -981,6 +994,29 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(auditFollowupEmails.run_at)
       .limit(limit);
+  }
+
+  // P1-11: atomically lease due rows so two worker instances can't double-send.
+  // Flips status pending → processing for up to `limit` due rows in a single
+  // UPDATE that locks the candidate rows with FOR UPDATE SKIP LOCKED, so a
+  // concurrent instance picks a disjoint set instead of the same rows. Returns
+  // the claimed rows (RETURNING) for the caller to send + finalize.
+  async claimDueAuditFollowups(limit = 20): Promise<AuditFollowupEmail[]> {
+    const rows = await db.execute(sql`
+      UPDATE audit_followup_emails
+      SET status = 'processing'
+      WHERE id IN (
+        SELECT id FROM audit_followup_emails
+        WHERE status = 'pending' AND run_at <= now()
+        ORDER BY run_at
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING *
+    `);
+    // node-postgres returns { rows }, drizzle's neon-http returns an array-like.
+    const list: any[] = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+    return list as AuditFollowupEmail[];
   }
 
   async updateAuditFollowup(id: number, updates: Record<string, any>): Promise<void> {

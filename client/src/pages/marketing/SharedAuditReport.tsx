@@ -179,6 +179,12 @@ export default function SharedAuditReport() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // P1-10: distinguish a transient failure (network down / timeout / HTTP
+  // error) from a genuine "deleted" report ({ ok:false }). Only the latter is
+  // terminal; the former gets a "Try again" affordance instead of the
+  // misleading "this report was removed" message.
+  const [transient, setTransient] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   // Share / download controls (PDF + email + copy-link). Backend endpoints
   // (/report/:id/pdf, /report/:id/send-email) are public, so the shared
   // prospect-facing view can use them directly.
@@ -249,22 +255,71 @@ export default function SharedAuditReport() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/audit/report/${id}`)
-      .then(r => r.json())
-      .then(d => {
-        if (!d.ok) throw new Error(d.error || "Not found");
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setTransient(false);
+    // P1-10: a hung backend would otherwise spin "Loading report..." forever.
+    // Abort the fetch after 15s and treat it as a transient failure.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+
+    (async () => {
+      try {
+        const r = await fetch(`/api/audit/report/${id}`, { signal: controller.signal });
+        // A non-2xx HTTP status (502/503/timeout-at-proxy) is a transport
+        // failure, NOT a deleted report — retry-able.
+        if (!r.ok) {
+          if (!cancelled) { setError(`Server returned ${r.status}`); setTransient(true); }
+          return;
+        }
+        const d = await r.json().catch(() => null);
+        if (cancelled) return;
+        if (!d) {
+          // Body wasn't valid JSON — treat as transient transport hiccup.
+          setError("Couldn't read the report response"); setTransient(true);
+          return;
+        }
+        if (!d.ok) {
+          // Backend explicitly says the report isn't available — terminal.
+          setError(d.error || "Not found"); setTransient(false);
+          return;
+        }
         setData(d.report);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [id]);
+      } catch (e: any) {
+        if (cancelled) return;
+        // AbortError (timeout) or a network error — transient, offer retry.
+        const isAbort = e?.name === "AbortError";
+        setError(isAbort ? "The report took too long to load" : "Network error — check your connection");
+        setTransient(true);
+      } finally {
+        clearTimeout(timer);
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+  }, [id, reloadKey]);
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui", color: "#6B7280" }}>Loading report...</div>;
   if (error || !data) return (
-    <div data-theme="light" style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
-      <h2 style={{ color: "#EF4444" }}>Report not found</h2>
-      <p style={{ color: "#6B7280", marginTop: 8 }}>{error || "This report may have been removed."}</p>
-      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: mkt.accent, color: "#FFFFFF", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+    <div data-theme="light" style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }} data-testid="shared-report-error">
+      <h2 style={{ color: "#EF4444" }}>{transient ? "Couldn't load this report" : "Report not found"}</h2>
+      <p style={{ color: "#6B7280", marginTop: 8 }}>
+        {transient
+          ? `${error || "Something went wrong loading the report."} This is usually temporary.`
+          : (error || "This report may have been removed.")}
+      </p>
+      {transient && (
+        <button
+          data-testid="shared-report-retry"
+          onClick={() => setReloadKey((k) => k + 1)}
+          style={{ display: "inline-block", marginTop: 16, marginRight: 10, padding: "12px 24px", background: mkt.accent, color: "#FFFFFF", borderRadius: 10, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}
+        >
+          Try again
+        </button>
+      )}
+      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: transient ? "#FFFFFF" : mkt.accent, color: transient ? "#1A1A2E" : "#FFFFFF", border: transient ? "1px solid #E5E7EB" : "none", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
     </div>
   );
 

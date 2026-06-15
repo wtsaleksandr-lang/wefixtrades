@@ -659,6 +659,18 @@ export default function FreeAudit() {
   //   3. Both success and error callbacks are noop on failure; the
   //      autocomplete falls back to IP-bias on the server.
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  // P1-4: monotonic sequence guard for the autocomplete search. The debounced
+  // search and the immediate Enter-key search can be in flight at the same
+  // time; without this the later-resolving (possibly OLDER) response would win
+  // and render stale predictions over the newest query's results. Every
+  // runSearch() bumps this and only applies its response if it is still the
+  // latest in-flight request.
+  const searchSeqRef = useRef(0);
+  // P1-5: cancel token for the background speed poll. A second audit started
+  // while the first poll is still mid-flight would otherwise write business
+  // A's speed/website data onto business B's report. Each audit stamps the
+  // active reportId here; the poll bails the moment it no longer matches.
+  const activeSpeedReportIdRef = useRef<string | null>(null);
   useEffect(() => {
     try {
       if (typeof navigator !== "undefined" && navigator.geolocation) {
@@ -695,11 +707,16 @@ export default function FreeAudit() {
     setSearchDone(false);
     trackEvent("audit_search_submitted", { query: q });
 
+    // P1-4: claim the latest sequence number for this request.
+    const mySeq = ++searchSeqRef.current;
+    const isStale = () => mySeq !== searchSeqRef.current;
+
     postJSON<{ ok: true; predictions: Prediction[]; locationHint?: string | null }>(
       "/api/audit/search-places",
       { query: q, ...(userCoordsRef.current && { lat: userCoordsRef.current.lat, lng: userCoordsRef.current.lng }) }
     )
       .then((d) => {
+        if (isStale()) return; // a newer query superseded this one — drop it
         setPredictions(d.predictions || []);
         setLocationHint(d.locationHint || null);
         setSearchFailed(false);
@@ -709,6 +726,7 @@ export default function FreeAudit() {
         setHighlightedIndex(-1);
       })
       .catch((e) => {
+        if (isStale()) return; // don't surface an error from a superseded query
         console.error("[Audit] Search failed:", e);
         setError(e.message || "Search failed");
         setPredictions([]);
@@ -717,7 +735,10 @@ export default function FreeAudit() {
         setDropdownOpen(true);
         setHighlightedIndex(-1);
       })
-      .finally(() => setLoadingSearch(false));
+      .finally(() => {
+        if (isStale()) return; // a newer request owns the loading flag now
+        setLoadingSearch(false);
+      });
   }, []);
 
   // Autocomplete search: fires after 3+ chars with 400ms debounce
@@ -834,8 +855,13 @@ export default function FreeAudit() {
       if (siteUrl && rId) {
         setSpeedData(null);
         setSpeedLoading(true);
+        // P1-5: this audit now owns the speed poll. Any earlier in-flight poll
+        // sees the ref change and aborts before writing its (now-stale) data.
+        activeSpeedReportIdRef.current = rId;
 
         const fetchSpeedInBackground = async (website: string, reportId: string) => {
+          // True only while THIS audit is still the active one.
+          const isCurrent = () => activeSpeedReportIdRef.current === reportId;
           try {
             // Fire the background job (returns immediately)
             await fetch('/api/audit/speed', {
@@ -848,14 +874,18 @@ export default function FreeAudit() {
             let attempts = 0;
             const maxAttempts = 18;
             const poll = async () => {
+              // P1-5: a newer audit superseded this one — stop polling and do
+              // NOT touch shared speed state (it belongs to the new report).
+              if (!isCurrent()) return;
               if (attempts >= maxAttempts) {
-                setSpeedLoading(false);
+                if (isCurrent()) setSpeedLoading(false);
                 return;
               }
               attempts++;
               try {
                 const r = await fetch(`/api/audit/speed/${reportId}`);
                 const data = await r.json();
+                if (!isCurrent()) return; // superseded while awaiting — drop
                 if (data.ready && data.speedData) {
                   setSpeedData(data.speedData);
                   if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
@@ -867,6 +897,7 @@ export default function FreeAudit() {
                 }
                 setTimeout(poll, 5000);
               } catch (err) {
+                if (!isCurrent()) return;
                 console.error('[speed] poll error:', err);
                 setTimeout(poll, 5000);
               }
@@ -875,7 +906,7 @@ export default function FreeAudit() {
             setTimeout(poll, 10000);
           } catch (err) {
             console.error('[speed] trigger error:', err);
-            setSpeedLoading(false);
+            if (isCurrent()) setSpeedLoading(false);
           }
         };
 

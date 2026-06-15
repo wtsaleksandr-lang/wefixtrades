@@ -158,5 +158,28 @@ export async function enqueueAuditFollowupSequence(ctx: AuditFollowupContext): P
     };
   });
 
+  // P0-2: durable Day-0 report email. Previously the instant PDF report was
+  // sent fire-and-forget from the save-lead route (a floating import().then()
+  // with no retry — a transient SMTP blip silently lost the report). Model it
+  // as a step='day0' follow-up row with run_at=now so the worker sends it on
+  // the next tick and retries on failure. The UNIQUE (audit_submission_id,
+  // step) index makes it idempotent: a double-submit enqueues at most one
+  // day0 row, so the report is never sent twice for one submission. Only
+  // enqueue it when we actually have a report to link/attach.
+  if (ctx.auditReportId) {
+    jobs.unshift({
+      audit_submission_id: ctx.auditSubmissionId,
+      audit_report_id: ctx.auditReportId,
+      email: ctx.email,
+      business_name: ctx.businessName,
+      run_at: new Date(now),
+      step: "day0",
+      status: "pending" as const,
+      // origin lets the worker build absolute report links / PDF render URL
+      // without depending on a request context it no longer has.
+      payload: { kind: "report", reportId: ctx.auditReportId, origin: baseUrl },
+    });
+  }
+
   await storage.enqueueAuditFollowups(jobs);
 }
