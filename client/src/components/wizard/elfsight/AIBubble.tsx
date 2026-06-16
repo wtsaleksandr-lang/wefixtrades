@@ -2427,15 +2427,17 @@ export default function AIBubble(props: AIBubbleProps) {
              is more translucent/glassy than desktop so the preview reads through
              above + below + behind. */
           .qq-ai-panel {
-            left: 12px; right: 12px; width: auto;
+            /* Alex wants a BIG window — near edge-to-edge horizontally. */
+            left: 8px; right: 8px; width: auto;
             /* Centre the card vertically and override the desktop bottom anchor. */
             top: 50%; bottom: auto;
             transform: translateY(-50%);
             display: flex; flex-direction: column;
-            /* Resizable card height (clamped in JS); default ~60vh leaves preview
-               visible above + below. max-height keeps the top/bottom margin even
-               if a stale persisted px value is large. */
-            height: var(--qq-ai-panel-h, 60vh);
+            /* Resizable card height (clamped in JS); default ~66vh opens as a
+               clearly big window while still leaving preview visible above +
+               below. max-height keeps the top/bottom margin even if a stale
+               persisted px value is large. */
+            height: var(--qq-ai-panel-h, 66vh);
             max-height: calc(100vh - 128px);
             background: rgba(255, 255, 255, 0.62) !important;
             -webkit-backdrop-filter: blur(26px) saturate(160%);
