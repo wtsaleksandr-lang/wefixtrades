@@ -40,7 +40,9 @@ import { BarComparisonCard } from "@/components/ui/visual-primitives";
 import {
   fitRankGridMap,
   rankPinColor,
+  rankPinStyle,
 } from "@/components/marketing/map-snapshot/rankGridProjection";
+import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
 
@@ -243,6 +245,23 @@ export default function LocalRankGrid() {
   // here once so they share the same `result` snapshot as the grid.
   const inTop3Anywhere = result ? (result.summary.top3Count > 0) : false;
 
+  // High / Med / Low buckets for the shared hero stat. Unavailable points are
+  // excluded so a throttled cell never reads as a real ranking gap.
+  const hml = result
+    ? result.gridPoints.reduce(
+        (acc, p) => {
+          if (p.status === "unavailable") return acc;
+          const r = p.mapRank ?? p.rank;
+          if (r == null || r > 20) acc.low++;
+          else if (r <= 3) acc.high++;
+          else if (r <= 10) acc.med++;
+          else acc.low++;
+          return acc;
+        },
+        { high: 0, med: 0, low: 0 },
+      )
+    : { high: 0, med: 0, low: 0 };
+
   // Build the 5x5 heatmap from the response's 25 grid points. Points come
   // back in row-major order (top-left → bottom-right) — we render them
   // straight into a CSS grid so the spatial relationship reads at a glance.
@@ -292,6 +311,19 @@ export default function LocalRankGrid() {
           </span>
         </div>
       )}
+
+      {/* Average-rank HERO — promoted from the old small corner badge to a
+          full hero block (big color number + verdict + High/Med/Low ratio bar).
+          Shared component, identical on all three rank-grid surfaces. */}
+      <div style={{ marginBottom: 16 }}>
+        <RankGridHero
+          avg={result.summary.avgRank}
+          high={hml.high}
+          med={hml.med}
+          low={hml.low}
+          total={hml.high + hml.med + hml.low}
+        />
+      </div>
 
       {/* Wave 6A layout — desktop: avg-rank + grid (2fr) | competitor sidebar (1fr).
           Mobile: stacks. The avg-rank widget sits to the left/above the grid
@@ -350,30 +382,6 @@ export default function LocalRankGrid() {
                   />
                 )}
 
-                {/* Average Map Rank badge */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 10,
-                    left: 10,
-                    zIndex: 3,
-                    background: result.summary.avgRank != null ? rankPinColor(result.summary.avgRank) : NEUTRAL_PIN,
-                    borderRadius: 12,
-                    padding: "8px 12px",
-                    color: "rgb(255,255,255)",
-                    boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
-                    textAlign: "center",
-                    minWidth: 64,
-                  }}
-                >
-                  <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1 }} data-testid="text-rankgrid-avg">
-                    {result.summary.avgRank != null ? result.summary.avgRank.toFixed(1) : "—"}
-                  </div>
-                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", marginTop: 3, opacity: 0.95 }}>
-                    Average Map Rank
-                  </div>
-                </div>
-
                 {inTop3Anywhere && (
                   <div
                     data-testid="badge-rankgrid-top3"
@@ -407,9 +415,20 @@ export default function LocalRankGrid() {
                   // Unavailable points (provider throttle/error) render neutral
                   // grey — NOT red, which would falsely read as a ranking gap.
                   const isUnavailable = p.status === "unavailable";
-                  const pinColor = isUnavailable ? NEUTRAL_PIN : rankPinColor(display);
                   const px = fit.project(p.lat, p.lng);
                   const isHovered = hoveredCell === i;
+                  // Premium gradient/glow fill — radial highlight → saturated
+                  // base, soft rank-colored glow for top-3 cells. Unavailable
+                  // points stay flat neutral grey (no glow, honest signal).
+                  const pinFill = isUnavailable
+                    ? NEUTRAL_PIN
+                    : rankPinStyle(display).gradient;
+                  const pinShadow = isUnavailable
+                    ? "0 1px 3px rgba(15,23,42,0.35)"
+                    : rankPinStyle(display).shadow;
+                  // Animated cascade reveal (fade-in + zoom), gated on
+                  // prefers-reduced-motion by the motion-safe: utilities.
+                  const cascadeDelay = Math.min(i * 24, 600);
                   return (
                     <div
                       key={i}
@@ -417,6 +436,7 @@ export default function LocalRankGrid() {
                       onMouseEnter={() => setHoveredCell(i)}
                       onMouseLeave={() => setHoveredCell((prev) => (prev === i ? null : prev))}
                       onClick={() => setHoveredCell((prev) => (prev === i ? null : i))}
+                      className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 motion-safe:duration-300"
                       style={{
                         position: "absolute",
                         left: `${(px.x / SM_W) * 100}%`,
@@ -426,22 +446,25 @@ export default function LocalRankGrid() {
                         width: "clamp(22px, 4.6vw, 30px)",
                         height: "clamp(22px, 4.6vw, 30px)",
                         borderRadius: 999,
-                        background: pinColor,
+                        background: pinFill,
                         color: "rgb(255,255,255)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: 800,
                         fontSize: "clamp(10px, 2vw, 13px)",
+                        fontVariantNumeric: "tabular-nums",
                         // DESIGN-SYSTEM: selected = OUTLINE not bright fill.
                         border: isHovered
                           ? "2px solid rgb(13,60,252)"
                           : "1.5px solid rgba(255,255,255,0.92)",
                         boxShadow: isHovered
                           ? "0 0 0 2px rgb(13,60,252), 0 6px 18px rgba(0,0,0,0.22)"
-                          : "0 1px 3px rgba(15,23,42,0.35)",
+                          : pinShadow,
                         cursor: "pointer",
                         transition: "box-shadow 0.12s ease, border-color 0.12s ease",
+                        animationDelay: `${cascadeDelay}ms`,
+                        animationFillMode: "both",
                       }}
                       title={`Lat ${p.lat.toFixed(4)}, Lng ${p.lng.toFixed(4)}`}
                     >
@@ -457,27 +480,82 @@ export default function LocalRankGrid() {
                   );
                 })}
 
-                {/* City-center marker */}
+                {/* Your-business marker — larger pin + pulsing accuracy ring +
+                    "You" label, layered above every rank pin so it's
+                    unmistakable. Pulse is pure CSS, gated on reduced-motion. */}
                 {(() => {
                   const px = fit.project(result.center.lat, result.center.lng);
                   return (
                     <div
-                      aria-label="City center"
-                      title={result.center.address || "City center"}
+                      aria-label="Your business location"
+                      title={result.center.address || "Your business"}
                       style={{
                         position: "absolute",
                         left: `${(px.x / SM_W) * 100}%`,
                         top: `${(px.y / SM_H) * 100}%`,
                         transform: "translate(-50%, -50%)",
-                        zIndex: 4,
-                        width: 14,
-                        height: 14,
-                        borderRadius: 999,
-                        background: "rgb(13,60,252)",
-                        border: "2px solid rgb(255,255,255)",
-                        boxShadow: "0 2px 6px rgba(15,23,42,0.35)",
+                        zIndex: 7,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        pointerEvents: "none",
                       }}
-                    />
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="rankgrid-you-pulse"
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          width: 40,
+                          height: 40,
+                          marginTop: -20,
+                          marginLeft: -20,
+                          borderRadius: 999,
+                          background: "rgba(13,60,252,0.18)",
+                          border: "1.5px solid rgba(13,60,252,0.45)",
+                        }}
+                      />
+                      <style>{`
+                        @keyframes rankgrid-you-pulse {
+                          0% { transform: scale(0.7); opacity: 0.9; }
+                          70% { transform: scale(1.5); opacity: 0; }
+                          100% { transform: scale(1.5); opacity: 0; }
+                        }
+                        .rankgrid-you-pulse { animation: rankgrid-you-pulse 2.2s ease-out infinite; }
+                        @media (prefers-reduced-motion: reduce) {
+                          .rankgrid-you-pulse { animation: none !important; opacity: 0.5; }
+                        }
+                      `}</style>
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 999,
+                          background: "rgb(13,60,252)",
+                          border: "3px solid rgb(255,255,255)",
+                          boxShadow: "0 3px 10px rgba(15,23,42,0.4)",
+                          zIndex: 1,
+                        }}
+                      />
+                      <span
+                        style={{
+                          marginTop: 5,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "rgb(13,60,252)",
+                          color: "rgb(255,255,255)",
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: "0.04em",
+                          boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+                          zIndex: 1,
+                        }}
+                      >
+                        You
+                      </span>
+                    </div>
                   );
                 })()}
               </div>

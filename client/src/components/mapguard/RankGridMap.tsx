@@ -27,7 +27,9 @@ import { cn } from "@/lib/utils";
 import {
   fitRankGridMap,
   rankPinColor,
+  rankPinStyle,
 } from "@/components/marketing/map-snapshot/rankGridProjection";
+import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
 import type { RankGridCell } from "@/components/mapguard/RankGridPulse";
 
 export interface RankGridMapProps {
@@ -70,6 +72,28 @@ export function RankGridMap({
     );
   }, [geoCells]);
 
+  // Shared hero stat inputs — average rank + High/Med/Low buckets across the
+  // ranked cells (unranked cells count as Low / not-in-top-20).
+  const summary = useMemo(() => {
+    let high = 0;
+    let med = 0;
+    let low = 0;
+    let sum = 0;
+    let n = 0;
+    for (const c of geoCells) {
+      const r = c.rank;
+      if (r == null || r > 20) low++;
+      else if (r <= 3) high++;
+      else if (r <= 10) med++;
+      else low++;
+      if (r != null) {
+        sum += Math.min(r, 21);
+        n++;
+      }
+    }
+    return { high, med, low, avg: n > 0 ? sum / n : null };
+  }, [geoCells]);
+
   if (!fit) {
     // No projectable cells — render an honest empty surface. Callers that know
     // the location is unset show the richer onboarding copy; this is the safe
@@ -92,6 +116,18 @@ export function RankGridMap({
 
   return (
     <div className={cn("w-full", className)} data-testid="rank-grid-map">
+      {/* Average-rank HERO — shared across all three rank-grid surfaces. */}
+      <div className="mb-3">
+        <RankGridHero
+          avg={summary.avg}
+          high={summary.high}
+          med={summary.med}
+          low={summary.low}
+          total={summary.high + summary.med + summary.low}
+          compact
+        />
+      </div>
+
       <div
         className="relative w-full overflow-clip rounded-2xl border border-border"
         style={{
@@ -109,7 +145,7 @@ export function RankGridMap({
           loading="lazy"
         />
 
-        {geoCells.map((cell) => {
+        {geoCells.map((cell, idx) => {
           const { x, y } = fit.project(cell.lat, cell.lng);
           const leftPct = (x / SM_W) * 100;
           const topPct = (y / SM_H) * 100;
@@ -122,17 +158,30 @@ export function RankGridMap({
                 ? rankPinColor(cell.rank)
                 : "rgb(220,38,38)"
               : null;
-          const pinColor =
-            cell.rank != null ? rankPinColor(cell.rank) : "rgb(148,163,184)";
+          // Premium gradient/glow fill — radial highlight → saturated base,
+          // soft rank-colored glow for top-3. Unranked cells stay flat neutral.
+          const style =
+            cell.rank != null ? rankPinStyle(cell.rank, { selected: isSelected }) : null;
+          const pinFill = style ? style.gradient : "rgb(148,163,184)";
+          const pinShadow = isSelected
+            ? "0 0 0 2px rgb(15,23,42), 0 2px 8px rgba(15,23,42,0.25)"
+            : style
+              ? style.shadow
+              : "0 2px 6px rgba(15,23,42,0.22)";
           const interactive = !!onSelectCell;
+          // Animated cascade reveal (~24ms row stagger), reduced-motion safe.
+          const revealDelay = Math.min(idx * 0.024, 0.6);
 
           return (
-            <button
+            <motion.button
               key={`${cell.row}-${cell.col}`}
               type="button"
               onClick={() => onSelectCell?.(cell)}
               disabled={!interactive}
               data-testid={`rank-map-pin-${cell.row}-${cell.col}`}
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.4 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: revealDelay, duration: 0.3, ease: "easeOut" }}
               aria-label={
                 cell.rank == null
                   ? `Pin ${cell.row + 1}-${cell.col + 1} unranked`
@@ -143,7 +192,7 @@ export function RankGridMap({
                     }`
               }
               className={cn(
-                "absolute z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold leading-none",
+                "absolute z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold leading-none tabular-nums",
                 interactive && "cursor-pointer",
               )}
               style={{
@@ -151,14 +200,13 @@ export function RankGridMap({
                 top: `${topPct}%`,
                 width: 26,
                 height: 26,
-                backgroundColor: pinColor,
+                background: pinFill,
                 color: "rgb(255,255,255)",
+                // DESIGN-SYSTEM: selected = OUTLINE not brighter fill.
                 border: isSelected
                   ? "2px solid rgb(15,23,42)"
                   : "2px solid rgba(255,255,255,0.85)",
-                boxShadow: isSelected
-                  ? "0 0 0 2px rgb(15,23,42), 0 2px 8px rgba(15,23,42,0.25)"
-                  : "0 2px 6px rgba(15,23,42,0.22)",
+                boxShadow: pinShadow,
               }}
             >
               {/* Pulse ring when the 7-day rank changed */}
@@ -194,9 +242,60 @@ export function RankGridMap({
                   )}
                 </span>
               )}
-            </button>
+            </motion.button>
           );
         })}
+
+        {/* Your-business marker — larger pin + pulsing accuracy ring + "You"
+            label, layered above the rank pins. Pulse is reduced-motion safe. */}
+        {(() => {
+          const { x, y } = fit.project(fit.centerLat, fit.centerLng);
+          return (
+            <div
+              aria-label="Your business location"
+              className="pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+              style={{ left: `${(x / SM_W) * 100}%`, top: `${(y / SM_H) * 100}%` }}
+            >
+              {!reduceMotion && (
+                <motion.span
+                  aria-hidden
+                  className="absolute rounded-full"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    marginTop: -20,
+                    top: "50%",
+                    background: "rgba(13,60,252,0.16)",
+                    border: "1.5px solid rgba(13,60,252,0.45)",
+                  }}
+                  initial={{ opacity: 0.9, scale: 0.6 }}
+                  animate={{ opacity: [0.9, 0, 0.9], scale: [0.6, 1.5, 0.6] }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }}
+                />
+              )}
+              <span
+                className="relative rounded-full"
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: "rgb(13,60,252)",
+                  border: "3px solid rgb(255,255,255)",
+                  boxShadow: "0 3px 10px rgba(15,23,42,0.4)",
+                }}
+              />
+              <span
+                className="relative mt-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold tracking-wide"
+                style={{
+                  background: "rgb(13,60,252)",
+                  color: "rgb(255,255,255)",
+                  boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+                }}
+              >
+                You
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {centerLabel && (

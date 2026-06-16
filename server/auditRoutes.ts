@@ -108,11 +108,29 @@ router.get("/static-map", async (req: Request, res: Response) => {
   const ok = await auditWriteRateLimiter.check(`audit:staticmap:${getAuditClientIp(req)}`);
   if (!ok) return res.status(429).json({ error: "rate_limited" });
 
-  // Low-clutter roadmap so the colored rank pins stay legible on top.
+  // Muted premium palette: desaturated slate/off-white land, soft water,
+  // very-light roads, POIs/transit off, faint brand tint — keeps the colored
+  // rank pins as the only saturated thing on the map. Server-side style= only;
+  // kept under Google's ~14-rule cap to stay within the URL length limit.
   const style = [
+    // global desaturate + brand-leaning hue
+    "element:geometry|saturation:-70|lightness:8|hue:0x2563eb|gamma:1.05",
+    // text labels: muted slate, soft white halo
+    "element:labels.text.fill|color:0x64748b",
+    "element:labels.text.stroke|color:0xf8fafc|weight:1.4",
+    "element:labels.icon|visibility:off",
+    // land: off-white slate
+    "feature:landscape|element:geometry|color:0xeef2f7",
+    // water: soft cool blue
+    "feature:water|element:geometry|color:0xd6e2f0|lightness:6",
+    // roads: very-light hairlines, labels off
+    "feature:road|element:geometry|color:0xffffff|lightness:6",
+    "feature:road|element:labels|visibility:off",
+    "feature:road.highway|element:geometry|color:0xe7ecf3",
+    // declutter
     "feature:poi|visibility:off",
     "feature:transit|visibility:off",
-    "feature:road|element:labels|visibility:simplified",
+    "feature:administrative|element:geometry|color:0xcbd5e1|lightness:10",
   ]
     .map((s) => `style=${encodeURIComponent(s)}`)
     .join("&");
