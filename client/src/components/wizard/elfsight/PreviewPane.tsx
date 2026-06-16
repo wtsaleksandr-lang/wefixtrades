@@ -3269,8 +3269,8 @@ export default function PreviewPane({
                 <PreviewChatBubbleSim
                   visibility={chatSimVisibility}
                   accentColor={chatSimAccent}
-                  bottom={24}
-                  right={18}
+                  bottom={84}
+                  left={16}
                 />
               )}
             </div>

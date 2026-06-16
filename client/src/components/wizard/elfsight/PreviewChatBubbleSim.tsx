@@ -35,11 +35,22 @@ export interface PreviewChatBubbleSimProps {
   visibility: 'rescue' | 'always';
   /** Widget accent — matches the preview renderer's resolved accent. */
   accentColor?: string;
-  /** Anchor offsets inside the bezel (px). Defaults mirror the real
-   *  bubble's fixed-position offsets (pill 20/20, FAB 24/24 — we anchor
-   *  the cluster at the pill's offset; the FAB inherits the same corner). */
+  /** Anchor offsets inside the bezel (px).
+   *
+   * preview-chat-floater fix — the cluster anchors to the bottom-LEFT of the
+   * mockup (not bottom-right). Rationale:
+   *   - The widget's primary CTA is a FULL-WIDTH sticky action bar pinned to
+   *     the bottom of the screen, so the floater is lifted clear of that band
+   *     (default `bottom` sits above it) and never overlaps "Get My Quote".
+   *   - The editor's OWN build-assistant tab (AIBubble.tsx) docks to the RIGHT
+   *     edge of the shell; anchoring the visitor floater LEFT keeps the two
+   *     affordances on opposite sides so the owner never confuses them.
+   *   - `left` inset keeps the cluster off the rounded phone-frame bezel so it
+   *     is never clipped by `overflow: clip`.
+   * On the PUBLISHED page the real <AIChatBubble/> keeps its bottom-right
+   * `position: fixed` placement — this left anchor is preview-only. */
   bottom?: number;
-  right?: number;
+  left?: number;
 }
 
 /** How long the simulated "stuck visitor" reveal lasts before resetting. */
@@ -48,8 +59,11 @@ const SIM_REVEAL_MS = 5_000;
 export default function PreviewChatBubbleSim({
   visibility,
   accentColor = '#0d3cfc',
-  bottom = 20,
-  right = 20,
+  // Lifted above the full-width sticky CTA band (~64px) so the floater never
+  // overlaps the primary "Get My Quote" button; inset from the left edge so
+  // the rounded phone-frame bezel never clips it.
+  bottom = 76,
+  left = 16,
 }: PreviewChatBubbleSimProps) {
   // Local-only reveal state for the rescue-mode simulation. No production
   // timers/events are involved — this is a pure show-and-tell flip.
@@ -107,11 +121,11 @@ export default function PreviewChatBubbleSim({
       style={{
         position: 'absolute',
         bottom,
-        right,
+        left,
         zIndex: 20,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
         gap: 6,
         // The cluster itself is interactive; the bezel content around it
         // stays fully clickable (small corner footprint, like the real FAB).
@@ -133,7 +147,7 @@ export default function PreviewChatBubbleSim({
             fontWeight: 500,
             borderRadius: 8,
             padding: '4px 9px',
-            textAlign: 'right',
+            textAlign: 'left',
             boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
             animation: 'qq-chat-sim-rise 160ms ease-out both',
           }}
@@ -172,27 +186,51 @@ export default function PreviewChatBubbleSim({
       {showFab ? (
         /* Full chat FAB — static visual replica of the real bubble
            (AIChatBubble.tsx :973). Non-interactive by design: the preview
-           shows the launcher, not a live chat. */
-        <div
-          data-testid="preview-chat-sim-fab"
-          role="img"
-          aria-label="Chat button as visitors see it"
-          title="Preview — visitors see this on your site"
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: accentColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            color: '#fff',
-            // Same entrance the real bubble plays when rescue mode reveals.
-            animation: 'qq-chat-sim-rise 200ms ease-out both',
-          }}
-        >
-          <MessageCircle size={24} aria-hidden="true" />
+           shows the launcher, not a live chat.
+           preview-chat-floater fix — carries a small "Visitor chat" tag so
+           the owner can never mistake this customer-facing launcher for the
+           editor's own build-assistant tab docked on the RIGHT edge. */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div
+            data-testid="preview-chat-sim-fab"
+            role="img"
+            aria-label="Chat button as visitors see it"
+            title="Preview — visitors see this on your site"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: accentColor,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              color: '#fff',
+              flexShrink: 0,
+              // Same entrance the real bubble plays when rescue mode reveals.
+              animation: 'qq-chat-sim-rise 200ms ease-out both',
+            }}
+          >
+            <MessageCircle size={24} aria-hidden="true" />
+          </div>
+          <span
+            data-testid="preview-chat-sim-tag"
+            style={{
+              background: '#fff',
+              color: '#334155',
+              border: '1px solid #e2e8f0',
+              borderRadius: 999,
+              padding: '3px 9px',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.2,
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+            }}
+          >
+            Visitor chat
+          </span>
         </div>
       ) : (
         /* Rescue-mode "Need help?" pill — replica of AIChatBubble.tsx :693.
