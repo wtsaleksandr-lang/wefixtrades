@@ -575,11 +575,17 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           overflow-y: hidden;
           padding: 4px 2px 12px;
           scroll-snap-type: x proximity;
-          scroll-behavior: smooth;
+          /* grab cursor at rest signals the row is draggable; no
+             scroll-behavior:smooth (it makes touch flicks janky + lags the
+             drag). Native momentum is smooth. */
+          cursor: grab;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
         }
-        .qq-tg-strip.is-dragging { cursor: grabbing; user-select: none; }
+        .qq-tg-strip.is-dragging { cursor: grabbing; user-select: none; scroll-behavior: auto; }
+        /* Show the grabbing palm over the cards while panning + stop a card
+           from capturing the drag. */
+        .qq-tg-strip.is-dragging .qq-tg-card { pointer-events: none; }
         .qq-tg-strip::-webkit-scrollbar { height: 6px; }
         .qq-tg-strip::-webkit-scrollbar-thumb {
           background: ${p.colors.border}; border-radius: 3px;
@@ -596,7 +602,7 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           border-radius: 10px;
           padding: 8px;
           display: flex; flex-direction: column; gap: 4px;
-          cursor: pointer;
+          cursor: grab;
           scroll-snap-align: start;
           text-align: center;
           font: inherit;

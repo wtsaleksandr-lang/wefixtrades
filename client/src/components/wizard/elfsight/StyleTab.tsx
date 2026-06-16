@@ -1974,7 +1974,7 @@ export default function StyleTab({
           background: #fff;
           border: 1px solid ${p.colors.borderLight};
           border-radius: 10px;
-          cursor: pointer;
+          cursor: grab;
           transition: border-color 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
           font: inherit;
           text-align: center;
