@@ -19,7 +19,7 @@
 //   - Max 2px gaps between toolbar buttons.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bold, Italic, Underline, Smile, Image as ImageIcon, Type, Palette, Check } from 'lucide-react';
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Smile, Image as ImageIcon, Type, Palette, Check } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import InfoCue from './InfoCue';
 import type { WidgetRegion } from './WidgetSchema';
@@ -183,7 +183,15 @@ export default function RichTextField({
     const el = editorRef.current;
     if (!el) return;
     el.focus();
-    try { document.execCommand(cmd, false, arg); } catch { /* ignore */ }
+    try {
+      // For alignment, force CSS output so execCommand writes
+      // style="text-align:…" (which the sanitizer allowlists) rather than a
+      // legacy align="" attribute that varies by browser and gets stripped.
+      if (cmd.startsWith('justify')) {
+        try { document.execCommand('styleWithCSS', false, 'true'); } catch { /* ignore */ }
+      }
+      document.execCommand(cmd, false, arg);
+    } catch { /* ignore */ }
   }, []);
 
   const insertHtmlAtCaret = useCallback((html: string) => {
@@ -284,6 +292,21 @@ export default function RichTextField({
             </button>
             <button type="button" className="qq-rtf-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => exec('underline')} aria-label="Underline" data-testid={`${tid}-underline`}>
               <Underline size={14} />
+            </button>
+
+            <div className="qq-rtf-sep" />
+
+            {/* Text alignment — left / center / right. execCommand justify*
+                sets text-align on the block containing the caret; it persists
+                in the saved HTML and renders in the widget. */}
+            <button type="button" className="qq-rtf-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => exec('justifyLeft')} aria-label="Align left" data-testid={`${tid}-align-left`}>
+              <AlignLeft size={14} />
+            </button>
+            <button type="button" className="qq-rtf-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => exec('justifyCenter')} aria-label="Align center" data-testid={`${tid}-align-center`}>
+              <AlignCenter size={14} />
+            </button>
+            <button type="button" className="qq-rtf-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => exec('justifyRight')} aria-label="Align right" data-testid={`${tid}-align-right`}>
+              <AlignRight size={14} />
             </button>
 
             <div className="qq-rtf-sep" />
