@@ -1485,7 +1485,10 @@ function BookingCalendarPreview({
         return ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM'];
       }
       const slots: string[] = [];
-      for (let t = startMin; t + slotLen <= endMin && slots.length < 16; t += slotLen) {
+      // Cap raised 16 → 64 so a long working day (e.g. 9am–9pm) isn't silently
+      // truncated to 4:30pm; the slot grid is scrollable, so a full window is
+      // fine. 64 still bounds a pathological 15-min all-day window.
+      for (let t = startMin; t + slotLen <= endMin && slots.length < 64; t += slotLen) {
         slots.push(fmtSlot(t));
       }
       // Guarantee at least one slot even for a narrow window.
@@ -1748,7 +1751,14 @@ function BookingCalendarPreview({
                 style={{
                   padding: '8px 10px', borderRadius: radiusPx,
                   border: `1px solid ${isSelected ? accent : theme.border}`,
-                  background: isSelected ? hexToRgba(accent, 0.12) : 'transparent',
+                  // Solid surface chip (matches the day pills) instead of a
+                  // transparent slot. The booking block inherits the result-
+                  // panel background (rpBg); a transparent slot put textBody —
+                  // which is contrast-guarded against the CARD surface, not rpBg
+                  // — straight onto rpBg, so on saturated/dark result panels the
+                  // time text was barely readable. A surface background restores
+                  // the contrast the guard guarantees + makes borders visible.
+                  background: isSelected ? hexToRgba(accent, 0.12) : theme.surface,
                   color: isSelected ? accent : theme.textBody,
                   fontFamily, fontSize: 12, fontWeight: 600,
                   cursor: 'pointer', textAlign: 'center',
