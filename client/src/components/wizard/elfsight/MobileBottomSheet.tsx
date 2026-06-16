@@ -75,6 +75,13 @@ const DEFAULT_HEIGHT_FRAC = 0.42;
 // Tap vs drag threshold (px of total movement).
 const TAP_THRESHOLD_PX = 6;
 
+// Downward FLING threshold. If, at pointerup, the recent downward velocity
+// (px per ms, measured over the last few move samples) exceeds this, the sheet
+// collapses to its peek regardless of how far it was dragged — a quick flick
+// down folds it. The matching upward fling expands toward max. Tuned so a
+// deliberate flick clears it but a slow controlled drag does not.
+const FLING_VELOCITY_PX_PER_MS = 0.5;
+
 const STORAGE_KEY = 'qq_wizard_sheet_height_frac';
 
 // Legacy key (3-value snap enum) — ignored/migrated to the default fraction.
@@ -313,27 +320,32 @@ export default function MobileBottomSheet({
     if (open) setPeeked(false);
   }, [open]);
 
-  // ── Show-until-learned drag-affordance hint ────────────────────────
-  // On EVERY open (if motion is allowed), replay the grab-handle bob/glow +
-  // "Drag to resize" caption — UNLESS the user has already performed a real
-  // drag (localStorage 'qq_wizard_sheet_dragged') or we've hit the safety cap
-  // (MAX_HINT_OPENS). Each teaching open bumps the cap counter. The animation
-  // is ~2 gentle cycles (~2.4s) then we drop the class.
+  // ── Show-until-LEARNED drag-affordance hint (item 2) ───────────────
+  // On open, if the user has NOT yet performed a real drag (localStorage
+  // 'qq_wizard_sheet_dragged') and we're still under the safety cap
+  // (MAX_HINT_OPENS), show the "Drag to resize" caption + grab-handle cue.
+  // CHANGED: the cue now PERSISTS until the user actually learns the gesture —
+  // it is NOT auto-dismissed on a timer (the old ~2.6s timeout removed). The
+  // caption stays visible the whole time the sheet is open until a REAL drag
+  // sets the localStorage flag (markDragged → hasDragged), after which it never
+  // returns. Reduced-motion is still honored (steady accent tint, no motion —
+  // see the CSS reduced-motion block; the bob keyframes are disabled there).
+  // The safety cap still bounds total teaching opens so a user who never
+  // resizes isn't nagged forever.
   useEffect(() => {
-    if (!open || reduceMotion) return;
-    if (!shouldHintNow()) return;
+    if (!open) { setHintActive(false); return; }
+    if (!shouldHintNow()) { setHintActive(false); return; }
     bumpHintOpens();
     setHintActive(true);
-    hintTimerRef.current = setTimeout(() => setHintActive(false), 2600);
-    return () => {
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    };
-  }, [open, reduceMotion]);
+    // No timeout: the hint stays until a real drag is learned (or the sheet
+    // closes). It is cleared by markDragged() on the next real drag and by the
+    // shouldHintNow() gate on subsequent opens.
+  }, [open]);
 
-  // Stop the visible teaching cue (drop the class + caption). Called on
-  // drag-start so the bob/caption clear the moment the user grabs the handle.
-  // This does NOT mark the gesture learned — only a real drag (movement past
-  // the tap threshold) does that, via markDragged() in endDrag.
+  // Stop the visible teaching cue (drop the class + caption). Called once a
+  // REAL drag has been recorded (markDragged) so the cue clears the instant the
+  // gesture is learned. A mere tap or grab does NOT call this — the hint must
+  // persist until the user genuinely drags.
   const dismissHint = useCallback(() => {
     if (hintTimerRef.current) { clearTimeout(hintTimerRef.current); hintTimerRef.current = null; }
     setHintActive(false);
@@ -414,7 +426,15 @@ export default function MobileBottomSheet({
   const tapFromGrabberRef = useRef(false);
 
   // ── Drag-to-resize (pointer) ──────────────────────────────────────
-  const dragRef = useRef<{ startY: number; startH: number; moved: number } | null>(null);
+  // `vel` is the instantaneous signed vertical velocity (px/ms, down = +)
+  // measured between the two most recent move samples; `lastY`/`lastT` carry
+  // the previous sample so each move can update `vel`. On pointerup we use it
+  // to detect a downward/upward FLING (item 1). `pointerId` lets us release a
+  // stale capture defensively on the next pointerdown (item 3).
+  const dragRef = useRef<
+    { startY: number; startH: number; moved: number; lastY: number; lastT: number; vel: number; pointerId: number }
+    | null
+  >(null);
 
   // CHANGE A — the drag handlers are bound to the WHOLE header (.qq-sheet-header:
   // grabber row + title row), so a drag starting anywhere on the top bar resizes
@@ -422,31 +442,67 @@ export default function MobileBottomSheet({
   // close chevron is ignored here so the close button's own tap still fires (it
   // must never be hijacked into a resize). Everything else on the header — and
   // the entire peek bar while collapsed — is a drag surface.
+  // Item 4 — immediate "grabbed" feedback. Set on pointerdown (NOT after a
+  // hold/threshold) so the bar visibly engages the instant the user touches it;
+  // cleared on pointerup/cancel. Distinct from `isDragging`, which only turns on
+  // once a drag is actually in progress — `isGrabbing` reflects the press alone.
+  const [isGrabbing, setIsGrabbing] = useState(false);
+
   const onHandlePointerDown = useCallback((ev: React.PointerEvent) => {
     // Don't start a drag from the close chevron — let it close on tap. (Also
     // ignore the secondary mouse buttons so a right-click never arms a drag.)
     if (ev.button != null && ev.button !== 0) return;
     const startTarget = ev.target as HTMLElement | null;
     if (startTarget && startTarget.closest('.qq-sheet-close')) return;
+    // Item 3 — gesture-race defence. A previous gesture (e.g. a preview
+    // momentum scroll, or a drag whose pointerup we never saw because capture
+    // was stolen) can leave stale drag/capture state that would otherwise make
+    // this fresh pointerdown a no-op. Defensively clear any lingering dragRef
+    // and release a stale capture BEFORE arming the new drag, so the FIRST
+    // touch after a scroll always starts a drag.
+    const headerEl = ev.currentTarget as HTMLElement;
+    if (dragRef.current) {
+      try { headerEl.releasePointerCapture(dragRef.current.pointerId); } catch { /* already released */ }
+      dragRef.current = null;
+    }
     // Record whether the gesture began on the grabber pill so a sub-threshold
     // tap there toggles the peek (see endDrag). A tap while collapsed expands
     // from anywhere on the peek bar.
     tapFromGrabberRef.current = !!(startTarget && startTarget.closest('.qq-sheet-grabber'));
-    dismissHint();
+    // NOTE: do NOT dismiss the teaching hint here. Per item 2 the cue must
+    // persist until a REAL drag is learned — a press/tap alone must not clear
+    // it. dismissHint() is now called from endDrag only after markDragged().
     computeGeom();
     // Start from whatever is currently rendered (peek or open resting height).
     const startH = peeked ? COLLAPSED_PX : Math.min(openHeightPx, geomRef.current.maxPx || openHeightPx);
-    dragRef.current = { startY: ev.clientY, startH, moved: 0 };
+    const now = ev.timeStamp || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    dragRef.current = {
+      startY: ev.clientY, startH, moved: 0,
+      lastY: ev.clientY, lastT: now, vel: 0, pointerId: ev.pointerId,
+    };
+    setIsGrabbing(true);
     setIsDragging(true);
     setDragHeight(startH);
-    try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* capture unsupported */ }
-  }, [computeGeom, peeked, openHeightPx, dismissHint]);
+    // Capture on THIS pointerdown without waiting for any prior gesture to
+    // settle, so move/up events route here even if the preview's scroll
+    // container is still finishing its momentum (item 3).
+    try { headerEl.setPointerCapture(ev.pointerId); } catch { /* capture unsupported */ }
+  }, [computeGeom, peeked, openHeightPx]);
 
   const onHandlePointerMove = useCallback((ev: React.PointerEvent) => {
     const drag = dragRef.current;
     if (!drag) return;
     const delta = ev.clientY - drag.startY; // down = positive
     drag.moved = Math.max(drag.moved, Math.abs(delta));
+    // Track instantaneous velocity (px/ms, down = +) between samples so a fling
+    // can be detected on release (item 1). Ignore zero-dt samples.
+    const now = ev.timeStamp || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const dt = now - drag.lastT;
+    if (dt > 0) {
+      drag.vel = (ev.clientY - drag.lastY) / dt;
+      drag.lastY = ev.clientY;
+      drag.lastT = now;
+    }
     const { maxPx } = geomRef.current;
     // Drag up (negative delta) grows the sheet; clamp to [collapsed, max].
     const next = Math.min(maxPx, Math.max(COLLAPSED_PX, drag.startH - delta));
@@ -457,6 +513,7 @@ export default function MobileBottomSheet({
     const drag = dragRef.current;
     dragRef.current = null;
     setIsDragging(false);
+    setIsGrabbing(false);
     try { (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
     if (!drag) { setDragHeight(null); return; }
     if (drag.moved < TAP_THRESHOLD_PX) {
@@ -481,21 +538,32 @@ export default function MobileBottomSheet({
     // teaching cue never plays again (show-until-learned). Set here, not on
     // drag-start, so a mere tap (handled above) never counts as a drag.
     markDragged();
-    // Real drag → REST at the released height (free resize, no snap-back).
-    // Clamp into [MIN_OPEN_PX, maxPx] and persist it as a fraction. If the user
-    // dragged down to a peek, collapse instead of resting at a useless sliver.
+    dismissHint(); // gesture learned → clear the teaching cue immediately
     suppressClickRef.current = true;
     const live = dragHeight ?? drag.startH;
     const { maxPx } = geomRef.current;
-    if (live <= MIN_OPEN_PX) {
-      // Dragged below the usable open minimum → treat as a collapse peek.
+    // Item 1 — FLING + drag-down-to-fold resolution. A fast DOWNWARD flick
+    // (velocity past the threshold) collapses to the peek even if the absolute
+    // distance is small; a fast UPWARD flick expands toward max. Absent a fling,
+    // releasing at/below the usable open minimum also collapses (drag-down-to-
+    // fold by distance). Otherwise the sheet rests at the released height.
+    if (drag.vel >= FLING_VELOCITY_PX_PER_MS) {
+      // Downward fling → fold to peek.
+      setPeeked(true);
+    } else if (drag.vel <= -FLING_VELOCITY_PX_PER_MS) {
+      // Upward fling → expand toward the max usable height.
+      setOpenHeight(maxPx);
+      setPeeked(false);
+    } else if (live <= MIN_OPEN_PX) {
+      // Dragged/released below the usable open minimum → collapse to peek.
       setPeeked(true);
     } else {
+      // Free resize → REST at the released height (no snap-back).
       setOpenHeight(clamp(live, MIN_OPEN_PX, maxPx));
       setPeeked(false);
     }
     setDragHeight(null);
-  }, [dragHeight, setOpenHeight, peeked]);
+  }, [dragHeight, setOpenHeight, peeked, dismissHint]);
 
   // ── `qq-wizard:focus-field` listener ──────────────────────────────
   useEffect(() => {
@@ -558,7 +626,7 @@ export default function MobileBottomSheet({
 
       <div
         ref={sheetRef}
-        className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}${hintActive ? ' is-hinting' : ''}`}
+        className={`qq-sheet${open ? ' is-open' : ''}${isDragging ? ' is-dragging' : ''}${isGrabbing ? ' is-grabbing' : ''}${isCollapsed ? ' is-collapsed' : ''}${reduceMotion ? ' is-reduced-motion' : ''}${hintActive ? ' is-hinting' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-open={open ? 'true' : 'false'}
         data-collapsed={isCollapsed ? 'true' : 'false'}
@@ -740,14 +808,45 @@ export default function MobileBottomSheet({
             cursor: grab;
           }
           .qq-sheet-header:active { cursor: grabbing; }
+          /* Item 4 — immediate grab feedback. On pointerdown the JS adds the
+             is-grabbing class, giving the whole header an instant pressed-in
+             look: a faint accent tint plus a subtle inset shadow + scale-down so
+             the bar reads as engaged for dragging the moment it's touched (no
+             tap-and-hold). Reduced-motion keeps the colour change but drops the
+             transform (handled in the reduced-motion block). The transition is
+             fast so it feels button-like, and is killed during an active drag so
+             height tracking stays jank-free. */
+          .qq-sheet-header {
+            transition: background 0.1s ease, box-shadow 0.1s ease,
+                        transform 0.1s ease;
+            transform-origin: center top;
+          }
+          .qq-sheet.is-grabbing .qq-sheet-header {
+            background: ${AE.color.accentTint};
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.10);
+            transform: scaleY(0.97);
+          }
+          .qq-sheet.is-dragging .qq-sheet-header {
+            transition: none;
+          }
           .qq-sheet-grabber {
             display: flex; align-items: center; justify-content: center;
-            width: 100%; min-height: 28px; padding: 10px 0 4px;
+            /* Item 5 — drag bar trimmed ~30%: the visible grabber row is shorter
+               (min-height 18px + 6px/3px padding vs the old 28px + 10px/4px),
+               so the bar reads noticeably slimmer. The ≥44px effective touch
+               target is preserved by the invisible padding extension below
+               (.qq-sheet-header padding-top) — the TARGET stays large while the
+               VISIBLE bar shrinks. */
+            width: 100%; min-height: 18px; padding: 6px 0 3px;
             background: transparent; border: none; cursor: inherit;
             /* The grabber inherits the header's touch-action:none. */
             position: relative;
           }
           .qq-sheet-grabber:active { cursor: grabbing; }
+          .qq-sheet.is-grabbing .qq-sheet-grabber-bar {
+            background: ${AE.color.accent};
+            width: 44px;
+          }
           .qq-sheet-grabber:focus-visible {
             outline: 2px solid ${AE.color.accent};
             outline-offset: -4px;
@@ -1003,11 +1102,26 @@ export default function MobileBottomSheet({
             transition: none !important;
             animation: none !important;
           }
-          /* No drag-hint bob/glow under reduced-motion (JS also never arms it). */
-          .qq-sheet.is-hinting .qq-sheet-grabber-bar,
+          /* No drag-hint bob/glow under reduced-motion, but KEEP a steady accent
+             tint on the bar while hinting so the persistent "Drag to resize" cue
+             (item 2) still reads as an affordance without motion. */
           .qq-sheet-grabber-bar {
             animation: none !important;
             transition: none !important;
+          }
+          .qq-sheet.is-hinting .qq-sheet-grabber-bar {
+            animation: none !important;
+            background: ${AE.color.accent};
+          }
+          /* Item 4 under reduced-motion — keep the grab COLOUR change so the
+             press still registers, but drop the inset-shadow + scale transform
+             (no motion). */
+          .qq-sheet-header {
+            transition: none !important;
+          }
+          .qq-sheet.is-grabbing .qq-sheet-header {
+            box-shadow: none !important;
+            transform: none !important;
           }
           /* CHANGE B under reduced-motion — kill the breathing/pulse but KEEP
              the static accent cue so the folded bar still reads "resizable":
@@ -1020,8 +1134,9 @@ export default function MobileBottomSheet({
             animation: none !important;
             opacity: 0.7;
           }
-          /* Caption is never mounted under reduced-motion (JS gates hintActive),
-             but defensively kill its fade animation too. */
+          /* Under reduced-motion the caption may still mount (item 2 — the hint
+             persists regardless of motion preference), so we kill only its fade
+             animation; the steady accent-tinted caption itself stays visible. */
           .qq-sheet-drag-caption {
             animation: none !important;
           }
