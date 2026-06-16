@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, describeDroppedStyleKeys, type AiToolCall } from './aiToolApplier';
@@ -541,6 +541,28 @@ function clampBubblePos(pos: BubblePos): BubblePos {
 export default function AIBubble(props: AIBubbleProps) {
   const { conversationId = 'default', state, seedPrompt, seedNonce, seedImage, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
+  /** Premium fold/unfold — transient "animating" phase so the side-tab and the
+   *  chat window can cross-fade via a GPU transform (translate+scale+opacity).
+   *  Set the instant `open` flips, cleared after the transition window. Drives
+   *  `data-state="animating"` on the toggle + panel for the visual-review gate
+   *  and lets reduced-motion short-circuit it to instant. */
+  const [animating, setAnimating] = useState(false);
+  const reduceMotionRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    try { reduceMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch { /* ignore */ }
+  }, []);
+  // Pulse the animating phase whenever the panel opens or closes.
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    if (prevOpenRef.current === open) return;
+    prevOpenRef.current = open;
+    if (reduceMotionRef.current) { setAnimating(false); return; }
+    setAnimating(true);
+    const t = window.setTimeout(() => setAnimating(false), 300);
+    return () => window.clearTimeout(t);
+  }, [open]);
   /** "Generate with AI" auto-send latch. Set true when a new seed arrives;
    *  the second effect below clears it after firing onSend exactly once. */
   const autoSendRef = useRef(false);
@@ -678,6 +700,34 @@ export default function AIBubble(props: AIBubbleProps) {
       setBubbleDragging(false);
     }
   }, []);
+
+  /* ─── Swipe-to-close on the panel header ─────────────────────────────────
+   * Touch the header and swipe RIGHT (toward the tab edge it folds back into)
+   * or DOWN (dismiss like a bottom sheet) past a threshold to CLOSE the chat —
+   * mirroring the swipe-to-open on the folded tab. Tap on the header is left
+   * untouched (no movement → no close). Pointer-based so it works for touch +
+   * pen; mouse drags on the header are ignored so text selection still works. */
+  const HEADER_SWIPE_CLOSE_PX = 56;
+  const headerSwipeRef = useRef<{ pointerId: number; startX: number; startY: number; fired: boolean } | null>(null);
+  const onHeaderPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse') return; // touch/pen affordance only
+    headerSwipeRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, fired: false };
+  }, []);
+  const onHeaderPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = headerSwipeRef.current;
+    if (!s || s.pointerId !== e.pointerId || s.fired) return;
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+    // Rightward (fold back to the edge) OR downward (dismiss) past threshold.
+    if (dx >= HEADER_SWIPE_CLOSE_PX || dy >= HEADER_SWIPE_CLOSE_PX) {
+      s.fired = true;
+      setOpen(false);
+    }
+  }, []);
+  const onHeaderPointerEnd = useCallback(() => {
+    headerSwipeRef.current = null;
+  }, []);
+
   useEffect(() => {
     const div = document.createElement('div');
     div.className = 'qq-ai-portal';
@@ -1490,9 +1540,9 @@ export default function AIBubble(props: AIBubbleProps) {
         onPointerCancel={endBubbleDrag}
         className="qq-ai-tab"
         data-testid="aibubble-toggle"
-        aria-label="Open the QuoteQuick builder (tap, or drag out, to open)"
+        aria-label="Open the QuoteQuick builder (tap, or swipe left, to open)"
         data-open={open ? 'true' : 'false'}
-        data-state={open ? 'unfolded' : 'folded'}
+        data-state={open ? 'unfolded' : animating ? 'animating' : 'folded'}
         data-dragging={bubbleDragging ? 'true' : 'false'}
         data-positioned={bubblePos ? 'true' : 'false'}
         style={{
@@ -1501,6 +1551,11 @@ export default function AIBubble(props: AIBubbleProps) {
           ...(tabPull > 0 ? { transform: `translateX(${-tabPull * 10}px)` } : null),
         }}
       >
+        {/* Soft inner glow + gradient sheen come from CSS; this markup just
+            stacks the affordances top→bottom: a pull-open chevron, the grip
+            dots (drag/swipe handle), the spark glyph, and the vertical
+            wordmark. */}
+        <ChevronLeft className="qq-ai-tab-chevron" aria-hidden="true" />
         <span className="qq-ai-tab-grip" aria-hidden="true" />
         <Sparkles className="qq-ai-tab-spark" aria-hidden="true" />
         <span className="qq-ai-tab-text" aria-hidden="true">Builder</span>
@@ -1510,11 +1565,12 @@ export default function AIBubble(props: AIBubbleProps) {
 
       {open && (
         <div
-          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}`}
+          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}${animating ? ' is-animating' : ''}`}
           role="dialog"
           aria-label="QuoteQuick builder"
           data-testid="aibubble-panel"
           data-collapsed={collapsed ? 'true' : 'false'}
+          data-state={animating ? 'animating' : 'unfolded'}
         >
           {/* Wave 55 — top-center fold/unfold chevron. Toggles the panel
            *  between full (500px) and header-only (~46px tall). Matches the
@@ -1536,7 +1592,14 @@ export default function AIBubble(props: AIBubbleProps) {
               <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
             )}
           </button>
-          <div className="qq-ai-panel-header">
+          <div
+            className="qq-ai-panel-header"
+            data-testid="aibubble-header"
+            onPointerDown={onHeaderPointerDown}
+            onPointerMove={onHeaderPointerMove}
+            onPointerUp={onHeaderPointerEnd}
+            onPointerCancel={onHeaderPointerEnd}
+          >
             <div className="qq-ai-panel-title">
               <span className="qq-ai-title-mark" aria-hidden="true"><BrandMark size={14} /></span>
               <span>QuoteQuick builder</span>
@@ -1941,64 +2004,101 @@ export default function AIBubble(props: AIBubbleProps) {
          *  vertical "Builder" text + spark read top-to-bottom along the tab.
          *  Default vertical anchor is centred-ish on the right edge; a dragged
          *  position overrides top inline. */
+        /* ── Premium frosted side-tab launcher ──────────────────────────
+         *  Apple/Linear-class: a slim, intentional pill docked flush to the
+         *  right edge. A translucent frosted glass surface with a soft brand
+         *  gradient + inner sheen, a clear chat/spark glyph, and an obvious
+         *  "pull to open" affordance (chevron + grip dots). Tap, swipe-left,
+         *  or drag to open. */
         .qq-ai-tab {
           position: fixed; right: 0; top: 50%; z-index: 1100;
           transform: translateY(-50%);
-          width: 34px; height: 132px; padding: 10px 0;
+          width: 40px; height: 148px; padding: 12px 0 14px;
           display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          align-items: center; justify-content: center; gap: 9px;
+          border: 1px solid rgba(255, 255, 255, 0.28);
           border-right: none;
-          border-radius: 14px 0 0 14px;
-          /* Half-transparent frosted glass — preview partly visible behind. */
-          background: rgba(13, 60, 252, 0.42);
-          -webkit-backdrop-filter: blur(14px) saturate(140%);
-          backdrop-filter: blur(14px) saturate(140%);
+          border-radius: 18px 0 0 18px;
+          /* Half-transparent frosted glass with a soft brand gradient — the
+             preview shows through, and a subtle vertical sheen reads premium. */
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 42%),
+            linear-gradient(200deg, rgba(45, 96, 255, 0.58) 0%, rgba(13, 60, 252, 0.5) 60%, rgba(10, 44, 200, 0.52) 100%);
+          -webkit-backdrop-filter: blur(16px) saturate(150%);
+          backdrop-filter: blur(16px) saturate(150%);
           color: #fff; cursor: grab;
-          box-shadow: -6px 0 22px rgba(13, 60, 252, 0.22);
-          transition: transform 160ms ease-out, background 160ms ease-out,
-                      box-shadow 160ms ease-out, width 160ms ease-out;
+          /* Soft brand glow + a crisp inset top highlight for the glass edge. */
+          box-shadow:
+            -10px 0 30px rgba(13, 60, 252, 0.30),
+            inset 0 1px 0 rgba(255, 255, 255, 0.35);
+          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                      background 200ms ease-out,
+                      box-shadow 200ms ease-out,
+                      width 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 200ms ease-out;
           touch-action: none; /* pointer-drag on touch without scrolling */
           user-select: none; -webkit-user-select: none;
         }
-        /* Fallback for browsers without backdrop-filter: a more opaque accent
-         *  fill so the tab stays legible without the blur see-through. */
+        /* Fallback for browsers without backdrop-filter: a richer opaque
+         *  gradient fill so the tab stays legible without the blur see-through. */
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-          .qq-ai-tab { background: rgba(13, 60, 252, 0.92); }
+          .qq-ai-tab {
+            background: linear-gradient(200deg, rgba(45, 96, 255, 0.96) 0%, rgba(13, 60, 252, 0.96) 100%);
+          }
         }
         .qq-ai-tab:hover {
-          width: 38px;
-          background: rgba(13, 60, 252, 0.55);
-          box-shadow: -8px 0 26px rgba(13, 60, 252, 0.34);
+          width: 46px;
+          box-shadow:
+            -12px 0 34px rgba(13, 60, 252, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.45);
         }
+        .qq-ai-tab:hover .qq-ai-tab-chevron { transform: translateX(-2px); opacity: 1; }
         .qq-ai-tab:active,
         .qq-ai-tab[data-dragging="true"] { cursor: grabbing; }
         .qq-ai-tab[data-dragging="true"] {
-          background: rgba(13, 60, 252, 0.62);
+          box-shadow:
+            -14px 0 38px rgba(13, 60, 252, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+        /* Folding away into the chat window — fade + slide off the right edge so
+         *  the unfold reads as the tab smoothly becoming the panel. */
+        .qq-ai-tab[data-state="animating"] {
+          opacity: 0;
+          transform: translateY(-50%) translateX(24px) scale(0.9);
         }
         .qq-ai-tab[data-open="true"] { display: none; }
         .qq-ai-tab:focus-visible {
           outline: 2px solid #fff; outline-offset: 2px;
         }
-        /* Grip dots — the drag affordance, echoing the bottom-sheet handle. */
+        /* Pull-open chevron — the explicit "open me" affordance at the top. */
+        .qq-ai-tab-chevron {
+          width: 16px; height: 16px; flex-shrink: 0; pointer-events: none;
+          color: rgba(255, 255, 255, 0.92);
+          opacity: 0.85;
+          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 200ms ease-out;
+        }
+        /* Grip dots — the drag/swipe affordance, echoing the bottom-sheet handle. */
         .qq-ai-tab-grip {
-          width: 4px; height: 26px; border-radius: 999px;
+          width: 4px; height: 22px; border-radius: 999px;
           background: repeating-linear-gradient(
             to bottom,
-            rgba(255, 255, 255, 0.85) 0 2px,
+            rgba(255, 255, 255, 0.92) 0 2px,
             transparent 2px 5px
           );
           flex-shrink: 0; pointer-events: none;
         }
         .qq-ai-tab-spark {
-          width: 17px; height: 17px; flex-shrink: 0; pointer-events: none;
+          width: 18px; height: 18px; flex-shrink: 0; pointer-events: none;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
         }
         /* Vertical "Builder" wordmark running up the tab. */
         .qq-ai-tab-text {
           writing-mode: vertical-rl; transform: rotate(180deg);
-          font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+          font-size: 11px; font-weight: 700; letter-spacing: 1.6px;
           text-transform: uppercase; pointer-events: none;
-          color: rgba(255, 255, 255, 0.96);
+          color: rgba(255, 255, 255, 0.98);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
         }
         /* The accessible label is conveyed by aria-label + the visible text;
          *  keep a visually-hidden span so screen-reader/test text reads "Builder". */
@@ -2007,27 +2107,45 @@ export default function AIBubble(props: AIBubbleProps) {
           overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
         }
         @media (prefers-reduced-motion: reduce) {
-          .qq-ai-tab { transition: none !important; }
+          .qq-ai-tab,
+          .qq-ai-tab-chevron { transition: none !important; }
+          .qq-ai-tab[data-state="animating"] {
+            opacity: 1;
+            transform: translateY(-50%);
+          }
         }
 
         .qq-ai-panel {
           position: fixed; right: 18px; bottom: 18px; z-index: 1100;
-          width: 360px; height: 500px; max-height: calc(100vh - 36px);
+          width: 372px; height: 520px; max-height: calc(100vh - 36px);
           display: flex; flex-direction: column;
-          background: #fff; color: #0f172a;
-          border-radius: 14px; overflow: hidden;
-          box-shadow: 0 30px 60px rgba(15, 23, 42, 0.28);
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          /* Elevated frosted card — a touch of translucency + blur so it reads
+             as a premium floating surface, not a flat box. */
+          background: rgba(255, 255, 255, 0.94);
+          -webkit-backdrop-filter: blur(24px) saturate(160%);
+          backdrop-filter: blur(24px) saturate(160%);
+          color: #0f172a;
+          border-radius: 18px; overflow: hidden;
+          /* Soft layered shadow + a faint brand-tinted ambient glow. */
+          box-shadow:
+            0 24px 60px rgba(15, 23, 42, 0.26),
+            0 2px 8px rgba(13, 60, 252, 0.10);
+          border: 1px solid rgba(255, 255, 255, 0.6);
           /* Wave 55 — animate the fold/unfold height transition. */
-          transition: height 250ms ease;
-          /* #13 — the panel is the UNFOLDED form of the side tab. Play a
-           *  GPU-friendly unfold (scale + fade from the right edge) on mount so
-           *  it reads as the tab smoothly opening into the chat window. */
+          transition: height 250ms cubic-bezier(0.22, 1, 0.36, 1);
+          /* The panel is the UNFOLDED form of the side tab. Play a quick,
+           *  GPU-friendly unfold (translate + scale + fade from the right edge,
+           *  ~260ms ease-out) so it reads as the tab smoothly opening into the
+           *  chat window. */
           transform-origin: 100% 50%;
-          animation: qq-ai-unfold 260ms cubic-bezier(0.22, 1, 0.36, 1);
+          animation: qq-ai-unfold 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          will-change: transform, opacity;
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .qq-ai-panel { background: #fff; }
         }
         @keyframes qq-ai-unfold {
-          from { opacity: 0; transform: translateX(14px) scale(0.92); }
+          from { opacity: 0; transform: translateX(28px) scale(0.9); }
           to   { opacity: 1; transform: translateX(0) scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -2103,13 +2221,19 @@ export default function AIBubble(props: AIBubbleProps) {
 
         .qq-ai-panel-header {
           display: flex; align-items: center; gap: 8px;
-          padding: 10px 12px;
-          border-bottom: 1px solid rgba(15, 23, 42, 0.07);
-          background: #f8fafc;
+          padding: 12px 12px 12px 14px;
+          border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+          /* Premium header — a soft brand-tinted wash so the title bar reads as
+             a distinct, intentional zone. Doubles as the swipe-to-close
+             surface (touch + drag right/down dismisses). */
+          background: linear-gradient(180deg, rgba(13, 60, 252, 0.05) 0%, rgba(248, 250, 252, 0.9) 100%);
+          touch-action: pan-y;
+          cursor: default;
         }
         .qq-ai-panel-title {
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 12.5px; font-weight: 700;
+          display: inline-flex; align-items: center; gap: 7px;
+          font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+          color: #0f172a;
         }
         .qq-ai-budget-meter {
           margin-left: auto;
@@ -2552,8 +2676,18 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-reset:disabled { color: #cbd5e1; cursor: not-allowed; }
 
         /* Dark editor chrome respects */
-        [data-theme="dark"] .qq-ai-panel { background: #0f172a; color: #e2e8f0; border-color: rgba(255,255,255,0.08); }
-        [data-theme="dark"] .qq-ai-panel-header { background: #1e293b; border-color: rgba(255,255,255,0.05); }
+        [data-theme="dark"] .qq-ai-panel {
+          background: rgba(15, 23, 42, 0.92);
+          color: #e2e8f0; border-color: rgba(255,255,255,0.10);
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          [data-theme="dark"] .qq-ai-panel { background: #0f172a; }
+        }
+        [data-theme="dark"] .qq-ai-panel-header {
+          background: linear-gradient(180deg, rgba(13, 60, 252, 0.16) 0%, rgba(30, 41, 59, 0.9) 100%);
+          border-color: rgba(255,255,255,0.06);
+        }
+        [data-theme="dark"] .qq-ai-panel-title { color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-msgs { background: #0f172a; }
         [data-theme="dark"] .qq-ai-empty { color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-empty-sub { color: #94a3b8; }
