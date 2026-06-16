@@ -63,8 +63,13 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
         aria-expanded={open}
         onClick={toggle}
       >
-        <span className="qq-adv-toggle-label">{label}</span>
-        {hint ? <span className="qq-adv-toggle-hint">{hint}</span> : null}
+        {/* ITEM 2 — wrap label + hint in a text column. In the prominent
+            variant they STACK (title on its own line, muted subtitle beneath);
+            non-prominent keeps the inline label-then-hint row (see CSS). */}
+        <span className="qq-adv-toggle-text">
+          <span className="qq-adv-toggle-label">{label}</span>
+          {hint ? <span className="qq-adv-toggle-hint">{hint}</span> : null}
+        </span>
         <ChevronDown size={prominent ? 20 : 16} className="qq-adv-chevron" aria-hidden="true" />
         {prominent ? <span className="qq-adv-handle" aria-hidden="true" /> : null}
       </button>
@@ -90,6 +95,16 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
           cursor: pointer;
           font-family: ${AE.font.family};
           text-align: left;
+        }
+        /* ITEM 2 — text column wrapper. Non-prominent keeps the original
+           inline label-then-hint row so plain "Advanced settings" rows are
+           visually unchanged. The prominent override below switches it to a
+           stacked title/subtitle layout. */
+        .qq-adv-toggle-text {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
         }
         .qq-adv-toggle-label {
           font-size: ${AE.type.label.size};
@@ -156,10 +171,28 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
         .qq-adv--prominent .qq-adv-toggle {
           padding: 14px 16px 18px;
           position: relative;
+          align-items: center;
+        }
+        /* ITEM 2 — STACK the title + subtitle in the prominent header: the
+           title on its own line, the hint as a smaller muted line directly
+           beneath it (was an awkward side-by-side row where the title wrapped
+           on the left while the hint floated mid-right). Scoped to .qq-adv--
+           prominent so plain advanced rows keep their inline layout. */
+        .qq-adv--prominent .qq-adv-toggle-text {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
         }
         .qq-adv--prominent .qq-adv-toggle-label {
           font-size: ${AE.type.title.size};
           font-weight: 700;
+          line-height: 1.2;
+        }
+        .qq-adv--prominent .qq-adv-toggle-hint {
+          font-size: ${AE.type.helper.size};
+          font-weight: 500;
+          color: ${AE.color.secondary};
+          line-height: 1.3;
         }
         .qq-adv--prominent .qq-adv-chevron {
           color: ${AE.color.accent};
