@@ -2458,6 +2458,33 @@ export default function AIBubble(props: AIBubbleProps) {
           @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
             .qq-ai-panel { background: rgba(255, 255, 255, 0.97) !important; }
           }
+          /* FROSTED-THROUGH — Alex (2x): the ENTIRE chat window must read as
+             frosted glass, not just the card edge. The inner surfaces ship
+             opaque (#fff body/compose/input, near-solid header), which paints
+             over the card's backdrop-blur and kills the glass effect. Make them
+             translucent so the blurred preview shows through the whole window.
+             Scoped to '.qq-ai-panel x' (two classes) so these win over the
+             global single-class rules regardless of source order, and only on
+             mobile (desktop keeps its opaque corner popup). When backdrop-filter
+             is unsupported the card goes near-solid (above) so legibility holds.*/
+          .qq-ai-panel .qq-ai-panel-header {
+            background: linear-gradient(180deg, rgba(13, 60, 252, 0.08) 0%, rgba(255, 255, 255, 0.06) 100%);
+          }
+          .qq-ai-panel .qq-ai-msgs { background: transparent; }
+          .qq-ai-panel .qq-ai-compose {
+            background: rgba(255, 255, 255, 0.16);
+          }
+          .qq-ai-panel .qq-ai-input {
+            background: rgba(255, 255, 255, 0.60);
+          }
+          .qq-ai-panel .qq-ai-budget-meter {
+            background: rgba(255, 255, 255, 0.55);
+          }
+          /* Assistant bubble: keep a soft fill for readability but glassy, not a
+             solid slab, so the frost reads behind the conversation too. */
+          .qq-ai-panel .qq-ai-msg-assistant {
+            background: rgba(241, 245, 249, 0.72);
+          }
           /* No height transition while dragging the resize handle → tracks the
              finger 1:1. */
           .qq-ai-panel.is-resizing { transition: none; }
