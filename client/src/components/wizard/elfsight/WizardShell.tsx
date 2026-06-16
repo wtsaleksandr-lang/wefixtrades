@@ -74,6 +74,7 @@ import { SelectionProvider, useSelection } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
 import {
   INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
+  DEFAULT_SHELL_SCHEDULING,
   DEVICE_PRESET_STORAGE_KEY, EDITOR_TABS,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
@@ -942,10 +943,61 @@ export default function WizardShell({ embed = false }: Props) {
       // has no trade set yet, seed `settings.tradeId` from the template's first
       // trade slug so the save path's `trade_type` stays non-'general' for
       // trade-bearing templates. Never overwrite an existing user choice.
-      const nextSettings =
+      let nextSettings =
         (s.settings?.tradeId ?? '').trim() === '' && preset.trades?.[0]
           ? { ...(s.settings ?? {}), tradeId: preset.trades[0] }
           : s.settings;
+
+      // BOOKING/DEPOSIT TOGGLE SYNC (item 6a) — a template's preset can SHIP a
+      // booking form / deposit via its style block (`style.booking.enabled` /
+      // `style.deposit.enabled`). The Action-tab toggles, however, read the
+      // canonical `settings.scheduling.enabled` / `settings.deposit.enabled`.
+      // Those two slots were never seeded from the preset, so a template that
+      // ships booking rendered the calendar in the preview while the Action
+      // "Online booking" toggle read OFF (the gutter-cleaning report). Derive
+      // the toggle's initial enabled state from the preset's booking/deposit
+      // presence here — GENERIC across every template (driven purely by the
+      // preset's style flags, no template-name checks).
+      //
+      // Only seed when the user hasn't ALREADY made an explicit choice for that
+      // slot: a returning calculator with `settings.scheduling`/`settings.deposit`
+      // already present keeps its own value (its booking/deposit config wins).
+      // `presetStyle` is the resolved style applied below (preset.style or the
+      // category-derived fallback) and carries the booking/deposit flags.
+      {
+        const presetBookingEnabled = presetStyle?.booking?.enabled === true;
+        const presetDepositEnabled = presetStyle?.deposit?.enabled === true;
+        const hasOwnScheduling = (s.settings?.scheduling) !== undefined;
+        const hasOwnDeposit = (s.settings?.deposit) !== undefined;
+        if ((presetBookingEnabled && !hasOwnScheduling)
+            || (presetDepositEnabled && !hasOwnDeposit)) {
+          const base = nextSettings ?? {};
+          nextSettings = {
+            ...base,
+            ...(presetBookingEnabled && !hasOwnScheduling
+              ? { scheduling: { ...DEFAULT_SHELL_SCHEDULING, enabled: true } }
+              : {}),
+            ...(presetDepositEnabled && !hasOwnDeposit
+              ? {
+                  deposit: {
+                    enabled: true,
+                    mode: 'fixed' as const,
+                    // Carry the preset's deposit amount as the fixed dollar
+                    // figure when present; otherwise leave the value for the
+                    // owner to set (the Action card surfaces the input).
+                    value: typeof presetStyle?.deposit?.amount === 'number'
+                      ? presetStyle.deposit.amount
+                      : undefined,
+                    label: typeof presetStyle?.deposit?.label === 'string'
+                      ? presetStyle.deposit.label
+                      : '',
+                    required: false,
+                  },
+                }
+              : {}),
+          };
+        }
+      }
 
       // DATA-LOSS FIX — when the user has already built on this calculator and
       // the caller hasn't explicitly opted into a full structural replace,

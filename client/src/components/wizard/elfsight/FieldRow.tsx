@@ -24,7 +24,10 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronUp, ChevronDown, X, Trash2, Minus, Plus } from 'lucide-react';
+import {
+  ChevronUp, ChevronDown, X, Trash2, Minus, Plus,
+  AlignLeft, AlignCenter, AlignRight,
+} from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { TemplateField, TemplateOption, TemplateRateMatrix } from '@shared/templatePresets';
@@ -193,6 +196,14 @@ export default function FieldRow({
   // COMPONENTS-1 — Wave U-F1 — type-specific flags for the new field types.
   const isTextInput = field.type === 'text';
   const isParagraph = field.type === 'paragraph';
+  // TEXT-ALIGN — heading / paragraph / text fields support a left/center/right
+  // alignment control. It writes `inlineStyle.textAlign`, the SAME slot the
+  // floating InlineStyleToolbar uses, so the renderer's existing
+  // `inlineElementStyleToCss(f.inlineStyle)` spread (AdvancedCalculator field
+  // wrapper) applies `text-align` with no new render plumbing. Global +
+  // data-driven: any heading/paragraph/text field, any template.
+  const supportsTextAlign = field.type === 'heading' || field.type === 'paragraph'
+    || field.type === 'text';
   const isDivider = field.type === 'divider';
   const isImage = field.type === 'image';
   // BUILDER-COMPONENTS — content/CTA components.
@@ -454,6 +465,65 @@ export default function FieldRow({
                 data-testid={`field-row-input-label-${field.id}`}
               />
             </FloatField>
+          )}
+
+          {/* TEXT-ALIGN — alignment control for heading / paragraph / text.
+              Writes `inlineStyle.textAlign` (left / center / right). Default
+              (no value) renders as left — clearing back to left strips the key
+              so the field inherits the resolved style. The renderer applies it
+              via inlineElementStyleToCss on the field wrapper (text-align is
+              inherited by the heading/paragraph <p> children). */}
+          {supportsTextAlign && (
+            <div
+              className="qq-field-align"
+              data-testid={`field-row-align-${field.id}`}
+            >
+              <span className="qq-field-width-label">Alignment</span>
+              <div
+                className="qq-field-width-segmented"
+                role="group"
+                aria-label="Text alignment"
+              >
+                {([
+                  { id: 'left', label: 'Align left', Icon: AlignLeft },
+                  { id: 'center', label: 'Align center', Icon: AlignCenter },
+                  { id: 'right', label: 'Align right', Icon: AlignRight },
+                ] as const).map(({ id, label, Icon }) => {
+                  // `left` is the default — treat an unset textAlign as left so
+                  // the resting state shows a clear active segment.
+                  const current = field.inlineStyle?.textAlign ?? 'left';
+                  const active = current === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`qq-field-width-btn qq-field-align-btn${active ? ' is-active' : ''}`}
+                      aria-pressed={active}
+                      aria-label={label}
+                      title={label}
+                      onClick={() => {
+                        const nextInline = { ...(field.inlineStyle ?? {}) };
+                        if (id === 'left') {
+                          // Clear the key on `left` (the default) so the
+                          // persisted JSON stays clean — matches the toolbar's
+                          // strip-undefined convention.
+                          delete nextInline.textAlign;
+                        } else {
+                          nextInline.textAlign = id;
+                        }
+                        update({
+                          inlineStyle:
+                            Object.keys(nextInline).length === 0 ? undefined : nextInline,
+                        });
+                      }}
+                      data-testid={`field-row-align-${id}-${field.id}`}
+                    >
+                      <Icon aria-hidden="true" width={15} height={15} strokeWidth={2} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* Wave W-LAYOUT — Width toggle.
@@ -1395,6 +1465,19 @@ export default function FieldRow({
           display: flex; align-items: center; gap: 10px;
           padding: 2px 2px 0;
         }
+        /* TEXT-ALIGN — alignment control row. Mirrors the Width toggle's
+         * inline label + segmented layout so the two read as a consistent
+         * pair when both render (text fields show alignment; sized fields
+         * show width). Icon-only segments keep the dense row compact. */
+        .qq-field-align {
+          display: flex; align-items: center; gap: 10px;
+          padding: 2px 2px 0;
+        }
+        .qq-field-align-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 5px 11px;
+        }
+        .qq-field-align-btn svg { display: block; }
         .qq-field-width-label {
           font-size: 11.5px; font-weight: 600; color: ${p.colors.subtle};
           text-transform: uppercase; letter-spacing: 0.04em;
