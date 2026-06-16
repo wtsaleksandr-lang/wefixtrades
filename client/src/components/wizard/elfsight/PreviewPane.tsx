@@ -49,6 +49,7 @@ import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import InlineStyleToolbar from './InlineStyleToolbar';
 import { buildAdvancedConfig } from './buildAdvancedConfig';
 import { buildLeadFormConfig } from './buildLeadFormConfig';
+import { toPricingConfig } from './pricingConfig';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, PublicFieldType, EditorTab,
@@ -1898,7 +1899,11 @@ export default function PreviewPane({
       ...(logo ? { logo_url: logo } : {}),
       primary_color: p.colors.accent,
       plan_tier: 'pro',
-      pricing_config: { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 },
+      // PREVIEW FIDELITY — derive the estimate's pricing from the Settings-tab
+      // pricing model (same mapping the save path uses) so changing the pricing
+      // mode/rate updates the preview estimate live. Was a hard-coded $75/hr
+      // stub that ignored settings.pricing entirely.
+      pricing_config: toPricingConfig(settings?.pricing),
       calculator_settings: {
         calculator_type: 'estimate_only',
         ui_template: { template_id: 'classic_single' },

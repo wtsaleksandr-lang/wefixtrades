@@ -15,6 +15,7 @@
 import type { CSSProperties } from 'react';
 import { Star, BadgeCheck } from 'lucide-react';
 import type { BusinessProfile } from '@shared/templatePresets';
+import { resolveYearsInBusiness } from '@shared/templatePresets';
 import type { WidgetTheme } from './widgetThemes';
 
 interface Props {
@@ -39,8 +40,10 @@ export default function TrustStripHeader({ profile, theme, fontFamily }: Props) 
     ? profile.googleRating : null;
   const reviewCount = typeof profile.googleReviewCount === 'number' && profile.googleReviewCount > 0
     ? profile.googleReviewCount : null;
-  const yearsInBusiness = typeof profile.yearsInBusiness === 'number' && profile.yearsInBusiness > 0
-    ? profile.yearsInBusiness : null;
+  // Trust-badge year clamp (#4) — convert a mistakenly-entered CALENDAR YEAR
+  // (e.g. 1995) into a duration ("30 years") so the pill never reads "1995
+  // years in business". The shared resolver returns a count or null.
+  const yearsInBusiness = resolveYearsInBusiness(profile.yearsInBusiness);
   const insured = (profile.insuredAmount ?? '').trim();
   const licensed = (profile.licenseNumber ?? '').trim();
   const bbb = (profile.bbbRating ?? '').trim();

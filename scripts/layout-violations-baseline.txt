@@ -37,10 +37,10 @@ client/src/components/wizard/elfsight/InstallTab.tsx:416:27	rule-c	size={11}
 client/src/components/wizard/elfsight/InstallTab.tsx:503:29	rule-c	size={13}
 client/src/components/wizard/elfsight/RichTextField.tsx:266:5	rule-b	<div> contains 2 cues
 client/src/components/wizard/elfsight/SettingsTab.tsx:348:7	rule-b	<fieldset> contains 2 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:454:58	rule-b	<fieldset> contains 19 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:3969:30	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:3979:32	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:3992:26	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:461:58	rule-b	<fieldset> contains 19 cues
+client/src/components/wizard/elfsight/StyleTab.tsx:3987:30	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:3997:32	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4010:26	rule-c	size={13}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:250:5	rule-b	<div> contains 2 cues
 client/src/components/wizard/elfsight/TemplateGallery.tsx:872:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
