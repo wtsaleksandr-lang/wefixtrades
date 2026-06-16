@@ -306,6 +306,41 @@ interface Props {
 // state). 50 entries handles a typical build session comfortably.
 const HISTORY_LIMIT = 50;
 
+// fix/preview-linkage-expander — preview→editor click-to-edit must reveal the
+// EXACT control even when it lives inside a collapsed "Advanced …" fold
+// (AdvancedSection). AdvancedSection UNMOUNTS its children when closed, so the
+// `[data-edit-key]` anchor for deposit / online-booking / email notifications /
+// integrations (all under id="action-advanced") and the Style advanced anchors
+// (trust-badges, tiered, under id="style-advanced") is NOT in the DOM while the
+// fold is shut — `[data-edit-key="…"]` resolves to null and the highlight lands
+// at the top of the tab above the still-collapsed fold.
+//
+// `expandFoldsForEditTarget` opens the fold(s) that (would) contain a target so
+// the anchor mounts before we scroll/highlight. It is GENERAL: rather than
+// enumerate every key, it opens every collapsed AdvancedSection currently
+// rendered (only the ACTIVE tab's panel is mounted at a time — inactive tabs are
+// conditionally unrendered — so "all rendered folds" is effectively "this tab's
+// folds"). Returns true if it clicked at least one toggle (caller should retry
+// resolution on the next frame, after the expand reflow). Idempotent: a fold
+// already open is skipped.
+function expandFoldsForEditTarget(): boolean {
+  if (typeof document === 'undefined') return false;
+  const collapsed = document.querySelectorAll<HTMLElement>(
+    '[data-testid^="advanced-section-"][data-open="false"]',
+  );
+  let openedAny = false;
+  collapsed.forEach((section) => {
+    const toggle = section.querySelector<HTMLButtonElement>(
+      '[data-testid^="advanced-toggle-"]',
+    );
+    if (toggle) {
+      toggle.click();
+      openedAny = true;
+    }
+  });
+  return openedAny;
+}
+
 // feat/wizard-section-sync (2026-06-07) — menu-side persistent highlight for
 // the generic `spot` selection kind (CTA / trust-badges / tier-selector /
 // stepper / business). Field rows, the header section and the results section
@@ -341,31 +376,25 @@ function MenuSpotSelectionSync({
       strip();
       return undefined;
     }
-    const SECTION_FOR_KEY: Record<string, string> = {
-      'trust-badges': 'style-advanced',
-      tiered: 'style-advanced',
-    };
     const key = selected.id;
     const behavior: ScrollBehavior = reduceMotion ? 'auto' : 'smooth';
     const raf = requestAnimationFrame(() => {
       strip();
       let el = document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(key)}"]`);
       if (!el) {
-        const sectionId = SECTION_FOR_KEY[key];
-        const section = sectionId
-          ? document.querySelector<HTMLElement>(`[data-testid="advanced-section-${sectionId}"]`)
-          : null;
-        if (section && section.getAttribute('data-open') === 'false') {
-          section.querySelector<HTMLButtonElement>(`[data-testid="advanced-toggle-${sectionId}"]`)?.click();
+        // Anchor unmounted inside a collapsed AdvancedSection (deposit /
+        // online-booking / trust-badges / tiered / …). Open the containing
+        // fold(s) generally — see expandFoldsForEditTarget — then retry next
+        // frame after the expand reflow.
+        if (expandFoldsForEditTarget()) {
+          requestAnimationFrame(() => {
+            const node = document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(key)}"]`);
+            if (node) {
+              node.classList.add('qq-edit-selected');
+              try { node.scrollIntoView({ block: 'center', behavior }); } catch { /* ignore */ }
+            }
+          });
         }
-        // Retry next frame after the expand reflow.
-        requestAnimationFrame(() => {
-          const node = document.querySelector<HTMLElement>(`[data-edit-key="${CSS.escape(key)}"]`);
-          if (node) {
-            node.classList.add('qq-edit-selected');
-            try { node.scrollIntoView({ block: 'center', behavior }); } catch { /* ignore */ }
-          }
-        });
         return;
       }
       const collapsed = el.closest<HTMLElement>('[data-testid^="advanced-section-"][data-open="false"]');
@@ -1744,28 +1773,22 @@ export default function WizardShell({ embed = false }: Props) {
   }, [reduceMotion]);
   const applyEditHighlight = useCallback((targetKey: string) => {
     // Some edit anchors live inside an AdvancedSection that UNMOUNTS its
-    // children when collapsed (header/results under "Titles & result text";
-    // trust-badges/tiered under Style "Advanced style"). When the section
-    // is closed the anchor isn't in the DOM, so resolveEditTarget returns null.
-    // Map those keys → their owning section id so we can expand-then-retry.
-    const SECTION_FOR_KEY: Record<string, string> = {
-      header: 'build-titles',
-      results: 'build-titles',
-      'trust-badges': 'style-advanced',
-      tiered: 'style-advanced',
-    };
+    // children when collapsed: header/results under Build "Titles & result
+    // text"; deposit / email notifications / online-booking / integrations
+    // under Action "Advanced action"; trust-badges / tiered under Style
+    // "Advanced style". When the section is closed the anchor isn't in the DOM,
+    // so resolveEditTarget returns null. We open the containing fold(s) FIRST,
+    // then retry resolution so the scroll/highlight lands on the exact control
+    // rather than at the top of the tab above the still-collapsed fold.
     // Defer one frame so the freshly-switched tab's panel has mounted.
     requestAnimationFrame(() => {
       const el = resolveEditTarget(targetKey);
       if (!el) {
-        // Anchor may be hidden inside a collapsed (child-unmounting) section —
-        // open it via its toggle, then retry on the next frame.
-        const sectionId = SECTION_FOR_KEY[targetKey];
-        const section = sectionId
-          ? document.querySelector<HTMLElement>(`[data-testid="advanced-section-${sectionId}"]`)
-          : null;
-        if (section && section.getAttribute('data-open') === 'false') {
-          section.querySelector<HTMLButtonElement>(`[data-testid="advanced-toggle-${sectionId}"]`)?.click();
+        // Anchor is hidden inside a collapsed (child-unmounting) section. Open
+        // every collapsed AdvancedSection in the now-rendered tab panel — this
+        // is general (booking/deposit/email/integrations/style advanced, etc.),
+        // not a per-key map — then retry on the next frame after the reflow.
+        if (expandFoldsForEditTarget()) {
           requestAnimationFrame(() => {
             const node = resolveEditTarget(targetKey);
             if (node) highlightNode(node);
