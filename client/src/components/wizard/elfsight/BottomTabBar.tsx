@@ -131,16 +131,26 @@ export default function BottomTabBar({
             display: flex;
             position: fixed; left: 0; right: 0; bottom: 0;
             z-index: 9999;
-            /* Dark persistent bar — Elfsight parity. The #1d1d1f / #a1a1a6
-               hexes are intentional dark-chrome literals (not banned
-               bare white/black). */
-            background: #1d1d1f;
+            /* #14 — frosted-glass translucent dark bar so the preview is
+               partly visible behind it (a sibling of the AI side tab's frosted
+               surface). The #1d1d1f / #a1a1a6 hexes are intentional dark-chrome
+               literals (not banned bare white/black); here #1d1d1f is taken at
+               ~62% alpha and the backdrop-filter blurs+darkens what shows
+               through, keeping the icons+labels readable. */
+            background: rgba(29, 29, 31, 0.62);
+            -webkit-backdrop-filter: blur(18px) saturate(135%);
+            backdrop-filter: blur(18px) saturate(135%);
             font-family: ${AE.font.family};
             /* Clear the iOS home indicator. */
             padding-bottom: env(safe-area-inset-bottom, 0px);
             /* Hairline top edge so it reads as a distinct zone over the
-               white preview above. */
-            box-shadow: 0 -0.5px 0 rgba(255,255,255,0.08);
+               preview above. */
+            box-shadow: 0 -0.5px 0 rgba(255,255,255,0.10);
+          }
+          /* Fallback — browsers without backdrop-filter get the original
+             solid dark bar so contrast/readability never regress. */
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .qq-bottom-tabbar { background: #1d1d1f; }
           }
           .qq-bottom-tab {
             flex: 1 1 0;
