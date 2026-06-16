@@ -11,14 +11,19 @@
 // `client/public/template-thumbnails/<templateId>@2x.png`. Mirrors Elfsight's
 // `<uuid>@2x.png` thumbnail pattern.
 
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useSearch } from "wouter";
 import AdvancedCalculator from "@/components/quote-widget/AdvancedCalculator";
+// Dev/test-only: optionally mount the floating "Builder" badge so Playwright
+// can verify the circular draggable launcher (item 11). Lazy so it never
+// weighs on the normal thumbnail render.
+const AIBubble = lazy(() => import("@/components/wizard/elfsight/AIBubble"));
 import {
   TEMPLATE_PRESETS,
   toAdvancedConfig,
   type TemplateConfig,
 } from "@shared/templatePresets";
+import { INITIAL_SHELL_STATE } from "@/components/wizard/elfsight/types";
 
 const RENDER_WIDTH = 560;
 const RENDER_HEIGHT = 700;
@@ -56,11 +61,45 @@ export default function InternalTemplateRender() {
   const advanced = useMemo(() => {
     if (!template) return null;
     try {
-      return toAdvancedConfig(template);
+      const base = toAdvancedConfig(template);
+      // Dev/test-only overrides driven by query params so Playwright can
+      // exercise the preview-fidelity surfaces (booking, deposit, business
+      // profile, step layout) without standing up the full editor + DB. This
+      // route is unreachable in prod (see App.tsx gate), so these flags never
+      // ship. They mirror the shapes buildAdvancedConfig produces.
+      const q = new URLSearchParams(search);
+      const next: typeof base = { ...base, style: { ...(base.style ?? {}) } };
+      if (q.get("booking") === "1") {
+        (next.style as Record<string, unknown>).booking = {
+          enabled: true,
+          source: "wefixtrades-default",
+        };
+      }
+      if (q.get("deposit") === "1") {
+        (next.style as Record<string, unknown>).deposit = {
+          enabled: true,
+          amount: 150,
+          label: "Deposit required to schedule",
+        };
+      }
+      if (q.get("profile") === "1") {
+        next.businessProfile = {
+          googleRating: 4.8,
+          googleReviewCount: 2134,
+          licenseNumber: "ROC123456",
+          insuredAmount: "Insured up to $2M",
+          yearsInBusiness: 15,
+          serviceArea: "Phoenix",
+          bbbRating: "A+",
+        };
+      }
+      const sl = q.get("stepLayout");
+      if (sl === "stepper" || sl === "single") next.stepLayout = sl;
+      return next;
     } catch {
       return null;
     }
-  }, [template]);
+  }, [template, search]);
 
   // `ready` flips to true after a short settle so layout + fonts finish.
   // Playwright waits on `[data-render-ready="true"]` to take the screenshot.
@@ -86,6 +125,11 @@ export default function InternalTemplateRender() {
     );
   }
 
+  // Dev/test: `?tall=1` lets the wrapper grow to its natural height so a
+  // full-page screenshot captures the whole widget (result panel + booking
+  // grid sit below the fold at the default fixed 700px thumbnail height).
+  const tall = new URLSearchParams(search).get("tall") === "1";
+
   return (
     <>
       <style>{STATIC_CSS}</style>
@@ -94,15 +138,33 @@ export default function InternalTemplateRender() {
         data-testid="internal-template-render"
         style={{
           width: RENDER_WIDTH,
-          height: RENDER_HEIGHT,
+          height: tall ? "auto" : RENDER_HEIGHT,
           background: bg,
           padding: 24,
           boxSizing: "border-box",
-          overflow: "hidden",
+          overflow: tall ? "visible" : "hidden",
         }}
       >
         <AdvancedCalculator businessName="Preview" advanced={advanced} />
       </div>
+      {new URLSearchParams(search).get("aibubble") === "1" && (
+        <Suspense fallback={null}>
+          <AIBubble
+            conversationId="render-harness"
+            state={INITIAL_SHELL_STATE}
+            setFields={() => {}}
+            setCalculations={() => {}}
+            setHeader={() => {}}
+            setResults={() => {}}
+            setStyle={() => {}}
+            setSettings={() => {}}
+            setLogo={() => {}}
+            setBusinessName={() => {}}
+            applyTemplatePreset={() => {}}
+            replaceTemplate={() => {}}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

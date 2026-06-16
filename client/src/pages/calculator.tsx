@@ -185,8 +185,6 @@ export default function Calculator() {
   // never sees the amber "upgrade to Pro" card. The old client-side trial
   // math is gone: the server boolean is the single gate, so the trial/active
   // STATE never has to ride in the public payload's billing fields.
-  const showChatBubble = calculator?.aiAssistantActive === true;
-
   // BD-2c — AI chat visibility mode. Free tier ALWAYS uses `'rescue'` (the
   // new BD-0 stuck-customer-rescue default). Pro/Business can opt back to
   // `'always'` via the Style tab toggle. Stored at `style.aiChatVisibility`.
@@ -195,6 +193,11 @@ export default function Calculator() {
   const planTier = calculator?.plan_tier || 'free';
   const isPaidTier =
     planTier === 'pro' || planTier === 'business' || planTier === 'starter';
+  // Item 8 — an explicit `'off'` hides the assistant launcher entirely on
+  // any tier (the owner turned chat off for this calculator). Honoured even
+  // when the account's assistant is otherwise active.
+  const chatTurnedOff = chatVisibilityRaw === 'off';
+  const showChatBubble = calculator?.aiAssistantActive === true && !chatTurnedOff;
   const chatVisibility: 'rescue' | 'always' =
     isPaidTier && chatVisibilityRaw === 'always' ? 'always' : 'rescue';
 

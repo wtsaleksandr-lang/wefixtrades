@@ -2895,6 +2895,11 @@ export default function PreviewPane({
   // Preview-only — never part of the published widget path. The accent
   // fallback matches the renderer's DEFAULT_ADV_STYLE.accent so the sim
   // colour always equals the widget's resolved accent.
+  // Item 8 — 'off' hides the chat launcher entirely (sim not rendered); the
+  // remaining modes map to the sim's pill ('rescue') vs full-FAB ('always')
+  // resting states. An explicit 'off' is the owner turning the assistant off
+  // for this calculator, so the preview must show NOTHING in the corner.
+  const chatSimEnabled = style?.aiChatVisibility !== 'off';
   const chatSimVisibility: 'rescue' | 'always' =
     style?.aiChatVisibility === 'always' ? 'always' : 'rescue';
   const chatSimAccent = style?.accent || '#0d3cfc';
@@ -3224,7 +3229,7 @@ export default function PreviewPane({
                   so it stays docked like the real position:fixed bubble).
                   Hidden while the floating-launcher lens is active — that
                   mode shows its own corner bubble and two would conflict. */}
-              {!flpActive && (
+              {!flpActive && chatSimEnabled && (
                 <PreviewChatBubbleSim
                   visibility={chatSimVisibility}
                   accentColor={chatSimAccent}
@@ -3365,7 +3370,7 @@ export default function PreviewPane({
                   scrolling screen so it stays docked, matching the real
                   bubble's position:fixed behaviour). Hidden while the
                   floating-launcher lens shows its own corner bubble. */}
-              {!flpActive && (
+              {!flpActive && chatSimEnabled && (
                 <PreviewChatBubbleSim
                   visibility={chatSimVisibility}
                   accentColor={chatSimAccent}

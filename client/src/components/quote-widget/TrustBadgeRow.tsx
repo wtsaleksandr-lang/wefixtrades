@@ -183,14 +183,71 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
   const [open, setOpen] = useState<{ i: number; anchor: { cx: number; bottom: number } } | null>(null);
 
   const allBadges = useMemo<readonly TrustBadge[]>(() => {
-    const license = (businessProfile?.licenseNumber ?? '').trim();
+    // Item 13b — every populated business-profile field synthesises a
+    // verifiable trust chip so what the owner types in Settings → Business
+    // profile (rating, reviews, license #, insured, years in business,
+    // service area, BBB) renders live in the widget preview. Previously only
+    // the license # surfaced, so typing a rating / years / BBB grade showed
+    // NOTHING in the preview. Ordered strongest-signal first.
+    const p = businessProfile;
     const synthesised: TrustBadge[] = [];
+
+    // Google rating (+ optional review count) → "★ 4.8 · 2,134 reviews".
+    const rating = typeof p?.googleRating === 'number' && Number.isFinite(p.googleRating)
+      ? p.googleRating : undefined;
+    if (rating !== undefined && rating > 0) {
+      const reviews = typeof p?.googleReviewCount === 'number' && Number.isFinite(p.googleReviewCount)
+        ? Math.max(0, Math.round(p.googleReviewCount)) : undefined;
+      const ratingLabel = (Math.round(rating * 10) / 10).toString();
+      const label = reviews && reviews > 0
+        ? `${ratingLabel} ★ · ${reviews.toLocaleString()} reviews`
+        : `${ratingLabel} ★ rating`;
+      synthesised.push({ label, icon: 'star' });
+    }
+
+    const license = (p?.licenseNumber ?? '').trim();
     if (license.length > 0) {
       synthesised.push({ label: `Licensed #${license}`, icon: 'badge-check' });
     }
+
+    const insured = (p?.insuredAmount ?? '').trim();
+    if (insured.length > 0) {
+      synthesised.push({ label: insured, icon: 'shield-check' });
+    }
+
+    // Years in business — pairs with service area when present
+    // ("15 years serving Phoenix").
+    const years = typeof p?.yearsInBusiness === 'number' && Number.isFinite(p.yearsInBusiness)
+      ? Math.max(0, Math.round(p.yearsInBusiness)) : undefined;
+    const serviceArea = (p?.serviceArea ?? '').trim();
+    if (years !== undefined && years > 0) {
+      const unit = years === 1 ? 'year' : 'years';
+      const label = serviceArea.length > 0
+        ? `${years} ${unit} serving ${serviceArea}`
+        : `${years} ${unit} in business`;
+      synthesised.push({ label, icon: 'clock' });
+    } else if (serviceArea.length > 0) {
+      // Service area on its own (no years) still reads as a useful signal.
+      synthesised.push({ label: `Serving ${serviceArea}`, icon: 'map-pin' });
+    }
+
+    const bbb = (p?.bbbRating ?? '').trim();
+    if (bbb.length > 0) {
+      synthesised.push({ label: `BBB ${bbb}`, icon: 'award' });
+    }
+
     const src = badges ?? [];
     return synthesised.length > 0 ? [...synthesised, ...src] : src;
-  }, [badges, businessProfile?.licenseNumber]);
+  }, [
+    badges,
+    businessProfile?.googleRating,
+    businessProfile?.googleReviewCount,
+    businessProfile?.licenseNumber,
+    businessProfile?.insuredAmount,
+    businessProfile?.yearsInBusiness,
+    businessProfile?.serviceArea,
+    businessProfile?.bbbRating,
+  ]);
 
   if (allBadges.length === 0) return null;
 
