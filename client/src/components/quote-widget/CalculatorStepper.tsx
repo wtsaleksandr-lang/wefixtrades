@@ -194,27 +194,34 @@ export function StepperControls({
         gap: 10, marginTop: 4, width: '100%', boxSizing: 'border-box',
       }}
     >
-      <button
-        type="button"
-        onClick={onBack}
-        disabled={isFirst}
-        data-testid="calculator-stepper-back"
-        style={{
-          height: 40, padding: '0 14px', borderRadius: radiusPx,
-          background: 'transparent', color: theme.text,
-          border: `1px solid ${theme.border}`,
-          fontSize: 13, fontWeight: 600, fontFamily,
-          cursor: isFirst ? 'not-allowed' : 'pointer',
-          opacity: isFirst ? 0.4 : 1,
-        }}
-        // BG-7 Item 6 — owner override (sanitized HTML); fall back to the
-        // default "← Back" when no override is set.
-        {...(backLabel && buttonCopyIsHtml
-          ? { dangerouslySetInnerHTML: { __html: backLabel } }
-          : null)}
-      >
-        {!(backLabel && buttonCopyIsHtml) && (backLabel || '← Back')}
-      </button>
+      {/* On the FIRST step there's nowhere to go back to, so the Back button
+          is not rendered at all (previously it showed disabled/greyed). An
+          empty placeholder keeps the Next button right-aligned via
+          space-between. */}
+      {isFirst ? (
+        <span aria-hidden style={{ flex: '0 0 auto' }} />
+      ) : (
+        <button
+          type="button"
+          onClick={onBack}
+          data-testid="calculator-stepper-back"
+          style={{
+            height: 40, padding: '0 14px', borderRadius: radiusPx,
+            background: 'transparent', color: theme.text,
+            border: `1px solid ${theme.border}`,
+            fontSize: 13, fontWeight: 600, fontFamily,
+            cursor: 'pointer',
+            opacity: 1,
+          }}
+          // BG-7 Item 6 — owner override (sanitized HTML); fall back to the
+          // default "← Back" when no override is set.
+          {...(backLabel && buttonCopyIsHtml
+            ? { dangerouslySetInnerHTML: { __html: backLabel } }
+            : null)}
+        >
+          {!(backLabel && buttonCopyIsHtml) && (backLabel || '← Back')}
+        </button>
+      )}
       {(!isLast || !hideNextOnFinal) && (
         <button
           type="button"

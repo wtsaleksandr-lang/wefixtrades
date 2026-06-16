@@ -1122,8 +1122,54 @@ function StickyActionBar({
   const showFoldToggle = isMobile;
   const showDetail = !isMobile || !folded;
 
+  // De-duplicate the running estimate. The folded micro-summary repeats the
+  // main result panel's "Estimated Total". When that total is already on-screen
+  // (desktop side-by-side, or mobile scrolled to it) the strip is redundant —
+  // so we only show the "Est. …" text when the main total is OFF the viewport.
+  //
+  // We observe the result PANEL (`[data-testid="advanced-result-panel"]`),
+  // which is present for BOTH render modes — the legacy single-value headline
+  // (`advanced-result`) AND the tier-selector mode (which has no `advanced-
+  // result` <p>). The panel is the surface that carries the estimate either
+  // way, so observing it covers every template. When the panel can't be found
+  // (result not yet computed) we default to showing the estimate so the
+  // customer is never left without a price cue.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [totalOnScreen, setTotalOnScreen] = useState<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
+      // No IO support — be safe and keep the estimate visible.
+      setTotalOnScreen(false);
+      return;
+    }
+    const root = barRef.current?.closest('[data-testid="advanced-calculator"]')
+      ?? document;
+    const target =
+      (root as ParentNode).querySelector('[data-testid="advanced-result"]')
+      ?? (root as ParentNode).querySelector('[data-testid="advanced-result-panel"]');
+    if (!(target instanceof Element)) {
+      setTotalOnScreen(false);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setTotalOnScreen(entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    io.observe(target);
+    return () => io.disconnect();
+    // Re-run when the bar mounts/remounts or the summary text changes (a new
+    // result may have rendered a fresh result panel to observe).
+  }, [microSummary]);
+
+  // Show the folded micro-summary's price ONLY when the main total is off-screen.
+  const showFoldedEstimate = !totalOnScreen;
+
   return (
     <div
+      ref={barRef}
       data-testid="advanced-sticky-bottom"
       data-component-name="Sticky bottom"
       data-folded={isMobile && folded ? 'true' : 'false'}
@@ -1179,8 +1225,10 @@ function StickyActionBar({
             {trustBlock}
             {footerSlot}
           </>
-        ) : (
-          /* Folded (mobile only) — compact running-estimate strip; tap to expand. */
+        ) : showFoldedEstimate ? (
+          /* Folded (mobile only) — compact running-estimate strip; tap to expand.
+             Only rendered when the main result total is OFF-screen, so the
+             folded bar doesn't duplicate a total the customer can already see. */
           <button
             type="button"
             data-testid="advanced-sticky-bottom-summary"
@@ -1195,7 +1243,7 @@ function StickyActionBar({
           >
             {microSummary}
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );
