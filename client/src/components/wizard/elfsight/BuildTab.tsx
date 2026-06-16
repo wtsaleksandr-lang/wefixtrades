@@ -635,19 +635,25 @@ export default function BuildTab({
           padding-left: 2px; padding-right: 2px;
           cursor: grab;
           scroll-snap-type: x proximity;
-          scroll-behavior: smooth;
+          /* No scroll-behavior:smooth on the base — it forces native touch
+             flicks through a smooth-scroll animation that fights momentum and
+             feels janky on mobile. Native momentum (below) is smooth. */
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
         }
         .qq-buildai-chips.is-dragging {
           cursor: grabbing; user-select: none; scroll-behavior: auto;
         }
+        /* During a drag the grabbing palm should show over the chips too, and
+           a chip must not eat the drag — pointer-events:none lets the
+           container's grabbing cursor read through and blocks stray clicks. */
+        .qq-buildai-chips.is-dragging .qq-buildai-chip { pointer-events: none; }
         .qq-buildai-chips::-webkit-scrollbar { height: 5px; }
         .qq-buildai-chips::-webkit-scrollbar-thumb {
           background: ${AE.color.hairline}; border-radius: 3px;
         }
         .qq-buildai-chip {
-          font: inherit; cursor: pointer;
+          font: inherit; cursor: grab;
           font-size: 12px; font-weight: 500;
           white-space: nowrap;
           scroll-snap-align: start;
