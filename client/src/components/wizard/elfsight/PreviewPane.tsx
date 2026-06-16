@@ -2052,17 +2052,17 @@ export default function PreviewPane({
     if (!spot) return false;
     let targetKey = spot.targetKey;
     if (targetKey === '__field__') {
-      // Resolve the exact field id from the clicked cell's index (mirrors the
-      // selection logic). data-colspan cells are the field grid items.
+      // fix/wizard-preview-p0 — resolve the exact field id from the STABLE
+      // `data-shell-field-id` the widget stamps on every rendered field wrapper
+      // (AdvancedCalculator emits it alongside data-colspan). The previous
+      // positional `cells.indexOf(fieldCell)` indexed into the FULL `shellFields`
+      // array while `cells` are only the CURRENT step's rendered nodes — on a
+      // multi-step template that mismatch dispatched an EARLIER field's id and
+      // the goto-field listener jumped the preview back to that field's step.
       const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
-      let fieldId: string | null = null;
-      if (fieldCell && fieldCell.parentElement) {
-        const cells = Array.from(
-          fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'),
-        );
-        const idx = cells.indexOf(fieldCell);
-        if (idx >= 0 && idx < shellFields.length) fieldId = shellFields[idx].id;
-      }
+      const fieldId =
+        (fieldCell?.closest('[data-shell-field-id]') as HTMLElement | null)
+          ?.dataset.shellFieldId ?? null;
       // Fall back to the Fields section when we can't pin the exact field.
       targetKey = fieldId ? `field:${fieldId}` : 'fields';
     }
@@ -2314,15 +2314,12 @@ export default function PreviewPane({
       const isDropdown = controlMatch.tagName === 'SELECT';
       if (isDropdown) {
         const fieldCell = controlMatch.closest('[data-colspan]') as HTMLElement | null;
-        if (fieldCell && fieldCell.parentElement) {
-          const cells = Array.from(
-            fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'),
-          );
-          const idx = cells.indexOf(fieldCell);
-          if (idx >= 0 && idx < shellFields.length) {
-            selection.select({ kind: 'field', id: shellFields[idx].id });
-          }
-        }
+        // fix/wizard-preview-p0 — select by the stable data-shell-field-id, not
+        // a positional index into the full shellFields array (step-regression).
+        const fid =
+          (fieldCell?.closest('[data-shell-field-id]') as HTMLElement | null)
+            ?.dataset.shellFieldId ?? null;
+        if (fid) selection.select({ kind: 'field', id: fid });
       }
       // Click-to-edit — a control click (field input, CTA button, tier radio,
       // …) still maps to its editor spot. This is additive: the control's own
@@ -2354,12 +2351,13 @@ export default function PreviewPane({
     }
     // Field region.
     const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
-    if (fieldCell && fieldCell.parentElement) {
-      const cells = Array.from(fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'));
-      const idx = cells.indexOf(fieldCell);
-      if (idx >= 0 && idx < shellFields.length) {
-        selection.select({ kind: 'field', id: shellFields[idx].id });
-      }
+    // fix/wizard-preview-p0 — select by the stable data-shell-field-id, not a
+    // positional index into the full shellFields array (step-regression).
+    const fieldRegionId =
+      (fieldCell?.closest('[data-shell-field-id]') as HTMLElement | null)
+        ?.dataset.shellFieldId ?? null;
+    if (fieldRegionId) {
+      selection.select({ kind: 'field', id: fieldRegionId });
     }
     // Click-to-edit — any remaining mappable spot (tier cards, trust badges,
     // CTA region, stepper chrome) routes to its tab. Falls through harmlessly
@@ -2451,7 +2449,14 @@ export default function PreviewPane({
   };
 
   const [editingSection, setEditingSection] = useState<SectionKey | null>(null);
-  const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [titleBox, setTitleBox] = useState<{
+    left: number; top: number; width: number; height: number;
+    // fix/wizard-preview-p0 — computed type of the edited node so the overlay
+    // input MATCHES the underlying text (was hardcoded 17px/800, which only
+    // looked right for the title and read as doubled/over-bold on the smaller
+    // subtitle / footnote / result-heading).
+    fontSize?: string; fontWeight?: string; letterSpacing?: string; lineHeight?: string;
+  } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   // The selector for whichever section is being edited (or the title's, as a
   // harmless default when nothing is open — measure() no-ops without a match).
@@ -2499,6 +2504,17 @@ export default function PreviewPane({
     // the desktop scaled stage). offsetWidth is the unscaled layout width.
     const scale = host.offsetWidth > 0 ? hostRect.width / host.offsetWidth : 1;
     const s = scale > 0 ? scale : 1;
+    // fix/wizard-preview-p0 — read the edited node's COMPUTED type so the
+    // overlay input renders at the same size/weight as the text it covers.
+    // getComputedStyle returns the UNSCALED layout font-size, and the overlay
+    // input lives in the host's UNSCALED local coordinate space (same as the
+    // measured node) — so use the computed size directly. (The box left/top/
+    // width above ARE divided by `s` because they come from scaled screen
+    // rects; font-size does not, hence no division here.)
+    let cs: CSSStyleDeclaration | null = null;
+    try { cs = window.getComputedStyle(t); } catch { /* detached node / older engine — fall back to CSS defaults */ cs = null; }
+    const fs = cs ? parseFloat(cs.fontSize) : NaN;
+    const fontSize = Number.isFinite(fs) ? `${fs}px` : undefined;
     // Phone-frame fix — the mobile-frame host is now a real scroll container
     // and the section editor is an absolutely-positioned child of its
     // scrolling content, so the box must be in CONTENT coordinates: add
@@ -2510,6 +2526,10 @@ export default function PreviewPane({
       top: (r.top - hostRect.top) / s + host.scrollTop,
       width: Math.max(r.width / s, 200),
       height: r.height / s,
+      fontSize,
+      fontWeight: cs?.fontWeight,
+      letterSpacing: cs?.letterSpacing,
+      lineHeight: cs?.lineHeight && cs.lineHeight !== 'normal' ? cs.lineHeight : undefined,
     });
     return t;
   }, []);
@@ -2652,6 +2672,13 @@ export default function PreviewPane({
       position: 'absolute' as const,
       left: titleBox?.left ?? 0, top: titleBox?.top ?? 0,
       width: titleBox?.width ?? 240, height: titleBox?.height ?? 32,
+      // fix/wizard-preview-p0 — match the edited node's computed type so the
+      // overlay reads as the SAME text, not a hardcoded 17px/800 (which doubled
+      // visually over the smaller subtitle / footnote / result-heading).
+      ...(titleBox?.fontSize ? { fontSize: titleBox.fontSize } : {}),
+      ...(titleBox?.fontWeight ? { fontWeight: titleBox.fontWeight } : {}),
+      ...(titleBox?.letterSpacing ? { letterSpacing: titleBox.letterSpacing } : {}),
+      ...(titleBox?.lineHeight ? { lineHeight: titleBox.lineHeight } : {}),
     },
   };
   const sectionEditorEl = (editingSection && titleBox && titleEditEnabled) ? (
@@ -3071,6 +3098,10 @@ export default function PreviewPane({
       data-theme="light"
       className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
+      /* fix/wizard-preview-p0 — expose which inline section is being edited so
+       * the underlying-text hide rule can target the RIGHT node (subtitle /
+       * result-heading / footnote), not just the title. */
+      data-editing-section={editingSection ?? undefined}
       data-mobile-clean={isMobileViewport ? 'true' : 'false'}
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
       data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
@@ -3780,8 +3811,13 @@ export default function PreviewPane({
           border-radius: 0 !important;
           border: 0 !important;
           box-shadow: none !important;
-          width: 100% !important;
-          margin: 0 !important;
+          /* fix/wizard-preview-p0 — do NOT force width:100% here. The widget owns
+           * its own maxWidth + margin:0 auto; clamping width to 100% killed the
+           * width presets/slider in the mobile preview device, and margin:0
+           * left-anchored the box so only the right edge moved. Centre it instead
+           * so narrow/wide/full presets visibly resize and stay centred. Desktop
+           * is a different selector and is unchanged. */
+          margin: 0 auto !important;
         }
         /* AE mobile tap-to-edit (2026-06-05) — on a real phone make the editable
          * title row + pencil a big, obvious tap target. The onBezelClick
@@ -4372,15 +4408,27 @@ export default function PreviewPane({
          * both light and dark themes, without erasing the live colour of
          * the title text underneath. The 4 % accent tint matches the
          * platform's standard selected-input affordance. */
-        /* While the inline title editor is open, hide the underlying live
-         * title TEXT so it doesn't show through behind the input (the input is
-         * positioned over it). visibility:hidden keeps the title in layout so
-         * measureTitle()'s rect stays valid and the input stays pinned. The
-         * pencil hint is a sibling of the title text, so it's unaffected. */
-        .qq-preview-pane.is-title-editing [data-testid="advanced-title"] {
+        /* While an inline section editor is open, hide the underlying live
+         * TEXT for THAT section so it doesn't show through behind the input
+         * (the input is positioned over it). visibility:hidden keeps the node
+         * in layout so measureTitle()'s rect stays valid and the input stays
+         * pinned. The pencil hint is a sibling, so it's unaffected.
+         * fix/wizard-preview-p0 — previously this only matched advanced-title,
+         * so editing subtitle / result-heading / footnote left their underlying
+         * text visible under the overlay (doubled + bolder). Scope each hide to
+         * the active section via data-editing-section. */
+        .qq-preview-pane[data-editing-section="title"] [data-testid="advanced-title"],
+        .qq-preview-pane[data-editing-section="subtitle"] [data-testid="advanced-subtitle"],
+        .qq-preview-pane[data-editing-section="results-heading"] [data-testid="advanced-result-heading"],
+        .qq-preview-pane[data-editing-section="footnote"] [data-testid="advanced-footnote"] {
           visibility: hidden;
         }
         .qq-preview-title-edit {
+          /* fix/wizard-preview-p0 — type is now set INLINE from the edited
+           * node's computed font-size/weight/letter-spacing (see measureTitle +
+           * editorCommonProps.style) so the overlay matches whichever section is
+           * being edited. These are fallbacks only, used before the first
+           * measure lands. */
           font-size: 17px; font-weight: 800;
           letter-spacing: -0.01em;
           color: inherit;
