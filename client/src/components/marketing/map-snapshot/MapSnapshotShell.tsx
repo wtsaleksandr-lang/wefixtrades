@@ -21,6 +21,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, MapPin, Maximize2, X } from "lucide-react";
 import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
+import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
 
 const BRAND_PRIMARY = "#0d3cfc";
 const BRAND_INK = "#1E1E1E";
@@ -335,7 +336,7 @@ const latToWorldY = (lat: number) => {
 const worldYToLat = (wy: number) =>
   (Math.atan(Math.sinh(Math.PI * (1 - (2 * wy) / SM_TILE))) * 180) / Math.PI;
 /* green → yellow → red gradient across rank 1..20 (matches the reference). */
-const rankPinColor = (rank: number): string => {
+const rankPinRgbTriple = (rank: number): [number, number, number] => {
   const t = Math.max(0, Math.min(1, (rank - 1) / 19));
   const g = [22, 163, 74];
   const y = [234, 179, 8];
@@ -343,7 +344,22 @@ const rankPinColor = (rank: number): string => {
   const mix = (a: number[], b: number[], u: number) =>
     a.map((v, i) => Math.round(v + (b[i] - v) * u));
   const c = t < 0.5 ? mix(g, y, t / 0.5) : mix(y, r, (t - 0.5) / 0.5);
-  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  return [c[0], c[1], c[2]];
+};
+/* Premium pin styling: radial highlight → saturated base, white ring, plus a
+   soft rank-colored glow for top-3 cells. Light-theme locked (#hex-exempt). */
+const rankPinFill = (rank: number): { gradient: string; shadow: string } => {
+  const [r, g, b] = rankPinRgbTriple(rank);
+  const hi = [r, g, b].map((v) => Math.round(v + (255 - v) * 0.55));
+  const gradient =
+    `radial-gradient(circle at 32% 28%, ` +
+    `rgb(${hi[0]},${hi[1]},${hi[2]}) 0%, rgb(${r},${g},${b}) 72%)`;
+  const ring = `0 0 0 2px #ffffff`;
+  const glow =
+    rank <= 3
+      ? `, 0 0 14px 2px rgba(${r},${g},${b},0.55), 0 0 4px 0 rgba(${r},${g},${b},0.7)`
+      : `, 0 1px 3px rgba(15,23,42,0.35)`;
+  return { gradient, shadow: `${ring}${glow}` };
 };
 
 /* ─── Premium rank-grid view ───
@@ -469,7 +485,6 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
 
   const query =
     result.keywords?.[0] || (trade ? `${trade} near me` : "near me");
-  const avgColor = rankPinColor(stats.avg || 1);
 
   const directionFromCenter = (row: number, col: number): string => {
     // 5×5 grid → center is (2, 2). Map row/col delta to a compass direction.
@@ -511,38 +526,6 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
         />
       )}
 
-      {/* Average Map Rank badge — top-left, color-coded by the average */}
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          zIndex: 3,
-          background: avgColor,
-          borderRadius: 12,
-          padding: "8px 12px",
-          color: "#fff",
-          boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
-          textAlign: "center",
-          minWidth: 64,
-        }}
-      >
-        <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>
-          {stats.avg ? stats.avg.toFixed(1) : "—"}
-        </div>
-        <div
-          style={{
-            fontSize: 9,
-            fontWeight: 600,
-            letterSpacing: "0.04em",
-            marginTop: 3,
-            opacity: 0.95,
-          }}
-        >
-          Average Map Rank
-        </div>
-      </div>
-
       {/* Numbered, color-coded rank pins */}
       {cells.map((c) => {
         const p = map.project(c.lat, c.lng);
@@ -565,9 +548,9 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
               width: "clamp(20px, 4.6vw, 28px)",
               height: "clamp(20px, 4.6vw, 28px)",
               borderRadius: 999,
-              background: rankPinColor(c.rank),
+              background: rankPinFill(c.rank).gradient,
               border: "1.5px solid rgba(255,255,255,0.92)",
-              boxShadow: "0 1px 3px rgba(15,23,42,0.35)",
+              boxShadow: rankPinFill(c.rank).shadow,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -584,7 +567,9 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
         );
       })}
 
-      {/* Your business marker */}
+      {/* Your business marker — larger pin + pulsing accuracy ring + "You"
+          label, layered above every rank pin so it's unmistakable. Pulse is
+          pure CSS, gated on prefers-reduced-motion. */}
       {(() => {
         const p = map.project(result.lat, result.lng);
         return (
@@ -596,19 +581,74 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
               left: `${(p.x / SM_W) * 100}%`,
               top: `${(p.y / SM_H) * 100}%`,
               transform: "translate(-50%, -50%)",
-              zIndex: 4,
-              display: "inline-flex",
+              zIndex: 5,
+              display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              width: 26,
-              height: 26,
-              borderRadius: 999,
-              background: "#fff",
-              border: `2px solid ${BRAND_PRIMARY}`,
-              boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+              pointerEvents: "none",
             }}
           >
-            <MapPin size={14} color={BRAND_PRIMARY} aria-hidden="true" />
+            <span
+              aria-hidden="true"
+              className="mapsnap-you-pulse"
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                width: 46,
+                height: 46,
+                marginTop: -23,
+                marginLeft: -23,
+                borderRadius: 999,
+                background: "rgba(13,60,252,0.16)",
+                border: "1.5px solid rgba(13,60,252,0.45)",
+              }}
+            />
+            <span
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                background: "#fff",
+                border: `3px solid ${BRAND_PRIMARY}`,
+                boxShadow: "0 3px 10px rgba(15,23,42,0.4)",
+                zIndex: 1,
+              }}
+            >
+              <MapPin size={16} color={BRAND_PRIMARY} aria-hidden="true" />
+            </span>
+            <span
+              style={{
+                position: "relative",
+                marginTop: 5,
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: BRAND_PRIMARY,
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                boxShadow: "0 2px 6px rgba(15,23,42,0.3)",
+                zIndex: 1,
+              }}
+            >
+              You
+            </span>
+            <style>{`
+              @keyframes mapsnap-you-pulse {
+                0% { transform: scale(0.7); opacity: 0.9; }
+                70% { transform: scale(1.5); opacity: 0; }
+                100% { transform: scale(1.5); opacity: 0; }
+              }
+              .mapsnap-you-pulse { animation: mapsnap-you-pulse 2.2s ease-out infinite; }
+              @media (prefers-reduced-motion: reduce) {
+                .mapsnap-you-pulse { animation: none !important; opacity: 0.5; }
+              }
+            `}</style>
           </div>
         );
       })()}
@@ -682,6 +722,17 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
           ))}
         </div>
       </div>
+
+      {/* Average-rank HERO — promoted from the old small map-corner badge to a
+          full hero block (big color number + verdict + High/Med/Low ratio bar).
+          Shared component, identical across all three rank-grid surfaces. */}
+      <RankGridHero
+        avg={stats.avg || null}
+        high={hml.high}
+        med={hml.med}
+        low={hml.low}
+        total={stats.total}
+      />
 
       {/* Real Google map (server-proxied) with geo-projected rank pins.
           On mobile the map goes full-bleed (negative margins escape the shell's

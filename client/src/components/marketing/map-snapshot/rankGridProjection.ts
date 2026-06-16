@@ -17,8 +17,8 @@ const worldYToLat = (wy: number) =>
   (Math.atan(Math.sinh(Math.PI * (1 - (2 * wy) / SM_TILE))) * 180) / Math.PI;
 
 /** green → yellow → red gradient across rank 1..20. null rank = deep red. */
-export const rankPinColor = (rank: number | null): string => {
-  if (rank == null) return "#dc2626";
+export const rankPinRgb = (rank: number | null): [number, number, number] => {
+  if (rank == null) return [220, 38, 38];
   const t = Math.max(0, Math.min(1, (rank - 1) / 19));
   const g = [22, 163, 74];
   const y = [234, 179, 8];
@@ -26,7 +26,64 @@ export const rankPinColor = (rank: number | null): string => {
   const mix = (a: number[], b: number[], u: number) =>
     a.map((v, i) => Math.round(v + (b[i] - v) * u));
   const c = t < 0.5 ? mix(g, y, t / 0.5) : mix(y, r, (t - 0.5) / 0.5);
-  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  return [c[0], c[1], c[2]];
+};
+
+export const rankPinColor = (rank: number | null): string => {
+  const [r, g, b] = rankPinRgb(rank);
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** Lighten an rgb triple toward white by u (0..1). */
+const lighten = (
+  [r, g, b]: [number, number, number],
+  u: number,
+): [number, number, number] => [
+  Math.round(r + (255 - r) * u),
+  Math.round(g + (255 - g) * u),
+  Math.round(b + (255 - b) * u),
+];
+
+/**
+ * Premium pin styling for a rank cell. Returns ready-to-use CSS strings in
+ * both rgb() (for color-guarded surfaces) and a radial-gradient fill that goes
+ * highlight → saturated base, plus a rank-colored outer glow for top-3 cells.
+ * `selected` = outline only (never a brighter fill), preserving the convention.
+ */
+export interface RankPinStyle {
+  base: string;
+  /** radial-gradient: bright highlight top-left → saturated base */
+  gradient: string;
+  /** soft outer glow box-shadow (top-3 only) + crisp white ring */
+  shadow: string;
+  /** outline ring color for the selected state */
+  ringColor: string;
+}
+export const rankPinStyle = (
+  rank: number | null,
+  opts: { selected?: boolean } = {},
+): RankPinStyle => {
+  const rgb = rankPinRgb(rank);
+  const [r, g, b] = rgb;
+  const hi = lighten(rgb, 0.55);
+  const base = `rgb(${r}, ${g}, ${b})`;
+  const gradient =
+    `radial-gradient(circle at 32% 28%, ` +
+    `rgb(${hi[0]}, ${hi[1]}, ${hi[2]}) 0%, ` +
+    `rgb(${r}, ${g}, ${b}) 72%)`;
+  const topThree = rank != null && rank <= 3;
+  // White ring is rendered via box-shadow spread; top-3 add a colored glow.
+  const ring = `0 0 0 2px rgb(255, 255, 255)`;
+  const glow = topThree
+    ? `, 0 0 14px 2px rgba(${r}, ${g}, ${b}, 0.55), 0 0 4px 0 rgba(${r}, ${g}, ${b}, 0.7)`
+    : `, 0 1px 3px 0 rgba(15, 23, 42, 0.35)`;
+  const shadow = `${ring}${glow}`;
+  return {
+    base,
+    gradient,
+    shadow,
+    ringColor: base,
+  };
 };
 
 export interface RankGridGeoPoint {
