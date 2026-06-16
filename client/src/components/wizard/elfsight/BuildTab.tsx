@@ -119,10 +119,25 @@ export default function BuildTab({
   const [aiRefImage, setAiRefImage] = useState<string | null>(null);
   const [aiRefError, setAiRefError] = useState<string | null>(null);
   const aiRefInputRef = useRef<HTMLInputElement | null>(null);
+  // Suggestion chips — a wider, more inspiring set of trade examples.
+  // Rendered as a 2-row horizontal scroller (see .qq-buildai-chips), so we can
+  // offer many without crowding the card; the user swipes left/right just like
+  // the template strip below.
   const AI_EXAMPLES = [
     'Mobile car detailing quote',
     'Plumbing call-out estimate',
     'Event catering per head',
+    'HVAC install estimate',
+    'Roof replacement per sq ft',
+    'Pressure washing per sq ft',
+    'Solar panel installation',
+    'Fencing per linear foot',
+    'Junk removal by load size',
+    'House painting per room',
+    'Landscaping design package',
+    'Pool cleaning subscription',
+    'Electrician panel upgrade',
+    'Moving quote by home size',
   ] as const;
   const onAiRefFile = useCallback(async (file: File | null) => {
     if (!file) return;
@@ -195,6 +210,7 @@ export default function BuildTab({
         label="Start from a template / AI"
         hint="generate with AI or pick a template"
         defaultOpen={fields.length === 0}
+        prominent
       >
       {/* Generate with AI — discoverable entry point that routes into the
           existing floating AI assistant (seed + auto-send). The bubble stays
@@ -524,18 +540,40 @@ export default function BuildTab({
           border-color: ${AE.color.accent};
           box-shadow: ${AE.shadow.focus};
         }
-        /* Example prompt chips — subtle (outline/tint), NOT a bright fill. */
+        /* Example prompt chips — subtle (outline/tint), NOT a bright fill.
+           Laid out as a 2-row horizontal scroller (mirrors the template strip):
+           compact, squared-off chips packed into two rows, swipe left/right for
+           more. Lets us surface many suggestions without growing the card. */
         .qq-buildai-chips {
-          display: flex; flex-wrap: wrap; gap: 6px;
+          display: grid;
+          grid-auto-flow: column;
+          grid-template-rows: repeat(2, auto);
+          grid-auto-columns: max-content;
+          gap: 6px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding-bottom: 6px;
+          margin: 0 -2px;
+          padding-left: 2px; padding-right: 2px;
+          scroll-snap-type: x proximity;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+        }
+        .qq-buildai-chips::-webkit-scrollbar { height: 5px; }
+        .qq-buildai-chips::-webkit-scrollbar-thumb {
+          background: ${AE.color.hairline}; border-radius: 3px;
         }
         .qq-buildai-chip {
           font: inherit; cursor: pointer;
-          font-size: 12.5px; font-weight: 500;
+          font-size: 12px; font-weight: 500;
+          white-space: nowrap;
+          scroll-snap-align: start;
           color: ${AE.color.secondary};
           background: ${AE.color.surface};
           border: 1px solid ${AE.color.hairline};
-          border-radius: ${AE.radius.pill};
-          padding: 6px 12px;
+          border-radius: ${AE.radius.sm};
+          padding: 6px 10px;
           transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
         }
         .qq-buildai-chip:hover {
@@ -618,14 +656,18 @@ export default function BuildTab({
         /* Primary Generate button — accent fill (this is the primary action,
            per AE.color.accent/publish). */
         .qq-buildai-generate {
-          align-self: flex-end;
-          display: inline-flex; align-items: center; gap: 8px;
+          /* Near-full-width primary CTA, centered, nudged toward the bottom of
+             the card (extra top margin) so it reads as the final action. */
+          align-self: center;
+          width: 96%;
+          margin-top: 6px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           font: inherit; font-size: 14px; font-weight: 600;
           color: ${AE.color.publishText};
           background: ${AE.color.accent};
           border: 1px solid ${AE.color.accent};
           border-radius: ${AE.radius.sm};
-          padding: 9px 18px;
+          padding: 11px 18px;
           cursor: pointer;
           transition: background 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
         }
@@ -641,7 +683,7 @@ export default function BuildTab({
         }
         @media (max-width: 768px) {
           .qq-buildai-generate {
-            align-self: stretch; justify-content: center;
+            align-self: center; width: 100%;
           }
         }
         /* Wave J item 5 — logo + name composite. */
