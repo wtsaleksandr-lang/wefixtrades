@@ -689,12 +689,20 @@ export default function SettingsTab({
         /* CRITICAL FIX — Business profile rows: each contains two FloatFields
          * (rating/reviews, years/area). They were stacking because the row
          * helper only set margin. Two-column grid on desktop (>= 720px),
-         * single column on phone — matches qq-style-grid breakpoint. */
+         * single column on phone — matches qq-style-grid breakpoint.
+         *
+         * 13a — UNIFORM GAPS: the column gap here is locked to the SAME 2px
+         * the vertical field stack uses (var below), so the horizontal pair
+         * gap and the vertical stack gap read identically. Previously the
+         * pairs used a 10px column gap while the stack used 2px, which made
+         * the business-profile fields look unevenly spaced (the reported
+         * "unequal gaps"). The title-in-field FloatFields are designed to sit
+         * tight, so a single 2px gap is consistent on both axes. */
         .qq-settings-row[data-testid="settings-bp-row-rating"],
         .qq-settings-row[data-testid="settings-bp-row-years"] {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
+          gap: var(--qq-bp-gap, 2px);
         }
         @media (max-width: 480px) {
           .qq-settings-row[data-testid="settings-bp-row-rating"],
@@ -703,14 +711,17 @@ export default function SettingsTab({
           }
         }
         /* Business Profile field list — uniform 2px inter-field gaps
-         * (hard input-field-rule). Scoped to this wrapper so it does NOT
-         * affect the generic .qq-settings-row used elsewhere (e.g. pricing
-         * custom mode). The flex gap is the single source of vertical
-         * spacing; ad-hoc margins inside are neutralized here. */
+         * (hard input-field-rule), applied on BOTH axes via --qq-bp-gap so the
+         * vertical stack and the horizontal pairs share one spacing value with
+         * no mixed margins. Scoped to this wrapper so it does NOT affect the
+         * generic .qq-settings-row used elsewhere (e.g. pricing custom mode).
+         * The flex gap is the single source of vertical spacing; ad-hoc
+         * margins inside are neutralized here. */
         .qq-bp-fieldlist {
+          --qq-bp-gap: 2px;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--qq-bp-gap);
         }
         .qq-bp-fieldlist .qq-settings-row {
           margin-top: 0;

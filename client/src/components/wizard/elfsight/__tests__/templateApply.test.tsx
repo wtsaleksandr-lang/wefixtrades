@@ -174,6 +174,88 @@ test('a well-formed template keeps its own fields (no seed substitution)', () =>
   assert.equal(n, rep.fields.length, 'well-formed template must keep its own field count');
 });
 
+/* ── item 6a — preset booking/deposit → Action-toggle sync ──
+ *
+ * A template's preset can SHIP booking / deposit via its style block
+ * (`style.booking.enabled` / `style.deposit.enabled`). The Action-tab toggles
+ * read the canonical `settings.scheduling.enabled` / `settings.deposit.enabled`
+ * — which were never seeded from the preset, so a booking-shipping template
+ * rendered the calendar in the preview while the toggle read OFF.
+ *
+ * `seedTogglesFromPreset` mirrors the derivation `applyTemplate` now runs: when
+ * the preset ships booking/deposit AND the calculator has no existing choice
+ * for that slot, seed `scheduling.enabled` / `deposit.enabled` = true. An
+ * existing user choice is never overwritten. Generic — driven purely by the
+ * preset's style flags (no template-name checks). */
+interface PresetStyleLike {
+  booking?: { enabled?: boolean };
+  deposit?: { enabled?: boolean; amount?: number; label?: string };
+}
+interface SettingsLike {
+  scheduling?: { enabled: boolean };
+  deposit?: { enabled?: boolean };
+}
+function seedTogglesFromPreset(
+  presetStyle: PresetStyleLike | undefined,
+  ownSettings: SettingsLike | undefined,
+): { schedulingEnabled: boolean | undefined; depositEnabled: boolean | undefined } {
+  const presetBooking = presetStyle?.booking?.enabled === true;
+  const presetDeposit = presetStyle?.deposit?.enabled === true;
+  const hasOwnScheduling = ownSettings?.scheduling !== undefined;
+  const hasOwnDeposit = ownSettings?.deposit !== undefined;
+  return {
+    schedulingEnabled: hasOwnScheduling
+      ? ownSettings!.scheduling!.enabled
+      : (presetBooking ? true : undefined),
+    depositEnabled: hasOwnDeposit
+      ? ownSettings!.deposit!.enabled
+      : (presetDeposit ? true : undefined),
+  };
+}
+
+// 9 — a preset that SHIPS booking seeds the scheduling toggle ON.
+test('preset booking presence seeds scheduling.enabled = true', () => {
+  const r = seedTogglesFromPreset({ booking: { enabled: true } }, undefined);
+  assert.equal(r.schedulingEnabled, true, 'booking-shipping preset must turn the toggle on');
+});
+
+// 10 — a preset that ships a deposit seeds the deposit toggle ON.
+test('preset deposit presence seeds deposit.enabled = true', () => {
+  const r = seedTogglesFromPreset({ deposit: { enabled: true, amount: 150 } }, undefined);
+  assert.equal(r.depositEnabled, true, 'deposit-shipping preset must turn the toggle on');
+});
+
+// 11 — an existing user choice is NEVER overwritten by the preset.
+test('existing scheduling/deposit choice wins over the preset', () => {
+  const r = seedTogglesFromPreset(
+    { booking: { enabled: true }, deposit: { enabled: true } },
+    { scheduling: { enabled: false }, deposit: { enabled: false } },
+  );
+  assert.equal(r.schedulingEnabled, false, 'user scheduling choice must be preserved');
+  assert.equal(r.depositEnabled, false, 'user deposit choice must be preserved');
+});
+
+// 12 — a preset with NO booking/deposit leaves the toggles unset (default off).
+test('preset without booking/deposit leaves toggles unset', () => {
+  const r = seedTogglesFromPreset({}, undefined);
+  assert.equal(r.schedulingEnabled, undefined, 'no booking → scheduling stays unset');
+  assert.equal(r.depositEnabled, undefined, 'no deposit → deposit stays unset');
+});
+
+// 13 — GENERIC: real catalogue presets that ship booking exist, and EVERY one
+//      would seed the toggle on (proves the fix isn't gutter-template-specific).
+test('every booking-shipping catalogue preset would seed the toggle on', () => {
+  const bookingPresets = TEMPLATE_PRESETS.filter(
+    (t) => (t as unknown as { style?: PresetStyleLike }).style?.booking?.enabled === true,
+  );
+  assert.ok(bookingPresets.length > 1, 'expected multiple booking-shipping presets (generic, not one template)');
+  for (const t of bookingPresets) {
+    const style = (t as unknown as { style?: PresetStyleLike }).style;
+    const r = seedTogglesFromPreset(style, undefined);
+    assert.equal(r.schedulingEnabled, true, `preset "${t.id}" ships booking but toggle didn't seed on`);
+  }
+});
+
 // eslint-disable-next-line no-console
 console.log(`\ntemplateApply: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

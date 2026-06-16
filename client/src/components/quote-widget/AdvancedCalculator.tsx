@@ -4260,12 +4260,17 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
     // BF-11 — heading fields support rich text (B/I/U, color, emoji, inline
     // image) just like header.title. Plain strings fall through unchanged.
     const headingProps = richTextRenderProps(f.label || '');
+    // TEXT-ALIGN — explicit text-align from the field's inlineStyle so the
+    // FieldRow alignment control (and the floating toolbar) drive the heading
+    // directly, independent of any wrapper inheritance. Default 'left'.
+    const headingAlign = f.inlineStyle?.textAlign ?? 'left';
     const headingStyle = {
       fontSize: '15px', fontWeight: 700,
       // Heading sits on the body bg (c.bg). 15px bold → large-text floor.
       color: guardTextColor(c.text, c.bg, 'headingField', { largeText: true }),
       margin: '2px 0 0',
       paddingBottom: '7px', borderBottom: `1px solid ${c.border}`,
+      textAlign: headingAlign,
     } as const;
     return headingProps.__html
       ? <p style={headingStyle} dangerouslySetInnerHTML={{ __html: headingProps.__html }} />
@@ -4276,12 +4281,15 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
   // they're owner-curated content blocks that flow between input fields.
   if (f.type === 'paragraph') {
     const body = f.content ?? '';
+    // TEXT-ALIGN — explicit text-align from the field's inlineStyle. Default
+    // 'left' (no visual change for existing paragraph fields).
+    const paragraphAlign = f.inlineStyle?.textAlign ?? 'left';
     return (
       <p
         data-testid={`adv-paragraph-${f.id}`}
         style={{
           margin: 0, fontSize: '14px', lineHeight: 1.55, color: c.text,
-          fontFamily, whiteSpace: 'pre-wrap',
+          fontFamily, whiteSpace: 'pre-wrap', textAlign: paragraphAlign,
         }}
       >{body}</p>
     );
