@@ -86,6 +86,74 @@ export const rankPinStyle = (
   };
 };
 
+/**
+ * Industry-standard geo-grid metrics (Local Falcon vocabulary, now the
+ * category norm). Computed from the per-cell rank data so the hero and the
+ * pins agree on the same source of truth:
+ *
+ *  - SoLV  (Share of Local Voice)        = % of cells ranking Top 3 (Map Pack).
+ *  - ARP   (Average Rank Position)        = avg rank across cells where the
+ *                                           business APPEARS (ranked ≤ cap).
+ *  - ATRP  (Average Total Rank Position)  = avg across ALL cells; unranked
+ *                                           cells count as `cap` (≈ the legacy
+ *                                           "average map rank").
+ *
+ * A cell "appears" when its rank is a finite number ≤ `cap` (default 20).
+ * Unranked / null cells are excluded from ARP but counted in ATRP & SoLV
+ * denominators. `unavailable` cells (provider throttle) are excluded entirely
+ * by passing them as `null` AND omitting them from `total` upstream — callers
+ * filter those out before calling this.
+ */
+export interface RankGridMetrics {
+  /** % of cells ranking Top 3 (0..100), or null when there are no cells. */
+  solv: number | null;
+  /** Average rank where the business appears, or null when it appears nowhere. */
+  arp: number | null;
+  /** Average rank across all cells (unranked = cap), or null with no cells. */
+  atrp: number | null;
+  /** Cells counted in the denominator (appeared + unranked). */
+  total: number;
+  /** Cells where the business appeared (rank ≤ cap). */
+  appeared: number;
+  /** Cells ranking Top 3. */
+  top3: number;
+}
+
+export function computeRankGridMetrics(
+  ranks: (number | null | undefined)[],
+  cap = 20,
+): RankGridMetrics {
+  const cells = ranks.filter((r): r is number | null => r !== undefined);
+  const total = cells.length;
+  if (total === 0) {
+    return { solv: null, arp: null, atrp: null, total: 0, appeared: 0, top3: 0 };
+  }
+  let appeared = 0;
+  let top3 = 0;
+  let appearedSum = 0;
+  let totalSum = 0;
+  for (const r of cells) {
+    const ranked = r != null && Number.isFinite(r) && r <= cap;
+    if (ranked) {
+      appeared++;
+      appearedSum += r as number;
+      if ((r as number) <= 3) top3++;
+      totalSum += r as number;
+    } else {
+      // Unranked cells count as the cap for ATRP (a worst-case anchor).
+      totalSum += cap;
+    }
+  }
+  return {
+    solv: Math.round((top3 / total) * 100),
+    arp: appeared > 0 ? appearedSum / appeared : null,
+    atrp: totalSum / total,
+    total,
+    appeared,
+    top3,
+  };
+}
+
 export interface RankGridGeoPoint {
   lat: number;
   lng: number;

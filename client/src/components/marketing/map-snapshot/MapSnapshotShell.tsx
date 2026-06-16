@@ -22,6 +22,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, MapPin, Maximize2, X } from "lucide-react";
 import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
 import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
+import {
+  CellDrillDown,
+  type CellDrillDownData,
+} from "@/components/marketing/map-snapshot/CellDrillDown";
 
 const BRAND_PRIMARY = "#0d3cfc";
 const BRAND_INK = "#1E1E1E";
@@ -456,6 +460,10 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
     typeof window !== "undefined" ? window.innerWidth < 640 : false
   );
   const [mapZoomOpen, setMapZoomOpen] = useState(false);
+  // Per-cell interactivity: hover shows a styled tooltip (rank + distance +
+  // direction), click opens the drill-down panel. Keyed by "row-col".
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [drillCell, setDrillCell] = useState<HeatmapCell | null>(null);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 640);
     window.addEventListener("resize", onResize);
@@ -526,31 +534,43 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
         />
       )}
 
-      {/* Numbered, color-coded rank pins */}
+      {/* Numbered, color-coded rank pins — hover shows a tooltip, click opens
+          the drill-down panel. */}
       {cells.map((c) => {
         const p = map.project(c.lat, c.lng);
         const label = c.rank >= 21 ? "20+" : String(c.rank);
         const cascadeIdx = c.row * grid + c.col;
         const delayMs = Math.min(cascadeIdx * 24, 600);
+        const key = `${c.row}-${c.col}`;
+        const isHovered = hoveredKey === key;
+        const isTopRow = c.row === 0;
         return (
-          <div
-            key={`${c.row}-${c.col}`}
+          <button
+            type="button"
+            key={key}
             data-testid={`rank-pin-${c.row}-${c.col}`}
             aria-label={describeCell(c)}
-            title={describeCell(c)}
+            onMouseEnter={() => setHoveredKey(key)}
+            onMouseLeave={() => setHoveredKey((prev) => (prev === key ? null : prev))}
+            onFocus={() => setHoveredKey(key)}
+            onBlur={() => setHoveredKey((prev) => (prev === key ? null : prev))}
+            onClick={() => setDrillCell(c)}
             className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-300"
             style={{
               position: "absolute",
               left: `${(p.x / SM_W) * 100}%`,
               top: `${(p.y / SM_H) * 100}%`,
               transform: "translate(-50%, -50%)",
-              zIndex: 2,
+              zIndex: isHovered ? 6 : 2,
               width: "clamp(20px, 4.6vw, 28px)",
               height: "clamp(20px, 4.6vw, 28px)",
+              padding: 0,
               borderRadius: 999,
               background: rankPinFill(c.rank).gradient,
-              border: "1.5px solid rgba(255,255,255,0.92)",
-              boxShadow: rankPinFill(c.rank).shadow,
+              border: isHovered ? "2px solid #0d3cfc" : "1.5px solid rgba(255,255,255,0.92)",
+              boxShadow: isHovered
+                ? "0 0 0 2px #0d3cfc, 0 6px 18px rgba(0,0,0,0.22)"
+                : rankPinFill(c.rank).shadow,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -558,12 +578,38 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
               fontSize: "clamp(9px, 2vw, 12px)",
               fontWeight: 700,
               fontVariantNumeric: "tabular-nums",
+              cursor: "pointer",
               animationDelay: `${delayMs}ms`,
               animationFillMode: "both",
             }}
           >
             {label}
-          </div>
+            {isHovered && (
+              <span
+                role="tooltip"
+                data-testid={`rank-tooltip-${c.row}-${c.col}`}
+                style={{
+                  position: "absolute",
+                  zIndex: 7,
+                  top: isTopRow ? "calc(100% + 6px)" : "auto",
+                  bottom: isTopRow ? "auto" : "calc(100% + 6px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  whiteSpace: "nowrap",
+                  background: "#1E1E1E",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "5px 9px",
+                  borderRadius: 8,
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.28)",
+                  pointerEvents: "none",
+                }}
+              >
+                {describeCell(c)}
+              </span>
+            )}
+          </button>
         );
       })}
 
@@ -727,6 +773,7 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
           full hero block (big color number + verdict + High/Med/Low ratio bar).
           Shared component, identical across all three rank-grid surfaces. */}
       <RankGridHero
+        ranks={cells.map((c) => (c.rank >= 21 ? null : c.rank))}
         avg={stats.avg || null}
         high={hml.high}
         med={hml.med}
@@ -919,6 +966,29 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
           </div>
         </div>
       </div>
+
+      {/* Cell drill-down — clicking a pin opens the ranked detail at that scan
+          point. The free snapshot doesn't capture per-cell competitor names, so
+          this panel shows the visitor's own rank + location honestly (no
+          fabricated Local Pack) and points them to the live tool for the full
+          ranked list. */}
+      <CellDrillDown
+        data={
+          drillCell
+            ? ({
+                cellLabel: `Cell (${drillCell.row + 1}, ${drillCell.col + 1})`,
+                locationLine: `${kmToMi(drillCell.distanceKm).toFixed(1)} mi ${directionFromCenter(
+                  drillCell.row,
+                  drillCell.col,
+                )} · "${query}"`,
+                yourRank: drillCell.rank >= 21 ? null : drillCell.rank,
+                entries: [],
+                isMock: result.source === "mock",
+              } as CellDrillDownData)
+            : null
+        }
+        onClose={() => setDrillCell(null)}
+      />
     </div>
   );
 }
