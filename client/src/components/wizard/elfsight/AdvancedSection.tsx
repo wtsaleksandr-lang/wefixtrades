@@ -22,12 +22,19 @@ interface Props {
   hint?: string;
   /** Start expanded? Default false (collapsed = the simple default). */
   defaultOpen?: boolean;
+  /**
+   * Prominent variant — an accent-tinted card with a bold accent chevron and a
+   * bottom grab-handle, so a key collapsible (the "Start from a template / AI"
+   * entry point) reads as an obviously-expandable surface instead of a quiet
+   * hairline row. Other sections stay minimal. Default false.
+   */
+  prominent?: boolean;
   children: React.ReactNode;
 }
 
 const KEY = (id: string) => `qq-adv-open-${id}`;
 
-export default function AdvancedSection({ id, label = 'Advanced settings', hint, defaultOpen = false, children }: Props) {
+export default function AdvancedSection({ id, label = 'Advanced settings', hint, defaultOpen = false, prominent = false, children }: Props) {
   const [open, setOpen] = useState<boolean>(() => {
     try {
       const v = sessionStorage.getItem(KEY(id));
@@ -44,7 +51,11 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
   const toggle = useCallback(() => setOpen((o) => !o), []);
 
   return (
-    <section className="qq-adv" data-testid={`advanced-section-${id}`} data-open={open ? 'true' : 'false'}>
+    <section
+      className={`qq-adv${prominent ? ' qq-adv--prominent' : ''}`}
+      data-testid={`advanced-section-${id}`}
+      data-open={open ? 'true' : 'false'}
+    >
       <button
         type="button"
         className="qq-adv-toggle"
@@ -54,7 +65,8 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
       >
         <span className="qq-adv-toggle-label">{label}</span>
         {hint ? <span className="qq-adv-toggle-hint">{hint}</span> : null}
-        <ChevronDown size={16} className="qq-adv-chevron" aria-hidden="true" />
+        <ChevronDown size={prominent ? 20 : 16} className="qq-adv-chevron" aria-hidden="true" />
+        {prominent ? <span className="qq-adv-handle" aria-hidden="true" /> : null}
       </button>
       {open ? (
         <div className="qq-adv-body" data-testid={`advanced-body-${id}`}>
@@ -122,6 +134,54 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
         }
         .qq-editor-shell[data-theme="dark"] .qq-adv-chevron {
           color: var(--qq-muted, #94a3b8);
+        }
+
+        /* Prominent variant — an accent-tinted card that signals "this opens".
+           Used for the "Start from a template / AI" entry so users don't miss
+           that templates live behind it. Accent chevron + bottom grab-handle. */
+        .qq-adv--prominent {
+          margin-top: 14px;
+          border: 1px solid ${AE.color.accent}40;
+          border-top: 1px solid ${AE.color.accent}40;
+          background: ${AE.color.accentTint};
+          border-radius: ${AE.radius.md};
+          box-shadow: ${AE.shadow.card};
+          overflow: hidden;
+          transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        .qq-adv--prominent:hover {
+          border-color: ${AE.color.accent};
+          box-shadow: ${AE.shadow.pop};
+        }
+        .qq-adv--prominent .qq-adv-toggle {
+          padding: 14px 16px 18px;
+          position: relative;
+        }
+        .qq-adv--prominent .qq-adv-toggle-label {
+          font-size: ${AE.type.title.size};
+          font-weight: 700;
+        }
+        .qq-adv--prominent .qq-adv-chevron {
+          color: ${AE.color.accent};
+          width: 20px; height: 20px;
+        }
+        .qq-adv--prominent:hover .qq-adv-toggle-label { color: ${AE.color.accent}; }
+        /* Bottom grab-handle — a centered pill at the lower edge of the header
+           that reads as "pull to unfold" (mirrors the mobile sheet handle). */
+        .qq-adv-handle {
+          position: absolute;
+          left: 50%; bottom: 7px; transform: translateX(-50%);
+          width: 40px; height: 4px; border-radius: ${AE.radius.pill};
+          background: ${AE.color.accent};
+          opacity: 0.38;
+          transition: opacity 0.15s ease, width 0.15s ease;
+        }
+        .qq-adv--prominent:hover .qq-adv-handle { opacity: 0.6; width: 52px; }
+        .qq-adv--prominent .qq-adv-body {
+          padding: 0 14px 12px;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-adv--prominent .qq-adv-toggle-label {
+          color: var(--qq-text, #f1f5f9);
         }
       `}</style>
     </section>
