@@ -2561,7 +2561,10 @@ export default function AIBubble(props: AIBubbleProps) {
           display: flex; flex-direction: column; gap: 10px;
         }
         .qq-ai-empty { font-size: 13px; line-height: 1.5; color: #0f172a; }
-        .qq-ai-empty-sub { color: #6b7280; }
+        /* Readable over the frosted glass — #6b7280 washed out against the
+           translucent surface. Slate-700 holds contrast without going pure
+           black. */
+        .qq-ai-empty-sub { color: #334155; }
         /* Chat rebrand — each message renders inside a row so assistant
            messages can carry the small branded avatar on the left. */
         .qq-ai-row {
@@ -3006,8 +3009,8 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         [data-theme="dark"] .qq-ai-panel-title { color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-msgs { background: transparent; }
-        [data-theme="dark"] .qq-ai-empty { color: #e2e8f0; }
-        [data-theme="dark"] .qq-ai-empty-sub { color: #94a3b8; }
+        [data-theme="dark"] .qq-ai-empty { color: #f1f5f9; }
+        [data-theme="dark"] .qq-ai-empty-sub { color: #cbd5e1; }
         /* Assistant bubble: a translucent slate fill so it's readable but the
            frost still reads behind the conversation, not an opaque chip. */
         [data-theme="dark"] .qq-ai-msg-assistant { background: rgba(30, 41, 59, 0.66); color: #e2e8f0; }
