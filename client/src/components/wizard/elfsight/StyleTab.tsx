@@ -283,6 +283,15 @@ export default function StyleTab({
   // W-AO-6b — Branding (logo) + typography depth selections.
   const logoPlacement: ShellLogoPlacement = style.logoPlacement ?? 'top-center';
   const logoSize: ShellLogoSize = style.logoSize ?? 'small';
+  // #11 — title text alignment, INDEPENDENT of logo placement. When unset the
+  // renderer falls back to the logo-placement-derived alignment, so the control
+  // shows that derived value as its resting state (matching what the widget
+  // renders) until the owner explicitly overrides it.
+  const logoDerivedAlign: 'left' | 'center' | 'right' =
+    logoPlacement === 'top-left' ? 'left'
+      : logoPlacement === 'top-right' ? 'right'
+        : 'center';
+  const titleAlign: 'left' | 'center' | 'right' = style.titleAlign ?? logoDerivedAlign;
   const headingWeight: ShellHeadingWeight = style.headingWeight ?? 700;
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
@@ -1087,6 +1096,25 @@ export default function StyleTab({
             onChange={(v) => patch({ logoSize: v })}
           />
 
+          {/* #11 — Title alignment, INDEPENDENT of logo placement. Lets the
+              owner position the logo (above) separately from the title/subtitle
+              text alignment. Defaults to the logo-derived alignment so existing
+              templates look identical until this is explicitly changed. */}
+          <label className="qq-style-label" style={{ marginTop: 12 }}>
+            <span className="qq-style-label-text">Title alignment</span>
+          </label>
+          <SegmentedControl<'left' | 'center' | 'right'>
+            name="title-align"
+            testid="style-segmented-title-align"
+            value={titleAlign}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Center' },
+              { value: 'right', label: 'Right' },
+            ]}
+            onChange={(v) => patch({ titleAlign: v })}
+          />
+
           {/* The "Powered by WeFixTrades" badge toggle was a DUPLICATE of the
               canonical Settings-tab control (settings.brandBadge → appearance
               .show_powered_by on save). It wrote a DIFFERENT key
@@ -1818,7 +1846,9 @@ export default function StyleTab({
         .qq-style-type-row {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px 16px;
+          /* #10 — tighter row/column gaps (was 12px 16px) so the advanced-style
+             type controls sit closer together without overflowing at 375px. */
+          gap: 10px 12px;
           align-items: flex-start;
         }
         .qq-style-type-cell {

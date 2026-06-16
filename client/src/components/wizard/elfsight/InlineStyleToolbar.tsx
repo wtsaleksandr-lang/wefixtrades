@@ -113,12 +113,26 @@ function rectsIntersect(
   return aLeft < b.right && aRight > b.left && aTop < b.bottom && aBottom > b.top;
 }
 
+/** Detect a coarse pointer / touch primary input. On these devices the OS
+ *  shows its own cut/copy/paste selection bar exactly where a selection-hugging
+ *  toolbar would sit (#12), so we DOCK to a fixed edge of the preview instead. */
+function isCoarsePointer(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  try {
+    return window.matchMedia('(pointer: coarse)').matches
+      || window.matchMedia('(hover: none)').matches;
+  } catch {
+    return false;
+  }
+}
+
 /** Read the selected element's bounding rect (viewport coords). */
 function measureSelected(
   container: HTMLElement,
   fieldId: string,
   toolbarWidth: number,
   toolbarHeight: number,
+  dock: boolean,
 ): ToolbarRect | null {
   const node = container.querySelector<HTMLElement>(
     `[data-shell-field-id="${cssEscape(fieldId)}"]`,
@@ -126,6 +140,39 @@ function measureSelected(
   if (!node) return null;
   const r = node.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return null;
+
+  // #12 — TOUCH/coarse-pointer DOCK MODE. Android (and iOS) float their own
+  // OS selection bar 8px above/below the selection — exactly where a
+  // selection-hugging toolbar lands, so the two overlap. On coarse pointers we
+  // pin our toolbar to a fixed EDGE of the preview instead (top by default,
+  // flipping to the bottom only when the selected element sits under the top
+  // dock so our bar wouldn't cover it). Horizontally centred + clamped inside
+  // the preview. This keeps our controls reachable and clear of the OS bar.
+  if (dock) {
+    const cRect = container.getBoundingClientRect();
+    const clampTop = cRect.top + VIEWPORT_EDGE_PAD_PX;
+    const clampBottom = cRect.bottom - VIEWPORT_EDGE_PAD_PX;
+    // Dock to the TOP edge unless the selection is near the top of the preview
+    // (within a toolbar height of the top dock) — then dock to the BOTTOM so we
+    // don't cover the element the user is editing.
+    const topDock = clampTop;
+    const bottomDock = clampBottom - toolbarHeight;
+    const elementNearTop = r.top - cRect.top < toolbarHeight + TOOLBAR_GAP_PX * 2;
+    const flipped = elementNearTop; // flipped = docked to the bottom
+    let top = flipped ? bottomDock : topDock;
+    if (top < clampTop) top = clampTop;
+    if (top + toolbarHeight > clampBottom) top = clampBottom - toolbarHeight;
+    // Centre horizontally over the preview, clamped to its edges.
+    let left = cRect.left + (cRect.width - toolbarWidth) / 2;
+    const minLeft = cRect.left + VIEWPORT_EDGE_PAD_PX;
+    const maxLeft = cRect.right - toolbarWidth - VIEWPORT_EDGE_PAD_PX;
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+    return {
+      elemLeft: r.left, elemTop: r.top, elemWidth: r.width, elemHeight: r.height,
+      left, top, flipped,
+    };
+  }
 
   // BUG 4A — the result panel ("$100.00") sits at the TOP of the preview.
   // Locate its bounds so we can guarantee the toolbar never lands on top of
@@ -212,6 +259,10 @@ export default function InlineStyleToolbar({
   const [rect, setRect] = useState<ToolbarRect | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const rafRef = useRef<number | null>(null);
+  // #12 — coarse-pointer/touch → dock to a preview edge so the OS selection bar
+  // can't sit under us. Computed once; re-checked on resize via the same
+  // listener that re-measures (covers a tablet rotating between modes).
+  const [dock, setDock] = useState<boolean>(isCoarsePointer);
 
   // Resolve selection → field (or null if not a TEXT-bearing field selection).
   // BUG 4A — gate on the field type so the toolbar never appears for non-text
@@ -240,7 +291,11 @@ export default function InlineStyleToolbar({
       const toolbar = toolbarRef.current;
       const w = toolbar?.offsetWidth ?? TOOLBAR_ESTIMATED_WIDTH_PX;
       const h = toolbar?.offsetHeight ?? TOOLBAR_HEIGHT_PX;
-      const next = measureSelected(container, selectedField.id, w, h);
+      // Re-evaluate the coarse-pointer mode each pass so a tablet that switches
+      // between touch + trackpad docks/un-docks correctly.
+      const coarse = isCoarsePointer();
+      setDock(coarse);
+      const next = measureSelected(container, selectedField.id, w, h, coarse);
       setRect(next);
     };
     update();
@@ -353,6 +408,7 @@ export default function InlineStyleToolbar({
       className="qq-inline-style-toolbar"
       data-testid="inline-style-toolbar"
       data-flipped={rect.flipped ? 'true' : 'false'}
+      data-docked={dock ? 'true' : 'false'}
       role="toolbar"
       aria-label="Inline style toolbar"
       style={{

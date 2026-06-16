@@ -9630,6 +9630,14 @@ export interface AdvStyle {
   widgetWidthMobile?: number;
   /** W-AO-6b — logo placement in the header (top-left / center / right / hidden). */
   logoPlacement?: AdvLogoPlacement;
+  /**
+   * #11 — title/subtitle text alignment, INDEPENDENT of logo placement. When
+   * unset the title row falls back to the logo-placement-derived alignment so
+   * existing templates render identically (no regression). Setting it lets the
+   * owner place the logo (e.g. top-left) while aligning the title text
+   * differently (e.g. center). 'left' | 'center' | 'right'.
+   */
+  titleAlign?: 'left' | 'center' | 'right';
   /** W-AO-6b — logo size (small=24px / medium=36px / large=52px). */
   logoSize?: AdvLogoSize;
   /** W-AO-6b — heading font weight (500 / 600 / 700 / 800). */
@@ -10109,7 +10117,7 @@ type AdvStyleOptionalOnly =
   // accent/result-tinted CTA derivation (no regression).
   | 'ctaColor'
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
-  | 'logoPlacement' | 'logoSize'
+  | 'logoPlacement' | 'logoSize' | 'titleAlign'
   | 'headingWeight' | 'bodyWeight' | 'fontSize'
   // Owner toggle, optional — absent/true → trust-badge strip shows.
   | 'showTrustBadges'

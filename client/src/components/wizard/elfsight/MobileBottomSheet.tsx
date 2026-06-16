@@ -565,6 +565,105 @@ export default function MobileBottomSheet({
     setDragHeight(null);
   }, [dragHeight, setOpenHeight, peeked, dismissHint]);
 
+  // ── #8 — drag-to-resize from the SCROLLABLE BODY ───────────────────
+  // The header strip is only ~54-71px tall, so a drag that lands on the body
+  // below the title row used to hit the scroll container and never moved the
+  // sheet. We now couple a drag-to-resize to `.qq-sheet-content`:
+  //   - When the body is scrolled to the TOP (overscroll-at-top) a vertical
+  //     drag resizes the SHEET (pull DOWN collapses/shrinks, pull UP grows) —
+  //     the classic bottom-sheet handoff.
+  //   - Otherwise the gesture scrolls the body natively (we never arm a drag),
+  //     so reading long panels still works.
+  // A small directional threshold decides scroll-vs-resize on the first move so
+  // we don't steal a downward scroll the instant the finger lands at the top.
+  // touch-action stays `pan-y` on the body so native scroll is available until
+  // we explicitly capture for a resize.
+  const bodyDragRef = useRef<
+    | { startY: number; startH: number; armedAtTop: boolean; engaged: boolean; pointerId: number; vel: number; lastY: number; lastT: number; moved: number }
+    | null
+  >(null);
+
+  const onContentPointerDown = useCallback((ev: React.PointerEvent) => {
+    if (ev.button != null && ev.button !== 0) return;
+    if (ev.pointerType === 'mouse') return; // body resize is a touch affordance
+    const el = contentRef.current;
+    const atTop = !el || el.scrollTop <= 0;
+    const now = ev.timeStamp || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    computeGeom();
+    const startH = peeked ? COLLAPSED_PX : Math.min(openHeightPx, geomRef.current.maxPx || openHeightPx);
+    bodyDragRef.current = {
+      startY: ev.clientY, startH, armedAtTop: atTop, engaged: false,
+      pointerId: ev.pointerId, vel: 0, lastY: ev.clientY, lastT: now, moved: 0,
+    };
+  }, [computeGeom, peeked, openHeightPx]);
+
+  const onContentPointerMove = useCallback((ev: React.PointerEvent) => {
+    const bd = bodyDragRef.current;
+    if (!bd) return;
+    const delta = ev.clientY - bd.startY; // down = +
+    bd.moved = Math.max(bd.moved, Math.abs(delta));
+    const now = ev.timeStamp || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const dt = now - bd.lastT;
+    if (dt > 0) { bd.vel = (ev.clientY - bd.lastY) / dt; bd.lastY = ev.clientY; bd.lastT = now; }
+
+    if (!bd.engaged) {
+      // Decide scroll-vs-resize once past the tap threshold. We engage a sheet
+      // resize only when the body is at the top AND the finger moves DOWN (pull
+      // the sheet down) — or moves UP while the sheet isn't already at max
+      // (grow it). If the body is scrolled, we never engage → native scroll.
+      if (bd.moved < TAP_THRESHOLD_PX) return;
+      const el = contentRef.current;
+      const atTopNow = !el || el.scrollTop <= 0;
+      const pullingDown = delta > 0;
+      const { maxPx } = geomRef.current;
+      const canGrow = bd.startH < maxPx - 1;
+      const wantResize = atTopNow && (pullingDown || (delta < 0 && canGrow));
+      if (!wantResize) {
+        // Let native scroll own this gesture; disarm so we don't fight it.
+        bodyDragRef.current = null;
+        return;
+      }
+      bd.engaged = true;
+      setIsDragging(true);
+      setIsGrabbing(true);
+      setDragHeight(bd.startH);
+      try { (ev.currentTarget as HTMLElement).setPointerCapture(bd.pointerId); } catch { /* unsupported */ }
+    }
+
+    // Engaged → drive the sheet height (up grows, down shrinks). Same clamp as
+    // the header drag.
+    ev.preventDefault();
+    const { maxPx } = geomRef.current;
+    const next = Math.min(maxPx, Math.max(COLLAPSED_PX, bd.startH - delta));
+    setDragHeight(next);
+  }, []);
+
+  const onContentPointerEnd = useCallback((ev: React.PointerEvent) => {
+    const bd = bodyDragRef.current;
+    bodyDragRef.current = null;
+    if (!bd || !bd.engaged) return;
+    setIsDragging(false);
+    setIsGrabbing(false);
+    try { (ev.currentTarget as HTMLElement).releasePointerCapture(bd.pointerId); } catch { /* ignore */ }
+    // A real body-drag also counts as learning the gesture.
+    markDragged();
+    dismissHint();
+    const live = dragHeight ?? bd.startH;
+    const { maxPx } = geomRef.current;
+    if (bd.vel >= FLING_VELOCITY_PX_PER_MS) {
+      setPeeked(true);
+    } else if (bd.vel <= -FLING_VELOCITY_PX_PER_MS) {
+      setOpenHeight(maxPx);
+      setPeeked(false);
+    } else if (live <= MIN_OPEN_PX) {
+      setPeeked(true);
+    } else {
+      setOpenHeight(clamp(live, MIN_OPEN_PX, maxPx));
+      setPeeked(false);
+    }
+    setDragHeight(null);
+  }, [dragHeight, setOpenHeight, dismissHint]);
+
   // ── `qq-wizard:focus-field` listener ──────────────────────────────
   useEffect(() => {
     const onFocus = (e: Event) => {
@@ -715,6 +814,13 @@ export default function MobileBottomSheet({
           ref={contentRef}
           className="qq-sheet-content"
           data-testid="wizard-sheet-content"
+          /* #8 — couple a touch drag-to-resize to the body: a vertical drag
+             while the body is scrolled to the top resizes the sheet (down =
+             shrink/collapse, up = grow); otherwise the body scrolls natively. */
+          onPointerDown={onContentPointerDown}
+          onPointerMove={onContentPointerMove}
+          onPointerUp={onContentPointerEnd}
+          onPointerCancel={onContentPointerEnd}
         >
           {children}
         </div>
@@ -837,7 +943,11 @@ export default function MobileBottomSheet({
                target is preserved by the invisible padding extension below
                (.qq-sheet-header padding-top) — the TARGET stays large while the
                VISIBLE bar shrinks. */
-            width: 100%; min-height: 18px; padding: 6px 0 3px;
+            /* #8 — enlarge the dedicated drag strip's touch target. The VISIBLE
+               grabber bar stays slim (38×4px) but the grabbable row is taller
+               (more top/bottom padding) so a drag is easy to land on the bar
+               itself, complementing the body-drag handoff below. */
+            width: 100%; min-height: 22px; padding: 11px 0 7px;
             background: transparent; border: none; cursor: inherit;
             /* The grabber inherits the header's touch-action:none. */
             position: relative;
