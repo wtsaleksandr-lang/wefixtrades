@@ -154,6 +154,12 @@ export default function Calculator() {
           <div className="text-center">
             <SearchX className="w-10 h-10 text-slate-400 mx-auto mb-3" />
             <p className="text-slate-500 text-sm" data-testid="text-error-message">{(error as Error).message}</p>
+            {/* The hosted page only serves a calculator AFTER it's published, so
+                a fresh draft (or the pre-publish placeholder slug) 404s here. Nudge
+                the owner toward Publish — the most common cause of a "blank" link. */}
+            <p className="text-slate-400 text-xs mt-2 max-w-xs mx-auto" data-testid="text-not-published-hint">
+              If you just created this calculator, make sure you've hit <strong>Publish</strong> — the hosted link only goes live after publishing.
+            </p>
             {!isEmbed && (
               <a
                 href="/wizard"
