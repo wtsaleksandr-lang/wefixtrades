@@ -16,7 +16,7 @@
  * mutates ShellState through the setters passed in.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -484,6 +484,55 @@ function saveCollapsed(v: boolean): void {
   }
 }
 
+/* Item 11 — draggable circular "Builder" badge. The launcher position is
+ *  persisted (viewport coords of its top-left) so a user who drags it out of
+ *  the way keeps that placement across tab navigation / reloads. `null` means
+ *  "never dragged" → fall back to the CSS default corner anchor. */
+const AI_BUBBLE_POS_KEY = 'qq_wizard_ai_bubble_pos';
+/** Rendered diameter of the circular launcher (must match the CSS below). */
+const AI_BUBBLE_SIZE = 64;
+/** Min drag distance (px) before a pointer-down is treated as a drag rather
+ *  than a click — so a normal tap still opens the panel. */
+const AI_BUBBLE_DRAG_THRESHOLD = 4;
+
+interface BubblePos { x: number; y: number; }
+
+function loadBubblePos(): BubblePos | null {
+  try {
+    const raw = localStorage.getItem(AI_BUBBLE_POS_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<BubblePos>;
+    if (typeof v?.x === 'number' && typeof v?.y === 'number'
+        && Number.isFinite(v.x) && Number.isFinite(v.y)) {
+      return { x: v.x, y: v.y };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBubblePos(pos: BubblePos): void {
+  try {
+    localStorage.setItem(AI_BUBBLE_POS_KEY, JSON.stringify(pos));
+  } catch {
+    /* ignore quota / privacy-mode */
+  }
+}
+
+/** Clamp a desired top-left so the whole badge stays inside the viewport with
+ *  an 8px margin. Guarded for SSR / zero-size windows. */
+function clampBubblePos(pos: BubblePos): BubblePos {
+  if (typeof window === 'undefined') return pos;
+  const margin = 8;
+  const maxX = Math.max(margin, window.innerWidth - AI_BUBBLE_SIZE - margin);
+  const maxY = Math.max(margin, window.innerHeight - AI_BUBBLE_SIZE - margin);
+  return {
+    x: Math.min(Math.max(margin, pos.x), maxX),
+    y: Math.min(Math.max(margin, pos.y), maxY),
+  };
+}
+
 export default function AIBubble(props: AIBubbleProps) {
   const { conversationId = 'default', state, seedPrompt, seedNonce, seedImage, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
@@ -537,6 +586,75 @@ export default function AIBubble(props: AIBubbleProps) {
    * ──────────────────────────────────────────────────────────────────── */
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null);
+
+  /* Item 11 — draggable circular badge. `bubblePos` (top-left viewport
+   *  coords) overrides the CSS corner anchor once the user drags. The drag is
+   *  pointer-based with a small threshold so a tap still opens the panel.
+   *  `dragging` suppresses the click-to-open that would otherwise fire on
+   *  pointer-up at the end of a drag. */
+  const [bubblePos, setBubblePos] = useState<BubblePos | null>(() => loadBubblePos());
+  const [bubbleDragging, setBubbleDragging] = useState(false);
+  const bubbleDragRef = useRef<{
+    pointerId: number;
+    startX: number; startY: number;
+    originX: number; originY: number;
+    moved: boolean;
+  } | null>(null);
+
+  // Re-clamp a persisted position into the current viewport on mount / resize
+  // so a position saved at one window size never strands the badge off-screen.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => {
+      setBubblePos((prev) => (prev ? clampBubblePos(prev) : prev));
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const onBubblePointerDown = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    // Only primary button / touch / pen.
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    bubbleDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX, startY: e.clientY,
+      originX: rect.left, originY: rect.top,
+      moved: false,
+    };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+  }, []);
+
+  const onBubblePointerMove = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    const d = bubbleDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < AI_BUBBLE_DRAG_THRESHOLD) return;
+    d.moved = true;
+    if (!bubbleDragging) setBubbleDragging(true);
+    setBubblePos(clampBubblePos({ x: d.originX + dx, y: d.originY + dy }));
+  }, [bubbleDragging]);
+
+  const endBubbleDrag = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    const d = bubbleDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    bubbleDragRef.current = null;
+    if (d.moved) {
+      // Commit + persist the final clamped position; keep `bubbleDragging`
+      // true through this tick so the trailing click is swallowed, then clear.
+      setBubblePos((prev) => {
+        if (prev) saveBubblePos(prev);
+        return prev;
+      });
+      // Defer clearing so the synthetic click (fired after pointerup) sees
+      // `bubbleDragging === true` and is ignored by the click handler.
+      window.setTimeout(() => setBubbleDragging(false), 0);
+    } else {
+      setBubbleDragging(false);
+    }
+  }, []);
   useEffect(() => {
     const div = document.createElement('div');
     div.className = 'qq-ai-portal';
@@ -1331,16 +1449,57 @@ export default function AIBubble(props: AIBubbleProps) {
 
   const portaledUi = (
     <>
-      {/* Floating bubble (always rendered, hidden via CSS when panel is open) */}
+      {/* Item 11 — floating CIRCULAR "Builder" badge. The word "Builder"
+          follows the inner circle edge via an SVG <textPath>; the Sparkles
+          glyph sits centered. The badge is DRAGGABLE (pointer-based, clamped
+          to the viewport, position persisted) so the user can move it out of
+          the way. A short drag threshold keeps a normal tap = open-the-panel.
+          Hidden via CSS when the panel is open. */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { if (!bubbleDragging) setOpen(true); }}
+        onPointerDown={onBubblePointerDown}
+        onPointerMove={onBubblePointerMove}
+        onPointerUp={endBubbleDrag}
+        onPointerCancel={endBubbleDrag}
         className="qq-ai-bubble"
         data-testid="aibubble-toggle"
-        aria-label="Open the QuoteQuick builder"
+        aria-label="Open the QuoteQuick builder (drag to move)"
         data-open={open ? 'true' : 'false'}
+        data-dragging={bubbleDragging ? 'true' : 'false'}
+        data-positioned={bubblePos ? 'true' : 'false'}
+        style={bubblePos
+          ? { left: bubblePos.x, top: bubblePos.y, right: 'auto', bottom: 'auto' }
+          : undefined}
       >
-        <Sparkles className="w-4 h-4" />
+        {/* Circular text ring — "BUILDER · BUILDER ·" repeated around the
+            circle edge. aria-hidden because the button already has an
+            accessible label. */}
+        <svg
+          className="qq-ai-bubble-ring"
+          viewBox="0 0 64 64"
+          width={64}
+          height={64}
+          aria-hidden="true"
+          focusable="false"
+        >
+          <defs>
+            <path
+              id={`qq-ai-bubble-textpath-${conversationId}`}
+              d="M 32,32 m -23,0 a 23,23 0 1,1 46,0 a 23,23 0 1,1 -46,0"
+            />
+          </defs>
+          <text className="qq-ai-bubble-ring-text">
+            <textPath
+              href={`#qq-ai-bubble-textpath-${conversationId}`}
+              startOffset="0"
+            >
+              BUILDER · BUILDER ·&nbsp;
+            </textPath>
+          </text>
+        </svg>
+        <Sparkles className="qq-ai-bubble-spark" aria-hidden="true" />
+        {/* Accessible text label, visually hidden (the ring is decorative). */}
         <span className="qq-ai-bubble-label">Builder</span>
       </button>
 
@@ -1782,18 +1941,58 @@ export default function AIBubble(props: AIBubbleProps) {
            *  bottom-right of the widget card. Raise the bubble to 140px so it
            *  sits clearly ABOVE both the zoom pill AND that sticky CTA bar,
            *  with comfortable separation. Still bottom-right + reachable. */
+          /* Item 11 — circular draggable badge. 64px disc; the "Builder"
+           *  ring text + centered spark are positioned children. */
           position: fixed; right: 18px; bottom: 140px; z-index: 1100;
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 10px 14px; border-radius: 999px;
+          width: 64px; height: 64px; padding: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          border-radius: 50%;
           background: #0d3cfc; color: #fff;
-          border: none; cursor: pointer;
-          font-weight: 700; font-size: 12.5px;
+          border: none; cursor: grab;
           box-shadow: 0 10px 30px rgba(13, 60, 252, 0.35);
-          transition: box-shadow 120ms ease-out;
+          transition: box-shadow 120ms ease-out, transform 120ms ease-out;
+          touch-action: none; /* let pointer-drag work on touch without scroll */
+          user-select: none; -webkit-user-select: none;
         }
         .qq-ai-bubble:hover { box-shadow: 0 14px 34px rgba(13, 60, 252, 0.55); }
+        .qq-ai-bubble:active,
+        .qq-ai-bubble[data-dragging="true"] { cursor: grabbing; }
+        .qq-ai-bubble[data-dragging="true"] { transform: scale(1.04); }
         .qq-ai-bubble[data-open="true"] { display: none; }
-        .qq-ai-bubble-label { letter-spacing: 0.04em; }
+
+        /* Rotating-free circular text ring, slow spin for life (paused while
+         *  dragging + when reduced-motion is requested). */
+        .qq-ai-bubble-ring {
+          position: absolute; inset: 0; pointer-events: none;
+          animation: qq-ai-bubble-spin 14s linear infinite;
+        }
+        .qq-ai-bubble[data-dragging="true"] .qq-ai-bubble-ring {
+          animation-play-state: paused;
+        }
+        .qq-ai-bubble-ring-text {
+          fill: rgba(255, 255, 255, 0.92);
+          font-size: 8.5px;
+          font-weight: 800;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+        }
+        .qq-ai-bubble-spark {
+          position: relative; z-index: 1;
+          width: 20px; height: 20px; pointer-events: none;
+        }
+        /* The accessible label is conveyed by aria-label + the ring; keep a
+         *  visually-hidden span so screen-reader/test text still reads "Builder". */
+        .qq-ai-bubble-label {
+          position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+          overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+        @keyframes qq-ai-bubble-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-bubble-ring { animation: none !important; }
+        }
 
         .qq-ai-panel {
           position: fixed; right: 18px; bottom: 18px; z-index: 1100;
@@ -1893,8 +2092,16 @@ export default function AIBubble(props: AIBubbleProps) {
             right: 12px;
             top: calc(72px + env(safe-area-inset-top, 0px));
             bottom: auto;
-            padding: 8px 11px; font-size: 11.5px;
+            /* Item 11 — slightly smaller circular badge on the narrow
+             *  viewport so it reads as a secondary affordance. */
+            width: 56px; height: 56px;
           }
+          .qq-ai-bubble[data-positioned="true"] {
+            /* A user-dragged position is authored inline (left/top) and must
+             *  win over the mobile corner anchor above. */
+            right: auto; bottom: auto;
+          }
+          .qq-ai-bubble-spark { width: 18px; height: 18px; }
         }
 
         .qq-ai-panel-header {

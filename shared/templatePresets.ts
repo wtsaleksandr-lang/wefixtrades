@@ -9686,15 +9686,20 @@ export interface AdvStyle {
    * rescue" (revealed at step >= 2, after 30s idle, or on explicit Help
    * click) improves both form completion AND chat engagement.
    *
+   *  - `'off'` — the AI chat launcher is hidden entirely. The owner has
+   *    turned the assistant off for this calculator; no pill / FAB renders
+   *    on the published widget OR in the editor preview.
    *  - `'rescue'` (default for Pro tier on new calculators) — hidden until
    *    the user has progressed past the first step or shown signs of being
    *    stuck. Once revealed, stays visible for the rest of the session.
    *  - `'always'` — legacy behaviour. Bubble visible from page load.
    *
    * Absent → renderer defaults to `'rescue'`. Free-tier calculators always
-   * use `'rescue'` regardless of stored value (Pro-only toggle).
+   * use `'rescue'` regardless of stored value (Pro-only toggle) — except an
+   * explicit `'off'` is always honoured (an owner can hide the assistant on
+   * any tier).
    */
-  aiChatVisibility?: 'rescue' | 'always';
+  aiChatVisibility?: 'off' | 'rescue' | 'always';
 
   /**
    * BD-3k — Deposit-required preview. Optional. When `enabled === true`

@@ -9,7 +9,7 @@
  *
  * Phases 1c / 2 / visual-parity / theming of the advanced-builder epic.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import {
   normalizeLayout, type TemplateLayout,
@@ -1370,10 +1370,13 @@ function BookingCalendarPreview({
   radiusPx: number | string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  // Three calendar days starting "tomorrow". We compute days dynamically
-  // so the preview always shows upcoming dates (vs hard-coded stale dates
-  // in 2026-01). Mock slot times are realistic 9-5 windows with varying
-  // density per day.
+  // Item 6c — FOUR calendar days starting "tomorrow". We compute days
+  // dynamically so the preview always shows upcoming dates (vs hard-coded
+  // stale dates). Four cards fill the result-panel row cleanly on desktop
+  // (the old 3-card strip left a blank gap on the right when the panel was
+  // wide enough for a 4th column); on narrow widths the grid auto-fits down
+  // to 2 / 1 columns. Mock slot times are realistic 9-5 windows with
+  // varying density per day.
   const days = useMemo(() => {
     const now = new Date();
     const out: { id: string; dayLabel: string; dateLabel: string; slots: string[] }[] = [];
@@ -1381,8 +1384,9 @@ function BookingCalendarPreview({
       ['9:00 AM', '10:30 AM', '2:00 PM'],
       ['9:00 AM', '11:00 AM', '3:30 PM'],
       ['9:00 AM', '2:00 PM', '4:00 PM'],
+      ['10:00 AM', '1:00 PM', '3:30 PM'],
     ];
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 4; i++) {
       const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
       const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
       const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -1440,7 +1444,13 @@ function BookingCalendarPreview({
         data-testid="advanced-booking-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          // Item 6c — a balanced row that fills the full panel width with no
+          // blank right gap. A smaller min track (96px) lets all four day
+          // cards sit on ONE row on desktop and stretch to share the width
+          // evenly (1fr); on narrow viewports the grid wraps to a clean 2×2
+          // (and 1-column on the tightest mobile), which always fills its row
+          // rather than leaving an awkward empty cell on the right.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
           gap: 8,
         }}
       >
@@ -2094,11 +2104,45 @@ export default function AdvancedCalculator({
   // ready by the time React re-renders the new step content. Defaults
   // to `forward` for the initial mount and step-index resets.
   const [flipDir, setFlipDir] = useState<'forward' | 'back'>('forward');
+  // Item 8b — auto-scroll target. On step change we scroll the body (the
+  // step's main content) back to the top of the scroll viewport so the user
+  // always lands on the NEW step's first field rather than wherever the
+  // previous step happened to leave the scroll position.
+  const stepBodyRef = useRef<HTMLDivElement | null>(null);
   // Clamp the active index whenever the step list shrinks (e.g. visibility
   // rules hid a field that was on its own step).
   useEffect(() => {
     if (useStepper && stepIdx >= totalSteps) setStepIdx(Math.max(0, totalSteps - 1));
   }, [useStepper, totalSteps, stepIdx]);
+  // Item 8b — AUTO-SCROLL on step change. When the multi-step layout advances
+  // (or returns), bring the body/fields section to the top of whatever
+  // scrolls it (the widget's own overflow container, the editor preview
+  // bezel, or the page) so the new step's main content is in view instead of
+  // a stale scroll position. Skips the initial mount (stepIdx 0 → nothing to
+  // scroll) and honours prefers-reduced-motion. Guarded for SSR.
+  const didMountStepScroll = useRef(false);
+  useEffect(() => {
+    if (!useStepper) return;
+    if (!didMountStepScroll.current) { didMountStepScroll.current = true; return; }
+    if (typeof window === 'undefined') return;
+    const el = stepBodyRef.current;
+    if (!el || typeof el.scrollIntoView !== 'function') return;
+    let reduce = false;
+    try {
+      reduce = typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch { /* matchMedia unavailable — default to smooth */ }
+    try {
+      el.scrollIntoView({
+        behavior: reduce ? 'auto' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      });
+    } catch {
+      // Older engines: fall back to the no-arg form.
+      try { el.scrollIntoView(); } catch { /* give up silently */ }
+    }
+  }, [useStepper, stepIdx]);
   // BD-2c — broadcast the active step index so the page-level AIChatBubble
   // can trip its "stuck-customer rescue" visibility gate at step >= 2.
   // Safe in SSR-free contexts (the widget only runs in the browser).
@@ -2915,6 +2959,7 @@ export default function AdvancedCalculator({
       </div>
       {/* ── /BD-2a-sticky top region ── */}
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
+        ref={stepBodyRef}
         data-component-name="Body"
         data-component-type="body"
         data-step-index={useStepper ? stepIdx : 'single'}

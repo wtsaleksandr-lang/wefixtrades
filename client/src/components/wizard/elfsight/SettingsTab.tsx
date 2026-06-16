@@ -425,7 +425,7 @@ export default function SettingsTab({
                   <InfoCue
                     testid="style-ai-chat-visibility-info"
                     region="chat-bubble"
-                    text="When should the AI chat assistant appear? Smart timing (recommended) keeps it out of the way as a small 'Need help?' pill and pops up only when a visitor seems stuck — idle for 30 seconds, deep into the form, or after tapping a help icon. Always visible puts the full chat button in the corner from page load. Smart timing gets more visitors to finish the form and use the chat."
+                    text="Should the AI chat assistant appear, and how? Off hides it entirely. Smart timing (recommended) keeps it out of the way as a small 'Need help?' pill and pops up only when a visitor seems stuck — idle for 30 seconds, deep into the form, or after tapping a help icon. Always visible puts the full chat button in the corner from page load. Smart timing gets more visitors to finish the form and use the chat."
                   />
                   <span style={{ marginLeft: 6 }}>AI chat visibility</span>
                 </>
@@ -433,11 +433,12 @@ export default function SettingsTab({
             />
           </legend>
           <div className="qq-style-group-body" data-testid="style-ai-chat-visibility">
-            <SegmentedControl<'rescue' | 'always'>
+            <SegmentedControl<'off' | 'rescue' | 'always'>
               name="ai-chat-visibility"
               testid="style-segmented-ai-chat-visibility"
-              value={(style.aiChatVisibility as 'rescue' | 'always') ?? 'rescue'}
+              value={(style.aiChatVisibility as 'off' | 'rescue' | 'always') ?? 'rescue'}
               options={[
+                { value: 'off', label: 'Off' },
                 { value: 'rescue', label: 'Smart timing' },
                 { value: 'always', label: 'Always visible' },
               ]}
@@ -449,9 +450,12 @@ export default function SettingsTab({
                 margin: '6px 0 0', lineHeight: 1.4,
               }}
             >
-              Shown on your published calculator when the AI assistant is
-              active. Free calculators always use Smart timing; paid plans can
-              choose Always visible.
+              Controls the AI assistant launcher on your published calculator
+              and in this preview. Off hides it entirely; Smart timing shows a
+              small "Need help?" pill that opens when a visitor seems stuck;
+              Always visible shows the full chat button from the start. Free
+              calculators use Smart timing; paid plans can choose Always
+              visible.
             </p>
           </div>
         </fieldset>

@@ -81,7 +81,7 @@ interface AiStatus {
     slug: string;
     enabled: boolean;
     active: boolean;
-    aiChatVisibility: "rescue" | "always";
+    aiChatVisibility: "off" | "rescue" | "always";
   } | null;
 }
 interface WidgetSite {
@@ -592,10 +592,12 @@ export default function PortalYourAiAssistant() {
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Appearance &amp; timing</h2>
             <p className="text-sm text-muted-foreground">
-              {calc?.aiChatVisibility === "always"
-                ? "Set to always show the chat bubble on your calculator."
-                : "Set to smart timing — the bubble appears only when a visitor looks stuck."}{" "}
-              Change this on the wizard's Style tab.
+              {calc?.aiChatVisibility === "off"
+                ? "The chat assistant is turned off on your calculator."
+                : calc?.aiChatVisibility === "always"
+                  ? "Set to always show the chat bubble on your calculator."
+                  : "Set to smart timing — the bubble appears only when a visitor looks stuck."}{" "}
+              Change this on the wizard's Settings tab.
             </p>
           </div>
           <Button asChild variant="outline" size="sm" data-testid="link-appearance-wizard">
