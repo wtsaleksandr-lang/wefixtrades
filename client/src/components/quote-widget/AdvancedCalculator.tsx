@@ -2688,7 +2688,18 @@ export default function AdvancedCalculator({
         const titleAlign: 'left' | 'center' | 'right' = style.titleAlign ?? align;
         const titleJustify = titleAlign === 'left' ? 'flex-start'
           : titleAlign === 'right' ? 'flex-end' : 'center';
-        const title = (header.title || '').trim() || businessName || 'Get a Quote';
+        // The header TITLE is the conversion headline only. The business NAME
+        // lives in the brand row (logo + name) below and is rendered there
+        // independently — so the title NO LONGER falls back to businessName
+        // (which used to HIDE the name whenever a template carried a title).
+        const title = (header.title || '').trim() || 'Get a Quote';
+        // Brand-row business label. Always visible when set, independent of the
+        // header title. In the wizard editor preview (editableTitle) the server
+        // hydrates business_name to the 'Your Business' placeholder so the owner
+        // sees an editable slot; the published widget only renders a real name.
+        const brandName = (businessName || '').trim();
+        const showBrandName = brandName.length > 0
+          && (editableTitle || brandName !== 'Your Business');
         const subtitle = (header.subtitle || '').trim();
         const logoRadius = Math.min(Math.round(logoSizePx * 0.3), 12);
         return (
@@ -2720,15 +2731,36 @@ export default function AdvancedCalculator({
                   <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
                 </div>
               ) : null;
-              return logoNode ? (
+              // Brand row = logo + the company NAME, side by side, always
+              // visible when a business name is set. This is the company
+              // identity (distinct from the conversion headline `title`), so
+              // typing the business name in the editor reflects here live.
+              const nameNode = showBrandName ? (
+                <span
+                  data-testid="advanced-brand-name"
+                  data-component-name="Brand name"
+                  data-component-type="brand-name"
+                  style={{
+                    fontSize: '13px', fontWeight: 700, color: cc.text,
+                    letterSpacing: '-0.005em', lineHeight: 1.2,
+                    whiteSpace: 'nowrap', overflow: 'hidden',
+                    textOverflow: 'ellipsis', maxWidth: '100%',
+                  }}
+                >
+                  {brandName}
+                </span>
+              ) : null;
+              return (logoNode || nameNode) ? (
                 <div
                   data-testid="advanced-logo-row"
                   style={{
                     display: 'flex', alignItems: 'center',
-                    justifyContent: justify, marginBottom: '8px',
+                    justifyContent: justify, gap: logoNode && nameNode ? '8px' : 0,
+                    marginBottom: '8px', minWidth: 0,
                   }}
                 >
                   {logoNode}
+                  {nameNode}
                 </div>
               ) : null;
             })()}
