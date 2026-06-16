@@ -9,7 +9,7 @@
 // 40×40 logo-upload square on the left, and the business name input
 // (floating-label) on the right.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, ImagePlus, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
@@ -112,6 +112,15 @@ export default function BuildTab({
   onGenerateWithAI,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // ITEM 3 — suggestion-chip scroller drag-vs-click discrimination.
+  // `chipDidDrag` is set true once the pointer moves past the threshold so the
+  // chip's onClick can bail (drag-to-scroll must NOT select a chip). The chips
+  // live inside the (collapsible) prominent section, so the scroller node
+  // mounts/unmounts as that section opens/closes — a callback ref (below)
+  // attaches the drag listeners whenever the node appears, which a one-shot
+  // useEffect([]) would miss (it would run once while the node was unmounted).
+  const chipDidDrag = useRef(false);
+  const chipCleanup = useRef<(() => void) | null>(null);
   // "Generate with AI" card prompt — local; on Generate it's handed to the
   // shell, which seeds + auto-sends the floating AI assistant.
   const [aiPrompt, setAiPrompt] = useState('');
@@ -190,6 +199,63 @@ export default function BuildTab({
     reader.readAsDataURL(file);
   }, [onLogoChange]);
 
+  // ITEM 3 — mouse drag-to-scroll on the suggestion chips, mirroring the
+  // TemplateStrip pattern. A >5px movement marks the gesture as a drag so the
+  // chip's onClick (which sets the prompt) is suppressed — only a clean click
+  // selects. Touch swipe stays native to overflow-x. `chipDidDrag` is read
+  // synchronously by the chip onClick, then reset on the next pointer-down.
+  // Attached via a callback ref so it (re)binds each time the chips node mounts
+  // (the prominent section it lives in is collapsible).
+  const DRAG_THRESHOLD_PX = 5;
+  const chipsRefCb = useCallback((el: HTMLDivElement | null) => {
+    // Detach any previous binding (node replaced or unmounting).
+    chipCleanup.current?.();
+    chipCleanup.current = null;
+    if (!el) return;
+    let isDown = false;
+    let moved = false;
+    let startX = 0;
+    let startScroll = 0;
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      isDown = true;
+      moved = false;
+      chipDidDrag.current = false;
+      startX = e.pageX - el.offsetLeft;
+      startScroll = el.scrollLeft;
+    };
+    const endDrag = () => {
+      isDown = false;
+      el.classList.remove('is-dragging');
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!isDown) return;
+      const x = e.pageX - el.offsetLeft;
+      const walk = x - startX;
+      if (!moved && Math.abs(walk) > DRAG_THRESHOLD_PX) {
+        moved = true;
+        chipDidDrag.current = true;
+        el.classList.add('is-dragging');
+      }
+      if (moved) {
+        e.preventDefault();
+        el.scrollLeft = startScroll - walk;
+      }
+    };
+    el.addEventListener('mousedown', onDown);
+    el.addEventListener('mouseleave', endDrag);
+    el.addEventListener('mouseup', endDrag);
+    el.addEventListener('mousemove', onMove);
+    chipCleanup.current = () => {
+      el.removeEventListener('mousedown', onDown);
+      el.removeEventListener('mouseleave', endDrag);
+      el.removeEventListener('mouseup', endDrag);
+      el.removeEventListener('mousemove', onMove);
+    };
+  }, []);
+  // Detach on unmount.
+  useEffect(() => () => { chipCleanup.current?.(); chipCleanup.current = null; }, []);
+
   return (
     <div
       ref={buildPanelRef}
@@ -253,7 +319,7 @@ export default function BuildTab({
           rows={2}
           aria-label="Describe the calculator you want"
         />
-        <div className="qq-buildai-chips" role="list">
+        <div className="qq-buildai-chips" role="list" ref={chipsRefCb}>
           {AI_EXAMPLES.map((ex, i) => (
             <button
               key={ex}
@@ -261,7 +327,12 @@ export default function BuildTab({
               role="listitem"
               className="qq-buildai-chip"
               data-testid={`build-ai-chip-${i}`}
-              onClick={() => setAiPrompt(ex)}
+              onClick={() => {
+                // ITEM 3 — suppress selection when the click is the tail end of
+                // a drag-to-scroll gesture (pointer moved past the threshold).
+                if (chipDidDrag.current) { chipDidDrag.current = false; return; }
+                setAiPrompt(ex);
+              }}
             >
               {ex}
             </button>
@@ -486,8 +557,10 @@ export default function BuildTab({
           border: 1px solid ${AE.color.hairline};
           border-radius: ${AE.radius.md};
           box-shadow: ${AE.shadow.card};
-          padding: 12px 14px 14px;
-          display: flex; flex-direction: column; gap: 10px;
+          /* ITEM 1 — compacted: trimmed top/bottom padding and the inter-row
+           * gap (was 12px 14px 14px / gap 10px) so the card reads denser. */
+          padding: 10px 14px 12px;
+          display: flex; flex-direction: column; gap: 7px;
           margin-bottom: 2px;
         }
         .qq-buildai-head {
@@ -517,10 +590,11 @@ export default function BuildTab({
           line-height: 1.4;
         }
         .qq-buildai-sub {
-          margin: -4px 0 0;
+          /* ITEM 1 — pull the helper line up tight under the title row. */
+          margin: -3px 0 1px;
           font-size: ${AE.type.helper.size};
           color: ${AE.color.secondary};
-          line-height: 1.45;
+          line-height: 1.4;
         }
         .qq-buildai-input {
           width: 100%; box-sizing: border-box;
@@ -552,13 +626,21 @@ export default function BuildTab({
           gap: 6px;
           overflow-x: auto;
           overflow-y: hidden;
-          padding-bottom: 6px;
+          /* ITEM 1 — trimmed the scroller's bottom padding so the chip rows
+           * don't leave a dead band above the Add-screenshot affordance.
+           * ITEM 3 — grab-drag panning: show the grab cursor + suppress text
+           * selection while dragging (.is-dragging set by the pointer handler). */
+          padding-bottom: 3px;
           margin: 0 -2px;
           padding-left: 2px; padding-right: 2px;
+          cursor: grab;
           scroll-snap-type: x proximity;
           scroll-behavior: smooth;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
+        }
+        .qq-buildai-chips.is-dragging {
+          cursor: grabbing; user-select: none; scroll-behavior: auto;
         }
         .qq-buildai-chips::-webkit-scrollbar { height: 5px; }
         .qq-buildai-chips::-webkit-scrollbar-thumb {
@@ -660,7 +742,8 @@ export default function BuildTab({
              the card (extra top margin) so it reads as the final action. */
           align-self: center;
           width: 96%;
-          margin-top: 6px;
+          /* ITEM 1 — tightened from 6px; the card gap already separates it. */
+          margin-top: 2px;
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           font: inherit; font-size: 14px; font-weight: 600;
           color: ${AE.color.publishText};

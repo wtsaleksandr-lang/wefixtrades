@@ -375,36 +375,72 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
 
   // Mouse-drag-to-scroll. Touch-swipe is native to overflow-x: auto on
   // mobile so we only special-case desktop pointer drag.
+  //
+  // ITEM 4 (drag-vs-click fix) — previously a drag almost always also fired a
+  // card's onClick (apply-template), so grabbing the strip to scroll opened a
+  // template. Now we only start panning once the pointer moves past a small
+  // threshold (DRAG_THRESHOLD_PX), and when it does we arm a capture-phase
+  // click suppressor that swallows the click that the browser fires on
+  // mouseup — so a drag scrolls WITHOUT applying a template. A clean click
+  // (movement under the threshold) passes straight through to the card.
+  const DRAG_THRESHOLD_PX = 5;
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
     let isDown = false;
+    let dragging = false;
+    let suppressNextClick = false;
     let startX = 0;
+    let startPageX = 0;
     let scrollLeft = 0;
     const onDown = (e: MouseEvent) => {
+      // Left button only; let middle/right and modified clicks behave natively.
+      if (e.button !== 0) return;
       isDown = true;
-      el.classList.add('is-dragging');
+      dragging = false;
       startX = e.pageX - el.offsetLeft;
+      startPageX = e.pageX;
       scrollLeft = el.scrollLeft;
     };
-    const onLeave = () => { isDown = false; el.classList.remove('is-dragging'); };
-    const onUp = () => { isDown = false; el.classList.remove('is-dragging'); };
+    const endDrag = () => {
+      isDown = false;
+      dragging = false;
+      el.classList.remove('is-dragging');
+    };
     const onMove = (e: MouseEvent) => {
       if (!isDown) return;
+      if (!dragging && Math.abs(e.pageX - startPageX) > DRAG_THRESHOLD_PX) {
+        dragging = true;
+        suppressNextClick = true;
+        el.classList.add('is-dragging');
+      }
+      if (!dragging) return;
       e.preventDefault();
       const x = e.pageX - el.offsetLeft;
       const walk = (x - startX) * 1.2;
       el.scrollLeft = scrollLeft - walk;
     };
+    // Capture-phase click suppressor — runs BEFORE the card button's React
+    // onClick (which is delegated at the root). If the just-finished gesture
+    // was a drag, swallow this click so no template is applied.
+    const onClickCapture = (e: MouseEvent) => {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     el.addEventListener('mousedown', onDown);
-    el.addEventListener('mouseleave', onLeave);
-    el.addEventListener('mouseup', onUp);
+    el.addEventListener('mouseleave', endDrag);
+    el.addEventListener('mouseup', endDrag);
     el.addEventListener('mousemove', onMove);
+    el.addEventListener('click', onClickCapture, true);
     return () => {
       el.removeEventListener('mousedown', onDown);
-      el.removeEventListener('mouseleave', onLeave);
-      el.removeEventListener('mouseup', onUp);
+      el.removeEventListener('mouseleave', endDrag);
+      el.removeEventListener('mouseup', endDrag);
       el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('click', onClickCapture, true);
     };
   }, []);
 
