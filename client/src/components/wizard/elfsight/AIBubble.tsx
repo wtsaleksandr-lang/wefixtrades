@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, describeDroppedStyleKeys, type AiToolCall } from './aiToolApplier';
@@ -631,13 +631,17 @@ export default function AIBubble(props: AIBubbleProps) {
   /** "Generate with AI" auto-send latch. Set true when a new seed arrives;
    *  the second effect below clears it after firing onSend exactly once. */
   const autoSendRef = useRef(false);
-  /** Wave 55 — fold/unfold the open chat panel down to just its header bar.
-   *  Distinct from `open` (which controls the bubble↔panel toggle). When
-   *  collapsed, the body + footer hide but the header (with the fold
-   *  chevron at top-center) remains so the user can re-expand without
-   *  closing the conversation. State persists to localStorage. */
-  const [collapsed, setCollapsed] = useState<boolean>(() => loadCollapsed());
-  useEffect(() => { saveCollapsed(collapsed); }, [collapsed]);
+  /** Minimizing the panel now ALWAYS folds it back into the right side tab
+   *  (the same end-state as closing / the grab-drag-to-fold). The old
+   *  "header-only collapse" mode (a floating horizontal bar over the preview)
+   *  was removed per owner feedback — it was ugly + broken. `setOpen(false)`
+   *  is the single fold action; no separate collapse state is persisted.
+   *  `collapsed` is hard-pinned false so any residual references resolve to
+   *  the un-collapsed layout. */
+  const collapsed = false;
+  // Clear any stale persisted collapse flag from the removed mode so a panel
+  // never reopens into the dead header-only state.
+  useEffect(() => { saveCollapsed(false); }, []);
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory(conversationId));
   const [input, setInput] = useState('');
   /** UX fix bundle (2026-05-22) — wizard AIBubble was still using the original
@@ -756,7 +760,6 @@ export default function AIBubble(props: AIBubbleProps) {
       // Drag-to-open: a sufficient leftward pull unfolds the panel.
       if (d.willOpen) {
         setOpen(true);
-        setCollapsed(false);
       }
       // Defer clearing so the synthetic click (fired after pointerup) sees
       // `bubbleDragging === true` and is ignored by the click handler.
@@ -900,8 +903,9 @@ export default function AIBubble(props: AIBubbleProps) {
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     if (!d) return;
     if (d.moved < AI_PANEL_DRAG_THRESHOLD) {
-      // Tap fallback → toggle the header-only collapse.
-      setCollapsed((v) => !v);
+      // Tap fallback → fold the card back to the tab (the header-only collapse
+      // mode was removed; folding to the tab is the single minimize action).
+      setOpen(false);
       return;
     }
     // Dragged inward far enough → fold the card back to the tab.
@@ -1503,7 +1507,6 @@ export default function AIBubble(props: AIBubbleProps) {
   useEffect(() => {
     if (!seedNonce || seedNonce <= 0) return;
     setOpen(true);
-    setCollapsed(false);
     setInput(seedPrompt ?? '');
     // Fused text+image seed — attach the reference screenshot as the pending
     // image so the one-shot auto-send (Effect 2 below) carries it into the
@@ -1537,7 +1540,6 @@ export default function AIBubble(props: AIBubbleProps) {
   useEffect(() => {
     if (!openForUploadNonce || openForUploadNonce <= 0) return;
     setOpen(true);
-    setCollapsed(false);
     // Inject a hint message only when the chat is empty so it reads naturally.
     setMessages((prev) => {
       if (prev.length > 0) return prev;
@@ -1713,7 +1715,7 @@ export default function AIBubble(props: AIBubbleProps) {
           existing Playwright suite keeps passing. */}
       <button
         type="button"
-        onClick={() => { if (!bubbleDragging) { setOpen(true); setCollapsed(false); } }}
+        onClick={() => { if (!bubbleDragging) { setOpen(true); } }}
         onPointerDown={onBubblePointerDown}
         onPointerMove={onBubblePointerMove}
         onPointerUp={endBubbleDrag}
@@ -1745,11 +1747,10 @@ export default function AIBubble(props: AIBubbleProps) {
 
       {open && (
         <div
-          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}${animating ? ' is-animating' : ''}${panelResizing ? ' is-resizing' : ''}${panelGrabbing ? ' is-grabbing' : ''}`}
+          className={`qq-ai-panel${animating ? ' is-animating' : ''}${panelResizing ? ' is-resizing' : ''}${panelGrabbing ? ' is-grabbing' : ''}`}
           role="dialog"
           aria-label="QuoteQuick builder"
           data-testid="aibubble-panel"
-          data-collapsed={collapsed ? 'true' : 'false'}
           data-state={animating ? 'animating' : 'unfolded'}
           /* Mobile middle-floating card: drive the live height via a CSS var so
              only the ≤768px branch consumes it (desktop keeps its fixed size).
@@ -1759,9 +1760,9 @@ export default function AIBubble(props: AIBubbleProps) {
         >
           {/* Mobile drag-to-fold grab handle — top edge of the floating card.
               Grab + drag DOWN to fold back to the tab (inverse of the tab's
-              drag-to-open); a short tap toggles the header-only collapse. Drag
-              affordance only (decorative bar); the fold/min/close buttons are
-              the explicit tap controls. Hidden on desktop via CSS. */}
+              drag-to-open); a short tap also folds to the tab. Drag affordance
+              only (decorative bar); the header minimize button is the explicit
+              tap control. Hidden on desktop via CSS. */}
           <div
             className="qq-ai-panel-grab"
             data-testid="aibubble-grab"
@@ -1774,26 +1775,6 @@ export default function AIBubble(props: AIBubbleProps) {
             <span className="qq-ai-panel-grab-bar" />
           </div>
 
-          {/* Wave 55 — top-center fold/unfold chevron. Toggles the panel
-           *  between full (500px) and header-only (~46px tall). Matches the
-           *  pattern used by the preview-pane fold/unfold (Wave M) so the
-           *  collapse affordance is stylistically consistent. */}
-          <button
-            type="button"
-            className="qq-ai-panel-fold"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? 'Expand the builder panel' : 'Collapse the builder panel'}
-            aria-pressed={collapsed}
-            data-collapsed={collapsed ? 'true' : 'false'}
-            data-testid="aibubble-fold"
-            title={collapsed ? 'Expand' : 'Collapse'}
-          >
-            {collapsed ? (
-              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-            )}
-          </button>
           <div
             className="qq-ai-panel-header"
             data-testid="aibubble-header"
@@ -1807,25 +1788,25 @@ export default function AIBubble(props: AIBubbleProps) {
               <span>QuoteQuick builder</span>
             </div>
             {budgetMeter}
+            {/* SINGLE header control (owner: "we don't need 3 icons"). The old
+                fold-chevron + minimize + close trio collapsed to ONE
+                "minimize / fold-to-tab" button: it folds the panel back into
+                the right side tab (the same end-state as the grab-drag-to-fold).
+                The `aibubble-close` testid is retained alongside
+                `aibubble-minimize` so existing Playwright selectors for either
+                keep resolving to this one button. */}
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="qq-ai-panel-min"
-              aria-label="Minimize the builder panel"
-              title="Minimize"
+              aria-label="Minimize — fold the builder back into the side tab"
+              title="Minimize to tab"
               data-testid="aibubble-minimize"
+              data-close="true"
             >
-              <Minus className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="qq-ai-panel-close"
-              aria-label="Close the builder panel"
-              data-testid="aibubble-close"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <span data-testid="aibubble-close" hidden aria-hidden="true" />
           </div>
 
           {warn && !capExceeded && (
@@ -2342,11 +2323,14 @@ export default function AIBubble(props: AIBubbleProps) {
           position: fixed; right: 18px; bottom: 18px; z-index: 10000;
           width: 372px; height: 520px; max-height: calc(100vh - 36px);
           display: flex; flex-direction: column;
-          /* Elevated frosted card — a touch of translucency + blur so it reads
-             as a premium floating surface, not a flat box. */
-          background: rgba(255, 255, 255, 0.94);
-          -webkit-backdrop-filter: blur(24px) saturate(160%);
-          backdrop-filter: blur(24px) saturate(160%);
+          /* Apple-style frosted glass (owner ask): the whole window reads as
+             translucent glass — the preview behind shows through. ~0.5 white
+             over a strong blur + saturation. Inner surfaces (header / messages
+             / compose / input) are frosted to MATCH below so it's uniformly
+             glassy, never a solid slab. */
+          background: rgba(255, 255, 255, 0.5);
+          -webkit-backdrop-filter: blur(30px) saturate(180%);
+          backdrop-filter: blur(30px) saturate(180%);
           color: #0f172a;
           border-radius: 18px; overflow: hidden;
           /* Soft layered shadow + a faint brand-tinted ambient glow. */
@@ -2365,7 +2349,13 @@ export default function AIBubble(props: AIBubbleProps) {
           will-change: transform, opacity;
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-          .qq-ai-panel { background: #fff; }
+          /* No blur → go near-solid so text never washes out over the preview.
+             Also re-solidify the frosted inner surfaces (light theme). */
+          .qq-ai-panel { background: rgba(255, 255, 255, 0.97); }
+          .qq-ai-panel .qq-ai-panel-header,
+          .qq-ai-panel .qq-ai-msgs,
+          .qq-ai-panel .qq-ai-compose { background: rgba(255, 255, 255, 0.97); }
+          .qq-ai-panel .qq-ai-input { background: rgba(255, 255, 255, 1); }
         }
         @keyframes qq-ai-unfold {
           from { opacity: 0; transform: translateX(28px) scale(0.9); }
@@ -2373,47 +2363,6 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         @media (prefers-reduced-motion: reduce) {
           .qq-ai-panel { animation: none !important; }
-        }
-        /* Wave 55 — collapsed state shrinks the panel to just the header
-         *  bar (~46px). Body + footer hide via the descendant rules below. */
-        .qq-ai-panel.is-collapsed {
-          height: 46px;
-        }
-        .qq-ai-panel.is-collapsed .qq-ai-warn,
-        .qq-ai-panel.is-collapsed .qq-ai-msgs,
-        .qq-ai-panel.is-collapsed .qq-ai-compose,
-        .qq-ai-panel.is-collapsed .qq-ai-capped,
-        .qq-ai-panel.is-collapsed .qq-ai-err,
-        .qq-ai-panel.is-collapsed .qq-ai-footer {
-          display: none !important;
-        }
-        /* Wave 55 — fold chevron, top-center of the panel. A small pill
-         *  that sits just inside the rounded top edge so the click target
-         *  is obvious without competing with the header's existing
-         *  minimize / close buttons (top-right). */
-        .qq-ai-panel-fold {
-          position: absolute;
-          top: 4px;
-          left: 50%;
-          transform: translateX(-50%);
-          z-index: 2;
-          display: inline-flex; align-items: center; justify-content: center;
-          width: 28px; height: 16px;
-          padding: 0;
-          background: rgba(13, 60, 252, 0.10);
-          color: #0d3cfc;
-          border: 1px solid rgba(13, 60, 252, 0.25);
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 120ms ease, color 120ms ease;
-        }
-        .qq-ai-panel-fold:hover {
-          background: rgba(13, 60, 252, 0.18);
-          color: #0d3cfc;
-        }
-        .qq-ai-panel-fold:focus-visible {
-          outline: 2px solid #0d3cfc;
-          outline-offset: 2px;
         }
         @media (prefers-reduced-motion: reduce) {
           .qq-ai-panel { transition: none !important; }
@@ -2494,10 +2443,6 @@ export default function AIBubble(props: AIBubbleProps) {
           /* No height transition while dragging the resize handle → tracks the
              finger 1:1. */
           .qq-ai-panel.is-resizing { transition: none; }
-          /* Collapsed (header-only) shrinks the card; keep it centred + glassy. */
-          .qq-ai-panel.is-collapsed {
-            height: 54px;
-          }
 
           /* ── Top grab handle (drag-to-fold) ──────────────────────────────
              A slim grab strip across the top of the card. Drag it DOWN to fold
@@ -2518,9 +2463,6 @@ export default function AIBubble(props: AIBubbleProps) {
           .qq-ai-panel.is-grabbing .qq-ai-panel-grab-bar {
             background: #0d3cfc; width: 48px;
           }
-          /* The fold chevron sits just under the grab strip on mobile so it
-             doesn't collide with the new handle. */
-          .qq-ai-panel-fold { top: 22px; }
 
           /* ── Bottom free-resize handle ───────────────────────────────────
              A grab strip across the bottom edge of the card; drag to resize the
@@ -2543,8 +2485,6 @@ export default function AIBubble(props: AIBubbleProps) {
           .qq-ai-panel.is-resizing .qq-ai-panel-resize-bar {
             background: #0d3cfc; width: 56px;
           }
-          /* Hide the resize handle while collapsed (no body to resize). */
-          .qq-ai-panel.is-collapsed .qq-ai-panel-resize { display: none; }
 
           /* The narrow-viewport tab is THINNER + MORE TRANSPARENT (per the ask):
              a slimmer pill, lower-opacity frosted surface, softer glow — still
@@ -2580,10 +2520,10 @@ export default function AIBubble(props: AIBubbleProps) {
           display: flex; align-items: center; gap: 8px;
           padding: 12px 12px 12px 14px;
           border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-          /* Premium header — a soft brand-tinted wash so the title bar reads as
-             a distinct, intentional zone. Doubles as the swipe-to-close
-             surface (touch + drag right/down dismisses). */
-          background: linear-gradient(180deg, rgba(13, 60, 252, 0.05) 0%, rgba(248, 250, 252, 0.9) 100%);
+          /* Premium header — a soft brand-tinted wash, kept TRANSLUCENT so the
+             frosted glass reads through the title bar too (not an opaque strip).
+             Doubles as the swipe-to-close surface (touch + drag right/down). */
+          background: linear-gradient(180deg, rgba(13, 60, 252, 0.10) 0%, rgba(255, 255, 255, 0.18) 100%);
           touch-action: pan-y;
           cursor: default;
         }
@@ -2596,7 +2536,7 @@ export default function AIBubble(props: AIBubbleProps) {
           margin-left: auto;
           font-size: 11px; font-weight: 600;
           color: #475569;
-          background: #fff;
+          background: rgba(255, 255, 255, 0.55);
           border: 1px solid rgba(15, 23, 42, 0.08);
           padding: 3px 8px; border-radius: 999px;
         }
@@ -2615,7 +2555,9 @@ export default function AIBubble(props: AIBubbleProps) {
         }
         .qq-ai-msgs {
           flex: 1 1 auto; overflow-y: auto;
-          padding: 12px; background: #fff;
+          /* Frosted-through: transparent so the panel's backdrop-blur of the
+             preview shows behind the conversation (Apple-glass look). */
+          padding: 12px; background: transparent;
           display: flex; flex-direction: column; gap: 10px;
         }
         .qq-ai-empty { font-size: 13px; line-height: 1.5; color: #0f172a; }
@@ -2648,7 +2590,9 @@ export default function AIBubble(props: AIBubbleProps) {
           border-bottom-right-radius: 4px;
         }
         .qq-ai-msg-assistant {
-          background: #f1f5f9; color: #0f172a;
+          /* Translucent so the frosted glass reads behind the conversation
+             too — a soft fill for legibility, not an opaque slab. */
+          background: rgba(241, 245, 249, 0.66); color: #0f172a;
           border-bottom-left-radius: 4px;
         }
         .qq-ai-msg-thumb {
@@ -2926,7 +2870,9 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-compose {
           border-top: 1px solid rgba(15,23,42,0.07);
           padding: 10px 10px 8px;
-          background: #fff;
+          /* Frosted-through: a faint translucent veil so the compose bar joins
+             the glass surface instead of capping it with an opaque footer. */
+          background: rgba(255, 255, 255, 0.14);
         }
         .qq-ai-pending-image {
           position: relative; display: inline-block; margin-bottom: 6px;
@@ -2999,7 +2945,9 @@ export default function AIBubble(props: AIBubbleProps) {
           font-family: inherit; font-size: 13px;
           padding: 7px 9px; border-radius: 8px;
           border: 1px solid rgba(15,23,42,0.12);
-          background: #fff; color: #0f172a;
+          /* Input keeps a higher-opacity fill (still translucent) so typed text
+             stays crisp while the window reads as glass. */
+          background: rgba(255, 255, 255, 0.62); color: #0f172a;
           /* UX fix bundle — wizard input matches BD-3c expand-on-focus
              pattern. Default ≈ 64px (3 lines), expands to 120px (~6 lines)
              on focus or when non-empty. Respects prefers-reduced-motion. */
@@ -3032,28 +2980,42 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-reset:hover { color: #0f172a; }
         .qq-ai-reset:disabled { color: #cbd5e1; cursor: not-allowed; }
 
-        /* Dark editor chrome respects */
+        /* ── Dark theme — Apple-style frosted glass (owner ask) ─────────────
+           The owner's screenshots showed the dark panel as a near-opaque navy
+           slab. Make the whole window translucent dark glass: a slate/navy TINT
+           (~0.5 alpha) over a strong blur + saturation, with EVERY inner
+           surface frosted to match so the preview behind shows through
+           uniformly — not just the card edge. */
         [data-theme="dark"] .qq-ai-panel {
-          background: rgba(15, 23, 42, 0.92);
-          color: #e2e8f0; border-color: rgba(255,255,255,0.10);
+          background: rgba(15, 23, 42, 0.5);
+          -webkit-backdrop-filter: blur(30px) saturate(180%);
+          backdrop-filter: blur(30px) saturate(180%);
+          color: #e2e8f0; border-color: rgba(255,255,255,0.12);
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-          [data-theme="dark"] .qq-ai-panel { background: #0f172a; }
+          /* No blur → near-solid navy so dark text/inputs never wash out. */
+          [data-theme="dark"] .qq-ai-panel { background: rgba(15, 23, 42, 0.97); }
+          [data-theme="dark"] .qq-ai-panel .qq-ai-panel-header,
+          [data-theme="dark"] .qq-ai-panel .qq-ai-msgs,
+          [data-theme="dark"] .qq-ai-panel .qq-ai-compose { background: rgba(15, 23, 42, 0.97); }
+          [data-theme="dark"] .qq-ai-panel .qq-ai-input { background: rgba(30, 41, 59, 1); }
         }
         [data-theme="dark"] .qq-ai-panel-header {
-          background: linear-gradient(180deg, rgba(13, 60, 252, 0.16) 0%, rgba(30, 41, 59, 0.9) 100%);
+          background: linear-gradient(180deg, rgba(13, 60, 252, 0.20) 0%, rgba(30, 41, 59, 0.20) 100%);
           border-color: rgba(255,255,255,0.06);
         }
         [data-theme="dark"] .qq-ai-panel-title { color: #e2e8f0; }
-        [data-theme="dark"] .qq-ai-msgs { background: #0f172a; }
+        [data-theme="dark"] .qq-ai-msgs { background: transparent; }
         [data-theme="dark"] .qq-ai-empty { color: #e2e8f0; }
         [data-theme="dark"] .qq-ai-empty-sub { color: #94a3b8; }
-        [data-theme="dark"] .qq-ai-msg-assistant { background: #1e293b; color: #e2e8f0; }
-        [data-theme="dark"] .qq-ai-avatar { background: #1e293b; border-color: rgba(255,255,255,0.12); }
-        [data-theme="dark"] .qq-ai-compose { background: #0f172a; border-color: rgba(255,255,255,0.06); }
-        [data-theme="dark"] .qq-ai-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
-        [data-theme="dark"] .qq-ai-iconbtn { background: #1e293b; color: #94a3b8; }
-        [data-theme="dark"] .qq-ai-budget-meter { background: #1e293b; color: #cbd5e1; border-color: rgba(255,255,255,0.06); }
+        /* Assistant bubble: a translucent slate fill so it's readable but the
+           frost still reads behind the conversation, not an opaque chip. */
+        [data-theme="dark"] .qq-ai-msg-assistant { background: rgba(30, 41, 59, 0.66); color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-avatar { background: rgba(30, 41, 59, 0.7); border-color: rgba(255,255,255,0.12); }
+        [data-theme="dark"] .qq-ai-compose { background: rgba(15, 23, 42, 0.16); border-color: rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qq-ai-input { background: rgba(30, 41, 59, 0.62); color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
+        [data-theme="dark"] .qq-ai-iconbtn { background: rgba(30, 41, 59, 0.6); color: #94a3b8; }
+        [data-theme="dark"] .qq-ai-budget-meter { background: rgba(30, 41, 59, 0.55); color: #cbd5e1; border-color: rgba(255,255,255,0.06); }
         [data-theme="dark"] .qq-ai-confirm { background: #422006; border-color: #78350f; color: #fde68a; }
         [data-theme="dark"] .qq-ai-confirm-applied { background: #064e3b; border-color: #065f46; color: #d1fae5; }
         [data-theme="dark"] .qq-ai-confirm-cancelled { background: #1e293b; border-color: #334155; color: #cbd5e1; }
