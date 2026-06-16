@@ -1439,13 +1439,14 @@ function BookingCalendarPreview({
   slotDurationMinutes?: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  // Item 6c — FOUR calendar days starting "tomorrow". We compute days
-  // dynamically so the preview always shows upcoming dates (vs hard-coded
-  // stale dates). Four cards fill the result-panel row cleanly on desktop
-  // (the old 3-card strip left a blank gap on the right when the panel was
-  // wide enough for a 4th column); on narrow widths the grid auto-fits down
-  // to 2 / 1 columns. Mock slot times are realistic 9-5 windows with
-  // varying density per day.
+  // fix/booking-responsive-picker — Calendly/Cal.com-style two-pane scheduler.
+  // The old layout computed only FOUR days and dropped them into a CSS
+  // auto-fit grid that wrapped to a cramped 2×2 on the result panel's width,
+  // so on desktop only 4 of the intended days were ever visible with no way to
+  // reach the rest. We now compute a full 14-DAY window and split the UI into:
+  //   (1) a horizontal, scrollable + arrow-paginated DAY SELECTOR (every day
+  //       reachable on any screen size), and
+  //   (2) a responsive TIME-SLOT grid for the SELECTED day only.
   const days = useMemo(() => {
     const now = new Date();
     const out: { id: string; dayLabel: string; dateLabel: string; slots: string[] }[] = [];
@@ -1469,8 +1470,10 @@ function BookingCalendarPreview({
     };
 
     // Preview fidelity — honour the owner's working hours window + slot length
-    // when provided; otherwise fall back to the legacy generic 9-5 layout. We
-    // cap at the first 4 slots per day so the card stays compact like before.
+    // when provided; otherwise fall back to the legacy generic 9-5 layout. The
+    // selected-day pane has room for a full column of slots, so we surface the
+    // whole working-hours window (cap at 16 so a 15-min slot length over a long
+    // day can't produce a runaway list) instead of the old 4-slot truncation.
     const startMin = parseHM(workingHoursStart);
     const endMin = parseHM(workingHoursEnd);
     const slotLen = typeof slotDurationMinutes === 'number'
@@ -1479,10 +1482,10 @@ function BookingCalendarPreview({
     const buildSlots = (): string[] => {
       if (startMin == null || endMin == null || endMin <= startMin) {
         // Legacy generic fallback.
-        return ['9:00 AM', '11:00 AM', '2:00 PM'];
+        return ['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM'];
       }
       const slots: string[] = [];
-      for (let t = startMin; t + slotLen <= endMin && slots.length < 4; t += slotLen) {
+      for (let t = startMin; t + slotLen <= endMin && slots.length < 16; t += slotLen) {
         slots.push(fmtSlot(t));
       }
       // Guarantee at least one slot even for a narrow window.
@@ -1494,12 +1497,12 @@ function BookingCalendarPreview({
     // Preview fidelity — only surface the owner's selected working days. A valid
     // non-empty `workingDays` (0=Sun … 6=Sat) restricts which upcoming dates
     // appear; absent/empty → every upcoming day (legacy behaviour). We walk
-    // forward from tomorrow until we collect 4 matching days (cap the scan so a
+    // forward from tomorrow until we collect 14 matching days (cap the scan so a
     // pathological single-day selection can't loop forever).
     const allowDay = Array.isArray(workingDays) && workingDays.length > 0
       ? (dow: number) => workingDays.includes(dow)
       : (_dow: number) => true;
-    for (let i = 1; out.length < 4 && i <= 28; i++) {
+    for (let i = 1; out.length < 14 && i <= 60; i++) {
       const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
       if (!allowDay(d.getDay())) continue;
       const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
@@ -1513,6 +1516,96 @@ function BookingCalendarPreview({
     return out;
   }, [workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes]);
   const isExternal = source === 'cal.com-url' || source === 'calendly-url';
+
+  // Selected day index — defaults to the first available day and is clamped if
+  // the day list ever shrinks (e.g. owner narrows working days while editing).
+  const [activeDayIdx, setActiveDayIdx] = useState(0);
+  const safeDayIdx = days.length === 0 ? 0 : Math.min(activeDayIdx, days.length - 1);
+  const activeDay = days[safeDayIdx];
+
+  // Day-selector scroll plumbing. The pill row scrolls horizontally on any
+  // width; the ‹ › arrows page it left/right by ~80% of the visible width
+  // (Calendly-style) and disable at the ends. We track scroll position so the
+  // arrows can reflect reachability. Selecting a pill also scrolls it into view
+  // so the chosen day is never left clipped off-screen.
+  const dayRowRef = useRef<HTMLDivElement | null>(null);
+  const [scrollState, setScrollState] = useState({ atStart: true, atEnd: false });
+  const updateScrollState = () => {
+    const el = dayRowRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setScrollState({
+      atStart: el.scrollLeft <= 1,
+      atEnd: el.scrollLeft >= maxScroll - 1,
+    });
+  };
+  useEffect(() => {
+    updateScrollState();
+    const el = dayRowRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateScrollState, { passive: true });
+    window.addEventListener('resize', updateScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [days.length]);
+  const prefersReducedMotion = useMemo(
+    () => typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+  const pageDayRow = (dir: -1 | 1) => {
+    const el = dayRowRef.current;
+    if (!el) return;
+    const delta = Math.max(120, Math.round(el.clientWidth * 0.8)) * dir;
+    el.scrollBy({ left: delta, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  };
+  const selectDay = (idx: number) => {
+    setActiveDayIdx(idx);
+    const el = dayRowRef.current;
+    const pill = el?.children?.[idx] as HTMLElement | undefined;
+    if (pill && typeof pill.scrollIntoView === 'function') {
+      pill.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'nearest', inline: 'nearest',
+      });
+    }
+  };
+
+  // Arrow button — shared style for the ‹ › day-pager controls. Disabled at the
+  // corresponding end of the scroll range. Accent-aware, theme-aware.
+  const arrowBtn = (dir: -1 | 1, disabled: boolean) => (
+    <button
+      type="button"
+      data-testid={`advanced-booking-day-${dir === -1 ? 'prev' : 'next'}`}
+      aria-label={dir === -1 ? 'Previous days' : 'Next days'}
+      disabled={disabled}
+      onClick={() => pageDayRow(dir)}
+      style={{
+        flex: '0 0 auto',
+        width: 28, height: 28, borderRadius: radiusPx,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        border: `1px solid ${theme.border}`,
+        background: theme.surface,
+        color: disabled ? theme.textMuted : theme.textBody,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
+        transition: prefersReducedMotion ? 'none' : 'opacity 120ms ease-out',
+        padding: 0,
+      }}
+    >
+      <svg
+        aria-hidden="true"
+        width={16} height={16} viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth={2.25}
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d={dir === -1 ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
+      </svg>
+    </button>
+  );
 
   return (
     <div
@@ -1554,83 +1647,122 @@ function BookingCalendarPreview({
           Schedule your appointment
         </span>
       </div>
-      <div
-        data-testid="advanced-booking-grid"
-        style={{
-          display: 'grid',
-          // Item 6c — a balanced row that fills the full panel width with no
-          // blank right gap. A smaller min track (96px) lets all four day
-          // cards sit on ONE row on desktop and stretch to share the width
-          // evenly (1fr); on narrow viewports the grid wraps to a clean 2×2
-          // (and 1-column on the tightest mobile), which always fills its row
-          // rather than leaving an awkward empty cell on the right.
-          gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
-          gap: 8,
-        }}
-      >
-        {days.map((day) => (
-          <div
-            key={day.id}
-            data-testid={`advanced-booking-day-${day.id}`}
-            style={{
-              borderRadius: radiusPx, background: theme.surface,
-              border: `1px solid ${theme.border}`,
-              padding: 10, display: 'flex', flexDirection: 'column', gap: 6,
-              minWidth: 0,
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, color: theme.textMuted,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>
-                {day.dayLabel}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: theme.textBody }}>
-                {day.dateLabel}
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {day.slots.map((slot) => {
-                const slotKey = `${day.id}__${slot}`;
-                const isSelected = selected === slotKey;
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    data-testid={`advanced-booking-slot-${day.id}-${slot.replace(/[: ]/g, '')}`}
-                    aria-pressed={isSelected}
-                    onClick={() => {
-                      // External scheduler — open the owner-supplied URL
-                      // in a new tab; nothing to "select" inside the widget.
-                      if (isExternal && url) {
-                        try {
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                        } catch {
-                          /* popup blocked / non-browser env — ignore */
-                        }
-                        return;
-                      }
-                      setSelected(isSelected ? null : slotKey);
-                    }}
-                    style={{
-                      padding: '7px 10px', borderRadius: radiusPx,
-                      border: `1px solid ${isSelected ? accent : theme.border}`,
-                      background: isSelected ? hexToRgba(accent, 0.12) : 'transparent',
-                      color: isSelected ? accent : theme.textBody,
-                      fontFamily, fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', textAlign: 'left',
-                      transition: 'background 120ms ease-out, border-color 120ms ease-out',
-                    }}
-                  >
-                    {slot}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      {/* ── DAY SELECTOR — horizontal, scrollable + arrow-paginated ──
+          All 14 days are reachable on any screen size: the pill row scrolls
+          (touch-swipe / trackpad on mobile) and the ‹ › arrows page it on
+          desktop. The selected pill is outline-highlighted (not a bright
+          fill) per the design system, and scrolls itself into view. */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
+        {arrowBtn(-1, scrollState.atStart)}
+        <div
+          ref={dayRowRef}
+          data-testid="advanced-booking-grid"
+          data-booking-day-row=""
+          role="tablist"
+          aria-label="Choose a day"
+          style={{
+            display: 'flex', gap: 6, flex: '1 1 auto', minWidth: 0,
+            overflowX: 'auto', overflowY: 'hidden',
+            scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+            scrollSnapType: 'x proximity', paddingBottom: 2,
+          }}
+        >
+          {days.map((day, idx) => {
+            const isActive = idx === safeDayIdx;
+            return (
+              <button
+                key={day.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                data-testid={`advanced-booking-day-${day.id}`}
+                onClick={() => selectDay(idx)}
+                style={{
+                  flex: '0 0 auto', scrollSnapAlign: 'start',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 1, minWidth: 58, padding: '7px 10px',
+                  borderRadius: radiusPx,
+                  border: `1px solid ${isActive ? accent : theme.border}`,
+                  background: isActive ? hexToRgba(accent, 0.10) : theme.surface,
+                  color: isActive ? accent : theme.textBody,
+                  fontFamily, cursor: 'pointer',
+                  transition: prefersReducedMotion
+                    ? 'none'
+                    : 'background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out',
+                }}
+              >
+                <span style={{
+                  fontSize: 11, fontWeight: 700,
+                  color: isActive ? accent : theme.textMuted,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>
+                  {day.dayLabel}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? accent : theme.textBody }}>
+                  {day.dateLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {arrowBtn(1, scrollState.atEnd)}
       </div>
+
+      {/* ── TIME-SLOT GRID for the SELECTED day ──
+          Responsive auto-fit grid (2–3 columns by width, reflows on mobile),
+          scrollable if the working-hours window is long. Selecting a slot
+          outline-highlights it. */}
+      {activeDay && (
+        <div
+          data-testid="advanced-booking-slots"
+          data-booking-active-day={activeDay.id}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+            gap: 6, maxHeight: 184, overflowY: 'auto',
+            scrollbarWidth: 'thin',
+          }}
+        >
+          {activeDay.slots.map((slot) => {
+            const slotKey = `${activeDay.id}__${slot}`;
+            const isSelected = selected === slotKey;
+            return (
+              <button
+                key={slot}
+                type="button"
+                data-testid={`advanced-booking-slot-${activeDay.id}-${slot.replace(/[: ]/g, '')}`}
+                aria-pressed={isSelected}
+                onClick={() => {
+                  // External scheduler — open the owner-supplied URL
+                  // in a new tab; nothing to "select" inside the widget.
+                  if (isExternal && url) {
+                    try {
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    } catch {
+                      /* popup blocked / non-browser env — ignore */
+                    }
+                    return;
+                  }
+                  setSelected(isSelected ? null : slotKey);
+                }}
+                style={{
+                  padding: '8px 10px', borderRadius: radiusPx,
+                  border: `1px solid ${isSelected ? accent : theme.border}`,
+                  background: isSelected ? hexToRgba(accent, 0.12) : 'transparent',
+                  color: isSelected ? accent : theme.textBody,
+                  fontFamily, fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', textAlign: 'center',
+                  transition: prefersReducedMotion
+                    ? 'none'
+                    : 'background 120ms ease-out, border-color 120ms ease-out',
+                }}
+              >
+                {slot}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {isExternal && url && (
         <p style={{ margin: 0, fontSize: 11, color: theme.textMuted, lineHeight: 1.5 }}>
           Slots open your scheduler in a new tab.
