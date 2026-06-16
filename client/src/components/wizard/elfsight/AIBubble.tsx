@@ -538,6 +538,71 @@ function clampBubblePos(pos: BubblePos): BubblePos {
   };
 }
 
+/* ─── Mobile middle-floating panel — free resize (2026-06-16) ───────────────
+ * On mobile (≤768px) the open chat is a frosted-glass card floating in the
+ * MIDDLE of the screen (preview visible above AND below), not a docked bottom
+ * sheet. The user free-resizes its HEIGHT by dragging a handle on the bottom
+ * edge of the card — mirroring MobileBottomSheet's pointer drag-to-resize:
+ *   - pointer capture + a tap-vs-drag threshold,
+ *   - live pixel height during the drag, rest at the released height,
+ *   - clamped to [MIN, max-that-keeps-margins], and
+ *   - persisted as a FRACTION of the viewport so it restores proportionally
+ *     across viewport sizes / orientations (localStorage). Reduced-motion is
+ *     honoured by the CSS (transition killed during drag anyway).
+ * A separate grab handle on the TOP edge of the card is drag-to-FOLD: grab it
+ * and drag inward (down) to fold the card back to the tab — the inverse of the
+ * tab's drag-to-open. Both keep a tap fallback (the header min/close buttons). */
+const AI_PANEL_HEIGHT_FRAC_KEY = 'qq_wizard_ai_panel_height_frac';
+/** Smallest open height (px) the floating card ever rests at. */
+const AI_PANEL_MIN_PX = 240;
+/** Vertical margin (px) kept ABOVE and BELOW the card so the preview is always
+ *  partly visible top and bottom — the "floating in the middle" look. */
+const AI_PANEL_MARGIN_PX = 64;
+/** Default height as a fraction of the viewport for a first / unpersisted open
+ *  (~0.6 → card ≈ 60% tall, leaving ≈ 20% preview above + 20% below). */
+const AI_PANEL_DEFAULT_FRAC = 0.6;
+/** Tap-vs-drag threshold (px) for the resize / fold handles — mirrors the
+ *  MobileBottomSheet TAP_THRESHOLD_PX. */
+const AI_PANEL_DRAG_THRESHOLD = 6;
+/** Downward drag (px) on the top grab handle past which a release folds the
+ *  card back to the tab — the inverse of AI_TAB_OPEN_PULL. */
+const AI_PANEL_FOLD_PULL = 72;
+
+const clampNum = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** Live max open height (px): viewport minus a top+bottom margin so the card
+ *  always floats with preview visible above and below. SSR-safe. */
+function panelMaxPx(): number {
+  if (typeof window === 'undefined') return 480;
+  return Math.max(AI_PANEL_MIN_PX, window.innerHeight - AI_PANEL_MARGIN_PX * 2);
+}
+
+function loadPanelHeightFrac(): number {
+  if (typeof window === 'undefined') return AI_PANEL_DEFAULT_FRAC;
+  try {
+    const raw = localStorage.getItem(AI_PANEL_HEIGHT_FRAC_KEY);
+    if (raw !== null) {
+      const n = parseFloat(raw);
+      if (Number.isFinite(n) && n > 0 && n <= 1) return n;
+    }
+  } catch { /* private mode — use default */ }
+  return AI_PANEL_DEFAULT_FRAC;
+}
+
+function savePanelHeightFrac(frac: number): void {
+  if (typeof window === 'undefined' || !Number.isFinite(frac) || frac <= 0) return;
+  try {
+    localStorage.setItem(AI_PANEL_HEIGHT_FRAC_KEY, String(clampNum(frac, 0.05, 1)));
+  } catch { /* ignore quota / privacy-mode */ }
+}
+
+/** Resolve the persisted fraction to an open height (px), clamped to the live
+ *  geometry so it never starves the top/bottom margins. */
+function panelHeightFromFrac(frac: number): number {
+  if (typeof window === 'undefined') return AI_PANEL_MIN_PX;
+  return clampNum(frac * window.innerHeight, AI_PANEL_MIN_PX, panelMaxPx());
+}
+
 export default function AIBubble(props: AIBubbleProps) {
   const { conversationId = 'default', state, seedPrompt, seedNonce, seedImage, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
@@ -726,6 +791,121 @@ export default function AIBubble(props: AIBubbleProps) {
   }, []);
   const onHeaderPointerEnd = useCallback(() => {
     headerSwipeRef.current = null;
+  }, []);
+
+  /* ─── Mobile middle-floating card — free resize + drag-to-fold ────────────
+   * Mirrors MobileBottomSheet's pointer drag model: pointer capture, a
+   * tap-vs-drag threshold, a live pixel height during the drag, rest-at-release
+   * (clamped), and the resting height persisted as a viewport fraction. Two
+   * handles drive it:
+   *   - BOTTOM edge handle → free resize the card height.
+   *   - TOP edge grab handle → drag DOWN past a pull threshold to FOLD back to
+   *     the tab (the inverse of the tab's drag-to-open).
+   * Desktop is unaffected — these handles are display:none above 768px and the
+   * inline height only applies inside the mobile CSS branch. */
+  const [panelHeightPx, setPanelHeightPx] = useState<number>(() => panelHeightFromFrac(loadPanelHeightFrac()));
+  // Live pixel height while a resize drag is in progress (null = use resting).
+  const [panelDragHeight, setPanelDragHeight] = useState<number | null>(null);
+  const [panelResizing, setPanelResizing] = useState(false);
+  const panelResizeRef = useRef<
+    { pointerId: number; startY: number; startH: number; moved: number } | null
+  >(null);
+
+  // Re-derive the resting height from the persisted fraction on resize /
+  // orientation change so the card stays proportional and never strands itself
+  // off-screen at a new viewport size.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => {
+      setPanelHeightPx(panelHeightFromFrac(loadPanelHeightFrac()));
+      setPanelDragHeight((cur) => (cur === null ? null : Math.min(cur, panelMaxPx())));
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  // The rendered mobile card height (live drag → resting). Clamped to geometry.
+  const panelCurrentHeight = panelDragHeight !== null
+    ? clampNum(panelDragHeight, AI_PANEL_MIN_PX, panelMaxPx())
+    : panelHeightPx;
+
+  const onPanelResizeDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    panelResizeRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startH: panelCurrentHeight,
+      moved: 0,
+    };
+    setPanelResizing(true);
+    setPanelDragHeight(panelCurrentHeight);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+  }, [panelCurrentHeight]);
+
+  const onPanelResizeMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = panelResizeRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const delta = e.clientY - d.startY; // down = positive
+    d.moved = Math.max(d.moved, Math.abs(delta));
+    // The handle is on the BOTTOM edge: drag DOWN grows the card, UP shrinks it.
+    const next = clampNum(d.startH + delta, AI_PANEL_MIN_PX, panelMaxPx());
+    setPanelDragHeight(next);
+  }, []);
+
+  const onPanelResizeEnd = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = panelResizeRef.current;
+    panelResizeRef.current = null;
+    setPanelResizing(false);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (!d) { setPanelDragHeight(null); return; }
+    // Sub-threshold = a tap → no-op (the handle is a resize affordance only).
+    if (d.moved < AI_PANEL_DRAG_THRESHOLD) { setPanelDragHeight(null); return; }
+    // Real drag → rest at the released height + persist as a viewport fraction.
+    const rested = clampNum(panelDragHeight ?? d.startH, AI_PANEL_MIN_PX, panelMaxPx());
+    setPanelHeightPx(rested);
+    if (typeof window !== 'undefined' && window.innerHeight > 0) {
+      savePanelHeightFrac(rested / window.innerHeight);
+    }
+    setPanelDragHeight(null);
+  }, [panelDragHeight]);
+
+  /* TOP grab handle — drag DOWN to fold the card back to the tab. A short
+   * sub-threshold tap toggles the collapse (header-only) state as a fallback,
+   * matching the bottom sheet's grabber tap behaviour. */
+  const panelGrabRef = useRef<
+    { pointerId: number; startY: number; moved: number; willFold: boolean } | null
+  >(null);
+  const [panelGrabbing, setPanelGrabbing] = useState(false);
+  const onPanelGrabDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    panelGrabRef.current = { pointerId: e.pointerId, startY: e.clientY, moved: 0, willFold: false };
+    setPanelGrabbing(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+  }, []);
+  const onPanelGrabMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = panelGrabRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const dy = e.clientY - d.startY; // down = positive
+    d.moved = Math.max(d.moved, Math.abs(dy));
+    d.willFold = dy >= AI_PANEL_FOLD_PULL;
+  }, []);
+  const onPanelGrabEnd = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = panelGrabRef.current;
+    panelGrabRef.current = null;
+    setPanelGrabbing(false);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (!d) return;
+    if (d.moved < AI_PANEL_DRAG_THRESHOLD) {
+      // Tap fallback → toggle the header-only collapse.
+      setCollapsed((v) => !v);
+      return;
+    }
+    // Dragged inward far enough → fold the card back to the tab.
+    if (d.willFold) setOpen(false);
   }, []);
 
   useEffect(() => {
@@ -1565,13 +1745,35 @@ export default function AIBubble(props: AIBubbleProps) {
 
       {open && (
         <div
-          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}${animating ? ' is-animating' : ''}`}
+          className={`qq-ai-panel${collapsed ? ' is-collapsed' : ''}${animating ? ' is-animating' : ''}${panelResizing ? ' is-resizing' : ''}${panelGrabbing ? ' is-grabbing' : ''}`}
           role="dialog"
           aria-label="QuoteQuick builder"
           data-testid="aibubble-panel"
           data-collapsed={collapsed ? 'true' : 'false'}
           data-state={animating ? 'animating' : 'unfolded'}
+          /* Mobile middle-floating card: drive the live height via a CSS var so
+             only the ≤768px branch consumes it (desktop keeps its fixed size).
+             During a drag the transition is killed (.is-resizing) so it tracks
+             the finger. */
+          style={{ ['--qq-ai-panel-h' as any]: `${Math.round(panelCurrentHeight)}px` }}
         >
+          {/* Mobile drag-to-fold grab handle — top edge of the floating card.
+              Grab + drag DOWN to fold back to the tab (inverse of the tab's
+              drag-to-open); a short tap toggles the header-only collapse. Drag
+              affordance only (decorative bar); the fold/min/close buttons are
+              the explicit tap controls. Hidden on desktop via CSS. */}
+          <div
+            className="qq-ai-panel-grab"
+            data-testid="aibubble-grab"
+            aria-hidden="true"
+            onPointerDown={onPanelGrabDown}
+            onPointerMove={onPanelGrabMove}
+            onPointerUp={onPanelGrabEnd}
+            onPointerCancel={onPanelGrabEnd}
+          >
+            <span className="qq-ai-panel-grab-bar" />
+          </div>
+
           {/* Wave 55 — top-center fold/unfold chevron. Toggles the panel
            *  between full (500px) and header-only (~46px tall). Matches the
            *  pattern used by the preview-pane fold/unfold (Wave M) so the
@@ -1994,6 +2196,24 @@ export default function AIBubble(props: AIBubbleProps) {
               </div>
             </div>
           )}
+
+          {/* Mobile free-resize handle — bottom edge of the floating card.
+              Drag DOWN to grow, UP to shrink; the card rests at the released
+              height (clamped, persisted as a viewport fraction). Mirrors
+              MobileBottomSheet's drag-to-resize. Hidden on desktop via CSS. */}
+          <div
+            className="qq-ai-panel-resize"
+            data-testid="aibubble-resize"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize the builder panel"
+            onPointerDown={onPanelResizeDown}
+            onPointerMove={onPanelResizeMove}
+            onPointerUp={onPanelResizeEnd}
+            onPointerCancel={onPanelResizeEnd}
+          >
+            <span className="qq-ai-panel-resize-bar" aria-hidden="true" />
+          </div>
         </div>
       )}
 
@@ -2194,27 +2414,162 @@ export default function AIBubble(props: AIBubbleProps) {
         @media (prefers-reduced-motion: reduce) {
           .qq-ai-panel { transition: none !important; }
         }
+        /* The top grab handle + bottom resize handle are mobile-only — desktop
+           keeps its corner-docked fixed-size panel and never shows them. */
+        .qq-ai-panel-grab,
+        .qq-ai-panel-resize { display: none; }
+
         @media (max-width: 768px) {
+          /* ── Mobile: frosted-glass card FLOATING in the MIDDLE ────────────
+             A fixed card centred vertically via top:50% + translateY(-50%), with
+             a guaranteed margin ABOVE and BELOW (the clamped height keeps the
+             preview visible top + bottom). NOT a docked bottom sheet. The card
+             is more translucent/glassy than desktop so the preview reads through
+             above + below + behind. */
           .qq-ai-panel {
-            right: 0; left: 0; bottom: 0;
-            width: 100%; height: 70vh; max-height: 70vh;
-            border-radius: 16px 16px 0 0;
+            /* Alex wants a BIG window — near edge-to-edge horizontally. */
+            left: 8px; right: 8px; width: auto;
+            /* Centre the card vertically and override the desktop bottom anchor. */
+            top: 50%; bottom: auto;
+            transform: translateY(-50%);
+            display: flex; flex-direction: column;
+            /* Resizable card height (clamped in JS); default ~66vh opens as a
+               clearly big window while still leaving preview visible above +
+               below. max-height keeps the top/bottom margin even if a stale
+               persisted px value is large. */
+            height: var(--qq-ai-panel-h, 66vh);
+            max-height: calc(100vh - 128px);
+            background: rgba(255, 255, 255, 0.62) !important;
+            -webkit-backdrop-filter: blur(26px) saturate(160%);
+            backdrop-filter: blur(26px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 20px;
+            box-shadow:
+              0 24px 70px rgba(15, 23, 42, 0.30),
+              0 2px 10px rgba(13, 60, 252, 0.12);
+            overflow: hidden;
+            position: fixed;
+            pointer-events: auto;
+            /* Smooth settle on resize; killed during an active drag below. The
+               desktop unfold animation is dropped on mobile. */
+            animation: none;
+            transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
           }
+          /* @supports fallback — without backdrop-filter, go near-solid so the
+             card text/input never washes out over the preview behind it. */
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .qq-ai-panel { background: rgba(255, 255, 255, 0.97) !important; }
+          }
+          /* FROSTED-THROUGH — Alex (2x): the ENTIRE chat window must read as
+             frosted glass, not just the card edge. The inner surfaces ship
+             opaque (#fff body/compose/input, near-solid header), which paints
+             over the card's backdrop-blur and kills the glass effect. Make them
+             translucent so the blurred preview shows through the whole window.
+             Scoped to '.qq-ai-panel x' (two classes) so these win over the
+             global single-class rules regardless of source order, and only on
+             mobile (desktop keeps its opaque corner popup). When backdrop-filter
+             is unsupported the card goes near-solid (above) so legibility holds.*/
+          .qq-ai-panel .qq-ai-panel-header {
+            background: linear-gradient(180deg, rgba(13, 60, 252, 0.08) 0%, rgba(255, 255, 255, 0.06) 100%);
+          }
+          .qq-ai-panel .qq-ai-msgs { background: transparent; }
+          .qq-ai-panel .qq-ai-compose {
+            background: rgba(255, 255, 255, 0.16);
+          }
+          .qq-ai-panel .qq-ai-input {
+            background: rgba(255, 255, 255, 0.60);
+          }
+          .qq-ai-panel .qq-ai-budget-meter {
+            background: rgba(255, 255, 255, 0.55);
+          }
+          /* Assistant bubble: keep a soft fill for readability but glassy, not a
+             solid slab, so the frost reads behind the conversation too. */
+          .qq-ai-panel .qq-ai-msg-assistant {
+            background: rgba(241, 245, 249, 0.72);
+          }
+          /* No height transition while dragging the resize handle → tracks the
+             finger 1:1. */
+          .qq-ai-panel.is-resizing { transition: none; }
+          /* Collapsed (header-only) shrinks the card; keep it centred + glassy. */
           .qq-ai-panel.is-collapsed {
-            height: 46px;
+            height: 54px;
           }
-          /* On the narrow viewport the icon-first tab stays docked to the
-           *  right edge — a compact, premium launcher. The chat panel still
-           *  opens as a full-width bottom sheet (rule above), so the tab only
-           *  hosts the tap/drag launcher. The default vertical centre keeps it
-           *  clear of the top bar and the bottom CTA; a user-dragged top
-           *  (inline) still wins. */
+
+          /* ── Top grab handle (drag-to-fold) ──────────────────────────────
+             A slim grab strip across the top of the card. Drag it DOWN to fold
+             the card back to the tab; tap toggles the header-only collapse. */
+          .qq-ai-panel-grab {
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            height: 20px;
+            cursor: grab;
+            touch-action: none;
+          }
+          .qq-ai-panel-grab:active { cursor: grabbing; }
+          .qq-ai-panel-grab-bar {
+            width: 40px; height: 4px; border-radius: 999px;
+            background: rgba(15, 23, 42, 0.22);
+            transition: background 0.16s ease, width 0.16s ease;
+          }
+          .qq-ai-panel.is-grabbing .qq-ai-panel-grab-bar {
+            background: #0d3cfc; width: 48px;
+          }
+          /* The fold chevron sits just under the grab strip on mobile so it
+             doesn't collide with the new handle. */
+          .qq-ai-panel-fold { top: 22px; }
+
+          /* ── Bottom free-resize handle ───────────────────────────────────
+             A grab strip across the bottom edge of the card; drag to resize the
+             card height (down grows, up shrinks). */
+          .qq-ai-panel-resize {
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            height: 22px;
+            cursor: ns-resize;
+            touch-action: none;
+            /* A faint top hairline separates it from the compose area. */
+            border-top: 1px solid rgba(15, 23, 42, 0.06);
+            background: rgba(255, 255, 255, 0.28);
+          }
+          .qq-ai-panel-resize-bar {
+            width: 44px; height: 4px; border-radius: 999px;
+            background: rgba(15, 23, 42, 0.26);
+            transition: background 0.16s ease, width 0.16s ease;
+          }
+          .qq-ai-panel.is-resizing .qq-ai-panel-resize-bar {
+            background: #0d3cfc; width: 56px;
+          }
+          /* Hide the resize handle while collapsed (no body to resize). */
+          .qq-ai-panel.is-collapsed .qq-ai-panel-resize { display: none; }
+
+          /* The narrow-viewport tab is THINNER + MORE TRANSPARENT (per the ask):
+             a slimmer pill, lower-opacity frosted surface, softer glow — still
+             tucked to the right edge with the spark + a subtle pull cue. */
           .qq-ai-tab {
-            width: 42px; height: 58px;
+            width: 30px; height: 52px;
+            border-radius: 13px 0 0 13px;
+            border-color: rgba(255, 255, 255, 0.28);
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 55%),
+              linear-gradient(210deg, rgba(45, 96, 255, 0.50) 0%, rgba(13, 60, 252, 0.50) 70%, rgba(10, 44, 200, 0.52) 100%);
+            -webkit-backdrop-filter: blur(12px) saturate(140%);
+            backdrop-filter: blur(12px) saturate(140%);
+            box-shadow:
+              -5px 0 16px rgba(13, 60, 252, 0.18),
+              inset 0 1px 0 rgba(255, 255, 255, 0.30);
           }
-          .qq-ai-tab:hover { width: 46px; }
-          .qq-ai-tab-glyph { width: 28px; height: 28px; }
-          .qq-ai-tab-spark { width: 16px; height: 16px; }
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .qq-ai-tab {
+              background: linear-gradient(210deg, rgba(45, 96, 255, 0.82) 0%, rgba(13, 60, 252, 0.82) 100%);
+            }
+          }
+          .qq-ai-tab:hover { width: 34px; }
+          .qq-ai-tab-glyph {
+            width: 24px; height: 24px;
+            background: rgba(255, 255, 255, 0.12);
+          }
+          .qq-ai-tab-spark { width: 14px; height: 14px; }
+          .qq-ai-tab-chevron { width: 11px; height: 11px; }
         }
 
         .qq-ai-panel-header {
@@ -2698,6 +3053,31 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-confirm { background: #422006; border-color: #78350f; color: #fde68a; }
         [data-theme="dark"] .qq-ai-confirm-applied { background: #064e3b; border-color: #065f46; color: #d1fae5; }
         [data-theme="dark"] .qq-ai-confirm-cancelled { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+
+        /* ── Mobile middle-floating card — dark theme + handle tints ──────── */
+        @media (max-width: 768px) {
+          [data-theme="dark"] .qq-ai-panel {
+            background: rgba(15, 23, 42, 0.60) !important;
+            border-color: rgba(255, 255, 255, 0.12);
+          }
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            [data-theme="dark"] .qq-ai-panel { background: rgba(15, 23, 42, 0.97) !important; }
+          }
+          [data-theme="dark"] .qq-ai-panel-grab-bar { background: rgba(255, 255, 255, 0.30); }
+          [data-theme="dark"] .qq-ai-panel-resize {
+            background: rgba(15, 23, 42, 0.28);
+            border-top-color: rgba(255, 255, 255, 0.08);
+          }
+          [data-theme="dark"] .qq-ai-panel-resize-bar { background: rgba(255, 255, 255, 0.30); }
+        }
+
+        /* Reduced-motion — the floating card resizes/settles instantly (the
+           drag already tracks the finger; this kills the settle transition). */
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-panel,
+          .qq-ai-panel-grab-bar,
+          .qq-ai-panel-resize-bar { transition: none !important; }
+        }
       `}</style>
     </>
   );
