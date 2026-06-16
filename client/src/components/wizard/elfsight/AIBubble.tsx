@@ -491,9 +491,9 @@ function saveCollapsed(v: boolean): void {
  *  old circular-badge X coordinate is intentionally dropped — the tab is
  *  edge-docked, so only its vertical offset is user-controllable. */
 const AI_BUBBLE_POS_KEY = 'qq_wizard_ai_tab_pos';
-/** Rendered height of the vertical side tab (must match the CSS below). Used
+/** Rendered height of the icon-first side tab (must match the CSS below). Used
  *  only to clamp the drag so the whole tab stays on-screen. */
-const AI_TAB_HEIGHT = 132;
+const AI_TAB_HEIGHT = 64;
 /** Min drag distance (px) before a pointer-down is treated as a drag rather
  *  than a click — so a normal tap still opens the panel. */
 const AI_BUBBLE_DRAG_THRESHOLD = 4;
@@ -1551,14 +1551,14 @@ export default function AIBubble(props: AIBubbleProps) {
           ...(tabPull > 0 ? { transform: `translateX(${-tabPull * 10}px)` } : null),
         }}
       >
-        {/* Soft inner glow + gradient sheen come from CSS; this markup just
-            stacks the affordances top→bottom: a pull-open chevron, the grip
-            dots (drag/swipe handle), the spark glyph, and the vertical
-            wordmark. */}
+        {/* Premium ICON-FIRST tab (2026-06-16). No rotated wordmark. The
+            markup stacks just two affordances: the spark/AI glyph (the
+            identity) inside a soft glass disc, and a subtle pull-open chevron
+            beneath it. Soft brand glow + frosted surface come from CSS. */}
+        <span className="qq-ai-tab-glyph" aria-hidden="true">
+          <Sparkles className="qq-ai-tab-spark" aria-hidden="true" />
+        </span>
         <ChevronLeft className="qq-ai-tab-chevron" aria-hidden="true" />
-        <span className="qq-ai-tab-grip" aria-hidden="true" />
-        <Sparkles className="qq-ai-tab-spark" aria-hidden="true" />
-        <span className="qq-ai-tab-text" aria-hidden="true">Builder</span>
         {/* Accessible text label kept for screen-reader / test text parity. */}
         <span className="qq-ai-bubble-label">Builder</span>
       </button>
@@ -2004,61 +2004,64 @@ export default function AIBubble(props: AIBubbleProps) {
          *  vertical "Builder" text + spark read top-to-bottom along the tab.
          *  Default vertical anchor is centred-ish on the right edge; a dragged
          *  position overrides top inline. */
-        /* ── Premium frosted side-tab launcher ──────────────────────────
-         *  Apple/Linear-class: a slim, intentional pill docked flush to the
-         *  right edge. A translucent frosted glass surface with a soft brand
-         *  gradient + inner sheen, a clear chat/spark glyph, and an obvious
-         *  "pull to open" affordance (chevron + grip dots). Tap, swipe-left,
-         *  or drag to open. */
+        /* ── Premium ICON-FIRST side-tab launcher (2026-06-16) ──────────────
+         *  Apple/Linear-class: a small, confident frosted-glass pill docked
+         *  flush to the right edge — NOT a faded vertical strip. No rotated
+         *  wordmark. Just a spark/AI glyph in a soft glass disc with a subtle
+         *  pull-open chevron beneath it. A clear 1px edge + soft brand glow
+         *  keep it from blending into a white preview. ~44px wide tap target.
+         *  Tap, swipe-left, or drag to open. */
         .qq-ai-tab {
-          position: fixed; right: 0; top: 50%; z-index: 1100;
+          position: fixed; right: 0; top: 50%; z-index: 9998;
           transform: translateY(-50%);
-          width: 40px; height: 148px; padding: 12px 0 14px;
+          width: 46px; height: 64px; padding: 0;
           display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 9px;
-          border: 1px solid rgba(255, 255, 255, 0.28);
+          align-items: center; justify-content: center; gap: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.45);
           border-right: none;
-          border-radius: 18px 0 0 18px;
-          /* Half-transparent frosted glass with a soft brand gradient — the
-             preview shows through, and a subtle vertical sheen reads premium. */
+          border-radius: 16px 0 0 16px;
+          /* Frosted glass with a soft brand gradient + a crisp top sheen — a
+             well-defined surface, not a translucent smudge. */
           background:
-            linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 42%),
-            linear-gradient(200deg, rgba(45, 96, 255, 0.58) 0%, rgba(13, 60, 252, 0.5) 60%, rgba(10, 44, 200, 0.52) 100%);
-          -webkit-backdrop-filter: blur(16px) saturate(150%);
-          backdrop-filter: blur(16px) saturate(150%);
+            linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 50%),
+            linear-gradient(210deg, rgba(45, 96, 255, 0.92) 0%, rgba(13, 60, 252, 0.92) 70%, rgba(10, 44, 200, 0.94) 100%);
+          -webkit-backdrop-filter: blur(14px) saturate(150%);
+          backdrop-filter: blur(14px) saturate(150%);
           color: #fff; cursor: grab;
-          /* Soft brand glow + a crisp inset top highlight for the glass edge. */
+          /* Soft brand glow (so it never blends into white) + crisp inset edge. */
           box-shadow:
-            -10px 0 30px rgba(13, 60, 252, 0.30),
-            inset 0 1px 0 rgba(255, 255, 255, 0.35);
-          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
-                      background 200ms ease-out,
+            -8px 0 26px rgba(13, 60, 252, 0.34),
+            -1px 0 0 rgba(13, 60, 252, 0.20),
+            inset 0 1px 0 rgba(255, 255, 255, 0.42);
+          transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
                       box-shadow 200ms ease-out,
                       width 200ms cubic-bezier(0.22, 1, 0.36, 1),
-                      opacity 200ms ease-out;
+                      opacity 220ms ease-out;
           touch-action: none; /* pointer-drag on touch without scrolling */
           user-select: none; -webkit-user-select: none;
         }
-        /* Fallback for browsers without backdrop-filter: a richer opaque
-         *  gradient fill so the tab stays legible without the blur see-through. */
+        /* Fallback for browsers without backdrop-filter: a fully opaque brand
+         *  fill so the pill stays crisp without the blur. */
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .qq-ai-tab {
-            background: linear-gradient(200deg, rgba(45, 96, 255, 0.96) 0%, rgba(13, 60, 252, 0.96) 100%);
+            background: linear-gradient(210deg, rgba(45, 96, 255, 1) 0%, rgba(13, 60, 252, 1) 100%);
           }
         }
         .qq-ai-tab:hover {
-          width: 46px;
+          width: 52px;
           box-shadow:
-            -12px 0 34px rgba(13, 60, 252, 0.42),
-            inset 0 1px 0 rgba(255, 255, 255, 0.45);
+            -12px 0 34px rgba(13, 60, 252, 0.46),
+            -1px 0 0 rgba(13, 60, 252, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.5);
         }
         .qq-ai-tab:hover .qq-ai-tab-chevron { transform: translateX(-2px); opacity: 1; }
+        .qq-ai-tab:hover .qq-ai-tab-glyph { transform: scale(1.06); }
         .qq-ai-tab:active,
         .qq-ai-tab[data-dragging="true"] { cursor: grabbing; }
         .qq-ai-tab[data-dragging="true"] {
           box-shadow:
             -14px 0 38px rgba(13, 60, 252, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.45);
+            inset 0 1px 0 rgba(255, 255, 255, 0.5);
         }
         /* Folding away into the chat window — fade + slide off the right edge so
          *  the unfold reads as the tab smoothly becoming the panel. */
@@ -2070,44 +2073,36 @@ export default function AIBubble(props: AIBubbleProps) {
         .qq-ai-tab:focus-visible {
           outline: 2px solid #fff; outline-offset: 2px;
         }
-        /* Pull-open chevron — the explicit "open me" affordance at the top. */
-        .qq-ai-tab-chevron {
-          width: 16px; height: 16px; flex-shrink: 0; pointer-events: none;
-          color: rgba(255, 255, 255, 0.92);
-          opacity: 0.85;
-          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
-                      opacity 200ms ease-out;
-        }
-        /* Grip dots — the drag/swipe affordance, echoing the bottom-sheet handle. */
-        .qq-ai-tab-grip {
-          width: 4px; height: 22px; border-radius: 999px;
-          background: repeating-linear-gradient(
-            to bottom,
-            rgba(255, 255, 255, 0.92) 0 2px,
-            transparent 2px 5px
-          );
+        /* The spark glyph in a soft glass disc — the tab's identity. */
+        .qq-ai-tab-glyph {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; border-radius: 999px;
+          background: rgba(255, 255, 255, 0.16);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
           flex-shrink: 0; pointer-events: none;
+          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
         }
         .qq-ai-tab-spark {
           width: 18px; height: 18px; flex-shrink: 0; pointer-events: none;
-          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.20));
         }
-        /* Vertical "Builder" wordmark running up the tab. */
-        .qq-ai-tab-text {
-          writing-mode: vertical-rl; transform: rotate(180deg);
-          font-size: 11px; font-weight: 700; letter-spacing: 1.6px;
-          text-transform: uppercase; pointer-events: none;
-          color: rgba(255, 255, 255, 0.98);
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+        /* Pull-open chevron — the subtle "open me" affordance beneath the glyph. */
+        .qq-ai-tab-chevron {
+          width: 13px; height: 13px; flex-shrink: 0; pointer-events: none;
+          color: rgba(255, 255, 255, 0.88);
+          opacity: 0.8;
+          transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 200ms ease-out;
         }
-        /* The accessible label is conveyed by aria-label + the visible text;
-         *  keep a visually-hidden span so screen-reader/test text reads "Builder". */
+        /* The accessible label is conveyed by aria-label; keep a visually-hidden
+         *  span so screen-reader/test text still reads "Builder". */
         .qq-ai-bubble-label {
           position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
           overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
         }
         @media (prefers-reduced-motion: reduce) {
           .qq-ai-tab,
+          .qq-ai-tab-glyph,
           .qq-ai-tab-chevron { transition: none !important; }
           .qq-ai-tab[data-state="animating"] {
             opacity: 1;
@@ -2116,7 +2111,11 @@ export default function AIBubble(props: AIBubbleProps) {
         }
 
         .qq-ai-panel {
-          position: fixed; right: 18px; bottom: 18px; z-index: 1100;
+          /* z-index 10000 — the OPEN chat panel must sit ABOVE the mobile
+             resize sheet (MobileBottomSheet, z-index 9998) so the chat is
+             never covered when both are docked open. On desktop there is no
+             sheet/nav at this layer, so the high value is harmless. */
+          position: fixed; right: 18px; bottom: 18px; z-index: 10000;
           width: 372px; height: 520px; max-height: calc(100vh - 36px);
           display: flex; flex-direction: column;
           /* Elevated frosted card — a touch of translucency + blur so it reads
@@ -2204,19 +2203,18 @@ export default function AIBubble(props: AIBubbleProps) {
           .qq-ai-panel.is-collapsed {
             height: 46px;
           }
-          /* #13 — on the narrow viewport the side tab stays docked to the
-           *  right edge, but slightly shorter so it reads as a secondary
-           *  affordance and clears the persistent bottom tab bar. The chat
-           *  panel still opens as a full-width bottom sheet (rule above), so
-           *  the tab only needs to host the tap/drag launcher. The default
-           *  vertical centre keeps it clear of the top bar and the bottom CTA;
-           *  a user-dragged top (inline) still wins. */
+          /* On the narrow viewport the icon-first tab stays docked to the
+           *  right edge — a compact, premium launcher. The chat panel still
+           *  opens as a full-width bottom sheet (rule above), so the tab only
+           *  hosts the tap/drag launcher. The default vertical centre keeps it
+           *  clear of the top bar and the bottom CTA; a user-dragged top
+           *  (inline) still wins. */
           .qq-ai-tab {
-            width: 30px; height: 110px;
+            width: 42px; height: 58px;
           }
-          .qq-ai-tab:hover { width: 32px; }
-          .qq-ai-tab-text { font-size: 10px; letter-spacing: 1.2px; }
-          .qq-ai-tab-spark { width: 15px; height: 15px; }
+          .qq-ai-tab:hover { width: 46px; }
+          .qq-ai-tab-glyph { width: 28px; height: 28px; }
+          .qq-ai-tab-spark { width: 16px; height: 16px; }
         }
 
         .qq-ai-panel-header {
