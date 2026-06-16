@@ -10,6 +10,8 @@ import {
   fulfillmentTasks,
   onboardingSubmissions,
   clientPayments,
+  leads,
+  calculators,
 } from "@shared/schema";
 
 import { createLogger } from "../lib/logger";
@@ -142,6 +144,7 @@ export function registerPortalRoutes(app: Express) {
         pending_onboarding: 0,
         recent_tasks: [],
         recent_payments: [],
+        leads_series: [],
       });
       if (!clientId) return;
 
@@ -192,6 +195,36 @@ export function registerPortalRoutes(app: Express) {
         .orderBy(desc(fulfillmentTasks.updated_at))
         .limit(10);
 
+      // 14-day daily leads series for the dashboard hero sparkline. Leads
+      // belong to the client's calculators (leads.calculator_id → calculators
+      // .client_id). generate_series gives a zero-filled row per day so the
+      // sparkline has 14 contiguous points (no gaps) even on a quiet account.
+      const leadsSeriesResult = await db.execute(sql`
+        WITH days AS (
+          SELECT generate_series(
+            date_trunc('day', NOW()) - INTERVAL '13 days',
+            date_trunc('day', NOW()),
+            INTERVAL '1 day'
+          )::date AS d
+        ),
+        lds AS (
+          SELECT date_trunc('day', l.created_date)::date AS d, COUNT(*)::int AS n
+          FROM ${leads} l
+          JOIN ${calculators} c ON c.id = l.calculator_id
+          WHERE c.client_id = ${clientId}
+            AND l.created_date >= NOW() - INTERVAL '14 days'
+          GROUP BY 1
+        )
+        SELECT to_char(days.d, 'YYYY-MM-DD') AS date, COALESCE(lds.n, 0) AS count
+        FROM days
+        LEFT JOIN lds ON lds.d = days.d
+        ORDER BY days.d ASC
+      `);
+      const leadsSeries = ((leadsSeriesResult as any).rows ?? []).map((r: any) => ({
+        date: String(r.date),
+        count: Number(r.count ?? 0),
+      }));
+
       res.json({
         business_name: client.business_name,
         contact_name: client.contact_name,
@@ -201,6 +234,7 @@ export function registerPortalRoutes(app: Express) {
         action_needed: waitingCount?.count ?? 0,
         outstanding_balance_cents: balance?.total ?? 0,
         recent_activity: recentActivity,
+        leads_series: leadsSeries,
       });
     } catch (err) {
       log.error("Portal overview error:", { error: String(err) });

@@ -72,10 +72,10 @@ client/src/pages/admin/ContentFlowQueuePage.tsx:1101:59	rule-c	square w-2 h-2
 client/src/pages/admin/ContentFlowQueuePage.tsx:1102:59	rule-c	square w-2 h-2
 client/src/pages/admin/ContentFlowQueuePage.tsx:1103:59	rule-c	square w-2 h-2
 client/src/pages/admin/ContentFlowQueuePage.tsx:1132:25	rule-c	square w-2 h-2
-client/src/pages/admin/CrmOverview.tsx:64:13	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CrmOverview.tsx:279:14	rule-c	square w-9 h-9
-client/src/pages/admin/CrmOverview.tsx:395:36	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/CrmOverview.tsx:486:38	rule-c	square w-10 h-10
+client/src/pages/admin/CrmOverview.tsx:85:13	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CrmOverview.tsx:330:14	rule-c	square w-9 h-9
+client/src/pages/admin/CrmOverview.tsx:575:36	rule-c	square w-2.5 h-2.5
+client/src/pages/admin/CrmOverview.tsx:666:38	rule-c	square w-10 h-10
 client/src/pages/admin/InboxPage.tsx:191:61	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/InboxPage.tsx:192:61	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/MapguardDashboard.tsx:138:14	rule-c	square w-9 h-9

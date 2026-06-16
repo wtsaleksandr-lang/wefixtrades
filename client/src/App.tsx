@@ -568,7 +568,10 @@ function Router() {
       <Route path="/portal/socialsync/dashboard">{() => <RequireClient><SocialSyncDashboard /></RequireClient>}</Route>
       {/* Wave 33 — SocialSync 3-question setup (v2 — replaces the legacy 5-step wizard above). */}
       <Route path="/portal/socialsync/setup">{() => <RequireClient><SocialSyncSetupV2 /></RequireClient>}</Route>
-      <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
+      {/* The main nav lands on the premium dashboard (was the legacy plain
+         PortalSocialSync). Legacy view kept at /portal/socialsync/legacy. */}
+      <Route path="/portal/socialsync/legacy">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
+      <Route path="/portal/socialsync">{() => <RequireClient><SocialSyncDashboard /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
       <Route path="/portal/invoices/:id">{() => <RequireClient><InvoiceDetailPage /></RequireClient>}</Route>

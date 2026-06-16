@@ -16,6 +16,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 // Premium polish — smooth-count animation on KPI numbers (respects reduced motion).
 import AnimatedNumber from "@/components/AnimatedNumber";
+// Premium hero sparkline — reuses the TradeLine-grade visual primitive.
+import { SparklineWithPeak } from "@/components/ui/visual-primitives/SparklineWithPeak";
 // First-visit progressive-disclosure tooltip — one-time hint per browser/profile.
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
@@ -80,6 +82,8 @@ interface OverviewData {
     completed_at: string | null;
     updated_at: string | null;
   }[];
+  /** 14-day daily leads series (zero-filled) for the hero sparkline. */
+  leads_series?: { date: string; count: number }[];
 }
 
 interface QuoteQuickData {
@@ -283,6 +287,19 @@ function PortalDashboardInner() {
   const nextBillingDays = daysUntil(billingSlice?.summary.next_due_at);
   const nextBillCents = billingSlice?.summary.next_due_amount_cents ?? null;
 
+  // Hero sparkline series + week-over-week trend. The 14-day series splits
+  // into two 7-day halves; the delta is last-7 vs prior-7 leads. null when
+  // there's no prior-week baseline so we render "New" not a misleading +100%.
+  const leadsSeries = data?.leads_series ?? [];
+  const sparkValues = leadsSeries.map((d) => d.count);
+  const sparkLabels = leadsSeries.map((d) =>
+    new Date(d.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  );
+  const last7 = sparkValues.slice(-7).reduce((a, b) => a + b, 0);
+  const prev7 = sparkValues.slice(0, Math.max(0, sparkValues.length - 7)).reduce((a, b) => a + b, 0);
+  const leadsTrendPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
+  const hasSparkData = sparkValues.some((v) => v > 0);
+
   return (
     <PortalLayout>
       {isLoading && (
@@ -454,13 +471,45 @@ function PortalDashboardInner() {
                 className="mb-4 bg-gradient-to-br from-brand-blue to-brand-blue-600 text-white border-0"
               >
                 <div className="p-6">
-                  <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
-                  <div className="text-3xl font-bold mb-3">
-                    <AnimatedNumber value={leadsThisMonth} duration={1000} /> lead{leadsThisMonth === 1 ? "" : "s"}
-                    {nextBillingDays != null && nextBillCents != null && (
-                      <span className="text-sm font-normal opacity-80">
-                        {" · "}{formatDollarsRound(nextBillCents)} due in {nextBillingDays}d
-                      </span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
+                      <div className="text-3xl font-bold mb-1">
+                        <AnimatedNumber value={leadsThisMonth} duration={1000} /> lead{leadsThisMonth === 1 ? "" : "s"}
+                        {nextBillingDays != null && nextBillCents != null && (
+                          <span className="text-sm font-normal opacity-80">
+                            {" · "}{formatDollarsRound(nextBillCents)} due in {nextBillingDays}d
+                          </span>
+                        )}
+                      </div>
+                      {/* Week-over-week leads trend */}
+                      <div className="text-xs opacity-80 mb-3">
+                        {leadsTrendPct == null ? (
+                          <span>Last 14 days</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <span className={leadsTrendPct >= 0 ? "text-emerald-200" : "text-red-200"}>
+                              {leadsTrendPct >= 0 ? "▲" : "▼"} {leadsTrendPct >= 0 ? "+" : ""}{leadsTrendPct}%
+                            </span>
+                            <span className="opacity-70">vs prior 7 days</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Hero sparkline — leads over the last 14 days. Hidden until
+                       there's at least one lead so empty accounts stay clean. */}
+                    {hasSparkData && (
+                      <div className="hidden sm:block shrink-0 -mr-1 -mt-1" data-testid="dashboard-hero-sparkline">
+                        <SparklineWithPeak
+                          data={sparkValues}
+                          pointLabels={sparkLabels}
+                          color="sapphire"
+                          width={180}
+                          height={72}
+                          peakLabel={`${Math.max(...sparkValues)} leads`}
+                          ariaLabel={`Leads over the last ${sparkValues.length} days`}
+                        />
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

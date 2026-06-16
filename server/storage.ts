@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { hashPassword } from "./auth";
 import { db } from "./db";
 import { resolveStripePriceId } from "./lib/stripePriceResolver";
+import { pctDelta } from "./lib/crmKpiMath";
 import {
   // Calculator + leads + analytics_events + deployment_status table objects
   // moved with impl to ./storage/calculator.ts and ./storage/leads.ts /
@@ -1767,7 +1768,7 @@ export class DatabaseStorage implements IStorage {
 
   // ─── CRM Overview ───
   async getCrmOverview() {
-    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTaskRows] = await Promise.all([
+    const [totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTaskRows, subscriptionKpis, timeSeries] = await Promise.all([
       this.getClientCount(),
       this.getActiveServiceCount(),
       this.getPendingOnboardingCount(),
@@ -1786,8 +1787,157 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${fulfillmentTasks.status} NOT IN ('delivered', 'cancelled')`)
       .orderBy(desc(fulfillmentTasks.created_at))
       .limit(5),
+      this.getCrmSubscriptionKpis(),
+      this.getCrmTimeSeries(),
     ]);
-    return { totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue, recentClients, recentTasks: recentTaskRows };
+    return {
+      totalClients, activeServices, pendingOnboarding, openFulfillment, unpaidAmount, monthlyRevenue,
+      recentClients, recentTasks: recentTaskRows,
+      ...subscriptionKpis,
+      timeSeries,
+    };
+  }
+
+  /**
+   * Subscription KPIs for the admin overview — recurring (MRR) metrics
+   * distinct from cash collected. All from existing tables (client_services
+   * joined to service_catalog for the recurring price), no fakes.
+   *
+   * MRR price source matches billing: client_services.price_cents is the
+   * override/actual charged amount; when null we fall back to the catalog
+   * default_price. Only MONTHLY-billed, active, enabled rows count toward
+   * MRR (one-time SKUs are not recurring revenue). billing_period lives on
+   * client_services (the override) OR the catalog row.
+   *
+   * Deltas compare the current trailing 30-day window vs the prior 30 days
+   * so the headline cards can show "+N% vs last period".
+   */
+  async getCrmSubscriptionKpis(): Promise<{
+    mrrCents: number;
+    activeSubscribers: number;
+    newClientsThisMonth: number;
+    churnThisMonth: number;
+    deltas: {
+      mrrPct: number | null;
+      activeSubscribersPct: number | null;
+      collectedPct: number | null;
+    };
+  }> {
+    // MRR + active subscribers (distinct clients with ≥1 active recurring svc).
+    const mrrResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(COALESCE(cs.price_cents, sc.default_price, 0))
+          FILTER (WHERE cs.status = 'active' AND cs.enabled
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly'), 0) AS mrr_cents,
+        COUNT(DISTINCT cs.client_id)
+          FILTER (WHERE cs.status = 'active' AND cs.enabled
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly') AS active_subscribers
+      FROM client_services cs
+      JOIN service_catalog sc ON sc.id = cs.service_id
+    `);
+    const mrrRow: any = (mrrResult as any).rows?.[0] ?? {};
+    const mrrCents = Number(mrrRow.mrr_cents ?? 0);
+    const activeSubscribers = Number(mrrRow.active_subscribers ?? 0);
+
+    // New clients this calendar month + churn (services cancelled this month).
+    const flowResult = await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM clients
+          WHERE created_at >= date_trunc('month', NOW())) AS new_clients_month,
+        (SELECT COUNT(*) FROM client_services
+          WHERE cancelled_at IS NOT NULL
+            AND cancelled_at >= date_trunc('month', NOW())) AS churn_month
+    `);
+    const flowRow: any = (flowResult as any).rows?.[0] ?? {};
+    const newClientsThisMonth = Number(flowRow.new_clients_month ?? 0);
+    const churnThisMonth = Number(flowRow.churn_month ?? 0);
+
+    // Period-over-period deltas (trailing 30d vs prior 30d).
+    // - MRR proxy: net new recurring value started in each window (started_at).
+    // - Active subscribers: count started in each window (growth proxy).
+    // - Collected: paid invoices in each window.
+    const deltaResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(COALESCE(cs.price_cents, sc.default_price, 0))
+          FILTER (WHERE cs.started_at >= NOW() - INTERVAL '30 days'
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly'), 0) AS mrr_added_cur,
+        COALESCE(SUM(COALESCE(cs.price_cents, sc.default_price, 0))
+          FILTER (WHERE cs.started_at >= NOW() - INTERVAL '60 days'
+                  AND cs.started_at < NOW() - INTERVAL '30 days'
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly'), 0) AS mrr_added_prev,
+        COUNT(*) FILTER (WHERE cs.started_at >= NOW() - INTERVAL '30 days'
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly') AS subs_cur,
+        COUNT(*) FILTER (WHERE cs.started_at >= NOW() - INTERVAL '60 days'
+                  AND cs.started_at < NOW() - INTERVAL '30 days'
+                  AND COALESCE(cs.billing_period, sc.billing_period) = 'monthly') AS subs_prev
+      FROM client_services cs
+      JOIN service_catalog sc ON sc.id = cs.service_id
+    `);
+    const deltaRow: any = (deltaResult as any).rows?.[0] ?? {};
+
+    const collectedResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(amount_cents) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days'), 0) AS collected_cur,
+        COALESCE(SUM(amount_cents) FILTER (WHERE paid_at >= NOW() - INTERVAL '60 days'
+                  AND paid_at < NOW() - INTERVAL '30 days'), 0) AS collected_prev
+      FROM client_payments
+      WHERE status = 'paid'
+    `);
+    const collectedRow: any = (collectedResult as any).rows?.[0] ?? {};
+
+    return {
+      mrrCents,
+      activeSubscribers,
+      newClientsThisMonth,
+      churnThisMonth,
+      deltas: {
+        mrrPct: pctDelta(Number(deltaRow.mrr_added_cur ?? 0), Number(deltaRow.mrr_added_prev ?? 0)),
+        activeSubscribersPct: pctDelta(Number(deltaRow.subs_cur ?? 0), Number(deltaRow.subs_prev ?? 0)),
+        collectedPct: pctDelta(Number(collectedRow.collected_cur ?? 0), Number(collectedRow.collected_prev ?? 0)),
+      },
+    };
+  }
+
+  /**
+   * 30-day daily revenue (paid invoices) + leads time-series for the admin
+   * overview chart. generate_series gives a zero-filled row per day so the
+   * chart has no gaps. revenue in cents; leads = quote-calculator submissions.
+   */
+  async getCrmTimeSeries(): Promise<Array<{ date: string; revenue_cents: number; leads: number }>> {
+    const result = await db.execute(sql`
+      WITH days AS (
+        SELECT generate_series(
+          date_trunc('day', NOW()) - INTERVAL '29 days',
+          date_trunc('day', NOW()),
+          INTERVAL '1 day'
+        )::date AS d
+      ),
+      rev AS (
+        SELECT date_trunc('day', paid_at)::date AS d, SUM(amount_cents)::int AS cents
+        FROM client_payments
+        WHERE status = 'paid' AND paid_at >= NOW() - INTERVAL '30 days'
+        GROUP BY 1
+      ),
+      lds AS (
+        SELECT date_trunc('day', created_date)::date AS d, COUNT(*)::int AS n
+        FROM leads
+        WHERE created_date >= NOW() - INTERVAL '30 days'
+        GROUP BY 1
+      )
+      SELECT
+        to_char(days.d, 'YYYY-MM-DD') AS date,
+        COALESCE(rev.cents, 0) AS revenue_cents,
+        COALESCE(lds.n, 0) AS leads
+      FROM days
+      LEFT JOIN rev ON rev.d = days.d
+      LEFT JOIN lds ON lds.d = days.d
+      ORDER BY days.d ASC
+    `);
+    return ((result as any).rows ?? []).map((r: any) => ({
+      date: String(r.date),
+      revenue_cents: Number(r.revenue_cents ?? 0),
+      leads: Number(r.leads ?? 0),
+    }));
   }
 
   // ─── Task Templates ───
