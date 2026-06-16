@@ -484,27 +484,34 @@ function saveCollapsed(v: boolean): void {
   }
 }
 
-/* Item 11 — draggable circular "Builder" badge. The launcher position is
- *  persisted (viewport coords of its top-left) so a user who drags it out of
- *  the way keeps that placement across tab navigation / reloads. `null` means
- *  "never dragged" → fall back to the CSS default corner anchor. */
-const AI_BUBBLE_POS_KEY = 'qq_wizard_ai_bubble_pos';
-/** Rendered diameter of the circular launcher (must match the CSS below). */
-const AI_BUBBLE_SIZE = 64;
+/* #13 — frosted-glass SIDE TAB launcher. The tab is docked to the RIGHT edge
+ *  of the viewport; the user can drag it VERTICALLY to reposition it along
+ *  that edge (the persisted value is the tab's top in viewport px). `null`
+ *  means "never dragged" → fall back to the CSS default vertical anchor. The
+ *  old circular-badge X coordinate is intentionally dropped — the tab is
+ *  edge-docked, so only its vertical offset is user-controllable. */
+const AI_BUBBLE_POS_KEY = 'qq_wizard_ai_tab_pos';
+/** Rendered height of the vertical side tab (must match the CSS below). Used
+ *  only to clamp the drag so the whole tab stays on-screen. */
+const AI_TAB_HEIGHT = 132;
 /** Min drag distance (px) before a pointer-down is treated as a drag rather
  *  than a click — so a normal tap still opens the panel. */
 const AI_BUBBLE_DRAG_THRESHOLD = 4;
+/** Horizontal pull (px, leftward = negative dx) past which a drag is treated
+ *  as "drag-to-open" — the user grabbed the tab and pulled it out into the
+ *  chat window, mirroring the bottom-sheet grab affordance. */
+const AI_TAB_OPEN_PULL = 36;
 
-interface BubblePos { x: number; y: number; }
+/** Vertical-only tab position: `y` is the tab's top in viewport px. */
+interface BubblePos { y: number }
 
 function loadBubblePos(): BubblePos | null {
   try {
     const raw = localStorage.getItem(AI_BUBBLE_POS_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<BubblePos>;
-    if (typeof v?.x === 'number' && typeof v?.y === 'number'
-        && Number.isFinite(v.x) && Number.isFinite(v.y)) {
-      return { x: v.x, y: v.y };
+    if (typeof v?.y === 'number' && Number.isFinite(v.y)) {
+      return { y: v.y };
     }
     return null;
   } catch {
@@ -520,15 +527,13 @@ function saveBubblePos(pos: BubblePos): void {
   }
 }
 
-/** Clamp a desired top-left so the whole badge stays inside the viewport with
- *  an 8px margin. Guarded for SSR / zero-size windows. */
+/** Clamp a desired tab-top so the whole tab stays inside the viewport with an
+ *  8px margin. Guarded for SSR / zero-size windows. */
 function clampBubblePos(pos: BubblePos): BubblePos {
   if (typeof window === 'undefined') return pos;
   const margin = 8;
-  const maxX = Math.max(margin, window.innerWidth - AI_BUBBLE_SIZE - margin);
-  const maxY = Math.max(margin, window.innerHeight - AI_BUBBLE_SIZE - margin);
+  const maxY = Math.max(margin, window.innerHeight - AI_TAB_HEIGHT - margin);
   return {
-    x: Math.min(Math.max(margin, pos.x), maxX),
     y: Math.min(Math.max(margin, pos.y), maxY),
   };
 }
@@ -594,11 +599,17 @@ export default function AIBubble(props: AIBubbleProps) {
    *  pointer-up at the end of a drag. */
   const [bubblePos, setBubblePos] = useState<BubblePos | null>(() => loadBubblePos());
   const [bubbleDragging, setBubbleDragging] = useState(false);
+  /** #13 — live leftward pull (0..1) while drag-to-open is in progress, so the
+   *  tab can give a small visual "peel out" cue as the user pulls it. */
+  const [tabPull, setTabPull] = useState(0);
   const bubbleDragRef = useRef<{
     pointerId: number;
     startX: number; startY: number;
-    originX: number; originY: number;
+    originY: number;
     moved: boolean;
+    /** Set once the leftward pull crosses AI_TAB_OPEN_PULL — pointer-up then
+     *  opens the panel instead of just repositioning. */
+    willOpen: boolean;
   } | null>(null);
 
   // Re-clamp a persisted position into the current viewport on mount / resize
@@ -619,8 +630,9 @@ export default function AIBubble(props: AIBubbleProps) {
     bubbleDragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX, startY: e.clientY,
-      originX: rect.left, originY: rect.top,
+      originY: rect.top,
       moved: false,
+      willOpen: false,
     };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
   }, []);
@@ -633,7 +645,13 @@ export default function AIBubble(props: AIBubbleProps) {
     if (!d.moved && Math.hypot(dx, dy) < AI_BUBBLE_DRAG_THRESHOLD) return;
     d.moved = true;
     if (!bubbleDragging) setBubbleDragging(true);
-    setBubblePos(clampBubblePos({ x: d.originX + dx, y: d.originY + dy }));
+    // #13 — a LEFTWARD pull (the tab lives on the right edge) reads as
+    // "drag me out into the chat" — mirror the bottom-sheet grab. Vertical
+    // movement repositions the tab along the edge.
+    const leftPull = Math.max(0, -dx);
+    d.willOpen = leftPull >= AI_TAB_OPEN_PULL;
+    setTabPull(Math.min(1, leftPull / AI_TAB_OPEN_PULL));
+    setBubblePos(clampBubblePos({ y: d.originY + dy }));
   }, [bubbleDragging]);
 
   const endBubbleDrag = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -641,13 +659,18 @@ export default function AIBubble(props: AIBubbleProps) {
     if (!d || d.pointerId !== e.pointerId) return;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     bubbleDragRef.current = null;
+    setTabPull(0);
     if (d.moved) {
-      // Commit + persist the final clamped position; keep `bubbleDragging`
-      // true through this tick so the trailing click is swallowed, then clear.
+      // Commit + persist the final clamped vertical position.
       setBubblePos((prev) => {
         if (prev) saveBubblePos(prev);
         return prev;
       });
+      // Drag-to-open: a sufficient leftward pull unfolds the panel.
+      if (d.willOpen) {
+        setOpen(true);
+        setCollapsed(false);
+      }
       // Defer clearing so the synthetic click (fired after pointerup) sees
       // `bubbleDragging === true` and is ignored by the click handler.
       window.setTimeout(() => setBubbleDragging(false), 0);
@@ -1449,57 +1472,39 @@ export default function AIBubble(props: AIBubbleProps) {
 
   const portaledUi = (
     <>
-      {/* Item 11 — floating CIRCULAR "Builder" badge. The word "Builder"
-          follows the inner circle edge via an SVG <textPath>; the Sparkles
-          glyph sits centered. The badge is DRAGGABLE (pointer-based, clamped
-          to the viewport, position persisted) so the user can move it out of
-          the way. A short drag threshold keeps a normal tap = open-the-panel.
-          Hidden via CSS when the panel is open. */}
+      {/* #13 — frosted-glass SIDE TAB launcher. A slim, half-transparent
+          (backdrop-blur) vertical tab docked to the right edge of the editor
+          — a sibling of the frosted bottom bar. TAP unfolds it into the AI
+          chat window (the panel below); DRAG it leftward (the bottom-sheet
+          grab affordance) to pull it open; drag it vertically to reposition
+          along the edge. Position + open/folded persist. Hidden via CSS when
+          the panel is open (the panel IS the unfolded form of this tab). The
+          `aibubble-toggle` testid + plain-click-to-open are preserved so the
+          existing Playwright suite keeps passing. */}
       <button
         type="button"
-        onClick={() => { if (!bubbleDragging) setOpen(true); }}
+        onClick={() => { if (!bubbleDragging) { setOpen(true); setCollapsed(false); } }}
         onPointerDown={onBubblePointerDown}
         onPointerMove={onBubblePointerMove}
         onPointerUp={endBubbleDrag}
         onPointerCancel={endBubbleDrag}
-        className="qq-ai-bubble"
+        className="qq-ai-tab"
         data-testid="aibubble-toggle"
-        aria-label="Open the QuoteQuick builder (drag to move)"
+        aria-label="Open the QuoteQuick builder (tap, or drag out, to open)"
         data-open={open ? 'true' : 'false'}
+        data-state={open ? 'unfolded' : 'folded'}
         data-dragging={bubbleDragging ? 'true' : 'false'}
         data-positioned={bubblePos ? 'true' : 'false'}
-        style={bubblePos
-          ? { left: bubblePos.x, top: bubblePos.y, right: 'auto', bottom: 'auto' }
-          : undefined}
+        style={{
+          ...(bubblePos ? { top: bubblePos.y, bottom: 'auto' } : null),
+          // Live "peel out" cue: the tab slides a few px left as it's pulled.
+          ...(tabPull > 0 ? { transform: `translateX(${-tabPull * 10}px)` } : null),
+        }}
       >
-        {/* Circular text ring — "BUILDER · BUILDER ·" repeated around the
-            circle edge. aria-hidden because the button already has an
-            accessible label. */}
-        <svg
-          className="qq-ai-bubble-ring"
-          viewBox="0 0 64 64"
-          width={64}
-          height={64}
-          aria-hidden="true"
-          focusable="false"
-        >
-          <defs>
-            <path
-              id={`qq-ai-bubble-textpath-${conversationId}`}
-              d="M 32,32 m -23,0 a 23,23 0 1,1 46,0 a 23,23 0 1,1 -46,0"
-            />
-          </defs>
-          <text className="qq-ai-bubble-ring-text">
-            <textPath
-              href={`#qq-ai-bubble-textpath-${conversationId}`}
-              startOffset="0"
-            >
-              BUILDER · BUILDER ·&nbsp;
-            </textPath>
-          </text>
-        </svg>
-        <Sparkles className="qq-ai-bubble-spark" aria-hidden="true" />
-        {/* Accessible text label, visually hidden (the ring is decorative). */}
+        <span className="qq-ai-tab-grip" aria-hidden="true" />
+        <Sparkles className="qq-ai-tab-spark" aria-hidden="true" />
+        <span className="qq-ai-tab-text" aria-hidden="true">Builder</span>
+        {/* Accessible text label kept for screen-reader / test text parity. */}
         <span className="qq-ai-bubble-label">Builder</span>
       </button>
 
@@ -1930,68 +1935,79 @@ export default function AIBubble(props: AIBubbleProps) {
       )}
 
       <style>{`
-        .qq-ai-bubble {
-          /* Wave 6 fix — raised bottom 18px -> 76px so the floating bubble
-           *  clears the canvas zoom toolbar pill (Actual size / Recenter),
-           *  which sits at the editor's bottom-right.
-           *
-           *  fix/wizard-mobile-firstrun — 76px still overlapped the live
-           *  preview's sticky bottom CTA bar ("Get My Quote" + total), which
-           *  is a ~76px position:sticky; bottom:0 footer flush to the
-           *  bottom-right of the widget card. Raise the bubble to 140px so it
-           *  sits clearly ABOVE both the zoom pill AND that sticky CTA bar,
-           *  with comfortable separation. Still bottom-right + reachable. */
-          /* Item 11 — circular draggable badge. 64px disc; the "Builder"
-           *  ring text + centered spark are positioned children. */
-          position: fixed; right: 18px; bottom: 140px; z-index: 1100;
-          width: 64px; height: 64px; padding: 0;
-          display: inline-flex; align-items: center; justify-content: center;
-          border-radius: 50%;
-          background: #0d3cfc; color: #fff;
-          border: none; cursor: grab;
-          box-shadow: 0 10px 30px rgba(13, 60, 252, 0.35);
-          transition: box-shadow 120ms ease-out, transform 120ms ease-out;
-          touch-action: none; /* let pointer-drag work on touch without scroll */
+        /* #13 — frosted-glass SIDE TAB launcher. A slim vertical tab docked to
+         *  the RIGHT edge, half-transparent via backdrop-filter so the preview
+         *  partly shows through — a sibling of the frosted bottom bar. The
+         *  vertical "Builder" text + spark read top-to-bottom along the tab.
+         *  Default vertical anchor is centred-ish on the right edge; a dragged
+         *  position overrides top inline. */
+        .qq-ai-tab {
+          position: fixed; right: 0; top: 50%; z-index: 1100;
+          transform: translateY(-50%);
+          width: 34px; height: 132px; padding: 10px 0;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-right: none;
+          border-radius: 14px 0 0 14px;
+          /* Half-transparent frosted glass — preview partly visible behind. */
+          background: rgba(13, 60, 252, 0.42);
+          -webkit-backdrop-filter: blur(14px) saturate(140%);
+          backdrop-filter: blur(14px) saturate(140%);
+          color: #fff; cursor: grab;
+          box-shadow: -6px 0 22px rgba(13, 60, 252, 0.22);
+          transition: transform 160ms ease-out, background 160ms ease-out,
+                      box-shadow 160ms ease-out, width 160ms ease-out;
+          touch-action: none; /* pointer-drag on touch without scrolling */
           user-select: none; -webkit-user-select: none;
         }
-        .qq-ai-bubble:hover { box-shadow: 0 14px 34px rgba(13, 60, 252, 0.55); }
-        .qq-ai-bubble:active,
-        .qq-ai-bubble[data-dragging="true"] { cursor: grabbing; }
-        .qq-ai-bubble[data-dragging="true"] { transform: scale(1.04); }
-        .qq-ai-bubble[data-open="true"] { display: none; }
-
-        /* Rotating-free circular text ring, slow spin for life (paused while
-         *  dragging + when reduced-motion is requested). */
-        .qq-ai-bubble-ring {
-          position: absolute; inset: 0; pointer-events: none;
-          animation: qq-ai-bubble-spin 14s linear infinite;
+        /* Fallback for browsers without backdrop-filter: a more opaque accent
+         *  fill so the tab stays legible without the blur see-through. */
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .qq-ai-tab { background: rgba(13, 60, 252, 0.92); }
         }
-        .qq-ai-bubble[data-dragging="true"] .qq-ai-bubble-ring {
-          animation-play-state: paused;
+        .qq-ai-tab:hover {
+          width: 38px;
+          background: rgba(13, 60, 252, 0.55);
+          box-shadow: -8px 0 26px rgba(13, 60, 252, 0.34);
         }
-        .qq-ai-bubble-ring-text {
-          fill: rgba(255, 255, 255, 0.92);
-          font-size: 8.5px;
-          font-weight: 800;
-          letter-spacing: 1.4px;
-          text-transform: uppercase;
+        .qq-ai-tab:active,
+        .qq-ai-tab[data-dragging="true"] { cursor: grabbing; }
+        .qq-ai-tab[data-dragging="true"] {
+          background: rgba(13, 60, 252, 0.62);
         }
-        .qq-ai-bubble-spark {
-          position: relative; z-index: 1;
-          width: 20px; height: 20px; pointer-events: none;
+        .qq-ai-tab[data-open="true"] { display: none; }
+        .qq-ai-tab:focus-visible {
+          outline: 2px solid #fff; outline-offset: 2px;
         }
-        /* The accessible label is conveyed by aria-label + the ring; keep a
-         *  visually-hidden span so screen-reader/test text still reads "Builder". */
+        /* Grip dots — the drag affordance, echoing the bottom-sheet handle. */
+        .qq-ai-tab-grip {
+          width: 4px; height: 26px; border-radius: 999px;
+          background: repeating-linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.85) 0 2px,
+            transparent 2px 5px
+          );
+          flex-shrink: 0; pointer-events: none;
+        }
+        .qq-ai-tab-spark {
+          width: 17px; height: 17px; flex-shrink: 0; pointer-events: none;
+        }
+        /* Vertical "Builder" wordmark running up the tab. */
+        .qq-ai-tab-text {
+          writing-mode: vertical-rl; transform: rotate(180deg);
+          font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+          text-transform: uppercase; pointer-events: none;
+          color: rgba(255, 255, 255, 0.96);
+        }
+        /* The accessible label is conveyed by aria-label + the visible text;
+         *  keep a visually-hidden span so screen-reader/test text reads "Builder". */
         .qq-ai-bubble-label {
           position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
           overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
         }
-        @keyframes qq-ai-bubble-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
         @media (prefers-reduced-motion: reduce) {
-          .qq-ai-bubble-ring { animation: none !important; }
+          .qq-ai-tab { transition: none !important; }
         }
 
         .qq-ai-panel {
@@ -2004,6 +2020,18 @@ export default function AIBubble(props: AIBubbleProps) {
           border: 1px solid rgba(15, 23, 42, 0.08);
           /* Wave 55 — animate the fold/unfold height transition. */
           transition: height 250ms ease;
+          /* #13 — the panel is the UNFOLDED form of the side tab. Play a
+           *  GPU-friendly unfold (scale + fade from the right edge) on mount so
+           *  it reads as the tab smoothly opening into the chat window. */
+          transform-origin: 100% 50%;
+          animation: qq-ai-unfold 260ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes qq-ai-unfold {
+          from { opacity: 0; transform: translateX(14px) scale(0.92); }
+          to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-panel { animation: none !important; }
         }
         /* Wave 55 — collapsed state shrinks the panel to just the header
          *  bar (~46px). Body + footer hide via the descendant rules below. */
@@ -2058,50 +2086,19 @@ export default function AIBubble(props: AIBubbleProps) {
           .qq-ai-panel.is-collapsed {
             height: 46px;
           }
-          /* Wave 6 fix — on mobile the bubble at bottom 12px overlapped the
-           *  right edge of the full-width bottom action/Done bar (~64px tall).
-           *  Sit it ABOVE that bar plus the device safe-area inset so it no
-           *  longer covers the footer's Done button.
-           *
-           *  fix/ai-bubble-formula — the right-anchored bubble still landed on
-           *  the live preview's bottom "Get My Quote" CTA + the right-aligned
-           *  quote total that sit just above the bottom tab bar. The bottom
-           *  tab bar (.qq-bottom-tabbar) is fixed at the viewport bottom with
-           *  min-height 60px + its own safe-area padding. Reposition the
-           *  bubble to the BOTTOM-LEFT corner (the preview's primary CTA +
-           *  total are centre/right-weighted, and the canvas zoom pill lives
-           *  bottom-RIGHT — so left clears all three).
-           *
-           *  fix/wizard-mobile-firstrun — even bottom-left at 76px still sat
-           *  on the LEFT edge of the widget's full-width sticky CTA bar
-           *  ("Get My Quote"), which renders just above the 60px tab bar. The
-           *  sticky bar is ~76px tall, so a bubble whose bottom is 76px above
-           *  the tab bar overlaps it. Lift the bubble to 140px above the tab
-           *  bar (60px bar + ~76px sticky CTA + a small gap), keeping the
-           *  device safe-area inset, so it clears the CTA bar entirely.
-           *  Shrink it slightly so it reads as a secondary affordance on the
-           *  narrow viewport. The chat panel is unaffected (it opens as a
-           *  full-width bottom sheet via the rule above). */
-          .qq-ai-bubble {
-            /* fix/wizard-mobile-firstrun (v2): a fixed bottom offset can't
-             *  reliably clear the live preview's sticky "Get My Quote" CTA,
-             *  whose vertical position shifts with preview height. Anchor the
-             *  launcher TOP-right instead — deterministically clear of the
-             *  bottom CTA, the persistent tab bar, and the Build sheet. */
-            left: auto;
-            right: 12px;
-            top: calc(72px + env(safe-area-inset-top, 0px));
-            bottom: auto;
-            /* Item 11 — slightly smaller circular badge on the narrow
-             *  viewport so it reads as a secondary affordance. */
-            width: 56px; height: 56px;
+          /* #13 — on the narrow viewport the side tab stays docked to the
+           *  right edge, but slightly shorter so it reads as a secondary
+           *  affordance and clears the persistent bottom tab bar. The chat
+           *  panel still opens as a full-width bottom sheet (rule above), so
+           *  the tab only needs to host the tap/drag launcher. The default
+           *  vertical centre keeps it clear of the top bar and the bottom CTA;
+           *  a user-dragged top (inline) still wins. */
+          .qq-ai-tab {
+            width: 30px; height: 110px;
           }
-          .qq-ai-bubble[data-positioned="true"] {
-            /* A user-dragged position is authored inline (left/top) and must
-             *  win over the mobile corner anchor above. */
-            right: auto; bottom: auto;
-          }
-          .qq-ai-bubble-spark { width: 18px; height: 18px; }
+          .qq-ai-tab:hover { width: 32px; }
+          .qq-ai-tab-text { font-size: 10px; letter-spacing: 1.2px; }
+          .qq-ai-tab-spark { width: 15px; height: 15px; }
         }
 
         .qq-ai-panel-header {

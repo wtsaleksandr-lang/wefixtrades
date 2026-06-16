@@ -54,6 +54,7 @@ import {
 import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import LogoCropModal from './LogoCropModal';
 import RichTextField from './RichTextField';
 import { StyledSelect } from './StyledSelect';
 import {
@@ -339,6 +340,10 @@ export default function StyleTab({
   }, []);
 
   const logoFileRef = useRef<HTMLInputElement | null>(null);
+  // #15 — after a file is picked we open a crop+zoom step instead of storing
+  // the raw image. `cropSrc` holds the just-picked image (data URL) while the
+  // modal is open; applying writes the CROPPED result to `state.logo`.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const onLogoFile = useCallback((file: File | null) => {
     if (!onLogoChange) return;
     if (!file) { onLogoChange(null); return; }
@@ -346,10 +351,19 @@ export default function StyleTab({
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      if (typeof result === 'string') onLogoChange(result);
+      // Open the crop/zoom editor with the picked image; commit happens on apply.
+      if (typeof result === 'string') setCropSrc(result);
     };
     reader.readAsDataURL(file);
   }, [onLogoChange]);
+  // Editor theme for the crop modal chrome (StyleTab's own subtree is forced
+  // light, but the modal portals to <body> and should match the real editor
+  // theme). Resolved at open time from the editor shell.
+  const cropTheme: 'light' | 'dark' = useMemo(() => {
+    if (typeof document === 'undefined') return 'light';
+    const shell = document.querySelector('.qq-editor-shell[data-theme="dark"]');
+    return shell ? 'dark' : 'light';
+  }, [cropSrc]);
 
   /** W-AO-6b — apply a full preset, overwriting every Style token. */
   const applyPreset = useCallback((next: ShellStyle) => {
@@ -1064,6 +1078,17 @@ export default function StyleTab({
               )}
             </div>
           </div>
+
+          {/* #15 — crop + zoom editor. Opens after a file is picked; applying
+              writes the cropped square (data URL) to state.logo. */}
+          {cropSrc && (
+            <LogoCropModal
+              src={cropSrc}
+              theme={cropTheme}
+              onCancel={() => setCropSrc(null)}
+              onApply={(dataUrl) => { onLogoChange(dataUrl); setCropSrc(null); }}
+            />
+          )}
 
           <label className="qq-style-label" style={{ marginTop: 12 }}>
             <span className="qq-style-label-text">Placement</span>
