@@ -2625,6 +2625,17 @@ export default function AdvancedCalculator({
         fontSize: `${fontSizeBasePx}px`,
         ...(maxWidthStyle ? { maxWidth: maxWidthStyle } : null),
         margin: '0 auto', width: '100%',
+        // Item 1 (mobile template stacking) — establish a CSS CONTAINMENT
+        // context on the widget ROOT so the body layout below responds to the
+        // widget's OWN rendered width (the bezel-constrained ~375px in the
+        // wizard's mobile device-preview) rather than the browser viewport.
+        // The previous viewport `@media (min-width:560px)` was always TRUE in
+        // the desktop-width preview, so the two-column layout rendered squished
+        // inside the phone frame instead of stacking. Container queries measure
+        // this element's content box and are unaffected by the preview's
+        // ancestor `transform: scale`, so the bezel → stacks and real phones
+        // stack too. Named `qqwidget` so the body's `@container` rules target it.
+        container: 'qqwidget / inline-size',
         // P2 UX fix (2026-05-22): when the wizard owner deletes every field,
         // the widget mockup collapsed to a tiny height which let the "+ Add
         // field" empty-state CTA collide with the BD-2a-sticky bottom action
@@ -2708,11 +2719,14 @@ export default function AdvancedCalculator({
             data-component-type="header"
             style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}
           >
-            {/* #11 — logo + title are now TWO independently-aligned rows so the
-                owner can place the logo (logoPlacement → `justify`) separately
-                from the title text alignment (`titleAlign` → `titleJustify`).
-                The logo row only renders when a logo/icon is present, so a
-                title-only header stays vertically tight. */}
+            {/* Item 4 — the logo/business-icon and the title now render on ONE
+                horizontal row, title to the RIGHT of the icon, vertically
+                centered. The recently-added brand NAME row (data-testid
+                "advanced-brand-name") is preserved: it stacks just above the
+                title inside the text column so it reads as company identity
+                while the logo stays to its left. When there's no logo/icon the
+                text column simply sits at its `justify`/`titleJustify` position
+                exactly as a title-only header did before. */}
             {(() => {
               const logoNode = logoHidden ? null : logoUrl ? (
                 <img
@@ -2724,17 +2738,17 @@ export default function AdvancedCalculator({
                   style={{
                     width: logoSizePx, height: logoSizePx,
                     borderRadius: logoRadius, objectFit: 'contain',
+                    flexShrink: 0,
                   }}
                 />
               ) : advanced.defaultIcon ? (
-                <div data-component-name="Logo icon" data-component-type="logo">
+                <div data-component-name="Logo icon" data-component-type="logo" style={{ flexShrink: 0 }}>
                   <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
                 </div>
               ) : null;
-              // Brand row = logo + the company NAME, side by side, always
-              // visible when a business name is set. This is the company
-              // identity (distinct from the conversion headline `title`), so
-              // typing the business name in the editor reflects here live.
+              // Brand row = the company NAME, kept as its own labelled element so
+              // typing the business name in the editor reflects here live. It now
+              // stacks directly above the title inside the text column.
               const nameNode = showBrandName ? (
                 <span
                   data-testid="advanced-brand-name"
@@ -2745,26 +2759,32 @@ export default function AdvancedCalculator({
                     letterSpacing: '-0.005em', lineHeight: 1.2,
                     whiteSpace: 'nowrap', overflow: 'hidden',
                     textOverflow: 'ellipsis', maxWidth: '100%',
+                    display: 'block', marginBottom: '2px',
                   }}
                 >
                   {brandName}
                 </span>
               ) : null;
-              return (logoNode || nameNode) ? (
+              // Keep the logo row testid on the single horizontal row so the
+              // editor's section delegation + tests that look for it still match.
+              return (
                 <div
                   data-testid="advanced-logo-row"
                   style={{
                     display: 'flex', alignItems: 'center',
-                    justifyContent: justify, gap: logoNode && nameNode ? '8px' : 0,
-                    marginBottom: '8px', minWidth: 0,
+                    justifyContent: logoNode ? 'flex-start' : titleJustify,
+                    gap: logoNode ? '10px' : 0,
+                    minWidth: 0,
                   }}
                 >
                   {logoNode}
+                  <div style={{
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: logoNode ? 'flex-start' : (titleAlign === 'right' ? 'flex-end' : titleAlign === 'center' ? 'center' : 'flex-start'),
+                    minWidth: 0, flex: '1 1 auto',
+                  }}>
                   {nameNode}
-                </div>
-              ) : null;
-            })()}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: titleJustify, gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: logoNode ? 'flex-start' : titleJustify, gap: '10px', minWidth: 0 }}>
               <p
                 data-testid="advanced-title"
                 data-component-name="Title"
@@ -2841,6 +2861,10 @@ export default function AdvancedCalculator({
                 )}
               </p>
             </div>
+                  </div>
+                </div>
+              );
+            })()}
             {subtitle && (() => {
               const props = richTextRenderProps(subtitle);
               // 13px → 12px and slightly tighter line-height: the trust line was
@@ -2949,7 +2973,7 @@ export default function AdvancedCalculator({
            INPUTS (the fields grid) is a locked design-system rule and is
            deliberately left untouched here. Desktop (≥560px) keeps its
            deliberate 2px grey-seam rule below — this override is mobile-only. */
-        @media (max-width: 559px) {
+        @container qqwidget (max-width: 559px) {
           .${gridId} { gap: 12px; padding: 16px; }
           /* Mobile keeps the NATURAL order: inputs first, then the result
              panel (total -> secondary rows -> CTA) at the bottom — you fill
@@ -2971,7 +2995,7 @@ export default function AdvancedCalculator({
         .${gridId}-fields > [data-colspan="1"] { grid-column: span 1; }
         /* Very narrow screens — collapse all fields to a single column so a
            pair of side-by-side inputs stack cleanly on the smallest phones. */
-        @media (max-width: 360px) {
+        @container qqwidget (max-width: 360px) {
           .${gridId}-fields > [data-colspan="1"] { grid-column: span 2; }
         }
         .${gridId}-result { align-self: start; min-width: 0; }
@@ -2980,7 +3004,7 @@ export default function AdvancedCalculator({
            and bottom-pin the CTA. In single-column / mobile-stacked this is
            the only rule that applies, preserving the original 14px gap. */
         .${gridId}-cta { margin-top: 14px; }
-        @media (min-width: 560px) {
+        @container qqwidget (min-width: 560px) {
           /* All-round 2px padding AND 2px grid gap so the inner containers
              (fields + result panel) nearly fill the widget body — only a thin
              2px seam of the body surface shows between and around every block

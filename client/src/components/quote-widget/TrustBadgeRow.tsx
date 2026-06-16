@@ -273,12 +273,14 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
   };
 
   const scopeClass = 'qq-trust-chip';
+  const rowClass = 'qq-trust-row';
 
   return (
     <div
       data-testid="trust-badge-row"
       data-component-name="Trust badges"
       data-component-type="trust-badges"
+      className={rowClass}
       style={rowStyle}
     >
       <style>{`
@@ -286,6 +288,33 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
           border-color: ${borderColorHover} !important;
           opacity: 1 !important;
           outline: none;
+        }
+        /* Item 2 (mobile trust badges) — on NARROW rendered widths the
+           centered flex-wrap let long-labelled chips fall to 1-per-row, which
+           read as ragged + wasteful. Switch to a balanced 2-column grid so the
+           common 4-badge set renders as a clean 2×2. Uses the SAME container
+           query as the widget body layout (item 1: the widget root carries
+           container: qqwidget / inline-size) so it triggers on the widget's
+           OWN rendered width — the bezel-constrained ~375px in the wizard's
+           mobile device-preview, and real phones — not the browser viewport.
+           Chips fill their cell (justify-content:center, min-width:0 → label
+           ellipsises) so two always fit per row. Wide/desktop keeps the
+           centered flex-wrap. */
+        @container qqwidget (max-width: 559px) {
+          .${rowClass} {
+            /* !important so these beat the inline display:flex / white-space
+               on rowStyle + chipStyle (inline styles outrank a stylesheet
+               rule otherwise — the hover rule above uses !important for the
+               same reason). */
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .${rowClass} > .${scopeClass} {
+            width: 100%;
+            max-width: 100%;
+            justify-content: center;
+            white-space: normal !important;
+          }
         }
       `}</style>
       {allBadges.map((badge, i) => {
