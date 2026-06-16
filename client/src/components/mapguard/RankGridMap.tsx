@@ -20,7 +20,7 @@
  * tokens; no 375px overflow (the map is width:100% with a fixed aspect ratio).
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { MapPin, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,6 +60,8 @@ export function RankGridMap({
   centerLabel,
 }: RankGridMapProps) {
   const reduceMotion = useReducedMotion();
+  // Hover/focus tooltip key ("row-col") — shows rank + 7-day delta at a glance.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const geoCells = useMemo(() => cells.filter(hasGeo), [cells]);
 
@@ -119,6 +121,7 @@ export function RankGridMap({
       {/* Average-rank HERO — shared across all three rank-grid surfaces. */}
       <div className="mb-3">
         <RankGridHero
+          ranks={geoCells.map((c) => c.rank)}
           avg={summary.avg}
           high={summary.high}
           med={summary.med}
@@ -171,13 +174,28 @@ export function RankGridMap({
           const interactive = !!onSelectCell;
           // Animated cascade reveal (~24ms row stagger), reduced-motion safe.
           const revealDelay = Math.min(idx * 0.024, 0.6);
+          const key = `${cell.row}-${cell.col}`;
+          const isHovered = hoveredKey === key;
+          const isTopRow = cell.row === 0;
+          const deltaLabel =
+            delta != null && delta !== 0
+              ? `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} this week`
+              : null;
+          const tooltipText =
+            cell.rank == null
+              ? `Not ranked here${deltaLabel ? ` · ${deltaLabel}` : ""}`
+              : `Rank #${cell.rank}${deltaLabel ? ` · ${deltaLabel}` : ""}`;
 
           return (
             <motion.button
-              key={`${cell.row}-${cell.col}`}
+              key={key}
               type="button"
               onClick={() => onSelectCell?.(cell)}
               disabled={!interactive}
+              onHoverStart={() => setHoveredKey(key)}
+              onHoverEnd={() => setHoveredKey((prev) => (prev === key ? null : prev))}
+              onFocus={() => setHoveredKey(key)}
+              onBlur={() => setHoveredKey((prev) => (prev === key ? null : prev))}
               data-testid={`rank-map-pin-${cell.row}-${cell.col}`}
               initial={reduceMotion ? false : { opacity: 0, scale: 0.4 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -200,6 +218,7 @@ export function RankGridMap({
                 top: `${topPct}%`,
                 width: 26,
                 height: 26,
+                zIndex: isHovered ? 30 : undefined,
                 background: pinFill,
                 color: "rgb(255,255,255)",
                 // DESIGN-SYSTEM: selected = OUTLINE not brighter fill.
@@ -223,6 +242,24 @@ export function RankGridMap({
               <span className="relative z-10">
                 {cell.rank == null ? "–" : cell.rank}
               </span>
+
+              {/* Hover/focus tooltip — rank + 7-day delta at this cell. */}
+              {isHovered && (
+                <span
+                  role="tooltip"
+                  data-testid={`rank-map-tooltip-${cell.row}-${cell.col}`}
+                  className="pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold"
+                  style={{
+                    top: isTopRow ? "calc(100% + 6px)" : "auto",
+                    bottom: isTopRow ? "auto" : "calc(100% + 6px)",
+                    background: "rgb(30,41,59)",
+                    color: "rgb(255,255,255)",
+                    boxShadow: "0 6px 18px rgba(15,23,42,0.28)",
+                  }}
+                >
+                  {tooltipText}
+                </span>
+              )}
 
               {/* Delta arrow badge */}
               {delta != null && delta !== 0 && (

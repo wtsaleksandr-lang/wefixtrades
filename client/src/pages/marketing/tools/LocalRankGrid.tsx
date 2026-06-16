@@ -43,6 +43,11 @@ import {
   rankPinStyle,
 } from "@/components/marketing/map-snapshot/rankGridProjection";
 import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
+import {
+  CellDrillDown,
+  type CellDrillDownData,
+  type DrillDownEntry,
+} from "@/components/marketing/map-snapshot/CellDrillDown";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
 
@@ -140,6 +145,8 @@ export default function LocalRankGrid() {
   const [result, setResult] = useState<RankGridResult | null>(null);
   /** Which grid cell index (0-24) currently shows its hover popover. */
   const [hoveredCell, setHoveredCell] = useState<number | null>(null);
+  /** Which grid cell index (0-24) has its drill-down panel open (click). */
+  const [drillCell, setDrillCell] = useState<number | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
 
@@ -151,6 +158,7 @@ export default function LocalRankGrid() {
     setError(null);
     setResult(null);
     setHoveredCell(null);
+    setDrillCell(null);
     if (!businessName.trim() || !city.trim() || !keyword.trim()) {
       setError("Business name, city, and target keyword are all required.");
       return;
@@ -317,6 +325,9 @@ export default function LocalRankGrid() {
           Shared component, identical on all three rank-grid surfaces. */}
       <div style={{ marginBottom: 16 }}>
         <RankGridHero
+          ranks={result.gridPoints
+            .filter((p) => p.status !== "unavailable")
+            .map((p) => p.mapRank ?? p.rank)}
           avg={result.summary.avgRank}
           high={hml.high}
           med={hml.med}
@@ -435,7 +446,15 @@ export default function LocalRankGrid() {
                       data-testid={`rankgrid-cell-${i}`}
                       onMouseEnter={() => setHoveredCell(i)}
                       onMouseLeave={() => setHoveredCell((prev) => (prev === i ? null : prev))}
-                      onClick={() => setHoveredCell((prev) => (prev === i ? null : i))}
+                      onClick={() => setDrillCell(i)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDrillCell(i);
+                        }
+                      }}
                       className="motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 motion-safe:duration-300"
                       style={{
                         position: "absolute",
@@ -717,6 +736,13 @@ export default function LocalRankGrid() {
           }
         }
       `}</style>
+
+      {/* Cell drill-down — the ranked Local Pack list at the clicked scan point,
+          our business highlighted. Slide-out on desktop, bottom-sheet at 375px. */}
+      <CellDrillDown
+        data={drillCell != null ? buildDrillData(result.gridPoints[drillCell], drillCell, businessName) : null}
+        onClose={() => setDrillCell(null)}
+      />
     </div>
   ) : null;
 
@@ -785,6 +811,53 @@ export default function LocalRankGrid() {
       </FreeToolLayout>
     </MarketingLayout>
   );
+}
+
+/* ─── Drill-down data builder ───────────────────────────────────────── */
+
+/** 5×5 grid (row-major) → compass direction of a cell from the center (2,2). */
+function gridCellDirection(cellIndex: number): string {
+  const row = Math.floor(cellIndex / 5);
+  const col = cellIndex % 5;
+  const dr = row - 2;
+  const dc = col - 2;
+  if (dr === 0 && dc === 0) return "at the center";
+  const ns = dr < 0 ? "north" : dr > 0 ? "south" : "";
+  const ew = dc < 0 ? "west" : dc > 0 ? "east" : "";
+  const dir = `${ns}${ew}` || "nearby";
+  return `${dir} of center`;
+}
+
+/**
+ * Normalise a grid point into the shared CellDrillDown shape. `topResults` is
+ * the live Local Pack at that exact lat/lng (real data — no fabrication); the
+ * business's own rank is mapRank ?? rank. We flag an entry as "you" only when
+ * its rank matches the business's own rank AND we have a captured row for it;
+ * otherwise the panel appends an honest "your business" anchor.
+ */
+function buildDrillData(
+  point: GridPoint,
+  cellIndex: number,
+  businessName: string,
+): CellDrillDownData {
+  const yourRank = point.mapRank ?? point.rank;
+  const bizLower = businessName.trim().toLowerCase();
+  const entries: DrillDownEntry[] = point.topResults.map((r) => ({
+    rank: r.rank,
+    name: r.name,
+    rating: r.rating,
+    reviewsCount: r.reviewsCount,
+    isYou:
+      bizLower.length > 0 &&
+      r.name.trim().toLowerCase() === bizLower,
+  }));
+  return {
+    cellLabel: `Cell ${cellIndex + 1}`,
+    locationLine: `${gridCellDirection(cellIndex)} · live Google search from this exact point`,
+    yourRank: yourRank ?? null,
+    entries,
+    isUnavailable: point.status === "unavailable",
+  };
 }
 
 /* ─── Hover popover ─────────────────────────────────────────────────── */
