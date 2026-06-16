@@ -350,7 +350,12 @@ interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'cente
 interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; cta_heading?: string; cta_sub?: string;
   /** Action tab — success line shown in the lead modal after submit. Absent →
    *  LeadModal's built-in default copy. */
-  submit_success?: string; }
+  submit_success?: string;
+  /** Action tab — follow-up behaviour after the quote (redirect / lead-form /
+   *  no-action). Drives the preview CTA's label + behaviour. */
+  action_mode?: 'redirect' | 'lead-form' | 'no-action';
+  /** Action tab — destination URL when `action_mode === 'redirect'`. */
+  redirect_url?: string; }
 /**
  * Wave H6 — Settings tab number-format slot. Drives the renderer's
  * currency / number formatting independent of the user's browser locale.
@@ -436,6 +441,13 @@ export interface AdvancedConfig {
    * LeadModal `honeypot` prop. No backend involvement.
    */
   spamProtection?: boolean;
+  /**
+   * PRICING-MODELS — per-business anchor address (settings.origin → advanced
+   * .origin). Primarily a distance-geocoding anchor, but the trust-badge row
+   * now also synthesises a location chip from `origin.address` (#6) so the
+   * owner sees the address reflected in the preview. Optional & back-compat.
+   */
+  origin?: { address: string; lat?: number; lng?: number };
 }
 
 interface Props {
@@ -1360,6 +1372,7 @@ function DepositPreviewBadge({
  */
 function BookingCalendarPreview({
   source, url, accent, theme, fontFamily, radiusPx,
+  workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes,
 }: {
   source: 'wefixtrades-default' | 'cal.com-url' | 'calendly-url';
   url: string;
@@ -1368,6 +1381,14 @@ function BookingCalendarPreview({
   fontFamily: string;
   /** Border radius — accepts CSS length string (e.g. `'10px'`) or number (px). */
   radiusPx: number | string;
+  /** Preview fidelity — owner scheduling detail (mirrors settings.scheduling).
+   *  When provided, the mock calendar only shows working days, generates slots
+   *  inside the working-hours window at the chosen slot length, instead of the
+   *  generic Mon–Fri 9-5 fallback. */
+  workingDays?: number[];
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  slotDurationMinutes?: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // Item 6c — FOUR calendar days starting "tomorrow". We compute days
@@ -1380,24 +1401,69 @@ function BookingCalendarPreview({
   const days = useMemo(() => {
     const now = new Date();
     const out: { id: string; dayLabel: string; dateLabel: string; slots: string[] }[] = [];
-    const slotLayouts = [
-      ['9:00 AM', '10:30 AM', '2:00 PM'],
-      ['9:00 AM', '11:00 AM', '3:30 PM'],
-      ['9:00 AM', '2:00 PM', '4:00 PM'],
-      ['10:00 AM', '1:00 PM', '3:30 PM'],
-    ];
-    for (let i = 1; i <= 4; i++) {
+
+    // Parse "HH:MM" into minutes-since-midnight; null on malformed input.
+    const parseHM = (v: string | undefined): number | null => {
+      if (typeof v !== 'string') return null;
+      const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+      if (!m) return null;
+      const h = Number(m[1]);
+      const min = Number(m[2]);
+      if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+      return h * 60 + min;
+    };
+    const fmtSlot = (totalMin: number): string => {
+      const h24 = Math.floor(totalMin / 60);
+      const min = totalMin % 60;
+      const ampm = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      return `${h12}:${String(min).padStart(2, '0')} ${ampm}`;
+    };
+
+    // Preview fidelity — honour the owner's working hours window + slot length
+    // when provided; otherwise fall back to the legacy generic 9-5 layout. We
+    // cap at the first 4 slots per day so the card stays compact like before.
+    const startMin = parseHM(workingHoursStart);
+    const endMin = parseHM(workingHoursEnd);
+    const slotLen = typeof slotDurationMinutes === 'number'
+      && [15, 30, 45, 60].includes(slotDurationMinutes)
+      ? slotDurationMinutes : 60;
+    const buildSlots = (): string[] => {
+      if (startMin == null || endMin == null || endMin <= startMin) {
+        // Legacy generic fallback.
+        return ['9:00 AM', '11:00 AM', '2:00 PM'];
+      }
+      const slots: string[] = [];
+      for (let t = startMin; t + slotLen <= endMin && slots.length < 4; t += slotLen) {
+        slots.push(fmtSlot(t));
+      }
+      // Guarantee at least one slot even for a narrow window.
+      if (slots.length === 0) slots.push(fmtSlot(startMin));
+      return slots;
+    };
+    const slotTimes = buildSlots();
+
+    // Preview fidelity — only surface the owner's selected working days. A valid
+    // non-empty `workingDays` (0=Sun … 6=Sat) restricts which upcoming dates
+    // appear; absent/empty → every upcoming day (legacy behaviour). We walk
+    // forward from tomorrow until we collect 4 matching days (cap the scan so a
+    // pathological single-day selection can't loop forever).
+    const allowDay = Array.isArray(workingDays) && workingDays.length > 0
+      ? (dow: number) => workingDays.includes(dow)
+      : (_dow: number) => true;
+    for (let i = 1; out.length < 4 && i <= 28; i++) {
       const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+      if (!allowDay(d.getDay())) continue;
       const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
       const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       out.push({
         id: d.toISOString().slice(0, 10),
         dayLabel, dateLabel,
-        slots: slotLayouts[(i - 1) % slotLayouts.length],
+        slots: slotTimes,
       });
     }
     return out;
-  }, []);
+  }, [workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes]);
   const isExternal = source === 'cal.com-url' || source === 'calendly-url';
 
   return (
@@ -1653,6 +1719,31 @@ export default function AdvancedCalculator({
   const bookingPreviewSource = bsBooking?.source ?? 'wefixtrades-default';
   const bookingPreviewUrl = (typeof bsBooking?.url === 'string' && bsBooking.url.trim() !== '')
     ? bsBooking.url.trim() : '';
+  // Preview fidelity — booking detail (working days / hours / slot length).
+  // Carried from settings.scheduling through buildAdvancedConfig so the mock
+  // calendar reflects the owner's chosen availability instead of a generic
+  // Mon–Fri 9-5. All optional; BookingCalendarPreview falls back when absent.
+  const bookingWorkingDays = Array.isArray(bsBooking?.workingDays)
+    ? (bsBooking!.workingDays as number[]) : undefined;
+  const bookingHoursStart = typeof bsBooking?.workingHoursStart === 'string'
+    ? bsBooking!.workingHoursStart : undefined;
+  const bookingHoursEnd = typeof bsBooking?.workingHoursEnd === 'string'
+    ? bsBooking!.workingHoursEnd : undefined;
+  const bookingSlotMinutes = typeof bsBooking?.slotDurationMinutes === 'number'
+    ? bsBooking!.slotDurationMinutes : undefined;
+
+  // Preview fidelity — follow-up ACTION MODE (advanced.results.action_mode).
+  // Mirrors the Action-tab `settings.actionMode` so the preview CTA reflects
+  // the chosen behaviour: 'lead-form' (default — open the inline form),
+  // 'redirect' (send the customer to a URL), or 'no-action' (show the result
+  // only, no CTA). Read straight off `advanced.results` here (the local
+  // `results` alias is declared later in the component).
+  const actionModeRaw = advanced.results?.action_mode;
+  const actionModeValue: 'redirect' | 'lead-form' | 'no-action' =
+    (actionModeRaw === 'redirect' || actionModeRaw === 'no-action' || actionModeRaw === 'lead-form')
+      ? actionModeRaw
+      : 'lead-form';
+  const redirectUrlValue = (advanced.results?.redirect_url || '').trim();
 
   // Branding badge — free-tier always shows the badge regardless of
   // stored value. Pro+ honours the persisted toggle.
@@ -2941,6 +3032,7 @@ export default function AdvancedCalculator({
           businessProfile={advanced.businessProfile}
           theme={cc}
           fontFamily={fontFamily}
+          originAddress={advanced.origin?.address}
         />
       )}
       {/* BD-2a — stepper progress indicator. Rendered when the multi-step
@@ -3410,6 +3502,10 @@ export default function AdvancedCalculator({
                 theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
+                workingDays={bookingWorkingDays}
+                workingHoursStart={bookingHoursStart}
+                workingHoursEnd={bookingHoursEnd}
+                slotDurationMinutes={bookingSlotMinutes}
               />
             )}
 
@@ -3483,11 +3579,32 @@ export default function AdvancedCalculator({
                     )}
                   </div>
                 )}
-                {leadView === 'cta' && (
+                {/* Preview fidelity — follow-up ACTION MODE indicator. Reflects
+                    the Action-tab choice in the preview so toggling the mode
+                    visibly changes the CTA's behaviour cue. 'no-action' hides
+                    the CTA button entirely below; 'redirect' shows the
+                    destination + makes the button open it; 'lead-form' (default)
+                    is unchanged. */}
+                {leadView === 'cta' && actionModeValue === 'redirect' && redirectUrlValue !== '' && (
+                  <p data-testid="advanced-cta-redirect-note" style={{
+                    margin: '0 0 8px', fontSize: '11px', color: cc.resultMuted, lineHeight: 1.5,
+                  }}>
+                    On submit, customers are sent to <span style={{ fontWeight: 700 }}>{redirectUrlValue}</span>
+                  </p>
+                )}
+                {leadView === 'cta' && actionModeValue === 'no-action' && (
+                  <p data-testid="advanced-cta-no-action-note" style={{
+                    margin: 0, fontSize: '11px', color: cc.resultMuted, lineHeight: 1.5,
+                  }}>
+                    Result only — no follow-up step is shown to customers.
+                  </p>
+                )}
+                {leadView === 'cta' && actionModeValue !== 'no-action' && (
                   <button type="button" data-testid="advanced-cta"
                     className="qq-w-cta"
                     data-component-name="CTA button"
                     data-component-type="cta"
+                    data-action-mode={actionModeValue}
                     // BD-3l — `data-qq-cta-pulse` plus `--qq-cta-base`
                     // light up the conic-gradient rotation in
                     // premiumAnimations.css. The attribute is harmless
@@ -3497,7 +3614,17 @@ export default function AdvancedCalculator({
                     // stays as the fallback for browsers without
                     // `@property` support.
                     {...(premiumCtaPulseOn ? { 'data-qq-cta-pulse': '' } : null)}
-                    onClick={() => setLeadModalOpen(true)}
+                    onClick={() => {
+                      // 'redirect' → open the owner's destination URL (new tab in
+                      // the preview so the editor isn't navigated away); any
+                      // other mode opens the inline lead form (legacy behaviour).
+                      if (actionModeValue === 'redirect' && redirectUrlValue !== '') {
+                        try { window.open(redirectUrlValue, '_blank', 'noopener,noreferrer'); }
+                        catch { /* popup blocked / non-browser env — ignore */ }
+                        return;
+                      }
+                      setLeadModalOpen(true);
+                    }}
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
                       background: ctaBg, color: ctaFgGuarded, fontSize: '14px', fontWeight: 800,
@@ -3623,8 +3750,13 @@ export default function AdvancedCalculator({
                       background: ctaBg, color: ctaFgGuarded, fontSize: '12px', fontWeight: 800,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>✓</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: cc.resultText }}>
-                      Thanks — we’ll be in touch shortly.
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: cc.resultText }} data-testid="advanced-cta-done-text">
+                      {/* Action tab — owner success copy (settings.submitSuccessText
+                          → results.submit_success). Surfaced here in the inline
+                          confirmation state so the preview reflects the owner's
+                          custom message; absent → the default copy. Mirrors the
+                          LeadModal's successMessage on the stepper path. */}
+                      {(results.submit_success || '').trim() || 'Thanks — we’ll be in touch shortly.'}
                     </span>
                   </div>
                 )}

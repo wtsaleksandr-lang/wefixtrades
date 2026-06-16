@@ -119,6 +119,13 @@ interface Props {
   trustBadges?: readonly TrustBadge[];
   onTrustBadgesChange?: (next: TrustBadge[]) => void;
   /**
+   * Preview fidelity (#4) — count of chips the renderer auto-synthesises from
+   * the Business profile + address. Surfaced under the trust-badge editor so
+   * the editor's visible badge count reconciles with the preview's (preview =
+   * autoChips + customBadges). Defaults to 0 (no note) when absent.
+   */
+  autoBadgeCount?: number;
+  /**
    * P2 UX — business-level currency symbol used to label currency-sensitive
    * style fields (currently the deposit-amount input). Plumbed in from
    * WizardShell where the ISO currency code lives in
@@ -228,7 +235,7 @@ const TOKEN_FALLBACKS = {
 
 export default function StyleTab({
   style, onChange, logo, onLogoChange, planTier = 'free',
-  trustBadges, onTrustBadgesChange,
+  trustBadges, onTrustBadgesChange, autoBadgeCount = 0,
   // stepLayout / tiered / templateCategory / aiChatVisibility / floatingLauncher
   // controls were relocated out of Style (see Build / Settings / Install). Those
   // props are no longer passed. currencySymbol is still on Props (callers pass
@@ -1204,6 +1211,7 @@ export default function StyleTab({
         badges={trustBadges}
         onChange={onTrustBadgesChange}
         isProTier={isProTier}
+        autoBadgeCount={autoBadgeCount}
       />
 
       {/* ── Deposit + Online booking — RELOCATED to ActionTab.
@@ -3788,11 +3796,21 @@ const TRUST_ICON_OPTIONS: ReadonlyArray<{ id: TrustBadge['icon']; label: string;
 const TRUST_BADGE_MAX = 8;
 
 function TrustBadgesGroup({
-  badges, onChange, isProTier,
+  badges, onChange, isProTier, autoBadgeCount = 0,
 }: {
   badges: readonly TrustBadge[] | undefined;
   onChange?: (next: TrustBadge[]) => void;
   isProTier: boolean;
+  /**
+   * Preview fidelity (#4 count mismatch) — number of chips the renderer
+   * AUTO-synthesises from the Business profile (rating, license, insured,
+   * years, service area, BBB) + the business address. The preview row is
+   * `[...autoChips, ...customBadges]`, so the editor (which only lists
+   * `customBadges`) showed FEWER badges than the preview. Surfacing the auto
+   * count here reconciles the two — the owner sees "+N auto from your profile"
+   * so the mismatch is explicit, not silent.
+   */
+  autoBadgeCount?: number;
 }) {
   // No editor wired in by the parent → don't render the section at all
   // (back-compat for portal pages that haven't plumbed it through yet).
@@ -4016,6 +4034,23 @@ function TrustBadgesGroup({
           <Plus size={12} aria-hidden="true" />
           Add badge {list.length > 0 ? `(${list.length}/${TRUST_BADGE_MAX})` : ''}
         </button>
+        {/* Preview fidelity (#4) — explain the auto-synthesised chips so the
+            editor's badge count reconciles with the preview's. These come from
+            the Settings tab's Business profile + address, not this list. */}
+        {autoBadgeCount > 0 && (
+          <p
+            data-testid="style-trust-badge-auto-note"
+            style={{
+              margin: '10px 0 0', fontSize: 11, lineHeight: 1.45,
+              color: platformTheme.colors.subtle,
+            }}
+          >
+            Plus {autoBadgeCount} {autoBadgeCount === 1 ? 'badge' : 'badges'} auto-added
+            from your business profile (rating, license, years, address…). Those
+            show in the preview ahead of the badges above; edit them in Settings →
+            Business profile.
+          </p>
+        )}
       </div>
     </fieldset>
   );

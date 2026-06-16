@@ -40,8 +40,10 @@ import { dashboardTheme } from '@/theme/dashboardTheme';
 import { AE } from './appleEditor';
 import { buildAdvancedConfig } from './buildAdvancedConfig';
 import { buildLeadFormConfig } from './buildLeadFormConfig';
+import { toPricingConfig } from './pricingConfig';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
+  synthesizeProfileBadges,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
   type TemplateTiered,
   type TrustBadge,
@@ -78,7 +80,7 @@ import {
   DEVICE_PRESET_STORAGE_KEY, EDITOR_TABS,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
-  type ShellSettings, type ShellPricing,
+  type ShellSettings,
   type PublicFieldType,
 } from './types';
 
@@ -210,22 +212,9 @@ function loadPreviewCollapsed(): boolean {
   } catch { return false; }
 }
 
-function toPricingConfig(pricing: ShellPricing | undefined) {
-  if (!pricing) {
-    return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 } as const;
-  }
-  if (pricing.mode === 'hourly') {
-    const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 75;
-    return { pricingType: 'hourly', unitName: 'hour', rate } as const;
-  }
-  if (pricing.mode === 'fixed') {
-    const minCharge = typeof pricing.value === 'number' && pricing.value >= 0 ? pricing.value : 0;
-    return { pricingType: 'min_charge_plus_addons', minCharge } as const;
-  }
-  const unitName = (pricing.label ?? '').trim() || 'unit';
-  const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 1;
-  return { pricingType: 'per_unit', unitName, rate } as const;
-}
+// toPricingConfig moved to ./pricingConfig so the live preview (PreviewPane)
+// and the save path share ONE mapping — the preview estimate now reflects the
+// Settings-tab pricing model instead of a hard-coded $75/hr stub.
 
 /**
  * Thrown by saveDraftMutation when a calc formula fails validation, so the
@@ -687,10 +676,28 @@ export default function WizardShell({ embed = false }: Props) {
           // Capture minimal identity for the minimize handler — id +
           // business_name only. /api/calculators/me already restricts
           // its response to these fields, so no PII leak.
+          const serverBusinessName = typeof data?.business_name === 'string'
+            ? data.business_name : null;
           setCalcIdentity({
             id: typeof data?.id === 'number' ? data.id : null,
-            businessName: typeof data?.business_name === 'string' ? data.business_name : null,
+            businessName: serverBusinessName,
           });
+          // BUSINESS-NAME HYDRATION (#5) — the server's `business_name` was
+          // captured into calcIdentity for the minimize handler but NEVER
+          // written to editor state, so the Build > Business name field (and
+          // the preview header that falls back to it) loaded BLANK for a named
+          // calculator. Seed it now — but ONLY when the editor field is still
+          // empty, so a load that races a user already typing never clobbers a
+          // real value. Uses the functional updater to read the freshest state
+          // without widening the effect's deps.
+          const trimmed = (serverBusinessName ?? '').trim();
+          if (trimmed !== '') {
+            setStateInner((s) => (
+              (s.businessName ?? '').trim() === ''
+                ? { ...s, businessName: trimmed }
+                : s
+            ));
+          }
         } catch { /* silent — plan_tier stays 'free' */ }
       })();
       return () => { cancelled = true; };
@@ -804,6 +811,16 @@ export default function WizardShell({ embed = false }: Props) {
     const code = (state.settings?.numberFormat?.currency ?? 'USD').toString().toUpperCase();
     return map[code] ?? '$';
   })();
+
+  // Preview fidelity (#4) — count the trust chips the widget AUTO-synthesises
+  // from the Business profile + anchor address. Passed to StyleTab's trust-badge
+  // editor so its "+N auto badges" note reconciles the editor's visible count
+  // with the preview's (preview row = autoChips + custom badges). Uses the SAME
+  // shared helper the renderer uses, so the two can't drift.
+  const autoBadgeCount = synthesizeProfileBadges(
+    state.settings?.businessProfile,
+    state.settings?.origin?.address,
+  ).length;
 
   // ── Wave I (h): mount/unmount transition state ────────────────────────
   // The modal wrapper paints in `is-entering` → `is-open` for the open
@@ -1046,6 +1063,14 @@ export default function WizardShell({ embed = false }: Props) {
         ...s,
         activeTemplateId: preset.id,
         settings: nextSettings,
+        // BUSINESS-NAME HYDRATION (#5) — seed the business name from the
+        // template's name on a structural apply, but ONLY when the user hasn't
+        // already entered one (don't clobber a real value). Gives a freshly
+        // applied template a non-blank header instead of the "Get a Quote"
+        // placeholder; the user can overwrite it immediately.
+        businessName: (s.businessName ?? '').trim() === ''
+          ? (preset.name ?? '').trim() || s.businessName
+          : s.businessName,
         // Fall back to the current layout when an admin-created template omits
         // one — keeps `fields`/`calculations` (seeded above) on a valid layout.
         layout: preset.layout ?? s.layout,
@@ -2207,6 +2232,7 @@ export default function WizardShell({ embed = false }: Props) {
                          see the 4 defaults read-only; Pro+ can edit. */
                       trustBadges={state.trustBadges}
                       onTrustBadgesChange={setTrustBadges}
+                      autoBadgeCount={autoBadgeCount}
                       currencySymbol={currencySymbol}
                     />
                   ) : activeTab === 'settings' ? (
@@ -2471,6 +2497,7 @@ export default function WizardShell({ embed = false }: Props) {
                     planTier={planTier}
                     trustBadges={state.trustBadges}
                     onTrustBadgesChange={setTrustBadges}
+                    autoBadgeCount={autoBadgeCount}
                     currencySymbol={currencySymbol}
                   />
                 ) : activeTab === 'settings' ? (

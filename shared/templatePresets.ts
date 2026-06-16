@@ -537,6 +537,19 @@ export interface TemplateResults {
    * successful submit. Absent → the modal's built-in default copy.
    */
   submit_success?: string;
+  /**
+   * Action tab — follow-up behaviour after the customer sees their quote
+   * (mirrors `settings.actionMode`). Drives what the preview's primary CTA
+   * does / reads as:
+   *   'lead-form' (default) — opens the inline lead-capture form.
+   *   'redirect'            — sends the customer to `redirect_url`.
+   *   'no-action'           — shows the result only; no follow-up step.
+   * Preview-only reflection of the canonical setting; the published widget's
+   * flow is built from the same source.
+   */
+  action_mode?: 'redirect' | 'lead-form' | 'no-action';
+  /** Action tab — destination URL used when `action_mode === 'redirect'`. */
+  redirect_url?: string;
 }
 
 /* ─── Stepper (BD-2a — multi-step renderer) ─── */
@@ -9923,6 +9936,14 @@ export interface AdvDeposit {
   /** P2 UX — icon glyph rendered to the left of the badge text. Defaults
    *  to `'Lock'` (the legacy hard-coded icon) when absent. */
   iconName?: AdvDepositIconName;
+  /**
+   * Preview fidelity — whether the deposit is REQUIRED before the customer can
+   * schedule (mirrors `settings.deposit.required`). When `true` the badge copy
+   * reads as a hard requirement; when `false`/absent it reads as an optional
+   * "secure your slot" affordance. Visual-only in the preview surface — the
+   * real payment gate is enforced in the published checkout flow.
+   */
+  required?: boolean;
 }
 
 /**
@@ -9942,6 +9963,21 @@ export interface AdvBooking {
   source: AdvBookingSource;
   /** External scheduler URL — required when source is cal.com / calendly. */
   url?: string;
+  /**
+   * Preview fidelity — the owner's scheduling detail (mirrors
+   * `settings.scheduling`). When present, the built-in mock calendar preview
+   * reflects the chosen working days, hours window and slot length instead of
+   * its generic Mon–Fri 9-5 fallback, so editing the Action-tab booking config
+   * updates the preview live. All optional; the renderer falls back to the
+   * generic mock when a field is absent.
+   *   - `workingDays`: 0=Sun … 6=Sat (JS Date.getDay()).
+   *   - `workingHoursStart` / `workingHoursEnd`: "HH:MM" 24h.
+   *   - `slotDurationMinutes`: length of one slot (15/30/45/60).
+   */
+  workingDays?: number[];
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  slotDurationMinutes?: number;
 }
 
 /**
@@ -10246,6 +10282,103 @@ export interface BusinessProfile {
   serviceArea?: string;
   /** BBB rating letter grade (A+, A, B, etc.) when applicable. */
   bbbRating?: string;
+}
+
+/**
+ * Resolve the owner-entered "years in business" value into an actual DURATION
+ * in years, tolerating the common mistake of typing a CALENDAR YEAR
+ * (e.g. `1995`) instead of a count (e.g. `30`).
+ *
+ * Without this, `${yearsInBusiness} years in business` rendered "1995 years in
+ * business" for an owner who typed the year they were founded. Heuristic: a
+ * value that looks like a plausible founding year (>= 1900 and <= the current
+ * year) is converted to `currentYear - value`; anything else is treated as a
+ * literal count. Returns `null` for non-finite / non-positive inputs so callers
+ * can hide the signal entirely.
+ *
+ * Pure + side-effect-free; `now` is injectable for deterministic tests.
+ */
+export function resolveYearsInBusiness(
+  value: number | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const v = Math.round(value);
+  if (v <= 0) return null;
+  const currentYear = now.getFullYear();
+  // Calendar-year entry (founding year) → convert to a duration. A value equal
+  // to the current year yields 0 → treat as "this year" (sub-1-year), which we
+  // surface as 1 so the chip never reads "0 years in business".
+  if (v >= 1900 && v <= currentYear) {
+    return Math.max(1, currentYear - v);
+  }
+  return v;
+}
+
+/**
+ * Synthesise the AUTO trust chips the widget derives from the business profile
+ * (rating, license, insured, years, service area, BBB) + the business anchor
+ * address. The widget's trust-badge row renders `[...autoChips, ...customBadges]`
+ * — extracting the auto-chip derivation here keeps the RENDERER (TrustBadgeRow)
+ * and the EDITOR (StyleTab's "+N auto badges" note) in lock-step, so the
+ * editor's badge count can't silently drift from the preview's (#4).
+ *
+ * Order matches the renderer: address, rating, license, insured, years/area,
+ * BBB. Pure + side-effect-free.
+ */
+export function synthesizeProfileBadges(
+  profile: BusinessProfile | undefined,
+  originAddress?: string,
+): TrustBadge[] {
+  const p = profile;
+  const out: TrustBadge[] = [];
+
+  const addr = (originAddress ?? '').trim();
+  if (addr.length > 0) {
+    out.push({ label: addr, icon: 'map-pin' });
+  }
+
+  const rating = typeof p?.googleRating === 'number' && Number.isFinite(p.googleRating)
+    ? p.googleRating : undefined;
+  if (rating !== undefined && rating > 0) {
+    const reviews = typeof p?.googleReviewCount === 'number' && Number.isFinite(p.googleReviewCount)
+      ? Math.max(0, Math.round(p.googleReviewCount)) : undefined;
+    const ratingLabel = (Math.round(rating * 10) / 10).toString();
+    const label = reviews && reviews > 0
+      ? `${ratingLabel} ★ · ${reviews.toLocaleString()} reviews`
+      : `${ratingLabel} ★ rating`;
+    out.push({ label, icon: 'star' });
+  }
+
+  const license = (p?.licenseNumber ?? '').trim();
+  if (license.length > 0) {
+    out.push({ label: `Licensed #${license}`, icon: 'badge-check' });
+  }
+
+  const insured = (p?.insuredAmount ?? '').trim();
+  if (insured.length > 0) {
+    out.push({ label: insured, icon: 'shield-check' });
+  }
+
+  const resolvedYears = resolveYearsInBusiness(p?.yearsInBusiness);
+  const years = resolvedYears != null ? resolvedYears : undefined;
+  const serviceArea = (p?.serviceArea ?? '').trim();
+  if (years !== undefined && years > 0) {
+    const unit = years === 1 ? 'year' : 'years';
+    const label = serviceArea.length > 0
+      ? `${years} ${unit} serving ${serviceArea}`
+      : `${years} ${unit} in business`;
+    out.push({ label, icon: 'clock' });
+  } else if (serviceArea.length > 0) {
+    out.push({ label: `Serving ${serviceArea}`, icon: 'map-pin' });
+  }
+
+  const bbb = (p?.bbbRating ?? '').trim();
+  if (bbb.length > 0) {
+    out.push({ label: `BBB ${bbb}`, icon: 'award' });
+  }
+
+  return out;
 }
 
 /**

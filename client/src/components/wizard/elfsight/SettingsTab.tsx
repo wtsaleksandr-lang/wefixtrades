@@ -991,7 +991,12 @@ function BusinessProfileSection({
       </FloatField>
 
       <div className="qq-settings-row" data-testid="settings-bp-row-years">
-        <FloatField label="Years in business" htmlFor="qq-settings-bp-years">
+        <FloatField
+          label="Years in business"
+          htmlFor="qq-settings-bp-years"
+          infoText="Enter how many YEARS you've been operating (e.g. 30), not the year you started. If you type a founding year like 1995 we'll convert it to a duration automatically."
+          infoTestid="settings-bp-years-info"
+        >
           <input
             id="qq-settings-bp-years"
             type="number"

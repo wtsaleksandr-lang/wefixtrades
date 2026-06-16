@@ -176,17 +176,23 @@ export function buildAdvancedConfig(
       const amount = isPercent
         ? Math.round((PERCENT_SAMPLE_QUOTE * value) / 100)
         : Math.round(value);
+      // CHANGE A — carry the owner's "required" toggle through so the preview
+      // badge copy reflects whether the deposit is mandatory before scheduling
+      // (mirrors `settings.deposit.required`). The adapter previously dropped
+      // it, so toggling "required" in the Action tab never changed the preview.
+      const required = sd.required === true;
       const ownLabel = (sd.label ?? '').trim();
+      const requiredWord = required ? 'required' : 'requested';
       const label = ownLabel !== ''
         ? ownLabel
         : (isPercent && value > 0
-            ? `${value}% deposit required to schedule`
-            : 'Deposit required to schedule');
+            ? `${value}% deposit ${requiredWord} to schedule`
+            : `Deposit ${requiredWord} to schedule`);
       merged = {
         ...merged,
         style: {
           ...(merged.style ?? {}),
-          deposit: { enabled: true, amount, label },
+          deposit: { enabled: true, amount, label, required },
         },
       };
     } else if (sd && sd.enabled === false) {
@@ -208,7 +214,19 @@ export function buildAdvancedConfig(
         style: {
           ...(merged.style ?? {}),
           // The built-in scheduler maps to the in-widget mock slot picker.
-          booking: { enabled: true, source: 'wefixtrades-default' },
+          // CHANGE A — carry the full scheduling detail (working days/hours +
+          // slot length) so the preview calendar reflects the owner's chosen
+          // availability live, instead of its generic Mon–Fri 9-5 fallback. The
+          // adapter previously emitted only {enabled, source}, dropping every
+          // detail the Action-tab booking card edits.
+          booking: {
+            enabled: true,
+            source: 'wefixtrades-default',
+            ...(Array.isArray(sched.workingDays) ? { workingDays: [...sched.workingDays] } : {}),
+            ...(typeof sched.workingHoursStart === 'string' ? { workingHoursStart: sched.workingHoursStart } : {}),
+            ...(typeof sched.workingHoursEnd === 'string' ? { workingHoursEnd: sched.workingHoursEnd } : {}),
+            ...(typeof sched.slotDurationMinutes === 'number' ? { slotDurationMinutes: sched.slotDurationMinutes } : {}),
+          },
         },
       };
     } else if (sched && sched.enabled === false) {
@@ -274,11 +292,48 @@ export function buildAdvancedConfig(
         results: { ...(merged.results ?? {}), cta_label: cta },
       };
     }
+    // CHANGE A — CTA heading + caption (settings.ctaHeading / ctaCaption). The
+    // renderer already renders results.cta_heading / cta_sub above the result
+    // CTA; the build input just never mapped the Action-tab fields into them,
+    // so editing them did nothing in the preview. Map them through now (only
+    // when non-empty so an absent value keeps the template's own copy).
+    const ctaHeading = (settings?.ctaHeading ?? '').trim();
+    if (ctaHeading !== '') {
+      merged = {
+        ...merged,
+        results: { ...(merged.results ?? {}), cta_heading: ctaHeading },
+      };
+    }
+    const ctaCaption = (settings?.ctaCaption ?? '').trim();
+    if (ctaCaption !== '') {
+      merged = {
+        ...merged,
+        results: { ...(merged.results ?? {}), cta_sub: ctaCaption },
+      };
+    }
     const submitSuccess = (settings?.submitSuccessText ?? '').trim();
     if (submitSuccess !== '') {
       merged = {
         ...merged,
         results: { ...(merged.results ?? {}), submit_success: submitSuccess },
+      };
+    }
+    // CHANGE A — action mode + redirect URL (settings.actionMode /
+    // settings.redirectUrl). Carried into results.action_mode / redirect_url so
+    // the preview CTA can reflect the chosen follow-up behaviour (open the lead
+    // form / redirect to a URL / show the result only). Save-path-only before
+    // this; the preview ignored the mode entirely.
+    if (settings?.actionMode) {
+      merged = {
+        ...merged,
+        results: { ...(merged.results ?? {}), action_mode: settings.actionMode },
+      };
+    }
+    const redirectUrl = (settings?.redirectUrl ?? '').trim();
+    if (redirectUrl !== '') {
+      merged = {
+        ...merged,
+        results: { ...(merged.results ?? {}), redirect_url: redirectUrl },
       };
     }
     // spamProtection defaults ON; only thread an explicit `false`.
