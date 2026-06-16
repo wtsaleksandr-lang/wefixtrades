@@ -84,7 +84,7 @@ const ELFSIGHT_LIGHT_STYLE = {
   logoSize: "medium",
   bgMode: "solid",
   resultPanel: { emphasis: "normal", border: "subtle", range_mode: { enabled: false, band_pct: 8 } },
-  animations: { step_transition: "fade", duration_ms: 250, reduced_motion_respect: true },
+  animations: { step_transition: "slide-fade", duration_ms: 220, reduced_motion_respect: true },
   labelLayout: "stacked",
 } satisfies AdvStyle;
 
