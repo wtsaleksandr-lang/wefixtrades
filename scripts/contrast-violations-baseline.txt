@@ -11,11 +11,11 @@
 #  then again by the zero-services-signup wizard-CTA pass — same 5 pre-existing
 #  white-on-brand entries, shifted down by the restructured zero-services
 #  welcome card; content unchanged.)
-client/src/pages/portal/PortalDashboard.tsx:40:91	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:454:85	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:469:62	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:477:64	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:710:103	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:42:91	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:471:85	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:518:62	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:526:64	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:759:103	tailwind	text-white
 # White text on the fixed bg-brand-blue support CTA in the public onboarding
 # invalid-token shell (night P-C: dead-end fix). Same white-on-brand pattern.
 client/src/pages/OnboardingForm.tsx:307:89	tailwind	text-white

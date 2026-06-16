@@ -5,11 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight } from "lucide-react";
+import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight, Repeat, UserPlus, UserMinus } from "lucide-react";
 import { Link } from "wouter";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AdminLayout from "@/components/admin/AdminLayout";
 import SystemHealthPanel from "@/components/admin/SystemHealthPanel";
 import { adminStatusColor, ALERT_SEVERITY } from "@/config/adminLabels";
+
+interface OverviewDeltas {
+  mrrPct: number | null;
+  activeSubscribersPct: number | null;
+  collectedPct: number | null;
+}
+
+interface OverviewTimePoint {
+  date: string;
+  revenue_cents: number;
+  leads: number;
+}
 
 interface Overview {
   totalClients: number;
@@ -18,6 +31,14 @@ interface Overview {
   openFulfillment: number;
   unpaidAmount: number;
   monthlyRevenue: number;
+  /** Recurring monthly revenue (active monthly client_services), cents. */
+  mrrCents: number;
+  /** Distinct clients with ≥1 active monthly recurring service. */
+  activeSubscribers: number;
+  newClientsThisMonth: number;
+  churnThisMonth: number;
+  deltas: OverviewDeltas;
+  timeSeries: OverviewTimePoint[];
   recentClients: { id: number; business_name: string; status: string; created_at: string }[];
   recentTasks: { id: number; title: string; status: string; priority: string; client_id: number; client_name: string | null; due_at: string | null }[];
 }
@@ -256,18 +277,48 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* Trend pill — "+12% vs last month" with direction-aware color + arrow.
+   null delta (no prior-period baseline) renders a neutral "New" chip so we
+   never show a misleading +100% or a NaN. Theme-aware semantic tokens. */
+function TrendPill({ delta }: { delta: number | null | undefined }) {
+  if (delta == null) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80">
+        New
+        <span className="text-muted-foreground/50">vs last mo.</span>
+      </span>
+    );
+  }
+  const up = delta >= 0;
+  const Arrow = up ? TrendingUp : TrendingDown;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+        up ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+      }`}
+    >
+      <Arrow className="w-3 h-3" />
+      {up ? "+" : ""}{delta}%
+      <span className="text-muted-foreground/50 font-normal">vs last mo.</span>
+    </span>
+  );
+}
+
 function StatCard({
   label,
   value,
   icon: Icon,
   href,
   color,
+  delta,
 }: {
   label: string;
   value: string | number;
   icon: React.ElementType;
   href?: string;
   color: string;
+  /** Optional MoM trend; `undefined` = no trend row, `null` = no baseline. */
+  delta?: number | null;
 }) {
   const inner = (
     <Card className={`h-full p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-input hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
@@ -280,10 +331,139 @@ function StatCard({
           <Icon className="w-4 h-4 text-white" />
         </div>
       </div>
+      {delta !== undefined && (
+        <div className="mt-2">
+          <TrendPill delta={delta} />
+        </div>
+      )}
     </Card>
   );
   if (href) return <Link href={href} className="block">{inner}</Link>;
   return inner;
+}
+
+/* ─── Revenue + Leads 30-day chart (recharts) ───
+   Dual-series area chart: collected revenue ($, left axis) + leads (count,
+   right axis) over the trailing 30 days. Semantic-token colors so it tracks
+   light/dark. Reduced-motion: recharts honors isAnimationActive=false. */
+function RevenueLeadsChart({ data, isLoading }: { data: OverviewTimePoint[] | undefined; isLoading: boolean }) {
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  const chartData = (data ?? []).map((d) => ({
+    date: d.date,
+    label: new Date(d.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    revenue: Math.round(d.revenue_cents / 100),
+    leads: d.leads,
+  }));
+
+  const hasData = chartData.some((d) => d.revenue > 0 || d.leads > 0);
+
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Revenue &amp; Leads</h3>
+          <p className="text-[11px] text-muted-foreground/70">Collected revenue and new leads — last 30 days</p>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ background: "hsl(var(--gauge-emerald))" }} />
+            Revenue
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ background: "hsl(var(--gauge-sapphire))" }} />
+            Leads
+          </span>
+        </div>
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-[220px] w-full" />
+      ) : !hasData ? (
+        <div className="h-[220px] flex flex-col items-center justify-center text-center">
+          <TrendingUp className="w-8 h-8 text-muted-foreground/40 mb-2" />
+          <p className="text-sm text-muted-foreground">No revenue or leads in the last 30 days yet.</p>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5">This chart fills in as payments clear and leads arrive.</p>
+        </div>
+      ) : (
+        <div className="w-full h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="crmRevGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(var(--gauge-emerald))" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="hsl(var(--gauge-emerald))" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="crmLeadGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(var(--gauge-sapphire))" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="hsl(var(--gauge-sapphire))" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                interval="preserveStartEnd"
+                minTickGap={24}
+                tickLine={false}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+              />
+              <YAxis
+                yAxisId="rev"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickFormatter={(v) => `$${(v as number).toLocaleString()}`}
+                tickLine={false}
+                axisLine={false}
+                width={56}
+              />
+              <YAxis
+                yAxisId="leads"
+                orientation="right"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                allowDecimals={false}
+              />
+              <RTooltip
+                contentStyle={{
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: "hsl(var(--popover-foreground))",
+                }}
+                formatter={(value: number, name: string) =>
+                  name === "Revenue" ? [`$${value.toLocaleString()}`, name] : [value, name]
+                }
+              />
+              <Area
+                yAxisId="rev"
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue"
+                stroke="hsl(var(--gauge-emerald))"
+                strokeWidth={2}
+                fill="url(#crmRevGrad)"
+                isAnimationActive={!prefersReducedMotion}
+              />
+              <Area
+                yAxisId="leads"
+                type="monotone"
+                dataKey="leads"
+                name="Leads"
+                stroke="hsl(var(--gauge-sapphire))"
+                strokeWidth={2}
+                fill="url(#crmLeadGrad)"
+                isAnimationActive={!prefersReducedMotion}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 /* ─── QA Queue Widget ─── */
@@ -551,7 +731,32 @@ export default function CrmOverview() {
           <p className="text-sm text-muted-foreground mt-0.5">Your business at a glance</p>
         </div>
 
-        {/* Stat cards */}
+        {/* Headline subscription KPIs — recurring-revenue health with MoM
+            trend. MRR is recurring (active monthly subs); Collected is cash
+            in this month. Both shown side-by-side so they're never conflated. */}
+        <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-3">
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="h-full p-4">
+                <Skeleton className="h-3 w-20 mb-2" />
+                <Skeleton className="h-7 w-16" />
+                <Skeleton className="h-3 w-24 mt-3" />
+              </Card>
+            ))
+          ) : (
+            <>
+              <StatCard label="MRR" value={formatCurrency(data?.mrrCents ?? 0)} icon={Repeat} href="/admin/crm/billing" color="bg-emerald-600" delta={data?.deltas?.mrrPct} />
+              <StatCard label="Collected (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} href="/admin/crm/billing" color="bg-emerald-500" delta={data?.deltas?.collectedPct} />
+              <StatCard label="Active Subscribers" value={data?.activeSubscribers ?? 0} icon={Users} href="/admin/crm/services" color="bg-brand-blue" delta={data?.deltas?.activeSubscribersPct} />
+              <StatCard label="New / Churned (Mo)" value={`${data?.newClientsThisMonth ?? 0} / ${data?.churnThisMonth ?? 0}`} icon={UserPlus} href="/admin/crm/clients" color="bg-violet-500" />
+            </>
+          )}
+        </div>
+
+        {/* Revenue + Leads 30-day chart */}
+        <RevenueLeadsChart data={data?.timeSeries} isLoading={isLoading} />
+
+        {/* Operations stat cards */}
         <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
@@ -567,7 +772,7 @@ export default function CrmOverview() {
               <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
               <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-brand-blue-500" />
               <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} href="/admin/crm/billing" color="bg-red-500" />
-              <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} href="/admin/crm/billing" color="bg-emerald-500" />
+              <StatCard label="Churned (Mo)" value={data?.churnThisMonth ?? 0} icon={UserMinus} href="/admin/crm/services" color="bg-red-500" />
             </>
           )}
         </div>
