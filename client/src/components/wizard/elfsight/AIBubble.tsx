@@ -2232,9 +2232,13 @@ export default function AIBubble(props: AIBubbleProps) {
          *  keep it from blending into a white preview. ~44px wide tap target.
          *  Tap, swipe-left, or drag to open. */
         .qq-ai-tab {
-          position: fixed; right: 0; top: 50%; z-index: 9998;
+          /* Docked to the preview PANE's right edge, not the viewport: the shell
+             has an 8px outer gutter (dashboardTheme.layout.shellPad), so right:0
+             made the tab overflow past the preview boundary. right:8px tucks its
+             flat right edge flush against the pane edge. Width trimmed 10%. */
+          position: fixed; right: 8px; top: 50%; z-index: 9998;
           transform: translateY(-50%);
-          width: 46px; height: 64px; padding: 0;
+          width: 41px; height: 64px; padding: 0;
           display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 4px;
           border: 1px solid rgba(255, 255, 255, 0.45);
@@ -2268,7 +2272,7 @@ export default function AIBubble(props: AIBubbleProps) {
           }
         }
         .qq-ai-tab:hover {
-          width: 52px;
+          width: 47px;
           box-shadow:
             -12px 0 34px rgba(13, 60, 252, 0.46),
             -1px 0 0 rgba(13, 60, 252, 0.28),
@@ -2546,7 +2550,7 @@ export default function AIBubble(props: AIBubbleProps) {
              a slimmer pill, lower-opacity frosted surface, softer glow — still
              tucked to the right edge with the spark + a subtle pull cue. */
           .qq-ai-tab {
-            width: 30px; height: 52px;
+            width: 27px; height: 52px;
             border-radius: 13px 0 0 13px;
             border-color: rgba(255, 255, 255, 0.28);
             background:
@@ -2563,7 +2567,7 @@ export default function AIBubble(props: AIBubbleProps) {
               background: linear-gradient(210deg, rgba(45, 96, 255, 0.82) 0%, rgba(13, 60, 252, 0.82) 100%);
             }
           }
-          .qq-ai-tab:hover { width: 34px; }
+          .qq-ai-tab:hover { width: 31px; }
           .qq-ai-tab-glyph {
             width: 24px; height: 24px;
             background: rgba(255, 255, 255, 0.12);
