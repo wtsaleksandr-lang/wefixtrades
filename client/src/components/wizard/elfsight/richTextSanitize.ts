@@ -26,7 +26,10 @@ const ALLOWED_TAGS = new Set([
 ]);
 
 const ALLOWED_ATTRS_PER_TAG: Record<string, ReadonlySet<string>> = {
-  '*': new Set(['style', 'class']),
+  // `align` — fallback for browsers whose execCommand justify* emits a legacy
+  // align="left|center|right" attribute instead of a text-align style. Safe
+  // (validated against bad schemes below); value is one of the keywords.
+  '*': new Set(['style', 'class', 'align']),
   IMG: new Set(['src', 'alt', 'style', 'width', 'height']),
   A: new Set(['href', 'target', 'rel', 'style']),
   FONT: new Set(['color', 'face', 'size', 'style']),
@@ -40,6 +43,10 @@ const ALLOWED_STYLE_PROPS = new Set([
   'font-size', 'color', 'background-color', 'font-weight', 'font-style',
   'text-decoration', 'max-width', 'max-height', 'height', 'width',
   'vertical-align',
+  // text-align — the toolbar's alignment buttons (execCommand justify* with
+  // styleWithCSS) emit style="text-align:left|center|right". Must be allowed
+  // or alignment is silently stripped on save.
+  'text-align',
 ]);
 
 // CSS values that look like a JS URL — kill them.

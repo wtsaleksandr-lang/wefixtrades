@@ -35,7 +35,7 @@ client/src/components/wizard/elfsight/AIBubble.tsx:1867:42	rule-c	size={36}
 client/src/components/wizard/elfsight/InstallTab.tsx:240:57	rule-b	<div> contains 4 cues
 client/src/components/wizard/elfsight/InstallTab.tsx:416:27	rule-c	size={11}
 client/src/components/wizard/elfsight/InstallTab.tsx:503:29	rule-c	size={13}
-client/src/components/wizard/elfsight/RichTextField.tsx:266:5	rule-b	<div> contains 2 cues
+client/src/components/wizard/elfsight/RichTextField.tsx:274:5	rule-b	<div> contains 2 cues
 client/src/components/wizard/elfsight/SettingsTab.tsx:348:7	rule-b	<fieldset> contains 2 cues
 client/src/components/wizard/elfsight/StyleTab.tsx:484:58	rule-b	<fieldset> contains 19 cues
 client/src/components/wizard/elfsight/StyleTab.tsx:4042:30	rule-c	size={13}
