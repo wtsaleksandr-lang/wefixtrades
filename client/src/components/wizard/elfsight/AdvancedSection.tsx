@@ -104,7 +104,10 @@ export default function AdvancedSection({ id, label = 'Advanced settings', hint,
         .qq-adv-body {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          /* #10 — tighter vertical rhythm so the advanced-style controls don't
+             read as too far apart (was 16px). 11px keeps a clear separation
+             while pulling the grouped controls together. */
+          gap: 11px;
           padding-bottom: 6px;
         }
         /* Dark editor chrome — the Apple light grays above (#1d1d1f label,

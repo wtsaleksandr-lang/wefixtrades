@@ -95,6 +95,17 @@ export default function InternalTemplateRender() {
       }
       const sl = q.get("stepLayout");
       if (sl === "stepper" || sl === "single") next.stepLayout = sl;
+      // #11 — dev/test overrides so Playwright can verify that logo placement
+      // and title-text alignment are INDEPENDENT controls (this route is
+      // gated out of prod). `?logo=top-left&titleAlign=center` etc.
+      const logo = q.get("logo");
+      if (logo === "top-left" || logo === "top-center" || logo === "top-right" || logo === "hidden") {
+        (next.style as Record<string, unknown>).logoPlacement = logo;
+      }
+      const ta = q.get("titleAlign");
+      if (ta === "left" || ta === "center" || ta === "right") {
+        (next.style as Record<string, unknown>).titleAlign = ta;
+      }
       return next;
     } catch {
       return null;

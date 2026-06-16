@@ -2633,6 +2633,13 @@ export default function AdvancedCalculator({
           : logoPlacement === 'top-center' || logoPlacement === 'hidden' ? 'center'
           : header.align || 'center';
         const justify = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
+        // #11 — title text alignment is INDEPENDENT of logo placement. When
+        // `style.titleAlign` is unset it falls back to the logo-derived `align`
+        // so existing templates render identically (no regression). With it set,
+        // the owner can keep the logo top-left while centering the title text.
+        const titleAlign: 'left' | 'center' | 'right' = style.titleAlign ?? align;
+        const titleJustify = titleAlign === 'left' ? 'flex-start'
+          : titleAlign === 'right' ? 'flex-end' : 'center';
         const title = (header.title || '').trim() || businessName || 'Get a Quote';
         const subtitle = (header.subtitle || '').trim();
         const logoRadius = Math.min(Math.round(logoSizePx * 0.3), 12);
@@ -2642,11 +2649,13 @@ export default function AdvancedCalculator({
             data-component-type="header"
             style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: justify, gap: '10px' }}>
-              {/* W-AO-6b — `hidden` placement suppresses logo + default icon.
-                  When a user has uploaded a logo it ALWAYS wins over the
-                  template `defaultIcon` (per spec: "user's logo wins"). */}
-              {logoHidden ? null : logoUrl ? (
+            {/* #11 — logo + title are now TWO independently-aligned rows so the
+                owner can place the logo (logoPlacement → `justify`) separately
+                from the title text alignment (`titleAlign` → `titleJustify`).
+                The logo row only renders when a logo/icon is present, so a
+                title-only header stays vertically tight. */}
+            {(() => {
+              const logoNode = logoHidden ? null : logoUrl ? (
                 <img
                   src={logoUrl}
                   alt=""
@@ -2662,7 +2671,20 @@ export default function AdvancedCalculator({
                 <div data-component-name="Logo icon" data-component-type="logo">
                   <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
                 </div>
-              ) : null}
+              ) : null;
+              return logoNode ? (
+                <div
+                  data-testid="advanced-logo-row"
+                  style={{
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: justify, marginBottom: '8px',
+                  }}
+                >
+                  {logoNode}
+                </div>
+              ) : null;
+            })()}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: titleJustify, gap: '10px' }}>
               <p
                 data-testid="advanced-title"
                 data-component-name="Title"
@@ -2750,7 +2772,9 @@ export default function AdvancedCalculator({
               // editable. PreviewPane's onBezelClick matches data-component-type
               // ="subtitle" to open the inline editor + select the header section.
               const baseStyle = {
-                fontSize: '12px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.4,
+                // #11 — subtitle follows the independent title alignment
+                // (titleAlign), not the logo-placement-derived `align`.
+                fontSize: '12px', color: cc.textBody, margin: '5px 0 0', textAlign: titleAlign, lineHeight: 1.4,
                 ...(editableTitle ? { cursor: 'pointer', borderRadius: 6 } : null),
               } as React.CSSProperties;
               if (props.__html) {
@@ -2784,7 +2808,9 @@ export default function AdvancedCalculator({
                     style={{
                       ...baseStyle,
                       display: 'flex', flexWrap: 'wrap', alignItems: 'center',
-                      justifyContent: justify, gap: '2px 0',
+                      // #11 — segmented subtitle follows the independent title
+                      // alignment (titleJustify), not the logo placement.
+                      justifyContent: titleJustify, gap: '2px 0',
                     }}
                   >
                     {segments.map((seg, i) => (
