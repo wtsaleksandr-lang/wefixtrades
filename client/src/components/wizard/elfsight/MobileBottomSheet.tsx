@@ -873,13 +873,23 @@ export default function MobileBottomSheet({
             /* Height is driven by inline style (live drag / snap px). */
             /* z-index 9998 — above canvas, below the bottom tab bar (9999). */
             z-index: 9998;
-            background: ${AE.color.bg};
+            /* FROSTED GLASS resize sheet. The sheet docks OVER the preview, so
+               the preview sits behind it — a half-transparent frosted surface
+               lets it show through while the user grabs/drags to resize. The
+               light editor surface is taken at ~72% alpha and the
+               backdrop-filter blurs+lightens what shows through, so the panel's
+               own text/controls stay readable while the preview is still
+               partly visible. (#1868 deferred this assuming nothing was behind
+               the sheet — but the docked sheet sits over the preview.) */
+            background: rgba(255, 255, 255, 0.72);
+            -webkit-backdrop-filter: blur(20px) saturate(150%);
+            backdrop-filter: blur(20px) saturate(150%);
             font-family: ${AE.font.family};
             color: ${AE.color.text};
             border-top-left-radius: ${AE.radius.lg};
             border-top-right-radius: ${AE.radius.lg};
             box-shadow: ${AE.shadow.pop};
-            border-top: 1px solid ${AE.color.hairline};
+            border-top: 1px solid rgba(255, 255, 255, 0.5);
             /* overflow:clip (not hidden) keeps the sticky footer working in
                embedded widgets (per project_overflow_clip_for_sticky). */
             overflow: clip;
@@ -898,6 +908,12 @@ export default function MobileBottomSheet({
           .qq-sheet.is-dragging {
             transition: none;
             will-change: height;
+          }
+          /* Fallback — browsers without backdrop-filter get a near-solid light
+             surface so the panel text/controls never lose contrast (no
+             see-through, but never an unreadable wash). */
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .qq-sheet { background: rgba(255, 255, 255, 0.97); }
           }
 
           /* ── Drag handle + header ──────────────────────────────── */
@@ -1126,8 +1142,11 @@ export default function MobileBottomSheet({
             position: sticky; bottom: 0;
             display: flex; align-items: center; gap: 8px;
             padding: 10px 12px;
-            border-top: 1px solid ${AE.color.hairline};
-            background: ${AE.color.bg};
+            border-top: 1px solid rgba(255, 255, 255, 0.5);
+            /* Light scrim (not the opaque sheet bg) so the frosted see-through
+               carries through the footer too, while the buttons stay readable
+               on their own surfaces. */
+            background: rgba(255, 255, 255, 0.34);
             flex-shrink: 0;
             z-index: 2;
           }
@@ -1183,10 +1202,15 @@ export default function MobileBottomSheet({
             opacity: 0.55; cursor: not-allowed;
           }
 
-          /* Dark editor theme ── flip surfaces. */
+          /* Dark editor theme ── frosted dark surface (keep the see-through). */
           .qq-editor-shell[data-theme="dark"] .qq-sheet {
-            background: var(--qq-surface);
-            border-top-color: var(--qq-border);
+            background: rgba(22, 27, 38, 0.62);
+            border-top-color: rgba(255, 255, 255, 0.12);
+          }
+          @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .qq-editor-shell[data-theme="dark"] .qq-sheet {
+              background: rgba(15, 23, 42, 0.97);
+            }
           }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-header-row {
             border-bottom-color: var(--qq-border);
@@ -1195,8 +1219,8 @@ export default function MobileBottomSheet({
             color: var(--qq-text, rgba(255,255,255,1));
           }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-footer {
-            background: var(--qq-surface);
-            border-top-color: var(--qq-border);
+            background: rgba(22, 27, 38, 0.34);
+            border-top-color: rgba(255, 255, 255, 0.12);
           }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset,
           .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-help {
