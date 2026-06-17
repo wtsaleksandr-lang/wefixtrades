@@ -2559,6 +2559,18 @@ export default function AdvancedCalculator({
   const ctaProps = richTextRenderProps(ctaLabel);
   const ctaLabelPlain = ctaProps.text ?? richHtmlToPlainText(ctaLabel);
   const showCta = ctaLabel.trim() !== '';
+  // ENFORCE multi_select `minSelect`. maxSelect already blocks adding past the
+  // cap; minSelect was display-only (just a "Pick at least N" hint) so a
+  // customer could submit below the minimum. Gate the submit CTA until every
+  // multi_select with a minSelect has at least that many chosen. Scoped to
+  // minSelect only — no change to required-field / step-nav behaviour.
+  const minSelectUnmet = fields.some((f) => {
+    if (f.type !== 'multi_select') return false;
+    const min = typeof f.minSelect === 'number' ? f.minSelect : 0;
+    if (min <= 0) return false;
+    const v = answers[f.name];
+    return !Array.isArray(v) || v.length < min;
+  });
   // Solid accent CTA on white/light panels; a white CTA only on a DARK tinted
   // panel (where it pops). Previously every tint got a white CTA, which read as
   // a weak ghost button on the light Elfsight-style wash.
@@ -3929,7 +3941,13 @@ export default function AdvancedCalculator({
                     // stays as the fallback for browsers without
                     // `@property` support.
                     {...(premiumCtaPulseOn ? { 'data-qq-cta-pulse': '' } : null)}
+                    // Block submit until every multi_select minSelect is met (the
+                    // field shows its "Pick at least N" hint). disabled + aria so
+                    // it's keyboard/SR-correct.
+                    disabled={minSelectUnmet}
+                    aria-disabled={minSelectUnmet || undefined}
                     onClick={() => {
+                      if (minSelectUnmet) return;
                       // 'redirect' → open the owner's destination URL (new tab in
                       // the preview so the editor isn't navigated away); any
                       // other mode opens the inline lead form (legacy behaviour).
@@ -3943,7 +3961,9 @@ export default function AdvancedCalculator({
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
                       background: ctaBg, color: ctaFgGuarded, fontSize: '14px', fontWeight: 800,
-                      cursor: 'pointer', fontFamily, letterSpacing: '0.01em',
+                      cursor: minSelectUnmet ? 'not-allowed' : 'pointer',
+                      opacity: minSelectUnmet ? 0.55 : 1,
+                      fontFamily, letterSpacing: '0.01em',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
                       // Premium default CTA hover — smooth transition for the
