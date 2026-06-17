@@ -5216,7 +5216,11 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         maxLength={typeof f.maxLength === 'number' && f.maxLength > 0 ? f.maxLength : undefined}
         required={f.required ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
-        style={inputBase}
+        // Honor the alignment control on text fields. A native <input> does
+        // NOT inherit text-align from its wrapper (heading/paragraph dodge this
+        // by setting it on their own <p>), so the align control was inert for
+        // text inputs until set directly here.
+        style={{ ...inputBase, textAlign: f.inlineStyle?.textAlign ?? 'left' }}
         data-validation={f.validation ?? 'none'}
       />
     );
