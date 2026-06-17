@@ -3481,16 +3481,15 @@ export default function AdvancedCalculator({
                     // full width; otherwise half (default pairing). Use
                     // `1 / -1` (not `span 2`) so it spans the whole row even in
                     // the auto-fit multi-column layout (which has >2 columns).
-                    // multi_select always spans full width: it renders a tall
-                    // stack of option cards, so pairing it half-width beside a
-                    // short field leaves an ugly empty gap (catalogue-wide fix).
-                    // Editor-width fix: the "Full" width button sets colSpan to
-                    // `undefined` (see FieldRow — "Picking Full sets colSpan to
-                    // undefined"), so full = "not explicitly half". Treat
-                    // `undefined` as full (`!== 1`); otherwise the preview never
-                    // reflowed when the owner picked Full (it stayed half).
-                    gridColumn:
-                      f.colSpan !== 1 || f.type === 'multi_select' ? '1 / -1' : 'auto',
+                    // multi_select DEFAULTS to full width (a tall option stack
+                    // beside a short field leaves a gap), but the owner's
+                    // EXPLICIT width choice wins — picking "1/2" (colSpan===1)
+                    // now reflects for multi_select too. Previously multi_select
+                    // was hard-forced full, so the Full↔1/2 control did nothing
+                    // in the preview (Alex's report). `undefined`/2 = full.
+                    // Editor-width: the "Full" button sets colSpan to `undefined`
+                    // (FieldRow), so full = "not explicitly half" (`!== 1`).
+                    gridColumn: f.colSpan !== 1 ? '1 / -1' : 'auto',
                     // BD-3l — per-child stagger index (capped at 7) read
                     // by `.qq-stagger-in` keyframes. No-op when the pack
                     // is off (CSS rule doesn't match).
