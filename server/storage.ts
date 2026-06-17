@@ -9,6 +9,7 @@ import {
   // ./storage/analytics.ts. Types stay here for IStorage signatures.
   // jobLogs, notificationQueue, followupJobs moved with impl to ./storage/jobs.ts
   bookings,
+  bookflowAppointments,
   users, auditSubmissions, auditFollowupEmails, demoQuoteLeads, missedCallLeads,
   systemAlerts, emailQueue,
   type SystemAlert, type InsertSystemAlert,
@@ -22,6 +23,7 @@ import {
   type NotificationQueue, type InsertNotificationQueue,
   type FollowupJob, type InsertFollowupJob,
   type Booking, type InsertBooking,
+  type BookflowAppointment,
   type AiConversation, type InsertAiConversation,
   type SupportTicket, type InsertSupportTicket,
   type TicketMessage, type InsertTicketMessage,
@@ -304,6 +306,7 @@ export interface IStorage {
   createBooking(data: InsertBooking): Promise<Booking>;
   getBookingsByCalculatorId(calculatorId: number): Promise<Booking[]>;
   listRecentBookings(limit?: number): Promise<Booking[]>;
+  listRecentBookflowAppointments(limit?: number): Promise<BookflowAppointment[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined>;
@@ -779,6 +782,20 @@ export class DatabaseStorage implements IStorage {
   async listRecentBookings(limit: number = 100): Promise<Booking[]> {
     return db.select().from(bookings)
       .orderBy(desc(bookings.date), desc(bookings.time))
+      .limit(limit);
+  }
+
+  /**
+   * Recent appointments from the UNIFIED `bookflow_appointments` table — the
+   * single owner-facing read surface after the booking consolidation (PR3-7
+   * repointed every write path here). Mirrors listRecentBookings' "newest
+   * first" contract, ordered by start_time desc. Replaces the legacy
+   * `bookings`-only read behind the Admin "recent bookings" endpoint so it now
+   * shows quotequick / tradeline_* bookings that never reached the old table.
+   */
+  async listRecentBookflowAppointments(limit: number = 100): Promise<BookflowAppointment[]> {
+    return db.select().from(bookflowAppointments)
+      .orderBy(desc(bookflowAppointments.start_time))
       .limit(limit);
   }
 

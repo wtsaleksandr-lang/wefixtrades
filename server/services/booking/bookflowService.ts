@@ -28,6 +28,27 @@ import { resolveSmsTemplate } from "../../lib/smsTemplateResolver";
 
 const log = createLogger("BookFlow");
 
+/** Stable message for the "BookFlow deactivated" condition. Kept as a named
+ * constant so callers can fall back to string-matching it (back-compat) while
+ * migrating to the typed `BookflowInactiveError` below. */
+export const BOOKFLOW_INACTIVE_MESSAGE = "BookFlow is not active for this client";
+
+/**
+ * Typed error thrown by createAppointment when the trade has no active BookFlow
+ * settings. Replaces brittle message-string matching across the four booking
+ * callers (widgetSchedulingRoutes / customerWidgetTools / bookingTools /
+ * bookingRoutes) — they now do `err instanceof BookflowInactiveError` and treat
+ * it as a graceful "booking unavailable" 4xx instead of a 500. The message is
+ * preserved so any path still matching the legacy string keeps working.
+ */
+export class BookflowInactiveError extends Error {
+  readonly reason = "inactive" as const;
+  constructor(message: string = BOOKFLOW_INACTIVE_MESSAGE) {
+    super(message);
+    this.name = "BookflowInactiveError";
+  }
+}
+
 /* ─── Types ─── */
 
 export interface TimeSlot {
@@ -224,7 +245,7 @@ export async function createAppointment(
 ): Promise<BookflowAppointment> {
   const settings = await getBookFlowSettings(clientId);
   if (!settings || !settings.is_active) {
-    throw new Error("BookFlow is not active for this client");
+    throw new BookflowInactiveError();
   }
 
   const slotDuration = input.serviceDurationMinutes ?? settings.slot_duration_minutes ?? 60;
