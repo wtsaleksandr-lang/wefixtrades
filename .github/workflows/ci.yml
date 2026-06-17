@@ -137,6 +137,8 @@ jobs:
         run: npm run check:booking-facade
       - name: Widget scheduling BookFlow guard (PR3 — wizard "Online booking" picker POST /book lands a bookflow_appointments row tagged source=quotequick and provably NOT scheduled_appointments; availability reads the same bookflowService source; inactive BookFlow / no-client → clean 409 not 500)
         run: npm run check:widget-scheduling-bookflow
+      - name: QuoteQuick copilot booking guard (PR4 — customer-widget AI copilot book_appointment lands a bookflow_appointments row tagged source=quotequick and provably NOT scheduled_appointments; propose_appointment_times reads the same bookflowService source; inactive BookFlow / no-client → ok:false unavailable not a throw; requireEmail identity guard preserved)
+        run: npm run check:copilot-booking
       - name: TradeLine day-one KB-seeding guard (activation seeds the full per-trade starter FAQ set as customer-tier faq rows marked starter_default, no fabricated $-price/guarantee — unknowns defer; idempotent via deterministic ids; owner onboarding answer overrides + archives the matching starter default)
         run: npm run check:tradeline-kb-seeding
       - name: Availability-rule projection guard (calculator create/update projects appearance.scheduling into the availability_rules table the live scheduling picker reads; enabled:true AND enabled:false both persist; would be red on the old code where nothing wrote the table → dead toggle)

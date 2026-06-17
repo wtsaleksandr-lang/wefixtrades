@@ -32,12 +32,10 @@
  */
 
 import { db } from "../db";
-import { and, eq, gte, lt, ilike, desc } from "drizzle-orm";
+import { and, eq, ilike, desc } from "drizzle-orm";
 import {
   calculators,
   leads,
-  availabilityRules,
-  scheduledAppointments,
   supportTickets,
 } from "@shared/schemas/db";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
@@ -49,8 +47,82 @@ import {
   type PendingAction,
   type ActionExecutionResult,
 } from "./copilotActionRegistry";
+import {
+  createBookingForCalculator as realCreateBooking,
+  BookingFacadeError,
+  type CreateBookingForCalculatorInput,
+} from "./booking/createBookingForCalculator";
+import { resolveClientForCalculator as realResolveClient } from "./booking/resolveClientForCalculator";
+import type { BookflowAppointment } from "@shared/schema";
+import type { TimeSlot } from "./booking/bookflowService";
 
 const log = createLogger("CustomerWidgetTools");
+
+/* ─── Booking DI seam (DB-free unit-testable) ──────────────────────────────
+ * Booking consolidation (PR4): the customer-widget AI copilot (System D-AI)
+ * used to read `availability_rules` and write `scheduled_appointments` — the
+ * dead-row path that never reached Dispatch and got no email / SMS lifecycle.
+ * It is now repointed onto the single BookFlow authority:
+ *   - propose_appointment_times → bookflowService.getAvailableSlots
+ *   - book_appointment          → createBookingForCalculator(source:'quotequick')
+ * Both resolve the owning client via resolveClientForCalculator.
+ *
+ * Every collaborator that touches the DB / BookFlow engine is injected here so
+ * server/services/customerWidgetTools.bookflow.test.ts can drive the executors
+ * with no DB / network call, mirroring the seam in widgetSchedulingRoutes.ts.
+ * The default deps wire the real implementations. */
+
+export interface CustomerWidgetBookingDeps {
+  /** calculator id → owning clients.id (null when unowned). */
+  resolveClientForCalculator: (calculatorId: number) => Promise<number | null>;
+  /** The native BookFlow slot engine — keyed by client id. */
+  getAvailableSlots: (clientId: number, date: string, days?: number) => Promise<TimeSlot[]>;
+  /** The single booking façade — lands a `bookflow_appointments` row. */
+  createBookingForCalculator: (
+    calculatorId: number,
+    input: CreateBookingForCalculatorInput,
+  ) => Promise<BookflowAppointment>;
+}
+
+export const defaultCustomerWidgetBookingDeps: CustomerWidgetBookingDeps = {
+  resolveClientForCalculator: (calculatorId) => realResolveClient(calculatorId),
+  async getAvailableSlots(clientId, date, days) {
+    const { getAvailableSlots } = await import("./booking/bookflowService");
+    return getAvailableSlots(clientId, date, days);
+  },
+  createBookingForCalculator: (calculatorId, input) => realCreateBooking(calculatorId, input),
+};
+
+/**
+ * Recognise the graceful "booking unavailable" conditions raised by the
+ * consolidation façade / native engine, so the copilot returns its normal
+ * "couldn't book / unavailable" tool result instead of throwing a 500.
+ * Returns a user-facing reason, or null when the error is a genuine fault that
+ * should propagate (the agent loop surfaces it as a tool error).
+ *
+ * Mirrors widgetSchedulingRoutes.unavailableReason (PR3).
+ */
+function bookingUnavailableReason(err: unknown): string | null {
+  if (err instanceof BookingFacadeError && err.code === "no_client") {
+    return "Online booking isn’t set up for this business yet.";
+  }
+  const message = err instanceof Error ? err.message : "";
+  if (message === "BookFlow is not active for this client") {
+    return "Online booking is currently unavailable for this business.";
+  }
+  if (message === "This time slot is no longer available. Please choose another time.") {
+    return message;
+  }
+  return null;
+}
+
+/** YYYY-MM-DD for today in local time — the start date getAvailableSlots scans from. */
+function todayDateString(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 /* ─── Shared helpers ─── */
 
@@ -168,89 +240,43 @@ const PROPOSE_TIMES_TOOL: ActionTool = {
   },
 };
 
-function parseHM(hm: string): { h: number; m: number } {
-  const [h, m] = hm.split(":").map((n) => parseInt(n, 10));
-  return { h: h || 0, m: m || 0 };
-}
-
-async function executeProposeTimes(action: PendingAction): Promise<ActionExecutionResult> {
+export async function executeProposeTimes(
+  action: PendingAction,
+  deps: CustomerWidgetBookingDeps = defaultCustomerWidgetBookingDeps,
+): Promise<ActionExecutionResult> {
   const ctx = getCustomerContext(action);
   const daysAhead = Math.min(14, Math.max(1, Number((action.args as any).days_ahead) || 14));
 
-  const [rule] = await db
-    .select()
-    .from(availabilityRules)
-    .where(eq(availabilityRules.calculator_id, ctx.calculator_id))
-    .limit(1);
-
-  if (!rule || !rule.enabled) {
-    return {
-      narrative: JSON.stringify({
-        slots: [],
-        reason: "scheduling_disabled",
-      }),
-    };
-  }
-
-  const workingDays: number[] = Array.isArray(rule.working_days)
-    ? (rule.working_days as number[])
-    : [1, 2, 3, 4, 5];
-  const { h: startH, m: startM } = parseHM(rule.working_hours_start);
-  const { h: endH, m: endM } = parseHM(rule.working_hours_end);
-  const stepMs = (rule.slot_duration_minutes + rule.buffer_minutes) * 60 * 1000;
-  const durMs = rule.slot_duration_minutes * 60 * 1000;
-
-  const now = new Date();
-  const rangeStart = new Date(now);
-  rangeStart.setHours(0, 0, 0, 0);
-  const rangeEnd = new Date(rangeStart);
-  rangeEnd.setDate(rangeEnd.getDate() + daysAhead);
-
-  // Existing confirmed appointments to mark unavailable.
-  const existing = await db
-    .select({ scheduled_for: scheduledAppointments.scheduled_for })
-    .from(scheduledAppointments)
-    .where(and(
-      eq(scheduledAppointments.calculator_id, ctx.calculator_id),
-      eq(scheduledAppointments.status, "confirmed"),
-      gte(scheduledAppointments.scheduled_for, rangeStart),
-      lt(scheduledAppointments.scheduled_for, rangeEnd),
-    ));
-  const booked = new Set(existing.map((r) => r.scheduled_for?.getTime?.()).filter((t): t is number => typeof t === "number"));
-
-  const slots: Array<{ start: string; end: string; available: boolean }> = [];
-  for (let d = new Date(rangeStart); d.getTime() < rangeEnd.getTime(); d.setDate(d.getDate() + 1)) {
-    if (!workingDays.includes(d.getDay())) continue;
-    const dayStart = new Date(d);
-    dayStart.setHours(startH, startM, 0, 0);
-    const dayEnd = new Date(d);
-    dayEnd.setHours(endH, endM, 0, 0);
-
-    let cursor = dayStart.getTime();
-    while (cursor + durMs <= dayEnd.getTime()) {
-      if (cursor >= now.getTime()) {
-        const start = new Date(cursor);
-        const end = new Date(cursor + durMs);
-        const available = !booked.has(cursor);
-        if (available) {
-          slots.push({
-            start: start.toISOString(),
-            end: end.toISOString(),
-            available,
-          });
-        }
-      }
-      cursor += stepMs;
-      if (slots.length >= 30) break; // cap payload
+  // Resolve the calculator's owning client, then read slots from the SAME
+  // BookFlow source the booking writes to (single availability authority).
+  let slots: TimeSlot[] = [];
+  try {
+    const clientId = await deps.resolveClientForCalculator(ctx.calculator_id);
+    if (!clientId) {
+      // No linked client → BookFlow can't be configured → no slots. Return the
+      // copilot's normal "unavailable" result, not a throw.
+      return {
+        narrative: JSON.stringify({ slots: [], reason: "scheduling_disabled" }),
+      };
     }
-    if (slots.length >= 30) break;
+    // getAvailableSlots returns only available slots, and [] when BookFlow is
+    // inactive for the client — same empty-grid shape the copilot already used.
+    slots = await deps.getAvailableSlots(clientId, todayDateString(), daysAhead);
+  } catch (err: any) {
+    // Graceful: a known unavailable condition → empty slots, not a 500. Log via
+    // the existing logger (no bare catch — no-silent-catch guard).
+    const reason = bookingUnavailableReason(err);
+    if (reason) {
+      log.warn("propose times unavailable", { calculator_id: ctx.calculator_id, reason, error: err?.message });
+      return { narrative: JSON.stringify({ slots: [], reason: "scheduling_disabled" }) };
+    }
+    log.error("propose times failed", { calculator_id: ctx.calculator_id, error: err?.message });
+    throw err;
   }
 
   return {
     narrative: JSON.stringify({
-      slots,
-      timezone: rule.timezone,
-      slot_duration_minutes: rule.slot_duration_minutes,
+      slots: slots.slice(0, 30), // cap payload
     }),
   };
 }
@@ -260,7 +286,9 @@ const PROPOSE_TIMES_ACTION: CopilotAction = {
   surface: "customer-widget",
   riskTier: "auto",
   tool: PROPOSE_TIMES_TOOL,
-  execute: executeProposeTimes,
+  // Bind to the real deps; the registry's (action, confirmedByUserId) signature
+  // must NOT leak confirmedByUserId into the deps seam.
+  execute: (action) => executeProposeTimes(action),
 };
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -296,12 +324,17 @@ const BOOK_APPOINTMENT_TOOL: ActionTool = {
   },
 };
 
-async function executeBookAppointment(action: PendingAction): Promise<ActionExecutionResult> {
+export async function executeBookAppointment(
+  action: PendingAction,
+  deps: CustomerWidgetBookingDeps = defaultCustomerWidgetBookingDeps,
+): Promise<ActionExecutionResult> {
   const ctx = getCustomerContext(action);
+  // PRESERVED (PR4): the copilot's identity-binding guard. A booking still
+  // requires the customer's confirmed email from this conversation.
   const email = requireEmail(ctx);
 
   const startIso = String((action.args as any).start_iso || "");
-  const notes = String((action.args as any).notes || "").slice(0, 200) || null;
+  const notes = String((action.args as any).notes || "").slice(0, 200) || undefined;
 
   const startDate = new Date(startIso);
   if (isNaN(startDate.getTime())) {
@@ -311,86 +344,51 @@ async function executeBookAppointment(action: PendingAction): Promise<ActionExec
     throw new Error("Cannot book a slot in the past");
   }
 
-  // Re-validate availability — calculator-scoped.
-  const [rule] = await db
-    .select()
-    .from(availabilityRules)
-    .where(eq(availabilityRules.calculator_id, ctx.calculator_id))
-    .limit(1);
-  if (!rule || !rule.enabled) {
-    throw new Error("Scheduling is not enabled for this calculator");
-  }
-
-  // Collision check.
-  const collision = await db
-    .select({ id: scheduledAppointments.id })
-    .from(scheduledAppointments)
-    .where(and(
-      eq(scheduledAppointments.calculator_id, ctx.calculator_id),
-      eq(scheduledAppointments.status, "confirmed"),
-      eq(scheduledAppointments.scheduled_for, startDate),
-    ))
-    .limit(1);
-  if (collision.length > 0) {
-    throw new Error("That slot was just taken — please pick another time.");
-  }
-
-  const [inserted] = await db
-    .insert(scheduledAppointments)
-    .values({
-      calculator_id: ctx.calculator_id,
-      lead_id: null,
-      customer_name: ctx.customer_name ?? null,
-      customer_email: email,
-      customer_phone: ctx.customer_phone ?? null,
-      scheduled_for: startDate,
-      duration_minutes: rule.slot_duration_minutes,
+  // Route through the single BookFlow façade so the booking lands a real
+  // `bookflow_appointments` row (Dispatch + confirmation email + 4-stage SMS
+  // lifecycle, all for free via the native engine). The façade resolves the
+  // client, ensures settings, and the engine re-checks availability + handles
+  // the race-safe conflict guard — so the old availability_rules read +
+  // scheduled_appointments collision check + confirmation email are no longer
+  // this module's job.
+  let appointment: BookflowAppointment;
+  try {
+    appointment = await deps.createBookingForCalculator(ctx.calculator_id, {
+      customerName: ctx.customer_name ?? "Customer",
+      customerEmail: email,
+      customerPhone: ctx.customer_phone ?? undefined,
+      startTime: startIso,
       notes,
-      status: "confirmed",
-    })
-    .returning();
+      source: "quotequick",
+    });
+  } catch (err: any) {
+    // GRACEFUL ERRORS (PR2-flagged): no linked client (BookingFacadeError
+    // 'no_client') / BookFlow deactivated / slot just taken → the copilot's
+    // normal "couldn't book / unavailable" tool result, NOT a throw/500 and NOT
+    // a bare catch (no-silent-catch — logged via the existing logger). The
+    // system prompt instructs the model to relay ok:false honestly.
+    const reason = bookingUnavailableReason(err);
+    if (reason) {
+      log.warn("booking unavailable", { calculator_id: ctx.calculator_id, reason, error: err?.message });
+      return { narrative: JSON.stringify({ ok: false, reason: "unavailable", message: reason }) };
+    }
+    log.error("booking failed", { calculator_id: ctx.calculator_id, error: err?.message });
+    throw err;
+  }
 
-  // Fire confirmation email (best-effort; failure must not block).
-  sendBookingConfirmationEmail(ctx.calculator_id, email, ctx.customer_name ?? "there", startDate, rule.slot_duration_minutes)
-    .catch((err) => log.warn("booking confirmation email failed", { error: err?.message }));
+  const scheduledFor =
+    appointment.start_time instanceof Date
+      ? appointment.start_time.toISOString()
+      : new Date(appointment.start_time as any).toISOString();
 
   return {
     narrative: JSON.stringify({
       ok: true,
-      appointment_id: inserted.id,
-      scheduled_for: inserted.scheduled_for?.toISOString?.() ?? startIso,
-      duration_minutes: rule.slot_duration_minutes,
-      confirmation: `Booked for ${startDate.toLocaleString()}. Confirmation sent to ${email}.`,
+      appointment_id: appointment.id,
+      scheduled_for: scheduledFor,
+      confirmation: `Booked for ${startDate.toLocaleString()}. A confirmation will be sent to ${email}.`,
     }),
   };
-}
-
-async function sendBookingConfirmationEmail(
-  calculatorId: number,
-  email: string,
-  name: string,
-  start: Date,
-  durationMinutes: number,
-): Promise<void> {
-  const t = getEmailTransporter();
-  if (!t) return;
-  const [calc] = await db
-    .select({ business_name: calculators.business_name })
-    .from(calculators)
-    .where(eq(calculators.id, calculatorId))
-    .limit(1);
-  const businessName = calc?.business_name || "Your service provider";
-  await t.sendMail({
-    from: getFromAddress(),
-    to: email,
-    subject: `Appointment confirmed — ${businessName}`,
-    html: `
-      <p>Hi ${name},</p>
-      <p>Your appointment with <strong>${businessName}</strong> is confirmed for:</p>
-      <p style="font-size: 16px;"><strong>${start.toLocaleString()}</strong> (${durationMinutes} min)</p>
-      <p>If you need to reschedule, reply to this email.</p>
-    `,
-  });
 }
 
 const BOOK_APPOINTMENT_ACTION: CopilotAction = {
@@ -398,7 +396,9 @@ const BOOK_APPOINTMENT_ACTION: CopilotAction = {
   surface: "customer-widget",
   riskTier: "auto",
   tool: BOOK_APPOINTMENT_TOOL,
-  execute: executeBookAppointment,
+  // Bind to the real deps; the registry's (action, confirmedByUserId) signature
+  // must NOT leak confirmedByUserId into the deps seam.
+  execute: (action) => executeBookAppointment(action),
 };
 
 /* ─────────────────────────────────────────────────────────────────────
