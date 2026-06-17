@@ -603,6 +603,80 @@ function panelHeightFromFrac(frac: number): number {
   return clampNum(frac * window.innerHeight, AI_PANEL_MIN_PX, panelMaxPx());
 }
 
+/* ─── Mobile middle-floating panel — free drag-to-MOVE (2026-06-17) ──────────
+ * Owner ask: the HEADER bar is a 2D move handle — pointerdown + drag repositions
+ * the WHOLE card anywhere on screen. The dragged position is a fixed {x,y} top/
+ * left (px) that overrides the default centred/right-anchored placement, and is
+ * persisted across opens (localStorage), mirroring how the height is persisted.
+ * `null` = never moved → fall back to the CSS default anchor.
+ *   - setPointerCapture + a tap-vs-drag threshold (so a header tap never moves),
+ *   - clamped so the full header + ≥ AI_PANEL_KEEP_ON_SCREEN_PX of the card stay
+ *     on-screen on EVERY edge (the card can never be dragged fully off-screen).
+ * The LEFT grab handle (fold) and the BOTTOM resize handle keep their own
+ * separate pointer handlers + thresholds, so the three gestures never fight. */
+const AI_PANEL_POS_KEY = 'qq_wizard_ai_panel_pos';
+/** Min visible px kept inside the viewport on each edge when clamping a moved
+ *  card, so a drag can never strand the whole panel off-screen. */
+const AI_PANEL_KEEP_ON_SCREEN_PX = 80;
+/** Approx header height (px) kept fully on-screen at the top so the move handle
+ *  is always reachable after a drag. Matches the rendered header height. */
+const AI_PANEL_HEADER_PX = 46;
+
+/** Free-moved card position: fixed top/left in viewport px. */
+interface PanelPos { x: number; y: number }
+
+/** Current mobile card width (px) — 90% of the near-full width (the 10%
+ *  reduction comes off the LEFT; the right edge stays at the 8px margin). SSR
+ *  falls back to a sensible default so clamps don't divide by zero. */
+function panelWidthPx(): number {
+  if (typeof window === 'undefined') return 360;
+  return Math.max(200, (window.innerWidth - 16) * 0.9);
+}
+
+function loadPanelPos(): PanelPos | null {
+  try {
+    const raw = localStorage.getItem(AI_PANEL_POS_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<PanelPos>;
+    if (typeof v?.x === 'number' && Number.isFinite(v.x) &&
+        typeof v?.y === 'number' && Number.isFinite(v.y)) {
+      return { x: v.x, y: v.y };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function savePanelPos(pos: PanelPos): void {
+  try {
+    localStorage.setItem(AI_PANEL_POS_KEY, JSON.stringify(pos));
+  } catch {
+    /* ignore quota / privacy-mode */
+  }
+}
+
+/** Clamp a desired card top/left so the full header band and at least
+ *  AI_PANEL_KEEP_ON_SCREEN_PX of the card stay inside the viewport on every
+ *  edge. `heightPx` is the card's current rendered height. SSR-safe. */
+function clampPanelPos(pos: PanelPos, heightPx: number): PanelPos {
+  if (typeof window === 'undefined') return pos;
+  const w = panelWidthPx();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const keep = AI_PANEL_KEEP_ON_SCREEN_PX;
+  // Horizontal: keep ≥keep px visible on both the left and right of the card.
+  const minX = keep - w;            // card pushed left, keep px of its right shows
+  const maxX = vw - keep;           // card pushed right, keep px of its left shows
+  // Vertical: keep the FULL header on-screen at the top; keep ≥keep px at bottom.
+  const minY = 0;
+  const maxY = Math.max(minY, vh - Math.max(AI_PANEL_HEADER_PX, keep));
+  return {
+    x: clampNum(pos.x, minX, maxX),
+    y: clampNum(pos.y, minY, maxY),
+  };
+}
+
 export default function AIBubble(props: AIBubbleProps) {
   const { conversationId = 'default', state, seedPrompt, seedNonce, seedImage, openForUploadNonce } = props;
   const [open, setOpen] = useState(false);
@@ -769,31 +843,83 @@ export default function AIBubble(props: AIBubbleProps) {
     }
   }, []);
 
-  /* ─── Swipe-to-close on the panel header ─────────────────────────────────
-   * Touch the header and swipe RIGHT (toward the tab edge it folds back into)
-   * or DOWN (dismiss like a bottom sheet) past a threshold to CLOSE the chat —
-   * mirroring the swipe-to-open on the folded tab. Tap on the header is left
-   * untouched (no movement → no close). Pointer-based so it works for touch +
-   * pen; mouse drags on the header are ignored so text selection still works. */
-  const HEADER_SWIPE_CLOSE_PX = 56;
-  const headerSwipeRef = useRef<{ pointerId: number; startX: number; startY: number; fired: boolean } | null>(null);
+  /* ─── Drag-to-MOVE on the panel header (mobile floating card) ─────────────
+   * Owner ask: the HEADER bar is a 2D move handle — pointerdown + drag
+   * repositions the WHOLE card anywhere on screen. setPointerCapture + a
+   * tap-vs-drag threshold so a plain header tap never moves the card; once the
+   * threshold is crossed the card renders at a fixed {x,y} (top/left) that
+   * overrides the default centred/right-anchored placement, clamped so the full
+   * header + ≥80px of the card always stay on-screen. The resting position is
+   * persisted (localStorage) + restored on the next open. The minimize button
+   * stops the gesture (see the button's own onPointerDown stopPropagation) so a
+   * click on it never starts a move. This is a SEPARATE pointer handler from the
+   * LEFT fold grab and the BOTTOM resize handle, so the three gestures coexist
+   * without fighting. */
+  const [panelPos, setPanelPos] = useState<PanelPos | null>(() => loadPanelPos());
+  const [panelMoving, setPanelMoving] = useState(false);
+  const panelMoveRef = useRef<
+    { pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null
+  >(null);
+  // Live mirror of the card's current rendered height so the move-clamp (which
+  // runs inside pointer handlers defined before panelCurrentHeight) always sees
+  // an up-to-date value without stale-closure issues.
+  const panelCurrentHeightRef = useRef<number>(AI_PANEL_MIN_PX);
+
+  // Restore the persisted moved position on (re)open; re-clamp it into the live
+  // viewport so a position saved at one size never strands the card off-screen.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => {
+      setPanelPos((prev) => (prev ? clampPanelPos(prev, panelCurrentHeightRef.current) : prev));
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
   const onHeaderPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse') return; // touch/pen affordance only
-    headerSwipeRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, fired: false };
-  }, []);
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    // Resolve the card's current top-left as the drag origin: a moved card uses
+    // its fixed pos; an un-moved card uses its rendered bounding box (so the
+    // first drag continues smoothly from the default centred/right-anchored
+    // placement rather than jumping).
+    const panelRect = e.currentTarget.parentElement?.getBoundingClientRect();
+    const originX = panelPos ? panelPos.x : (panelRect ? panelRect.left : 0);
+    const originY = panelPos ? panelPos.y : (panelRect ? panelRect.top : 0);
+    panelMoveRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX, startY: e.clientY,
+      originX, originY,
+      moved: false,
+    };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+  }, [panelPos]);
+
   const onHeaderPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const s = headerSwipeRef.current;
-    if (!s || s.pointerId !== e.pointerId || s.fired) return;
-    const dx = e.clientX - s.startX;
-    const dy = e.clientY - s.startY;
-    // Rightward (fold back to the edge) OR downward (dismiss) past threshold.
-    if (dx >= HEADER_SWIPE_CLOSE_PX || dy >= HEADER_SWIPE_CLOSE_PX) {
-      s.fired = true;
-      setOpen(false);
-    }
+    const d = panelMoveRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < AI_PANEL_DRAG_THRESHOLD) return;
+    if (!d.moved) { d.moved = true; setPanelMoving(true); }
+    setPanelPos(clampPanelPos({ x: d.originX + dx, y: d.originY + dy }, panelCurrentHeightRef.current));
   }, []);
-  const onHeaderPointerEnd = useCallback(() => {
-    headerSwipeRef.current = null;
+
+  const onHeaderPointerEnd = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = panelMoveRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    panelMoveRef.current = null;
+    setPanelMoving(false);
+    if (!d.moved) return; // sub-threshold = a tap → no move, no-op
+    // Commit + persist the final clamped position.
+    setPanelPos((prev) => {
+      if (prev) savePanelPos(prev);
+      return prev;
+    });
   }, []);
 
   /* ─── Mobile middle-floating card — free resize + drag-to-fold ────────────
@@ -835,6 +961,8 @@ export default function AIBubble(props: AIBubbleProps) {
   const panelCurrentHeight = panelDragHeight !== null
     ? clampNum(panelDragHeight, AI_PANEL_MIN_PX, panelMaxPx())
     : panelHeightPx;
+  // Keep the move-clamp's height mirror current every render.
+  panelCurrentHeightRef.current = panelCurrentHeight;
 
   const onPanelResizeDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -876,25 +1004,32 @@ export default function AIBubble(props: AIBubbleProps) {
     setPanelDragHeight(null);
   }, [panelDragHeight]);
 
-  /* TOP grab handle — drag DOWN to fold the card back to the tab. A short
-   * sub-threshold tap toggles the collapse (header-only) state as a fallback,
-   * matching the bottom sheet's grabber tap behaviour. */
+  /* LEFT grab handle — a vertical pill on the LEFT edge of the card. Drag it
+   * (toward the side it folds into — the right-edge tab) past a pull threshold,
+   * OR a short sub-threshold tap, to FOLD the card back to the tab. Owner ask:
+   * relocate + reorient the fold grab from the top to the left edge; the fold
+   * behaviour + accent-on-grab feedback are unchanged. Horizontal axis now (it's
+   * a vertical bar). Separate pointer handler from the header MOVE + bottom
+   * RESIZE so the three gestures never fight. */
   const panelGrabRef = useRef<
-    { pointerId: number; startY: number; moved: number; willFold: boolean } | null
+    { pointerId: number; startX: number; moved: number; willFold: boolean } | null
   >(null);
   const [panelGrabbing, setPanelGrabbing] = useState(false);
   const onPanelGrabDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    panelGrabRef.current = { pointerId: e.pointerId, startY: e.clientY, moved: 0, willFold: false };
+    panelGrabRef.current = { pointerId: e.pointerId, startX: e.clientX, moved: 0, willFold: false };
     setPanelGrabbing(true);
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
   }, []);
   const onPanelGrabMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const d = panelGrabRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
-    const dy = e.clientY - d.startY; // down = positive
-    d.moved = Math.max(d.moved, Math.abs(dy));
-    d.willFold = dy >= AI_PANEL_FOLD_PULL;
+    const dx = e.clientX - d.startX; // horizontal drag distance
+    d.moved = Math.max(d.moved, Math.abs(dx));
+    // A drag in EITHER horizontal direction past the pull threshold folds — the
+    // grab is a dedicated fold affordance, so any decisive pull collapses it to
+    // the side tab (the inverse of the tab's drag-to-open).
+    d.willFold = Math.abs(dx) >= AI_PANEL_FOLD_PULL;
   }, []);
   const onPanelGrabEnd = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const d = panelGrabRef.current;
@@ -1747,22 +1882,34 @@ export default function AIBubble(props: AIBubbleProps) {
 
       {open && (
         <div
-          className={`qq-ai-panel${animating ? ' is-animating' : ''}${panelResizing ? ' is-resizing' : ''}${panelGrabbing ? ' is-grabbing' : ''}`}
+          className={`qq-ai-panel${animating ? ' is-animating' : ''}${panelResizing ? ' is-resizing' : ''}${panelGrabbing ? ' is-grabbing' : ''}${panelMoving ? ' is-moving' : ''}${panelPos ? ' is-moved' : ''}`}
           role="dialog"
           aria-label="QuoteQuick builder"
           data-testid="aibubble-panel"
           data-state={animating ? 'animating' : 'unfolded'}
           /* Mobile middle-floating card: drive the live height via a CSS var so
              only the ≤768px branch consumes it (desktop keeps its fixed size).
-             During a drag the transition is killed (.is-resizing) so it tracks
-             the finger. */
-          style={{ ['--qq-ai-panel-h' as any]: `${Math.round(panelCurrentHeight)}px` }}
+             During a resize drag the transition is killed (.is-resizing) so it
+             tracks the finger. When the user has dragged the header to MOVE the
+             card, `panelPos` overrides the default centred/right-anchored
+             placement with fixed top/left px (and `--qq-ai-panel-x/y` feed the
+             mobile CSS branch so only ≤768px consumes them — desktop unchanged).*/
+          style={{
+            ['--qq-ai-panel-h' as any]: `${Math.round(panelCurrentHeight)}px`,
+            ...(panelPos
+              ? {
+                  ['--qq-ai-panel-x' as any]: `${Math.round(panelPos.x)}px`,
+                  ['--qq-ai-panel-y' as any]: `${Math.round(panelPos.y)}px`,
+                }
+              : {}),
+          }}
         >
-          {/* Mobile drag-to-fold grab handle — top edge of the floating card.
-              Grab + drag DOWN to fold back to the tab (inverse of the tab's
-              drag-to-open); a short tap also folds to the tab. Drag affordance
-              only (decorative bar); the header minimize button is the explicit
-              tap control. Hidden on desktop via CSS. */}
+          {/* Mobile drag-to-fold grab handle — LEFT edge of the floating card.
+              A vertical pill, vertically centred. Grab + drag it (toward the
+              side it folds into) past the pull threshold, or a short tap, to
+              FOLD the card back to the right-edge tab. Accent-on-grab feedback
+              via .is-grabbing. Drag affordance only; the header minimize button
+              is the explicit tap control. Hidden on desktop via CSS. */}
           <div
             className="qq-ai-panel-grab"
             data-testid="aibubble-grab"
@@ -1798,6 +1945,11 @@ export default function AIBubble(props: AIBubbleProps) {
             <button
               type="button"
               onClick={() => setOpen(false)}
+              /* Stop the header MOVE gesture from starting on the minimize
+                 button: a pointerdown here must NOT begin a drag, so a click
+                 always folds (never moves). stopPropagation keeps the event off
+                 the header's pointerdown handler. */
+              onPointerDown={(e) => e.stopPropagation()}
               className="qq-ai-panel-min"
               aria-label="Minimize — fold the builder back into the side tab"
               title="Minimize to tab"
@@ -2380,8 +2532,12 @@ export default function AIBubble(props: AIBubbleProps) {
              is more translucent/glassy than desktop so the preview reads through
              above + below + behind. */
           .qq-ai-panel {
-            /* Alex wants a BIG window — near edge-to-edge horizontally. */
-            left: 8px; right: 8px; width: auto;
+            /* BIG window, but 10% narrower with the reduction taken off the LEFT
+               (owner ask): fixed width = 90% of the near-full width, anchored to
+               the RIGHT edge (right:8px, left:auto) so the right edge stays put
+               and the left edge moves IN. */
+            right: 8px; left: auto;
+            width: calc((100vw - 16px) * 0.9);
             /* Centre the card vertically and override the desktop bottom anchor. */
             top: 50%; bottom: auto;
             transform: translateY(-50%);
@@ -2444,25 +2600,56 @@ export default function AIBubble(props: AIBubbleProps) {
              finger 1:1. */
           .qq-ai-panel.is-resizing { transition: none; }
 
-          /* ── Top grab handle (drag-to-fold) ──────────────────────────────
-             A slim grab strip across the top of the card. Drag it DOWN to fold
-             the card back to the tab; tap toggles the header-only collapse. */
+          /* ── Free-MOVE override (header drag) ─────────────────────────────
+             Once the user drags the header, the card renders at a fixed top/left
+             from the persisted {x,y} (px), overriding the default centred +
+             right-anchored placement. The vertical-centre transform is dropped
+             (the y IS the top). No transition while actively moving so it tracks
+             the finger 1:1. */
+          .qq-ai-panel.is-moved {
+            left: var(--qq-ai-panel-x, 8px);
+            right: auto;
+            top: var(--qq-ai-panel-y, 50%);
+            transform: none;
+          }
+          .qq-ai-panel.is-moving { transition: none; }
+
+          /* ── Left grab handle (drag-to-fold) ─────────────────────────────
+             A VERTICAL grab pill on the LEFT EDGE of the card, vertically
+             centred. Drag it (toward the side it folds into) or tap it to FOLD
+             the card back to the right-edge tab. Absolutely positioned so it sits
+             on the edge without taking a row in the flex column. */
           .qq-ai-panel-grab {
             display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            height: 20px;
+            position: absolute;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 20px; height: 64px;
+            z-index: 2;
             cursor: grab;
             touch-action: none;
           }
           .qq-ai-panel-grab:active { cursor: grabbing; }
           .qq-ai-panel-grab-bar {
-            width: 40px; height: 4px; border-radius: 999px;
+            /* Vertical pill (was horizontal). */
+            width: 4px; height: 40px; border-radius: 999px;
             background: rgba(15, 23, 42, 0.22);
-            transition: background 0.16s ease, width 0.16s ease;
+            transition: background 0.16s ease, height 0.16s ease;
           }
           .qq-ai-panel.is-grabbing .qq-ai-panel-grab-bar {
-            background: #0d3cfc; width: 48px;
+            background: #0d3cfc; height: 48px;
           }
+          /* Keep the header title clear of the left grab pill so they never
+             overlap (the pill is ~20px wide on the left edge). */
+          .qq-ai-panel .qq-ai-panel-header { padding-left: 26px; }
+          /* The header is the MOVE handle — show a move cursor + disable native
+             touch gestures so the pointer drag owns the gesture. The minimize
+             button restores its own pointer cursor below. */
+          .qq-ai-panel .qq-ai-panel-header {
+            cursor: grab; touch-action: none;
+          }
+          .qq-ai-panel.is-moving .qq-ai-panel-header { cursor: grabbing; }
+          .qq-ai-panel .qq-ai-panel-min { cursor: pointer; }
 
           /* ── Bottom free-resize handle ───────────────────────────────────
              A grab strip across the bottom edge of the card; drag to resize the
