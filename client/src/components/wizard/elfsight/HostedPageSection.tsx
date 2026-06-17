@@ -368,8 +368,13 @@ export default function HostedPageSection({
         .qq-hosted-section {
           display: flex; flex-direction: column; gap: 14px;
           padding: 14px 16px;
-          background: ${d.colors.canvas};
-          border: 1px solid ${p.colors.borderLight};
+          /* QW-5 — was d.colors.canvas (#A2B6BF, a medium grey-blue fill)
+           * which was the only heavy-grey surface in the editor and broke the
+           * white-card rhythm. Switched to the canonical near-white card
+           * surface + 1px border used by .qq-install-hosted-card and the rest
+           * of the suite (DESIGN-SYSTEM consistency rule §1/§3). */
+          background: ${d.colors.cardMuted};
+          border: 1px solid ${p.colors.border};
           border-radius: 12px;
         }
         .qq-hosted-block { display: flex; flex-direction: column; gap: 8px; }
@@ -445,12 +450,15 @@ export default function HostedPageSection({
           font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
           min-height: 36px;
         }
-        .qq-hosted-upload-btn:hover { background: ${d.colors.canvas}; }
+        /* QW-5 — was d.colors.canvas (dark grey-blue); now a subtle light
+         * tint so the hover reads correctly on the near-white card. */
+        .qq-hosted-upload-btn:hover { background: ${d.colors.panel}; }
         .qq-hosted-thumb {
           display: inline-flex; align-items: center; justify-content: center;
           width: 40px; height: 40px;
           border-radius: 7px;
-          background: ${d.colors.canvas};
+          /* QW-5 — light inset frame (was dark grey-blue canvas). */
+          background: ${d.colors.panel};
           border: 1px solid ${p.colors.border};
           overflow: hidden;
         }

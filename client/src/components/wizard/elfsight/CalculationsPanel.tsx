@@ -277,12 +277,15 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       <header className="qq-calcs-header">
         <div>
           <h3 className="qq-calcs-title">
-            Pricing
+            {/* QW-1 — cue moved to FIRST child (top-left of the header) to
+             * match the THEME/NUMBER-FORMATTING pattern on every other tab
+             * (DESIGN-SYSTEM hard rule §2 + §5). */}
             <InfoCue
               testid="build-section-calcs"
               region="result"
               text="Math that turns field values into a quote. Each calculation can reference any field above and any earlier calculation; the one you flag as 'primary' becomes the headline number."
             />
+            <span>Pricing</span>
           </h3>
         </div>
         {!isEmpty && (
@@ -306,14 +309,14 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       <div className="qq-calcs-ai" data-testid="calcs-ai-generator">
         <label className="qq-calcs-ai-field">
           <span className="qq-calcs-ai-titlecue">
-            <span className="qq-calcs-ai-title">Describe a calculation</span>
-            {/* Rule 5 — help cue restored to the titlecue wrapper (2026-06-11
-             * sweep: the wrapper existed but the cue itself was missing). */}
+            {/* QW-1 — cue moved top-left (before the label) so the whole Build
+             * surface uses one cue position (DESIGN-SYSTEM rule §2/§5). */}
             <InfoCue
               testid="calcs-ai-describe"
               region="result"
               text="Type the pricing rule in plain English — e.g. 'add 10% tax to the subtotal, then a $25 booking fee' — and AI converts it into a new calculation appended to the list below."
             />
+            <span className="qq-calcs-ai-title">Describe a calculation</span>
           </span>
           <textarea
             className="qq-calcs-ai-input"
@@ -404,8 +407,8 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
         .qq-calcs-title {
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule
            * "section titles smaller, more subtle, closer to inputs".
-           * W-AO-7 — inline-flex so the InfoCue trigger sits to the
-           * immediate right of the title text (top-left of the section).
+           * QW-1 — inline-flex with the InfoCue as the FIRST child so the
+           * cue sits top-left of the section title (matches every other tab).
            * Wave 94 — color bumped from p.colors.muted (#6B7280) to
            * p.colors.body (#374151) so the label clears WCAG-AA on the
            * #E4EDF1 panel background. Previous 4.07:1 → ~9:1. */

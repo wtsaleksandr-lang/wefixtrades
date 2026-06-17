@@ -69,8 +69,15 @@ const MIN_PREVIEW_PX = 280;
 const MIN_OPEN_PX = 120;
 
 // Default resting height as a fraction of the work area for a first-time /
-// unpersisted open. ~0.42 → sheet ≈ 42% so the template/preview gets ≈ 58%.
-const DEFAULT_HEIGHT_FRAC = 0.42;
+// unpersisted open.
+// QW-4 — lowered 0.42 → 0.30 so the sheet rests lower and the preview keeps
+// ≈ 70% of the work area (was ≈ 58%). At 0.42 the sheet's top edge landed on
+// the preview's "ESTIMATED TOTAL" result panel (clipping the headline total),
+// so users edited pricing blind. Dropping the default ~95px clears the whole
+// result panel — label AND the headline figure — above the resting sheet.
+// Only affects first-time / unpersisted opens — a user who has dragged the
+// sheet keeps their persisted fraction.
+const DEFAULT_HEIGHT_FRAC = 0.30;
 
 // Tap vs drag threshold (px of total movement).
 const TAP_THRESHOLD_PX = 6;

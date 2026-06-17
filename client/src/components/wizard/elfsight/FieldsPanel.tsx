@@ -193,12 +193,16 @@ export default function FieldsPanel({ fields, onChange }: Props) {
       <header className="qq-fields-header">
         <div>
           <h3 className="qq-fields-title">
-            Fields
+            {/* QW-1 — cue moved to FIRST child (top-left of the header) to
+             * match the THEME/NUMBER-FORMATTING pattern on every other tab
+             * (DESIGN-SYSTEM hard rule §2 + §5: cue always top-left, one
+             * pattern per surface). */}
             <InfoCue
               testid="build-section-fields"
               region="step-content"
               text="What customers see and interact with — sliders, dropdowns, image choices, headings, etc. Drag to reorder; each one feeds into your calculations below."
             />
+            <span>Fields</span>
           </h3>
         </div>
         {!isEmpty && <AddFieldMenu onPick={handleAdd} />}
@@ -253,8 +257,9 @@ export default function FieldsPanel({ fields, onChange }: Props) {
         .qq-fields-title {
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule
            * "section titles smaller, more subtle, closer to inputs".
-           * W-AO-7 — inline-flex so the InfoCue trigger sits to the
-           * immediate right of the title text (top-left of the section). */
+           * QW-1 — inline-flex with the InfoCue as the FIRST child so the
+           * cue sits top-left of the section title (matches every other
+           * tab; DESIGN-SYSTEM hard rule §2/§5). */
           margin: 0;
           display: inline-flex; align-items: center; gap: 6px;
           font-size: 11.5px; font-weight: 600;
