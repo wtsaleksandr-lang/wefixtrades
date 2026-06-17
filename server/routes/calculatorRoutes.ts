@@ -20,6 +20,7 @@ import {
 import { webhookTestRateLimiter } from "../services/rateLimiter";
 import { applyOriginGeocodeOnSave } from "../services/originGeocode";
 import { upsertAvailabilityRuleFromSettings } from "../services/booking/syncAvailabilityRule";
+import { syncBookflowWorkingHours } from "../services/booking/syncBookflowWorkingHours";
 
 const log = createLogger("Calculator");
 
@@ -217,6 +218,19 @@ export function registerCalculatorRoutes(app: Express): void {
           upsertAvailabilityRuleFromSettings(calculator.id, createScheduling),
           {
             op: "calculator.syncAvailabilityRule.create",
+            meta: { calculatorId: calculator.id },
+          },
+        );
+        // Booking P0 fix — ALSO project appearance.scheduling into
+        // bookflow_settings.working_hours, the table the LIVE slot picker +
+        // QuoteQuick copilot actually read (via bookflowService.getAvailableSlots).
+        // Without this the picker serves the frozen/hardcoded first-provision
+        // hours instead of the owner's real wizard hours. No-ops when booking is
+        // disabled or no client resolves; preserves all other bookflow_settings.
+        noisyCatch(
+          syncBookflowWorkingHours(calculator.id, createScheduling),
+          {
+            op: "calculator.syncBookflowWorkingHours.create",
             meta: { calculatorId: calculator.id },
           },
         );
@@ -569,6 +583,17 @@ export function registerCalculatorRoutes(app: Express): void {
             upsertAvailabilityRuleFromSettings(calculator.id, updateScheduling),
             {
               op: "calculator.syncAvailabilityRule.update",
+              meta: { calculatorId: calculator.id },
+            },
+          );
+          // Booking P0 fix — keep bookflow_settings.working_hours (the table the
+          // live picker + copilot read) in sync with the owner's latest wizard
+          // hours, NOT lazy-once. No-ops when booking is disabled or no client
+          // resolves; updates ONLY working_hours/slot/buffer, preserving the rest.
+          noisyCatch(
+            syncBookflowWorkingHours(calculator.id, updateScheduling),
+            {
+              op: "calculator.syncBookflowWorkingHours.update",
               meta: { calculatorId: calculator.id },
             },
           );
