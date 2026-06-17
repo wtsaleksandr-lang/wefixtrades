@@ -2056,7 +2056,13 @@ export default function AdvancedCalculator({
   const radiusValue = radiusSet ? (style.radius as number) : 12;
   const radiusOuterPx = radiusSet ? `${radiusValue}px` : eff.radius2xl;
   const radiusResultPx = radiusSet ? `${radiusValue}px` : eff.radiusXl;
-  const radiusInnerPx = radiusSet ? `${Math.max(0, radiusValue - 2)}px` : eff.radiusMd;
+  // INNER controls (input fields, booking day/slot chips, CTA, deposit card) are
+  // SMALL surfaces — they shouldn't inherit the full card radius or they read as
+  // over-rounded "pills" (Alex: make the buttons & pills less rounded). Nested-
+  // radius principle: cap the control radius well below the card so large
+  // surfaces can be round while the controls stay crisp. The card + result panel
+  // keep the owner's full radius.
+  const radiusInnerPx = radiusSet ? `${Math.max(0, Math.min(radiusValue - 2, 8))}px` : eff.radiusMd;
   // Legacy was filled-only — defaulting to 'filled' is back-compat-safe.
   const fieldStyle: AdvFieldStyle = style.fieldStyle ?? 'filled';
   // Label placement: `float` (title-in-field, the legacy default) vs `stacked`

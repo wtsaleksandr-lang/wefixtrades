@@ -39,10 +39,11 @@ export interface PreviewChatBubbleSimProps {
    *  `style.ctaColor ?? style.accent ?? default`, the same derivation the
    *  renderer uses for the CTA), so the floater tracks theme/colour changes. */
   accentColor?: string;
-  /** Anchor offsets inside the mockup card (px). Bottom-left keeps the launcher
-   *  clear of the editor's right-edge AI build tab and of the full-width CTA. */
+  /** Anchor offsets inside the mockup card (px). The launcher docks to the
+   *  bottom-RIGHT corner — the standard chat-launcher position and where the
+   *  real published bubble sits — so the preview matches the live widget. */
   bottom?: number;
-  left?: number;
+  right?: number;
 }
 
 /** The three configurable assistant behaviours shown in the explainer. */
@@ -67,10 +68,10 @@ const ASSISTANT_MODES = [
 export default function PreviewChatBubbleSim({
   visibility,
   accentColor = '#0d3cfc',
-  // Inset past the mockup's 16px corner radius so the launcher reads as an
-  // internal component of the calculator, not something riding the frame edge.
-  bottom = 22,
-  left = 20,
+  // Bottom-RIGHT corner, inset past the mockup's corner radius so the compact
+  // launcher sits cleanly in the corner (matches the real published bubble).
+  bottom = 16,
+  right = 16,
 }: PreviewChatBubbleSimProps) {
   // Contrast — the launcher paints on `accentColor` (the live CTA colour). On a
   // BRIGHT CTA (e.g. yellow) white text/icon is unreadable, so derive the
@@ -87,7 +88,6 @@ export default function PreviewChatBubbleSim({
   const popoverId = useId();
   const open = hovered || pinned;
 
-  const showFab = visibility === 'always';
 
   // Dismiss the pinned popover on outside-tap / Escape (hover dismiss is handled
   // by onMouseLeave). Only armed while pinned so we never fight normal hover.
@@ -117,7 +117,7 @@ export default function PreviewChatBubbleSim({
       ref={rootRef}
       data-theme="light"
       data-testid="preview-chat-sim"
-      data-sim-state={showFab ? 'fab' : 'pill'}
+      data-sim-state="icon"
       data-sim-open={open ? 'true' : 'false'}
       role="group"
       aria-label="AI chat assistant preview"
@@ -130,11 +130,14 @@ export default function PreviewChatBubbleSim({
       style={{
         position: 'absolute',
         bottom,
-        left,
+        right,
         zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-start',
+        // Right-aligned: the launcher sits in the bottom-right corner and the
+        // explainer popover stacks above it, aligned to the same right edge so
+        // it opens INTO the widget (never off the right side).
+        alignItems: 'flex-end',
         gap: 8,
         pointerEvents: 'auto',
       }}
@@ -200,69 +203,40 @@ export default function PreviewChatBubbleSim({
         </div>
       )}
 
-      {showFab ? (
-        /* Full chat FAB — static visual replica of the real bubble. A clean ICON
-           BADGE in the launcher colour, so it reads as the customer's chat
-           button exactly like the live site. Hover/tap reveals the explainer. */
-        <button
-          type="button"
-          data-testid="preview-chat-sim-fab"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls={open ? popoverId : undefined}
-          aria-label={launcherLabel}
-          title={launcherLabel}
-          onClick={toggle}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: accentColor,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            color: launcherFg,
-            flexShrink: 0,
-            animation: 'qq-chat-sim-rise 200ms ease-out both',
-          }}
-        >
-          <MessageCircle size={24} aria-hidden="true" />
-        </button>
-      ) : (
-        /* Rescue-mode "Need help?" pill — replica of the resting launcher.
-           Hover/tap reveals the explainer (no fake chat opens). */
-        <button
-          type="button"
-          data-testid="preview-chat-sim-pill"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls={open ? popoverId : undefined}
-          aria-label={launcherLabel}
-          title={launcherLabel}
-          onClick={toggle}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 999,
-            background: accentColor,
-            color: launcherFg,
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-            opacity: 0.96,
-          }}
-        >
-          <MessageCircle size={14} aria-hidden="true" />
-          Need help?
-        </button>
-      )}
+      {/* Compact round chat icon — the standard launcher, identical to what the
+          real published bubble shows. Same icon for both visibility modes (the
+          old wide "Need help?" pill overlapped the full-width CTA — Alex). The
+          aiChatVisibility setting still controls IF/when it shows on the live
+          site; the preview just shows the launcher. Hover/tap reveals the
+          explainer. data-sim-state kept for the visual gate. */}
+      <button
+        type="button"
+        data-testid="preview-chat-sim-fab"
+        data-sim-visibility={visibility}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? popoverId : undefined}
+        aria-label={launcherLabel}
+        title={launcherLabel}
+        onClick={toggle}
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          background: accentColor,
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          color: launcherFg,
+          flexShrink: 0,
+          animation: 'qq-chat-sim-rise 200ms ease-out both',
+        }}
+      >
+        <MessageCircle size={20} aria-hidden="true" />
+      </button>
 
       <style>{`
         @keyframes qq-chat-sim-rise {
