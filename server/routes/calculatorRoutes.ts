@@ -19,6 +19,7 @@ import {
 } from "../services/quotequickLeadWebhook";
 import { webhookTestRateLimiter } from "../services/rateLimiter";
 import { applyOriginGeocodeOnSave } from "../services/originGeocode";
+import { upsertAvailabilityRuleFromSettings } from "../services/booking/syncAvailabilityRule";
 
 const log = createLogger("Calculator");
 
@@ -204,6 +205,22 @@ export function registerCalculatorRoutes(app: Express): void {
         last_published_at: new Date(),
         auto_republish: true,
       });
+
+      // Booking PR1 — project appearance.scheduling into the availability_rules
+      // table so the live scheduling picker (widgetSchedulingRoutes) has a row
+      // to read. Without this the toggle is dead (no row → enabled:false). Only
+      // sync when scheduling is present. Fire-and-forget + noisyCatch so a sync
+      // failure can't break calculator creation but still surfaces in logs.
+      const createScheduling = (validatedSettings as any)?.appearance?.scheduling;
+      if (createScheduling) {
+        noisyCatch(
+          upsertAvailabilityRuleFromSettings(calculator.id, createScheduling),
+          {
+            op: "calculator.syncAvailabilityRule.create",
+            meta: { calculatorId: calculator.id },
+          },
+        );
+      }
 
       // Funnel analytics — calculator_published (activation). A new calculator
       // is created already 'published' + deployed live, so this is the
@@ -538,6 +555,25 @@ export function registerCalculatorRoutes(app: Express): void {
       // Post-save: handle publish state transitions
       let autoRepublished = false;
       const savedSettings = (updated?.calculator_settings as any) || {};
+
+      // Booking PR1 — keep the availability_rules table in sync with the
+      // saved appearance.scheduling blob whenever a settings PATCH carried it.
+      // This is the write path the live scheduling picker reads; without it the
+      // wizard "Online booking" toggle is dead. Only sync when the PATCH
+      // touched calculator_settings AND scheduling is present in the persisted
+      // result. noisyCatch so a sync failure logs but never breaks the save.
+      if (updates.calculator_settings) {
+        const updateScheduling = savedSettings?.appearance?.scheduling;
+        if (updateScheduling) {
+          noisyCatch(
+            upsertAvailabilityRuleFromSettings(calculator.id, updateScheduling),
+            {
+              op: "calculator.syncAvailabilityRule.update",
+              meta: { calculatorId: calculator.id },
+            },
+          );
+        }
+      }
       const publish = savedSettings.publish || {};
 
       if (publish.status === 'published') {
