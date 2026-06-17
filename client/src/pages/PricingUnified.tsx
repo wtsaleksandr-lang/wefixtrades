@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
-import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target } from "lucide-react";
+import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target, Star, Sparkles, ArrowLeft, Phone, MapPin, Calculator, Share2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
@@ -704,9 +705,12 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
         <div style={{
           position: "absolute", top: 12, right: 12,
           fontSize: 10, fontWeight: isRecommended ? 700 : 600,
-          color: isRecommended ? mkt.accent : mkt.textMuted,
-          background: isRecommended ? "rgba(13,60,252,0.1)" : "rgba(255,255,255,0.06)",
-          border: isRecommended ? "1px solid rgba(13,60,252,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          // CONTRAST — the recommended badge used accent (#0d3cfc dark blue) on a
+          // 10%-blue wash over the dark page = dark-on-dark. A SOLID accent pill
+          // with white text reads clearly and gives the recommendation emphasis.
+          color: isRecommended ? "#FFFFFF" : mkt.textMuted,
+          background: isRecommended ? mkt.accent : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
           borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
           {isRecommended ? bestFor : `Best for: ${bestFor}`}
@@ -784,9 +788,12 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
         <div style={{
           position: "absolute", top: 12, right: 12,
           fontSize: 10, fontWeight: isRecommended ? 700 : 600,
-          color: isRecommended ? mkt.accent : mkt.textMuted,
-          background: isRecommended ? "rgba(13,60,252,0.1)" : "rgba(255,255,255,0.06)",
-          border: isRecommended ? "1px solid rgba(13,60,252,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          // CONTRAST — the recommended badge used accent (#0d3cfc dark blue) on a
+          // 10%-blue wash over the dark page = dark-on-dark. A SOLID accent pill
+          // with white text reads clearly and gives the recommendation emphasis.
+          color: isRecommended ? "#FFFFFF" : mkt.textMuted,
+          background: isRecommended ? mkt.accent : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
           borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
           {isRecommended ? bestFor : `Best for: ${bestFor}`}
@@ -984,38 +991,56 @@ function getRecommendations(answers: QuizAnswers): RecommendedProduct[] {
   }).slice(0, 3);
 }
 
+/** Per-product glyph for the quiz result rows (keeps each recommendation
+ *  visually distinct + scannable). Falls back to a generic check chip. */
+const PRODUCT_ICONS: Record<string, LucideIcon> = {
+  tradeline: Phone,
+  quotequick: Calculator,
+  reputationshield: Star,
+  mapguard: MapPin,
+  rankflow: TrendingUp,
+  socialsync: Share2,
+  webcare: Wrench,
+  webfix: Wrench,
+  sitelaunch: Globe,
+};
+
 function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string[]) => void }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswers>({ challenge: null, volume: null, hasWebsite: null });
   const [recommendations, setRecommendations] = useState<RecommendedProduct[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const questions = [
+  const questions: {
+    question: string;
+    key: keyof QuizAnswers;
+    options: { value: string; label: string; icon?: LucideIcon; badge?: string }[];
+  }[] = [
     {
-      question: "What's your biggest challenge?",
-      key: "challenge" as const,
+      question: "What's your biggest challenge right now?",
+      key: "challenge",
       options: [
-        { value: "leads", label: "Getting more leads" },
-        { value: "reputation", label: "Managing my online reputation" },
-        { value: "website", label: "Keeping my website updated" },
-        { value: "all", label: "All of the above" },
+        { value: "leads", label: "Getting more leads", icon: Phone },
+        { value: "reputation", label: "My online reputation", icon: Star },
+        { value: "website", label: "Keeping my website fresh", icon: Globe },
+        { value: "all", label: "All of the above", icon: Sparkles },
       ],
     },
     {
       question: "How many jobs do you do per week?",
-      key: "volume" as const,
+      key: "volume",
       options: [
-        { value: "1-5", label: "1-5" },
-        { value: "5-15", label: "5-15" },
-        { value: "15+", label: "15+" },
+        { value: "1-5", label: "jobs / week", badge: "1–5" },
+        { value: "5-15", label: "jobs / week", badge: "5–15" },
+        { value: "15+", label: "jobs / week", badge: "15+" },
       ],
     },
     {
-      question: "Do you have a website?",
-      key: "hasWebsite" as const,
+      question: "Do you already have a website?",
+      key: "hasWebsite",
       options: [
-        { value: "yes", label: "Yes" },
-        { value: "no", label: "No" },
+        { value: "yes", label: "Yes, I have one", icon: Check },
+        { value: "no", label: "Not yet", icon: X },
       ],
     },
   ];
@@ -1077,11 +1102,16 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
         borderRadius: CARD_RADIUS, padding: "20px 24px",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT }}>
-            Recommended for you
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT }}>
+              Your recommended stack
+            </div>
+            <div style={{ fontSize: 12, color: WARM_GRAY, opacity: 0.85, marginTop: 1 }}>
+              {recommendations.length} {recommendations.length === 1 ? "tool matches" : "tools match"} what you told us.
+            </div>
           </div>
           <button onClick={reset} style={{
-            background: "none", border: "none", color: mkt.accent, fontSize: 12,
+            background: "none", border: "none", color: mkt.accentOnDark, fontSize: 12,
             fontWeight: 600, cursor: "pointer", fontFamily: FONT, padding: "4px 8px",
           }}>
             Retake quiz
@@ -1091,6 +1121,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
           {recommendations.map((rec) => {
             const info = SERVICE_INFO[rec.id];
             if (!info) return null;
+            const ProductIcon = PRODUCT_ICONS[rec.id] ?? Check;
             return (
               <div key={rec.id} style={{
                 display: "flex", alignItems: "center", gap: 12,
@@ -1098,19 +1129,24 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
                 background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
               }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                  background: "rgba(13,60,252,0.12)", display: "flex",
+                  // Solid accent chip + white glyph (the old 12%-blue chip with an
+                  // accent icon was dark-on-dark). Per-product icon, not a generic
+                  // check, so each recommendation reads at a glance.
+                  width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                  background: mkt.accent, display: "flex",
                   alignItems: "center", justifyContent: "center",
                 }}>
-                  <Check size={14} color={mkt.accent} strokeWidth={2.5} />
+                  <ProductIcon size={16} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: mkt.onDark, fontFamily: FONT }}>{info.name}</div>
                   <div style={{ fontSize: 12, color: WARM_GRAY, opacity: 0.85 }}>{rec.reason}</div>
                 </div>
                 <span style={{
-                  fontSize: 9, fontWeight: 700, color: mkt.accent,
-                  background: "rgba(13,60,252,0.1)", border: "1px solid rgba(13,60,252,0.2)",
+                  // CONTRAST — was accent text on a faint-blue wash over the dark
+                  // panel (dark-on-dark). Solid accent pill + white text reads.
+                  fontSize: 9, fontWeight: 700, color: "#FFFFFF",
+                  background: mkt.accent, border: "1px solid transparent",
                   padding: "3px 8px", borderRadius: 999, whiteSpace: "nowrap", flexShrink: 0,
                   textTransform: "uppercase" as const, letterSpacing: "0.04em",
                 }}>
@@ -1120,56 +1156,90 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
             );
           })}
         </div>
+        {/* Tie the result back to the grid so the recommendation feels actionable
+            (the matched products are highlighted + "Recommended" below). */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 7, marginTop: 14,
+          fontSize: 12, fontWeight: 600, color: mkt.accentOnDark, fontFamily: FONT,
+        }}>
+          <ArrowRight size={14} style={{ transform: "rotate(90deg)" }} />
+          We've highlighted these in your plan below — pick your tiers and you're set.
+        </div>
       </div>
     );
   }
 
   const current = questions[step];
+  const progressPct = Math.round(((step + 1) / questions.length) * 100);
   return (
     <div style={{
       background: "rgba(13,60,252,0.04)", border: "1px solid rgba(13,60,252,0.12)",
       borderRadius: CARD_RADIUS, padding: "20px 24px",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: WARM_GRAY, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
-          Question {step + 1} of {questions.length}
+      {/* Animated progress bar — replaces the bare "Question X of N" text so the
+          quiz reads like real progress. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ flex: 1, height: 6, borderRadius: 999, background: "rgba(255,255,255,0.09)", overflow: "hidden" }}>
+          <div style={{ width: `${progressPct}%`, height: "100%", background: mkt.accent, borderRadius: 999, transition: "width 0.3s cubic-bezier(0.22,1,0.36,1)" }} />
         </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, fontFamily: FONT, whiteSpace: "nowrap" }}>
+          {step + 1} / {questions.length}
+        </div>
+      </div>
+      {/* Back (after Q1) + Close */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, minHeight: 18 }}>
+        {step > 0 ? (
+          <button onClick={() => setStep(step - 1)} style={{
+            display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none",
+            color: mkt.accentOnDark, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT,
+          }}>
+            <ArrowLeft size={14} /> Back
+          </button>
+        ) : <span />}
         <button onClick={() => { setIsOpen(false); reset(); }} style={{
           background: "none", border: "none", color: mkt.textFaint, fontSize: 12,
-          cursor: "pointer", padding: "4px 8px",
+          cursor: "pointer", padding: 0, fontFamily: FONT,
         }}>
           Close
         </button>
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 14 }}>
+      <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 14, lineHeight: 1.3 }}>
         {current.question}
       </div>
-      <div className="quiz-options-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-        {current.options.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => handleAnswer(current.key, opt.value)}
-            style={{
-              padding: "12px 16px", borderRadius: 10, textAlign: "center",
-              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)",
-              color: mkt.onDark, fontSize: 13, fontWeight: 600, fontFamily: FONT,
-              cursor: "pointer", transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#FFFFFF"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 14 }}>
-        {questions.map((_, i) => (
-          <div key={i} style={{
-            width: 8, height: 8, borderRadius: 999,
-            background: i <= step ? mkt.accent : "rgba(255,255,255,0.1)",
-            transition: "background 0.2s",
-          }} />
-        ))}
+      <div className="quiz-options-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        {current.options.map((opt) => {
+          const selected = answers[current.key] === opt.value;
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => handleAnswer(current.key, opt.value)}
+              style={{
+                display: "flex", alignItems: "center", gap: 11, padding: "13px 15px",
+                borderRadius: 12, textAlign: "left",
+                border: `1px solid ${selected ? mkt.accent : "rgba(255,255,255,0.1)"}`,
+                background: selected ? "rgba(13,60,252,0.16)" : "rgba(255,255,255,0.03)",
+                color: mkt.onDark, fontSize: 13, fontWeight: 600, fontFamily: FONT,
+                cursor: "pointer", transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => { if (!selected) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; } }}
+              onMouseLeave={(e) => { if (!selected) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
+            >
+              {/* Solid accent chip + white glyph (readable on dark — never the
+                  faint-blue-on-dark that the old badges used). */}
+              <span style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: mkt.accent, color: "#FFFFFF",
+              }}>
+                {Icon
+                  ? <Icon size={16} color="#FFFFFF" strokeWidth={2.3} />
+                  : <span style={{ fontSize: 13, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>{opt.badge}</span>}
+              </span>
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
