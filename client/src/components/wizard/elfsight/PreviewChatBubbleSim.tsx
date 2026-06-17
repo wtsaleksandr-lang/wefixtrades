@@ -59,11 +59,11 @@ const SIM_REVEAL_MS = 5_000;
 export default function PreviewChatBubbleSim({
   visibility,
   accentColor = '#0d3cfc',
-  // Lifted above the full-width sticky CTA band (~64px) so the floater never
-  // overlaps the primary "Get My Quote" button; inset from the left edge so
-  // the rounded phone-frame bezel never clips it.
-  bottom = 76,
-  left = 16,
+  // Sits low in the bottom-LEFT corner (like the live site's launcher). The
+  // primary CTA is in the right column / bottom-right, so the left corner is
+  // clear. Small inset so the rounded phone-frame bezel never clips it.
+  bottom = 24,
+  left = 14,
 }: PreviewChatBubbleSimProps) {
   // Local-only reveal state for the rescue-mode simulation. No production
   // timers/events are involved — this is a pure show-and-tell flip.
@@ -153,7 +153,7 @@ export default function PreviewChatBubbleSim({
           }}
         >
           {simRevealed
-            ? 'Chat revealed — this is what a stuck visitor sees'
+            ? 'This is the help button a stuck visitor sees'
             : 'Preview — visitors see this on your site'}
         </div>
       )}
@@ -186,51 +186,32 @@ export default function PreviewChatBubbleSim({
       {showFab ? (
         /* Full chat FAB — static visual replica of the real bubble
            (AIChatBubble.tsx :973). Non-interactive by design: the preview
-           shows the launcher, not a live chat.
-           preview-chat-floater fix — carries a small "Visitor chat" tag so
-           the owner can never mistake this customer-facing launcher for the
-           editor's own build-assistant tab docked on the RIGHT edge. */
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <div
-            data-testid="preview-chat-sim-fab"
-            role="img"
-            aria-label="Chat button as visitors see it"
-            title="Preview — visitors see this on your site"
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              background: accentColor,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-              color: '#fff',
-              flexShrink: 0,
-              // Same entrance the real bubble plays when rescue mode reveals.
-              animation: 'qq-chat-sim-rise 200ms ease-out both',
-            }}
-          >
-            <MessageCircle size={24} aria-hidden="true" />
-          </div>
-          <span
-            data-testid="preview-chat-sim-tag"
-            style={{
-              background: '#fff',
-              color: '#334155',
-              border: '1px solid #e2e8f0',
-              borderRadius: 999,
-              padding: '3px 9px',
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: 0.2,
-              textTransform: 'uppercase',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-            }}
-          >
-            Visitor chat
-          </span>
+           shows the launcher, not a live chat. A clean ICON BADGE (no text
+           tag) — it reads as the customer's chat button exactly like the live
+           site, and stays visually distinct from the editor's own titled
+           build-assistant tab (docked RIGHT) by being an icon-only badge in the
+           bottom-LEFT corner. The hover caption still names it for the owner. */
+        <div
+          data-testid="preview-chat-sim-fab"
+          role="img"
+          aria-label="Chat button as visitors see it"
+          title="Preview — visitors see this on your site"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: accentColor,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            color: '#fff',
+            flexShrink: 0,
+            // Same entrance the real bubble plays when rescue mode reveals.
+            animation: 'qq-chat-sim-rise 200ms ease-out both',
+          }}
+        >
+          <MessageCircle size={24} aria-hidden="true" />
         </div>
       ) : (
         /* Rescue-mode "Need help?" pill — replica of AIChatBubble.tsx :693.
