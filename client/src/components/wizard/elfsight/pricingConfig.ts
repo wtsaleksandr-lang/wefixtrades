@@ -1,14 +1,21 @@
 // pricingConfig — single source of truth mapping the wizard's Settings-tab
 // pricing model (`ShellPricing`) onto the canonical `pricing_config` shape.
 //
-// Why this exists (preview-fidelity fix):
-//   The SAVE path (WizardShell) mapped `settings.pricing` → `pricing_config`
-//   via a private `toPricingConfig`, but the live PREVIEW (PreviewPane)
-//   hard-coded `{ pricingType: 'hourly', rate: 75, baseFee: 50 }`. So changing
-//   the pricing mode/rate in Settings had NO effect on the preview estimate —
-//   the owner couldn't see their pricing reflected until after publish. This
-//   helper is the ONE mapping both call sites use, so the preview estimate and
-//   the persisted pricing can never drift.
+// Why this exists:
+//   The SAVE path (WizardShell) maps `settings.pricing` → `pricing_config`
+//   through this single helper so the persisted shape is canonical.
+//
+// IMPORTANT (fidelity-A4, 2026-06-17): `pricing_config` is consumed ONLY by the
+//   legacy non-advanced pricing-family engine. The QuoteQuick wizard always
+//   authors an *advanced* calculator (`calculator_settings.advanced.enabled`),
+//   which renders via <AdvancedCalculator> and computes its estimate from
+//   `advanced.fields` + `advanced.calculations` — it NEVER reads
+//   `pricing_config`. So for wizard calculators this mapping affects neither the
+//   preview nor the published estimate; the real pricing engine is the
+//   per-field option prices + Build-tab formula. The Settings-tab "Pricing
+//   model" UI that fed this was removed (see SettingsTab.tsx). This helper is
+//   retained for the save mapping + any legacy non-advanced consumer; do not
+//   assume editing pricing here changes an advanced widget's numbers.
 //
 // Pure + typed: no React, no side effects.
 

@@ -10,9 +10,11 @@
 //
 //   Default surface:
 //     1. Number formatting — thousands sep + decimal sep + ISO currency code.
-//     2. Pricing model     — segmented `hourly / fixed / custom`; per-mode value.
-//     3. Branding          — "Powered by WeFixTrades" badge toggle (real
+//     2. Branding          — "Powered by WeFixTrades" badge toggle (real
 //                            pricing model: Free keeps it; Pro / Business hide it).
+//   (Pricing model section REMOVED 2026-06-17 — fidelity-A4: it had no effect
+//    on the advanced calculator the wizard always renders. See the in-body
+//    comment where it used to live.)
 //   "More settings" fold:
 //     4. Business location — distance-based-pricing anchor address.
 //     5. Business profile  — inline trust signals (rating, license, insured).
@@ -33,8 +35,6 @@ import {
   DEFAULT_SHELL_NUMBER_FORMAT,
   type ShellSettings,
   type ShellStyle,
-  type ShellPricing,
-  type ShellPricingMode,
   type ShellNumberFormat,
   type ShellThousandsSep,
   type ShellDecimalSep,
@@ -97,15 +97,14 @@ export default function SettingsTab({
   // NOTE: settings.tradeId is deliberately retained in state + the save
   // path (→ trade_type in WizardShell). The broken Settings UI control was
   // removed (2026-06-12); trade filtering now lives in Browse-all templates.
-  const pricing: ShellPricing = settings.pricing ?? { mode: 'hourly', rate: 75 };
+  // NOTE: `settings.pricing` (ShellPricing) is intentionally NOT surfaced in
+  // this editor — the Pricing-model section was removed (fidelity-A4); see the
+  // comment block where it used to render. The state + save mapping
+  // (toPricingConfig) remain untouched in WizardShell, so this is a UI-only
+  // hide, not a data/type change.
   const numberFormat: ShellNumberFormat =
     settings.numberFormat ?? { ...DEFAULT_SHELL_NUMBER_FORMAT };
 
-  const patchPricing = useCallback(
-    (next: Partial<ShellPricing>) =>
-      patch({ pricing: { ...pricing, ...next } }),
-    [patch, pricing],
-  );
   const patchNumberFormat = useCallback(
     (next: Partial<ShellNumberFormat>) =>
       patch({ numberFormat: { ...numberFormat, ...next } }),
@@ -221,116 +220,34 @@ export default function SettingsTab({
         </div>
       </fieldset>
 
-      {/* ── Pricing model ─────────────────────────────────────────
-       *  Owner feedback (2026-06-13): the Settings tab read near-empty
-       *  because everything but Number formatting was buried in one
-       *  "Advanced settings" fold. Pricing model is a PRIMARY
-       *  calculator-level setting, so it now sits on the default surface
-       *  alongside Number formatting and Branding. Only the genuinely
-       *  advanced detail (deposit, booking, business address/profile)
-       *  stays behind the fold below. */}
-      {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
-         help-cue placement audit. The segmented control still speaks for
-         itself, but the legend gives the section a name screen readers
-         and skimming users can latch onto. */}
-      <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-pricing"
-                  region="result"
-                  text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
-                />
-                <span style={{ marginLeft: 6 }}>Pricing model</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <SegmentedControl<ShellPricingMode>
-          name="pricing-mode"
-          testid="settings-segmented-pricing"
-          value={pricing.mode}
-          options={[
-            { value: 'hourly', label: 'Hourly' },
-            { value: 'fixed',  label: 'Fixed' },
-            { value: 'custom', label: 'Custom' },
-          ]}
-          onChange={(mode) => patchPricing({ mode })}
-        />
-
-        {pricing.mode === 'hourly' && (
-          <div className="qq-settings-row" data-testid="settings-pricing-hourly">
-            <FloatField label="Rate per hour ($)" htmlFor="qq-settings-rate">
-              <input
-                id="qq-settings-rate"
-                type="number"
-                min={0}
-                step={1}
-                className="premium-input"
-                placeholder=" "
-                value={pricing.rate ?? ''}
-                onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
-                data-testid="settings-input-pricing-rate"
-              />
-            </FloatField>
-          </div>
-        )}
-
-        {pricing.mode === 'fixed' && (
-          <div className="qq-settings-row" data-testid="settings-pricing-fixed">
-            <FloatField label="Fixed price ($)" htmlFor="qq-settings-value">
-              <input
-                id="qq-settings-value"
-                type="number"
-                min={0}
-                step={1}
-                className="premium-input"
-                placeholder=" "
-                value={pricing.value ?? ''}
-                onChange={(e) => patchPricing({ value: numOrUndef(e.target.value) })}
-                data-testid="settings-input-pricing-value"
-              />
-            </FloatField>
-          </div>
-        )}
-
-        {pricing.mode === 'custom' && (
-          <div className="qq-settings-row" data-testid="settings-pricing-custom">
-            <FloatField label="Unit-rate label" htmlFor="qq-settings-custom-label">
-              <input
-                id="qq-settings-custom-label"
-                type="text"
-                className="premium-input"
-                placeholder=" "
-                value={pricing.label ?? ''}
-                onChange={(e) => patchPricing({ label: e.target.value })}
-                data-testid="settings-input-pricing-label"
-              />
-            </FloatField>
-            <div style={{ marginTop: 10 }}>
-              <FloatField label="Rate per unit ($)" htmlFor="qq-settings-custom-rate">
-                <input
-                  id="qq-settings-custom-rate"
-                  type="number"
-                  min={0}
-                  step={1}
-                  className="premium-input"
-                  placeholder=" "
-                  value={pricing.rate ?? ''}
-                  onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
-                  data-testid="settings-input-pricing-custom-rate"
-                />
-              </FloatField>
-            </div>
-          </div>
-        )}
-        </div>
-      </fieldset>
+      {/* ── Pricing model — HIDDEN (fidelity-A4, 2026-06-17) ──────────
+       *  This section (mode hourly/fixed/custom + per-mode rate/value/
+       *  label) was REMOVED from the editor because it has ZERO effect on
+       *  either the preview or the published widget for QuoteQuick wizard
+       *  calculators.
+       *
+       *  Why it was dead: the elfsight wizard ALWAYS authors an *advanced*
+       *  calculator — WizardShell saves `calculator_settings.advanced`
+       *  (advanced.enabled === true) via buildAdvancedConfig(). At render
+       *  time QuoteWidget takes the advanced branch and uses
+       *  <AdvancedCalculator>, which computes the headline purely from
+       *  `advanced.fields` + `advanced.calculations` and NEVER reads
+       *  `pricing_config`. The real pricing engine for this product is the
+       *  per-field option prices + the Build-tab calculation formula.
+       *  `settings.pricing` was still persisted as `pricing_config`
+       *  (WizardShell:1533) but only the legacy non-advanced pricing-family
+       *  engine consumes it — a path the wizard never enters. So this UI
+       *  was a control that touched nothing, misleading owners.
+       *
+       *  Scope of this change: ONLY the editor UI is hidden. The
+       *  `settings.pricing` state, the `ShellPricing` type, and the
+       *  `toPricingConfig(settings.pricing)` save mapping are all left
+       *  intact so no legacy consumer or persisted shape is affected — we
+       *  removed the misleading control, not the data. If pricing model
+       *  must ever become authoritative for advanced calculators, wire
+       *  `pricing_config` into buildAdvancedConfig → AdvancedCalculator
+       *  (see audits/fidelity-A4-settings.md, Finding A option 2) and
+       *  restore this section. */}
 
       {/* ── CTA label + Lead notification email — RELOCATED to ActionTab.
        *  settings.ctaLabel (now the Action tab's "Open form button text"
