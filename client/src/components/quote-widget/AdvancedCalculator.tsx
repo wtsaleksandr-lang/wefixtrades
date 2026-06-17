@@ -2919,8 +2919,23 @@ export default function AdvancedCalculator({
         // hydrates business_name to the 'Your Business' placeholder so the owner
         // sees an editable slot; the published widget only renders a real name.
         const brandName = (businessName || '').trim();
+        // Header-robustness — hide the brand row when it is a DUPLICATE of the
+        // title, so the header never shows the same copy twice (the template/
+        // marketing preview synthesises business_name from the title, which
+        // otherwise renders a redundant — often ellipsis-truncated — copy
+        // directly above the headline). Exact match, or the brand is the title's
+        // leading clause (≥10 chars, so short real company names still show), or
+        // vice-versa. The wizard editor (editableTitle) always shows the brand
+        // slot so the owner can edit it; published/preview render dedupes.
+        const _normHdr = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+        const _nb = _normHdr(brandName), _nt = _normHdr(title);
+        const brandDupesTitle = _nb.length > 0 && (
+          _nb === _nt
+          || (_nb.length >= 10 && _nt.startsWith(_nb))
+          || (_nt.length >= 10 && _nb.startsWith(_nt))
+        );
         const showBrandName = brandName.length > 0
-          && (editableTitle || brandName !== 'Your Business');
+          && (editableTitle || (brandName !== 'Your Business' && !brandDupesTitle));
         const subtitle = (header.subtitle || '').trim();
         const logoRadius = Math.min(Math.round(logoSizePx * 0.3), 12);
         return (
@@ -3029,12 +3044,25 @@ export default function AdvancedCalculator({
                     strokeWidth={2.25}
                   />
                 )}
-                {/* BD-3d Feature 1 — title may carry sanitized rich HTML. */}
+                {/* BD-3d Feature 1 — title may carry sanitized rich HTML.
+                    Header-robustness — cap the headline at 2 lines with ellipsis
+                    so a long owner title can't balloon the header (audit: a long
+                    title hit 4 lines / 102px on the 390px mobile widget). The
+                    clamp lives on this text span only, so the leading category
+                    icon + the trailing edit pencil keep their inline layout. */}
                 {(() => {
                   const props = richTextRenderProps(title);
+                  const clampStyle: React.CSSProperties = {
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                    overflowWrap: 'anywhere',
+                    minWidth: 0,
+                  };
                   return props.__html
-                    ? <span dangerouslySetInnerHTML={{ __html: props.__html }} />
-                    : <>{props.text}</>;
+                    ? <span style={clampStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />
+                    : <span style={clampStyle}>{props.text}</span>;
                 })()}
                 {editableTitle && (
                   <span
