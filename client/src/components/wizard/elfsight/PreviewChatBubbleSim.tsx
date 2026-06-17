@@ -67,9 +67,18 @@ const ASSISTANT_MODES = [
 export default function PreviewChatBubbleSim({
   visibility,
   accentColor = '#0d3cfc',
-  bottom = 16,
-  left = 14,
+  // Inset past the mockup's 16px corner radius so the launcher reads as an
+  // internal component of the calculator, not something riding the frame edge.
+  bottom = 22,
+  left = 20,
 }: PreviewChatBubbleSimProps) {
+  // Contrast — the launcher paints on `accentColor` (the live CTA colour). On a
+  // BRIGHT CTA (e.g. yellow) white text/icon is unreadable, so derive the
+  // foreground from the colour's luminance, exactly like the renderer guards the
+  // CTA label. `accentInk` is a readable-on-pale-tint variant for the explainer
+  // icon chips (their background is a 12% wash of the same colour).
+  const launcherFg = launcherForeground(accentColor);
+  const accentInk = readableInk(accentColor);
   // open = hover (desktop) OR pinned-by-click (works on touch). Click pins it
   // so it survives on mobile (no hover); click-outside / Escape unpins.
   const [hovered, setHovered] = useState(false);
@@ -169,7 +178,7 @@ export default function PreviewChatBubbleSim({
                     // Tint the icon chip with the launcher/CTA colour so the
                     // explainer reads as part of the same branded assistant.
                     background: hexToTint(accentColor, 0.12),
-                    color: accentColor,
+                    color: accentInk,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -186,7 +195,7 @@ export default function PreviewChatBubbleSim({
             ))}
           </div>
           <div style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8', margin: '10px 0 0', lineHeight: 1.3 }}>
-            Preview — this is the chat your visitors get.
+            Preview — this is what your customers see on your live calculator.
           </div>
         </div>
       )}
@@ -215,7 +224,7 @@ export default function PreviewChatBubbleSim({
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            color: '#fff',
+            color: launcherFg,
             flexShrink: 0,
             animation: 'qq-chat-sim-rise 200ms ease-out both',
           }}
@@ -238,7 +247,7 @@ export default function PreviewChatBubbleSim({
             padding: '8px 14px',
             borderRadius: 999,
             background: accentColor,
-            color: '#fff',
+            color: launcherFg,
             border: 'none',
             cursor: 'pointer',
             fontSize: 13,
@@ -275,9 +284,45 @@ export default function PreviewChatBubbleSim({
  *  wash when the colour isn't a parseable #rrggbb (e.g. a named/rgb value), so
  *  the chip is never invisible. */
 function hexToTint(color: string, alpha: number): string {
+  const rgb = parseHex(color);
+  if (!rgb) return `rgba(100,116,139,${alpha})`;
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+}
+
+function parseHex(color: string): { r: number; g: number; b: number } | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(color.trim());
-  if (!m) return `rgba(100,116,139,${alpha})`;
+  if (!m) return null;
   const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/** WCAG relative luminance (0 = black, 1 = white). */
+function relativeLuminance({ r, g, b }: { r: number; g: number; b: number }): number {
+  const f = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/** Foreground (text/icon) that sits ON the launcher colour: dark on a bright
+ *  fill (yellow/amber/lime), white on a dark fill — never white-on-yellow. Uses
+ *  the SAME luminance threshold (0.5) and the SAME dark/white pair as the
+ *  renderer's CTA-label guard (AdvancedCalculator `ctaFg`), so the launcher's
+ *  text decision always matches the CTA button it mirrors. Unparseable colours
+ *  default to white (the historic behaviour for dark brand accents). */
+function launcherForeground(color: string): string {
+  const rgb = parseHex(color);
+  if (!rgb) return '#ffffff';
+  return relativeLuminance(rgb) >= 0.5 ? 'rgb(17,17,17)' : '#ffffff';
+}
+
+/** A version of the colour guaranteed legible as an ICON on a pale tint of
+ *  itself: bright colours are darkened ~50% so a yellow/amber accent doesn't
+ *  render near-invisibly on its own pale wash; darker colours pass through. */
+function readableInk(color: string): string {
+  const rgb = parseHex(color);
+  if (!rgb) return color;
+  if (relativeLuminance(rgb) < 0.5) return color;
+  return `rgb(${Math.round(rgb.r * 0.5)},${Math.round(rgb.g * 0.5)},${Math.round(rgb.b * 0.5)})`;
 }
