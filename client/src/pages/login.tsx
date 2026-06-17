@@ -469,6 +469,7 @@ export default function LoginPage() {
                       type="email"
                       placeholder="john@smithplumbing.com"
                       helpText="The email you signed up with."
+                      hideHelpCue
                       value={email}
                       onChange={setEmail}
                       inputMode="email"
@@ -482,6 +483,7 @@ export default function LoginPage() {
                       label="Password"
                       type={showPassword ? "text" : "password"}
                       helpText="Your account password. Use the eye icon to check what you've typed."
+                      hideHelpCue
                       value={password}
                       onChange={setPassword}
                       autoComplete="current-password"

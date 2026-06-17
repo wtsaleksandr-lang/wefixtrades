@@ -49,8 +49,14 @@ interface BaseFieldProps {
   id?: string;
   /** Floating-label text. Visible always; shrinks to top-left on focus. */
   label: string;
-  /** Help-cue popover content. Required so every field has a help cue. */
+  /** Help-cue popover content. Required so every field has a help cue —
+   *  except self-evident fields that opt out via `hideHelpCue` (e.g. the
+   *  login Email/Password, where a "?" cue is pure noise). */
   helpText: string;
+  /** Opt out of the top-left "?" help cue for a self-evident field. Use
+   *  sparingly — the default (cue shown) is the design-system rule; this is
+   *  only for fields whose purpose is unmistakable (auth email/password). */
+  hideHelpCue?: boolean;
   /** Required marker — adds a small red `*` to the label. */
   required?: boolean;
   /** Test ID hook — applied to the input/select/textarea element. */
@@ -104,6 +110,7 @@ function FieldWrapper({
   htmlFor,
   label,
   helpText,
+  hideHelpCue,
   required,
   theme = "light",
   wrapperStyle,
@@ -114,6 +121,7 @@ function FieldWrapper({
   htmlFor: string;
   label: string;
   helpText: string;
+  hideHelpCue?: boolean;
   required?: boolean;
   theme?: "light" | "dark";
   wrapperStyle?: CSSProperties;
@@ -127,27 +135,31 @@ function FieldWrapper({
       style={{
         position: "relative",
         // Room on the left for the `?` help cue. Matches FreeAudit hero
-        // (paddingLeft: 26).
-        paddingLeft: 26,
+        // (paddingLeft: 26). When the cue is hidden (self-evident field) the
+        // field reclaims that space so it isn't left-indented for nothing.
+        paddingLeft: hideHelpCue ? 0 : 26,
         ...(wrapperStyle || {}),
       }}
     >
       {/* Top-left `?` help cue. Positioned absolutely so it doesn't push
-          the input. InfoCue ships its own popover styling. */}
-      <div
-        style={{
-          position: "absolute",
-          top: 8,
-          left: 4,
-          zIndex: 2,
-        }}
-      >
-        <InfoCue
-          text={helpText}
-          label={`Help: ${label}`}
-          testid={testId ? `${testId}-help` : undefined}
-        />
-      </div>
+          the input. InfoCue ships its own popover styling. Omitted for
+          self-evident fields (hideHelpCue). */}
+      {!hideHelpCue && (
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 4,
+            zIndex: 2,
+          }}
+        >
+          <InfoCue
+            text={helpText}
+            label={`Help: ${label}`}
+            testid={testId ? `${testId}-help` : undefined}
+          />
+        </div>
+      )}
 
       {children}
 
@@ -187,6 +199,7 @@ export function FreeToolFormField({
   type = "text",
   placeholder,
   helpText,
+  hideHelpCue,
   required,
   inputMode,
   autoComplete,
@@ -208,6 +221,7 @@ export function FreeToolFormField({
       htmlFor={fieldId}
       label={label}
       helpText={helpText}
+      hideHelpCue={hideHelpCue}
       required={required}
       theme={theme}
       wrapperStyle={wrapperStyle}
