@@ -835,20 +835,19 @@ export default function InstallTab({
       >
         <div className="qq-install-doneforyou-card">
           <div className="qq-install-doneforyou-copy">
+            {/* Rule 5 — help cue anchored top-left. The long heading must WRAP
+                inside the card: it used to live in HelpCueRow's shrink-0 `cue`
+                slot (and HelpCueRow's `title` slot truncates), so on a narrow
+                editor panel "…$75." stuck out past the card border. Lay the
+                InfoCue + heading text out directly so the text wraps. */}
             <h3 className="qq-install-doneforyou-h">
-              {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-              <HelpCueRow
-                className="!mb-0"
-                cue={
-                  <>
-                    <InfoCue
-                      testid="install-section-doneforyou"
-                      text="Our team places the snippet on your website, configures the widget for your trade, and verifies leads flow into your inbox. Turnaround within 24 hours."
-                    />
-                    <span style={{ marginLeft: 6 }}>Don't want to install it yourself? We'll do it for $75.</span>
-                  </>
-                }
-              />
+              <span className="qq-install-doneforyou-hcue">
+                <InfoCue
+                  testid="install-section-doneforyou"
+                  text="Our team places the snippet on your website, configures the widget for your trade, and verifies leads flow into your inbox. Turnaround within 24 hours."
+                />
+              </span>
+              <span className="qq-install-doneforyou-htext">Don't want to install it yourself? We'll do it for $75.</span>
             </h3>
             <p className="qq-install-doneforyou-sub">
               We install QuoteQuick on your website, configure it for your trade,
@@ -1409,11 +1408,15 @@ export default function InstallTab({
           color: ${p.colors.heading};
           letter-spacing: -0.005em;
           line-height: 1.3;
-          /* W-AO-7 — inline-flex so the InfoCue trigger sits adjacent to
-           * the heading text (top-left of the panel). */
-          display: inline-flex; align-items: center; gap: 6px;
-          flex-wrap: wrap;
+          /* W-AO-7 — InfoCue trigger top-left, heading text wraps beside it.
+           * align-items:flex-start keeps the cue at the first line; the text
+           * span takes the remaining width and wraps so it never overruns the
+           * card border on a narrow editor panel. */
+          display: flex; align-items: flex-start; gap: 6px;
+          min-width: 0;
         }
+        .qq-install-doneforyou-hcue { flex-shrink: 0; display: inline-flex; align-items: center; }
+        .qq-install-doneforyou-htext { flex: 1; min-width: 0; overflow-wrap: anywhere; }
         /* BD-3j Fix 2 — was muted (#6B7280) on a brand-blue-tinted bg
            which dropped to ~3.5:1. Body (#374151) lands ~7:1. */
         .qq-install-doneforyou-sub {
