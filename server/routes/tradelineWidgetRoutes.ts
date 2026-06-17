@@ -26,7 +26,9 @@ import { callbackRequests } from "@shared/schemas/adminCrm";
 import { and, desc, eq } from "drizzle-orm";
 import { requireClient } from "../auth";
 import { chatRateLimiter, tradelineWidgetConvsPerSiteKeyPerDayLimiter } from "../services/rateLimiter";
-import { assistantSync } from "../services/assistant";
+import { assistantSync, assistantAgentLoop } from "../services/assistant";
+import { BOOKING_TOOLS, executeCheckAvailability, executeCreateBooking } from "../services/bookingTools";
+import { resolveBookingCalculatorId } from "../services/booking/resolveBookingCalculator";
 import { selectTemplate } from "../services/tradelineTemplates";
 import { aiChannelGateOn } from "../services/aiChannelGate";
 import { aiGateAllowed } from "../services/aiSystemGate";
@@ -135,6 +137,162 @@ async function offlineLeadCaptureReply(opts: {
     }
   }
   return `Thanks for reaching out! Leave your name and phone number right here and ${opts.businessName} will call you back.`;
+}
+
+/* ─── Booking actuation for the CHAT widget (booking consolidation PR6) ────────
+ * Today the widget chat is lead-capture ONLY: it runs a single tool-less
+ * `assistantSync` completion, so `check_availability` / `create_booking` could
+ * NEVER fire — the AI could claim it booked while nothing persisted (the exact
+ * failure mode the VOICE path's tradelineBooking.test.ts guards). PR6 closes the
+ * gap by routing a booking-capable chat turn through the SAME tool-capable agent
+ * loop voice uses (assistantAgentLoop + BOOKING_TOOLS + the BookFlow-backed
+ * executors), tagging source:'tradeline_chat'.
+ *
+ * Booking is attempted ONLY on the authenticated/allowed path (after every
+ * existing gate: aiChannelGateOn, aiGateAllowed, the per-siteKey conversation
+ * cap). The offline / gate-blocked / conversation-capped paths keep their warm
+ * lead-capture reply untouched (no booking there).
+ *
+ * Resolution mirrors voice: the widget row carries `client_id` (clients.id)
+ * directly; booking is available when that client's TradeLine service has
+ * booking enabled AND a backing calculator resolves (via the SHARED
+ * resolveBookingCalculatorId — the same "which calculator" authority voice uses,
+ * so the brittle first-calculator-wins lives in one place). Fail-soft: any
+ * resolution error → null → the lean lead-capture path, never a thrown chat. */
+
+const CHAT_BOOKING_SOURCE = "tradeline_chat" as const;
+
+export interface ChatBookingTarget {
+  /** The calculator whose BookFlow calendar this chat books onto. */
+  calculatorId: number;
+}
+
+export interface WidgetChatBookingDeps {
+  /**
+   * Resolve whether booking is available for the widget's client and, if so,
+   * which calculator backs it. Returns null when booking is disabled, the
+   * client has no TradeLine config, or no calculator resolves → lead-capture.
+   */
+  resolveBookingTarget: (clientId: number) => Promise<ChatBookingTarget | null>;
+  /** The tool-capable agent loop (production: assistantAgentLoop). */
+  runAgentLoop: typeof assistantAgentLoop;
+  /** The single-call lead-capture path (production: assistantSync). */
+  runSync: typeof assistantSync;
+  /** Booking executors — asserted REACHED by the gate test. */
+  checkAvailability: typeof executeCheckAvailability;
+  createBooking: typeof executeCreateBooking;
+}
+
+/** Default booking-target resolver — loads the client's TradeLine booking flag
+ *  + user_id, then resolves the backing calculator via the shared helper. */
+async function defaultResolveBookingTarget(clientId: number): Promise<ChatBookingTarget | null> {
+  try {
+    const { storage } = await import("../storage");
+    // The TradeLine service carries the booking config (booking.enabled). A
+    // client may have "tradeline" or a "tradeline:*" variant — match the family.
+    const services = await storage.listClientServices(clientId);
+    const tlService = services.find((s) => s.service_id.startsWith("tradeline"));
+    if (!tlService) return null;
+    const config = await storage.getTradeLineConfig(tlService.id);
+    if (!config?.booking?.enabled) return null;
+
+    const client = await storage.getClientById(clientId);
+    if (!client) return null;
+    const calculatorId = await resolveBookingCalculatorId(client.user_id);
+    if (calculatorId == null) return null;
+    return { calculatorId };
+  } catch (err: any) {
+    log.warn("widget chat booking-target resolve failed — lead-capture path", {
+      clientId,
+      err: err?.message,
+    });
+    return null;
+  }
+}
+
+export const defaultWidgetChatBookingDeps: WidgetChatBookingDeps = {
+  resolveBookingTarget: defaultResolveBookingTarget,
+  runAgentLoop: assistantAgentLoop,
+  runSync: assistantSync,
+  checkAvailability: executeCheckAvailability,
+  createBooking: executeCreateBooking,
+};
+
+/**
+ * Run one widget chat turn on the authenticated/allowed path. When booking is
+ * available, routes through the tool-capable agent loop (mirrors voice's
+ * handleTradeLineConversationTurn); otherwise the lean tool-less lead-capture
+ * completion. Returns the assistant reply. Throws on a genuine provider/gate
+ * error so the route's existing catch can degrade to warm lead capture.
+ */
+export async function runWidgetChatTurn(opts: {
+  clientId: number;
+  systemPrompt: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  sessionId: string;
+  deps?: WidgetChatBookingDeps;
+}): Promise<{ reply: string }> {
+  const deps = opts.deps ?? defaultWidgetChatBookingDeps;
+
+  const target = await deps.resolveBookingTarget(opts.clientId);
+
+  if (target) {
+    // ── Booking-capable turn: the SAME tool-capable path voice uses ──
+    const calcId = target.calculatorId;
+    const toolExecutors = {
+      check_availability: async (args: Record<string, unknown>) => {
+        const r = await deps.checkAvailability(calcId, args);
+        return { ok: r.success, narrative: r.narrative, ...r.data };
+      },
+      create_booking: async (args: Record<string, unknown>) => {
+        // CHAT tags source:'tradeline_chat' — the only difference from voice.
+        const r = await deps.createBooking(calcId, args, CHAT_BOOKING_SOURCE);
+        return { ok: r.success, narrative: r.narrative, ...r.data };
+      },
+    };
+
+    const result = await deps.runAgentLoop(
+      {
+        surface: "tradeline_widget_chat",
+        messages: opts.messages,
+        sessionId: opts.sessionId,
+        systemOverride: opts.systemPrompt,
+        maxTokens: 400,
+        tools: BOOKING_TOOLS as any,
+      },
+      {
+        toolExecutors,
+        // Booking tools are NOT in copilotActionRegistry → auto-tier, executed
+        // inline (no confirm-card). Same actionSurface + bounds as voice.
+        actionSurface: "customer-widget",
+        maxSteps: 4,
+        costCapCents: 25,
+      },
+    );
+
+    if (result.reply && result.reply.trim()) {
+      return { reply: result.reply };
+    }
+    // The loop produced no text (gate block, cost cap, provider error). Fall
+    // back to a safe lead-capture-style reply rather than returning empty.
+    log.warn("widget chat booking-capable turn returned no text — lead-capture fallback", {
+      clientId: opts.clientId,
+      status: result.status,
+    });
+    return {
+      reply:
+        "I want to make sure I get this right — leave your name and best phone number here and the team will lock in your appointment and follow up.",
+    };
+  }
+
+  // ── Non-booking turn: the lean tool-less single-call lead-capture path ──
+  return deps.runSync({
+    surface: "tradeline_widget_chat",
+    messages: opts.messages,
+    sessionId: opts.sessionId,
+    systemOverride: opts.systemPrompt,
+    maxTokens: 400,
+  });
 }
 
 export function registerTradelineWidgetRoutes(app: Express) {
@@ -461,15 +619,18 @@ export function registerTradelineWidgetRoutes(app: Express) {
       const sessionId = parsed.data.sessionId || `widget-${parsed.data.siteKey}-${crypto.randomUUID()}`;
       let result: { reply: string };
       try {
-        result = await assistantSync({
-          // unified-AI U3: real surface for the owner-site widget — spend and
-          // gating land on tradeline_widget_chat (demo traffic on /products/
-          // tradeline keeps using the tradeline_demo ChatSurface).
-          surface: "tradeline_widget_chat",
+        // Booking consolidation (PR6): on this authenticated/allowed path,
+        // runWidgetChatTurn routes a booking-capable client through the SAME
+        // tool-capable agent loop voice uses (BOOKING_TOOLS + BookFlow-backed
+        // executors, source:'tradeline_chat'); a non-booking client keeps the
+        // lean tool-less lead-capture completion. Spend + gating still land on
+        // tradeline_widget_chat (demo traffic on /products/tradeline keeps using
+        // the tradeline_demo ChatSurface).
+        result = await runWidgetChatTurn({
+          clientId: row.client_id,
+          systemPrompt,
           messages: parsed.data.messages,
           sessionId,
-          systemOverride: systemPrompt,
-          maxTokens: 400,
         });
       } catch (err: any) {
         // Race backstop: the surface gate can flip between our pre-check and

@@ -133,6 +133,8 @@ jobs:
         run: npm run check:tradeline-safety
       - name: TradeLine voice booking-actuation guard (a booking-intent voice turn ACTUALLY reaches the create_booking executor + persists a row with caller-ID-defaulted callback number + reads the confirmation back; would be red on the old tool-less assistantSync path)
         run: npm run check:tradeline-booking
+      - name: TradeLine chat booking-actuation guard (PR6 — a booking-intent CHAT turn reaches the create_booking executor + persists a bookflow_appointments row tagged source=tradeline_chat via the tool-capable agent loop; gated/disabled client stays lead-capture and NEVER books; deliberate-failure fixture — the old tool-less assistantSync path makes the executor structurally unreachable → red)
+        run: npm run check:tradeline-chat-booking
       - name: Booking façade guard (PR2 — consolidation seam routes to the bookflow store NOT bookings/scheduled_appointments; calc→client resolver; numeric working_days→named-day working_hours projection over all 7 days; ensureBookflowSettings idempotent; unresolved client throws, never lands a row)
         run: npm run check:booking-facade
       - name: Widget scheduling BookFlow guard (PR3 — wizard "Online booking" picker POST /book lands a bookflow_appointments row tagged source=quotequick and provably NOT scheduled_appointments; availability reads the same bookflowService source; inactive BookFlow / no-client → clean 409 not 500)

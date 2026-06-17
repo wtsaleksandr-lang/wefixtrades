@@ -88,6 +88,7 @@
     "check:booking-facade": "tsx server/services/booking/createBookingForCalculator.test.ts",
     "check:widget-scheduling-bookflow": "tsx server/routes/widgetScheduling.bookflow.test.ts",
     "check:copilot-booking": "tsx server/services/customerWidgetTools.bookflow.test.ts",
+    "check:tradeline-chat-booking": "tsx server/routes/tradelineChatBooking.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
