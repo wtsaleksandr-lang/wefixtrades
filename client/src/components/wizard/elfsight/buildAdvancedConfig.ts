@@ -34,6 +34,7 @@ import {
   type ShellSettings,
   type ShellNumberFormat,
 } from './types';
+import { buildLeadFormConfig } from './buildLeadFormConfig';
 
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
   return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
@@ -226,6 +227,7 @@ export function buildAdvancedConfig(
             ...(typeof sched.workingHoursStart === 'string' ? { workingHoursStart: sched.workingHoursStart } : {}),
             ...(typeof sched.workingHoursEnd === 'string' ? { workingHoursEnd: sched.workingHoursEnd } : {}),
             ...(typeof sched.slotDurationMinutes === 'number' ? { slotDurationMinutes: sched.slotDurationMinutes } : {}),
+            ...(typeof sched.bufferMinutes === 'number' ? { bufferMinutes: sched.bufferMinutes } : {}),
           },
         },
       };
@@ -339,6 +341,19 @@ export function buildAdvancedConfig(
     // spamProtection defaults ON; only thread an explicit `false`.
     if (settings?.spamProtection === false) {
       merged = { ...merged, spamProtection: false };
+    }
+    // LEAD-FORM-FIELDS — mirror the owner's custom lead fields into
+    // results.lead_custom_fields so the wizard preview's inline lead form +
+    // LeadModal render the same extra inputs the deployed widget's
+    // LeadCaptureStep reads from lead_form.custom_fields. Reuse
+    // buildLeadFormConfig so the preview + published widget never drift on
+    // normalization (blank/half-authored rows already dropped there).
+    const leadForm = buildLeadFormConfig(settings);
+    if (leadForm && leadForm.custom_fields.length > 0) {
+      merged = {
+        ...merged,
+        results: { ...(merged.results ?? {}), lead_custom_fields: leadForm.custom_fields },
+      };
     }
   }
 
