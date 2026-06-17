@@ -8,13 +8,36 @@
  * These tools are injected into TradeLine AI chat (Anthropic tool_use),
  * Vapi voice (function calling), and WhatsApp/SMS conversations.
  *
- * Uses the internal storage layer directly for slot lookup and booking
- * creation via the existing calculator-based booking infrastructure.
+ * Booking consolidation (PR5 — the CI-gated TradeLine VOICE path): both
+ * executors are now repointed onto the single BookFlow authority. They used to
+ * read availability from the calculator's `booking_settings` + write the
+ * `bookings` table via `storage.createBooking` — a divergent path that never
+ * reached Dispatch and got no email / SMS lifecycle, and (per
+ * tradelineBooking.test.ts) was the exact path where a wiring slip once let the
+ * AI claim "booked" while nothing persisted. Now:
+ *   - executeCheckAvailability → bookflowService.getAvailableSlots
+ *   - executeCreateBooking     → createBookingForCalculator(source:'tradeline_voice')
+ * Both resolve the owning client via resolveClientForCalculator. The executor
+ * signatures `(calculatorId, args)` are UNCHANGED so the vapiService agent-loop
+ * wiring + the DI seam the gate test relies on are untouched.
+ *
+ * GRACEFUL ERRORS: a missing client (BookingFacadeError 'no_client') or a
+ * deactivated trade (engine Error "BookFlow is not active for this client") is
+ * surfaced as the executor's normal "couldn't book / unavailable" result so the
+ * AI tells the caller it could NOT book — NEVER a false "booked", NEVER a bare
+ * catch (no-silent-catch guard; the existing noisyCatch / log.error patterns are
+ * preserved).
  */
 
-import { storage } from "../storage";
 import { createLogger } from "../lib/logger";
-import { noisyCatch } from "../lib/silentFailureGuard";
+import {
+  createBookingForCalculator as realCreateBooking,
+  BookingFacadeError,
+  type CreateBookingForCalculatorInput,
+} from "./booking/createBookingForCalculator";
+import { resolveClientForCalculator as realResolveClient } from "./booking/resolveClientForCalculator";
+import type { BookflowAppointment } from "@shared/schema";
+import type { TimeSlot } from "./booking/bookflowService";
 
 const log = createLogger("BookingTools");
 
@@ -147,45 +170,58 @@ export const VAPI_BOOKING_FUNCTIONS = [
   VAPI_CREATE_BOOKING_FUNCTION,
 ];
 
-/* ─── Slot generation helper ─── */
+/* ─── Booking DI seam (DB-free unit-testable) ──────────────────────────────
+ * Booking consolidation (PR5): every collaborator that touches the DB / the
+ * BookFlow engine is injected here so the executors stay DB-free unit-testable,
+ * mirroring the seam in widgetSchedulingRoutes.ts / customerWidgetTools.ts. The
+ * default deps wire the real implementations. (The gate test drives the WHOLE
+ * executor through vapiService's TradeLineTurnDeps seam and asserts the
+ * resulting bookflow_appointments row + source — it does not need to inject
+ * here, but keeping the seam matches PR3/PR4 and keeps the engine import lazy.) */
 
-function generateTimeSlots(
-  startTime: string,
-  endTime: string,
-  durationMinutes: number,
-  bufferMinutes: number,
-  existingBookings: { time: string; duration_minutes: number }[],
-): string[] {
-  const [startH, startM] = (startTime || "09:00").split(":").map(Number);
-  const [endH, endM] = (endTime || "17:00").split(":").map(Number);
-  const startMinutes = startH * 60 + (startM || 0);
-  const endMinutes = endH * 60 + (endM || 0);
+export interface BookingToolsDeps {
+  /** calculator id → owning clients.id (null when unowned). */
+  resolveClientForCalculator: (calculatorId: number) => Promise<number | null>;
+  /** The native BookFlow slot engine — keyed by client id. */
+  getAvailableSlots: (clientId: number, date: string, days?: number) => Promise<TimeSlot[]>;
+  /** The single booking façade — lands a `bookflow_appointments` row. */
+  createBookingForCalculator: (
+    calculatorId: number,
+    input: CreateBookingForCalculatorInput,
+  ) => Promise<BookflowAppointment>;
+}
 
-  if (isNaN(startMinutes) || isNaN(endMinutes) || startMinutes >= endMinutes) return [];
-  if (!durationMinutes || durationMinutes <= 0) return [];
+export const defaultBookingToolsDeps: BookingToolsDeps = {
+  resolveClientForCalculator: (calculatorId) => realResolveClient(calculatorId),
+  async getAvailableSlots(clientId, date, days) {
+    const { getAvailableSlots } = await import("./booking/bookflowService");
+    return getAvailableSlots(clientId, date, days);
+  },
+  createBookingForCalculator: (calculatorId, input) => realCreateBooking(calculatorId, input),
+};
 
-  const bookedRanges = existingBookings.map((b) => {
-    const [bh, bm] = b.time.split(":").map(Number);
-    const bStart = bh * 60 + bm;
-    return { start: bStart, end: bStart + b.duration_minutes };
-  });
-
-  const slots: string[] = [];
-  let current = startMinutes;
-
-  while (current + durationMinutes <= endMinutes) {
-    const slotEnd = current + durationMinutes;
-    const overlaps = bookedRanges.some(
-      (r) => current < r.end + bufferMinutes && slotEnd > r.start - bufferMinutes,
-    );
-    if (!overlaps) {
-      const h = Math.floor(current / 60);
-      const m = current % 60;
-      slots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
-    }
-    current += durationMinutes + bufferMinutes;
+/**
+ * Recognise the graceful "booking unavailable" conditions raised by the
+ * consolidation façade / native engine, so the executor returns its normal
+ * "couldn't book / unavailable" tool result instead of throwing. Returns a
+ * caller-facing reason, or null when the error is a genuine fault that should
+ * propagate to the executor's catch (logged, then a safe take-a-message reply).
+ *
+ * Mirrors widgetSchedulingRoutes.unavailableReason (PR3) /
+ * customerWidgetTools.bookingUnavailableReason (PR4).
+ */
+function bookingUnavailableReason(err: unknown): string | null {
+  if (err instanceof BookingFacadeError && err.code === "no_client") {
+    return "Online booking isn't set up for this business yet.";
   }
-  return slots;
+  const message = err instanceof Error ? err.message : "";
+  if (message === "BookFlow is not active for this client") {
+    return "Online booking is currently unavailable for this business.";
+  }
+  if (message === "This time slot is no longer available. Please choose another time.") {
+    return message;
+  }
+  return null;
 }
 
 /* ─── Time display helper ─── */
@@ -194,6 +230,14 @@ function formatTimeDisplay(h: number, m: number): string {
   const period = h >= 12 ? "PM" : "AM";
   const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${displayH}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
+/** YYYY-MM-DD for a Date in local time — the start date getAvailableSlots scans from. */
+function dateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /* ─── Tool result type ─── */
@@ -207,56 +251,54 @@ export interface BookingToolResult {
 /**
  * Execute check_availability for a given calculator ID.
  * Returns available slots formatted as natural language.
+ *
+ * PR5: reads slots from the SAME BookFlow source the booking writes to (single
+ * availability authority) via resolveClientForCalculator → getAvailableSlots.
  */
 export async function executeCheckAvailability(
   calculatorId: number,
   args: Record<string, unknown>,
+  deps: BookingToolsDeps = defaultBookingToolsDeps,
 ): Promise<BookingToolResult> {
   try {
-    const calc = await storage.getCalculatorById(calculatorId);
-    if (!calc) {
-      return { success: false, data: {}, narrative: "I couldn't find the booking calendar. Let me take your details instead." };
-    }
-
-    const settings = (calc.calculator_settings as Record<string, unknown>) || {};
-    const bookingSettings = (settings.booking_settings as Record<string, unknown>) || {};
-    if (!bookingSettings.enabled) {
-      return { success: false, data: {}, narrative: "Online booking is not currently available. I can take your details and have someone call you back." };
-    }
-
-    const startDate = (args.date as string) || new Date().toISOString().split("T")[0];
+    const startDate = (args.date as string) || dateString(new Date());
     const days = (args.days as number) || 7;
-    const avail = (bookingSettings.availability as Record<string, unknown>) || {};
-    const workingDays: string[] = (avail.working_days as string[]) || ["mon", "tue", "wed", "thu", "fri"];
-    const startTime = (avail.start_time as string) || "09:00";
-    const endTime = (avail.end_time as string) || "17:00";
-    const duration = (bookingSettings.slot_duration_minutes as number) || 60;
-    const buffer = (avail.buffer_minutes as number) || 0;
 
-    const today = new Date().toISOString().split("T")[0];
-    const allSlots: { date: string; day: string; slots: string[] }[] = [];
-
-    for (let d = 0; d < days; d++) {
-      const checkDate = new Date(startDate + "T12:00:00");
-      checkDate.setDate(checkDate.getDate() + d);
-      const dateStr = checkDate.toISOString().split("T")[0];
-
-      if (dateStr < today) continue;
-
-      const dayOfWeek = checkDate.toLocaleDateString("en-US", { weekday: "short" }).toLowerCase();
-      const dayMap: Record<string, string> = { sun: "sun", mon: "mon", tue: "tue", wed: "wed", thu: "thu", fri: "fri", sat: "sat" };
-      if (!workingDays.includes(dayMap[dayOfWeek])) continue;
-
-      const existingBookings = await storage.getConfirmedBookingsForDate(calculatorId, dateStr);
-      const daySlots = generateTimeSlots(startTime, endTime, duration, buffer, existingBookings);
-
-      if (daySlots.length > 0) {
-        const dayName = checkDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-        allSlots.push({ date: dateStr, day: dayName, slots: daySlots });
+    // Resolve the calculator's owning client, then read slots from BookFlow.
+    let slots: TimeSlot[] = [];
+    try {
+      const clientId = await deps.resolveClientForCalculator(calculatorId);
+      if (!clientId) {
+        // No linked client → BookFlow can't be configured → no online booking.
+        return {
+          success: false,
+          data: {},
+          narrative: "Online booking is not currently available. I can take your details and have someone call you back.",
+        };
       }
+      // getAvailableSlots returns ONLY available slots, and [] when BookFlow is
+      // inactive for the client — the same empty-grid signal as before.
+      slots = await deps.getAvailableSlots(clientId, startDate, days);
+    } catch (err: unknown) {
+      // Graceful: a known unavailable condition → "couldn't check" result, not a
+      // throw. Logged via the existing logger (no bare catch — no-silent-catch).
+      const reason = bookingUnavailableReason(err);
+      if (reason) {
+        log.warn("check_availability unavailable", {
+          calculatorId: String(calculatorId),
+          reason,
+          error: (err as Error)?.message,
+        });
+        return {
+          success: false,
+          data: {},
+          narrative: "Online booking is not currently available. I can take your details and have someone call you back.",
+        };
+      }
+      throw err;
     }
 
-    if (allSlots.length === 0) {
+    if (slots.length === 0) {
       return {
         success: true,
         data: { slots: [] },
@@ -264,19 +306,28 @@ export async function executeCheckAvailability(
       };
     }
 
-    const slotLines = allSlots.map((dayInfo) => {
-      const times = dayInfo.slots.map((t) => {
-        const [h, m] = t.split(":").map(Number);
-        return formatTimeDisplay(h, m);
-      });
-      return `${dayInfo.day}: ${times.join(", ")}`;
-    });
+    // Group the ISO slots by calendar day for a natural-language read-back.
+    const byDay = new Map<string, { label: string; times: string[] }>();
+    for (const slot of slots) {
+      const start = new Date(slot.start);
+      if (isNaN(start.getTime())) continue;
+      const key = dateString(start);
+      if (!byDay.has(key)) {
+        const label = start.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+        byDay.set(key, { label, times: [] });
+      }
+      byDay.get(key)!.times.push(formatTimeDisplay(start.getHours(), start.getMinutes()));
+    }
+
+    const slotLines = Array.from(byDay.values()).map(
+      (dayInfo) => `${dayInfo.label}: ${dayInfo.times.join(", ")}`,
+    );
 
     const narrative = `Here are the available appointment times:\n\n${slotLines.join("\n")}\n\nWhich time works best for you?`;
 
     return {
       success: true,
-      data: { slots: allSlots },
+      data: { slots },
       narrative,
     };
   } catch (err) {
@@ -292,10 +343,19 @@ export async function executeCheckAvailability(
 /**
  * Execute create_booking for a given calculator ID.
  * Returns confirmation formatted as natural language.
+ *
+ * PR5: routes the booking through the single BookFlow façade
+ * (createBookingForCalculator, source:'tradeline_voice') so it lands a real
+ * `bookflow_appointments` row (Dispatch + confirmation email + 4-stage SMS
+ * lifecycle, all via the native engine, which also re-checks availability with
+ * the race-safe conflict guard). The AI can NEVER falsely claim "booked": the
+ * confirmation narrative is only returned AFTER the façade resolves a persisted
+ * row; any failure returns success:false with an honest "couldn't book" reply.
  */
 export async function executeCreateBooking(
   calculatorId: number,
   args: Record<string, unknown>,
+  deps: BookingToolsDeps = defaultBookingToolsDeps,
 ): Promise<BookingToolResult> {
   try {
     const customerName = args.customer_name as string | undefined;
@@ -309,17 +369,6 @@ export async function executeCreateBooking(
       };
     }
 
-    const calc = await storage.getCalculatorById(calculatorId);
-    if (!calc) {
-      return { success: false, data: {}, narrative: "I couldn't find the booking system. Let me take your details and have someone call you back." };
-    }
-
-    const settings = (calc.calculator_settings as Record<string, unknown>) || {};
-    const bookingSettings = (settings.booking_settings as Record<string, unknown>) || {};
-    if (!bookingSettings.enabled) {
-      return { success: false, data: {}, narrative: "Online booking is not currently available. I've noted your details and someone will be in touch." };
-    }
-
     const startDateTime = new Date(startTime);
     if (isNaN(startDateTime.getTime())) {
       return {
@@ -329,74 +378,64 @@ export async function executeCreateBooking(
       };
     }
 
-    const dateStr = startDateTime.toISOString().split("T")[0];
-    const hours = startDateTime.getHours();
-    const minutes = startDateTime.getMinutes();
-    const timeStr = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
-    const duration = (bookingSettings.slot_duration_minutes as number) || 60;
-
-    // Check for slot conflicts
-    const existingBookings = await storage.getConfirmedBookingsForDate(calculatorId, dateStr);
-    const avail = (bookingSettings.availability as Record<string, unknown>) || {};
-    const buffer = (avail.buffer_minutes as number) || 0;
-    const bookStart = hours * 60 + minutes;
-    const bookEnd = bookStart + duration;
-
-    const overlap = existingBookings.some((eb) => {
-      const [eh, em] = eb.time.split(":").map(Number);
-      const eStart = eh * 60 + em;
-      const eEnd = eStart + eb.duration_minutes;
-      return bookStart < eEnd + buffer && bookEnd > eStart - buffer;
-    });
-
-    if (overlap) {
-      return {
-        success: false,
-        data: {},
-        narrative: "Unfortunately that time slot is no longer available. Would you like me to check what other times are open?",
-      };
-    }
-
     const service = args.service as string | undefined;
     const notes = args.notes as string | undefined;
     const notesParts: string[] = [];
     if (service) notesParts.push(`Service: ${service}`);
     if (notes) notesParts.push(notes);
-    const combinedNotes = notesParts.length > 0 ? notesParts.join(". ") : null;
+    const combinedNotes = notesParts.length > 0 ? notesParts.join(". ") : undefined;
 
-    const booking = await storage.createBooking({
-      calculator_id: calculatorId,
-      customer_name: customerName.trim(),
-      customer_email: (args.customer_email as string)?.trim() || null,
-      customer_phone: (args.customer_phone as string)?.trim() || null,
-      date: dateStr,
-      time: timeStr,
-      duration_minutes: duration,
-      status: "confirmed",
-      notes: combinedNotes,
-    });
-
-    // Send confirmation emails in the background.
-    // Wave 92: previously `.catch(() => {})` swallowed delivery failures —
-    // AI-booked appointments would skip the confirmation silently.
+    // Route through the single BookFlow façade. The façade resolves the client,
+    // ensures settings, and the native engine re-checks availability + applies
+    // the race-safe conflict guard, sends the confirmation email, and arms the
+    // SMS lifecycle. On a missing client / deactivated trade the façade/engine
+    // throws — handled below as a graceful "couldn't book", NEVER a false success.
+    let appointment: BookflowAppointment;
     try {
-      const { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } = await import("../bookingEmails");
-      noisyCatch(sendBookingConfirmationToCustomer(booking, calc), {
-        op: "booking.confirmation.customer.ai_tool",
-        meta: { booking_id: booking.id, calculator_id: calc.id },
-      });
-      noisyCatch(sendBookingNotificationToBusiness(booking, calc), {
-        op: "booking.notification.business.ai_tool",
-        meta: { booking_id: booking.id, calculator_id: calc.id },
+      appointment = await deps.createBookingForCalculator(calculatorId, {
+        customerName: customerName.trim(),
+        customerEmail: (args.customer_email as string)?.trim() || undefined,
+        customerPhone: (args.customer_phone as string)?.trim() || undefined,
+        serviceName: service,
+        startTime,
+        notes: combinedNotes,
+        source: "tradeline_voice",
       });
     } catch (err: unknown) {
-      log.warn("Booking email module not available", {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      // GRACEFUL ERRORS (PR2-flagged): no linked client (BookingFacadeError
+      // 'no_client') / BookFlow deactivated / slot just taken → the executor's
+      // normal "couldn't book / unavailable" result so the AI tells the caller it
+      // could NOT book. NOT a throw, NOT a bare catch (no-silent-catch — logged
+      // via the existing logger), and NEVER a false "booked".
+      const reason = bookingUnavailableReason(err);
+      if (reason) {
+        const slotTaken =
+          (err as Error)?.message === "This time slot is no longer available. Please choose another time.";
+        log.warn("create_booking unavailable", {
+          calculatorId: String(calculatorId),
+          reason,
+          error: (err as Error)?.message,
+        });
+        return {
+          success: false,
+          data: {},
+          narrative: slotTaken
+            ? "Unfortunately that time slot is no longer available. Would you like me to check what other times are open?"
+            : "Online booking is not currently available. I've noted your details and someone will be in touch.",
+        };
+      }
+      // Genuine fault → propagate to the outer catch (logged, safe fallback).
+      throw err;
     }
 
+    const start =
+      appointment.start_time instanceof Date
+        ? appointment.start_time
+        : new Date(appointment.start_time as unknown as string);
+    const hours = start.getHours();
+    const minutes = start.getMinutes();
     const displayTime = formatTimeDisplay(hours, minutes);
-    const displayDate = startDateTime.toLocaleDateString("en-US", {
+    const displayDate = start.toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -407,9 +446,9 @@ export async function executeCreateBooking(
     return {
       success: true,
       data: {
-        booking_id: booking.id,
-        date: dateStr,
-        time: timeStr,
+        booking_id: appointment.id,
+        date: dateString(start),
+        time: `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`,
         service,
       },
       narrative,
