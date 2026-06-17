@@ -89,6 +89,7 @@
     "check:widget-scheduling-bookflow": "tsx server/routes/widgetScheduling.bookflow.test.ts",
     "check:copilot-booking": "tsx server/services/customerWidgetTools.bookflow.test.ts",
     "check:tradeline-chat-booking": "tsx server/routes/tradelineChatBooking.test.ts",
+    "check:legacy-booking-bookflow": "tsx server/routes/bookingRoutes.bookflow.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
