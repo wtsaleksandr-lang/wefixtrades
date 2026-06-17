@@ -39,6 +39,7 @@ import {
 import { resolveClientForCalculator as realResolveClient } from "./booking/resolveClientForCalculator";
 import type { BookflowAppointment } from "@shared/schema";
 import type { TimeSlot } from "./booking/bookflowService";
+import { BookflowInactiveError } from "./booking/bookflowService";
 
 const log = createLogger("BookingTools");
 
@@ -216,7 +217,8 @@ function bookingUnavailableReason(err: unknown): string | null {
     return "Online booking isn't set up for this business yet.";
   }
   const message = err instanceof Error ? err.message : "";
-  if (message === "BookFlow is not active for this client") {
+  // Typed inactive-BookFlow error (PR8); legacy string-match kept as fallback.
+  if (err instanceof BookflowInactiveError || message === "BookFlow is not active for this client") {
     return "Online booking is currently unavailable for this business.";
   }
   if (message === "This time slot is no longer available. Please choose another time.") {

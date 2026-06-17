@@ -45,6 +45,7 @@ import {
 import { resolveClientForCalculator as realResolveClient } from "../services/booking/resolveClientForCalculator";
 import type { BookflowAppointment } from "@shared/schema";
 import type { TimeSlot } from "../services/booking/bookflowService";
+import { BookflowInactiveError } from "../services/booking/bookflowService";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("WidgetScheduling");
@@ -106,7 +107,9 @@ function unavailableReason(err: unknown): string | null {
     return "Online booking isn’t set up for this business yet.";
   }
   const message = err instanceof Error ? err.message : "";
-  if (message === "BookFlow is not active for this client") {
+  // Typed inactive-BookFlow error (PR8). The legacy string-match below stays as
+  // a back-compat fallback so nothing regresses if an older throw site remains.
+  if (err instanceof BookflowInactiveError || message === "BookFlow is not active for this client") {
     return "Online booking is currently unavailable for this business.";
   }
   if (message === "This time slot is no longer available. Please choose another time.") {

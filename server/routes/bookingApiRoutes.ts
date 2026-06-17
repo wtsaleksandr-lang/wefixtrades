@@ -465,28 +465,78 @@ export function registerBookingApiRoutes(app: Express): void {
   /**
    * GET /api/admin/booking/recent
    * Returns recent bookings for the admin Bookings tab.
-   * Mirrors the row shape of GET /api/dashboard/bookings (the `bookings` table).
+   *
+   * Booking-consolidation PR8 (read side): repointed from the legacy
+   * `bookings` table to the UNIFIED `bookflow_appointments` table. Every write
+   * path (wizard picker, QuoteQuick copilot, TradeLine voice + chat, legacy
+   * BookingStep non-deposit) now lands in `bookflow_appointments` (PR3-7), so
+   * the Admin "recent" surface must read it to show bookings from every origin
+   * — previously quotequick / tradeline_* bookings were invisible here.
+   *
+   * Output shape is preserved (id, date, time, customer fields, service,
+   * status) so the client is unchanged; the bookflow row's start_time is
+   * projected back onto the legacy date + time fields and service_name onto
+   * `service`.
    */
-  app.get("/api/admin/booking/recent", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 500);
-      const rows = await storage.listRecentBookings(limit);
+  app.get("/api/admin/booking/recent", requireAdmin, (req: Request, res: Response) =>
+    handleAdminRecent(req, res),
+  );
+}
 
-      const data = rows.map(b => ({
+/** Collaborators behind the Admin "recent" read — injectable for the DB-free test. */
+export interface AdminRecentDeps {
+  listRecentBookflowAppointments: (limit: number) => Promise<
+    Array<{
+      id: number;
+      customer_name: string;
+      customer_phone?: string | null;
+      customer_email?: string | null;
+      service_name?: string | null;
+      start_time: Date | string;
+      status: string;
+    }>
+  >;
+}
+
+const defaultAdminRecentDeps: AdminRecentDeps = {
+  listRecentBookflowAppointments: (limit) => storage.listRecentBookflowAppointments(limit),
+};
+
+/**
+ * GET /api/admin/booking/recent handler — reads the unified
+ * `bookflow_appointments` table and projects each row onto the legacy
+ * { id, date, time, customer_*, service, status } shape the Admin Bookings tab
+ * already consumes. Exported with a DI seam so the read source is provable
+ * without a DB (PR8 guard).
+ */
+export async function handleAdminRecent(
+  req: Request,
+  res: Response,
+  deps: AdminRecentDeps = defaultAdminRecentDeps,
+): Promise<Response> {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 500);
+    const rows = await deps.listRecentBookflowAppointments(limit);
+
+    const data = rows.map((b) => {
+      const start = b.start_time instanceof Date ? b.start_time : new Date(b.start_time);
+      const iso = Number.isNaN(start.getTime()) ? null : start.toISOString();
+      return {
         id: b.id,
-        date: b.date,
-        time: b.time,
+        // Project start_time → legacy date (YYYY-MM-DD) + time (HH:MM).
+        date: iso ? iso.slice(0, 10) : null,
+        time: iso ? iso.slice(11, 16) : null,
         customer_name: b.customer_name,
         customer_phone: b.customer_phone ?? null,
         customer_email: b.customer_email ?? null,
-        service: null as string | null,
+        service: b.service_name ?? null,
         status: b.status,
-      }));
+      };
+    });
 
-      res.json({ data, total: data.length });
-    } catch (err: any) {
-      log.error("Failed to list recent bookings", { error: err.message });
-      res.status(500).json({ error: "Failed to list recent bookings" });
-    }
-  });
+    return res.json({ data, total: data.length });
+  } catch (err: any) {
+    log.error("Failed to list recent bookings", { error: err.message });
+    return res.status(500).json({ error: "Failed to list recent bookings" });
+  }
 }
