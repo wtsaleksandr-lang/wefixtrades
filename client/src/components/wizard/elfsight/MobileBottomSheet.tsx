@@ -888,15 +888,23 @@ export default function MobileBottomSheet({
                own text/controls stay readable while the preview is still
                partly visible. (#1868 deferred this assuming nothing was behind
                the sheet — but the docked sheet sits over the preview.) */
-            background: rgba(255, 255, 255, 0.72);
+            /* nav-distinction (Alex 2026-06-17) — the frosted sheet used to read
+               as the SAME white as the preview widget above it (its top border
+               was rgba(255,255,255,0.5) — white on white — and AE.shadow.pop
+               casts DOWNWARD, away from the canvas). It now reads as a chrome
+               layer docked OVER the canvas: a faint cool tint (vs the pure-white
+               widget), a defined hairline top edge, and an UPWARD shadow that
+               lifts it off the canvas above. Still frosted/see-through per
+               Alex's glass spec — opacity only nudged 0.72 → 0.80. */
+            background: rgba(247, 248, 250, 0.80);
             -webkit-backdrop-filter: blur(20px) saturate(150%);
             backdrop-filter: blur(20px) saturate(150%);
             font-family: ${AE.font.family};
             color: ${AE.color.text};
             border-top-left-radius: ${AE.radius.lg};
             border-top-right-radius: ${AE.radius.lg};
-            box-shadow: ${AE.shadow.pop};
-            border-top: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.10), 0 -1px 0 ${AE.color.hairline};
+            border-top: 1px solid ${AE.color.hairlineStrong};
             /* overflow:clip (not hidden) keeps the sticky footer working in
                embedded widgets (per project_overflow_clip_for_sticky). */
             overflow: clip;
@@ -920,7 +928,7 @@ export default function MobileBottomSheet({
              surface so the panel text/controls never lose contrast (no
              see-through, but never an unreadable wash). */
           @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-            .qq-sheet { background: rgba(255, 255, 255, 0.97); }
+            .qq-sheet { background: rgba(247, 248, 250, 0.98); }
           }
 
           /* ── Drag handle + header ──────────────────────────────── */
