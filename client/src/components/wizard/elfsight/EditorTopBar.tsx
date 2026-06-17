@@ -548,8 +548,8 @@ export default function EditorTopBar({
             onClick={onMinimize}
             className="qq-editor-icon-btn"
             data-testid="quotequick-minimize"
-            aria-label="Minimize wizard to dashboard"
-            title="Minimize to dashboard"
+            aria-label="Minimize wizard"
+            title="Minimize — resume from the floating badge"
           >
             <Minimize2 style={{ width: 14, height: 14 }} aria-hidden="true" />
           </button>
