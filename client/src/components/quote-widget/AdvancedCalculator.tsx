@@ -355,7 +355,24 @@ interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boo
    *  no-action). Drives the preview CTA's label + behaviour. */
   action_mode?: 'redirect' | 'lead-form' | 'no-action';
   /** Action tab — destination URL when `action_mode === 'redirect'`. */
-  redirect_url?: string; }
+  redirect_url?: string;
+  /**
+   * LEAD-FORM-FIELDS — owner-defined custom lead-form fields (mirrors
+   * `calculator_settings.lead_form.custom_fields`). Carried here by
+   * buildAdvancedConfig so the wizard preview's inline lead form + LeadModal
+   * render the same extra inputs the deployed widget's LeadCaptureStep does,
+   * in addition to the standard Name / Email / Phone. Absent/empty → standard
+   * fields only (unchanged). */
+  lead_custom_fields?: LeadCustomFieldConfig[]; }
+
+/** One normalized custom lead field (mirrors lead_form.custom_fields entry). */
+export interface LeadCustomFieldConfig {
+  id: string;
+  type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox';
+  label: string;
+  required: boolean;
+  options: string[];
+}
 /**
  * Wave H6 — Settings tab number-format slot. Drives the renderer's
  * currency / number formatting independent of the user's browser locale.
@@ -1420,7 +1437,7 @@ function DepositPreviewBadge({
  */
 function BookingCalendarPreview({
   source, url, accent, theme, fontFamily, radiusPx,
-  workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes,
+  workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes, bufferMinutes,
 }: {
   source: 'wefixtrades-default' | 'cal.com-url' | 'calendly-url';
   url: string;
@@ -1437,6 +1454,9 @@ function BookingCalendarPreview({
   workingHoursStart?: string;
   workingHoursEnd?: string;
   slotDurationMinutes?: number;
+  /** Gap (minutes) inserted between consecutive slots; each slot starts
+   *  `slotLen + buffer` after the previous. 0/absent → back-to-back slots. */
+  bufferMinutes?: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // fix/booking-responsive-picker — Calendly/Cal.com-style two-pane scheduler.
@@ -1479,6 +1499,12 @@ function BookingCalendarPreview({
     const slotLen = typeof slotDurationMinutes === 'number'
       && [15, 30, 45, 60].includes(slotDurationMinutes)
       ? slotDurationMinutes : 60;
+    // Preview fidelity — gap between consecutive slots. Each slot starts
+    // `slotLen + buffer` after the previous one, so a non-zero buffer thins the
+    // slot list (mirrors the Action-tab "buffer between slots" control).
+    const buffer = typeof bufferMinutes === 'number'
+      && [0, 5, 10, 15].includes(bufferMinutes)
+      ? bufferMinutes : 0;
     const buildSlots = (): string[] => {
       if (startMin == null || endMin == null || endMin <= startMin) {
         // Legacy generic fallback.
@@ -1487,8 +1513,10 @@ function BookingCalendarPreview({
       const slots: string[] = [];
       // Cap raised 16 → 64 so a long working day (e.g. 9am–9pm) isn't silently
       // truncated to 4:30pm; the slot grid is scrollable, so a full window is
-      // fine. 64 still bounds a pathological 15-min all-day window.
-      for (let t = startMin; t + slotLen <= endMin && slots.length < 64; t += slotLen) {
+      // fine. 64 still bounds a pathological 15-min all-day window. The slot
+      // body still must fit before `endMin`; the buffer only spaces the NEXT
+      // slot's start, so a trailing buffer never pushes past the window.
+      for (let t = startMin; t + slotLen <= endMin && slots.length < 64; t += slotLen + buffer) {
         slots.push(fmtSlot(t));
       }
       // Guarantee at least one slot even for a narrow window.
@@ -1517,7 +1545,7 @@ function BookingCalendarPreview({
       });
     }
     return out;
-  }, [workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes]);
+  }, [workingDays, workingHoursStart, workingHoursEnd, slotDurationMinutes, bufferMinutes]);
   const isExternal = source === 'cal.com-url' || source === 'calendly-url';
 
   // Selected day index — defaults to the first available day and is clamped if
@@ -1921,6 +1949,8 @@ export default function AdvancedCalculator({
     ? bsBooking!.workingHoursEnd : undefined;
   const bookingSlotMinutes = typeof bsBooking?.slotDurationMinutes === 'number'
     ? bsBooking!.slotDurationMinutes : undefined;
+  const bookingBufferMinutes = typeof bsBooking?.bufferMinutes === 'number'
+    ? bsBooking!.bufferMinutes : undefined;
 
   // Preview fidelity — follow-up ACTION MODE (advanced.results.action_mode).
   // Mirrors the Action-tab `settings.actionMode` so the preview CTA reflects
@@ -2087,6 +2117,18 @@ export default function AdvancedCalculator({
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [leadName, setLeadName] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
+  // LEAD-FORM-FIELDS — owner-defined custom lead fields (mirrors the deployed
+  // widget's LeadCaptureStep). Carried on results.lead_custom_fields by
+  // buildAdvancedConfig so the preview renders the same extra inputs. Values
+  // are preview-only; this surface flips to its done/success state without a
+  // schema'd POST of the custom answers.
+  const leadCustomFields = useMemo<LeadCustomFieldConfig[]>(() => {
+    const cf = advanced.results?.lead_custom_fields;
+    return Array.isArray(cf) ? cf : [];
+  }, [advanced.results]);
+  const [leadCustomValues, setLeadCustomValues] = useState<Record<string, string | boolean>>({});
+  const setLeadCustomValue = (id: string, value: string | boolean) =>
+    setLeadCustomValues((p) => ({ ...p, [id]: value }));
   // BD-2c — captured ZIP from the address autocomplete (or a dedicated ZIP
   // step field, if the template carries one). Drives the peer-anchor line.
   const [capturedZip, setCapturedZip] = useState<string | null>(null);
@@ -3778,6 +3820,7 @@ export default function AdvancedCalculator({
                 workingHoursStart={bookingHoursStart}
                 workingHoursEnd={bookingHoursEnd}
                 slotDurationMinutes={bookingSlotMinutes}
+                bufferMinutes={bookingBufferMinutes}
               />
             )}
 
@@ -3962,6 +4005,50 @@ export default function AdvancedCalculator({
                     <input data-testid="advanced-cta-email" type="email" placeholder="Email address"
                       value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)}
                       style={leadInputStyle} />
+                    {/* LEAD-FORM-FIELDS — owner-defined custom fields, rendered
+                        below the standard name/email (mirrors the deployed
+                        widget's LeadCaptureStep). Preview-only; values aren't
+                        POSTed from this surface. */}
+                    {leadCustomFields.map((f) => {
+                      const val = leadCustomValues[f.id];
+                      if (f.type === 'checkbox') {
+                        return (
+                          <label key={f.id} data-testid={`advanced-cta-custom-${f.id}`}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '13px', color: cc.resultText, fontFamily, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={val === true}
+                              onChange={(e) => setLeadCustomValue(f.id, e.target.checked)}
+                              style={{ marginTop: 2 }} />
+                            <span>{f.label}{f.required ? ' *' : ''}</span>
+                          </label>
+                        );
+                      }
+                      return (
+                        <div key={f.id} data-testid={`advanced-cta-custom-${f.id}`}
+                          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: cc.resultText, fontFamily }}>
+                            {f.label}{f.required ? '' : ' (optional)'}
+                          </span>
+                          {f.type === 'select' ? (
+                            <select value={String(val ?? '')}
+                              onChange={(e) => setLeadCustomValue(f.id, e.target.value)}
+                              style={leadInputStyle}>
+                              <option value="">Select...</option>
+                              {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          ) : f.type === 'textarea' ? (
+                            <textarea rows={3} value={String(val ?? '')}
+                              onChange={(e) => setLeadCustomValue(f.id, e.target.value)}
+                              style={{ ...leadInputStyle, height: 'auto', padding: '8px 12px', resize: 'vertical' }} />
+                          ) : (
+                            <input
+                              type={f.type === 'number' ? 'number' : f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
+                              value={String(val ?? '')}
+                              onChange={(e) => setLeadCustomValue(f.id, e.target.value)}
+                              style={leadInputStyle} />
+                          )}
+                        </div>
+                      );
+                    })}
                     <button type="button" data-testid="advanced-cta-send"
                       onClick={async () => {
                         if (!leadReady) return;
@@ -4202,6 +4289,9 @@ export default function AdvancedCalculator({
         /* Action tab — spam honeypot. Default ON (protect by default); only
            an explicit `false` disables it. */
         honeypot={advanced.spamProtection !== false}
+        /* LEAD-FORM-FIELDS — owner-defined custom fields, rendered below the
+           standard Name/Phone/Email (mirrors the deployed LeadCaptureStep). */
+        customFields={leadCustomFields}
         onSubmit={analyticsCalcId ? async (lead: Lead) => {
           const resp = await fetch('/api/leads', {
             method: 'POST',

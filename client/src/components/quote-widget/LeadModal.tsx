@@ -103,6 +103,16 @@ const phoneOk = (v: string) => v.replace(/\D/g, '').length >= 7;
 /** Captured lead data shape — exported for the parent's `onSubmit` signature. */
 export type Lead = { name: string; phone: string; email: string };
 
+/** LEAD-FORM-FIELDS — one owner-defined custom field (mirrors the deployed
+ *  widget's LeadCaptureStep + lead_form.custom_fields). */
+export interface LeadModalCustomField {
+  id: string;
+  type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox';
+  label: string;
+  required: boolean;
+  options: string[];
+}
+
 export interface LeadModalProps {
   /** Whether the modal is mounted/visible. */
   open: boolean;
@@ -144,6 +154,14 @@ export interface LeadModalProps {
    *  for the actual POST to `/api/leads`. When absent (preview / wizard) the
    *  form flips to the success state without a network call. */
   onSubmit?: (lead: Lead) => Promise<void>;
+  /**
+   * LEAD-FORM-FIELDS — owner-defined custom fields rendered below the standard
+   * Name / Phone / Email inputs (mirrors the deployed widget's LeadCaptureStep).
+   * Preview-fidelity: in the wizard these surface the fields the owner authored
+   * in the Action tab. Their values are NOT part of the `Lead` POST shape (the
+   * deployed widget carries them in /api/leads `answers`); here they exist so
+   * the preview renders faithfully. Required custom fields gate the submit. */
+  customFields?: LeadModalCustomField[];
 }
 
 export default function LeadModal({
@@ -154,10 +172,17 @@ export default function LeadModal({
   successMessage,
   honeypot = true,
   onSubmit,
+  customFields = [],
 }: LeadModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  // LEAD-FORM-FIELDS — owner-defined custom field values (preview-only; not
+  // part of the Lead POST shape). Required ones gate the submit alongside the
+  // standard fields.
+  const [customValues, setCustomValues] = useState<Record<string, string | boolean>>({});
+  const setCustomValue = (id: string, value: string | boolean) =>
+    setCustomValues((p) => ({ ...p, [id]: value }));
   // Action tab \u2014 spam honeypot. A real user never sees or focuses this field,
   // so a non-empty value means a bot auto-filled it \u2192 drop on submit.
   const [hpValue, setHpValue] = useState('');
@@ -170,7 +195,14 @@ export default function LeadModal({
   const nameOk = name.trim().length >= 2;
   const emailOk = EMAIL_RE.test(email.trim());
   const phoneValid = phoneOk(phone);
-  const ready = nameOk && phoneValid && emailOk;
+  // LEAD-FORM-FIELDS — every REQUIRED custom field must be filled (a checkbox
+  // must be checked; any other type must be non-empty) before the form is ready.
+  const customOk = customFields.every((f) => {
+    if (!f.required) return true;
+    const v = customValues[f.id];
+    return f.type === 'checkbox' ? v === true : String(v ?? '').trim() !== '';
+  });
+  const ready = nameOk && phoneValid && emailOk && customOk;
 
   // Body scroll lock + Esc + initial focus while open.
   useEffect(() => {
@@ -194,7 +226,7 @@ export default function LeadModal({
 
   // Reset to a clean form each time the modal is (re)opened.
   useEffect(() => {
-    if (open) { setSubmitted(false); setSubmitting(false); setSubmitError(null); setShowErrors(false); setHpValue(''); }
+    if (open) { setSubmitted(false); setSubmitting(false); setSubmitError(null); setShowErrors(false); setHpValue(''); setCustomValues({}); }
   }, [open]);
 
   if (!open) return null;
@@ -356,6 +388,51 @@ export default function LeadModal({
                 theme={theme} fontFamily={fontFamily} radiusPx={radiusPx}
                 invalid={showErrors && !emailOk}
               />
+              {/* LEAD-FORM-FIELDS — owner-defined custom fields, below the
+                  standard Name/Phone/Email (mirrors the deployed LeadCaptureStep). */}
+              {customFields.map((f) => {
+                const val = customValues[f.id];
+                const missing = showErrors && f.required
+                  && (f.type === 'checkbox' ? val !== true : String(val ?? '').trim() === '');
+                if (f.type === 'checkbox') {
+                  return (
+                    <label key={f.id} data-testid={`lead-modal-custom-${f.id}`}
+                      style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: subColor, fontFamily, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={val === true}
+                        onChange={(e) => setCustomValue(f.id, e.target.checked)}
+                        style={{ marginTop: 2 }} />
+                      <span>{f.label}{f.required ? ' *' : ''}</span>
+                    </label>
+                  );
+                }
+                const fieldBorder = missing ? errorColor : theme.border;
+                return (
+                  <div key={f.id} data-testid={`lead-modal-custom-${f.id}`}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: subColor, fontFamily }}>
+                      {f.label}{f.required ? '' : ' (optional)'}
+                    </span>
+                    {f.type === 'select' ? (
+                      <select value={String(val ?? '')}
+                        onChange={(e) => setCustomValue(f.id, e.target.value)}
+                        style={{ width: '100%', height: 48, borderRadius: radiusPx, border: `1px solid ${fieldBorder}`, padding: '0 12px', fontSize: 14, color: headingColor, background: theme.surface, fontFamily, outline: 'none', boxSizing: 'border-box' }}>
+                        <option value="">Select...</option>
+                        {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : f.type === 'textarea' ? (
+                      <textarea rows={3} value={String(val ?? '')}
+                        onChange={(e) => setCustomValue(f.id, e.target.value)}
+                        style={{ width: '100%', borderRadius: radiusPx, border: `1px solid ${fieldBorder}`, padding: '8px 12px', fontSize: 14, color: headingColor, background: theme.surface, fontFamily, outline: 'none', boxSizing: 'border-box', resize: 'vertical' }} />
+                    ) : (
+                      <input
+                        type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : f.type === 'number' ? 'number' : 'text'}
+                        value={String(val ?? '')}
+                        onChange={(e) => setCustomValue(f.id, e.target.value)}
+                        style={{ width: '100%', height: 48, borderRadius: radiusPx, border: `1px solid ${fieldBorder}`, padding: '0 12px', fontSize: 14, color: headingColor, background: theme.surface, fontFamily, outline: 'none', boxSizing: 'border-box' }} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Action tab — spam honeypot. Off-screen + aria-hidden + tabIndex

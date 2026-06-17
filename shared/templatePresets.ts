@@ -550,6 +550,21 @@ export interface TemplateResults {
   action_mode?: 'redirect' | 'lead-form' | 'no-action';
   /** Action tab — destination URL used when `action_mode === 'redirect'`. */
   redirect_url?: string;
+  /**
+   * LEAD-FORM-FIELDS — owner-defined custom lead-form fields, mirrored from
+   * `calculator_settings.lead_form.custom_fields` so the wizard preview's
+   * inline lead form + LeadModal render the same extra inputs the deployed
+   * widget's LeadCaptureStep does. Preview-fidelity only; the published widget
+   * still reads the canonical `lead_form.custom_fields`. Absent/empty →
+   * standard Name / Email / Phone only (unchanged).
+   */
+  lead_custom_fields?: {
+    id: string;
+    type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox';
+    label: string;
+    required: boolean;
+    options: string[];
+  }[];
 }
 
 /* ─── Stepper (BD-2a — multi-step renderer) ─── */
@@ -9981,11 +9996,13 @@ export interface AdvBooking {
    *   - `workingDays`: 0=Sun … 6=Sat (JS Date.getDay()).
    *   - `workingHoursStart` / `workingHoursEnd`: "HH:MM" 24h.
    *   - `slotDurationMinutes`: length of one slot (15/30/45/60).
+   *   - `bufferMinutes`: gap inserted between consecutive slots (0/5/10/15).
    */
   workingDays?: number[];
   workingHoursStart?: string;
   workingHoursEnd?: string;
   slotDurationMinutes?: number;
+  bufferMinutes?: number;
 }
 
 /**
