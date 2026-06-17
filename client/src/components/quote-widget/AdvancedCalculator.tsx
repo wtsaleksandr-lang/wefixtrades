@@ -1459,6 +1459,14 @@ function BookingCalendarPreview({
   bufferMinutes?: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  // CONTRAST — the selected day-pill / time-slot highlight used the raw `accent`
+  // for its border + text + tint. On two-zone dark combos (e.g. black + yellow)
+  // `accent` (Colour B) is near-black, so a selected slot rendered black border +
+  // black-tint fill + black text on the dark surface — invisible (Alex: "gets
+  // coloured to black and nothing is visible"). Guard the accent against the
+  // slot surface so the selected highlight is always legible (the guard returns
+  // `accent` unchanged when it already has contrast — e.g. yellow on dark).
+  const selInk = guardTextColor(accent, theme.surface, 'bookingSelected');
   // fix/booking-responsive-picker — Calendly/Cal.com-style two-pane scheduler.
   // The old layout computed only FOUR days and dropped them into a CSS
   // auto-fit grid that wrapped to a cramped 2×2 on the result panel's width,
@@ -1713,9 +1721,9 @@ function BookingCalendarPreview({
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   gap: 1, minWidth: 58, padding: '7px 10px',
                   borderRadius: radiusPx,
-                  border: `1px solid ${isActive ? accent : theme.border}`,
-                  background: isActive ? hexToRgba(accent, 0.10) : theme.surface,
-                  color: isActive ? accent : theme.textBody,
+                  border: `1px solid ${isActive ? selInk : theme.border}`,
+                  background: isActive ? hexToRgba(selInk, 0.10) : theme.surface,
+                  color: isActive ? selInk : theme.textBody,
                   fontFamily, cursor: 'pointer',
                   transition: prefersReducedMotion
                     ? 'none'
@@ -1724,12 +1732,12 @@ function BookingCalendarPreview({
               >
                 <span style={{
                   fontSize: 11, fontWeight: 700,
-                  color: isActive ? accent : theme.textMuted,
+                  color: isActive ? selInk : theme.textMuted,
                   textTransform: 'uppercase', letterSpacing: '0.06em',
                 }}>
                   {day.dayLabel}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? accent : theme.textBody }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? selInk : theme.textBody }}>
                   {day.dateLabel}
                 </span>
               </button>
@@ -1778,7 +1786,7 @@ function BookingCalendarPreview({
                 }}
                 style={{
                   padding: '8px 10px', borderRadius: radiusPx,
-                  border: `1px solid ${isSelected ? accent : theme.border}`,
+                  border: `1px solid ${isSelected ? selInk : theme.border}`,
                   // Solid surface chip (matches the day pills) instead of a
                   // transparent slot. The booking block inherits the result-
                   // panel background (rpBg); a transparent slot put textBody —
@@ -1786,8 +1794,8 @@ function BookingCalendarPreview({
                   // — straight onto rpBg, so on saturated/dark result panels the
                   // time text was barely readable. A surface background restores
                   // the contrast the guard guarantees + makes borders visible.
-                  background: isSelected ? hexToRgba(accent, 0.12) : theme.surface,
-                  color: isSelected ? accent : theme.textBody,
+                  background: isSelected ? hexToRgba(selInk, 0.12) : theme.surface,
+                  color: isSelected ? selInk : theme.textBody,
                   fontFamily, fontSize: 12, fontWeight: 600,
                   cursor: 'pointer', textAlign: 'center',
                   transition: prefersReducedMotion
