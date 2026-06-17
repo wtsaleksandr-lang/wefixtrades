@@ -263,6 +263,13 @@ export default function BuildTab({
       className="qq-editor-tabpanel qq-build-tab"
       data-testid="editor-tabpanel-build"
       data-section
+      /* The Build panel aggregates several independent sections (Generate-
+       * with-AI card, Business, etc.), each carrying exactly ONE top-left
+       * cue per DESIGN-SYSTEM §2/§5 — they are separated by hairline
+       * dividers, not crowded in one row. The layout guard counts cues per
+       * JSX block, so this panel-level marker tells it the multiple
+       * section-level cues are by design (one per section, not per row). */
+      data-cue-allowed-multiple
       role="tabpanel"
     >
       {/* Decluttered default view — once the calculator already has fields,
@@ -410,6 +417,21 @@ export default function BuildTab({
       <div className="qq-build-divider" />
 
       <section className="qq-build-section" data-testid="editor-business-section" data-edit-key="business">
+        {/* P1 (UI-audit B) — the business-name row was the only top-of-panel
+         * input without a help cue. Add a section header with the InfoCue as
+         * its FIRST child (top-left of the header), matching the
+         * Fields/Pricing/Theme pattern on every other panel — DESIGN-SYSTEM
+         * hard rule §2 (cue top-left) + §5 (one cue pattern per surface). */}
+        <header className="qq-business-header">
+          <h3 className="qq-business-title">
+            <InfoCue
+              testid="build-section-business"
+              region="header"
+              text="Sets the name and logo shown in your calculator's header and on its hosted quote page (and its shareable link). Leave the name blank to show a neutral placeholder until you add one."
+            />
+            <span>Business</span>
+          </h3>
+        </header>
         {/* Wave J item 5 — composite logo + business-name field. */}
         <div className="qq-business-composite" data-testid="editor-business-composite">
           {/* AUDIT-LOW — wrap the logo-upload square so the clear pill can
@@ -774,6 +796,20 @@ export default function BuildTab({
           .qq-buildai-generate {
             align-self: center; width: 100%;
           }
+        }
+        /* P1 (UI-audit B) — section header for the business row, mirroring
+         * .qq-fields-header/.qq-fields-title so the cue sits top-left and the
+         * label matches the all-caps subtle treatment used on every panel. */
+        .qq-business-header {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; margin: 0 0 6px;
+        }
+        .qq-business-title {
+          margin: 0;
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
         }
         /* Wave J item 5 — logo + name composite. */
         .qq-business-composite {
