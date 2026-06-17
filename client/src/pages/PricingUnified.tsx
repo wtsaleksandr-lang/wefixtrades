@@ -1578,7 +1578,7 @@ function SystemBuilder({ yearly, onCheckout }: {
         <V7Hero
           productName="Pricing"
           eyebrow="Pick what you need. Cancel any month."
-          headline={<>One job pays for the system.{" "}<span style={{ color: mkt.accentOnDark, display: "block" }}>Pick what you need — cancel any month.</span></>}
+          headline={<>One job pays for the <span style={{ color: mkt.accentOnDark }}>whole system.</span></>}
           sub="No contracts. No setup gotchas. You own everything you build with us."
         />
       <div style={{ paddingBottom: 80 }}>
