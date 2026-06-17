@@ -10,20 +10,32 @@
  * empty. The previous test for this path was synthetic and never exercised the
  * tool loop, so it could not have caught this.
  *
+ * BOOKING CONSOLIDATION (PR5): the create_booking executor now persists through
+ * the single BookFlow authority — a `bookflow_appointments` row tagged
+ * `source='tradeline_voice'` — instead of the legacy `bookings` table. The
+ * in-memory store + assertions below reflect that bookflow shape. This keeps
+ * the original "tools-never-fire" guard AND adds a `source` guard so a
+ * mis-tag / a regression back to the old `bookings` table fails the build.
+ *
  * WHAT THIS TEST PROVES (the fix is real, not cosmetic):
  *   1. On a booking-intent voice turn, the booking-CAPABLE path is taken — the
  *      agent loop runs with the booking tools wired in (not the tool-less
  *      single-call path).
- *   2. The `create_booking` executor is ACTUALLY REACHED — a real booking row
- *      is created with the right date/time AND the caller's number defaulted
- *      from caller-ID (the model didn't supply a phone).
+ *   2. The `create_booking` executor is ACTUALLY REACHED — a real
+ *      `bookflow_appointments` row is created with the right date/time, the
+ *      caller's number defaulted from caller-ID (the model didn't supply a
+ *      phone), AND tagged `source='tradeline_voice'`.
  *   3. The AI's final reply confirms the booking back to the caller.
  *
- *   NEGATIVE ASSERTION (would FAIL on the original broken code): we assert the
- *   create_booking executor was invoked at least once on a booking-intent turn.
- *   On the old `assistantSync`-only path it was structurally impossible to
- *   invoke any tool, so this assertion would have been red — i.e. this test
- *   catches the exact "tools never fire" regression.
+ *   NEGATIVE ASSERTIONS (would FAIL on a broken wiring):
+ *     (a) the create_booking executor was invoked at least once on a
+ *         booking-intent turn. On the old `assistantSync`-only path it was
+ *         structurally impossible to invoke any tool, so this would have been
+ *         red — it catches the exact "tools never fire" regression where the AI
+ *         says "booked" but nothing persists.
+ *     (b) the persisted row carries `source='tradeline_voice'`. This catches a
+ *         mis-tagged source or a regression back to the legacy `bookings` table
+ *         (which has no `source`), i.e. the row landing in the wrong authority.
  *
  * Runnable standalone:  npx tsx server/services/tradelineBooking.test.ts
  * Wired into CI as `npm run check:tradeline-booking`.
@@ -49,13 +61,18 @@ async function main() {
 
   const { handleTradeLineConversationTurn } = vapiService;
 
-  /* ── In-memory booking store (stands in for storage.createBooking) ── */
-  const bookings: Array<Record<string, unknown>> = [];
+  /* ── In-memory BookFlow store (stands in for the bookflow_appointments table
+   * the PR5 executor now writes through createBookingForCalculator). Each row
+   * carries the consolidation `source` tag so we can assert it. ── */
+  const bookflowAppointments: Array<Record<string, unknown>> = [];
 
   /* ── Stub booking executors (the REAL signature) ──
    * These mirror executeCheckAvailability / executeCreateBooking but write to
    * the in-memory store. We assert they are REACHED — proving the tool path
-   * fired. They record their inputs so we can verify date/time + caller number. */
+   * fired. The createBooking stub simulates the PR5 executor: it persists a
+   * `bookflow_appointments`-shaped row tagged source='tradeline_voice' (what
+   * createBookingForCalculator(..., { source: 'tradeline_voice' }) produces),
+   * and records its inputs so we can verify date/time + caller number. */
   let checkAvailabilityCalls = 0;
   let createBookingCalls = 0;
   const createBookingArgs: Array<Record<string, unknown>> = [];
@@ -64,7 +81,7 @@ async function main() {
     checkAvailabilityCalls++;
     return {
       success: true,
-      data: { slots: [{ day: "Tuesday", times: ["2:00 PM"] }] },
+      data: { slots: [{ start: "2026-06-16T14:00:00", end: "2026-06-16T15:00:00", available: true }] },
       narrative: "Tuesday at 2 PM is open. Want me to book it?",
     };
   }) as unknown as typeof import("./bookingTools").executeCheckAvailability;
@@ -72,14 +89,18 @@ async function main() {
   const stubCreateBooking = (async (calcId: number, args: Record<string, unknown>) => {
     createBookingCalls++;
     createBookingArgs.push(args);
-    const id = bookings.length + 1;
-    bookings.push({
-      booking_id: id,
+    const id = bookflowAppointments.length + 1;
+    // PR5: the real executor routes through createBookingForCalculator with
+    // source:'tradeline_voice', landing a bookflow_appointments row. We mirror
+    // that exact shape + tag here.
+    bookflowAppointments.push({
+      id,
       calculator_id: calcId,
       customer_name: args.customer_name,
       customer_phone: args.customer_phone,
       date: "2026-06-16",
       time: "14:00",
+      source: "tradeline_voice",
     });
     return {
       success: true,
@@ -208,18 +229,31 @@ async function main() {
     },
   );
 
-  // ── Core assertions: the tool path FIRED ──
+  // ── Core assertion (a): the tool path FIRED — executor REACHED ──
   assert.ok(
     createBookingCalls >= 1,
-    `NEGATIVE-ASSERTION: create_booking executor was never reached (calls=${createBookingCalls}). ` +
+    `NEGATIVE-ASSERTION (a): create_booking executor was never reached (calls=${createBookingCalls}). ` +
       "On the original assistantSync-only path this was structurally impossible — this is the exact bug.",
   );
-  assert.equal(bookings.length, 1, `exactly one booking row should be created, got ${bookings.length}`);
+  assert.equal(
+    bookflowAppointments.length,
+    1,
+    `exactly one bookflow_appointments row should be created, got ${bookflowAppointments.length}`,
+  );
 
-  const row = bookings[0];
+  const row = bookflowAppointments[0];
   assert.equal(row.customer_name, "Jordan", "booking carries the caller's name");
   assert.equal(row.date, "2026-06-16", "booking carries the right date (Tuesday)");
   assert.equal(row.time, "14:00", "booking carries the right time (2 PM)");
+
+  // ── Core assertion (b): the row landed in the BookFlow authority, tagged
+  //    source='tradeline_voice' (PR5). Catches a mis-tag or a regression back to
+  //    the legacy `bookings` table (which has no `source`). ──
+  assert.equal(
+    row.source,
+    "tradeline_voice",
+    `NEGATIVE-ASSERTION (b): booking must land in bookflow_appointments tagged source='tradeline_voice', got ${String(row.source)}`,
+  );
 
   // ── Caller-ID plumbing: the booking defaulted the callback number to the
   //    caller ID because the model supplied none ──
@@ -238,7 +272,7 @@ async function main() {
   assert.ok(reply && reply.toLowerCase().includes("2:00 pm"), `final reply confirms the time, got: ${reply}`);
   assert.ok(reply.includes("555-123-4567"), `final reply reads back the callback number, got: ${reply}`);
 
-  console.log(`  ✓ create_booking reached (${createBookingCalls}x), row persisted, caller-ID defaulted, reply confirms`);
+  console.log(`  ✓ create_booking reached (${createBookingCalls}x), bookflow_appointments row persisted with source='tradeline_voice', caller-ID defaulted, reply confirms`);
 
   /* ── Guard 2: a non-booking turn does NOT take the booking path ──
    * When the model never calls a tool, the loop must short-circuit to a single
