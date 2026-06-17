@@ -22,6 +22,7 @@ import type { AssistantRequest, AssistantAgentLoopOptions } from "./assistant";
 import type { AgentLoopResult } from "./aiAgentLoop";
 import { chat, type ChatMessage } from "./aiService";
 import { BOOKING_TOOLS, executeCheckAvailability, executeCreateBooking } from "./bookingTools";
+import { resolveBookingCalculatorId as resolveSharedBookingCalculatorId } from "./booking/resolveBookingCalculator";
 import { CLAUDE_SONNET } from "./aiModels";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { summarizeBusinessHours } from "./clientKnowledge";
@@ -773,24 +774,20 @@ async function loadTradeLineOnboardingPatch(clientServiceId: number): Promise<AI
 /**
  * Resolve the calculator that backs a TradeLine client's booking calendar.
  *
- * Mirrors the (custom-llm-dead) webhook `function-call` handler's resolution:
- * the client's first calculator carries the booking_settings + slot calendar
+ * The client's first calculator carries the booking_settings + slot calendar
  * the booking executors read/write. Returns null when the client has no
  * calculator (booking can't fire — the prompt then degrades to take-a-message).
+ *
+ * Booking consolidation (PR6): the resolution heuristic now lives in the shared
+ * `booking/resolveBookingCalculator` module so VOICE and the new CHAT path pick
+ * the backing calculator the SAME way (the brittle "first-calculator-wins" is
+ * fixed in one place). This thin wrapper preserves the voice-side signature
+ * (takes the ResolvedTradeLineClient, logs with clientId) — behaviour-identical.
  */
 async function resolveBookingCalculatorId(
   resolved: ResolvedTradeLineClient,
 ): Promise<number | null> {
-  try {
-    const calcs = await storage.getCalculatorsByUserId(resolved.client.user_id ?? 0);
-    return calcs[0]?.id ?? null;
-  } catch (err) {
-    log.warn("Failed to resolve booking calculator for TradeLine voice turn", {
-      clientId: resolved.client.id,
-      error: (err as Error).message,
-    });
-    return null;
-  }
+  return resolveSharedBookingCalculatorId(resolved.client.user_id);
 }
 
 /**

@@ -34,6 +34,7 @@ import {
   createBookingForCalculator as realCreateBooking,
   BookingFacadeError,
   type CreateBookingForCalculatorInput,
+  type BookingSource,
 } from "./booking/createBookingForCalculator";
 import { resolveClientForCalculator as realResolveClient } from "./booking/resolveClientForCalculator";
 import type { BookflowAppointment } from "@shared/schema";
@@ -345,16 +346,21 @@ export async function executeCheckAvailability(
  * Returns confirmation formatted as natural language.
  *
  * PR5: routes the booking through the single BookFlow façade
- * (createBookingForCalculator, source:'tradeline_voice') so it lands a real
- * `bookflow_appointments` row (Dispatch + confirmation email + 4-stage SMS
- * lifecycle, all via the native engine, which also re-checks availability with
- * the race-safe conflict guard). The AI can NEVER falsely claim "booked": the
- * confirmation narrative is only returned AFTER the façade resolves a persisted
- * row; any failure returns success:false with an honest "couldn't book" reply.
+ * (createBookingForCalculator) so it lands a real `bookflow_appointments` row
+ * (Dispatch + confirmation email + 4-stage SMS lifecycle, all via the native
+ * engine, which also re-checks availability with the race-safe conflict guard).
+ * The AI can NEVER falsely claim "booked": the confirmation narrative is only
+ * returned AFTER the façade resolves a persisted row; any failure returns
+ * success:false with an honest "couldn't book" reply.
+ *
+ * PR6: the `source` is a parameter (default 'tradeline_voice' for the VOICE
+ * caller) so the SAME executor serves TradeLine CHAT tagging 'tradeline_chat'.
+ * Both channels share one booking path; only the consolidation source differs.
  */
 export async function executeCreateBooking(
   calculatorId: number,
   args: Record<string, unknown>,
+  source: BookingSource = "tradeline_voice",
   deps: BookingToolsDeps = defaultBookingToolsDeps,
 ): Promise<BookingToolResult> {
   try {
@@ -399,7 +405,7 @@ export async function executeCreateBooking(
         serviceName: service,
         startTime,
         notes: combinedNotes,
-        source: "tradeline_voice",
+        source,
       });
     } catch (err: unknown) {
       // GRACEFUL ERRORS (PR2-flagged): no linked client (BookingFacadeError
