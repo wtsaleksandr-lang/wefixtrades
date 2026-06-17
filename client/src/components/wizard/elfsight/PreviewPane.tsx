@@ -2934,7 +2934,12 @@ export default function PreviewPane({
   const chatSimEnabled = style?.aiChatVisibility !== 'off';
   const chatSimVisibility: 'rescue' | 'always' =
     style?.aiChatVisibility === 'always' ? 'always' : 'rescue';
-  const chatSimAccent = style?.accent || '#0d3cfc';
+  // The sim launcher must ALWAYS match the live CTA button colour (Alex) — when
+  // the owner changes theme/colours the floater tracks it. The renderer derives
+  // the CTA background as `style.ctaColor ?? accent` (AdvancedCalculator), so the
+  // floater matches by construction: prefer the two-zone CTA colour (Colour A),
+  // fall back to the accent (Colour B), then the brand default.
+  const chatSimAccent = style?.ctaColor || style?.accent || '#0d3cfc';
 
   // P2 UX — Floating-launcher preview gating. The mode is a transient
   // overlay lens; when it's active and the bubble is collapsed, the user

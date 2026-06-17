@@ -1,228 +1,239 @@
-// PreviewChatBubbleSim — PREVIEW-ONLY visual simulation of the AI chat bubble.
+// PreviewChatBubbleSim — PREVIEW-ONLY visual simulation of the AI chat bubble,
+// plus an in-product EXPLAINER of what the owner's assistant can do.
 //
 // Why a presentational sim instead of mounting the real <AIChatBubble/>:
 // the production component (client/src/components/ai/AIChatBubble.tsx) is
 // built to live on the PUBLISHED page — it renders with `position: fixed`
 // (so it would escape the preview bezel and dock to the editor viewport),
-// attaches global window listeners (quotequick:step / quotequick:help /
-// keydown / pointerdown / mousemove), runs 30s idle + proactive-nudge
-// timers, POSTs to /api/ai/client-chat on send, and persists chat history
-// and panel position to localStorage. None of that machinery can run
-// inside the editor preview without leaking state into the editor session.
+// attaches global window listeners, runs idle/proactive timers, POSTs to
+// /api/ai/client-chat on send, and persists state to localStorage. None of
+// that can run inside the editor preview without leaking into the session.
 //
-// This sim reproduces the two VISUAL states pixel-faithfully (styles are
-// copied from AIChatBubble.tsx — pill :693-744, FAB :973-1017) so the
-// owner can SEE what the `aiChatVisibility` Style-tab setting does:
+// This sim reproduces the two VISUAL states (styles copied from
+// AIChatBubble.tsx) so the owner SEES what the `aiChatVisibility` setting does:
 //   - 'always'  → the full 56×56 chat FAB, visible immediately.
-//   - 'rescue'  → the small "Need help?" pill; a "Simulate stuck visitor"
-//     affordance (shown on hover/focus) flips the sim to the revealed FAB
-//     for ~5s — the same reveal animation visitors get — then resets.
+//   - 'rescue'  → the small "Need help?" pill (the resting state on the live
+//                 site before a visitor seems stuck).
+// It is mounted INSIDE the calculator mockup (the device bezels on desktop /
+// tablet, the bare widget card on mobile) so it reads as part of the owner's
+// OWN calculator — an example of the chat their customers would get.
 //
-// It is mounted ONLY inside PreviewPane's device bezels (desktop browser
-// chrome + mobile phone frame). It never renders in the published widget
-// path (calculator.tsx keeps owning the real bubble).
+// EXPLAINER (Alex 2026-06-17): hovering (desktop) or tapping (mobile) the
+// launcher reveals a small popover that tells the owner this assistant is
+// THEIRS to configure — it can be a pushy upseller, a calm navigator, or a
+// hand-off that routes hot leads straight to a phone call or WhatsApp chat.
+// This is informational (preview-only); it never sends a message or opens a
+// real chat.
 //
-// CONTRAST-2 — like the real bubble, the sim is light-theme locked: it
-// paints accent + white exactly as the production widget does on any host
-// site. The root carries data-theme="light" to scope the hardcoded-color
-// exemption.
+// CONTRAST — like the real bubble, the sim is light-theme locked: it paints the
+// CTA colour + white exactly as the production widget does on any host site.
+// The root carries data-theme="light" to scope the hardcoded-color exemption.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { MessageCircle, TrendingUp, Compass, PhoneCall } from 'lucide-react';
 
 export interface PreviewChatBubbleSimProps {
   /** Live `advanced.style.aiChatVisibility` value from the wizard config. */
   visibility: 'rescue' | 'always';
-  /** Widget accent — matches the preview renderer's resolved accent. */
+  /** Launcher colour — MUST match the live CTA button (PreviewPane passes
+   *  `style.ctaColor ?? style.accent ?? default`, the same derivation the
+   *  renderer uses for the CTA), so the floater tracks theme/colour changes. */
   accentColor?: string;
-  /** Anchor offsets inside the bezel (px).
-   *
-   * preview-chat-floater fix — the cluster anchors to the bottom-LEFT of the
-   * mockup (not bottom-right). Rationale:
-   *   - The widget's primary CTA is a FULL-WIDTH sticky action bar pinned to
-   *     the bottom of the screen, so the floater is lifted clear of that band
-   *     (default `bottom` sits above it) and never overlaps "Get My Quote".
-   *   - The editor's OWN build-assistant tab (AIBubble.tsx) docks to the RIGHT
-   *     edge of the shell; anchoring the visitor floater LEFT keeps the two
-   *     affordances on opposite sides so the owner never confuses them.
-   *   - `left` inset keeps the cluster off the rounded phone-frame bezel so it
-   *     is never clipped by `overflow: clip`.
-   * On the PUBLISHED page the real <AIChatBubble/> keeps its bottom-right
-   * `position: fixed` placement — this left anchor is preview-only. */
+  /** Anchor offsets inside the mockup card (px). Bottom-left keeps the launcher
+   *  clear of the editor's right-edge AI build tab and of the full-width CTA. */
   bottom?: number;
   left?: number;
 }
 
-/** How long the simulated "stuck visitor" reveal lasts before resetting. */
-const SIM_REVEAL_MS = 5_000;
+/** The three configurable assistant behaviours shown in the explainer. */
+const ASSISTANT_MODES = [
+  {
+    Icon: TrendingUp,
+    title: 'Upsell & close',
+    desc: 'Make it proactive — suggest add-ons, upgrades and higher tiers.',
+  },
+  {
+    Icon: Compass,
+    title: 'Guide & answer',
+    desc: 'Keep it helpful — answer questions and walk visitors through the form.',
+  },
+  {
+    Icon: PhoneCall,
+    title: 'Hand off to you',
+    desc: 'Route hot leads straight to a phone call or WhatsApp chat.',
+  },
+] as const;
 
 export default function PreviewChatBubbleSim({
   visibility,
   accentColor = '#0d3cfc',
-  // Sits low in the bottom-LEFT corner (like the live site's launcher). The
-  // primary CTA is in the right column / bottom-right, so the left corner is
-  // clear. Small inset so the rounded phone-frame bezel never clips it.
-  bottom = 24,
+  bottom = 16,
   left = 14,
 }: PreviewChatBubbleSimProps) {
-  // Local-only reveal state for the rescue-mode simulation. No production
-  // timers/events are involved — this is a pure show-and-tell flip.
-  const [simRevealed, setSimRevealed] = useState(false);
+  // open = hover (desktop) OR pinned-by-click (works on touch). Click pins it
+  // so it survives on mobile (no hover); click-outside / Escape unpins.
   const [hovered, setHovered] = useState(false);
-  const timerRef = useRef<number | undefined>(undefined);
+  const [pinned, setPinned] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const popoverId = useId();
+  const open = hovered || pinned;
 
-  const clearSimTimer = useCallback(() => {
-    if (timerRef.current !== undefined) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = undefined;
-    }
+  const showFab = visibility === 'always';
+
+  // Dismiss the pinned popover on outside-tap / Escape (hover dismiss is handled
+  // by onMouseLeave). Only armed while pinned so we never fight normal hover.
+  useEffect(() => {
+    if (!pinned) return;
+    const onDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node | null)) setPinned(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPinned(false); };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [pinned]);
+
+  const toggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPinned((v) => !v);
   }, []);
 
-  // Mode change (owner flips the Style-tab control) resets the simulation
-  // so the sim always reflects the freshly-selected mode's resting state.
-  useEffect(() => {
-    setSimRevealed(false);
-    clearSimTimer();
-  }, [visibility, clearSimTimer]);
-
-  // Never leak the reset timer past unmount.
-  useEffect(() => () => { clearSimTimer(); }, [clearSimTimer]);
-
-  /** Flip pill → revealed FAB for SIM_REVEAL_MS, then reset. */
-  const simulateStuckVisitor = useCallback(() => {
-    setSimRevealed(true);
-    clearSimTimer();
-    timerRef.current = window.setTimeout(() => {
-      setSimRevealed(false);
-      timerRef.current = undefined;
-    }, SIM_REVEAL_MS);
-  }, [clearSimTimer]);
-
-  const showFab = visibility === 'always' || simRevealed;
-  const captionVisible = hovered || simRevealed;
+  const launcherLabel = 'See what your AI assistant can do';
 
   return (
     <div
+      ref={rootRef}
       data-theme="light"
       data-testid="preview-chat-sim"
       data-sim-state={showFab ? 'fab' : 'pill'}
+      data-sim-open={open ? 'true' : 'false'}
       role="group"
-      aria-label="AI chat bubble preview"
-      // Keep editor machinery out of the loop: clicks on the sim must not
-      // bubble into the bezel's click-to-edit / selection handlers.
+      aria-label="AI chat assistant preview"
+      // Keep editor machinery out of the loop: clicks on the sim must not bubble
+      // into the bezel's click-to-edit / selection handlers.
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHovered(false);
-      }}
       style={{
         position: 'absolute',
         bottom,
         left,
-        zIndex: 20,
+        zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 6,
-        // The cluster itself is interactive; the bezel content around it
-        // stays fully clickable (small corner footprint, like the real FAB).
+        gap: 8,
         pointerEvents: 'auto',
       }}
     >
-      {/* Caption — so the sim is never mistaken for a working chat. Shown
-          on hover/focus and during the simulated reveal. */}
-      {captionVisible && (
+      {/* Explainer popover — opens UPWARD above the launcher. */}
+      {open && (
         <div
-          role="note"
-          data-testid="preview-chat-sim-caption"
+          id={popoverId}
+          role="dialog"
+          aria-label="How your AI assistant can work"
+          data-testid="preview-chat-sim-explainer"
           style={{
-            maxWidth: 210,
-            background: 'rgba(15,23,42,0.88)',
-            color: '#fff',
-            fontSize: 11,
-            lineHeight: 1.35,
-            fontWeight: 500,
-            borderRadius: 8,
-            padding: '4px 9px',
+            width: 248,
+            maxWidth: 'calc(100vw - 28px)',
+            background: '#ffffff',
+            borderRadius: 14,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 12px 32px rgba(15,23,42,0.18), 0 2px 6px rgba(15,23,42,0.08)',
+            padding: '13px 13px 11px',
             textAlign: 'left',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
             animation: 'qq-chat-sim-rise 160ms ease-out both',
+            cursor: 'default',
           }}
         >
-          {simRevealed
-            ? 'This is the help button a stuck visitor sees'
-            : 'Preview — visitors see this on your site'}
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>
+            Your AI assistant — your rules
+          </div>
+          <div style={{ fontSize: 11.5, fontWeight: 500, color: '#64748b', margin: '2px 0 10px', lineHeight: 1.35 }}>
+            Configure how it works for your customers:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {ASSISTANT_MODES.map(({ Icon, title, desc }) => (
+              <div key={title} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    // Tint the icon chip with the launcher/CTA colour so the
+                    // explainer reads as part of the same branded assistant.
+                    background: hexToTint(accentColor, 0.12),
+                    color: accentColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 1,
+                  }}
+                >
+                  <Icon size={16} aria-hidden="true" />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', lineHeight: 1.25 }}>{title}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, color: '#64748b', lineHeight: 1.3 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8', margin: '10px 0 0', lineHeight: 1.3 }}>
+            Preview — this is the chat your visitors get.
+          </div>
         </div>
       )}
 
-      {/* Rescue-mode affordance — one click shows the owner the reveal
-          visitors get (step ≥ 2 / 30s idle / Help click on the live site). */}
-      {visibility === 'rescue' && hovered && !simRevealed && (
+      {showFab ? (
+        /* Full chat FAB — static visual replica of the real bubble. A clean ICON
+           BADGE in the launcher colour, so it reads as the customer's chat
+           button exactly like the live site. Hover/tap reveals the explainer. */
         <button
           type="button"
-          data-testid="preview-chat-sim-simulate"
-          onClick={simulateStuckVisitor}
-          style={{
-            background: '#fff',
-            color: '#334155',
-            border: '1px solid #e2e8f0',
-            borderRadius: 999,
-            padding: '4px 10px',
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            whiteSpace: 'nowrap',
-            animation: 'qq-chat-sim-rise 160ms ease-out both',
-          }}
-        >
-          Simulate stuck visitor
-        </button>
-      )}
-
-      {showFab ? (
-        /* Full chat FAB — static visual replica of the real bubble
-           (AIChatBubble.tsx :973). Non-interactive by design: the preview
-           shows the launcher, not a live chat. A clean ICON BADGE (no text
-           tag) — it reads as the customer's chat button exactly like the live
-           site, and stays visually distinct from the editor's own titled
-           build-assistant tab (docked RIGHT) by being an icon-only badge in the
-           bottom-LEFT corner. The hover caption still names it for the owner. */
-        <div
           data-testid="preview-chat-sim-fab"
-          role="img"
-          aria-label="Chat button as visitors see it"
-          title="Preview — visitors see this on your site"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? popoverId : undefined}
+          aria-label={launcherLabel}
+          title={launcherLabel}
+          onClick={toggle}
           style={{
             width: 56,
             height: 56,
             borderRadius: '50%',
             background: accentColor,
+            border: 'none',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
             color: '#fff',
             flexShrink: 0,
-            // Same entrance the real bubble plays when rescue mode reveals.
             animation: 'qq-chat-sim-rise 200ms ease-out both',
           }}
         >
           <MessageCircle size={24} aria-hidden="true" />
-        </div>
+        </button>
       ) : (
-        /* Rescue-mode "Need help?" pill — replica of AIChatBubble.tsx :693.
-           Clicking it runs the same stuck-visitor simulation as the chip so
-           the most obvious gesture also demonstrates the reveal. */
+        /* Rescue-mode "Need help?" pill — replica of the resting launcher.
+           Hover/tap reveals the explainer (no fake chat opens). */
         <button
           type="button"
           data-testid="preview-chat-sim-pill"
-          onClick={simulateStuckVisitor}
-          aria-label="Preview how the chat appears for a stuck visitor"
-          title="Preview — visitors see this on your site"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? popoverId : undefined}
+          aria-label={launcherLabel}
+          title={launcherLabel}
+          onClick={toggle}
           style={{
             padding: '8px 14px',
             borderRadius: 999,
@@ -236,7 +247,7 @@ export default function PreviewChatBubbleSim({
             alignItems: 'center',
             gap: 6,
             boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-            opacity: 0.92,
+            opacity: 0.96,
           }}
         >
           <MessageCircle size={14} aria-hidden="true" />
@@ -258,4 +269,15 @@ export default function PreviewChatBubbleSim({
       `}</style>
     </div>
   );
+}
+
+/** Soft tint of a hex/any CSS colour for the icon chips. Falls back to a neutral
+ *  wash when the colour isn't a parseable #rrggbb (e.g. a named/rgb value), so
+ *  the chip is never invisible. */
+function hexToTint(color: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return `rgba(100,116,139,${alpha})`;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
