@@ -85,6 +85,7 @@
     "check:tradeline-booking": "tsx server/services/tradelineBooking.test.ts",
     "check:availability-sync": "tsx server/services/booking/syncAvailabilityRule.test.ts",
     "check:tradeline-kb-seeding": "tsx server/services/tradelineSetup/kbSeeding.test.ts",
+    "check:booking-facade": "tsx server/services/booking/createBookingForCalculator.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
