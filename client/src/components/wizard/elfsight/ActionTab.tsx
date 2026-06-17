@@ -803,8 +803,15 @@ export default function ActionTab({
       {actionMode === 'no-action' && (
         <div className="qq-action-card" data-testid="action-group-no-action">
           <div className="qq-action-card-body">
+            {/* Coherence — "no action" governs the LEAD-CAPTURE follow-up only.
+                If online booking is on, customers still get a booking step, so
+                the two settings don't actually contradict. Spell that out here
+                so the owner isn't confused by picking "no action" with booking
+                enabled (and the renderer's result panel mirrors this). */}
             <p className="qq-action-noaction-help" data-testid="action-no-action-help">
-              Customers just see their result; no follow-up step.
+              {scheduling.enabled
+                ? 'Online booking is on, so customers still book a time after their quote — "no action" just means no lead-capture form.'
+                : 'Customers just see their result; no follow-up step.'}
             </p>
           </div>
         </div>
