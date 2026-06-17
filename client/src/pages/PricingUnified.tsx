@@ -15,7 +15,6 @@ import {
   type ProductDef, type BundleDef, type Tier,
 } from "@/config/pricing";
 import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
-import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
 import { SERVICES, getServiceBillingMeta } from "@shared/services";
 
 /* ── Audit deep-link → checkout (free-audit shared report CTA) ──────────────
@@ -1634,18 +1633,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           </div>
         </section>
 
-        {/* ═══ 2b. WHAT YOU GET — Benefits bento grid ═══ */}
-        <section className="pricing-section" style={{ paddingTop: 40 }}>
-          <div className="pricing-max-w" style={MAX_W}>
-            <h2 style={{ fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 700, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.02em", margin: "0 0 6px", textAlign: "center" }}>
-              What you get
-            </h2>
-            <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.45, margin: "0 0 20px", textAlign: "center", opacity: 0.85 }}>
-              Five tools working together — so trades businesses run on autopilot.
-            </p>
-            <BenefitsGrid maxWidth={1080} />
-          </div>
-        </section>
+        {/* The "What you get" bento moved to the HOME page (it belongs in the
+            marketing funnel, not the money page — it was a 3rd "help you choose"
+            device competing with the quiz + decision buttons). */}
 
         {/* ═══ 3. BUNDLES (PRIMARY) ═══ */}
         <section id="pricing-bundles" className="pricing-section" style={{ paddingTop: 24, scrollMarginTop: 80 }}>

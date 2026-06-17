@@ -22,6 +22,7 @@ import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import TrustSection from "@/components/marketing/TrustSection";
 import CTASection from "@/components/marketing/CTASection";
+import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
 import { Check, ArrowRight, Star } from "lucide-react";
 
 /* ─── Below-the-fold heavy components — lazy-loaded ───
@@ -834,6 +835,24 @@ export default function HomePage() {
           <HeroEmailCapture />
         </div>
       </section>
+
+      {/* "What you get" — premium-white at-a-glance overview of the system, so a
+          visitor gets the 5-second "what is all this?" before the detailed,
+          interactive showcases below prove each piece. Moved here from /pricing
+          (it belongs in the marketing funnel, not on the money page) and the
+          old solid-blue tray is now premium white. Lightweight (pure CSS/SVG) so
+          it renders inline — no lazy/vendor chunk. */}
+      <SurfaceSection className="py-10">
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 20px" }}>
+          <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em", margin: "0 0 8px", textAlign: "center" }}>
+            Everything working together
+          </h2>
+          <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.5, margin: "0 auto 28px", textAlign: "center", maxWidth: 560 }}>
+            One system that answers every lead, prices the job, climbs Google, and protects your reputation — so the work runs while you're on the tools.
+          </p>
+          <BenefitsGrid maxWidth={1080} />
+        </div>
+      </SurfaceSection>
 
       {/* Three product showcase types covering all 12 products — each lazy-
           loaded to keep the initial home.tsx bundle small.

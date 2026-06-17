@@ -205,10 +205,13 @@ function Icon({ icon, uid, color }: { icon: BenefitIcon; uid: string; color: str
 export default function BenefitsGrid({
   benefits = DEFAULT_BENEFITS,
 
-  trayBg      = '#0D3CFC',
-  cardBg      = '#e4edf1',
+  // Premium-white treatment (Alex): a soft off-white tray with pure-white cards
+  // separated by the 2px grout + a soft card shadow — reads clean/premium on the
+  // dark marketing page, replacing the old solid-blue tray.
+  trayBg      = '#EAEEF3',
+  cardBg      = '#FFFFFF',
   tileBg      = '#f5fcff',
-  titleColor  = '#22282A',
+  titleColor  = '#161A1C',
   bodyColor   = '#5F6F77',
   iconColor   = '#22282A',
   tagColor    = '#394247',
@@ -233,6 +236,8 @@ export default function BenefitsGrid({
     flexDirection: 'column',
     justifyContent: 'space-between',
     gap: 28,
+    // Subtle resting lift so white cards read as distinct on the off-white tray.
+    boxShadow: '0 1px 2px rgba(20,35,60,0.04), 0 4px 14px -10px rgba(20,35,60,0.10)',
   };
 
   return (
