@@ -806,19 +806,12 @@ export class DatabaseStorage implements IStorage {
    * All dedup/cooldown/eligibility checks happen inside enqueueFromBooking.
    */
   private async triggerReviewRequestForBooking(booking: any): Promise<void> {
-    // We need to resolve the client_id from the calculator
-    // Calculators are linked to users, and users may be linked to clients
-    const calc = await this.getCalculatorById(booking.calculator_id);
-    if (!calc) return;
-
-    // Try to find a client via the calculator's user_id
-    let clientId: number | null = null;
-    if (calc.user_id) {
-      const clientRows = await db.select({ id: clients.id }).from(clients)
-        .where(eq(clients.user_id, calc.user_id))
-        .limit(1);
-      clientId = clientRows[0]?.id || null;
-    }
+    // Resolve the client_id from the calculator via the shared booking
+    // resolver (calculator → user_id → clients.id). Behavior-identical to the
+    // logic previously inlined here; extracted in PR2 of the booking
+    // consolidation so every booking entry point shares one implementation.
+    const { resolveClientForCalculator } = await import("./services/booking/resolveClientForCalculator");
+    const clientId = await resolveClientForCalculator(booking.calculator_id);
 
     if (!clientId) return; // No linked client — can't send review request
 
