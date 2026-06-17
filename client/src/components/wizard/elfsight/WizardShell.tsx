@@ -1982,9 +1982,14 @@ export default function WizardShell({ embed = false }: Props) {
           }
         }
       }
-      // Final fallback — /portal is the safe non-admin default and
-      // matches landingPathForRole's "unknown role" branch.
-      if (!returnPath) returnPath = '/portal';
+      // Final fallback. When the wizard was opened with NO dashboard context
+      // (e.g. straight from a link / the public site, or while signed out — the
+      // common case), /portal is auth-gated and bounced the user to /login on
+      // minimize (Alex's report). Only send signed-in users to /portal; everyone
+      // else lands on the public home page, where the floating "resume" badge
+      // (MinimizedWizardBadge) still appears — so minimize always works and
+      // never dead-ends at login.
+      if (!returnPath) returnPath = isAuthenticated ? '/portal' : '/';
 
       // Prefer URL ?id= over calcIdentity.id when the wizard hasn't
       // materialised an in-memory record yet (template flow pre-save).
@@ -1993,7 +1998,11 @@ export default function WizardShell({ embed = false }: Props) {
         calculatorId: Number.isFinite(calcIdNum as number) ? calcIdNum : null,
         businessName: calcIdentity.businessName,
         token,
-        template: template || null,
+        // The wizard STRIPS ?template= from the URL after applying it, so by
+        // minimize-time the param is usually gone — fall back to the live
+        // activeTemplateId so a brand-new (unsaved) template calc still has a
+        // resume identity and the floating badge appears + reopens it.
+        template: template || stateRef.current?.activeTemplateId || null,
         returnPath,
         savedAt: Date.now(),
       };
@@ -2014,7 +2023,7 @@ export default function WizardShell({ embed = false }: Props) {
       // Any failure → fall back to a plain close (history-back / home).
       handleClose();
     }
-  }, [navigate, embed, reduceMotion, calcIdentity, handleClose]);
+  }, [navigate, embed, reduceMotion, calcIdentity, handleClose, isAuthenticated]);
 
   const modalPhaseClass = embed
     ? ''
