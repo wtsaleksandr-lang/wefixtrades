@@ -149,6 +149,8 @@ jobs:
         run: npm run check:tradeline-kb-seeding
       - name: Availability-rule projection guard (calculator create/update projects appearance.scheduling into the availability_rules table the live scheduling picker reads; enabled:true AND enabled:false both persist; would be red on the old code where nothing wrote the table → dead toggle)
         run: npm run check:availability-sync
+      - name: BookFlow working-hours sync guard (P0 — calculator create/update UPSERTS appearance.scheduling into bookflow_settings.working_hours, the table the LIVE slot picker + QuoteQuick copilot actually read via bookflowService.getAvailableSlots; an EXISTING row is UPDATED not lazy-once-frozen; only working_hours/slot/buffer touched so deposit/slug/is_active are preserved; enabled-falsy / no-client → no-op; deliberate-failure fixture — a lazy-only impl never updates → red)
+        run: npm run check:bookflow-hours-sync
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
