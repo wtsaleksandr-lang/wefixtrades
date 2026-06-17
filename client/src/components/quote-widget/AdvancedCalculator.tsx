@@ -3922,7 +3922,13 @@ export default function AdvancedCalculator({
                   <p data-testid="advanced-cta-no-action-note" style={{
                     margin: 0, fontSize: '11px', color: cc.resultMuted, lineHeight: 1.5,
                   }}>
-                    Result only — no follow-up step is shown to customers.
+                    {/* When online booking is on, "no follow-up step" is FALSE —
+                        the booking calendar above IS the follow-up. Show a
+                        booking-aware line so the result panel never contradicts
+                        itself (a calendar + "no follow-up" note side by side). */}
+                    {bookingPreviewEnabled
+                      ? 'Customers book a time above — no other follow-up step.'
+                      : 'Result only — no follow-up step is shown to customers.'}
                   </p>
                 )}
                 {leadView === 'cta' && actionModeValue !== 'no-action' && (
