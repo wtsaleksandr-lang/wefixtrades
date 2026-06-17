@@ -5127,6 +5127,19 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         ))}
       </div>
     );
+    // Clamp typed values to the field's min/max — native <input type=number>
+    // min/max do NOT block a TYPED out-of-range value, only the spinner. The
+    // steppers (bump) already clamp; mirror that here so a typed negative
+    // quantity can't produce a negative quote (e.g. qty -1 → -$100). Also
+    // floors NaN ("-" / "abc") to 0 instead of propagating NaN.
+    const clampTyped = (raw: string): number => {
+      if (raw === '') return 0;
+      let n = Number(raw);
+      if (!Number.isFinite(n)) return 0;
+      if (typeof f.max === 'number') n = Math.min(f.max, n);
+      if (typeof f.min === 'number') n = Math.max(f.min, n);
+      return n;
+    };
     const numberInput = (extra?: React.CSSProperties) => (
       <input
         id={inputId}
@@ -5137,7 +5150,7 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
         max={f.max}
         step={f.step}
         placeholder=" "
-        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        onChange={(e) => onChange(clampTyped(e.target.value))}
         style={{ ...inputBase, fontFamily: eff.fontMono, paddingRight: 34, ...extra }}
       />
     );
