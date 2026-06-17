@@ -29,7 +29,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useDroppable } from '@dnd-kit/core';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator, X } from 'lucide-react';
@@ -3074,6 +3073,26 @@ export default function PreviewPane({
           {headerSel && (
             <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
           )}
+          {/* fix/mobile-chat-sim — visitor chat-bubble sim, INSIDE the calculator
+              mockup card. The desktop/tablet bezels mount it inside the device
+              frame; the clean mobile path renders the widget bare, so it was
+              never mounted on phones (enabling Settings → "AI chat visibility"
+              showed nothing). Mount it here, absolutely positioned within THIS
+              card (.qq-bezel--mobile-clean is position:relative) so it reads as
+              part of the owner's calculator — an in-product EXAMPLE of the chat
+              their customers would get — NOT a viewport-fixed floater in the
+              editor chrome (which looked like the wizard's own assistant). It
+              scrolls with the calculator content for the same reason. Bottom-left
+              matches the desktop sim and stays clear of the editor's right-edge
+              AI build tab. */}
+          {!flpActive && chatSimEnabled && (
+            <PreviewChatBubbleSim
+              visibility={chatSimVisibility}
+              accentColor={chatSimAccent}
+              bottom={16}
+              left={14}
+            />
+          )}
         </div>
       </div>
       </div>
@@ -3093,36 +3112,6 @@ export default function PreviewPane({
           </button>
         </div>
       )}
-      {/* fix/mobile-chat-sim — the visitor chat-bubble sim on the MOBILE editor.
-          The desktop/tablet bezels mount <PreviewChatBubbleSim/> inside the
-          device frame, but the clean mobile path (this branch) renders the
-          widget bare with NO bezel, so the sim was never mounted on phones —
-          turning on "AI chat visibility" in Settings showed nothing in the
-          preview. We dock it here.
-
-          WHY a portal + position:fixed (not absolute in-flow): the mobile-clean
-          pane is NATURAL-HEIGHT (overflow-y:visible — the WizardShell work area
-          scrolls), so an absolute floater would scroll away with the (tall)
-          widget and, when reached, sit UNDER the docked bottom sheet. Portaling
-          to <body> and pinning it bottom-left of the VIEWPORT — lifted above the
-          sheet via --qq-sheet-h (same var the sheet publishes) and the 60px
-          bottom tab bar — keeps it permanently visible in the preview viewport
-          corner, exactly like the real position:fixed launcher a visitor sees.
-          Mirrors the sheet's own portal-to-body pattern (escapes any transformed
-          editor ancestor). z-index 9996 sits below the sheet (9998) and tab bar
-          (9999) so the chrome still wins if the sheet is dragged over it. */}
-      {isMobileViewport && !flpActive && chatSimEnabled && typeof document !== 'undefined' &&
-        createPortal(
-          <div className="qq-mobile-chat-sim-dock" data-theme="light" aria-hidden="false">
-            <PreviewChatBubbleSim
-              visibility={chatSimVisibility}
-              accentColor={chatSimAccent}
-              bottom={0}
-              left={0}
-            />
-          </div>,
-          document.body,
-        )}
     </div>
   );
 
@@ -3756,29 +3745,6 @@ export default function PreviewPane({
           touch-action: pan-y;
           overflow-y: visible;
           background: rgba(255,255,255,1) !important;
-        }
-        /* fix/mobile-chat-sim — viewport-docked visitor chat-bubble sim on the
-         * mobile editor. Portaled to <body>, so this selector is intentionally
-         * UNSCOPED (the global <style> still applies). Pinned bottom-left of the
-         * viewport and lifted above the docked bottom sheet (--qq-sheet-h) + the
-         * 60px dark bottom tab bar so it stays visible in the preview band like
-         * the real position:fixed launcher. z-index below the sheet (9998) and
-         * tab bar (9999) so chrome wins if the sheet is dragged over it. */
-        .qq-mobile-chat-sim-dock {
-          position: fixed;
-          left: 14px;
-          bottom: calc(var(--qq-sheet-h, 0px) + 60px + env(safe-area-inset-bottom, 0px) + 16px);
-          z-index: 9996;
-          pointer-events: none;
-          transition: bottom 180ms cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        /* Desktop/tablet own the sim inside their device bezels — never show the
-         * mobile viewport dock above the mobile breakpoint. */
-        @media (min-width: 769px) {
-          .qq-mobile-chat-sim-dock { display: none; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .qq-mobile-chat-sim-dock { transition: none; }
         }
         .qq-preview-mobile-clean {
           width: 100%;
