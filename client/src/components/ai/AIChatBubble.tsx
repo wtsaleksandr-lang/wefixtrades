@@ -188,6 +188,21 @@ function BrandMark({ size = 16 }: { size?: number }) {
   );
 }
 
+/** True when a colour is light enough that white text on it would be illegible
+ *  (WCAG relative luminance ≥ 0.5). Unparseable colours → false (keep white, the
+ *  historic behaviour for dark brand accents). Mirrors the renderer's CTA guard
+ *  threshold so the bubble's text decision matches the widget's CTA. */
+function isBrightColor(color: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec((color || '').trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2] >= 0.5;
+}
+
 export default function AIChatBubble({
   calculatorId,
   accentColor = '#6366f1',
@@ -199,6 +214,18 @@ export default function AIChatBubble({
   customerName,
   visibility = 'rescue',
 }: AIChatBubbleProps) {
+  // CONTRAST — every accent-coloured surface (launcher FAB, rescue pill, chat
+  // header, send button, user message bubbles) hardcoded white text/icons. On a
+  // BRIGHT brand accent (yellow/lime/amber) that is unreadable. Derive the
+  // foreground from the accent's luminance instead: dark on a bright accent,
+  // white on a dark one (the historic case — unchanged for blue/indigo brands).
+  const accentBright = isBrightColor(accentColor);
+  const accentFg = accentBright ? 'rgb(17,17,17)' : '#fff';
+  // Translucent overlay used for the header's icon buttons — a white wash is
+  // invisible on a bright accent, so flip it to a dark wash there.
+  const accentOverlay = accentBright ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.2)';
+  // Softer foreground for secondary header text (subtitle, drag handle).
+  const accentFgSoft = accentBright ? 'rgba(0,0,0,0.62)' : 'rgba(255,255,255,0.85)';
   const [isOpen, setIsOpen] = useState(false);
   /* BD-2c — visibility gate. `'always'` mode keeps the bubble visible from
    * mount (legacy). `'rescue'` mode starts hidden and reveals once ANY of:
@@ -762,7 +789,7 @@ export default function AIChatBubble({
             padding: '8px 14px',
             borderRadius: '999px',
             background: accentColor,
-            color: '#fff',
+            color: accentFg,
             border: 'none',
             cursor: 'pointer',
             fontSize: '13px',
@@ -852,7 +879,7 @@ export default function AIChatBubble({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'rgba(255,255,255,0.85)',
+                  color: accentFgSoft,
                   cursor: isDragging ? 'grabbing' : 'grab',
                   touchAction: 'none',
                   userSelect: 'none',
@@ -868,10 +895,10 @@ export default function AIChatBubble({
                 <BrandMark size={20} />
               </span>
               <div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: '15px', lineHeight: 1.2 }} data-testid="text-chat-business-name">
+                <div style={{ color: accentFg, fontWeight: 700, fontSize: '15px', lineHeight: 1.2 }} data-testid="text-chat-business-name">
                   {businessName}
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>Virtual assistant</div>
+                <div style={{ color: accentFgSoft, fontSize: '12px' }}>Virtual assistant</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -879,7 +906,7 @@ export default function AIChatBubble({
                   for this calculator + resets to the auto-greeting. */}
               <button
                 onClick={handleClearConversation}
-                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
+                style={{ background: accentOverlay, border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentFg }}
                 data-testid="button-chat-clear"
                 aria-label="Clear conversation"
                 title="Clear conversation"
@@ -888,7 +915,7 @@ export default function AIChatBubble({
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
+                style={{ background: accentOverlay, border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentFg }}
                 data-testid="button-chat-close"
                 aria-label="Close chat"
               >
@@ -929,7 +956,7 @@ export default function AIChatBubble({
                     padding: '9px 13px',
                     borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                     background: msg.role === 'user' ? accentColor : '#fff',
-                    color: msg.role === 'user' ? '#fff' : '#1a1a1a',
+                    color: msg.role === 'user' ? accentFg : '#1a1a1a',
                     fontSize: '14px',
                     lineHeight: 1.5,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
@@ -1029,7 +1056,9 @@ export default function AIChatBubble({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#fff',
+                  // Dark glyph when disabled (grey bg) or on a bright accent;
+                  // white on a dark accent. Never white-on-grey / white-on-yellow.
+                  color: (!input.trim() || isLoading) ? '#9ca3af' : accentFg,
                   flexShrink: 0,
                   transition: 'background 0.15s',
                 }}
@@ -1076,7 +1105,7 @@ export default function AIChatBubble({
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-          color: '#fff',
+          color: accentFg,
           transition: 'transform 0.15s, box-shadow 0.15s',
           // BD-2c — subtle slide-up entrance the first time the bubble
           // reveals (rescue mode). `prefers-reduced-motion` zeros the
@@ -1403,7 +1432,7 @@ function HandoffLeadForm({
           borderRadius: '10px',
           border: 'none',
           background: status === 'submitting' ? '#e5e7eb' : accentColor,
-          color: '#fff',
+          color: status === 'submitting' ? '#9ca3af' : (isBrightColor(accentColor) ? 'rgb(17,17,17)' : '#fff'),
           fontSize: '14px',
           fontWeight: 600,
           cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
