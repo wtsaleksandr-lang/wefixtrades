@@ -137,6 +137,8 @@ jobs:
         run: npm run check:booking-facade
       - name: TradeLine day-one KB-seeding guard (activation seeds the full per-trade starter FAQ set as customer-tier faq rows marked starter_default, no fabricated $-price/guarantee — unknowns defer; idempotent via deterministic ids; owner onboarding answer overrides + archives the matching starter default)
         run: npm run check:tradeline-kb-seeding
+      - name: Availability-rule projection guard (calculator create/update projects appearance.scheduling into the availability_rules table the live scheduling picker reads; enabled:true AND enabled:false both persist; would be red on the old code where nothing wrote the table → dead toggle)
+        run: npm run check:availability-sync
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

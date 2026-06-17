@@ -83,6 +83,7 @@
     "check:tradeline-unify": "tsx server/services/tradelineSetup/unifyNumber.test.ts",
     "check:tradeline-entitlement": "tsx server/services/tradelineSetup/entitlement.test.ts",
     "check:tradeline-booking": "tsx server/services/tradelineBooking.test.ts",
+    "check:availability-sync": "tsx server/services/booking/syncAvailabilityRule.test.ts",
     "check:tradeline-kb-seeding": "tsx server/services/tradelineSetup/kbSeeding.test.ts",
     "check:booking-facade": "tsx server/services/booking/createBookingForCalculator.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
