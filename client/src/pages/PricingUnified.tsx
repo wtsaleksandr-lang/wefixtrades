@@ -1533,32 +1533,6 @@ function SystemBuilder({ yearly, onCheckout }: {
 }
 
 /* ── Decision button (compact for grid) ── */
-function DecisionButton({ label, targetId }: { label: string; targetId: string }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      onClick={() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        padding: "12px 14px",
-        borderRadius: 12,
-        border: `1px solid ${hover ? "rgba(13,60,252,0.25)" : "rgba(255,255,255,0.1)"}`,
-        background: hover ? "rgba(13,60,252,0.06)" : "rgba(255,255,255,0.03)",
-        color: hover ? mkt.onDark : TEXT_STRONG,
-        fontSize: 13,
-        fontWeight: 600,
-        fontFamily: FONT,
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        textAlign: "center",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
   /* Bundle ordering — Growth first on mobile */
   const bundlesDesktop = [BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO];
   const bundlesMobile = [BUNDLE_GROWTH, BUNDLE_STARTER, BUNDLE_PRO];
@@ -1616,26 +1590,13 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           </div>
         </section>
 
-        {/* ═══ 2. DECISION FRAME ═══ */}
-        <section className="pricing-section" style={{ paddingTop: 16 }}>
-          <div className="pricing-max-w" style={MAX_W}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, margin: "0 0 12px", textAlign: "center" }}>
-              What do you want help with?
-            </h2>
-            <div className="pricing-decision-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              <DecisionButton label="Get more jobs" targetId="pricing-bundles" />
-              <DecisionButton label="Be found on Google" targetId="pricing-services" />
-              <DecisionButton label="Handle calls automatically" targetId="pricing-bundles" />
-              <DecisionButton label="Get more 5-star reviews" targetId="pricing-services" />
-              <DecisionButton label="Fix my website" targetId="pricing-services" />
-              <DecisionButton label="Build a new website" targetId="pricing-services" />
-            </div>
-          </div>
-        </section>
-
-        {/* The "What you get" bento moved to the HOME page (it belongs in the
-            marketing funnel, not the money page — it was a 3rd "help you choose"
-            device competing with the quiz + decision buttons). */}
+        {/* SIMPLIFY (Alex: make pricing least confusing) — the page had THREE
+            "help you choose" devices stacked up top: the quiz, this 6-button
+            "What do you want help with?" grid, and the bento. The quiz is the
+            richest (it personalises + highlights the matching cards below), so
+            it's the single choice-aid now. The decision-button grid (which only
+            scrolled to the bundles/services anchors) and the bento (moved to
+            home) are removed. */}
 
         {/* ═══ 3. BUNDLES (PRIMARY) ═══ */}
         <section id="pricing-bundles" className="pricing-section" style={{ paddingTop: 24, scrollMarginTop: 80 }}>
@@ -1704,7 +1665,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                 </h2>
                 <p style={{ fontSize: 13, color: WARM_GRAY, margin: 0, opacity: 0.8 }}>Only need one piece? Start here.</p>
               </div>
-              <BillingToggle yearly={yearly} onChange={setYearly} />
+              {/* Billing toggle de-duplicated — a single monthly/yearly control
+                  lives with the bundles above (shared state), so the page never
+                  shows two toggles. */}
             </div>
 
             {/* Category tabs */}
@@ -1792,13 +1755,16 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
             <p style={{ fontSize: 13, color: WARM_GRAY, lineHeight: 1.4, margin: "0 auto 16px", maxWidth: 340, opacity: 0.85 }}>
               Start with one tool — or choose a system and see results faster.
             </p>
-            <div className="pricing-final-cta-row" style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            {/* SIMPLIFY (apple/tesla-clean) — one clear primary action + a quiet
+                text link, instead of two competing buttons repeating the same
+                start-vs-one-tool decision the page already asks above. */}
+            <div className="pricing-final-cta-row" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <button
                 onClick={() => openBundleCheckout(BUNDLE_GROWTH)}
                 style={{
-                  flex: 1, maxWidth: 220, padding: "13px 20px", borderRadius: 12,
+                  maxWidth: 280, width: "100%", padding: "14px 24px", borderRadius: 12,
                   border: "none", background: mkt.accent, color: "#FFFFFF",
-                  fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: "pointer",
+                  fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -1807,13 +1773,11 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
               <button
                 onClick={() => document.getElementById("pricing-services")?.scrollIntoView({ behavior: "smooth" })}
                 style={{
-                  flex: 1, maxWidth: 220, padding: "13px 20px", borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.12)", background: "transparent",
-                  color: mkt.onDark, fontSize: 14, fontWeight: 700, fontFamily: FONT,
-                  cursor: "pointer", transition: "all 0.2s ease",
+                  background: "none", border: "none", color: mkt.accentOnDark,
+                  fontSize: 13, fontWeight: 600, fontFamily: FONT, cursor: "pointer", padding: "2px 6px",
                 }}
               >
-                Try one tool
+                or explore individual tools →
               </button>
             </div>
             {/* Lane B — USD canonicalization: page-level currency footnote. */}
