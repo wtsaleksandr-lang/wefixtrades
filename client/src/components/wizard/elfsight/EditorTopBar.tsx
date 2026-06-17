@@ -235,8 +235,16 @@ export default function EditorTopBar({
               display: flex; align-items: center; gap: 10px;
               padding: 6px 12px;
               min-height: 64px;
-              background: ${AE.color.bg};
-              border-bottom: 1px solid ${AE.color.hairline};
+              /* nav-distinction (Alex 2026-06-17) — the white top bar used to
+                 melt into the white preview canvas below it (only a faint
+                 hairline between them). It now reads as a distinct ELEVATED
+                 chrome layer: a faint cool tint (so the bar is no longer the
+                 same pure white as the canvas), a defined stronger hairline, and
+                 a soft downward shadow so it visibly floats above the canvas —
+                 clearer layout scanning (top chrome ▸ canvas ▸ bottom sheet). */
+              background: ${AE.color.surface};
+              border-bottom: 1px solid ${AE.color.hairlineStrong};
+              box-shadow: 0 3px 12px rgba(0,0,0,0.06);
               font-family: ${AE.font.family};
               /* Stays pinned to the top of the editor frame above the preview.
                  z-index above the sheet (9998) + backdrop (9997) so the close
@@ -253,7 +261,7 @@ export default function EditorTopBar({
               color: ${AE.color.text};
               border-radius: ${AE.radius.md};
             }
-            .qq-mtopbar-close:active { background: ${AE.color.surface}; }
+            .qq-mtopbar-close:active { background: ${AE.color.surfaceHover}; }
             .qq-mtopbar-name {
               flex: 1 1 auto; min-width: 0;
               display: flex; align-items: center; gap: 6px;
@@ -293,7 +301,7 @@ export default function EditorTopBar({
               border-radius: ${AE.radius.sm};
               transition: background 0.12s ease;
             }
-            .qq-mtopbar-tool-btn:hover:not(:disabled) { background: ${AE.color.surface}; }
+            .qq-mtopbar-tool-btn:hover:not(:disabled) { background: ${AE.color.surfaceHover}; }
             .qq-mtopbar-tool-btn:active:not(:disabled) { background: ${AE.color.surfaceHover}; }
             .qq-mtopbar-tool-btn:disabled {
               opacity: 0.4; cursor: not-allowed;
