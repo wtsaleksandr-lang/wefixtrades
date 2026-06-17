@@ -1068,9 +1068,20 @@ export default function WizardShell({ embed = false }: Props) {
         // already entered one (don't clobber a real value). Gives a freshly
         // applied template a non-blank header instead of the "Get a Quote"
         // placeholder; the user can overwrite it immediately.
-        businessName: (s.businessName ?? '').trim() === ''
-          ? (preset.name ?? '').trim() || s.businessName
-          : s.businessName,
+        // HEADER CONSISTENCY (Alex: templates showed name=X + title/icon/badges
+        // =Y). A structural apply replaces the title/icon/trust-badges from the
+        // new preset, so the brand NAME must not stay pinned to the OLD template
+        // or the header reads e.g. "Property Cleaning" + "Dispatch a Tow Truck".
+        // Replace the name from the new preset when the current name is empty OR
+        // is exactly the PREVIOUSLY-applied template's own name (i.e. it was a
+        // template seed, not a brand the user typed). A user-typed brand is kept.
+        businessName: (() => {
+          const cur = (s.businessName ?? '').trim();
+          if (cur === '') return (preset.name ?? '').trim() || s.businessName;
+          const prevName = (getTemplatePreset(s.activeTemplateId ?? '')?.name ?? '').trim();
+          const wasSeeded = prevName !== '' && cur === prevName;
+          return wasSeeded ? ((preset.name ?? '').trim() || s.businessName) : s.businessName;
+        })(),
         // Fall back to the current layout when an admin-created template omits
         // one — keeps `fields`/`calculations` (seeded above) on a valid layout.
         layout: preset.layout ?? s.layout,
