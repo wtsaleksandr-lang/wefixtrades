@@ -1074,6 +1074,13 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               data-testid="template-live-preview"
               style={{
                 position: "relative",
+                // fix/preview-squeeze — the parent `.tpl-preview` is a flex COLUMN,
+                // and a horizontal `auto` margin here suppresses the default
+                // align-items:stretch, so the wrapper collapsed to the widget's
+                // min-content width (~190px) and the header title wrapped one word
+                // per line. An explicit width:100% makes it fill the pane while
+                // margin:0 auto still centers it within the maxWidth cap.
+                width: "100%",
                 maxWidth: 980,
                 margin: "0 auto",
                 background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
