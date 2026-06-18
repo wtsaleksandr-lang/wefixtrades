@@ -574,7 +574,10 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           overflow-x: auto;
           overflow-y: hidden;
           padding: 4px 2px 12px;
-          scroll-snap-type: x proximity;
+          /* No scroll-snap — proximity snapping made a grab-drag feel like it
+             "switched pages" (jumping to the nearest card on release). Free
+             scroll keeps the cards sliding smoothly under the cursor. */
+          scroll-snap-type: none;
           /* grab cursor at rest signals the row is draggable; no
              scroll-behavior:smooth (it makes touch flicks janky + lags the
              drag). Native momentum is smooth. */

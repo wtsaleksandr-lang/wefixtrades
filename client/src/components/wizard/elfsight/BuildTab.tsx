@@ -656,7 +656,9 @@ export default function BuildTab({
           margin: 0 -2px;
           padding-left: 2px; padding-right: 2px;
           cursor: grab;
-          scroll-snap-type: x proximity;
+          /* No scroll-snap — proximity snapping made the grab-drag feel like it
+             "switched pages". Free scroll slides the pills smoothly. */
+          scroll-snap-type: none;
           /* No scroll-behavior:smooth on the base — it forces native touch
              flicks through a smooth-scroll animation that fights momentum and
              feels janky on mobile. Native momentum (below) is smooth. */
