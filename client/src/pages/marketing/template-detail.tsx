@@ -34,6 +34,7 @@ import {
   type ThemeCombo,
 } from "@shared/templatePresets";
 import type { CalculatorData } from "@/components/quote-widget/types";
+import PhoneMockup from "@/components/marketing/PhoneMockup";
 import { getCategoryStyle } from "@/lib/categoryStyles";
 import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 import { V7PageShell, V7FinalCta } from "@/components/marketing/v7";
@@ -1103,39 +1104,29 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 maxWidth caps it for readability so it never stretches awkwardly. */}
             <div
               data-testid="template-live-preview"
+              data-mode={showPhoneFrame ? "mobile" : "desktop"}
               style={{
                 position: "relative",
-                // fix/preview-squeeze — the parent `.tpl-preview` is a flex COLUMN,
-                // and a horizontal `auto` margin here suppresses the default
-                // align-items:stretch, so the wrapper collapsed to the widget's
-                // min-content width (~190px) and the header title wrapped one word
-                // per line. An explicit width:100% makes it fill the pane while
-                // margin:0 auto still centers it within the maxWidth cap.
                 width: "100%",
                 maxWidth: 980,
                 margin: "0 auto",
-                // Center the chrome column; no background/clip here — the column
-                // below owns the frame + rounding so the device toggle can anchor
-                // to the WIDGET's real edge, not this wider pane.
                 display: "flex",
                 justifyContent: "center",
                 padding: "0 2px",
               }}
             >
-              {/* Chrome column — hugs the live widget's actual rendered width
-                  (the renderer caps the Elfsight preview at PREVIEW_WIDGET_W on
-                  desktop, PREVIEW_FRAME_W in the mobile fold). Sizing the column
-                  to that exact width removes the dead side-gutter the widget's
-                  own mx-auto used to leave, so the device toggle — anchored to
-                  THIS column — sits flush on the chrome bar's right edge in both
-                  modes instead of floating out in empty space. */}
+              {/* Preview stage — DESKTOP renders the widget inside the browser
+                  chrome (traffic-light bar via the scoped CSS below); MOBILE
+                  renders it inside a real PhoneMockup (375×812 with a scrollable
+                  screen) so a tall calculator scrolls INSIDE the phone instead
+                  of stretching down the page. The device toggle anchors to this
+                  stage in both modes. */}
               <div
                 style={{
                   position: "relative",
-                  width: showPhoneFrame ? 390 : 780,
+                  width: showPhoneFrame ? "fit-content" : 780,
                   maxWidth: "100%",
-                  background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
-                  overflow: "hidden",
+                  overflow: showPhoneFrame ? "visible" : "hidden",
                   borderRadius: 16,
                   transition: "width 520ms cubic-bezier(0.22,1,0.36,1)",
                 }}
@@ -1147,21 +1138,29 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     data-testid="preview-device-toggle"
                     aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
                     title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
-                    className="tpl-device-toggle"
+                    className={`tpl-device-toggle${showPhoneFrame ? " tpl-device-toggle--phone" : ""}`}
                   >
                     {previewMode === "desktop"
                       ? <Smartphone size={16} strokeWidth={2.25} />
                       : <Monitor size={16} strokeWidth={2.25} />}
                   </button>
                 )}
-                {/* key on the active template → remount + fade/rise on swap
-                    (Elfsight/Canva-style polish). Wrapped in a gesture layer
-                    so mobile users can pinch-zoom + drag the preview. */}
-                <div key={activeTemplate.id} className="tpl-swap-in">
-                  <PreviewGestureLayer>
-                    <QuoteWidget calculator={previewCalculator} isEmbed={false} />
-                  </PreviewGestureLayer>
-                </div>
+                {/* key on the active template → remount + fade/rise on swap. */}
+                {showPhoneFrame ? (
+                  <PhoneMockup screenBackground={selectedCombo.bg}>
+                    <div key={activeTemplate.id} className="tpl-swap-in">
+                      <PreviewGestureLayer>
+                        <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                      </PreviewGestureLayer>
+                    </div>
+                  </PhoneMockup>
+                ) : (
+                  <div key={activeTemplate.id} className="tpl-swap-in">
+                    <PreviewGestureLayer>
+                      <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                    </PreviewGestureLayer>
+                  </div>
+                )}
               </div>
             </div>
             <p
@@ -1277,7 +1276,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                  light dots on the left via ::before, badge padded after the dots,
                  toggle right-anchored and flush with the bar height. Together they
                  look like a mini browser address bar, not a cheap gray header. */
-              [data-testid="template-live-preview"] [data-qq-brandbar] {
+              [data-testid="template-live-preview"][data-mode="desktop"] [data-qq-brandbar] {
                 position: relative !important;
                 /* Clean white frosted-glass chrome bar */
                 background: rgba(255, 255, 255, 0.82) !important;
@@ -1306,7 +1305,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               }
               /* macOS traffic-light dots — CSS-only, three circles via box-shadow.
                  Colors at ~35% saturation to stay classy (not toy-bright). */
-              [data-testid="template-live-preview"] [data-qq-brandbar]::before {
+              [data-testid="template-live-preview"][data-mode="desktop"] [data-qq-brandbar]::before {
                 content: "" !important;
                 position: absolute !important;
                 left: 16px !important;
@@ -1466,6 +1465,17 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               .tpl-device-toggle:hover {
                 background: rgba(15, 23, 42, 0.07);
                 color: ${CS_LIGHT.ink};
+              }
+              /* Mobile/phone-mockup mode — the toggle sits on the dark bezel,
+                 so it needs a light ink + a higher z so it floats above the
+                 device frame's top-right. */
+              .tpl-device-toggle--phone {
+                top: 12px; right: 16px; z-index: 6;
+                color: rgba(255, 255, 255, 0.72);
+              }
+              .tpl-device-toggle--phone:hover {
+                background: rgba(255, 255, 255, 0.14);
+                color: rgba(255, 255, 255, 1);
               }
 
               /* Template-swap polish: remount the widget on selection with a
