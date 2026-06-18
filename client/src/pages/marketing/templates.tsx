@@ -17,6 +17,7 @@ import { Search, Upload } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { useGrabScroll } from "@/hooks/useGrabScroll";
 import { colors, mkt, shadows } from "@/theme/tokens";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import {
@@ -57,6 +58,7 @@ function familyOf(t: TemplateConfig): CategoryStyleId {
 
 export default function TemplatesPage() {
   useScrollReveal();
+  const catGrab = useGrabScroll<HTMLDivElement>();
   const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState<CategoryStyleId | "all">(
     "all",
@@ -299,9 +301,11 @@ export default function TemplatesPage() {
 
             {/* Category filter — small, subtle, single scrollable line (swipe). */}
             <div
+              ref={catGrab.ref}
               role="tablist"
               aria-label="Filter templates by category"
               className="qq-fade-scroll-row"
+              {...catGrab.handlers}
               onKeyDown={(e) => {
                 if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
                 const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'));
@@ -319,6 +323,7 @@ export default function TemplatesPage() {
                 flexWrap: "nowrap" as const,
                 WebkitOverflowScrolling: "touch",
                 paddingBottom: 1,
+                ...catGrab.style,
               }}
             >
               {FILTER_FAMILIES.map((f) => {
