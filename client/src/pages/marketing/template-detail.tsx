@@ -1128,34 +1128,50 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                   width: showPhoneFrame ? "fit-content" : 780,
                   maxWidth: "100%",
                   overflow: showPhoneFrame ? "visible" : "hidden",
-                  borderRadius: 16,
+                  borderRadius: showPhoneFrame ? 0 : 16,
                   transition: "width 520ms cubic-bezier(0.22,1,0.36,1)",
+                  ...(showPhoneFrame ? { display: "flex", flexDirection: "column" as const } : null),
                 }}
               >
-                {!isMobileViewport && (
+                {/* DESKTOP — toggle sits on the browser chrome bar (top-right). */}
+                {!isMobileViewport && !showPhoneFrame && (
                   <button
                     type="button"
                     onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
                     data-testid="preview-device-toggle"
-                    aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
-                    title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
-                    className={`tpl-device-toggle${showPhoneFrame ? " tpl-device-toggle--phone" : ""}`}
+                    aria-label="Switch to mobile view"
+                    title="Mobile view"
+                    className="tpl-device-toggle"
                   >
-                    {previewMode === "desktop"
-                      ? <Smartphone size={16} strokeWidth={2.25} />
-                      : <Monitor size={16} strokeWidth={2.25} />}
+                    <Smartphone size={16} strokeWidth={2.25} />
                   </button>
+                )}
+                {/* MOBILE — toggle is a clean pill ABOVE the phone (right-aligned)
+                    so it never sits on the bezel/screen seam. */}
+                {!isMobileViewport && showPhoneFrame && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
+                      data-testid="preview-device-toggle"
+                      aria-label="Switch to desktop view"
+                      title="Desktop view"
+                      className="tpl-device-toggle-pill"
+                    >
+                      <Monitor size={14} strokeWidth={2.25} />
+                      Desktop view
+                    </button>
+                  </div>
                 )}
                 {/* key on the active template → remount + fade/rise on swap.
                     The AI assistant launcher (PreviewChatBubbleSim) is pinned
-                    bottom-right so visitors see the calculator can carry the
-                    configurable assistant — themed to the live CTA colour. On
-                    mobile it pins to the phone bezel (doesn't scroll with the
-                    content); on desktop it pins to the preview column. */}
+                    bottom-right, lifted above the widget's CTA so the two don't
+                    touch — themed to the live CTA colour. On mobile it pins to
+                    the phone bezel (doesn't scroll); on desktop to the column. */}
                 {showPhoneFrame ? (
                   <PhoneMockup
                     screenBackground={selectedCombo.bg}
-                    floater={<PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} />}
+                    floater={<PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} bottom={24} right={16} />}
                   >
                     <div key={activeTemplate.id} className="tpl-swap-in">
                       <PreviewGestureLayer>
@@ -1170,7 +1186,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                         <QuoteWidget calculator={previewCalculator} isEmbed={false} />
                       </PreviewGestureLayer>
                     </div>
-                    <PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} />
+                    <PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} bottom={120} right={18} />
                   </>
                 )}
               </div>
@@ -1478,16 +1494,23 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 background: rgba(15, 23, 42, 0.07);
                 color: ${CS_LIGHT.ink};
               }
-              /* Mobile/phone-mockup mode — the toggle sits on the dark bezel,
-                 so it needs a light ink + a higher z so it floats above the
-                 device frame's top-right. */
-              .tpl-device-toggle--phone {
-                top: 12px; right: 16px; z-index: 6;
-                color: rgba(255, 255, 255, 0.72);
+              /* Mobile/phone-mockup mode — the toggle is a clean pill ABOVE the
+                 phone (not on the device), so it never sits on the bezel/screen
+                 seam. Subtle light-surface chip with an icon + label. */
+              .tpl-device-toggle-pill {
+                display: inline-flex; align-items: center; gap: 6px;
+                height: 30px; padding: 0 12px;
+                border-radius: 999px; border: 1px solid rgba(15, 20, 24, 0.14);
+                background: rgba(255, 255, 255, 0.7);
+                color: ${CS_LIGHT.inkMuted};
+                font-family: ${MONO}; font-size: 11.5px; font-weight: 600;
+                letter-spacing: 0.02em; cursor: pointer;
+                transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
               }
-              .tpl-device-toggle--phone:hover {
-                background: rgba(255, 255, 255, 0.14);
-                color: rgba(255, 255, 255, 1);
+              .tpl-device-toggle-pill:hover {
+                background: rgba(255, 255, 255, 0.95);
+                color: ${CS_LIGHT.ink};
+                border-color: ${mkt.accent};
               }
 
               /* Template-swap polish: remount the widget on selection with a

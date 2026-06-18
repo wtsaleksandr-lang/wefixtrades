@@ -64,7 +64,9 @@ export default function PhoneMockup({
       `}</style>
       <div className="qq-phone-bezel" data-testid="phone-mockup">
         <div className="qq-phone-notch" aria-hidden="true" />
-        <div className="qq-phone-screen" style={{ background: screenBackground }}>
+        {/* Reserve bottom space when a floater is present so the content's last
+            element (the CTA) can't scroll under the pinned launcher. */}
+        <div className="qq-phone-screen" style={{ background: screenBackground, paddingBottom: floater ? 92 : 0 }}>
           {children}
         </div>
         {/* floater (e.g. chat launcher) self-positions absolutely; the bezel is
