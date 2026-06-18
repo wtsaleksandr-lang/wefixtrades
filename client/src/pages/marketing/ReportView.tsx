@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check, Download, Shield } from "lucide-react";
 import { SERVICES, getServicesForIssues, getServiceBillingMeta, type Service } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
+import AuditLeadCapture from "@/components/marketing/AuditLeadCapture";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
@@ -1639,9 +1640,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   return (
     <div data-theme="light" style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative', transform: reportZoom !== 100 ? `scale(${reportZoom / 100})` : undefined, transformOrigin: 'top center' }}>
 
-      {/* TAB BAR — only shown when unlocked. 9 peer tabs; horizontal scroll
-          on narrow screens so the bar never breaks. Each tab is one click;
-          per-tab content is lazy-mounted (see openTab + lazy-import block). */}
+      {/* OPTIONAL email capture — the diagnosis is fully open (no wall); this
+          slim, dismissible card just offers to email the report + a free fix
+          plan so we still capture the lead. Non-blocking; nothing gates on it. */}
+      <AuditLeadCapture
+        reportId={reportId}
+        businessName={business?.name}
+        score={liveTotal}
+        trade={report?.trade}
+        city={report?.city}
+        placeId={business?.placeId}
+        issueCount={detectedIssues.length}
+        detectedIssues={detectedIssues}
+        recommendedServices={recommendedServices?.slice(0, 3)}
+        onCaptured={(lead) => { if (lead) setCapturedLead(lead); }}
+      />
+
+      {/* TAB BAR — 9 peer tabs; horizontal scroll on narrow screens so the bar
+          never breaks. Each tab is one click; per-tab content is lazy-mounted
+          (see openTab + lazy-import block). */}
       {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', boxSizing:'border-box', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
         {/* Relative wrapper hosts the right-edge "more tabs" fade + chevron so
             visitors see the bar scrolls when tabs overflow (fix #4). width:100%
