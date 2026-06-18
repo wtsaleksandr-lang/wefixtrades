@@ -44,10 +44,12 @@ import { toPricingConfig } from './pricingConfig';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   synthesizeProfileBadges,
+  comboById, comboToStyleColors,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
   type TemplateTiered,
   type TrustBadge,
   type TemplateStep,
+  type ThemeCombo,
 } from '@shared/templatePresets';
 import {
   SlidersHorizontal, Palette, Settings as SettingsIcon, MousePointerClick, HelpCircle,
@@ -924,7 +926,7 @@ export default function WizardShell({ embed = false }: Props) {
   // `forceStructure: true` opts back into the full structural replace; the
   // first-mount `?template=` URL flow passes it so landing on a marketing
   // template link still loads that template's fields into a blank wizard.
-  const applyTemplate = useCallback((preset: TemplateConfig | null, accentOverride?: string, forceStructure?: boolean) => {
+  const applyTemplate = useCallback((preset: TemplateConfig | null, accentOverride?: string, forceStructure?: boolean, comboOverride?: ThemeCombo) => {
     setState((s) => {
       if (!preset) {
         // Blank seed — same as the H1 first-load behaviour.
@@ -976,11 +978,17 @@ export default function WizardShell({ embed = false }: Props) {
       // (gradient bg, accent, result-panel emphasis, animations) in the
       // wizard preview. Templates with explicit `style` keep it untouched.
       const presetStyle = preset.style ?? deriveStyleFromCategory(preset);
-      // The website color tabs pass the chosen accent via `?accent=`; honour it
-      // so the wizard opens with the same colour the visitor previewed.
+      // The website template page passes the visitor's chosen THEME via
+      // `?combo=<id>` (full palette) and/or a single `?accent=` colour. Honour
+      // the combo first — it carries bg/text/surface/border/resultsBg/accent/
+      // ctaColor, so the wizard opens with the EXACT theme that was previewed
+      // (fixes "wizard opens with a different theme"). A lone accent still
+      // works as the narrower fallback.
+      const comboColors = comboOverride ? comboToStyleColors(comboOverride) : null;
       const nextStyle = {
         ...DEFAULT_SHELL_STYLE,
         ...(presetStyle as typeof s.style),
+        ...(comboColors ?? {}),
         ...(accentOverride ? { accent: accentOverride } : {}),
       };
 
@@ -1250,13 +1258,18 @@ export default function WizardShell({ embed = false }: Props) {
       // so an arbitrary query value can never be injected into a CSS variable.
       const rawAccent = (params.get('accent') || '').trim();
       const accentOverride = /^#[0-9a-fA-F]{3,8}$/.test(rawAccent) ? rawAccent : undefined;
+      // Optional full theme combo from the website theme picker. Resolved
+      // against the shared THEME_COMBOS catalogue so an unknown id is simply
+      // ignored (falls back to accent / template default).
+      const rawCombo = (params.get('combo') || '').trim();
+      const comboOverride = rawCombo ? comboById(rawCombo) : undefined;
       const preset = getTemplatePreset(requestedId);
       if (preset) {
         // First-mount marketing-link apply: force the full structural load so
         // landing on /wizard?template=<id> seeds that template's fields into
         // the blank wizard (the data-loss guard only protects interactive,
         // post-build theme switches — not this intentional initial seed).
-        applyTemplate(preset, accentOverride, true);
+        applyTemplate(preset, accentOverride, true, comboOverride);
       } else {
         console.warn(
           `[wizard] /wizard?template=${requestedId} — no template preset matches that id; keeping current state.`,
@@ -1266,6 +1279,7 @@ export default function WizardShell({ embed = false }: Props) {
       // (which would discard any edits the user made after landing).
       params.delete('template');
       params.delete('accent');
+      params.delete('combo');
       const qs = params.toString();
       const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
       try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }

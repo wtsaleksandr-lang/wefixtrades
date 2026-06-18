@@ -10795,7 +10795,7 @@ const THEME_BY_CATEGORY: Record<string, string> = {
   'Moving': 'fees',
 };
 
-function comboById(id: string): ThemeCombo | undefined {
+export function comboById(id: string): ThemeCombo | undefined {
   return THEME_COMBOS.find(c => c.id === id);
 }
 

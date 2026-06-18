@@ -799,7 +799,7 @@ function TemplateRail({
 
       {/* Continue with this template (Elfsight bottom CTA) */}
       <Link
-        href={`/wizard?template=${selectedSlug}&accent=${encodeURIComponent(accent)}`}
+        href={`/wizard?template=${selectedSlug}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(combo.id)}`}
         className="tpl-rail-cta wft-hover-border-white"
         data-testid="rail-continue"
       >
@@ -1023,7 +1023,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
-                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`}
                 data-testid="hero-use-template"
                 style={{
                   display: "inline-flex",
@@ -1148,7 +1148,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Deeper-edit note → wizard (carries the chosen template + colour). */}
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <Link
-                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`}
                 data-testid="template-deeper-edit"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: mkt.accent, textDecoration: "none" }}
               >
@@ -1643,7 +1643,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           sub="Drop in your pricing in our setup wizard. Free to start, no credit card required."
           primaryCta={{
             label: "Use this template",
-            href: `/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}`,
+            href: `/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`,
           }}
         />
       </div>
