@@ -7,7 +7,15 @@ import type { ReactNode } from "react";
  * SCROLLABLE inner screen so a tall calculator scrolls INSIDE the phone instead
  * of stretching the page "very long".
  *
- * Styling lives in a <style> block (className-based) so the bezel's dark colours
+ * Desktop-only (the marketing page renders the bare widget on real phones), so
+ * scrolling is mouse-wheel. The marketing site runs Lenis smooth-scroll, which
+ * hijacks the wheel globally and would scroll the PAGE instead of the phone —
+ * `data-lenis-prevent` tells Lenis to leave wheels over the screen alone so the
+ * native overflow:auto scroll works (same mechanism the category list uses).
+ * The scrollbar is fully hidden so it never shows as a line at the rounded
+ * corner.
+ *
+ * Bezel styling lives in a <style> block (className-based) so the dark colours
  * don't trip the inline hardcoded-colour guard and don't cascade a data-theme
  * onto the widget inside the screen.
  */
@@ -59,14 +67,18 @@ export default function PhoneMockup({
           flex: 1;
           min-height: 0;
           position: relative;
+          /* Hide the scrollbar on every engine — it otherwise shows as a dark
+             line at the rounded top-right corner. */
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
-        .qq-phone-screen::-webkit-scrollbar { width: 0; height: 0; }
+        .qq-phone-screen::-webkit-scrollbar { width: 0; height: 0; display: none; }
       `}</style>
       <div className="qq-phone-bezel" data-testid="phone-mockup">
         <div className="qq-phone-notch" aria-hidden="true" />
         {/* Reserve bottom space when a floater is present so the content's last
             element (the CTA) can't scroll under the pinned launcher. */}
-        <div className="qq-phone-screen" style={{ background: screenBackground, paddingBottom: floater ? 92 : 0 }}>
+        <div className="qq-phone-screen" data-lenis-prevent style={{ background: screenBackground, paddingBottom: floater ? 92 : 0 }}>
           {children}
         </div>
         {/* floater (e.g. chat launcher) self-positions absolutely; the bezel is

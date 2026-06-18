@@ -2936,6 +2936,12 @@ export default function AdvancedCalculator({
         );
         const showBrandName = brandName.length > 0
           && (editableTitle || (brandName !== 'Your Business' && !brandDupesTitle));
+        // Bind each "·"/"•" separator to the PRECEDING segment with a
+        // non-breaking space so it can never wrap to the START of a line (which
+        // made the subtitle read as an inconsistent bulleted list — "·" leading
+        // some wrapped lines but not others). Now wraps only happen BETWEEN
+        // benefits, keeping the trust line straight + consistent on every
+        // template, whatever the copy length.
         const subtitle = (header.subtitle || '').trim();
         const logoRadius = Math.min(Math.round(logoSizePx * 0.3), 12);
         return (
@@ -3157,10 +3163,15 @@ export default function AdvancedCalculator({
                   >
                     {segments.map((seg, i) => (
                       <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        {i > 0 && (
+                        <span>{seg}</span>
+                        {/* Divider AFTER each segment (except the last) so a
+                            wrapped benefit starts a new line CLEANLY — the "·"
+                            sits at the end of the previous line instead of
+                            leading the next one (which read as an inconsistent
+                            bullet list). */}
+                        {i < segments.length - 1 && (
                           <span aria-hidden="true" style={{ opacity: 0.4, margin: '0 6px' }}>·</span>
                         )}
-                        <span>{seg}</span>
                       </span>
                     ))}
                     {editableTitle && <EditHint testId="advanced-subtitle-edit-hint" color={cc.textBody} />}

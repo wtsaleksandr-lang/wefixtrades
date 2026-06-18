@@ -1131,10 +1131,14 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               <div
                 style={{
                   position: "relative",
-                  width: showPhoneFrame ? "fit-content" : 780,
+                  width: showPhoneFrame ? 375 : 780,
                   maxWidth: "100%",
                   overflow: showPhoneFrame ? "visible" : "hidden",
                   borderRadius: showPhoneFrame ? 0 : 16,
+                  // Desktop: reserve a clear strip below the widget so the AI
+                  // chat launcher can sit at the bottom-right WITHOUT covering
+                  // the CTA / pitch copy (the result panel's bottom is dense).
+                  paddingBottom: showPhoneFrame ? 0 : 64,
                   transition: "width 520ms cubic-bezier(0.22,1,0.36,1)",
                   ...(showPhoneFrame ? { display: "flex", flexDirection: "column" as const } : null),
                 }}
@@ -1161,11 +1165,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                       onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
                       data-testid="preview-device-toggle"
                       aria-label="Switch to desktop view"
-                      title="Desktop view"
+                      title="Switch to desktop view"
                       className="tpl-device-toggle-pill"
                     >
-                      <Monitor size={14} strokeWidth={2.25} />
-                      Desktop view
+                      <Monitor size={16} strokeWidth={2.25} />
                     </button>
                   </div>
                 )}
@@ -1174,6 +1177,11 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     bottom-right, lifted above the widget's CTA so the two don't
                     touch — themed to the live CTA colour. On mobile it pins to
                     the phone bezel (doesn't scroll); on desktop to the column. */}
+                {/* Keyed on the device mode so switching desktop<->mobile fades
+                    the preview in smoothly instead of snapping. Opacity-only
+                    animation (no transform) so the absolutely-positioned chat
+                    floater keeps anchoring to the column. */}
+                <div key={showPhoneFrame ? "mobile" : "desktop"} className="tpl-mode-swap">
                 {showPhoneFrame ? (
                   <PhoneMockup
                     screenBackground={selectedCombo.bg}
@@ -1192,9 +1200,10 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                         <QuoteWidget calculator={previewCalculator} isEmbed={false} />
                       </PreviewGestureLayer>
                     </div>
-                    <PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} bottom={120} right={18} />
+                    <PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} bottom={14} right={16} />
                   </>
                 )}
+                </div>
               </div>
             </div>
             <p
@@ -1504,13 +1513,12 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                  phone (not on the device), so it never sits on the bezel/screen
                  seam. Subtle light-surface chip with an icon + label. */
               .tpl-device-toggle-pill {
-                display: inline-flex; align-items: center; gap: 6px;
-                height: 30px; padding: 0 12px;
-                border-radius: 999px; border: 1px solid rgba(15, 20, 24, 0.14);
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 32px; height: 32px; padding: 0;
+                border-radius: 9px; border: 1px solid rgba(15, 20, 24, 0.14);
                 background: rgba(255, 255, 255, 0.7);
                 color: ${CS_LIGHT.inkMuted};
-                font-family: ${MONO}; font-size: 11.5px; font-weight: 600;
-                letter-spacing: 0.02em; cursor: pointer;
+                cursor: pointer;
                 transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
               }
               .tpl-device-toggle-pill:hover {
@@ -1526,8 +1534,16 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 from { opacity: 0; transform: translateY(8px); }
                 to { opacity: 1; transform: translateY(0); }
               }
+              /* Smooth desktop<->mobile switch — the new preview fades in while
+                 the stage width animates (780<->375). Opacity only (no transform)
+                 so the chat floater's absolute anchor isn't disturbed. */
+              .tpl-mode-swap { animation: tplModeFade 360ms ease both; }
+              @keyframes tplModeFade {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
               @media (prefers-reduced-motion: reduce) {
-                .tpl-swap-in { animation: none; }
+                .tpl-swap-in, .tpl-mode-swap { animation: none; }
               }
 
               /* Accessibility — visible focus rings on every control. */
