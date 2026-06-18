@@ -4,6 +4,7 @@ import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench,
 import { SERVICES, getServicesForIssues, getServiceBillingMeta, type Service } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import AuditLeadCapture from "@/components/marketing/AuditLeadCapture";
+import CompleteReportCta from "@/components/marketing/CompleteReportCta";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
@@ -3545,6 +3546,17 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* Secondary CTA — tools-consolidation removed the missed-call funnel
           (page deleted). Cross-tool suggestions below cover any remaining
           discovery. */}
+
+      {/* The single paid offer — the complete technical report. Appears after
+          all the free findings so the value lands first. Renders only when the
+          business has a website (the technical audit needs a real site). */}
+      {unlocked && (
+        <CompleteReportCta
+          reportId={reportId}
+          businessUrl={business?.website}
+          defaultEmail={capturedLead?.email}
+        />
+      )}
 
       {/* Cross-tool suggestions — only when unlocked */}
       {unlocked && (
