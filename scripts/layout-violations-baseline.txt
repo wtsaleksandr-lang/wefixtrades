@@ -42,7 +42,7 @@ client/src/components/wizard/elfsight/StyleTab.tsx:4042:30	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4052:32	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4065:26	rule-c	size={13}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:250:5	rule-b	<div> contains 2 cues
-client/src/components/wizard/elfsight/TemplateGallery.tsx:914:16	rule-c	size={18}
+client/src/components/wizard/elfsight/TemplateGallery.tsx:917:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
 client/src/pages/Blog.tsx:240:19	rule-c	size={120}
 client/src/pages/Blog.tsx:359:17	rule-c	size={84}
