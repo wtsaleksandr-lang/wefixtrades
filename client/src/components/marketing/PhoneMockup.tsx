@@ -14,11 +14,16 @@ import type { ReactNode } from "react";
 export default function PhoneMockup({
   children,
   screenBackground = "#ffffff",
+  floater,
 }: {
   children: ReactNode;
   /** Background of the inner screen, behind/below the widget. Match the
    *  widget's own background so a short calculator doesn't show a seam. */
   screenBackground?: string;
+  /** Optional element pinned to the screen (e.g. a chat launcher) — rendered
+   *  INSIDE the bezel but OUTSIDE the scroll area, so it floats over the phone
+   *  screen and stays put while the content scrolls, like a real fixed bubble. */
+  floater?: ReactNode;
 }) {
   return (
     <>
@@ -62,6 +67,10 @@ export default function PhoneMockup({
         <div className="qq-phone-screen" style={{ background: screenBackground }}>
           {children}
         </div>
+        {/* floater (e.g. chat launcher) self-positions absolutely; the bezel is
+            the positioned ancestor, so it pins over the screen and never
+            scrolls with the content. */}
+        {floater}
       </div>
     </>
   );

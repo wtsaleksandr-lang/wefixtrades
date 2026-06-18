@@ -35,6 +35,7 @@ import {
 } from "@shared/templatePresets";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import PhoneMockup from "@/components/marketing/PhoneMockup";
+import PreviewChatBubbleSim from "@/components/wizard/elfsight/PreviewChatBubbleSim";
 import { getCategoryStyle } from "@/lib/categoryStyles";
 import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 import { V7PageShell, V7FinalCta } from "@/components/marketing/v7";
@@ -1145,9 +1146,17 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                       : <Monitor size={16} strokeWidth={2.25} />}
                   </button>
                 )}
-                {/* key on the active template → remount + fade/rise on swap. */}
+                {/* key on the active template → remount + fade/rise on swap.
+                    The AI assistant launcher (PreviewChatBubbleSim) is pinned
+                    bottom-right so visitors see the calculator can carry the
+                    configurable assistant — themed to the live CTA colour. On
+                    mobile it pins to the phone bezel (doesn't scroll with the
+                    content); on desktop it pins to the preview column. */}
                 {showPhoneFrame ? (
-                  <PhoneMockup screenBackground={selectedCombo.bg}>
+                  <PhoneMockup
+                    screenBackground={selectedCombo.bg}
+                    floater={<PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} />}
+                  >
                     <div key={activeTemplate.id} className="tpl-swap-in">
                       <PreviewGestureLayer>
                         <QuoteWidget calculator={previewCalculator} isEmbed={false} />
@@ -1155,11 +1164,14 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     </div>
                   </PhoneMockup>
                 ) : (
-                  <div key={activeTemplate.id} className="tpl-swap-in">
-                    <PreviewGestureLayer>
-                      <QuoteWidget calculator={previewCalculator} isEmbed={false} />
-                    </PreviewGestureLayer>
-                  </div>
+                  <>
+                    <div key={activeTemplate.id} className="tpl-swap-in">
+                      <PreviewGestureLayer>
+                        <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                      </PreviewGestureLayer>
+                    </div>
+                    <PreviewChatBubbleSim visibility="always" accentColor={selectedCombo.ctaColor} />
+                  </>
                 )}
               </div>
             </div>
