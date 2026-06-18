@@ -132,11 +132,15 @@ export default function TemplatesPage() {
              surfaces. No hardcoded hex outside the existing mkt token set. */}
         <div
           style={{
-            maxWidth: 1160,
-            margin: "0 auto",
-            padding: "32px 28px 0",
+            // Full-width gutter wrapper; the inner maxWidth:1180 then centers to
+            // the SAME left edge as the V7Hero column above (hero = 1180 centred).
+            // Previously this used maxWidth:1160 + 28px padding, which pushed the
+            // card ~38px to the right of the hero headline/buttons (misaligned),
+            // and padding-bottom:0 jammed it against the light filter strip.
+            padding: "32px 24px 40px",
           }}
         >
+          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
           <div
             data-testid="templates-ai-upload-card"
             style={{
@@ -222,6 +226,7 @@ export default function TemplatesPage() {
               Try it free
             </button>
           </div>
+          </div>
         </div>
 
         {/* Filter + search strip — LIGHT surface so it reads as part of the
@@ -237,13 +242,16 @@ export default function TemplatesPage() {
             position: "sticky",
             top: 68,
             zIndex: 20,
+            // full-bleed light bar; 24px gutter so the inner 1180 column lines
+            // up with the hero / upload card (one consistent page column).
+            padding: "0 24px",
           }}
         >
           <div
             style={{
-              maxWidth: 1160,
+              maxWidth: 1180,
               margin: "0 auto",
-              padding: "14px 28px",
+              padding: "14px 0",
               display: "flex",
               flexDirection: "column" as const,
               gap: 10,
@@ -364,7 +372,9 @@ export default function TemplatesPage() {
           // instead of underneath it (same pattern as ApiDocsPage.tsx).
           style={{ background: "#C2D0D6", padding: "40px 16px 80px", borderRadius: "28px 28px 0 0", scrollMarginTop: 140 }}
         >
-          <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          {/* 1180 (not 1160) so the grid column shares the hero / upload-card
+              left edge — one consistent page column top-to-bottom. */}
+          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
             <p
               style={{
                 fontSize: 14,
