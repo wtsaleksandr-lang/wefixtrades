@@ -185,6 +185,10 @@ export default function HeaderResultsPanel({
           onChange={handleChange}
           placeholder={active.placeholder}
           testid={active.testid}
+          /* The active tab above already names this field ("Header Title"
+             etc.), so the field's own notched eyebrow label would just
+             repeat it. Hide the visible label; aria-label stays for a11y. */
+          hideFloatingLabel
         />
       </div>
 
