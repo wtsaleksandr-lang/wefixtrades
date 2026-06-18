@@ -453,6 +453,12 @@ function TemplateRail({
   const scrollColorRow = (dir: -1 | 1) =>
     colorRowRef.current?.scrollBy({ left: dir * 132, behavior: "smooth" });
 
+  // Click-and-DRAG to TURN PAGES on the template grid (the arrows stay too).
+  // The grid is paginated for performance — each thumbnail is a live widget —
+  // so instead of free-scrolling all of them, a deliberate horizontal drag
+  // flips to the next/prev page. Mouse only; touch keeps its native swipe.
+  const gridDrag = useRef({ active: false, moved: false, startX: 0 });
+
   // Click-and-DRAG to pan the theme swatch row horizontally with the mouse
   // cursor (not just the scrollbar / arrows). Mirrors the Build-tab template
   // strip: pointerdown grabs, pointermove translates scrollLeft, grab/grabbing
@@ -682,8 +688,33 @@ function TemplateRail({
         <span style={{ opacity: 0.4 }}>)</span>
       </div>
 
-      {/* 2×2 grid of real thumbnails */}
-      <div className="tpl-rail-grid">
+      {/* 2×2 grid of real thumbnails — also grab-and-drag to turn pages. */}
+      <div
+        className="tpl-rail-grid"
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse" || e.button !== 0) return;
+          gridDrag.current = { active: true, moved: false, startX: e.clientX };
+        }}
+        onPointerMove={(e) => {
+          if (!gridDrag.current.active) return;
+          if (Math.abs(e.clientX - gridDrag.current.startX) > 5) gridDrag.current.moved = true;
+        }}
+        onPointerUp={(e) => {
+          if (!gridDrag.current.active) return;
+          const { moved, startX } = gridDrag.current;
+          gridDrag.current.active = false;
+          if (!moved) return;
+          const dx = e.clientX - startX;
+          // Swallow the trailing click so a drag never selects a card.
+          const el = e.currentTarget;
+          const suppress = (c: Event) => { c.preventDefault(); c.stopPropagation(); };
+          el.addEventListener("click", suppress, { capture: true, once: true });
+          requestAnimationFrame(() => el.removeEventListener("click", suppress, { capture: true } as EventListenerOptions));
+          if (dx <= -45 && safePage < pageCount - 1) setPage(safePage + 1);
+          else if (dx >= 45 && safePage > 0) setPage(safePage - 1);
+        }}
+        onPointerLeave={() => { gridDrag.current.active = false; }}
+      >
         {pageItems.map((t) => {
           const active = t.id === selectedSlug || t.name === selectedName;
           return (
@@ -1304,7 +1335,8 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
               .tpl-swatch-split { overflow: hidden; }
 
               /* 2×2 catalogue grid (item 2). */
-              .tpl-rail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+              .tpl-rail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; cursor: grab; }
+              .tpl-rail-grid:active { cursor: grabbing; }
               .tpl-card {
                 display: flex; flex-direction: column; gap: 8px;
                 padding: 6px; border: none; border-radius: 14px;
