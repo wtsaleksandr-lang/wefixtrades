@@ -1265,7 +1265,11 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 /* Fixed height so the toggle can center reliably */
                 min-height: 42px !important;
                 height: 42px !important;
-                padding: 0 44px 0 56px !important;
+                /* left padding clears the macOS traffic-light dots (3 dots run
+                   ~16→58px in from the bar's left edge); 70px leaves a clean
+                   ~12px gap so the QuoteQuick badge no longer kisses the green
+                   dot, and the checkmark reads as part of the wordmark. */
+                padding: 0 44px 0 70px !important;
                 align-items: center !important;
                 box-sizing: border-box !important;
               }
