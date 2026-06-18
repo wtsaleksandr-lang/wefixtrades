@@ -314,6 +314,21 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
             max-width: 100%;
             justify-content: center;
             white-space: normal !important;
+            /* Uniform pill size — every chip is the SAME height regardless of
+               whether its copy is one line or two, so the grid never looks
+               ragged. Sized for two lines + centered content; a 1-line chip
+               just gets extra vertical breathing room. */
+            min-height: 42px;
+            align-items: center;
+          }
+          /* Cap any label to 2 lines (ellipsis) so unusually long copy can't
+             make one chip taller than the rest. */
+          .${rowClass} > .${scopeClass} .qq-trust-label {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-align: center;
           }
         }
       `}</style>
@@ -341,8 +356,9 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
               aria-hidden="true"
               color={badge.color || 'currentColor'}
               strokeWidth={2}
+              style={{ flexShrink: 0 }}
             />
-            {badge.label}
+            <span className="qq-trust-label">{badge.label}</span>
           </button>
         );
       })}
