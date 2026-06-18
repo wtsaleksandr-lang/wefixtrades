@@ -1263,6 +1263,13 @@ export default function WizardShell({ embed = false }: Props) {
       // ignored (falls back to accent / template default).
       const rawCombo = (params.get('combo') || '').trim();
       const comboOverride = rawCombo ? comboById(rawCombo) : undefined;
+      // Carry the device VIEW the visitor was previewing in (?view=mobile|tablet)
+      // so picking "mobile" on the templates page opens the wizard in the mobile
+      // device preview — the selector stays synchronized across the handoff.
+      const rawView = (params.get('view') || '').trim();
+      if (rawView === 'mobile' || rawView === 'tablet' || rawView === 'desktop') {
+        setDevice(rawView);
+      }
       const preset = getTemplatePreset(requestedId);
       if (preset) {
         // First-mount marketing-link apply: force the full structural load so
@@ -1280,6 +1287,7 @@ export default function WizardShell({ embed = false }: Props) {
       params.delete('template');
       params.delete('accent');
       params.delete('combo');
+      params.delete('view');
       const qs = params.toString();
       const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
       try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }
