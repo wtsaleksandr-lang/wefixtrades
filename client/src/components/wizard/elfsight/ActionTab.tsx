@@ -707,6 +707,10 @@ export default function ActionTab({
                   infoRegion="sticky-footer"
                   testid="action-input-submit-label"
                   expansionMode="inline"
+                  /* The card title above ("Submit button") already names this
+                     field, so the field's own "Submit button text" eyebrow is a
+                     duplicate. Hide it; the ? cue + placeholder remain. */
+                  hideFloatingLabel
                 />
                 <div style={{ marginTop: 12 }}>
                   <FloatField

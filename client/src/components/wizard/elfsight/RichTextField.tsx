@@ -67,6 +67,16 @@ interface Props {
    *    option's label.
    */
   expansionMode?: 'overlay' | 'inline';
+  /**
+   * Suppress the visible in-field floating label (and the expanded-panel
+   * label) while KEEPING the accessible name (aria-label / placeholder).
+   * Use when an external control already names the field — e.g. the
+   * HeaderResultsPanel tab strip, where the active tab ("Header Title")
+   * already labels the editor, so the notched "HEADER TITLE" eyebrow is a
+   * duplicate. A11y is unaffected: the preview button + toolbar keep their
+   * `${label}` aria-labels.
+   */
+  hideFloatingLabel?: boolean;
 }
 
 // 32 common, owner-friendly emojis. Hardcoded to avoid bundling an emoji set.
@@ -96,6 +106,7 @@ export default function RichTextField({
   label, htmlFor, value, onChange,
   placeholder = '', infoText, infoTestid, infoRegion, testid,
   compact = false, expansionMode = 'overlay',
+  hideFloatingLabel = false,
 }: Props) {
   const isInline = expansionMode === 'inline';
   const [expanded, setExpanded] = useState(false);
@@ -496,14 +507,16 @@ export default function RichTextField({
               Sibling of .qq-rtf-panel-inner (not inside it) so the panel's
               overflow:visible lets the label render above the top border
               without being clipped by the inner content-clip. */}
-          <div className="qq-rtf-panel-label">
-            <span>{label}</span>
-            {infoText && (
-              <span className="qq-rtf-info qq-rtf-info--panel">
-                <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} region={infoRegion} />
-              </span>
-            )}
-          </div>
+          {(!hideFloatingLabel || infoText) && (
+            <div className="qq-rtf-panel-label">
+              {!hideFloatingLabel && <span>{label}</span>}
+              {infoText && (
+                <span className="qq-rtf-info qq-rtf-info--panel">
+                  <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} region={infoRegion} />
+                </span>
+              )}
+            </div>
+          )}
         </div>
   );
 
@@ -532,7 +545,9 @@ export default function RichTextField({
               : <span className="qq-rtf-placeholder">{placeholder || `Click to add ${label.toLowerCase()}`}</span>
             }
           </span>
-          <label htmlFor={htmlFor} className="qq-rtf-floating-label">{label}</label>
+          {!hideFloatingLabel && (
+            <label htmlFor={htmlFor} className="qq-rtf-floating-label">{label}</label>
+          )}
           {infoText && (
             <span className="qq-rtf-info">
               <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} region={infoRegion} />
