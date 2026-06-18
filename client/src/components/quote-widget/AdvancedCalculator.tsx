@@ -3212,7 +3212,11 @@ export default function AdvancedCalculator({
            deliberately left untouched here. Desktop (≥560px) keeps its
            deliberate 2px grey-seam rule below — this override is mobile-only. */
         @container qqwidget (max-width: 559px) {
-          .${gridId} { gap: 12px; padding: 16px; }
+          /* Horizontal gutter halved (16 -> 8px) so the field boxes + result
+             panel use more of the screen and sit closer to the header card's
+             width (Alex: wider content, less text wrapping on mobile). Vertical
+             padding kept at 16px so the top/bottom breathing room is unchanged. */
+          .${gridId} { gap: 12px; padding: 16px 8px; }
           /* Mobile keeps the NATURAL order: inputs first, then the result
              panel (total -> secondary rows -> CTA) at the bottom — you fill
              the inputs, then see the total. No order override. */
