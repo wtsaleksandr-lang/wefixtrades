@@ -65,6 +65,10 @@ function isPublicUrl(raw: string): boolean {
 const checkoutSchema = z.object({
   business_url: z.string().url().max(2048).refine(isPublicUrl, "URL must be a public website"),
   email: z.string().email().max(320),
+  // Optional link back to the free audit that produced this lead. Rides in
+  // Stripe metadata so the pipeline can fold the already-computed free-audit
+  // findings (maps / competitors / reviews) into the combined report.
+  report_id: z.string().max(64).optional(),
 });
 
 const runSchema = z.object({
@@ -89,7 +93,7 @@ export function registerFullAuditRoutes(app: Express): void {
     if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
 
     try {
-      const { business_url, email } = parsed.data;
+      const { business_url, email, report_id } = parsed.data;
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
       const livePriceId = FULL_AUDIT_MASTER.tiers[0]?.stripePriceId;
@@ -119,6 +123,7 @@ export function registerFullAuditRoutes(app: Express): void {
           product: "full_audit_master",
           business_url,
           email,
+          ...(report_id ? { report_id } : {}),
         },
         // Wave 3.6: drop the visitor on the Free Audit page with a marker
         // so the page can poll for an order matching this Stripe session.
