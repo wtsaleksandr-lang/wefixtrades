@@ -316,9 +316,11 @@ export default function TrustBadgeRow({ badges, businessProfile, theme, fontFami
             white-space: normal !important;
             /* Uniform pill size — every chip is the SAME height regardless of
                whether its copy is one line or two, so the grid never looks
-               ragged. Sized for two lines + centered content; a 1-line chip
-               just gets extra vertical breathing room. */
-            min-height: 42px;
+               ragged. Compact: tight vertical padding + line-height sized just
+               for two lines, so the strip doesn't eat header space. */
+            min-height: 32px;
+            padding: 2px 10px !important;
+            line-height: 1.1;
             align-items: center;
           }
           /* Cap any label to 2 lines (ellipsis) so unusually long copy can't
