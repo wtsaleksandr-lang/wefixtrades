@@ -606,7 +606,10 @@ export default function FreeAudit() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [auditUnlocked, setAuditUnlocked] = useState(false);
+  // Free-diagnosis model: the report is open by default (no paywall / no email
+  // wall). Kept as state only so a future flow could toggle it; it is never set
+  // back to false. The optional email capture lives in AuditLeadCapture.
+  const [auditUnlocked, setAuditUnlocked] = useState(true);
 
   // Wave 3.6 — Master Audit ($9.80) post-checkout flow. Stripe redirects
   // back to /tools/free-audit?master_session_id={CHECKOUT_SESSION_ID};
@@ -844,15 +847,10 @@ export default function FreeAudit() {
         from_cache: rep.fromCache === true ? 1 : 0,
         report_id: rep.reportId ?? null,
       });
-      // Check if this report was previously unlocked
-      if (rep.reportId) {
-        try {
-          const wasUnlocked = localStorage.getItem(`audit-unlocked-${rep.reportId}`);
-          setAuditUnlocked(wasUnlocked === "1");
-        } catch { setAuditUnlocked(false); }
-      } else {
-        setAuditUnlocked(false);
-      }
+      // Free-diagnosis model: the audit is fully open — every problem shows
+      // for free, no wall. The report renders unlocked from the start; the
+      // only thing we still capture is an OPTIONAL email (AuditLeadCapture).
+      setAuditUnlocked(true);
       setBusy(null);
 
       // Trigger background speed test then poll for result
