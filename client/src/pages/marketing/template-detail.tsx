@@ -1083,53 +1083,53 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                 width: "100%",
                 maxWidth: 980,
                 margin: "0 auto",
-                background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
-                overflow: "hidden",
-                // Round the grey phone-frame surround so it isn't a sharp-cornered
-                // box when the mobile preview is active.
-                borderRadius: 16,
+                // Center the chrome column; no background/clip here — the column
+                // below owns the frame + rounding so the device toggle can anchor
+                // to the WIDGET's real edge, not this wider pane.
+                display: "flex",
+                justifyContent: "center",
+                padding: "0 2px",
               }}
             >
-              {!isMobileViewport && (
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
-                  data-testid="preview-device-toggle"
-                  aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
-                  title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
-                  className="tpl-device-toggle"
-                >
-                  {previewMode === "desktop"
-                    ? <Smartphone size={16} strokeWidth={2.25} />
-                    : <Monitor size={16} strokeWidth={2.25} />}
-                </button>
-              )}
-              {/* Fold viewport — the live widget narrows to mobile width IN PLACE.
-                  No extra gray surround or phone-frame wrapper; just a 2px
-                  breathing gap on the left/right so it isn't flush to the card. */}
+              {/* Chrome column — hugs the live widget's actual rendered width
+                  (the renderer caps the Elfsight preview at PREVIEW_WIDGET_W on
+                  desktop, PREVIEW_FRAME_W in the mobile fold). Sizing the column
+                  to that exact width removes the dead side-gutter the widget's
+                  own mx-auto used to leave, so the device toggle — anchored to
+                  THIS column — sits flush on the chrome bar's right edge in both
+                  modes instead of floating out in empty space. */}
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  padding: "0 2px",
+                  position: "relative",
+                  width: showPhoneFrame ? 390 : 780,
+                  maxWidth: "100%",
+                  background: showPhoneFrame ? "rgba(15,23,42,0.05)" : "transparent",
+                  overflow: "hidden",
+                  borderRadius: 16,
+                  transition: "width 520ms cubic-bezier(0.22,1,0.36,1)",
                 }}
               >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: showPhoneFrame ? 390 : 980,
-                    overflow: "hidden",
-                    transition: "max-width 520ms cubic-bezier(0.22,1,0.36,1)",
-                  }}
-                >
-                  {/* key on the active template → remount + fade/rise on swap
-                      (Elfsight/Canva-style polish). Wrapped in a gesture layer
-                      so mobile users can pinch-zoom + drag the preview. */}
-                  <div key={activeTemplate.id} className="tpl-swap-in">
-                    <PreviewGestureLayer>
-                      <QuoteWidget calculator={previewCalculator} isEmbed={false} />
-                    </PreviewGestureLayer>
-                  </div>
+                {!isMobileViewport && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode((m) => (m === "desktop" ? "mobile" : "desktop"))}
+                    data-testid="preview-device-toggle"
+                    aria-label={previewMode === "desktop" ? "Switch to mobile view" : "Switch to desktop view"}
+                    title={previewMode === "desktop" ? "Mobile view" : "Desktop view"}
+                    className="tpl-device-toggle"
+                  >
+                    {previewMode === "desktop"
+                      ? <Smartphone size={16} strokeWidth={2.25} />
+                      : <Monitor size={16} strokeWidth={2.25} />}
+                  </button>
+                )}
+                {/* key on the active template → remount + fade/rise on swap
+                    (Elfsight/Canva-style polish). Wrapped in a gesture layer
+                    so mobile users can pinch-zoom + drag the preview. */}
+                <div key={activeTemplate.id} className="tpl-swap-in">
+                  <PreviewGestureLayer>
+                    <QuoteWidget calculator={previewCalculator} isEmbed={false} />
+                  </PreviewGestureLayer>
                 </div>
               </div>
             </div>
