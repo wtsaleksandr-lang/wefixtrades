@@ -152,10 +152,13 @@ function buildPreviewCalculator(
     // colSpan 2 = every input is full-width so they stack vertically (the
     // Elfsight column), instead of pairing into a crowded 2-up grid.
     fields: (base.fields ?? []).map((f) => ({ ...f, colSpan: 2 as const })),
-    // Drop the subtitle + the trust-badge row in the preview — the clean
-    // Elfsight layout is title + inputs + result only.
-    header: { ...(base.header ?? {}), subtitle: "" },
-    trustBadges: [],
+    // Keep the template's OWN subtitle + trust badges so the showroom preview
+    // resembles the real calculator closer (Alex: "must resemble the actual
+    // look of the calculators closer"). The wizard/published widget shows these,
+    // so dropping them under-sold the template. Only the LAYOUT stays normalized
+    // to the clean single-screen showroom; the CONTENT now matches.
+    header: base.header ?? {},
+    // trustBadges: left as the template's own (no override) — see above.
     // Disable auto Good/Better/Best tiers in the preview: the 3 tier cards make
     // the result panel much taller than the form (CTA then collides with the
     // sticky bottom nav). A single total + breakdown matches the car_towing
@@ -434,12 +437,15 @@ function TemplateRail({
   accent,
   combo,
   setCombo,
+  previewView,
 }: {
   selectedSlug: string;
   onSelect: (slug: string) => void;
   accent: string;
   combo: ThemeCombo;
   setCombo: (combo: ThemeCombo) => void;
+  /** Current preview device — carried into the wizard so the view stays synced. */
+  previewView: "desktop" | "mobile";
 }) {
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
@@ -832,7 +838,7 @@ function TemplateRail({
 
       {/* Continue with this template (Elfsight bottom CTA) */}
       <Link
-        href={`/wizard?template=${selectedSlug}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(combo.id)}`}
+        href={`/wizard?template=${selectedSlug}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(combo.id)}${previewView === "mobile" ? "&view=mobile" : ""}`}
         className="tpl-rail-cta wft-hover-border-white"
         data-testid="rail-continue"
       >
@@ -1056,7 +1062,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
-                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}${effectiveMode === "mobile" ? "&view=mobile" : ""}`}
                 data-testid="hero-use-template"
                 style={{
                   display: "inline-flex",
@@ -1096,7 +1102,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Two-pane editor: template rail (colour selector + catalogue) on
                 the left, the title + live widget on the right. */}
             <div className="tpl-editor">
-              <TemplateRail selectedSlug={selectedSlug} onSelect={handleSelect} accent={accent} combo={selectedCombo} setCombo={setCombo} />
+              <TemplateRail selectedSlug={selectedSlug} onSelect={handleSelect} accent={accent} combo={selectedCombo} setCombo={setCombo} previewView={effectiveMode} />
               <div className="tpl-preview">
             {/* Full-width preview — NO card chrome/edges. The widget paints its
                 own theme background and fills the preview area edge-to-edge (it
@@ -1206,7 +1212,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
             {/* Deeper-edit note → wizard (carries the chosen template + colour). */}
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <Link
-                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`}
+                href={`/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}${effectiveMode === "mobile" ? "&view=mobile" : ""}`}
                 data-testid="template-deeper-edit"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: mkt.accent, textDecoration: "none" }}
               >
@@ -1720,7 +1726,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
           sub="Drop in your pricing in our setup wizard. Free to start, no credit card required."
           primaryCta={{
             label: "Use this template",
-            href: `/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}`,
+            href: `/wizard?template=${activeTemplate.id}&accent=${encodeURIComponent(accent)}&combo=${encodeURIComponent(selectedCombo.id)}${effectiveMode === "mobile" ? "&view=mobile" : ""}`,
           }}
         />
       </div>
