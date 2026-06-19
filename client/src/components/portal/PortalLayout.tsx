@@ -35,6 +35,7 @@ import {
   User,
   Moon,
   Sun,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -122,6 +123,10 @@ function buildNavItems(active: Set<string>): NavItem[] {
        so it's useful to every account, not just those who already own a
        calculator or TradeLine. */
     { label: "Your AI assistant", href: "/portal/ai-assistant", icon: Sparkles },
+    /* Marketing Hub — the "growth engine" front door. Always visible (ungated):
+       the hub itself shows owned products as "Open" and the rest as add-ons, so
+       it's useful to every account as a discovery surface. */
+    { label: "Marketing", href: "/portal/marketing", icon: Rocket },
     /* Service-gated product tabs — only shown when the client has the matching
        subscription (Q17). Labels use the canonical product brand name (premium
        SaaS brand consistency) — customers see these brand names in billing,
