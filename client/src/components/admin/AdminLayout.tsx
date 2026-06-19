@@ -52,6 +52,7 @@ import {
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useTheme } from "@/context/ThemeContext";
 import { useHoverIntent } from "@/hooks/useHoverIntent";
+import NotificationsBell from "./NotificationsBell";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
@@ -1517,6 +1518,10 @@ export default function AdminLayout({
             >
               <Sparkles className="w-4 h-4" />
             </Button>
+            {/* Top-bar notifications bell — wired to the existing system
+             *  alerts feed (/api/admin/alerts). Admin-only: the portal has no
+             *  comparable notification feed (its endpoint is opt-in settings). */}
+            <NotificationsBell />
             {/* Enriched account / settings menu — opens on hover (with
              *  intent) and stays click- + keyboard-accessible. The day/night
              *  toggle now lives INSIDE this menu rather than as a separate
