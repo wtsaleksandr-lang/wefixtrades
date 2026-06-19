@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight, Repeat, UserPlus, UserMinus } from "lucide-react";
+import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight, Repeat, UserPlus, UserMinus, Inbox, FileText, Calendar, ChevronRight } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -700,6 +701,307 @@ function QuoteQuickProductCard() {
   );
 }
 
+/* ─── Time-of-day greeting ───
+   "Good morning/afternoon/evening, {name}" — Jobber-style personalized
+   header. Falls back to the email local-part, then a neutral greeting, so
+   we never render "Good morning, null". */
+function greetingForHour(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function DashboardGreeting() {
+  const { user } = useAuth();
+  const firstName =
+    user?.name?.trim().split(/\s+/)[0] ||
+    user?.email?.split("@")[0] ||
+    null;
+  const greeting = greetingForHour(new Date().getHours());
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-foreground">
+        {greeting}{firstName ? `, ${firstName}` : ""}
+      </h2>
+      <p className="text-sm text-muted-foreground mt-0.5">Here's your business at a glance</p>
+    </div>
+  );
+}
+
+/* ─── Workflow row (Jobber-inspired) ───
+   Four lifecycle cards — Requests/Leads, Quotes (QuoteQuick), Jobs
+   (BookFlow appointments), Invoices — each a big count + 1–3 sub-status
+   quick-links to the relevant admin route. Data is sourced from EXISTING
+   endpoints only; a card renders a graceful skeleton/zero state when its
+   slice hasn't loaded rather than inventing numbers. On-brand WeFixTrades
+   cards (rounded, soft shadow, brand accents) — not a Jobber visual clone. */
+interface WorkflowSubLink {
+  label: string;
+  href: string;
+  count?: number;
+  emphasize?: boolean;
+}
+
+function WorkflowCard({
+  icon: Icon,
+  label,
+  value,
+  href,
+  color,
+  isLoading,
+  subLinks,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  href: string;
+  color: string;
+  isLoading: boolean;
+  subLinks: WorkflowSubLink[];
+}) {
+  return (
+    <Card className="h-full p-4 flex flex-col transition-all duration-150 hover:border-input hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <Link href={href} className="block">
+              <p className="text-2xl font-semibold text-foreground mt-1 hover:text-brand-blue transition-colors">{value}</p>
+            </Link>
+          )}
+        </div>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+          <Icon className="w-5 h-5 text-white" />
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+        {subLinks.map((sl) => (
+          <Link
+            key={sl.label}
+            href={sl.href}
+            className="flex items-center justify-between gap-2 text-xs text-muted-foreground hover:text-brand-blue transition-colors group"
+          >
+            <span className={`truncate ${sl.emphasize ? "font-medium text-foreground" : ""}`}>{sl.label}</span>
+            <span className="flex items-center gap-0.5 shrink-0">
+              {isLoading ? (
+                <Skeleton className="h-3 w-4" />
+              ) : (
+                sl.count != null && <span className="font-semibold tabular-nums">{sl.count}</span>
+              )}
+              <ChevronRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-brand-blue" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+interface AdminRecentBooking {
+  id: number;
+  date: string | null;
+  time: string | null;
+  customer_name: string;
+  service: string | null;
+  status: string;
+}
+interface AdminRecentBookingsResponse {
+  data: AdminRecentBooking[];
+  total: number;
+}
+
+function AdminWorkflowRow({ overview, overviewLoading }: { overview: Overview | undefined; overviewLoading: boolean }) {
+  // QuoteQuick slice — active calculators + leads this month (existing endpoints).
+  const { data: qqOverview, isLoading: qqOverviewLoading } = useQuery<QQOverviewResponse>({
+    queryKey: ["/api/admin/crm/quotequick/overview"],
+    queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/overview").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const { data: qqTrend, isLoading: qqTrendLoading } = useQuery<QQTrendResponse>({
+    queryKey: ["/api/admin/crm/quotequick/trends"],
+    queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/trends").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  // Jobs/Bookings slice — unified BookFlow appointments (existing admin endpoint).
+  const { data: bookings, isLoading: bookingsLoading } = useQuery<AdminRecentBookingsResponse>({
+    queryKey: ["/api/admin/booking/recent"],
+    queryFn: () => apiRequest("GET", "/api/admin/booking/recent?limit=200").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const calculators = qqOverview?.calculators ?? [];
+  const activeCalculators = calculators.filter((c) => c.status === "live").length;
+  const draftCalculators = calculators.filter((c) => c.status !== "live").length;
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const leadsThisMonth = (qqTrend?.trend ?? []).reduce((acc, d) => {
+    const dt = new Date(d.date);
+    return dt >= monthStart ? acc + d.count : acc;
+  }, 0);
+
+  const rows = bookings?.data ?? [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todaysJobs = rows.filter((b) => b.date === todayStr).length;
+  const upcomingJobs = rows.filter((b) => (b.date ?? "") > todayStr).length;
+  const pendingJobs = rows.filter((b) => b.status === "pending").length;
+
+  const formatCurrency = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-foreground">Workflow</h3>
+        <p className="text-[11px] text-muted-foreground/70">Requests → quotes → jobs → invoices</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Requests / Leads — onboarding submissions + open tasks (admin overview) */}
+        <WorkflowCard
+          icon={Inbox}
+          label="Requests"
+          value={overview?.pendingOnboarding ?? 0}
+          href="/admin/crm/inbox"
+          color="bg-amber-500"
+          isLoading={overviewLoading}
+          subLinks={[
+            { label: "Awaiting onboarding", href: "/admin/crm/inbox", count: overview?.pendingOnboarding, emphasize: true },
+            { label: "Open tasks", href: "/admin/crm/inbox", count: overview?.openFulfillment },
+          ]}
+        />
+        {/* Quotes — QuoteQuick calculators + leads captured this month */}
+        <WorkflowCard
+          icon={Calculator}
+          label="Quotes"
+          value={activeCalculators}
+          href="/admin/crm/quotequick"
+          color="bg-brand-blue"
+          isLoading={qqOverviewLoading || qqTrendLoading}
+          subLinks={[
+            { label: "Live calculators", href: "/admin/crm/quotequick", count: activeCalculators, emphasize: true },
+            { label: "Drafts / paused", href: "/admin/crm/quotequick", count: draftCalculators },
+            { label: "Leads this month", href: "/admin/crm/quotequick", count: leadsThisMonth },
+          ]}
+        />
+        {/* Jobs — BookFlow appointments across every origin */}
+        <WorkflowCard
+          icon={Calendar}
+          label="Jobs"
+          value={todaysJobs}
+          href="/admin/booking"
+          color="bg-violet-500"
+          isLoading={bookingsLoading}
+          subLinks={[
+            { label: "Today", href: "/admin/booking", count: todaysJobs, emphasize: true },
+            { label: "Upcoming", href: "/admin/booking", count: upcomingJobs },
+            { label: "Pending confirm", href: "/admin/booking", count: pendingJobs },
+          ]}
+        />
+        {/* Invoices — outstanding balance (admin overview) */}
+        <WorkflowCard
+          icon={FileText}
+          label="Invoices"
+          value={overviewLoading ? "—" : formatCurrency(overview?.unpaidAmount ?? 0)}
+          href="/admin/crm/billing"
+          color="bg-red-500"
+          isLoading={overviewLoading}
+          subLinks={[
+            { label: "Unpaid balance", href: "/admin/crm/billing", emphasize: true },
+            { label: "View billing", href: "/admin/crm/billing" },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Today's appointments panel (admin) ───
+   Reads the unified BookFlow appointments via the existing
+   /api/admin/booking/recent endpoint, filters to today, and lists them in
+   start-time order. Graceful empty-state with a CTA to the schedule when
+   the day is clear. */
+function TodaysAppointmentsPanel() {
+  const { data, isLoading } = useQuery<AdminRecentBookingsResponse>({
+    queryKey: ["/api/admin/booking/recent"],
+    queryFn: () => apiRequest("GET", "/api/admin/booking/recent?limit=200").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todays = (data?.data ?? [])
+    .filter((b) => b.date === todayStr)
+    .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+
+  const formatTime = (t: string | null) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    if (Number.isNaN(h)) return t;
+    const d = new Date();
+    d.setHours(h, m || 0, 0, 0);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  };
+
+  return (
+    <Card className="h-full p-0 overflow-hidden">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center">
+            <Calendar className="w-3.5 h-3.5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Today's appointments
+              {!isLoading && todays.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blue-100 text-brand-blue-700 text-[10px] font-bold">
+                  {todays.length}
+                </span>
+              )}
+            </h3>
+            <p className="text-[10px] text-muted-foreground/70">Scheduled BookFlow jobs for today</p>
+          </div>
+        </div>
+        <Link href="/admin/booking">
+          <span className="text-xs text-brand-blue font-medium hover:underline">View schedule</span>
+        </Link>
+      </div>
+      <div className="p-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : todays.length === 0 ? (
+          <div className="text-center py-6">
+            <Calendar className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No appointments scheduled today.</p>
+            <Link href="/admin/booking" className="text-xs text-brand-blue hover:underline mt-1 inline-block">
+              Open the schedule →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todays.map((appt) => (
+              <Link key={appt.id} href="/admin/booking">
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5 hover:bg-muted transition-colors cursor-pointer">
+                  <div className="flex flex-col items-center justify-center min-w-[52px] shrink-0">
+                    <span className="text-sm font-semibold text-foreground tabular-nums">{formatTime(appt.time)}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{appt.customer_name}</p>
+                    {appt.service && <p className="text-[11px] text-muted-foreground truncate">{appt.service}</p>}
+                  </div>
+                  <StatusBadge status={appt.status} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function CrmOverview() {
   usePageTitle("Overview");
   const { data, isLoading } = useQuery<Overview>({
@@ -726,10 +1028,12 @@ export default function CrmOverview() {
         {/* Wave 141 — system health surfaces, pinned to the very top. */}
         <SystemHealthPanel />
 
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Operations Overview</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Your business at a glance</p>
-        </div>
+        {/* Time-of-day greeting (Jobber-style personalized header) */}
+        <DashboardGreeting />
+
+        {/* Workflow row — Jobber-inspired lifecycle cards (Requests → Quotes
+            → Jobs → Invoices), each linking into the relevant admin surface. */}
+        <AdminWorkflowRow overview={data} overviewLoading={isLoading} />
 
         {/* Headline subscription KPIs — recurring-revenue health with MoM
             trend. MRR is recurring (active monthly subs); Collected is cash
@@ -785,8 +1089,11 @@ export default function CrmOverview() {
           <OpsIntelligenceWidget />
         </div>
 
-        {/* QA Queue */}
-        <QaQueueWidget />
+        {/* Today's appointments (BookFlow) + QA Queue side-by-side */}
+        <div className="grid auto-rows-fr md:grid-cols-2 gap-4">
+          <TodaysAppointmentsPanel />
+          <QaQueueWidget />
+        </div>
 
         {/* Bottom panels */}
         <div className="grid auto-rows-fr md:grid-cols-2 gap-4">
