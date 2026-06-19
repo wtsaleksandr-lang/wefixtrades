@@ -48,6 +48,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
+import NotificationsBell from "./NotificationsBell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
@@ -1506,6 +1507,11 @@ export default function AdminLayout({
             >
               <Sparkles className="w-4 h-4" />
             </Button>
+            {/* Top-bar notifications bell — wired to the existing system
+             *  alerts feed (/api/admin/alerts). Sits next to the assistant
+             *  + theme controls. Admin-only: the portal has no comparable
+             *  notification feed (its endpoint is opt-in settings only). */}
+            <NotificationsBell />
             {/* Day / night / system theme toggle — sits next to the
              *  user menu so the affordance is discoverable but doesn't
              *  compete with the Quick Add primary CTA. */}
