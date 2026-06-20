@@ -1185,9 +1185,9 @@ async function renderOne(m,c,show){
   if(window.__matInflight[key]){ const u=await window.__matInflight[key]; if(show&&u) showMatImg(key,label); return u; }
   if(show){ $("aiPhoto").style.display="block"; matLoading(true,c.n); }
   const pr=(async()=>{ try{ const r=await fetch("/airender?tier=browse&address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(c.p)); const j=await r.json();
-    if(j&&j.url){ window.__matRenders[key]=j.url; markColReady(key); return j.url; } }catch(_){} return null; })();
+    if(j&&j.url){ if(!window.__matFinal[key]) window.__matRenders[key]=j.url; markColReady(key); return j.url; } }catch(_){} return null; })();   // don't let a late browse render clobber a settled gpt-image-1 (final) one
   window.__matInflight[key]=pr; const url=await pr; delete window.__matInflight[key];
-  if(url){ if(show) showMatImg(key,label); }
+  if(url){ if(show&&!window.__matFinal[key]) showMatImg(key,label); }   // final (gpt) already on screen → don't redisplay the cheaper browse image
   else if(show){ matLoading(false); setStatus("Couldn't render "+c.n+" — try again",true); setTimeout(()=>setStatus(""),3000); }
   return url;
 }
