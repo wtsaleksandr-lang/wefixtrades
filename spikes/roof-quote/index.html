@@ -1,0 +1,1155 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WeFixTrades — Roof & Solar 3D</title>
+<script src="https://maps.googleapis.com/maps/api/js?key=__TILES__&libraries=places"></script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.122/Build/Cesium/Cesium.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/cesium@1.122/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/geotiff/dist-browser/geotiff.js"></script>
+<style>
+:root{--ink:#0f172a;--blue:#0d3cfc;--line:rgba(15,23,42,.08)}
+html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:#0b1120;color:var(--ink)}
+*{box-sizing:border-box}
+/* dashed-grid design-canvas backdrop behind everything */
+#grid{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-color:#0b1120;
+  background-image:
+    radial-gradient(circle at 50% 40%,rgba(28,42,82,.55),rgba(11,17,32,0) 60%),
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:auto,28px 28px,28px 28px;
+  background-position:center,center,center}
+#c{position:absolute;inset:0;z-index:1}
+.cesium-viewer-bottom,.cesium-credit-textContainer{display:none!important}
+.cesium-widget-credits{display:none!important}
+
+/* ANALYSIS (top-down) layer — sits above the 3D viewer, below the UI chrome.
+   Hidden by default; shown when mode === "analysis". */
+#analysis{position:absolute;inset:0;z-index:5;display:none;background:#0b1120;
+  align-items:center;justify-content:center;overflow:hidden}
+#analysis.show{display:flex}
+#anaCanvas{max-width:100%;max-height:100%;image-rendering:auto;
+  box-shadow:0 24px 80px rgba(2,6,23,.6);border-radius:8px;background:#0b1120}
+#anaMsg{position:absolute;color:#cbd5e1;font-size:14px;text-align:center;max-width:340px;
+  background:rgba(15,23,42,.7);padding:14px 18px;border-radius:14px;backdrop-filter:blur(6px);display:none}
+#anaMsg.show{display:block}
+#anaLegend{position:absolute;left:16px;bottom:16px;z-index:6;display:none;
+  background:rgba(255,255,255,.95);border-radius:12px;padding:10px 12px;
+  box-shadow:0 8px 24px rgba(2,6,23,.35);font-size:11px;color:#0f172a}
+#anaLegend.show{display:block}
+#anaLegend .lt{font-weight:700;margin-bottom:6px;letter-spacing:.4px;text-transform:uppercase;font-size:10px;color:#475569}
+#anaLegend .lbar{width:150px;height:10px;border-radius:6px;
+  background:linear-gradient(90deg,#3b1f8f,#2563eb,#10b981,#facc15,#f97316,#dc2626)}
+#anaLegend .lends{display:flex;justify-content:space-between;margin-top:3px;color:#64748b}
+
+/* MODE switch (3D Explore <-> Analysis) — top-left pill */
+.modeSwitch{position:absolute;top:18px;left:18px;z-index:31;display:flex;gap:0;
+  background:rgba(255,255,255,.96);border-radius:999px;padding:4px;
+  box-shadow:0 14px 44px rgba(2,6,23,.45),0 0 0 1px rgba(255,255,255,.4) inset;backdrop-filter:blur(8px)}
+.modeSwitch button{border:0;background:transparent;color:#475569;font-weight:700;font-size:12px;
+  padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.modeSwitch button.on{background:var(--blue);color:#fff}
+.modeSwitch button[disabled]{opacity:.45;cursor:default}
+
+/* TOP-CENTER search bar */
+.bar{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:30;display:flex;gap:8px;
+  align-items:center;background:rgba(255,255,255,.96);padding:7px 7px 7px 16px;border-radius:999px;
+  box-shadow:0 14px 44px rgba(2,6,23,.45),0 0 0 1px rgba(255,255,255,.4) inset;backdrop-filter:blur(8px);width:min(560px,92vw)}
+.bar .pin{width:18px;height:18px;flex:0 0 auto;opacity:.55}
+.bar input{flex:1;height:42px;border:0;outline:0;background:transparent;font-size:15px;color:var(--ink);min-width:0}
+.bar input::placeholder{color:#94a3b8}
+.bar button{height:42px;border:0;border-radius:999px;padding:0 22px;background:var(--blue);color:#fff;font-weight:700;font-size:14px;cursor:pointer;flex:0 0 auto;transition:filter .15s}
+.bar button:hover{filter:brightness(1.08)}
+.pac-container{border-radius:14px;margin-top:8px;box-shadow:0 18px 50px rgba(2,6,23,.4);border:0;font-family:inherit;z-index:9999}
+
+/* LEFT foldable side panel */
+.side{position:absolute;top:0;left:0;bottom:0;z-index:25;width:300px;max-width:84vw;
+  transform:translateX(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex}
+.side.open{transform:translateX(0)}
+.sideInner{flex:1;height:100%;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);
+  box-shadow:18px 0 50px rgba(2,6,23,.35);display:flex;flex-direction:column;overflow:hidden}
+.sideTabsCol{position:absolute;top:50%;left:300px;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
+.side:not(.open) .sideTabsCol{left:0}
+.edgeTab{writing-mode:vertical-rl;background:rgba(255,255,255,.97);color:var(--ink);border:0;
+  padding:14px 7px;border-radius:0 12px 12px 0;font-weight:700;font-size:12px;letter-spacing:.5px;cursor:pointer;
+  box-shadow:6px 0 18px rgba(2,6,23,.25);white-space:nowrap}
+.edgeTab.active{background:var(--blue);color:#fff}
+.edgeTab[disabled]{opacity:.4;cursor:default}
+/* Reopen handle — sibling of .side so it is NOT swept off-screen by the panel's translate.
+   Visible only while the panel is collapsed; a clear chevron tab on the left edge. */
+.reopenTab{position:absolute;top:50%;left:0;transform:translateY(-50%);z-index:26;
+  display:none;align-items:center;gap:6px;
+  background:var(--blue);color:#fff;border:0;cursor:pointer;
+  padding:16px 10px;border-radius:0 14px 14px 0;font-weight:800;font-size:13px;letter-spacing:.5px;
+  box-shadow:8px 0 22px rgba(2,6,23,.4);writing-mode:vertical-rl}
+.reopenTab.show{display:flex}
+.reopenTab .chev{writing-mode:horizontal-tb;font-size:18px;line-height:1}
+.sideHead{padding:18px 18px 12px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between}
+.sideHead h3{margin:0;font-size:16px}.sideHead .sub{font-size:11px;color:#64748b;margin-top:3px}
+.foldBtn{border:0;background:#eef2ff;color:var(--blue);width:28px;height:28px;border-radius:8px;font-size:16px;cursor:pointer;line-height:1}
+.tag{display:inline-block;background:#eaf0ff;color:var(--blue);font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px}
+.sideBody{padding:14px 18px;overflow:auto;flex:1}
+.row{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.row:first-child{border-top:0}.row b{font-weight:700}.k{color:#475569}
+.toggle{display:flex;gap:6px;margin-top:14px}.toggle button{flex:1;font-size:11px;padding:8px;border-radius:9px;border:1px solid #dbe2ea;background:#fff;cursor:pointer}
+.toggle button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.loading{font-size:12px;color:#64748b}
+#roofcard{margin-top:16px}
+.roofSum{background:#0d3cfc;background:linear-gradient(135deg,#0d3cfc,#1e40af);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 24px rgba(13,60,252,.3)}
+.roofSum .rsTitle{font-size:11px;font-weight:700;letter-spacing:.6px;opacity:.85;text-transform:uppercase}
+.roofSum .rsBig{font-size:24px;font-weight:800;margin-top:4px;line-height:1.1}
+.roofSum .rsSub{font-size:12px;opacity:.92;margin-top:2px}
+.roofSum .rsGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.roofSum .rsCell{background:rgba(255,255,255,.14);border-radius:9px;padding:7px 10px}
+.roofSum .rsCell .l{font-size:10px;opacity:.85;text-transform:uppercase;letter-spacing:.4px}
+.roofSum .rsCell .v{font-size:15px;font-weight:700;margin-top:1px}
+.roofSum .rsCost{margin-top:12px;background:rgba(255,255,255,.95);color:#0d3cfc;border-radius:10px;padding:10px 12px;text-align:center}
+.roofSum .rsCost .l{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#475569}
+.roofSum .rsCost .v{font-size:22px;font-weight:800;margin-top:1px}
+.facetList{margin-top:12px}
+.facetList .fHdr{font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.facetRow{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px solid var(--line)}
+.facetRow:first-of-type{border-top:0}.facetRow .fn{color:#64748b}.facetRow b{font-weight:700}
+.placeholderTab{font-size:12px;color:#94a3b8;padding:8px 0}
+
+/* nav button cluster bottom-right */
+.nav{position:absolute;right:16px;bottom:16px;z-index:30;display:grid;
+  grid-template-columns:repeat(3,40px);gap:6px}
+.nav button{width:40px;height:40px;border:0;border-radius:11px;background:rgba(255,255,255,.95);
+  color:var(--ink);font-size:17px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,.35);
+  display:flex;align-items:center;justify-content:center;transition:transform .1s,filter .15s}
+.nav button:hover{filter:brightness(.96)}.nav button:active{transform:scale(.92)}
+.nav .spacer{visibility:hidden}
+.nav .accent{background:var(--blue);color:#fff}
+.nav button.on{background:var(--blue);color:#fff}
+#nAuto{font-size:13px}
+
+.hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:20;color:#cbd5e1;font-size:12px;
+  background:rgba(15,23,42,.6);padding:7px 14px;border-radius:999px;backdrop-filter:blur(6px)}
+.side.open ~ .hint{left:calc(50% + 150px)}
+
+/* ===================== MOBILE: left panel -> BOTTOM SHEET ===================== */
+@media (max-width:768px){
+  /* Search: full-width with margins, never overflow */
+  .bar{top:10px;left:12px;right:12px;transform:none;width:auto;padding:6px 6px 6px 14px}
+  .bar input{height:40px;font-size:14px}
+  .bar button{height:40px;padding:0 16px}
+
+  /* Hide the desktop edge-tab column + reopen handle on mobile (tabs move into the sheet) */
+  .sideTabsCol,.reopenTab{display:none!important}
+  .side:not(.open) .sideTabsCol{display:none!important}
+
+  /* Convert the left panel into a bottom sheet pinned to the bottom of the screen. */
+  .side{top:auto;left:0;right:0;bottom:0;width:100%;max-width:100%;height:auto;
+    transform:none!important;transition:none;display:block;pointer-events:none}
+  .sideInner{height:auto;max-height:82vh;border-radius:18px 18px 0 0;overflow:hidden;
+    box-shadow:0 -14px 44px rgba(2,6,23,.45);pointer-events:auto;
+    display:flex;flex-direction:column;
+    /* Collapsed (peek) by default: only the grab-handle + head peek above the fold. */
+    transform:translateY(calc(100% - var(--peek,128px)));
+    transition:transform .34s cubic-bezier(.4,0,.2,1)}
+  .side.expanded .sideInner{transform:translateY(0)}
+
+  /* Grab handle at the very top of the sheet (drag/tap target) */
+  .sheetGrab{display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:8px 0 4px;cursor:grab;touch-action:none;flex:0 0 auto}
+  .sheetGrab .bar2{width:42px;height:5px;border-radius:99px;background:#cbd5e1}
+
+  /* Sheet head: compact, stays in the peek zone */
+  .sideHead{padding:4px 16px 12px}
+  .sideHead h3{font-size:15px}
+  .foldBtn{display:none}            /* desktop collapse arrow not used on mobile */
+
+  /* Mode toggle (Solar/Roof) shown in the peek so it's reachable while collapsed */
+  #modetoggle{margin-top:10px!important}
+  .toggle button{padding:10px;font-size:12px}
+
+  .sideBody{padding:8px 16px 18px;-webkit-overflow-scrolling:touch}
+
+  /* In-sheet tab strip (replaces vertical edge tabs) */
+  .sheetTabs{display:flex;gap:6px;padding:0 16px 4px;flex:0 0 auto}
+  .sheetTabs button{flex:1;font-size:11px;font-weight:700;letter-spacing:.4px;
+    padding:9px 6px;border-radius:10px;border:1px solid #dbe2ea;background:#fff;color:var(--ink);cursor:pointer}
+  .sheetTabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+  /* Nav cluster: lift it above the collapsed sheet, right side, reachable by thumb */
+  .nav{right:12px;bottom:calc(var(--peek,128px) + 14px);
+    grid-template-columns:repeat(3,42px);gap:6px;
+    transition:opacity .25s, transform .25s}
+  .nav button{width:42px;height:42px}
+  /* When the sheet is expanded it covers the lower-right zone — fade the nav out so it
+     never overlaps the report rows; it returns as soon as the sheet collapses. */
+  .side.expanded ~ .nav{opacity:0;pointer-events:none;transform:translateY(10px)}
+
+  .hint{display:none}              /* desktop mouse-gesture hint not relevant on touch */
+
+  /* Mode switch drops below the full-width search bar on mobile so they don't overlap. */
+  .modeSwitch{top:60px;left:12px}
+  #anaLegend{left:12px;bottom:calc(var(--peek,128px) + 14px)}
+}
+/* Desktop: never show the mobile-only in-sheet tab strip / grab */
+.sheetTabs,.sheetGrab{display:none}
+@media (max-width:768px){ .sheetTabs,.sheetGrab{display:flex} }
+</style></head><body>
+<div id="grid"></div>
+<div id="c"></div>
+
+<!-- ANALYSIS (top-down) layer -->
+<div id="analysis">
+  <canvas id="anaCanvas"></canvas>
+  <div id="anaMsg"></div>
+</div>
+<div id="anaLegend">
+  <div class="lt">Annual sun (flux)</div>
+  <div class="lbar"></div>
+  <div class="lends"><span>Low shade</span><span>High sun</span></div>
+</div>
+
+<!-- MODE switch: 3D Explore <-> Analysis -->
+<div class="modeSwitch" id="modeSwitch">
+  <button id="modeExplore" class="on">3D Explore</button>
+  <button id="modeAnalysis" disabled title="Search an address first">Analysis</button>
+</div>
+
+<!-- TOP-CENTER search -->
+<div class="bar">
+  <svg class="pin" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+  <input id="addr" placeholder="Enter a property address..." autocomplete="off"/>
+  <button id="go">Search</button>
+</div>
+
+<!-- LEFT foldable side panel -->
+<div class="side" id="side">
+  <div class="sideInner">
+    <div class="sheetGrab" id="sheetGrab"><div class="bar2"></div></div>
+    <div class="sideHead">
+      <div><span class="tag">ROOF &amp; SOLAR</span><h3 style="margin-top:8px">Property Report</h3><div class="sub" id="rsub">Search an address to begin</div></div>
+      <button class="foldBtn" id="fold" title="Collapse">‹</button>
+    </div>
+    <div class="sheetTabs" id="sheetTabs">
+      <button class="active" data-tab="report">REPORT</button>
+      <button data-tab="shading">SHADING</button>
+      <button data-tab="panels">PANELS</button>
+    </div>
+    <div class="sideBody">
+      <div id="tab-report">
+        <div id="rbody"><div class="loading">No property analyzed yet. Search an address top-center to load its roof &amp; solar report.</div></div>
+        <div id="exploreHint" style="display:none;margin-top:14px;font-size:11.5px;line-height:1.45;color:#475569;background:#eef2ff;border:1px solid #dbe2ea;border-radius:10px;padding:10px 12px">
+          <b style="color:#0d3cfc">3D photoreal view.</b> Switch to <b>Analysis</b> (top-left) for accurate roof measurements &amp; solar layout — the panels &amp; facets register pixel-perfect on the high-res top-down imagery there.
+        </div>
+        <div class="toggle" id="modetoggle" style="display:none;margin-top:16px"><button id="mSolar" class="on">Solar panels</button><button id="mRoof">Roof measurement</button></div>
+        <div id="roofcard" style="display:none"></div>
+      </div>
+      <div id="tab-shading" style="display:none"><div class="placeholderTab">Annual sun-exposure (flux) heatmap — rendered on the high-resolution top-down roof imagery in <b>Analysis</b> view (opens automatically). Low-shade areas in blue, high-sun in orange/red.</div></div>
+      <div id="tab-panels" style="display:none"><div class="placeholderTab">Recommended panel layout — rendered exactly on the top-down roof imagery in <b>Analysis</b> view (opens automatically, no drift).</div></div>
+    </div>
+  </div>
+  <div class="sideTabsCol">
+    <button class="edgeTab active" data-tab="report" id="edge-report">REPORT</button>
+    <button class="edgeTab" data-tab="shading">SHADING</button>
+    <button class="edgeTab" data-tab="panels">PANELS</button>
+  </div>
+</div>
+
+<!-- Reopen handle (sibling of .side; visible only when the panel is collapsed) -->
+<button class="reopenTab" id="reopenTab" title="Open report panel"><span class="chev">›</span>REPORT</button>
+
+<!-- NAV cluster -->
+<div class="nav">
+  <button class="spacer"></button><button id="nAuto" title="Auto-rotate (off)">↻⟳</button><button class="spacer"></button>
+  <button class="spacer"></button><button id="nTiltUp" title="Tilt up">▲</button><button class="spacer"></button>
+  <button id="nRotL" title="Rotate left">↺</button><button id="nReset" class="accent" title="Reset / North up">⌂</button><button id="nRotR" title="Rotate right">↻</button>
+  <button id="nZoomOut" title="Zoom out">−</button><button id="nTiltDn" title="Tilt down">▼</button><button id="nZoomIn" title="Zoom in">+</button>
+</div>
+
+<div class="hint">Left-drag to pan · scroll to zoom · right-drag to orbit · middle-drag to tilt</div>
+
+<script>
+window.CESIUM_BASE_URL="https://cdn.jsdelivr.net/npm/cesium@1.122/Build/Cesium/";
+const TILES="__TILES__"; let viewer; const panelEnts=[]; const roofEnts=[];
+const M2_TO_SQFT=10.7639, PRICE_PER_SQUARE=450;
+let lastSegs=null, currentMode="solar"; // "solar" | "roof"
+let panelsVisible=true; // Fix 4: panels can be toggled off within solar mode
+let roofMeanHeight=0; // mean planeHeightAtCenter of facets — camera centers here in roof mode
+const pitchX12=deg=>Math.round(Math.tan((deg||0)*Math.PI/180)*12);
+const fmt=n=>Math.round(n).toLocaleString();
+let autoRotate=false, autoTarget=null, autoStartTime=0;
+// Fix 3: store the analyzed building lat/lng AT SEARCH-RESOLVE TIME so Analysis mode can load
+// dataLayers immediately — independent of the flyOverhead flight-complete callback (which sets
+// autoTarget ~2s later and used to make setViewMode("analysis") early-return / never load).
+let analyzedLatLng=null;
+let spinTimer=null;
+
+/* ---------- ANALYSIS (top-down) state ---------- */
+let viewMode="explore";          // "explore" (3D tiles) | "analysis" (top-down ortho)
+let anaData=null;                // { bbox:[w,s,e,n], rgb:ImageData, flux:{vals,w,h,min,max}, w,h }
+let anaBusyKey=null;             // de-dupes concurrent fetches for the same address
+let anaActiveTab="report";       // which left/sheet tab is selected (drives the overlay)
+const anaCanvas=document.getElementById("anaCanvas");
+const anaLayer=document.getElementById("analysis");
+const anaMsg=document.getElementById("anaMsg");
+const anaLegend=document.getElementById("anaLegend");
+
+const addrEl=document.getElementById("addr");
+const ac=new google.maps.places.Autocomplete(addrEl,{types:["address"],componentRestrictions:{country:["us","ca"]},fields:["geometry","formatted_address"]});
+
+(async()=>{
+  Cesium.GoogleMaps.defaultApiKey=TILES;
+  // Construct exactly like the known-good original (globe:false) to avoid the 1.122
+  // default-imagery construction crash, then enable a globe + satellite base afterward.
+  window.viewer=viewer=new Cesium.Viewer("c",{
+    globe:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false,
+    timeline:false, animation:false, navigationHelpButton:false, infoBox:false, selectionIndicator:false,
+    fullscreenButton:false
+  });
+  // Enable a globe with tokenless satellite imagery so the zoomed-out Earth looks clean.
+  try{
+    const globe=new Cesium.Globe(Cesium.Ellipsoid.WGS84);
+    viewer.scene.globe=globe;
+    const sat=await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+      "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer");
+    viewer.imageryLayers.addImageryProvider(sat);
+    globe.showGroundAtmosphere=true;
+  }catch(e){console.warn("globe/imagery",e);}
+  viewer.scene.skyAtmosphere.show=true;
+  viewer.scene.backgroundColor=Cesium.Color.fromCssColorString("#0b1120");
+  // Photoreal 3D tiles overlay (renders the close-up buildings)
+  try{
+    const ts=await Cesium.createGooglePhotorealistic3DTileset();
+    // Lower SSE so the (now zoomed-OUT, Fix 1) overhead still streams sharp building detail
+    // instead of a smeared low-LOD surface at ~200m camera height.
+    ts.maximumScreenSpaceError=8;
+    viewer.scene.primitives.add(ts);
+  }catch(e){console.warn("tileset",e);}
+
+  // DRAG-TO-PAN (Fix 1): with a GLOBE present, Cesium's *default* left-drag spins the
+  // globe under the cursor — which, looking straight down on a roof, reads exactly like
+  // panning a Google-Maps tile. So rather than rebind translate (which fights the globe
+  // and only kicks in once the lookAt transform is locked), we RESTORE the default
+  // `rotateEventTypes = LEFT_DRAG` for pan, and move true orbit/tilt off the left button.
+  //   left-drag           -> pan (globe-spin)
+  //   right-drag / ctrl+L  -> orbit (true camera rotate around the scene)
+  //   middle-drag / ctrl+R -> tilt
+  //   wheel / pinch        -> zoom
+  const ssc=viewer.scene.screenSpaceCameraController;
+  ssc.rotateEventTypes=Cesium.CameraEventType.LEFT_DRAG;              // left-drag = pan (globe spin, top-down)
+  ssc.translateEventTypes=[];                                         // no separate translate binding (globe handles pan)
+  ssc.tiltEventTypes=[Cesium.CameraEventType.MIDDLE_DRAG,
+                      { eventType:Cesium.CameraEventType.RIGHT_DRAG, modifier:Cesium.KeyboardEventModifier.CTRL }];
+  ssc.zoomEventTypes=[Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.PINCH];
+  ssc.lookEventTypes=[{ eventType:Cesium.CameraEventType.LEFT_DRAG, modifier:Cesium.KeyboardEventModifier.CTRL }];
+
+  // ---- GOOGLE-MAPS-FEEL TUNING ----
+  // Inertia: glide-and-ease after release so dragging/zoom feels like sliding the map, not stiff.
+  ssc.inertiaTranslate=0.88;
+  ssc.inertiaSpin=0.85;
+  ssc.inertiaZoom=0.85;
+  // Zoom toward the cursor (Google-Maps-style zoom-to-point), smooth not jumpy.
+  ssc.zoomFactor=4.5;                       // gentler per-notch zoom (default 5 is jumpy)
+  ssc._zoomFactor=4.5;
+  ssc.enableZoomTuning=true;                // 1.x: keep cursor point fixed while zooming
+  // Min/max zoom: ~6m floor so you can inspect a roof but never fly underground; cap the ceiling.
+  ssc.minimumZoomDistance=6;
+  ssc.maximumZoomDistance=18_000_000;
+  ssc.enableCollisionDetection=true;        // don't clip through the ground
+  // Slightly damp wheel sensitivity for a natural, smooth wheel-zoom.
+  ssc._maximumZoomRate=ssc._maximumZoomRate||5906376272000;
+
+  // DEFAULT VIEW: planet, centered on North America, far out in space.
+  viewer.camera.setView({
+    destination:Cesium.Cartesian3.fromDegrees(-100, 40, 14_000_000),
+    orientation:{heading:0, pitch:Cesium.Math.toRadians(-90), roll:0}
+  });
+
+  // auto-rotate tick
+  viewer.clock.onTick.addEventListener(()=>{
+    if(autoRotate && autoTarget){
+      viewer.camera.rotateRight(0.0016); // gentle orbit; camera lookAt transform keeps target centered
+    }
+  });
+})();
+
+/* ---------- camera helpers ---------- */
+// Position the camera looking at a point, THEN release the lookAt transform back to identity
+// so the screen-space controller (left-drag pan, right-drag orbit) can move freely.
+// If auto-rotate is engaged we keep the transform locked instead so the orbit stays centered.
+function setLookAt(lat,lng,height,rangeM,pitchDeg,headingDeg){
+  const center=Cesium.Cartesian3.fromDegrees(lng,lat,height||0);
+  viewer.camera.lookAt(center, new Cesium.HeadingPitchRange(
+    Cesium.Math.toRadians(headingDeg||0), Cesium.Math.toRadians(pitchDeg), rangeM));
+  // Release the transform unless we're actively orbiting — otherwise left-drag pan is blocked.
+  if(!autoRotate){ viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); }
+}
+
+/* gentle "spin toward" the typed location before commit (debounced) */
+function spinToward(lat,lng){
+  if(!viewer) return;
+  autoRotate=false; autoTarget=null;
+  viewer.camera.flyTo({
+    destination:Cesium.Cartesian3.fromDegrees(lng,lat,2_600_000),
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(-75),roll:0},
+    duration:1.4
+  });
+}
+
+/* arrive OVERHEAD on the building. Auto-rotate stays OFF by default (user toggles it). */
+function flyOverhead(lat,lng){
+  autoRotate=false;
+  // Center on the SOLAR BUILDING CENTER (lat/lng passed here is already j.center) and come
+  // in STRAIGHT TOP-DOWN (Fix 5) so we always look squarely down at the roof — never an
+  // angled view of the rear street. pitch≈-88° (essentially nadir), heading≈0 (north-up).
+  const center=Cesium.Cartesian3.fromDegrees(lng,lat,0);
+  const range=160, pitch=-88, heading=0;
+  viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(center,40),{
+    offset:new Cesium.HeadingPitchRange(Cesium.Math.toRadians(heading),Cesium.Math.toRadians(pitch),range),
+    duration:2.0,
+    complete:()=>{
+      // lock a lookAt transform on the building so an optional auto-rotate orbits AROUND it.
+      autoTarget={lat,lng,range,pitch};
+      setLookAt(lat,lng,0,range,pitch,heading);
+      // Default: sit STILL. autoRotate only turns on if the user pressed the toggle (kept across searches).
+      syncAutoRotateBtn();
+    }
+  });
+}
+
+/* ---------- panels ---------- */
+function clearPanels(){ panelEnts.forEach(e=>viewer.entities.remove(e)); panelEnts.length=0; }
+/* 3D-DRIFT FIX: panel entities are NO LONGER drawn on the photoreal mesh — they drift badly in
+   the oblique view. The accurate panels render only in the top-down Analysis canvas (drawn from
+   window._anaPanels / anaData.panels). This is now a no-op on the 3D tiles by design. */
+function drawPanels(panels,segs){
+  clearPanels();   // intentionally leaves panelEnts empty — no mesh overlay in 3D Explore
+}
+function _drawPanels_unused(panels,segs){
+  const W=1.045,H=1.879; // slightly subtler footprint
+  panels.forEach(p=>{ if(!p.center)return; const lat=p.center.latitude,lng=p.center.longitude;
+    const seg=segs[p.segmentIndex]||{}; const az=(seg.azimuthDegrees||0)*Math.PI/180;
+    // Place at the ROOF height of this segment rather than clamping to whatever (ground/tree) is below.
+    const roofH=(seg.planeHeightAtCenterMeters!=null)?seg.planeHeightAtCenterMeters:null;
+    const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
+    const land=p.orientation==="LANDSCAPE";
+    // 6% smaller + small inset so they read as panels, not slabs, despite residual dataset offset
+    const w=(land?H:W)/2*0.94, h=(land?W:H)/2*0.94;
+    const corners=[[-w,-h],[w,-h],[w,h],[-w,h]].map(c=>{ const x=c[0],y=c[1]; const rx=x*Math.cos(az)-y*Math.sin(az), ry=x*Math.sin(az)+y*Math.cos(az); return [lng+rx/mLng, lat+ry/mLat]; });
+    const poly={ material:Cesium.Color.fromCssColorString("#0b3d91").withAlpha(0.82),
+      outline:true, outlineColor:Cesium.Color.fromCssColorString("#9ec5ff") };
+    if(roofH!=null){
+      // absolute height = roof plane; build 3D positions at that height (no clamp to terrain/trees)
+      const pos=[]; corners.forEach(c=>{ pos.push(c[0],c[1],roofH); });
+      poly.hierarchy=Cesium.Cartesian3.fromDegreesArrayHeights(pos);
+      poly.perPositionHeight=true;
+    }else{
+      const pos=[]; corners.forEach(c=>{ pos.push(c[0],c[1]); });
+      poly.hierarchy=Cesium.Cartesian3.fromDegreesArray(pos);
+      poly.heightReference=Cesium.HeightReference.CLAMP_TO_3D_TILE;
+      poly.classificationType=Cesium.ClassificationType.CESIUM_3D_TILE;
+    }
+    panelEnts.push(viewer.entities.add({polygon:poly}));
+  });
+}
+
+/* ---------- roof measurement overlay ---------- */
+/* Fix 2: oriented facet geometry. Build a rectangle CENTERED on the segment center, sized
+   to the facet's true footprint area, with the bbox aspect ratio, then ROTATE it by the
+   roof azimuth. Returns [[lng,lat]x4] (sw→se→ne→nw winding around the oriented rect) or null.
+   The azimuth points DOWNSLOPE (the eave direction); the ridge runs perpendicular to it, so
+   we rotate the rectangle's local axes by az to align one side with the ridge. */
+function orientedFacetDims(seg){
+  const bb=seg.boundingBox; if(!bb||!bb.sw||!bb.ne) return null;
+  const ctr=seg.center||{latitude:(bb.sw.latitude+bb.ne.latitude)/2,longitude:(bb.sw.longitude+bb.ne.longitude)/2};
+  const lat0=ctr.latitude;
+  const mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
+  // bbox extent in meters -> aspect ratio (footprint shape proxy)
+  const bw=Math.abs(bb.ne.longitude-bb.sw.longitude)*mLng;
+  const bh=Math.abs(bb.ne.latitude-bb.sw.latitude)*mLat;
+  // true FLAT footprint area = sloped roof area * cos(pitch)
+  const slopeArea=(seg.stats&&seg.stats.areaMeters2)||(bw*bh)||1;
+  const pitch=(seg.pitchDegrees||0)*Math.PI/180;
+  const footArea=slopeArea*Math.cos(pitch);
+  // size a rectangle of the bbox aspect ratio so width*height == footArea
+  let aspect=(bh>0)?bw/bh:1; if(!isFinite(aspect)||aspect<=0) aspect=1;
+  const h=Math.sqrt(footArea/aspect);   // along-N local dim
+  const w=aspect*h;                      // along-E local dim
+  return {ctr,lat0,mLat,mLng,w,h};
+}
+function orientedFacetCornersLL(seg){
+  const d=orientedFacetDims(seg); if(!d) return null;
+  const az=(seg.azimuthDegrees||0)*Math.PI/180;
+  const ca=Math.cos(az), sa=Math.sin(az);
+  const hw=d.w/2, hh=d.h/2;
+  // local rect corners (E,N meters) rotated by azimuth, then -> lng/lat
+  return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y])=>{
+    const rx=x*ca - y*sa, ry=x*sa + y*ca;     // rotate
+    return [d.ctr.longitude+rx/d.mLng, d.ctr.latitude+ry/d.mLat];
+  });
+}
+function clearRoof(){ roofEnts.forEach(e=>viewer.entities.remove(e)); roofEnts.length=0; }
+function drawRoof(segs){
+  clearRoof();
+  if(!segs||!segs.length) return;
+  // mean roof-plane height — roof mode re-centers the camera here (still used for framing).
+  const hs=segs.map(s=>s.planeHeightAtCenterMeters).filter(h=>h!=null);
+  roofMeanHeight=hs.length?hs.reduce((a,b)=>a+b,0)/hs.length:0;
+  // 3D-DRIFT FIX: facet outline/label entities are NO LONGER drawn on the photoreal mesh —
+  // they drift in the oblique view. Accurate facets render only in the top-down Analysis
+  // canvas (renderAnalysis, REPORT tab). Keep roofMeanHeight above for camera framing; skip the mesh entities.
+  return;
+}
+function _drawRoof_unused(segs){
+  segs.forEach((seg,i)=>{
+    const bb=seg.boundingBox; if(!bb||!bb.sw||!bb.ne) return;
+    const sw=bb.sw, ne=bb.ne;
+    const roofH=(seg.planeHeightAtCenterMeters!=null)?seg.planeHeightAtCenterMeters:null;
+    // Fix 2: ORIENTED facet rectangle aligned to the roof azimuth, sized to true area,
+    // centered on the segment center — so the two facets of a gable/hip roof read as two
+    // correctly-angled planes that follow the roof split, NOT merged N-S bounding boxes.
+    const oc=orientedFacetCornersLL(seg);
+    const corners=oc||[
+      [sw.longitude,sw.latitude],[ne.longitude,sw.latitude],
+      [ne.longitude,ne.latitude],[sw.longitude,ne.latitude]
+    ];
+    const poly={ material:Cesium.Color.fromCssColorString("#22d3ee").withAlpha(0.16),
+      outline:true, outlineColor:Cesium.Color.fromCssColorString("#22d3ee"), outlineWidth:3 };
+    if(roofH!=null){
+      const pos=[]; corners.forEach(c=>pos.push(c[0],c[1],roofH));
+      poly.hierarchy=Cesium.Cartesian3.fromDegreesArrayHeights(pos);
+      poly.perPositionHeight=true;
+    }else{
+      const pos=[]; corners.forEach(c=>pos.push(c[0],c[1]));
+      poly.hierarchy=Cesium.Cartesian3.fromDegreesArray(pos);
+      poly.heightReference=Cesium.HeightReference.CLAMP_TO_3D_TILE;
+      poly.classificationType=Cesium.ClassificationType.CESIUM_3D_TILE;
+    }
+    roofEnts.push(viewer.entities.add({polygon:poly}));
+
+    // label at facet center: "457 sq ft · 5/12"
+    const c=seg.center||{latitude:(sw.latitude+ne.latitude)/2,longitude:(sw.longitude+ne.longitude)/2};
+    const sqft=Math.round((seg.stats&&seg.stats.areaMeters2||0)*M2_TO_SQFT);
+    const p=pitchX12(seg.pitchDegrees);
+    const labelH=(roofH!=null)?roofH:0;
+    roofEnts.push(viewer.entities.add({
+      position:Cesium.Cartesian3.fromDegrees(c.longitude,c.latitude,labelH),
+      label:{
+        text:fmt(sqft)+" sq ft\n"+p+"/12",
+        font:"600 13px Inter, sans-serif",
+        fillColor:Cesium.Color.WHITE,
+        outlineColor:Cesium.Color.fromCssColorString("#0e7490"),
+        outlineWidth:3, style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+        showBackground:true, backgroundColor:Cesium.Color.fromCssColorString("#0c4a6e").withAlpha(0.85),
+        backgroundPadding:new Cesium.Cartesian2(7,5),
+        horizontalOrigin:Cesium.HorizontalOrigin.CENTER,
+        verticalOrigin:Cesium.VerticalOrigin.CENTER,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        scaleByDistance:new Cesium.NearFarScalar(50,1.1,400,0.6)
+      }
+    }));
+  });
+}
+/* build roofing report card (summary + per-facet) */
+function buildRoofCard(segs,wholeRoofM2){
+  const card=document.getElementById("roofcard");
+  if(!segs||!segs.length){ card.innerHTML='<div class="loading">No roof facet data for this address.</div>'; return; }
+  // total: prefer wholeRoofStats, else sum facets
+  let totalM2=wholeRoofM2;
+  const facetSum=segs.reduce((s,g)=>s+((g.stats&&g.stats.areaMeters2)||0),0);
+  if(!totalM2) totalM2=facetSum;
+  const totSqft=totalM2*M2_TO_SQFT, squares=totSqft/100;
+  // predominate pitch = pitch of largest-area facet
+  let big=segs[0]; segs.forEach(g=>{ if(((g.stats&&g.stats.areaMeters2)||0)>((big.stats&&big.stats.areaMeters2)||0)) big=g; });
+  const predPitch=pitchX12(big.pitchDegrees);
+  const cost=squares*PRICE_PER_SQUARE;
+  // per-facet rows sorted largest first
+  const rows=segs.map((g,i)=>({i,sqft:((g.stats&&g.stats.areaMeters2)||0)*M2_TO_SQFT,p:pitchX12(g.pitchDegrees)}))
+    .sort((a,b)=>b.sqft-a.sqft);
+  card.innerHTML=
+    '<div class="roofSum">'+
+      '<div class="rsTitle">Roof measurement report</div>'+
+      '<div class="rsBig">'+fmt(totSqft)+' sq ft</div>'+
+      '<div class="rsSub">'+squares.toFixed(1)+' roofing squares</div>'+
+      '<div class="rsGrid">'+
+        '<div class="rsCell"><div class="l">Predominate pitch</div><div class="v">'+predPitch+'/12</div></div>'+
+        '<div class="rsCell"><div class="l">Facets</div><div class="v">'+segs.length+'</div></div>'+
+      '</div>'+
+      '<div class="rsCost"><div class="l">Your cost for a new roof is around</div><div class="v">≈ $'+fmt(cost)+'</div></div>'+
+    '</div>'+
+    '<div class="facetList"><div class="fHdr">Facets ('+segs.length+')</div>'+
+      rows.map(r=>'<div class="facetRow"><span class="fn">Facet '+(r.i+1)+'</span><b>'+fmt(r.sqft)+' sq ft · '+r.p+'/12</b></div>').join('')+
+    '</div>';
+}
+
+/* ---------- analyze ---------- */
+async function analyze(lat,lng,label){
+  openSide();
+  const rep=document.getElementById("rsub"); rep.textContent=label||"";
+  document.getElementById("rbody").innerHTML='<div class="loading">Analyzing roof...</div>';
+  document.getElementById("modetoggle").style.display="none";
+  document.getElementById("roofcard").style.display="none";
+  clearRoof(); lastSegs=null; panelsVisible=true; // fresh property → panels shown
+  // Fresh property → drop any cached analysis imagery + disable the Analysis switch until it loads.
+  anaData=null; anaBusyKey=null; window._anaPanels=null; analyzedLatLng=null;
+  const aBtn0=document.getElementById("modeAnalysis"); aBtn0.disabled=true;
+  if(viewMode==="analysis"){ setViewMode("explore"); } // new search returns to 3D while loading
+  let targetLat=lat,targetLng=lng;
+  try{
+    const r=await fetch("/solar?lat="+lat+"&lng="+lng); const j=await r.json();
+    // Use Solar building center for the camera target (more accurate than geocode/street point)
+    if(j.center&&j.center.latitude){ targetLat=j.center.latitude; targetLng=j.center.longitude; }
+    // Fix 3: record the analyzed center NOW so Analysis mode can load dataLayers without
+    // waiting on the flyOverhead flight-complete callback (autoTarget race).
+    analyzedLatLng={lat:targetLat,lng:targetLng};
+    flyOverhead(targetLat,targetLng);
+    if(j.error||!j.solarPotential){
+      document.getElementById("rbody").innerHTML='<div class="loading">No Solar data for this address (coverage gap). 3D view + manual measurement still apply.</div>'; clearPanels(); return;
+    }
+    const sp=j.solarPotential; const segs=sp.roofSegmentStats||j.roofSegmentStats||[];
+    const kw=((sp.maxArrayPanelsCount||0)*(sp.panelCapacityWatts||400)/1000).toFixed(1);
+    const area=(sp.maxArrayAreaMeters2||0).toFixed(0);
+    const wrs=sp.wholeRoofStats||j.wholeRoofStats||{}; const roofArea=wrs.areaMeters2||0; const roofSqft=(roofArea*10.7639).toFixed(0); const squares=(roofArea*10.7639/100).toFixed(1);
+    const sun=(sp.maxSunshineHoursPerYear||0).toFixed(0);
+    const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0]; const kwh=cfg?Math.round(cfg.yearlyEnergyDcKwh):0;
+    document.getElementById("rbody").innerHTML=
+      '<div class="row"><span class="k">Roof area</span><b>'+roofSqft+' sq ft · '+squares+' sq</b></div>'+
+      '<div class="row"><span class="k">Roof facets</span><b>'+segs.length+'</b></div>'+
+      '<div class="row"><span class="k">Imagery</span><b>'+(j.imageryQuality||'-')+'</b></div>'+
+      '<div class="row"><span class="k">Recommended panels</span><b>'+sp.maxArrayPanelsCount+'</b></div>'+
+      '<div class="row"><span class="k">System size</span><b>'+kw+' kW</b></div>'+
+      '<div class="row"><span class="k">Array area</span><b>'+area+' m²</b></div>'+
+      '<div class="row"><span class="k">Sun hours / yr</span><b>'+sun+'</b></div>'+
+      (kwh?'<div class="row"><span class="k">Est. production</span><b>'+kwh.toLocaleString()+' kWh/yr</b></div>':'');
+    const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
+    const usedPanels=(sp.solarPanels||[]).slice(0,n);
+    drawPanels(usedPanels,segs);
+    // roof measurement: store segs, build the report card + overlay (hidden until toggled on)
+    lastSegs=segs; buildRoofCard(segs,roofArea);
+    drawRoof(segs); roofEnts.forEach(e=>e.show=false);
+    setMode(currentMode); // re-apply current mode (default solar)
+    document.getElementById("modetoggle").style.display="flex";
+    // Show the "switch to Analysis for accurate measurements" hint (visible only in 3D Explore).
+    document.getElementById("exploreHint").style.display=(viewMode==="explore")?"block":"none";
+    // Analysis (top-down) availability: enable the mode switch + stash panels for the canvas.
+    const aBtn=document.getElementById("modeAnalysis");
+    aBtn.disabled=false; aBtn.removeAttribute("title");
+    if(anaData&&anaData.panels===undefined) anaData.panels=usedPanels;
+    window._anaPanels=usedPanels;  // used when anaData loads lazily on mode-switch
+    if(viewMode==="analysis"){ setViewMode("analysis"); } // refresh if already in analysis
+  }catch(e){ flyOverhead(targetLat,targetLng); document.getElementById("rbody").innerHTML='<div class="loading">Solar lookup error</div>'; }
+}
+
+/* ================= ANALYSIS (top-down) engine =================
+   The 3D mesh (Google photoreal) and Solar's raster data are DIFFERENT aerial
+   captures, so panels/facets drawn on the 3D mesh drift. Solar's own dataLayers
+   (10cm orthophoto + flux), the buildingInsights panels, and roofSegmentStats all
+   share ONE coordinate space. Rendering everything on the orthophoto canvas makes
+   them register perfectly. That is the entire point of this mode. */
+
+/* Solar's dataLayers GeoTIFFs are in a PROJECTED CRS (UTM, EPSG 326xx/327xx — meters),
+   NOT lat/lng degrees. The buildingInsights panels + roofSegmentStats ARE in lat/lng.
+   So to register them on the orthophoto we must forward-project lat/lng -> UTM (the same
+   CRS as the raster bbox), then map UTM -> pixel. This closed-form WGS84->UTM transform
+   (Karney/Snyder, sub-cm at city scale) needs no external library. */
+function wgs84ToUTM(lat,lng,zone,north){
+  const a=6378137.0, f=1/298.257223563;
+  const e2=f*(2-f), ep2=e2/(1-e2);
+  const k0=0.9996, lon0=((zone-1)*6-180+3)*Math.PI/180;
+  const phi=lat*Math.PI/180, lam=lng*Math.PI/180;
+  const N=a/Math.sqrt(1-e2*Math.sin(phi)**2);
+  const T=Math.tan(phi)**2, C=ep2*Math.cos(phi)**2, A=(lam-lon0)*Math.cos(phi);
+  const M=a*((1-e2/4-3*e2*e2/64-5*e2*e2*e2/256)*phi
+    -(3*e2/8+3*e2*e2/32+45*e2*e2*e2/1024)*Math.sin(2*phi)
+    +(15*e2*e2/256+45*e2*e2*e2/1024)*Math.sin(4*phi)
+    -(35*e2*e2*e2/3072)*Math.sin(6*phi));
+  let x=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000;
+  let y=k0*(M+N*Math.tan(phi)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24
+    +(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  if(!north) y+=10000000;
+  return [x,y];   // easting, northing (meters)
+}
+
+/* lat/lng -> pixel within the decoded raster. crs = {zone,north} of the GeoTIFF;
+   bbox = [minE, minN, maxE, maxN] in UTM meters; raster is north-up (row 0 = north). */
+function geoToPx(lng,lat,bbox,W,H,crs){
+  const [w,s,e,n]=bbox;
+  const [E,N]=wgs84ToUTM(lat,lng,crs.zone,crs.north);
+  const x=(E-w)/(e-w)*W;
+  const y=(n-N)/(n-s)*H;   // north at top
+  return [x,y];
+}
+
+/* Decode one Solar GeoTIFF layer via the /geotiff proxy. Returns
+   { rasters, width, height, bbox:[w,s,e,n] }. bbox is read from the file. */
+async function decodeLayer(url){
+  const r=await fetch("/geotiff?u="+encodeURIComponent(url));
+  if(!r.ok) throw new Error("geotiff "+r.status);
+  const buf=await r.arrayBuffer();
+  const tiff=await GeoTIFF.fromArrayBuffer(buf);
+  const image=await tiff.getImage();
+  const width=image.getWidth(), height=image.getHeight();
+  const bbox=image.getBoundingBox();        // [minX,minY,maxX,maxY] in CRS units (UTM meters)
+  const gk=image.getGeoKeys()||{};
+  // EPSG 326NN = WGS84 / UTM zone NN North; 327NN = South.
+  const epsg=gk.ProjectedCSTypeGeoKey||0;
+  // Fix 4: robust fallback. If the GeoTIFF carries no EPSG key, derive the UTM zone from the
+  // raster's own easting/longitude instead of hardcoding zone 14 (Plano) — that hardcode put
+  // panels in the yard for any city outside zone 14 (e.g. Hamilton = zone 17N / EPSG:32617).
+  // The bbox easting is ~meters within the zone (false-easting 500000 at the central meridian);
+  // recover the zone from the analyzed lng we passed in via the closure-free arg below.
+  let crs;
+  if(epsg>=32601&&epsg<=32660){ crs={zone:epsg-32600,north:true}; }
+  else if(epsg>=32701&&epsg<=32760){ crs={zone:epsg-32700,north:false}; }
+  else {
+    // derive from raster center longitude (bbox is in UTM meters, so use the request lng passed
+    // through decodeLayer's optional refLng; falls back to zone 14 only if truly unknown).
+    const lngForZone=(typeof window.__decodeRefLng==="number")?window.__decodeRefLng:null;
+    const zone=(lngForZone!=null)?Math.floor((lngForZone+180)/6)+1:14;
+    crs={zone, north:(typeof window.__decodeRefLat==="number")?window.__decodeRefLat>=0:true};
+    console.warn("geotiff: no EPSG key, derived UTM zone "+zone+" from lng "+lngForZone);
+  }
+  const rasters=await image.readRasters();   // array of bands
+  return { rasters, width, height, bbox, crs };
+}
+
+/* Build flux color (low shade -> indigo/blue, mid -> green/yellow, high sun -> orange/red). */
+function fluxColor(t){ // t in 0..1
+  // 6-stop ramp matching the legend bar
+  const stops=[[59,31,143],[37,99,235],[16,185,129],[250,204,21],[249,115,22],[220,38,38]];
+  t=Math.max(0,Math.min(1,t));
+  const f=t*(stops.length-1); const i=Math.floor(f); const k=f-i;
+  const a=stops[i], b=stops[Math.min(i+1,stops.length-1)];
+  return [Math.round(a[0]+(b[0]-a[0])*k),Math.round(a[1]+(b[1]-a[1])*k),Math.round(a[2]+(b[2]-a[2])*k)];
+}
+
+/* Fetch + decode the dataLayers needed for the top-down view. Cached per address key. */
+async function loadAnalysisData(lat,lng){
+  const key=lat.toFixed(5)+","+lng.toFixed(5);
+  if(anaData&&anaData.key===key) return anaData;
+  if(anaBusyKey===key) return null;  // already in flight
+  anaBusyKey=key;
+  // Fix 4: hand the analyzed lat/lng to decodeLayer's UTM-zone fallback (used only if a TIFF
+  // is missing its EPSG ProjectedCSTypeGeoKey) so the zone is derived from THIS city, not Plano.
+  window.__decodeRefLat=lat; window.__decodeRefLng=lng;
+  try{
+    const r=await fetch("/datalayers?lat="+lat+"&lng="+lng);
+    const j=await r.json();
+    if(j.error||!j.rgbUrl){ anaBusyKey=null; window.__anaDebug={unavailable:true,reason:"no_rgbUrl"}; return {key,unavailable:true}; }
+    // RGB orthophoto (base) — 3 bands, 0..255
+    const rgb=await decodeLayer(j.rgbUrl);
+    const W=rgb.width, H=rgb.height, bbox=rgb.bbox, crs=rgb.crs;
+    const img=new ImageData(W,H);
+    const [R,G,B]=rgb.rasters;
+    for(let i=0;i<W*H;i++){ img.data[i*4]=R[i]; img.data[i*4+1]=G[i]; img.data[i*4+2]=B[i]; img.data[i*4+3]=255; }
+    // Annual flux (shading) — single band kWh/kW/yr, with NoData (0 / very low off-roof)
+    let flux=null;
+    try{
+      const fl=await decodeLayer(j.annualFluxUrl);
+      const vals=fl.rasters[0];
+      // Normalize over real (positive) roof pixels; ignore zeros/NoData for the range.
+      let min=Infinity,max=-Infinity;
+      for(let i=0;i<vals.length;i++){ const v=vals[i]; if(v>0&&isFinite(v)){ if(v<min)min=v; if(v>max)max=v; } }
+      if(!isFinite(min)){ min=0; max=1; }
+      flux={ vals, w:fl.width, h:fl.height, bbox:fl.bbox, min, max };
+    }catch(e){ console.warn("flux decode",e); }
+    // Roof MASK — single band, 1 = rooftop pixel, 0 = not roof. Pixel-aligned to the
+    // other layers but may differ slightly in dims/bbox. Used to clip the flux heatmap
+    // to the roof only. Decoded best-effort; a missing/empty mask -> heatmap falls back
+    // to the full-tile behaviour (renderAnalysis handles the null/empty case).
+    let mask=null;
+    try{
+      if(j.maskUrl){
+        const mk=await decodeLayer(j.maskUrl);
+        const mvals=mk.rasters[0];
+        // Count roof pixels so an all-zero / empty mask can be treated as "no mask".
+        let roofCount=0;
+        for(let i=0;i<mvals.length;i++){ if(mvals[i]>0){ roofCount++; if(roofCount>20) break; } }
+        if(roofCount>0){ mask={ vals:mvals, w:mk.width, h:mk.height, bbox:mk.bbox }; }
+        else { console.warn("mask empty/all-zero — falling back to full-tile heatmap"); }
+      }
+    }catch(e){ console.warn("mask decode",e); }
+    anaData={ key, lat, lng, bbox, crs, w:W, h:H, rgbImage:img, flux, mask, unavailable:false,
+              panels: window._anaPanels||[] };
+    // verification hook (read mask/flux/panel/crs state from Playwright)
+    window.__anaDebug={ hasFlux:!!flux, hasMask:!!mask, unavailable:false,
+      w:W, h:H, crsZone:crs&&crs.zone, crsNorth:crs&&crs.north,
+      panelCount:(anaData.panels||[]).length,
+      fluxRange:flux?[flux.min,flux.max]:null, bbox };
+    anaBusyKey=null;
+    return anaData;
+  }catch(e){ console.warn("analysis load",e); anaBusyKey=null; return {key,unavailable:true,error:String(e)}; }
+}
+
+/* Composite the top-down view onto the canvas based on the active tab.
+   REPORT -> ortho + facet boxes + panels; SHADING -> ortho + flux heatmap;
+   PANELS -> ortho + panels. Panels/facets use buildingInsights data + the SAME bbox
+   as the ortho, so they register pixel-accurately. */
+function renderAnalysis(){
+  if(!anaData||anaData.unavailable){ return; }
+  const W=anaData.w, H=anaData.h, bbox=anaData.bbox, crs=anaData.crs;
+  anaCanvas.width=W; anaCanvas.height=H;
+  const ctx=anaCanvas.getContext("2d");
+  // 1) base orthophoto
+  ctx.putImageData(anaData.rgbImage,0,0);
+
+  const tab=anaActiveTab;
+  const segs=lastSegs||[];
+
+  // 2) SHADING tab -> flux heatmap overlay
+  anaLegend.classList.remove("show");
+  if(tab==="shading" && anaData.flux){
+    const fx=anaData.flux;
+    const mk=anaData.mask;          // {vals,w,h,bbox} in same UTM CRS, or null -> no clip
+    // Mask lookup: a flux pixel (col,row) -> its UTM center -> mask pixel -> roof? (1) or not (0).
+    // Flux + mask share the projected CRS (UTM meters); align by their geo (UTM) bounds, which
+    // tolerates the slight dim/bbox differences between the two layers. If dims+bbox match this
+    // collapses to a direct index. mk==null (missing/empty mask) -> isRoof() always true (fallback).
+    let isRoof;
+    if(mk){
+      const [fminE,fminN,fmaxE,fmaxN]=fx.bbox;
+      const [mminE,mminN,mmaxE,mmaxN]=mk.bbox;
+      const fdx=(fmaxE-fminE)/fx.w, fdy=(fmaxN-fminN)/fx.h;
+      const mdx=(mmaxE-mminE)/mk.w, mdy=(mmaxN-mminN)/mk.h;
+      isRoof=(col,row)=>{
+        // UTM center of this flux pixel (north-up: row 0 = north / max N)
+        const E=fminE+(col+0.5)*fdx;
+        const N=fmaxN-(row+0.5)*fdy;
+        // -> mask pixel
+        const mc=Math.floor((E-mminE)/mdx);
+        const mr=Math.floor((mmaxN-N)/mdy);
+        if(mc<0||mr<0||mc>=mk.w||mr>=mk.h) return false; // outside mask coverage = not roof
+        return mk.vals[mr*mk.w+mc]>0;
+      };
+    } else {
+      isRoof=()=>true; // graceful fallback: no mask -> keep the original full-tile heatmap
+    }
+    const heat=document.createElement("canvas"); heat.width=fx.w; heat.height=fx.h;
+    const hctx=heat.getContext("2d");
+    const hid=hctx.createImageData(fx.w,fx.h);
+    const range=(fx.max-fx.min)||1;
+    for(let i=0;i<fx.vals.length;i++){
+      const v=fx.vals[i];
+      if(!(v>0)||!isFinite(v)){ hid.data[i*4+3]=0; continue; } // transparent off-roof (NoData)
+      const col=i%fx.w, row=(i/fx.w)|0;
+      if(!isRoof(col,row)){ hid.data[i*4+3]=0; continue; } // clip: not a rooftop pixel -> show plain ortho
+      const t=(v-fx.min)/range;
+      const c=fluxColor(t);
+      hid.data[i*4]=c[0]; hid.data[i*4+1]=c[1]; hid.data[i*4+2]=c[2]; hid.data[i*4+3]=190; // semi-transparent
+    }
+    hctx.putImageData(hid,0,0);
+    // Flux is the SAME projected CRS (UTM meters) as the ortho — map its UTM bbox corners
+    // straight into the ortho UTM bbox (UTM->pixel, no lat/lng projection needed here).
+    const fb=fx.bbox;                         // [minE,minN,maxE,maxN]
+    const utmToPx=(E,N)=>[ (E-bbox[0])/(bbox[2]-bbox[0])*W, (bbox[3]-N)/(bbox[3]-bbox[1])*H ];
+    const [x0,y0]=utmToPx(fb[0],fb[3]);       // flux NW corner -> ortho px
+    const [x1,y1]=utmToPx(fb[2],fb[1]);       // flux SE corner -> ortho px
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(heat, x0,y0, x1-x0, y1-y0);
+    anaLegend.classList.add("show");
+  }
+
+  // 3) Roof facets (REPORT tab = roof-measurement view; boxes first, labels drawn last on top).
+  if(tab==="report" && segs.length){
+    ctx.lineWidth=Math.max(2,W/300);
+    // pass A: ORIENTED facet polygons (Fix 2) — rotated to the roof azimuth + sized to true
+    // area, registered to the ortho via UTM. Shows the two angled planes + the roof split,
+    // not merged axis-aligned N-S boxes.
+    segs.forEach(seg=>{
+      const oc=orientedFacetCornersLL(seg); if(!oc) return;
+      const px=oc.map(([lng,lat])=>geoToPx(lng,lat,bbox,W,H,crs));
+      ctx.strokeStyle="rgba(34,211,238,.95)";
+      ctx.fillStyle="rgba(34,211,238,.16)";
+      ctx.beginPath(); ctx.moveTo(px[0][0],px[0][1]);
+      for(let k=1;k<4;k++) ctx.lineTo(px[k][0],px[k][1]);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    });
+    // pass B: labels (drawn last so they sit on top of every box)
+    ctx.font="600 "+Math.max(13,W/55)+"px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    segs.forEach(seg=>{
+      const bb=seg.boundingBox; if(!bb||!bb.sw||!bb.ne) return;
+      const sw=bb.sw, ne=bb.ne;
+      const c=seg.center||{latitude:(sw.latitude+ne.latitude)/2,longitude:(sw.longitude+ne.longitude)/2};
+      const sqft=Math.round((seg.stats&&seg.stats.areaMeters2||0)*M2_TO_SQFT);
+      const p=pitchX12(seg.pitchDegrees);
+      const [lx,ly]=geoToPx(c.longitude,c.latitude,bbox,W,H,crs);
+      const txt=fmt(sqft)+" sq ft · "+p+"/12";
+      const tw=ctx.measureText(txt).width;
+      ctx.fillStyle="rgba(12,74,110,.9)";
+      ctx.fillRect(lx-tw/2-8, ly-13, tw+16, 26);
+      ctx.fillStyle="#fff"; ctx.fillText(txt,lx,ly);
+    });
+  }
+
+  // 4) Solar panels (PANELS tab) — solarPanels rectangles, registered to the ortho via UTM.
+  if(tab==="panels" && anaData.panels && anaData.panels.length){
+    ctx.lineWidth=Math.max(1,W/700);
+    anaData.panels.forEach(p=>{
+      if(!p.center) return;
+      const seg=segs[p.segmentIndex]||{};
+      const az=(seg.azimuthDegrees||0)*Math.PI/180;
+      const lat=p.center.latitude, lng=p.center.longitude;
+      const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
+      const Wm=1.045, Hm=1.879, land=p.orientation==="LANDSCAPE";
+      const hw=(land?Hm:Wm)/2, hh=(land?Wm:Hm)/2;
+      const corners=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(c=>{
+        const rx=c[0]*Math.cos(az)-c[1]*Math.sin(az), ry=c[0]*Math.sin(az)+c[1]*Math.cos(az);
+        return geoToPx(lng+rx/mLng, lat+ry/mLat, bbox, W, H, crs);
+      });
+      ctx.beginPath(); ctx.moveTo(corners[0][0],corners[0][1]);
+      for(let k=1;k<4;k++) ctx.lineTo(corners[k][0],corners[k][1]);
+      ctx.closePath();
+      ctx.fillStyle="rgba(11,61,145,.82)"; ctx.fill();
+      ctx.strokeStyle="rgba(158,197,255,.95)"; ctx.stroke();
+    });
+  }
+}
+
+/* Fit the canvas display size to the viewport (object-fit handled by CSS max-w/h). */
+function showAnalysisLayer(show){
+  anaLayer.classList.toggle("show",show);
+  if(!show) anaLegend.classList.remove("show");
+}
+
+/* Switch between 3D Explore and top-down Analysis. */
+async function setViewMode(mode){
+  viewMode=mode;
+  document.getElementById("modeExplore").classList.toggle("on",mode==="explore");
+  document.getElementById("modeAnalysis").classList.toggle("on",mode==="analysis");
+  // Hint lives in 3D Explore only (and only once a property is analyzed).
+  const hintEl=document.getElementById("exploreHint");
+  if(hintEl){ hintEl.style.display=(mode==="explore"&&analyzedLatLng)?"block":"none"; }
+  if(mode==="explore"){ showAnalysisLayer(false); return; }
+  // ANALYSIS — Fix 3: use the searched building's lat/lng captured at search-resolve time
+  // (analyzedLatLng), NOT autoTarget. autoTarget is only set ~2s later by the flight-complete
+  // callback, so depending on it made Analysis silently early-return and never load the data.
+  const tgt=analyzedLatLng||autoTarget;
+  if(!tgt){ return; } // nothing analyzed yet
+  showAnalysisLayer(true);
+  anaCanvas.style.display="none";
+  anaMsg.classList.add("show"); anaMsg.textContent="Loading high-resolution analysis imagery…";
+  const data=await loadAnalysisData(tgt.lat,tgt.lng);
+  if(!data){ return; } // a concurrent load is in flight; it will render
+  if(data.unavailable){
+    anaMsg.classList.add("show");
+    anaMsg.textContent="High-res analysis imagery is not available for this location. Showing the 3D view instead.";
+    anaCanvas.style.display="none";
+    setTimeout(()=>{ if(viewMode==="analysis"){ setViewMode("explore"); } },2400);
+    return;
+  }
+  anaMsg.classList.remove("show");
+  anaCanvas.style.display="block";
+  renderAnalysis();
+}
+document.getElementById("modeExplore").onclick=()=>setViewMode("explore");
+document.getElementById("modeAnalysis").onclick=()=>{ if(!document.getElementById("modeAnalysis").disabled) setViewMode("analysis"); };
+
+/* ---------- search wiring ---------- */
+function run(){
+  const place=ac.getPlace&&ac.getPlace();
+  if(place&&place.geometry){ const L=place.geometry.location; analyze(L.lat(),L.lng(),place.formatted_address); return; }
+  new google.maps.Geocoder().geocode({address:addrEl.value},(res,st)=>{
+    if(st==="OK"&&res[0]){const L=res[0].geometry.location; analyze(L.lat(),L.lng(),res[0].formatted_address);} });
+}
+document.getElementById("go").onclick=run;
+ac.addListener("place_changed",run);
+addrEl.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();run();}});
+
+// Spin-to-location while typing (debounced geocode of the in-progress text)
+addrEl.addEventListener("input",()=>{
+  clearTimeout(spinTimer);
+  const v=addrEl.value.trim();
+  if(v.length<6) return;
+  spinTimer=setTimeout(()=>{
+    new google.maps.Geocoder().geocode({address:v},(res,st)=>{
+      if(st==="OK"&&res[0]){const L=res[0].geometry.location; spinToward(L.lat(),L.lng());}
+    });
+  },750);
+});
+
+/* ---------- left panel folding + tabs ---------- */
+const side=document.getElementById("side");
+const reopenTab=document.getElementById("reopenTab");
+const isMobile=()=>window.matchMedia("(max-width:768px)").matches;
+function syncReopenTab(){ reopenTab.classList.toggle("show", !side.classList.contains("open")); }
+function openSide(){
+  side.classList.add("open"); document.getElementById("fold").textContent="‹"; syncReopenTab();
+  if(isMobile()) expandSheet();   // a new analysis pops the sheet up so the report is visible
+}
+function closeSide(){ side.classList.remove("open"); syncReopenTab(); }
+document.getElementById("fold").onclick=()=>{ side.classList.toggle("open"); syncReopenTab(); };
+reopenTab.onclick=()=>{ side.classList.add("open"); syncReopenTab(); };
+
+/* Shared tab switch — keeps desktop edge tabs and mobile in-sheet tabs in sync. */
+function selectTab(t){
+  document.querySelectorAll(".edgeTab").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
+  document.querySelectorAll("#sheetTabs button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));
+  ["report","shading","panels"].forEach(name=>{
+    document.getElementById("tab-"+name).style.display=(name===t)?"block":"none";
+  });
+  // In Analysis (top-down) mode, the tab drives what's composited on the orthophoto canvas.
+  anaActiveTab=t;
+  if(viewMode==="analysis" && anaData && !anaData.unavailable) renderAnalysis();
+}
+document.querySelectorAll(".edgeTab").forEach(b=>{
+  b.onclick=()=>{
+    if(!side.classList.contains("open")){ side.classList.add("open"); syncReopenTab(); }
+    // AUTO-SWITCH: clicking any overlay tab (esp. Shading / Panels) from 3D Explore jumps to
+    // the accurate top-down Analysis view (graceful fallback inside activateAnalysisOverlay).
+    activateAnalysisOverlay(b.dataset.tab);
+  };
+});
+document.querySelectorAll("#sheetTabs button").forEach(b=>{
+  b.onclick=()=>{ expandSheet(); activateAnalysisOverlay(b.dataset.tab); };
+});
+
+/* ---------- MOBILE bottom-sheet expand/collapse (drag + tap) ---------- */
+function expandSheet(){ side.classList.add("expanded"); }
+function collapseSheet(){ side.classList.remove("expanded"); }
+function toggleSheet(){ side.classList.toggle("expanded"); }
+(function wireSheetDrag(){
+  const grab=document.getElementById("sheetGrab");
+  const inner=document.querySelector(".sideInner");
+  if(!grab||!inner) return;
+  // Unified Pointer Events: one path handles mouse, touch and pen — no compat-event double-fire.
+  let startY=0, dragging=false, moved=0, pid=null, lastAct=0;
+  const onDown=e=>{ dragging=true; moved=0; startY=e.clientY; pid=e.pointerId;
+    inner.style.transition="none"; };
+  const onMove=e=>{ if(!dragging||e.pointerId!==pid) return;
+    moved=e.clientY-startY;
+    const expanded=side.classList.contains("expanded");
+    let dy = expanded ? Math.max(0,moved) : Math.min(0,moved);   // expanded→drag down only; collapsed→up only
+    inner.style.transform=`translateY(calc(${expanded?"0px":"100% - var(--peek,128px)"} + ${dy}px))`;
+    if(e.cancelable) e.preventDefault(); };
+  const onUp=e=>{ if(!dragging||(pid!=null&&e.pointerId!==pid)) return; dragging=false; pid=null;
+    inner.style.transition=""; inner.style.transform="";
+    // Debounce: collapse duplicate pointer sequences (and accidental double-taps) within 350ms.
+    const now=Date.now(); if(now-lastAct<350) return; lastAct=now;
+    if(Math.abs(moved)<6){ toggleSheet(); }                  // tap = toggle
+    else if(moved<-40){ expandSheet(); }                      // dragged up
+    else if(moved>40){ collapseSheet(); }                     // dragged down
+  };
+  grab.addEventListener("pointerdown",onDown);
+  // listen on window for move/up so a drag that leaves the thin handle still tracks (no pointer capture)
+  window.addEventListener("pointermove",onMove);
+  window.addEventListener("pointerup",onUp);
+})();
+
+/* ---------- mode toggle: Solar panels ↔ Roof measurement ---------- */
+function setMode(mode){
+  currentMode=mode;
+  const solarOn=(mode==="solar"), roofOn=(mode==="roof");
+  // 3D-DRIFT FIX: the panel/facet Cesium entities drift on the photoreal mesh (different
+  // capture + oblique parallax), so they must NEVER render on the 3D tiles. The accurate
+  // panels/facets live ONLY in the top-down Analysis canvas. Keep these entities permanently
+  // hidden in 3D Explore — setMode now only drives the report card + camera framing, never the mesh overlays.
+  panelEnts.forEach(e=>e.show=false);
+  roofEnts.forEach(e=>e.show=false);
+  document.getElementById("mSolar").classList.toggle("on",solarOn);
+  document.getElementById("mRoof").classList.toggle("on",roofOn);
+  // Button label reflects the on/off state when in solar mode.
+  document.getElementById("mSolar").textContent=
+    solarOn ? (panelsVisible?"Solar panels: ON":"Solar panels: OFF") : "Solar panels";
+  document.getElementById("roofcard").style.display=roofOn?"block":"none";
+  // Roof mode: re-center the orbit on the roof PLANE height so the absolute-height
+  // facet outlines + labels stay in frame; solar mode keeps the existing ground-centered framing.
+  // Both modes use the zoomed-out, eased-pitch framing (Fix 1).
+  if(autoTarget){
+    const wasAuto=autoRotate;
+    const ctr=roofOn?roofMeanHeight:0;
+    const range=roofOn?150:(autoTarget.range||160);
+    const pitch=roofOn?-82:(autoTarget.pitch||-88);
+    const heading=0;
+    if(wasAuto){
+      // keep the orbit transform locked (auto-rotate was on)
+      const center=Cesium.Cartesian3.fromDegrees(autoTarget.lng,autoTarget.lat,ctr);
+      viewer.camera.lookAt(center, new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(heading), Cesium.Math.toRadians(pitch), range));
+    }else{
+      // sitting still: position then release the transform so pan still works
+      setLookAt(autoTarget.lat,autoTarget.lng,ctr,range,pitch,heading);
+    }
+    autoTarget.roofCentered=roofOn;
+  }
+}
+document.getElementById("mSolar").onclick=()=>{
+  // If already in solar mode, this button toggles panels on/off; otherwise switch into solar mode.
+  if(currentMode==="solar"){ panelsVisible=!panelsVisible; }
+  else { panelsVisible=true; }
+  setMode("solar");
+  // AUTO-SWITCH: the accurate panel layout lives in the top-down Analysis view, so activating
+  // "Solar panels" jumps to Analysis + the PANELS overlay (graceful fallback if unavailable).
+  activateAnalysisOverlay("panels");
+};
+document.getElementById("mRoof").onclick=()=>{
+  setMode("roof");
+  // AUTO-SWITCH: roof measurement (facets) renders accurately in Analysis (REPORT tab).
+  activateAnalysisOverlay("report");
+};
+
+/* AUTO-SWITCH helper: when the user activates any overlay (panels / facets / shading) from
+   3D Explore, jump to the accurate top-down Analysis view and show that overlay there. The 3D
+   mesh never shows the drifted overlays, so this is how the user always sees the correct render.
+   Graceful fallback: if Analysis imagery isn't available for this address, setViewMode("analysis")
+   shows the "not available" note and drops back to 3D — we don't trap the user. */
+function activateAnalysisOverlay(tab){
+  selectTab(tab);                                  // drives anaActiveTab + the side-panel tab UI
+  if(!analyzedLatLng) return;                       // nothing analyzed yet → stay put
+  const aBtn=document.getElementById("modeAnalysis");
+  if(aBtn.disabled) return;                         // analysis not ready/available → stay in 3D
+  if(viewMode!=="analysis") setViewMode("analysis");
+}
+
+/* ---------- auto-rotate toggle (default OFF) ---------- */
+function syncAutoRotateBtn(){
+  const b=document.getElementById("nAuto");
+  if(!b) return;
+  b.classList.toggle("on",autoRotate);
+  b.title="Auto-rotate ("+(autoRotate?"on":"off")+")";
+}
+document.getElementById("nAuto").onclick=()=>{
+  // Only meaningful once we've arrived at a building (autoTarget set).
+  autoRotate=!autoRotate;
+  if(autoRotate && autoTarget){
+    // Re-lock a lookAt transform on the building so the orbit stays centered.
+    const roof=(currentMode==="roof");
+    const center=Cesium.Cartesian3.fromDegrees(autoTarget.lng,autoTarget.lat,roof?roofMeanHeight:0);
+    const range=roof?150:(autoTarget.range||160), pitch=roof?-82:(autoTarget.pitch||-88), heading=0;
+    viewer.camera.lookAt(center, new Cesium.HeadingPitchRange(
+      Cesium.Math.toRadians(heading), Cesium.Math.toRadians(pitch), range));
+  }else{
+    // Release the transform so the user can pan/orbit freely again.
+    if(viewer) viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  }
+  syncAutoRotateBtn();
+};
+
+/* ---------- nav cluster ---------- */
+function withTarget(fn){
+  // pause auto-rotate during manual interaction so it doesn't fight the user
+  const wasAuto=autoRotate; autoRotate=false; fn(); if(wasAuto) autoRotate=true;
+}
+// Rotate/tilt nav buttons orbit AROUND the building. Temporarily lock a lookAt transform
+// on the target (so rotate/tilt pivot on the house), run the move, then release it again
+// (unless auto-rotate is engaged) so left-drag pan keeps working afterward.
+function orbitNav(fn){
+  withTarget(()=>{
+    let locked=false;
+    if(autoTarget && !autoRotate){
+      const roof=(currentMode==="roof");
+      const center=Cesium.Cartesian3.fromDegrees(autoTarget.lng,autoTarget.lat,roof?roofMeanHeight:0);
+      viewer.camera.lookAtTransform(Cesium.Transforms.eastNorthUpToFixedFrame(center));
+      locked=true;
+    }
+    fn();
+    if(locked && !autoRotate){ viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); }
+  });
+}
+document.getElementById("nZoomIn").onclick=()=>withTarget(()=>viewer.camera.zoomIn(viewer.camera.positionCartographic.height*0.25));
+document.getElementById("nZoomOut").onclick=()=>withTarget(()=>viewer.camera.zoomOut(viewer.camera.positionCartographic.height*0.25));
+document.getElementById("nRotL").onclick=()=>orbitNav(()=>viewer.camera.rotateLeft(0.18));
+document.getElementById("nRotR").onclick=()=>orbitNav(()=>viewer.camera.rotateRight(0.18));
+document.getElementById("nTiltUp").onclick=()=>orbitNav(()=>viewer.camera.rotateUp(0.12));
+document.getElementById("nTiltDn").onclick=()=>orbitNav(()=>viewer.camera.rotateDown(0.12));
+document.getElementById("nReset").onclick=()=>{
+  autoRotate=false; syncAutoRotateBtn();
+  if(autoTarget){ const roof=(currentMode==="roof");
+    setLookAt(autoTarget.lat,autoTarget.lng,roof?roofMeanHeight:0,roof?150:160,roof?-82:-88,0); }
+  else viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(-100,40,14_000_000),orientation:{heading:0,pitch:Cesium.Math.toRadians(-90),roll:0}});
+};
+</script></body></html>
