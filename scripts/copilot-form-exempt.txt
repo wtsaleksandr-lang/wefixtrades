@@ -62,6 +62,9 @@ client/src/pages/admin/ChangePasswordPage.tsx
 client/src/pages/admin/SeoIntegrationsPage.tsx
 
 # ── Portal: dashboards / lists / read-only views ──
+# Marketing Hub — read-only "growth engine" card grid linking to existing
+# product pages; no fillable form (navigation/discovery surface only).
+client/src/pages/portal/MarketingHubPage.tsx
 # Wave 86 — customer port-status tracker: live status + cancel button, no editable form.
 client/src/pages/portal/PortStatusPage.tsx
 client/src/pages/portal/ChatWidgetInstallEntry.tsx

@@ -1,7 +1,7 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, HelpCircle, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, HelpCircle, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy, Inbox, Calculator, Calendar, FileText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -150,6 +150,15 @@ interface TicketsSlice {
   tickets: { id: number; status: string }[];
 }
 
+/** BookFlow appointment row from /api/portal/bookflow/dispatch (today's jobs). */
+interface BookflowAppointment {
+  id: number;
+  customer_name: string;
+  service_name: string | null;
+  start_time: string;
+  status: string;
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   if (isNaN(diff)) return "";
@@ -276,6 +285,20 @@ function PortalDashboardInner() {
       return res.json();
     },
   });
+  // Today's BookFlow appointments — reuses the existing dispatch endpoint
+  // (defaults to today). Defensive: a failed slice yields [] so the Workflow
+  // "Jobs" card + appointments panel degrade to an empty state, never break.
+  const { data: todaysAppointments } = useQuery<BookflowAppointment[]>({
+    queryKey: ["/api/portal/bookflow/dispatch"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/bookflow/dispatch", { credentials: "include" });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+  });
+  const appointments = todaysAppointments ?? [];
+
   const openTickets = (ticketsSlice?.tickets ?? []).filter(
     (t) => t.status !== "resolved" && t.status !== "closed",
   ).length;
@@ -447,10 +470,11 @@ function PortalDashboardInner() {
       )}
       {data && data.active_services > 0 && (
         <div className="space-y-6">
-          {/* Header */}
+          {/* Header — time-of-day greeting (Jobber-style), enhanced from the
+              prior static "Welcome". */}
           <div>
             <h2 className="text-xl font-semibold text-foreground">
-              Welcome{data.contact_name ? `, ${data.contact_name}` : ""}
+              {greetingForHour(new Date().getHours())}{data.contact_name ? `, ${data.contact_name.split(/\s+/)[0]}` : ""}
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">{data.business_name}</p>
           </div>
@@ -537,6 +561,23 @@ function PortalDashboardInner() {
           >
             Lead counts, billing, and open tickets all live here. Refreshes every minute.
           </FirstVisitTooltip>
+
+          {/* Workflow row — Jobber-inspired lifecycle cards adapted for the
+              client view (Requests → Quotes → Jobs → Invoices). Reuses data
+              already loaded above; no new endpoints. */}
+          <PortalWorkflowRow
+            pendingOnboarding={data.pending_onboarding}
+            actionNeeded={data.action_needed}
+            activeServices={data.active_services}
+            leadsThisMonth={leadsThisMonth}
+            calculator={qqData?.calculator ?? null}
+            todaysJobs={appointments.length}
+            outstandingCents={data.outstanding_balance_cents}
+          />
+
+          {/* Today's appointments (BookFlow) — only meaningful for clients who
+              use booking; renders a graceful empty state otherwise. */}
+          <PortalTodaysAppointments appointments={appointments} />
 
           {/* Wave 36 — Tesla Simplification migration banner. Shown once per user. */}
           <SimplifiedDashboardBanner />
@@ -843,6 +884,229 @@ function PortalDashboardInner() {
         </div>
       )}
     </PortalLayout>
+  );
+}
+
+/* ─── Time-of-day greeting ─── */
+function greetingForHour(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/* ─── Portal Workflow row (Jobber-inspired, client view) ───
+   Four lifecycle cards (Requests → Quotes → Jobs → Invoices), each a count
+   + 1–3 sub-status quick-links into existing portal routes. All counts come
+   from data already loaded on the dashboard — no new endpoints, no invented
+   numbers. On-brand WeFixTrades cards (rounded, soft shadow, brand accents). */
+interface PortalWorkflowSubLink {
+  label: string;
+  href: string;
+  count?: number;
+  emphasize?: boolean;
+}
+
+function PortalWorkflowCard({
+  icon: Icon,
+  label,
+  value,
+  href,
+  color,
+  bgColor,
+  subLinks,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  href: string;
+  color: string;
+  bgColor: string;
+  subLinks: PortalWorkflowSubLink[];
+}) {
+  return (
+    <Card className="h-full p-4 flex flex-col transition-all duration-150 hover:border-brand-blue/40">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <Link href={href} className="block">
+            <p className="text-2xl font-semibold text-foreground mt-0.5 hover:text-brand-blue transition-colors">{value}</p>
+          </Link>
+        </div>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${bgColor}`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+        {subLinks.map((sl) => (
+          <Link
+            key={sl.label}
+            href={sl.href}
+            className="flex items-center justify-between gap-2 text-xs text-muted-foreground hover:text-brand-blue transition-colors group"
+          >
+            <span className={`truncate ${sl.emphasize ? "font-medium text-foreground" : ""}`}>{sl.label}</span>
+            <span className="flex items-center gap-0.5 shrink-0">
+              {sl.count != null && <span className="font-semibold tabular-nums">{sl.count}</span>}
+              <ChevronRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-brand-blue" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function PortalWorkflowRow({
+  pendingOnboarding,
+  actionNeeded,
+  activeServices,
+  leadsThisMonth,
+  calculator,
+  todaysJobs,
+  outstandingCents,
+}: {
+  pendingOnboarding: number;
+  actionNeeded: number;
+  activeServices: number;
+  leadsThisMonth: number;
+  calculator: QuoteQuickData["calculator"];
+  todaysJobs: number;
+  outstandingCents: number;
+}) {
+  const hasCalculator = calculator != null;
+  const calcStatusLabel = hasCalculator
+    ? calculator!.status === "live" ? "Calculator live" : "Calculator draft"
+    : "No calculator yet";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-foreground">Workflow</h3>
+        <p className="text-[11px] text-muted-foreground/70">Requests → quotes → jobs → invoices</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Requests — setup forms + items needing your attention */}
+        <PortalWorkflowCard
+          icon={Inbox}
+          label="Requests"
+          value={pendingOnboarding + actionNeeded}
+          href="/portal/services"
+          color="text-amber-600 dark:text-amber-300"
+          bgColor="bg-amber-50 dark:bg-amber-950/40"
+          subLinks={[
+            { label: "Setup required", href: "/portal/services", count: pendingOnboarding, emphasize: true },
+            { label: "Action needed", href: "/portal/services", count: actionNeeded },
+          ]}
+        />
+        {/* Quotes — QuoteQuick leads + calculator status */}
+        <PortalWorkflowCard
+          icon={Calculator}
+          label="Quotes"
+          value={leadsThisMonth}
+          href={hasCalculator ? "/portal/quotequick" : "/wizard"}
+          color="text-brand-blue"
+          bgColor="bg-[#EEF3FF] dark:bg-brand-blue/15"
+          subLinks={[
+            { label: "Leads captured", href: "/portal/quotequick", count: leadsThisMonth, emphasize: true },
+            { label: calcStatusLabel, href: hasCalculator ? "/portal/quotequick" : "/wizard" },
+          ]}
+        />
+        {/* Jobs — today's BookFlow appointments */}
+        <PortalWorkflowCard
+          icon={Calendar}
+          label="Jobs"
+          value={todaysJobs}
+          href="/portal/dispatch"
+          color="text-violet-600 dark:text-violet-300"
+          bgColor="bg-violet-50 dark:bg-violet-950/40"
+          subLinks={[
+            { label: "Today's appointments", href: "/portal/dispatch", count: todaysJobs, emphasize: true },
+            { label: "Manage schedule", href: "/portal/dispatch" },
+          ]}
+        />
+        {/* Invoices — outstanding balance + active services context */}
+        <PortalWorkflowCard
+          icon={FileText}
+          label="Invoices"
+          value={`$${Math.round(outstandingCents / 100).toLocaleString()}`}
+          href="/portal/billing"
+          color="text-blue-600 dark:text-blue-300"
+          bgColor="bg-blue-50 dark:bg-blue-950/40"
+          subLinks={[
+            { label: "Amount due", href: "/portal/billing", emphasize: true },
+            { label: "Active services", href: "/portal/services", count: activeServices },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Today's appointments panel (portal) ───
+   Renders today's BookFlow appointments in start-time order; graceful
+   empty-state when the day is clear. */
+function PortalTodaysAppointments({ appointments }: { appointments: BookflowAppointment[] }) {
+  const sorted = [...appointments].sort((a, b) =>
+    (a.start_time ?? "").localeCompare(b.start_time ?? ""),
+  );
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-violet-600 dark:text-violet-300" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Today's appointments
+              {sorted.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#EEF3FF] dark:bg-brand-blue/15 text-brand-blue text-[10px] font-bold">
+                  {sorted.length}
+                </span>
+              )}
+            </h3>
+            <p className="text-[11px] text-muted-foreground/70">Your scheduled jobs for today</p>
+          </div>
+        </div>
+        <Link href="/portal/dispatch" className="text-xs text-brand-blue font-medium hover:underline">
+          View schedule
+        </Link>
+      </div>
+      {sorted.length === 0 ? (
+        <div className="px-5 py-8 text-center">
+          <Calendar className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" aria-hidden="true" />
+          <p className="text-sm font-medium text-foreground mb-1">No appointments scheduled today</p>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-3">
+            Bookings made through your scheduling page show up here automatically.
+          </p>
+          <Link href="/portal/dispatch" className="text-sm text-brand-blue hover:underline">
+            Open the schedule →
+          </Link>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {sorted.map((appt) => (
+            <li key={appt.id} className="px-5 py-3 flex items-center gap-3">
+              <span className="text-sm font-semibold text-foreground tabular-nums min-w-[64px] shrink-0">
+                {formatTime(appt.start_time)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{appt.customer_name}</p>
+                {appt.service_name && <p className="text-[11px] text-muted-foreground truncate">{appt.service_name}</p>}
+              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap bg-muted text-muted-foreground capitalize">
+                {appt.status.replace(/_/g, " ")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

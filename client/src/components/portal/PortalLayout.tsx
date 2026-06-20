@@ -32,6 +32,10 @@ import {
   ShieldCheck,
   Zap,
   ClipboardList,
+  User,
+  Moon,
+  Sun,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -42,10 +46,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useTheme } from "@/context/ThemeContext";
+import { useHoverIntent } from "@/hooks/useHoverIntent";
 import { FirstVisitTooltip } from "./FirstVisitTooltip";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
@@ -117,6 +123,10 @@ function buildNavItems(active: Set<string>): NavItem[] {
        so it's useful to every account, not just those who already own a
        calculator or TradeLine. */
     { label: "Your AI assistant", href: "/portal/ai-assistant", icon: Sparkles },
+    /* Marketing Hub — the "growth engine" front door. Always visible (ungated):
+       the hub itself shows owned products as "Open" and the rest as add-ons, so
+       it's useful to every account as a discovery surface. */
+    { label: "Marketing", href: "/portal/marketing", icon: Rocket },
     /* Service-gated product tabs — only shown when the client has the matching
        subscription (Q17). Labels use the canonical product brand name (premium
        SaaS brand consistency) — customers see these brand names in billing,
@@ -257,6 +267,36 @@ export default function PortalLayout({
   };
 
   const initials = (user?.name || user?.email || "C").charAt(0).toUpperCase();
+
+  /* Enriched account menu — open-on-hover (with intent), still click- +
+   * keyboard-accessible. Dark-mode toggle now lives inside the menu. */
+  const accountMenu = useHoverIntent();
+  const { resolved: resolvedTheme, setTheme } = useTheme();
+  const isDarkTheme = resolvedTheme === "dark";
+
+  /* Plan/trial row: the portal has no trial flag, but the billing endpoint
+   * exposes the next scheduled payment — a useful "your plan" cue. Reuses the
+   * same query key as PortalBilling so it's served from cache when available.
+   * Omitted gracefully (no row) when there's no upcoming charge. */
+  const { data: billingSummary } = useQuery<{
+    summary?: { next_due_at: string | null; next_due_amount_cents: number | null };
+  }>({
+    queryKey: ["/api/portal/billing"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/billing", { credentials: "include" });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    enabled: !!user,
+  });
+  const nextDueAt = billingSummary?.summary?.next_due_at ?? null;
+  const nextDueAmountCents = billingSummary?.summary?.next_due_amount_cents ?? null;
+  const nextDueLabel =
+    nextDueAt && nextDueAmountCents != null
+      ? `$${(nextDueAmountCents / 100).toFixed(2)} due ${new Date(nextDueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}`
+      : null;
 
   return (
     <OnboardingProvider>
@@ -433,29 +473,101 @@ export default function PortalLayout({
             >
               Ask questions, get help filling out forms, and navigate the portal hands-free.
             </FirstVisitTooltip>
-            {/* Day / night / system theme toggle — placed between the AI
-             *  Copilot trigger and the user-menu avatar so the affordance
-             *  is in a predictable spot per top-nav convention. */}
-            <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">
-                  <span className="text-white text-[10px] font-bold">{initials}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="text-sm font-medium text-foreground truncate">{user?.name || "Client"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-                <DropdownMenuItem onClick={() => navigate("/portal/settings")}>
-                  <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="w-4 h-4 mr-2" /> Log Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Enriched account / settings menu — opens on hover (with
+             *  intent) and stays click- + keyboard-accessible. The day/night
+             *  toggle now lives INSIDE this menu rather than as a separate
+             *  top-bar button. */}
+            <div
+              className="relative"
+              onMouseEnter={accountMenu.onMouseEnter}
+              onMouseLeave={accountMenu.onMouseLeave}
+            >
+              <DropdownMenu open={accountMenu.open} onOpenChange={accountMenu.setOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+                    aria-label="Account and settings menu"
+                    data-testid="portal-account-menu-trigger"
+                  >
+                    <span className="text-white text-[10px] font-bold">{initials}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-64"
+                  onMouseEnter={accountMenu.onMouseEnter}
+                  onMouseLeave={accountMenu.onMouseLeave}
+                >
+                  {/* Header — avatar + name + email */}
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center shrink-0">
+                      <span className="text-white text-xs font-bold">{initials}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{user?.name || "Client"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                    </div>
+                  </div>
+                  {/* Plan / next-payment row — only when the billing endpoint
+                   *  returns an upcoming charge; omitted gracefully otherwise. */}
+                  {nextDueLabel && (
+                    <div className="mx-2 mb-1 flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground truncate">
+                        <CreditCard className="w-3.5 h-3.5 text-brand-blue shrink-0" aria-hidden="true" />
+                        <span className="truncate">{nextDueLabel}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/portal/billing")}
+                        className="text-xs font-medium text-brand-blue hover:underline shrink-0"
+                        data-testid="portal-account-manage-plan"
+                      >
+                        Manage
+                      </button>
+                    </div>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/portal/settings")}>
+                    <User className="w-4 h-4 mr-2 text-muted-foreground" /> Profile &amp; Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/portal/billing")}>
+                    <CreditCard className="w-4 h-4 mr-2 text-muted-foreground" /> Account &amp; Billing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/portal/help")}>
+                    <HelpCircle className="w-4 h-4 mr-2 text-muted-foreground" /> Help &amp; Support
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* Dark-mode toggle — moved INSIDE the menu (reuses
+                   *  ThemeContext). Stays open on click. */}
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setTheme(isDarkTheme ? "light" : "dark");
+                    }}
+                    data-testid="portal-account-dark-mode-toggle"
+                  >
+                    {isDarkTheme ? (
+                      <Moon className="w-4 h-4 mr-2 text-muted-foreground" />
+                    ) : (
+                      <Sun className="w-4 h-4 mr-2 text-muted-foreground" />
+                    )}
+                    <span className="flex-1">Dark Mode</span>
+                    <span
+                      className={cn(
+                        "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+                        isDarkTheme ? "bg-brand-blue/10 text-brand-blue" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {isDarkTheme ? "On" : "Off"}
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                    <LogOut className="w-4 h-4 mr-2" /> Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 

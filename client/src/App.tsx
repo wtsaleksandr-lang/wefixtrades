@@ -214,6 +214,7 @@ const InstallQueuePage = lazy(() => import("@/pages/admin/InstallQueuePage"));
 
 // ── Portal (auth-gated client area) ────────────────────────────────────────
 const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
+const MarketingHubPage = lazy(() => import("@/pages/portal/MarketingHubPage"));
 const PortalCalculatorAnalytics = lazy(() => import("@/pages/portal/PortalCalculatorAnalytics"));
 const PortalServices = lazy(() => import("@/pages/portal/PortalServices"));
 const PortalReviews = lazy(() => import("@/pages/portal/PortalReviews"));
@@ -540,6 +541,9 @@ function Router() {
       <Route path="/portal/citation-builder">{() => <RequireClient><CitationBuilderDashboard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/catalog">{() => <RequireClient><PortalCatalog /></RequireClient>}</Route>
+      {/* Marketing Hub — consolidated "growth engine" card grid that links to
+          every marketing product's existing portal surface. Read-only hub. */}
+      <Route path="/portal/marketing">{() => <RequireClient><MarketingHubPage /></RequireClient>}</Route>
       {/* Wave 43 — SiteLaunch / WebFix entry routes. The shared sidebar
        *  links these for any client with a matching subscription; without
        *  the routes the click fell through to the nearest match. */}

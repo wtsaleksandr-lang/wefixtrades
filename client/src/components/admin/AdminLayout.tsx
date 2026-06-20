@@ -46,9 +46,13 @@ import {
   Radio,
   Eye,
   ArrowLeft,
+  Moon,
+  Sun,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useTheme } from "@/context/ThemeContext";
+import { useHoverIntent } from "@/hooks/useHoverIntent";
+import NotificationsBell from "./NotificationsBell";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,6 +68,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -1329,6 +1334,13 @@ export default function AdminLayout({
   };
   const initials = (user?.name || user?.email || "A").charAt(0).toUpperCase();
 
+  /* Enriched account menu — open-on-hover (with intent) while staying
+   * click- + keyboard-accessible. Dark-mode toggle now lives inside the
+   * menu (reusing ThemeContext) rather than as a separate top-bar button. */
+  const accountMenu = useHoverIntent();
+  const { resolved: resolvedTheme, setTheme } = useTheme();
+  const isDarkTheme = resolvedTheme === "dark";
+
   // Build full context with current route
   const fullPageContext: AdminPageContext = {
     route: location,
@@ -1506,60 +1518,136 @@ export default function AdminLayout({
             >
               <Sparkles className="w-4 h-4" />
             </Button>
-            {/* Day / night / system theme toggle — sits next to the
-             *  user menu so the affordance is discoverable but doesn't
-             *  compete with the Quick Add primary CTA. */}
-            <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-7 h-7 rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">
-                  <span className="text-white text-[10px] font-bold">{initials}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="text-sm font-medium text-foreground truncate">{user?.name || "Admin"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-                <DropdownMenuItem onClick={() => navigate("/admin/crm/profile")}>
-                  <User className="w-4 h-4 mr-2 text-muted-foreground" /> Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/crm/settings")}>
-                  <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Account Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/crm/change-password")}>
-                  <KeyRound className="w-4 h-4 mr-2 text-muted-foreground" /> Change Password
-                </DropdownMenuItem>
-                {/* P1 fix: admin "Preview as Pro" toggle. Stays in the
-                 *  account dropdown so it's discoverable next to Profile /
-                 *  Settings without taking up top-bar real estate. The
-                 *  pill in the page header (above) gives a persistent
-                 *  visual cue when ON. */}
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    togglePreviewPro.mutate(!adminProPreview);
-                  }}
-                  data-testid="admin-preview-pro-toggle"
-                >
-                  <Eye className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <span className="flex-1">Preview as Pro</span>
-                  <span
-                    className={cn(
-                      "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-                      adminProPreview
-                        ? "bg-amber-100 text-amber-900"
-                        : "bg-muted text-muted-foreground"
-                    )}
+            {/* Top-bar notifications bell — wired to the existing system
+             *  alerts feed (/api/admin/alerts). Admin-only: the portal has no
+             *  comparable notification feed (its endpoint is opt-in settings). */}
+            <NotificationsBell />
+            {/* Enriched account / settings menu — opens on hover (with
+             *  intent) and stays click- + keyboard-accessible. The day/night
+             *  toggle now lives INSIDE this menu rather than as a separate
+             *  top-bar button, so the top bar stays uncluttered. */}
+            <div
+              className="relative"
+              onMouseEnter={accountMenu.onMouseEnter}
+              onMouseLeave={accountMenu.onMouseLeave}
+            >
+              <DropdownMenu open={accountMenu.open} onOpenChange={accountMenu.setOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40"
+                    aria-label="Account and settings menu"
+                    data-testid="admin-account-menu-trigger"
                   >
-                    {adminProPreview ? "On" : "Off"}
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="w-4 h-4 mr-2" /> Log Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <span className="text-white text-[10px] font-bold">{initials}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-64"
+                  onMouseEnter={accountMenu.onMouseEnter}
+                  onMouseLeave={accountMenu.onMouseLeave}
+                >
+                  {/* Header — avatar + name + email */}
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center shrink-0">
+                      <span className="text-white text-xs font-bold">{initials}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{user?.name || "Admin"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                    </div>
+                  </div>
+                  {/* Plan / role row — admins aren't on a trial; surface the
+                   *  console role + a shortcut to Billing (the revenue surface
+                   *  they manage). */}
+                  <div className="mx-2 mb-1 flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+                      <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" aria-hidden="true" />
+                      Admin console
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/admin/crm/billing")}
+                      className="text-xs font-medium text-brand-blue hover:underline"
+                      data-testid="admin-account-billing-shortcut"
+                    >
+                      Billing
+                    </button>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/crm/profile")}>
+                    <User className="w-4 h-4 mr-2 text-muted-foreground" /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/crm/settings")}>
+                    <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Account Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/crm/billing")}>
+                    <CreditCard className="w-4 h-4 mr-2 text-muted-foreground" /> Account &amp; Billing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/crm/clients")}>
+                    <Users className="w-4 h-4 mr-2 text-muted-foreground" /> Manage Clients
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/crm/change-password")}>
+                    <KeyRound className="w-4 h-4 mr-2 text-muted-foreground" /> Change Password
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* Dark-mode toggle — moved INSIDE the menu (reuses
+                   *  ThemeContext). Stays open on click so the user can flip
+                   *  it without the menu dismissing. */}
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setTheme(isDarkTheme ? "light" : "dark");
+                    }}
+                    data-testid="admin-account-dark-mode-toggle"
+                  >
+                    {isDarkTheme ? (
+                      <Moon className="w-4 h-4 mr-2 text-muted-foreground" />
+                    ) : (
+                      <Sun className="w-4 h-4 mr-2 text-muted-foreground" />
+                    )}
+                    <span className="flex-1">Dark Mode</span>
+                    <span
+                      className={cn(
+                        "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+                        isDarkTheme ? "bg-brand-blue/10 text-brand-blue" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {isDarkTheme ? "On" : "Off"}
+                    </span>
+                  </DropdownMenuItem>
+                  {/* P1 fix: admin "Preview as Pro" toggle. Stays in the
+                   *  account dropdown so it's discoverable next to Profile /
+                   *  Settings without taking up top-bar real estate. The
+                   *  pill in the page header (above) gives a persistent
+                   *  visual cue when ON. */}
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      togglePreviewPro.mutate(!adminProPreview);
+                    }}
+                    data-testid="admin-preview-pro-toggle"
+                  >
+                    <Eye className="w-4 h-4 mr-2 text-muted-foreground" />
+                    <span className="flex-1">Preview as Pro</span>
+                    <span
+                      className={cn(
+                        "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+                        adminProPreview
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {adminProPreview ? "On" : "Off"}
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                    <LogOut className="w-4 h-4 mr-2" /> Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 
