@@ -66,6 +66,7 @@
     "check:contentflow-reference-capture": "tsx server/services/contentflow/referenceCapture.test.ts",
     "check:contentflow-imagen4": "tsx server/services/contentflow/imageOrchestrator.imagen4.test.ts",
     "check:contentflow-flux2": "tsx server/services/contentflow/imageOrchestrator.flux2.test.ts",
+    "check:contentflow-gemini": "tsx server/services/contentflow/imageOrchestrator.gemini.test.ts",
     "check:contentflow-video-storage": "tsx server/storage/contentflowVideo.test.ts",
     "check:contentflow-video-director": "tsx server/services/contentflow/videoDirectorService.test.ts",
     "check:contentflow-video-providers": "tsx server/services/contentflow/videoProviders/providers.test.ts",
