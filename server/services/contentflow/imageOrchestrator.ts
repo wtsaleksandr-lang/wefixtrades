@@ -53,6 +53,7 @@ export type ImageProviderId =
   | "replicate_sdxl"
   | "dalle"
   | "imagen4"
+  | "gemini_flash_image"
   | "flux2_pro";
 
 export interface ImageProvider {
@@ -211,6 +212,22 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
     envVarAnyOf: ["GOOGLE_IMAGEN_PROJECT_ID", "GOOGLE_VEO_PROJECT_ID"],
   },
   {
+    id: "gemini_flash_image",
+    name: "Google Gemini 2.5 Flash Image",
+    /* Gemini 2.5 Flash Image ("nano-banana") via the Generative Language
+     * REST API — a simple API KEY (GEMINI_API_KEY), NOT Vertex ADC, so it is
+     * the most reliably-configured Google photoreal path (no service-account
+     * JSON to provision). ~$0.039/img. Outputs carry an invisible SynthID
+     * watermark like Imagen. Strong photoreal + image-edit model; here it is
+     * wired for text→image generation as a resilient backup that cannot be
+     * locked by a prepaid balance (unlike fal). */
+    costPerImage: 0.039,
+    qualityScore: 91,
+    detectorPassScore: 58,
+    enabled: true,
+    envVarRequired: "GEMINI_API_KEY",
+  },
+  {
     id: "flux2_pro",
     name: "FLUX.2 pro (fal.ai)",
     /* fal.ai bills by output megapixels: $0.03 for the first MP +
@@ -240,6 +257,7 @@ export const IMAGE_PROVIDERS: readonly ImageProvider[] = [
 export const PHOTOREAL_PROVIDER_ORDER: readonly ImageProviderId[] = [
   "flux2_pro",
   "imagen4",
+  "gemini_flash_image",
   "stability",
   "dalle",
   "pollinations",
@@ -819,6 +837,70 @@ export async function callFlux2Pro(prompt: string, opts: ImageGenOpts): Promise<
   }
 }
 
+/* ─── Google Gemini 2.5 Flash Image ────────────────────────────────── */
+
+/** Gemini 2.5 Flash Image ("nano-banana") generation model + flat per-image
+ *  cost. Unlike fal/Imagen the price doesn't vary with megapixels, so the
+ *  registry figure and the per-call costUsd are the same constant. */
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+export const GEMINI_IMAGE_COST_USD = 0.039;
+
+/**
+ * Google Gemini 2.5 Flash Image via the Generative Language REST API.
+ *
+ * Auth: a plain API key (`GEMINI_API_KEY`) on the query string — NOT Vertex
+ * ADC — which makes it the most reliably-configured Google image path (no
+ * service-account JSON to provision, unlike callImagen4). Skips gracefully
+ * (clear log, ok:false, NO network) when GEMINI_API_KEY is absent so the
+ * rotation falls through — mirrors callFlux2Pro / callImagen4. Non-200 and
+ * "no image part" surface as ok:false so the orchestrator treats them as
+ * standard fallthrough; never throws.
+ *
+ * Generates text→image (no input image). The model emits ~1024px output and
+ * does not take explicit pixel dimensions, so `opts` size/dimensions are not
+ * forwarded; downstream post-processing owns any final resize. The image is
+ * returned inline as base64 in candidates[0].content.parts[].inline_data.
+ */
+export async function callGeminiFlashImage(prompt: string, opts: ImageGenOpts): Promise<ProviderResult> {
+  try {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      logger.info("gemini_flash_image: skipped — GEMINI_API_KEY not set");
+      return { ok: false, error: "gemini_flash_image: GEMINI_API_KEY missing" };
+    }
+    const res = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+      },
+      opts.timeoutMs ?? 60_000,
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `gemini_flash_image ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const json = await res.json().catch(() => ({})) as any; // body-parse fallback — error surfaces below
+    const parts = json?.candidates?.[0]?.content?.parts ?? [];
+    const imgPart = Array.isArray(parts)
+      ? parts.find((p: any) => p?.inline_data?.data || p?.inlineData?.data)
+      : null;
+    const b64 = imgPart?.inline_data?.data ?? imgPart?.inlineData?.data;
+    if (!b64 || typeof b64 !== "string") {
+      return { ok: false, error: "gemini_flash_image: no image in response" };
+    }
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length < 1024) return { ok: false, error: "gemini_flash_image: response too small" };
+    return { ok: true, buffer: buf, costUsd: GEMINI_IMAGE_COST_USD };
+  } catch (err: any) {
+    return { ok: false, error: `gemini_flash_image: ${err?.message || err}` };
+  }
+}
+
 /** Dispatch by provider id. */
 async function callProvider(
   id: ImageProviderId,
@@ -836,8 +918,9 @@ async function callProvider(
      * Premium photoreal providers dispatch here. Keep the
      * ImageProviderId union + IMAGE_PROVIDERS + PHOTOREAL_PROVIDER_ORDER
      * in sync (see registry marker above). */
-    case "imagen4":          return callImagen4(prompt, opts);
-    case "flux2_pro":        return callFlux2Pro(prompt, opts);
+    case "imagen4":            return callImagen4(prompt, opts);
+    case "gemini_flash_image": return callGeminiFlashImage(prompt, opts);
+    case "flux2_pro":          return callFlux2Pro(prompt, opts);
   }
 }
 

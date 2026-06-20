@@ -103,6 +103,8 @@ jobs:
         run: npm run check:contentflow-imagen4
       - name: ContentFlow FLUX.2 pro guard (fal auth/body shape, MP-based cost, 4MP clamp, graceful skip without FAL_KEY)
         run: npm run check:contentflow-flux2
+      - name: ContentFlow Gemini 2.5 Flash Image guard (API-key endpoint/body shape, inline_data decode, flat cost, graceful skip without GEMINI_API_KEY, order wiring)
+        run: npm run check:contentflow-gemini
       - name: ContentFlow video-storage guard (SKIP LOCKED claims, stale recovery, dual-write cost invariant, idempotent create)
         run: npm run check:contentflow-video-storage
       - name: ContentFlow video-director guard (scene plan invariants — sum==total, styleBible injection, narration budget, tier clamps)
