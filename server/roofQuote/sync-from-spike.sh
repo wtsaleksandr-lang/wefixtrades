@@ -25,6 +25,10 @@ perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|le
 # 3) Prefix the dynamic module import.
 perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(RQ_BASE+"/$1.mjs"}g' "$DST"
 
+# 4) Prefix backend URLs used as string/img-src literals (e.g. baBefore.src="/capture?...").
+#    Matches `="/capture?` (assignment), never `+"/capture` (the fetch form), so no double-prefix.
+perl -pi -e 's{="/(capture|streetview)\?}{="/api/roofquote/$1?}g' "$DST"
+
 # Verify: no raw root-relative backend calls remain.
 LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|solar|streetview|analyze)' "$DST" | wc -l | tr -d ' ')
 PREFIXED=$(grep -oE 'RQ_BASE\+"/' "$DST" | wc -l | tr -d ' ')

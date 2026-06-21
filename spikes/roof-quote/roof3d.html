@@ -39,6 +39,10 @@
   #card .tk-row b{color:#0f172a;font-weight:600}
   #card .qfin{font-size:11.5px;color:var(--muted);margin:7px 0 0;line-height:1.35}
   #card .qfin b{color:#0f172a;font-weight:800}
+  #baHandle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.35);z-index:18;cursor:ew-resize;touch-action:none}
+  #baHandle .ba-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#0d3cfc}
+  .ba-tag{position:absolute;top:12px;z-index:18;background:rgba(16,22,33,.72);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
+  #baTagA{left:12px} #baTagB{right:12px}
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
@@ -167,8 +171,11 @@
   <canvas id="matCanvas" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:15;touch-action:none"></canvas>
   <div id="matHint">Top-down material preview · obstructions kept</div>
   <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:16">
+  <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:17">
+  <div id="baHandle" style="display:none"><div class="ba-knob"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
+  <span class="ba-tag" id="baTagA" style="display:none">After</span><span class="ba-tag" id="baTagB" style="display:none">Before</span>
   <button id="aiBtn" style="display:none">See it on my house</button>
-  <div id="aiBar" style="display:none"><button id="aiToggle">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
+  <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
   <div id="measToggle"><button data-v="3d" class="on">3D</button><button data-v="diagram">Diagram</button></div>
   <div id="bar"><input id="addr" placeholder="Enter your address" value="30 Angus Rd, Hamilton, ON"><button id="go">Get Quote</button></div>
@@ -1271,7 +1278,7 @@ function renderCols(){
     wrap.appendChild(d); });
 }
 function showMatImg(key,label){ const img=$("aiPhoto"); img.src=window.__matRenders[key]; img.style.display="block"; matLoading(false);
-  $("aiMat").textContent=label||""; $("aiBar").style.display="flex"; }
+  $("aiMat").textContent=label||""; $("aiBar").style.display="flex"; activateBA(); }
 function markColReady(key){ const m=ROOF_CATALOG[selMat]; if(!m) return; const idx=m.colors.findIndex(c=>colorKey(m,c)===key); const wrap=$("matCols"); if(idx>=0&&wrap&&wrap.children[idx]) wrap.children[idx].classList.add("ready"); }
 async function renderOne(m,c,show){
   const key=colorKey(m,c), addr=$("addr").value.trim(), label=m.label+" · "+c.n;
@@ -1324,7 +1331,16 @@ $("bRoof").onclick=async()=>{
 // from the card's "Choose materials →" CTA: jump straight into the Roofing material catalogue
 window.__openMaterials=()=>{ if(tradeMode!=="roof"){ tradeMode="roof"; renderQuoteCard(); applyTradeMode(); } if(!matMode) $("bRoof").click(); };
 // ---- AI "See it on my house" photoreal roof render (Street View → Flux Kontext) ----
-function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; }
+// ── Before/After slider: drag the divider to wipe between the new material (left) and the original roof (right) ──
+function setBAPos(pos){ pos=Math.max(3,Math.min(97,pos)); window.__baPos=pos; const b=$("baBefore"); if(b) b.style.clipPath="inset(0 0 0 "+pos+"%)"; const h=$("baHandle"); if(h) h.style.left="calc("+pos+"% - 1px)"; }
+function activateBA(){ const addr=$("addr").value.trim(); if(!addr) return; $("baBefore").src="/capture?address="+encodeURIComponent(addr); ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="block"; }); setBAPos(window.__baPos||55); }
+function deactivateBA(){ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="none"; }); }
+(function(){ let drag=false; const rect=()=>$("aiPhoto").getBoundingClientRect();
+  const upd=cx=>{ const r=rect(); if(r.width) setBAPos((cx-r.left)/r.width*100); };
+  const h=$("baHandle"); if(h){ h.addEventListener("pointerdown",e=>{ drag=true; e.preventDefault(); try{h.setPointerCapture(e.pointerId);}catch(_){} });
+    window.addEventListener("pointermove",e=>{ if(drag) upd(e.clientX); }); window.addEventListener("pointerup",()=>{ drag=false; }); }
+})();
+function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); }
 $("aiBtn").onclick=async()=>{
   const addr=$("addr").value.trim(); const mt=ROOF_MATS[matIdx]||ROOF_MATS[0]; const btn=$("aiBtn");
   btn.disabled=true; btn.textContent="Modeling your home…";
@@ -1334,10 +1350,9 @@ $("aiBtn").onclick=async()=>{
     const j=await r.json();
     setStatus("");
     if(j.url){
-      const after=j.url, before="/capture?address="+encodeURIComponent(addr);   // before = same oblique aerial as the render input
-      const img=$("aiPhoto"); img.src=after; img.style.display="block";
-      $("aiMat").textContent=mt.n+" — your home"; $("aiToggle").textContent="Before";
-      let showing="after"; $("aiToggle").onclick=()=>{ showing=showing==="after"?"before":"after"; img.src=showing==="after"?after:before; $("aiToggle").textContent=showing==="after"?"Before":"After"; };
+      const img=$("aiPhoto"); img.src=j.url; img.style.display="block";
+      $("aiMat").textContent=mt.n+" — your home";
+      activateBA();   // before/after slider supersedes the old toggle
       $("aiBar").style.display="flex"; btn.style.display="none";
     } else { setStatus(j.error==="no_streetview"?"No street photo for this address yet":"Couldn't render — try again",true); setTimeout(()=>setStatus(""),3500); }
   }catch(e){ setStatus("Render failed — try again",true); setTimeout(()=>setStatus(""),3500); }
