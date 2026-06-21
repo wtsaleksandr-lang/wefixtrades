@@ -27,6 +27,7 @@ import {
   geoTiff,
   geocode,
   houseKnowledge,
+  localRate,
   roofFeatures,
   solarInsights,
   streetView,
@@ -112,6 +113,18 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.send(ok ? body : JSON.stringify({ error: "no_solar" }));
     } catch (err) {
       log.error("solar failed", { err: (err as Error).message });
+      return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── Local residential electricity rate (US: live EIA; CA: provincial table) ─── */
+  app.get("/api/roofquote/rates", async (req: Request, res: Response) => {
+    try {
+      const country = String(req.query.country || "US");
+      const region = String(req.query.region || req.query.state || req.query.province || "");
+      return res.json(await localRate(country, region));
+    } catch (err) {
+      log.error("rates failed", { err: (err as Error).message });
       return res.json({ error: String((err as Error).message || err) });
     }
   });

@@ -508,6 +508,46 @@ export async function geocode(address: string): Promise<GeocodeResult> {
   return { error: j.status, message: j.error_message || "" };
 }
 
+/* ─── Local residential electricity rate ($/kWh): US via live EIA (public-domain,
+   free commercial use; cached ~14d); Canada via researched provincial table (no
+   aggregated CA rate API exists). Powers the widget's real local savings math. ─── */
+const eiaKey = (): string => process.env.EIA_API_KEY || process.env.EIA_KEY || "";
+const CA_RATES: Record<string, number> = {
+  ON: 0.13, BC: 0.115, AB: 0.17, QC: 0.078, MB: 0.097, SK: 0.18,
+  NS: 0.183, NB: 0.137, NL: 0.139, PE: 0.166, NT: 0.38, YT: 0.19, NU: 0.375,
+};
+export interface RateResult {
+  rate?: number; region?: string; period?: string; source?: string; error?: string; _t?: number;
+}
+export async function localRate(country: string, region: string): Promise<RateResult> {
+  country = (country || "US").toUpperCase();
+  region = (region || "").toUpperCase();
+  if (country === "CA") {
+    const rate = CA_RATES[region];
+    return rate ? { rate, region, source: "provincial tariff (approx)" } : { error: "no_rate", region };
+  }
+  if (!region || region.length !== 2) return { error: "bad_region" };
+  const cached = diskGetJSON<RateResult>("rate", country + region);
+  if (cached && cached._t && Date.now() - cached._t < 14 * 864e5) return cached;
+  const EIA = eiaKey();
+  if (!EIA) return { error: "no_eia_key" };
+  const url =
+    "https://api.eia.gov/v2/electricity/retail-sales/data/?api_key=" + EIA +
+    "&frequency=monthly&data%5B0%5D=price&facets%5Bstateid%5D%5B0%5D=" + region +
+    "&facets%5Bsectorid%5D%5B0%5D=RES&sort%5B0%5D%5Bcolumn%5D=period&sort%5B0%5D%5Bdirection%5D=desc&length=1";
+  const r = await fetch(url);
+  const j = (await r.json()) as any;
+  const row = j?.response?.data?.[0];
+  if (row?.price) {
+    const out: RateResult = {
+      rate: +(row.price / 100).toFixed(4), region, period: row.period, source: "EIA " + row.period, _t: Date.now(),
+    };
+    diskSetJSON("rate", country + region, out);
+    return out;
+  }
+  return { error: "no_rate", region };
+}
+
 /** Raw Solar buildingInsights passthrough. Returns the upstream text body + ok flag. */
 export async function solarInsights(lat: string, lng: string): Promise<{ ok: boolean; status: number; body: string }> {
   const SOLAR = solarKey();
