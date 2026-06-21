@@ -59,13 +59,28 @@ work for little gain. Instead:
 - Free tier forces the badge (`AdvancedCalculator.tsx:1984-1991`). The widget's quote
   card must show the same badge under the same rule.
 
-## The one real infra risk — prove it first
+## The one real infra risk — LARGELY DE-RISKED (verified in repo)
 
-The oblique **capture runs Playwright + headless Chromium (SwiftShader software-WebGL)
-server-side** to render Google 3D tiles with no GPU. This must work inside the **Replit
-container**. **Phase 0 = prove this on Replit before committing to the full integration.**
-If it can't run there, fallbacks: (a) a small separate capture microservice, or
-(b) Street View static imagery instead of 3D-tile capture for the render base.
+The oblique **capture runs Playwright + headless Chromium (SwiftShader software-WebGL)**
+server-side to render Google 3D tiles with no GPU. Originally the biggest unknown —
+"will headless Chromium even run in the Replit container?" — but the repo already
+answers most of it:
+
+- **`playwright ^1.59.1` is already a dependency** (`package.json`) — no new dep.
+- **`.replit` already installs the Chromium Nix system libs** (Wave 90): `glib, nss,
+  nspr, atk, at-spi2-atk, cups, libdrm, gtk3, pango, cairo, alsa-lib, libxkbcommon,
+  **mesa**, libxshmfence, dbus` — `mesa` provides the software-GL stack.
+- **The app already launches headless Chromium on Replit** during deploy builds:
+  `scripts/seo/prerender-routes.mjs:530` calls `chromium.launch()` (with a graceful
+  fallback if it can't).
+
+So Chromium-on-Replit is proven. The **only remaining unknown is narrow**: whether the
+SwiftShader WebGL path (`--use-gl=angle --use-angle=swiftshader
+--enable-unsafe-swiftshader`) renders Google 3D tiles in that container (the prerender
+launch doesn't exercise WebGL). SwiftShader ships inside Chromium, so this is likely
+fine. **Phase 0 shrinks to a quick WebGL-capture smoke test on Replit.** Fallbacks if it
+fails: (a) Street View static imagery as the render base instead of 3D-tile capture, or
+(b) a tiny separate capture microservice.
 
 ## Decisions needed from Alex (alignment)
 
@@ -81,7 +96,7 @@ If it can't run there, fallbacks: (a) a small separate capture microservice, or
 
 | Phase | Work | Effort |
 |------|------|--------|
-| 0 | Prove headless capture on Replit (spike) | 0.5–1 day |
+| 0 | WebGL-capture smoke test on Replit (Chromium/Playwright already proven there) | ~2–4 hrs |
 | 1 | Port backend routes → `roofQuoteRoutes.ts` + service + Doppler keys | 1–2 days |
 | 2 | `roof_visualizer` step type + mount widget in stepper (feature-flagged) | 1–2 days |
 | 3 | Wire AI budget gate + reuse `/api/leads` + badge | 1 day |
