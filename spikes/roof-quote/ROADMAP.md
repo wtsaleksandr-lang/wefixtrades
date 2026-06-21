@@ -33,6 +33,8 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 
 - [x] **16. Material comparison picker** — the roofing "choose a material" empty-state is now a compact comparison of all 9 materials with est. price FOR THIS ROOF + lifespan; tap a row to select it. A real buying-decision aid (vs a bare prompt).
 
+- [ ] **17. Flat/commercial roof handling** (logic correctness) — rooffeatures returns roofType; when "flat", the sloped-shingle catalog + asphalt $/sq are wrong (flat roofs use TPO/EPDM membrane, priced differently). Add a membrane path + note. Needs a flat-roof test address to verify — next session.
+
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
