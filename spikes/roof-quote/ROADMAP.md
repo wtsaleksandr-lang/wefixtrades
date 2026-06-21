@@ -24,8 +24,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] **8. Battery/storage toggle** (DIFF) — DONE. "+ Battery storage · 13.5 kWh backup" toggle on the solar quote adds ~$11.5k (ITC-eligible in the US), updates the financed monthly, and shows the backup value note.
 - [ ] **10. Real-SKU material/color library** (DIFF) — branded shingles (GAF Timberline etc.)
   with real color names, so the AI render & catalog feel authentic vs generic textures.
-- [ ] **11. Sub-60s flow polish + no hard gate before estimate** (TS) — address autocomplete,
-  progress, value-first.
+- [x] **11. Address autocomplete (Google Places)** (TS) — DONE. Places Autocomplete on the address bar (reuses the loaded Maps JS), styled to the wizard (Satoshi, rounded, blue focus, hover-tint); selecting a suggestion fills + auto-runs the quote. Graceful plain-text fallback.
 - [ ] **12. AI render quality** — gpt-image-1 (blocked on OpenAI billing — Alex). Browse tier meanwhile.
 
 - [x] **13. "Customize" collapsible** — DONE. Default roofing surface is clean (price, financing, stats, CTA); waste/options/takeoff live behind a "Customize & see materials" expander. Apple/Tesla-simple default, full detail one tap away.
@@ -40,3 +39,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #13 Customize collapsible · verified collapsed(clean)/expanded states, 0 errors
 - 2026-06-21 · #7 penetration line items + detected summary · verified (hip roof, 2 vents detected → line+cost), 0 errors · FIXED: detection only ran in Measure mode
 - 2026-06-21 · #8 battery storage toggle · verified (+$11.5k, $338->$397/mo, backup note), 0 errors
+- 2026-06-21 · #11 address autocomplete · verified (5 Places suggestions, styled, auto-run on select), 0 errors

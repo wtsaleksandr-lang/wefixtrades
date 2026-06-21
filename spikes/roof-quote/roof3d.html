@@ -53,6 +53,10 @@
   #baHandle .ba-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#0d3cfc}
   .ba-tag{position:absolute;top:12px;z-index:18;background:rgba(16,22,33,.72);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
   #baTagA{left:12px} #baTagB{right:12px}
+  .pac-container{font-family:"Satoshi","Satoshi Variable",system-ui,sans-serif;border-radius:12px;border:1px solid #e1e7ef;box-shadow:0 12px 40px rgba(15,23,42,.14);margin-top:5px;z-index:9999;overflow:hidden}
+  .pac-item{padding:8px 12px;font-size:13px;color:#0f172a;cursor:pointer;border-top:1px solid #f1f4f8}
+  .pac-item:hover,.pac-item-selected{background:rgba(13,60,252,0.06)}
+  .pac-icon{display:none} .pac-item-query{font-size:13px;color:#0f172a}
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
@@ -1206,6 +1210,12 @@ window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeTe
 window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+location.href); };
 $("go").onclick=()=>run($("addr").value.trim());
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
+// Google Places address autocomplete — sub-60s, fewer typos (graceful: plain text if Places is unavailable)
+(async()=>{ try{
+  await google.maps.importLibrary("places");
+  const ac=new google.maps.places.Autocomplete($("addr"), { types:["address"], fields:["formatted_address","geometry"] });
+  ac.addListener("place_changed",()=>{ const pl=ac.getPlace(); if(pl&&pl.formatted_address){ $("addr").value=pl.formatted_address; $("go").click(); } });
+}catch(_){ /* input still works as a plain text field */ } })();
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
 // exits any 2D analysis (sun or material) + restores 3D
 function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
