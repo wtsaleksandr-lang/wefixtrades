@@ -90,6 +90,17 @@
   #card .cmp{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
   #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
   #card .cmp-row:hover{border-color:#0d3cfc;background:rgba(13,60,252,0.05)}
+  #card .qhint{font-size:11px;font-weight:700;color:#9aa7b8;float:right}
+  #card .mat-row{display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;padding:1px 2px 9px;margin:6px -2px 2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  #card .mat-row::-webkit-scrollbar{height:5px}
+  #card .mat-row::-webkit-scrollbar-thumb{background:#d6dde7;border-radius:3px}
+  #card .mat-card{flex:0 0 116px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 0 8px;cursor:pointer;overflow:hidden;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
+  #card .mat-card:hover{border-color:#0d3cfc;box-shadow:0 4px 12px rgba(13,60,252,.1)}
+  #card .mat-img{height:72px;background-size:cover;background-position:center;position:relative;border-bottom:1px solid var(--line)}
+  #card .mat-badge{position:absolute;top:5px;left:5px;background:rgba(13,60,252,.93);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:99px;letter-spacing:.02em}
+  #card .mat-n{font-size:12px;font-weight:800;color:#0f172a;margin:6px 9px 0}
+  #card .mat-p{font-size:11.5px;font-weight:800;color:#0d3cfc;margin:2px 9px 0}
+  #card .mat-l{font-size:10px;color:var(--muted);margin:1px 9px 0}
   #card .cmp-n{flex:1;font-size:12px;font-weight:700;color:#0f172a}
   #card .cmp-p{font-size:12px;font-weight:700;color:#0d3cfc;white-space:nowrap}
   #card .cmp-l{font-size:10px;color:var(--muted);min-width:52px;text-align:right;white-space:nowrap}
@@ -751,10 +762,14 @@ function renderQuoteCard(){
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
       body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats;
     } else {
-      // comparison picker — every material with its est. price FOR THIS ROOF + lifespan; tap to choose
+      // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
+      // thumbnail + est. price FOR THIS ROOF + lifespan; tap to choose. (Avoids a long vertical list.)
       const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700], clo=Math.round(sqs*1.1*ps[0]/100)*100, chi=Math.round(sqs*1.1*ps[1]/100)*100, sp=ROOF_SPEC[m.id];
-        return '<button class="cmp-row" data-mat="'+m.id+'"><span class="cmp-n">'+m.label+'</span><span class="cmp-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</span><span class="cmp-l">'+(sp?sp.life:'')+'</span></button>'; }).join('');
-      body='<div class="qprompt">Compare materials for your roof</div><div class="cmp">'+cmp+'</div>'+stats;
+        return '<button class="mat-card" data-mat="'+m.id+'">'+
+          '<div class="mat-img" style="background-image:url('+matThumb(m)+')">'+(m.tier?'<span class="mat-badge">'+m.tier+'</span>':'')+'</div>'+
+          '<div class="mat-n">'+m.label+'</div><div class="mat-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</div><div class="mat-l">'+(sp?sp.life:'')+'</div>'+
+          '</button>'; }).join('');
+      body='<div class="qprompt">Compare materials for your roof <span class="qhint">swipe →</span></div><div class="mat-row">'+cmp+'</div>'+stats;
     }
   }
   const roofNoSel=(tradeMode==="roof" && !window.__roofSel);
@@ -790,7 +805,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
   card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });
-  card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
+  card.querySelectorAll(".cmp-row,.mat-card").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
 }
@@ -1103,6 +1118,9 @@ function shadeHex(col,f){ let r,g,b; const m=String(col).match(/rgb\(\s*(\d+)\s*
   else { let h=String(col||"#888").replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); if(h.length<6) h="888888"; r=parseInt(h.slice(0,2),16); g=parseInt(h.slice(2,4),16); b=parseInt(h.slice(4,6),16); }
   const a=v=>Math.max(0,Math.min(255,Math.round((v||128)+(f>0?(255-(v||128))*f:(v||128)*f)))); return 'rgb('+a(r)+','+a(g)+','+a(b)+')'; }
 // realistic per-material roofing texture for the swatches (rendered at 256px, scaled into the 36px chip)
+// cached realistic texture thumbnail per material (first colour) for the horizontal catalogue cards
+window.__matThumbs=window.__matThumbs||{};
+function matThumb(m){ if(!window.__matThumbs[m.id]){ try{ window.__matThumbs[m.id]=makeShingleCanvas((m.colors&&m.colors[0]&&m.colors[0].base)||"rgb(110,110,110)",m.type).toDataURL("image/jpeg",0.78); }catch(_){ window.__matThumbs[m.id]=""; } } return window.__matThumbs[m.id]; }
 function makeShingleCanvas(base,type){
   const S=256, c=document.createElement("canvas"); c.width=S; c.height=S; const x=c.getContext("2d");
   const dark=shadeHex(base,-0.18), darker=shadeHex(base,-0.36), light=shadeHex(base,0.16), lighter=shadeHex(base,0.32);
