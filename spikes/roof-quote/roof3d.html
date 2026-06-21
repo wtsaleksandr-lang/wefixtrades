@@ -61,6 +61,7 @@
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
+  #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
   #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3}
   #card .qchips{display:flex;gap:6px;margin-bottom:11px}
   #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:6px 0;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
@@ -530,9 +531,12 @@ function renderQuoteCard(){
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
-      const detail=window.__roofExpanded ? '<div class="cust">'+wasteRow+optsRow+takeoff+'</div>' : '';
+      const spec=ROOF_SPEC[sel.matId];
+      const specLine=spec?'<div class="qspec">'+spec.warranty+' warranty · '+spec.life+' lifespan</div>':'';
+      const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
+      const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
     } else {
       body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
     }
@@ -823,6 +827,18 @@ const ROOF_CATALOG=[
 const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type}));   // back-compat alias for the legacy top-down preview
 // installed price per roofing SQUARE (100 sq ft), [low,high] USD — drives the quote AFTER a material is chosen
 const ROOF_PSQ={ arch:[450,700], "3tab":[350,500], metal:[900,1600], mshingle:[700,1100], clay:[800,1500], concrete:[600,1000], slate:[1500,3000], synthetic:[900,1500], cedar:[700,1200] };
+// trademark-safe material specs (typical industry figures) — helps the buying decision like a real product page
+const ROOF_SPEC={
+  arch:{life:"25–30 yr", warranty:"Lifetime limited", note:"Architectural asphalt — wind-rated to 130 mph, the popular choice"},
+  "3tab":{life:"15–20 yr", warranty:"25-yr limited", note:"Classic 3-tab asphalt — budget-friendly, flat profile"},
+  metal:{life:"40–70 yr", warranty:"30–50 yr", note:"Standing-seam metal — energy-efficient, fire-resistant, low-maintenance"},
+  mshingle:{life:"30–50 yr", warranty:"40-yr", note:"Metal shingle — durable, lighter than standing-seam"},
+  clay:{life:"50–100 yr", warranty:"50-yr", note:"Clay tile — premium, excellent in heat, very long-lasting"},
+  concrete:{life:"40–75 yr", warranty:"50-yr", note:"Concrete tile — durable and cost-effective vs clay"},
+  slate:{life:"75–150 yr", warranty:"50–100 yr", note:"Natural slate — the longest-lasting, highest-end roof"},
+  synthetic:{life:"40–50 yr", warranty:"50-yr", note:"Synthetic slate — slate look, much lighter + lower cost"},
+  cedar:{life:"25–40 yr", warranty:"30-yr", note:"Cedar shake — natural wood look, needs periodic maintenance"},
+};
 let matPolys=[], matMode=false, matIdx=0, selMat=0, selCol=0;
 /* procedural shingle texture canvas (type tweaks the pattern: asphalt/slate/wood/tile) */
 function makeShingleCanvas(base,type){

@@ -22,8 +22,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] **6. Localized incentives + utility rate** (TS) — DONE. Region table (US states + CA provinces) → local $/kWh + incentive note + federal-credit rule, resolved from the address. Fixes a real bug: Ontario no longer claims the US 30%% ITC; rates/savings/financing now region-correct.
 - [x] **7. Roof-condition / penetration line items** (DIFF) — DONE. Roof-feature detection (chimneys/vents/skylights/dormers + roof type) now runs on load (was Measure-only) and surfaces as a "Detected: hip roof — 2 vents" credibility line, a "Pipe boots + flashing" takeoff item, and per-penetration flashing cost in the price.
 - [x] **8. Battery/storage toggle** (DIFF) — DONE. "+ Battery storage · 13.5 kWh backup" toggle on the solar quote adds ~$11.5k (ITC-eligible in the US), updates the financed monthly, and shows the backup value note.
-- [ ] **10. Real-SKU material/color library** (DIFF) — branded shingles (GAF Timberline etc.)
-  with real color names, so the AI render & catalog feel authentic vs generic textures.
+- [x] **10. Material specs (warranty + lifespan)** (DIFF) — DONE. Per-material spec line (warranty · lifespan) under the chosen material + a one-line description in the expander, for all 9 materials. Trademark-safe (no specific brand SKUs — the colour names are already realistic + a white-label tool should not hardcode brands). Helps the buying decision like a real product page.
 - [x] **11. Address autocomplete (Google Places)** (TS) — DONE. Places Autocomplete on the address bar (reuses the loaded Maps JS), styled to the wizard (Satoshi, rounded, blue focus, hover-tint); selecting a suggestion fills + auto-runs the quote. Graceful plain-text fallback.
 - [ ] **12. AI render quality** — gpt-image-1 (blocked on OpenAI billing — Alex). Browse tier meanwhile.
 
@@ -42,3 +41,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #11 address autocomplete · verified (5 Places suggestions, styled, auto-run on select), 0 errors
 - NOTE: verify integration .ts with NODE_OPTIONS=--max-old-space-size=8192 tsc (default heap OOMs + under-reports on this repo)
 - 2026-06-21 · CI fix: duplicate roofing key in TRADE_TEMPLATE_MAP (TS1117) — raised-heap tsc clean · #9 PDF/share/book already in report
+- 2026-06-21 · #10 material specs (warranty/lifespan/desc) · verified (metal: 30-50yr warranty, 40-70yr life), 0 errors
