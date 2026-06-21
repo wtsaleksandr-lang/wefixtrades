@@ -545,10 +545,10 @@ let selPanel=0;
 function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
-  if(roofOpts.steep){ lo*=1.20; hi*=1.45; }                                  // steep (9/12+) / 2-story labour premium +20-45% (was +12%, too low — a 12/12 cut-up roof can ~2x labour)
-  const c=window.__roofFeatures&&window.__roofFeatures.counts;               // flashing/boots for detected penetrations
-  if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen){ lo+=pen; hi+=pen*1.3; } }
-  if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; lo+=ef*9+ds; hi+=ef*18+ds; }  // new gutters ~$9-18/lf eave + downspouts (seamless can reach $25/lf)
+  if(roofOpts.steep){ lo*=1.30; hi*=1.30; }                                  // steep (9/12+) / 2-story labour premium ~+30% — applied as a POINT multiplier so it shifts the band, not widens it (a 1.20-1.45 range re-inflated the spread)
+  const c=window.__roofFeatures&&window.__roofFeatures.counts;               // flashing/boots for detected penetrations (symmetric add)
+  if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen){ lo+=pen; hi+=pen; } }
+  if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60, g=ef*13+ds; lo+=g; hi+=g; }  // new gutters ~$13/lf eave + downspouts (symmetric add keeps the band tight)
   return [lo, hi];
 }
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
@@ -1004,7 +1004,10 @@ const ROOF_CATALOG=[
 const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type}));   // back-compat alias for the legacy top-down preview
 // installed price per roofing SQUARE (100 sq ft), [low,high] USD — drives the quote AFTER a material is chosen
 // $/square (100 sqft) installed incl. 1-layer tear-off — validated vs 2024-25 HomeGuide/HomeAdvisor/Angi (2026-06-21)
-const ROOF_PSQ={ arch:[450,750], "3tab":[350,500], metal:[900,1600], mshingle:[700,1100], clay:[1000,2000], concrete:[700,1500], slate:[1500,3000], synthetic:[900,1600], cedar:[700,1200] };
+// Installed $/square as a TIGHT ±12% band (~1.26x low–high) around a realistic midpoint — matches what credible
+// instant-quote tools show (EnergySage/InstantRoofer ~±12-15%), not a 1.6-2x cost-guide spread. On-site confirms final.
+// Midpoints: arch $5.2/sqft, metal $11/sqft, slate $22/sqft, etc. (validated vs 2024-25 sources).
+const ROOF_PSQ={ arch:[460,580], "3tab":[355,445], metal:[970,1230], mshingle:[750,950], clay:[1320,1680], concrete:[880,1120], slate:[1940,2460], synthetic:[1010,1290], cedar:[840,1060] };
 // trademark-safe material specs (typical industry figures) — helps the buying decision like a real product page
 const ROOF_SPEC={
   arch:{life:"25–30 yr", warranty:"Lifetime limited", note:"Architectural asphalt — wind-rated to 130 mph, the popular choice"},
