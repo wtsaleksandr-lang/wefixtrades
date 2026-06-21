@@ -48,6 +48,7 @@
   #card .gauge-ring{width:40px;height:40px;border-radius:50%;background:conic-gradient(#0d3cfc calc(var(--p)*1%),#e6ebf3 0);display:flex;align-items:center;justify-content:center;position:relative}
   #card .gauge-ring::before{content:"";position:absolute;inset:4px;background:#fff;border-radius:50%}
   #card .gauge-ring span{position:relative;font-size:10px;font-weight:800;color:#0d3cfc}
+  #card .co2line{margin-top:8px;font-size:11px;color:#1a7a4a;background:#f0faf4;border:1px solid #d6efe0;border-radius:8px;padding:6px 9px;line-height:1.4}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -406,6 +407,9 @@ let REGION=DEFAULT_REGION;
 // pull the REAL local residential electricity rate (US: live EIA; Canada: provincial table) and re-render so savings use it.
 const US_STATES=new Set(["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"]);
 const CA_PROV=new Set(["ON","BC","AB","QC","MB","SK","NS","NB","NL","PE","NT","YT","NU"]);
+// grid CO2 displaced (kg/kWh, approx) — hydro grids are near-zero, fossil-heavy high; fallback to country avg.
+const CO2_FACTOR={QC:0.002,BC:0.013,MB:0.002,ON:0.03,NL:0.03,YT:0.10,AB:0.45,SK:0.55,NS:0.55,NB:0.30};
+function co2Factor(){ const c=window.__regionCode; if(CO2_FACTOR[c]!=null) return CO2_FACTOR[c]; return CA_PROV.has(c)?0.12:0.39; }
 // detect any US-state / CA-province code in the address; use REGIONS[code] for the incentive note where we have one, else DEFAULT — the live rate fills REGION.rate either way.
 function setRegion(){ const parts=(($("addr")&&$("addr").value)||"").toUpperCase().split(/[,\s]+/); window.__regionCode=""; REGION=DEFAULT_REGION;
   for(const p of parts){ if(US_STATES.has(p)||CA_PROV.has(p)){ window.__regionCode=p; if(REGIONS[p]) REGION=REGIONS[p]; return; } } }
@@ -639,7 +643,8 @@ function renderQuoteCard(){
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
       '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
-      '<div class="stat"><div class="v">'+(t.kwhAc?t.kwhAc.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>';
+      '<div class="stat"><div class="v">'+(t.kwhAc?t.kwhAc.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
+      (t.kwhAc?(()=>{ const kg=t.kwhAc*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
