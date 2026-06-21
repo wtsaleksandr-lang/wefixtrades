@@ -120,6 +120,23 @@
   #lead input:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #lead #lgo{width:100%;background:#0d3cfc;border:0;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;color:#ffffff;cursor:pointer;margin-top:4px;box-shadow:var(--btn-shadow)}
   #lead .lead-x{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;cursor:pointer}
+  /* reusable info modal (material + data help cues) */
+  #infoModal{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px}
+  #infoModal .im-card{position:relative;background:#fff;border:1px solid #e1e7ef;border-radius:18px;padding:22px;width:100%;max-width:380px;max-height:86vh;overflow-y:auto;box-shadow:var(--card-shadow)}
+  #infoModal .im-x{position:absolute;top:12px;right:12px;width:30px;height:30px;border:0;border-radius:8px;background:#f7f9fc;color:#5b6573;font-size:20px;line-height:1;cursor:pointer}
+  #infoModal .im-x:hover{background:#eef1f6}
+  #infoModal .im-h{font-size:19px;font-weight:800;color:#0f172a;margin:0 30px 2px 0}
+  #infoModal .im-sub{font-size:12px;font-weight:600;color:#0d3cfc;margin-bottom:12px}
+  #infoModal .im-hero{width:100%;height:120px;border-radius:12px;background:#eef1f6 center/cover;margin-bottom:14px;border:1px solid #e1e7ef}
+  #infoModal .im-p{font-size:13px;color:#5b6573;line-height:1.5;margin:0 0 12px}
+  #infoModal .im-sec{font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.03em;margin:14px 0 6px}
+  #infoModal .im-li{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#0f172a;margin:5px 0;line-height:1.4}
+  #infoModal .im-li svg{flex:0 0 auto;margin-top:2px;color:#16a34a}
+  #infoModal .im-stat{display:inline-block;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:5px 9px;font-size:12px;color:#0f172a;font-weight:700;margin:2px 6px 2px 0}
+  #infoModal .im-stat b{color:#0d3cfc}
+  #infoModal .im-note{font-size:11.5px;color:#5b6573;line-height:1.45;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:10px 12px;margin-top:12px}
+  .helpcue{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#0d3cfc;font-size:10px;font-weight:800;cursor:pointer;vertical-align:middle;margin-left:5px;line-height:1;flex:0 0 auto}
+  .helpcue:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
   #card .big{font-size:30px;font-weight:800;line-height:1} #card .unit{font-size:12px;color:var(--muted)}
   #card .sq{font-size:12px;color:#0d3cfc;margin-top:2px}
   #card .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
@@ -226,6 +243,7 @@
     <button id="lgo">See my full quote</button>
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
+  <div id="infoModal"><div class="im-card"><button class="im-x" onclick="window.__closeInfo()" aria-label="Close">&times;</button><div id="imBody"></div></div></div>
 </div>
 <script type="module">
 import * as THREE from "three";
@@ -553,7 +571,7 @@ function renderQuoteCard(){
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
     } else {
       // comparison picker — every material with its est. price FOR THIS ROOF + lifespan; tap to choose
       const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700], clo=Math.round(sqs*1.1*ps[0]/100)*100, chi=Math.round(sqs*1.1*ps[1]/100)*100, sp=ROOF_SPEC[m.id];
@@ -579,6 +597,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
+  card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
@@ -865,6 +884,18 @@ const ROOF_SPEC={
   slate:{life:"75–150 yr", warranty:"50–100 yr", note:"Natural slate — the longest-lasting, highest-end roof"},
   synthetic:{life:"40–50 yr", warranty:"50-yr", note:"Synthetic slate — slate look, much lighter + lower cost"},
   cedar:{life:"25–40 yr", warranty:"30-yr", note:"Cedar shake — natural wood look, needs periodic maintenance"},
+};
+// rich per-material content for the help-cue modal
+const MAT_INFO={
+  arch:{ desc:"Architectural (dimensional) asphalt shingles — the most popular roof in North America. Multi-layer laminated shingles that add depth and mimic wood shake or slate.", features:["Laminated multi-layer build for a dimensional look","Wind-rated up to 130 mph","Class A fire rating","Algae-resistant granules"], benefits:["Best balance of price, looks and durability","Lifetime limited warranty","Widest colour selection","Affordable to repair"] },
+  "3tab":{ desc:"Classic 3-tab asphalt shingles — a flat, uniform single-layer shingle. The budget-friendly traditional choice.", features:["Single-layer flat profile","Lightweight","Uniform clean lines","Class A fire rating"], benefits:["Lowest upfront cost","Proven and widely available","Simple to install and repair"] },
+  metal:{ desc:"Standing-seam metal roofing — interlocking vertical panels with raised seams. A premium, modern, ultra-durable system.", features:["Concealed-fastener standing seams","Reflective, energy-efficient finish","Non-combustible","Sheds snow and rain fast"], benefits:["40–70 year lifespan","Lower cooling bills","Excellent in snow, wind and fire zones","Very low maintenance"] },
+  mshingle:{ desc:"Metal shingles — metal formed into shingle/shake/tile profiles. The durability of metal with a traditional look.", features:["Interlocking metal panels","Looks like shake, slate or tile","Lighter than tile/slate","Corrosion-resistant coatings"], benefits:["Long life with a classic look","Lighter load on the structure","Fire and wind resistant"] },
+  clay:{ desc:"Clay tile — kiln-fired clay barrel/S-tiles. A premium, long-lasting roof iconic to Spanish and Mediterranean styles.", features:["Kiln-fired natural clay","Barrel / S-tile profiles","Excellent in hot, sunny climates","Colour-through (won't fade)"], benefits:["50–100 year lifespan","Outstanding heat performance","Timeless premium curb appeal","Non-combustible"] },
+  concrete:{ desc:"Concrete tile — moulded cement tiles; a durable, cost-effective alternative to clay with a similar look.", features:["Moulded cement tiles","Many profiles and colours","Heavy and very durable","Good in heat and wind"], benefits:["40–75 year lifespan","Lower cost than clay","Strong and impact-resistant"] },
+  slate:{ desc:"Natural slate — quarried stone tiles. The longest-lasting, highest-end roof, seen on historic and luxury homes.", features:["Quarried natural stone","Unique mottled colours","Completely fireproof","Each tile is individual"], benefits:["75–150 year lifespan — often a 'forever' roof","Unmatched premium appearance","Adds significant home value","Eco-friendly natural material"] },
+  synthetic:{ desc:"Synthetic (composite) slate — engineered polymer tiles that replicate slate at a fraction of the weight and cost.", features:["Engineered polymer composite","Slate / shake look","Much lighter than real slate","Impact and weather resistant"], benefits:["40–50 year lifespan","Slate looks without the cost or weight","Class A fire & impact ratings","No structural reinforcement needed"] },
+  cedar:{ desc:"Cedar shakes/shingles — natural western red cedar. A warm, rustic wood roof that weathers to a silver-grey.", features:["Natural western red cedar","Hand-split shake or sawn shingle","Natural insulation value","Weathers gracefully"], benefits:["Beautiful natural wood character","Good insulator","Renewable material","Distinctive curb appeal"] },
 };
 let matPolys=[], matMode=false, matIdx=0, selMat=0, selCol=0;
 /* procedural shingle texture canvas (type tweaks the pattern: asphalt/slate/wood/tile) */
@@ -1304,6 +1335,25 @@ window.__book=async()=>{
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
 window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; };
+// reusable info modal (material + data help cues)
+function openInfoModal(html){ const m=$("infoModal"); if(!m) return; $("imBody").innerHTML=html; m.style.display="flex"; }
+window.__closeInfo=()=>{ const m=$("infoModal"); if(m) m.style.display="none"; };
+$("infoModal").addEventListener("click",e=>{ if(e.target.id==="infoModal") window.__closeInfo(); });   // backdrop click closes
+const IM_CHK='<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3.2 8.4l3 3L13 4.8"/></svg>';
+function materialModal(matId){
+  const m=ROOF_CATALOG.find(x=>x.id===matId)||ROOF_CATALOG[0], info=MAT_INFO[matId]||{}, spec=ROOF_SPEC[matId]||{};
+  const sel=window.__roofSel, selColObj=(sel&&sel.matId===matId)?m.colors.find(c=>c.n===sel.colorName):m.colors[selCol]||m.colors[0];
+  const rKey=selColObj?colorKey(m,selColObj):null, heroUrl=rKey&&window.__matRenders[rKey];   // AI render = placement on the house
+  let texUrl=""; try{ texUrl=makeShingleCanvas((selColObj||m.colors[0]).base, m.type).toDataURL(); }catch(_){}
+  const hero=(heroUrl||texUrl)?'<div class="im-hero" style="background-image:url('+(heroUrl||texUrl)+')"></div>':'';
+  const li=a=>(a||[]).map(f=>'<div class="im-li">'+IM_CHK+'<div>'+f+'</div></div>').join('');
+  return '<div class="im-h">'+m.label+'</div><div class="im-sub">'+(heroUrl?'Shown on your home':'Roofing material')+'</div>'+hero+
+    '<p class="im-p">'+(info.desc||spec.note||'')+'</p>'+
+    (spec.warranty?'<span class="im-stat">'+spec.warranty+' warranty</span><span class="im-stat">'+spec.life+' lifespan</span>':'')+
+    (info.features?'<div class="im-sec">Features</div>'+li(info.features):'')+
+    (info.benefits?'<div class="im-sec">Benefits</div>'+li(info.benefits):'')+
+    (heroUrl?'':'<div class="im-note">Tip: pick a colour and tap “See it on my house” to preview '+m.label+' on your actual roof.</div>');
+}
 // shareable URL that RESTORES this quote (address + chosen material/colour) — not just the bare widget link
 function quoteUrl(){ const a=encodeURIComponent(($("addr").value||"").trim()); const s=window.__roofSel;
   return location.origin+location.pathname+"?a="+a+(s?"&m="+encodeURIComponent(s.matId)+"&c="+encodeURIComponent(s.colorName):""); }

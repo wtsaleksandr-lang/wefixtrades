@@ -67,3 +67,14 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #21 solar Customize collapse · verified (collapsed: tiers only; expanded: bill+battery), 0 errors
 - [x] **22. Ultra-realistic material swatch textures** (Alex ask) — rewrote makeShingleCanvas to render each material type realistically: granular dimensional asphalt courses, metal standing-seam ribs + sheen, mottled overlapping slate, barrel/S clay-tile, cedar grain, + per-element shade variation, granular noise, lighting. Fixed a color bug (the shade helper assumed hex but the catalog uses rgb() — greys/browns were rendering red/purple). Metal previously fell back to the asphalt grid; now correct.
 - 2026-06-21 · #22 realistic swatch textures · verified asphalt/metal/slate/tile at 2-3x (realistic patterns, correct colors), 0 errors
+
+## New requests (Alex, 2026-06-21) — help cues + add-on thumbnails
+- [ ] **23. Info-modal infrastructure** — reusable light modal (matches wizard), openInfoModal(html)+close, shared by the below.
+- [ ] **24. Material help-cue modal** — a little help cue on each material selection → modal with explanation, features, photo example of placement on the house (the AI render), and benefits.
+- [ ] **25. Address-data accuracy help-cues** — help cues on the displayed data (dimensions, sun exposure, measurements, etc.) → modal explaining accuracy (
+## New requests (Alex, 2026-06-21) — help cues + add-on thumbnails
+- [ ] 23. Info-modal infrastructure — reusable light modal (matches wizard), openInfoModal(html)+close.
+- [ ] 24. Material help-cue modal — help cue on each material selection -> modal: explanation, features, photo example of placement on the house (AI render), benefits.
+- [ ] 25. Address-data accuracy help-cues — help cues on displayed data (dimensions, sun exposure, measurements) -> modal: accuracy percent + on-site measurement required to lock the final rate.
+- [ ] 26. Add-on thumbnails — each add-on (battery, gutters, ridge vent, layers, steep) gets a thumbnail/icon.
+- [x] 23/24. Info-modal + material help-cue modal — DONE. Reusable light modal (openInfoModal/close, backdrop-click). A help cue (i) on the selected material opens a modal with: explanation, Features + Benefits bullets, warranty/lifespan, and a hero = the AI render on the user's house (texture fallback). Verified, 0 errors.
