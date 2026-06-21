@@ -1,7 +1,13 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>3D Roof &amp; Solar — true model</title>
-<link rel="preconnect" href="https://api.fontshare.com"><link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://api.fontshare.com"><link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet">
+<style>/* native-to-QuickQuote: when embedded in the app, load the SAME local Satoshi files (all weights) the host serves; the fontshare link above is the standalone/spike fallback */
+@font-face{font-family:"Satoshi";font-weight:300;font-display:swap;src:url("/fonts/satoshi-300.woff2") format("woff2")}
+@font-face{font-family:"Satoshi";font-weight:400;font-display:swap;src:url("/fonts/satoshi-400.woff2") format("woff2")}
+@font-face{font-family:"Satoshi";font-weight:500;font-display:swap;src:url("/fonts/satoshi-500.woff2") format("woff2")}
+@font-face{font-family:"Satoshi";font-weight:700;font-display:swap;src:url("/fonts/satoshi-700.woff2") format("woff2")}
+@font-face{font-family:"Satoshi";font-weight:900;font-display:swap;src:url("/fonts/satoshi-900.woff2") format("woff2")}</style>
 <style>
   :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28); }
   *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 "Satoshi","Satoshi Variable",system-ui,sans-serif;overflow:hidden}
@@ -86,21 +92,21 @@
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
   #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
-  #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3}
+  #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   #card .cmp{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
   #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
   #card .cmp-row:hover{border-color:#0d3cfc;background:rgba(13,60,252,0.05)}
-  #card .qhint{font-size:11px;font-weight:700;color:#9aa7b8;float:right}
+  #card .qhint{font-size:11px;font-weight:700;color:#9aa7b8;flex:0 0 auto;white-space:nowrap}
   #card .mat-row{display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;padding:1px 2px 9px;margin:6px -2px 2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
   #card .mat-row::-webkit-scrollbar{height:5px}
   #card .mat-row::-webkit-scrollbar-thumb{background:#d6dde7;border-radius:3px}
-  #card .mat-card{flex:0 0 116px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 0 8px;cursor:pointer;overflow:hidden;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
+  #card .mat-card{flex:0 0 126px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 0 8px;cursor:pointer;overflow:hidden;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
   #card .mat-card:hover{border-color:#0d3cfc;box-shadow:0 4px 12px rgba(13,60,252,.1)}
   #card .mat-img{height:72px;background-size:cover;background-position:center;position:relative;border-bottom:1px solid var(--line)}
   #card .mat-badge{position:absolute;top:5px;left:5px;background:rgba(13,60,252,.93);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:99px;letter-spacing:.02em}
-  #card .mat-n{font-size:12px;font-weight:800;color:#0f172a;margin:6px 9px 0}
-  #card .mat-p{font-size:11.5px;font-weight:800;color:#0d3cfc;margin:2px 9px 0}
-  #card .mat-l{font-size:10px;color:var(--muted);margin:1px 9px 0}
+  #card .mat-n{font-size:12px;font-weight:800;color:#0f172a;margin:6px 8px 0;white-space:nowrap}
+  #card .mat-p{font-size:11px;font-weight:800;color:#0d3cfc;margin:2px 8px 0;white-space:nowrap}
+  #card .mat-l{font-size:10px;color:var(--muted);margin:1px 8px 0}
   #card .cmp-n{flex:1;font-size:12px;font-weight:700;color:#0f172a}
   #card .cmp-p{font-size:12px;font-weight:700;color:#0d3cfc;white-space:nowrap}
   #card .cmp-l{font-size:10px;color:var(--muted);min-width:52px;text-align:right;white-space:nowrap}
@@ -717,7 +723,7 @@ function renderQuoteCard(){
     const finDisplay = payMode==="cash" ? '<div class="qfin"><b>'+fmtMoney(Math.round(sMid))+'</b> cash price · '+creditTxt()+'</div>'
       : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA · incentives kept by the installer &amp; passed through as a lower rate')
       : finLine(sFin, fin.solarYears+'-yr @ '+fin.solarApr+'%, '+creditTxt());
-    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in SREC credits ('+window.__regionCode+' solar incentive) — on top of your bill savings.</div>':'';
+    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits — on top of bill savings.</div>':'';
     // clean default: price, savings, financing, tiers; everything else behind a Customize expander, organized into
     // a "Your system" section + contained "Add-ons" cards so it reads as tidy groups, not one long list.
     const batCard=batToggle?'<div class="addon-card">'+batToggle+batNote+'</div>':'';
