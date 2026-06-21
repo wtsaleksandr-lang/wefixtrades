@@ -44,3 +44,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #10 material specs (warranty/lifespan/desc) · verified (metal: 30-50yr warranty, 40-70yr life), 0 errors
 - NOTE: integration server/asset changes need a full `NODE_OPTIONS=--max-old-space-size=8192 npm run build` to verify (tsc alone misses esbuild CJS issues like top-level await). Widget HTML features are fine with the serve.mjs visual gate.
 - 2026-06-21 · CI fix 2: rooffeatures.mjs top-level await broke esbuild CJS server bundle → static assert import; full local build clean
+- 2026-06-21 · REGRESSION SWEEP clean — 0 console/page errors across full flow desktop+mobile (all 12 features exercised together). CI green. Overnight feature mandate COMPLETE.
