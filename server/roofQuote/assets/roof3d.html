@@ -34,8 +34,10 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:4px}
+  #card .szval{flex:0 0 auto;font-size:10px;color:var(--muted);font-weight:700;white-space:nowrap}
   #card .opt-l.ico{display:inline-flex;align-items:center;gap:3px}
   #card .opt-l.ico svg{opacity:.7}
   /* premium KPI strip — shown once the homeowner enters their bill */
@@ -133,6 +135,11 @@
   #lead input{width:100%;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:12px 14px;height:48px;color:#0f172a;font-size:15px;margin-bottom:10px;outline:none}
   #lead input::placeholder{color:#94a3b8}
   #lead input:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
+  #lead #ltime{width:100%;background:#fff;border:1px solid #e1e7ef;border-radius:10px;padding:0 14px;height:46px;color:#0f172a;font-size:14px;margin-bottom:10px;outline:none}
+  #lead .lq-l{display:block;font-size:11px;color:#94a3b8;margin-bottom:6px}
+  #lead .lq-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  #lead .lqp{flex:0 0 auto;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:6px 10px;color:#64748b;font-size:12px;font-weight:700;cursor:pointer}
+  #lead .lqp.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #lead #lgo{width:100%;background:#0d3cfc;border:0;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;color:#ffffff;cursor:pointer;margin-top:4px;box-shadow:var(--btn-shadow)}
   #lead .lead-x{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;cursor:pointer}
   /* reusable info modal (material + data help cues) */
@@ -255,6 +262,12 @@
     <input id="lname" placeholder="Full name" autocomplete="name">
     <input id="lemail" type="email" placeholder="Email" autocomplete="email">
     <input id="lphone" type="tel" placeholder="Phone (optional)" autocomplete="tel">
+    <div id="lqual">
+      <select id="ltime"><option value="">When are you looking to start?</option><option>As soon as possible</option><option>This year</option><option>Just exploring</option></select>
+      <div class="lq-prios"><span class="lq-l">What matters most? (optional)</span>
+        <div class="lq-row"><button type="button" class="lqp" data-p="Lower my bill">Lower my bill</button><button type="button" class="lqp" data-p="Backup power">Backup power</button><button type="button" class="lqp" data-p="Go green">Go green</button><button type="button" class="lqp" data-p="Best price">Best price</button></div>
+      </div>
+    </div>
     <button id="lgo">See my full quote</button>
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
@@ -494,6 +507,18 @@ const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
 const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
 // solar battery storage (Powerwall-class) — backup + self-consumption
 // battery storage MODELS (installed $ w/ solar, DC-coupled) — Powerwall 3 default
+/* ─── TENANT CONFIG (config-as-data): the single surface an embedding installer customizes —
+   brand, financing terms, which add-ons appear, and incentive toggles. In production this object is
+   injected per business (DB-backed); here it carries the template-showcase defaults so the whole
+   widget is data-driven, not hardcoded. ─── */
+const TENANT={
+  brand:"WeFixTrades",
+  financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, leaseEnabled:true, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
+  features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true },
+};
+// Solar Renewable Energy Credit value by state ($/MWh produced ≈ $ per SREC). Real programs; approx 2026 — installer tunes per market.
+const SREC_VALUE={ DC:350, NJ:85, MA:60, MD:55, IL:70, DE:40, PA:35, OH:5 };
+function srecIncome(kwhAc){ const v=SREC_VALUE[window.__regionCode]; return (TENANT.features.srec && v && kwhAc) ? Math.round(kwhAc/1000*v) : 0; }
 const BATTERIES=[
   {id:"pw3",      label:"Powerwall 3", kwh:13.5, cost:11500},
   {id:"franklin", label:"FranklinWH",  kwh:15,   cost:14500},
@@ -542,7 +567,7 @@ const PANEL_TIERS=[
   {id:"prem", label:"Premium",  brand:"REC Alpha / Panasonic-class", mult:1.18, warranty:"25–30-yr", eff:"~21.7%", note:"Higher efficiency and a longer product warranty — more power from the same roof."},
   {id:"premp",label:"Premium+", brand:"SunPower / Maxeon-class", mult:1.25, warranty:"40-yr", eff:"22%+", note:"Top efficiency-per-square-foot and a 40-year warranty — the best long-term performance."},
 ];
-let selPanel=0;
+let selPanel=0, payMode="loan";   // payMode: cash | loan | lease (lease shown only if TENANT.financing.leaseEnabled)
 function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
@@ -623,23 +648,30 @@ function renderQuoteCard(){
   } else if(tradeMode==="solar" && solarTiers.length){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
-    let lo=t.lo, hi=t.hi;
+    // system-size slider (Tesla-style "size your system"): scale the chosen tier's panel count up/down
+    const sizePct=window.__sizePct||1;
+    let panels=t.panels, sysKw=t.kw, sysKwh=t.kwhAc||0, sysMonthly=t.monthly||0, lo=t.lo, hi=t.hi;
+    if(sizePct!==1){ panels=Math.max(4,Math.round(t.panels*sizePct)); const f=panels/Math.max(1,t.panels);
+      sysKw=+(t.kw*f).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*f); sysMonthly=Math.round((t.monthly||0)*f); lo=Math.round(t.lo*f); hi=Math.round(t.hi*f); }
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
-    const evS=evSizing(t);
+    const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
     if(addEV && evS.kw){ const evCost=Math.round(evS.kw*1000*2.8); lo+=evCost; hi+=Math.round(evCost*1.1); }   // extra solar to cover EV charging (~$2.8/W)
     if(addCharger){ lo+=CHARGER_COST; hi+=Math.round(CHARGER_COST*1.15); }   // Level-2 EV charger install
-    const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost (REGION.credit is 0 for US owned systems post-2025; non-zero only where a state credit applies)
+    const sMid=(lo+hi)/2;
+    const fin=TENANT.financing, sFin=monthly(sMid*(1-REGION.credit), fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term)
+    const leaseMo=Math.round(sysKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
+    const srecYr=srecIncome(sysKwh);
     const loadRow=addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
       '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>':'';
-    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+loadRow+
-      (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'');
+    const batToggle=TENANT.features.battery?('<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+loadRow+
+      (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'')):'';
     const batNote=addBattery?(()=>{ const need=backupKwhNeed(), tot=+(curBat().kwh*batCount).toFixed(1);
       return '<div class="qfin" style="margin-top:5px">≈ <b>'+need+' kWh</b> of backup → <b>'+batCount+'× '+curBat().label+'</b> ('+tot+' kWh)'+(REGION.credit>0?'; qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'. Final sizing confirmed on site.</div>'; })():'';
-    const evToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addEV?' on':'')+'" data-ev>'+CAT_ICON.ev+(addEV?'✓ ':'')+'Charge an EV'+(addEV?'':' with solar')+'</button>'+ACUE("ev")+'</div>'+
+    const evToggle=TENANT.features.ev?('<div class="opt-row" style="margin-top:9px"><button class="ob'+(addEV?' on':'')+'" data-ev>'+CAT_ICON.ev+(addEV?'✓ ':'')+'Charge an EV'+(addEV?'':' with solar')+'</button>'+ACUE("ev")+'</div>'+
       (addEV?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Vehicle</span>'+EV_TYPES.map((e,i)=>'<button class="evt'+(selEV===i?' on':'')+'" data-evt="'+i+'">'+e.label+'</button>').join('')+'</div>'+
         '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Miles/yr</span>'+EV_MILES_OPTS.map(m=>'<button class="evm'+(evMiles===m?' on':'')+'" data-evm="'+m+'">'+(m/1000)+'k</button>').join('')+'</div>'+
-        '<div class="opt-row" style="margin-top:6px"><button class="ob'+(addCharger?' on':'')+'" data-charger>'+CAT_ICON.charger+(addCharger?'✓ ':'')+'Add Level-2 charger install</button></div>':'');
+        '<div class="opt-row" style="margin-top:6px"><button class="ob'+(addCharger?' on':'')+'" data-charger>'+CAT_ICON.charger+(addCharger?'✓ ':'')+'Add Level-2 charger install</button></div>':'')):'';
     const evNote=addEV?(()=>{ const ev=evSizing(t); return '<div class="qfin" style="margin-top:5px">+<b>'+ev.panels+' panels</b> (~'+ev.kw+' kW) to cover ~<b>'+ev.kwh.toLocaleString()+' kWh/yr</b> of driving'+(addCharger?' · incl. Level-2 charger install':'')+'.</div>'; })():'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
@@ -653,18 +685,27 @@ function renderQuoteCard(){
         '</div>'; })():'';
     const panelRow='<div class="opt-row"><span class="opt-l ico">'+CAT_ICON.panels+'Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
-    // clean default: price, savings, financing, tiers; panel quality + bill-sizing + battery behind a Customize expander
-    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+billRow+coverLine+batToggle+batNote+evToggle+evNote+'</div>':'';
-    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · panels, battery &amp; EV ▾')+'</button>';
-    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*'+HCUE("solar")+'</div>'+
-      finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
-      kpiStrip+
+    // system-size slider — add/remove panels (Tesla-style "size your system")
+    const sizeRow=TENANT.features.sizeSlider?'<div class="opt-row" style="margin-top:6px"><span class="opt-l">System size</span><input class="szrange" type="range" min="40" max="120" step="5" value="'+Math.round(sizePct*100)+'" data-size><span class="szval">'+panels+' panels · '+sysKw+' kW</span></div>':'';
+    // financing mode (config-driven): Cash / Loan / Lease-PPA
+    const payOpts=[{id:"cash",label:"Cash"},{id:"loan",label:"Loan"}].concat((fin.leaseEnabled&&TENANT.features.leasePPA)?[{id:"lease",label:"Lease"}]:[]);
+    const payRow='<div class="opt-row" style="margin-top:7px"><span class="opt-l">Pay with</span>'+payOpts.map(o=>'<button class="pm'+(payMode===o.id?' on':'')+'" data-pm="'+o.id+'">'+o.label+'</button>').join('')+'</div>';
+    const finDisplay = payMode==="cash" ? '<div class="qfin"><b>'+fmtMoney(Math.round(sMid))+'</b> cash price · '+creditTxt()+'</div>'
+      : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA · incentives kept by the installer &amp; passed through as a lower rate')
+      : finLine(sFin, fin.solarYears+'-yr @ '+fin.solarApr+'%, '+creditTxt());
+    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in SREC credits ('+window.__regionCode+' solar incentive) — on top of your bill savings.</div>':'';
+    // clean default: price, savings, financing, tiers; size + panel quality + bill + battery + EV behind a Customize expander
+    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+sizeRow+billRow+coverLine+batToggle+batNote+evToggle+evNote+'</div>':'';
+    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
+    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+
+      finDisplay+payRow+
+      kpiStrip+srecLine+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
-      '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
-      '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
-      '<div class="stat"><div class="v">'+(t.kwhAc?t.kwhAc.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">Panels</div></div>'+
+      '<div class="stat"><div class="v">'+sysKw+'</div><div class="l">kW</div></div>'+
+      '<div class="stat"><div class="v">'+(sysKwh?sysKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
-      (t.kwhAc?(()=>{ const kg=t.kwhAc*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
+      (sysKwh?(()=>{ const kg=sysKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
@@ -683,14 +724,14 @@ function renderQuoteCard(){
       const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+(v==null?(OB_ICON[o]||''):'')+lab+'</button>';
       const optsRow='<div class="opt-row"><span class="opt-l">Layers'+ACUE("roof")+'</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
-      const rFin=monthly((lo+hi)/2, 9.99, 12);
+      const rFin=monthly((lo+hi)/2, TENANT.financing.roofApr, TENANT.financing.roofYears);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
       const spec=ROOF_SPEC[sel.matId];
       const specLine=spec?'<div class="qspec">'+spec.warranty+' warranty · '+spec.life+' lifespan</div>':'';
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats;
     } else {
       // comparison picker — every material with its est. price FOR THIS ROOF + lifespan; tap to choose
       const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700], clo=Math.round(sqs*1.1*ps[0]/100)*100, chi=Math.round(sqs*1.1*ps[1]/100)*100, sp=ROOF_SPEC[m.id];
@@ -728,6 +769,8 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-evt]").forEach(b=>b.onclick=()=>{ selEV=+b.dataset.evt; renderQuoteCard(); });
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
+  card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
+  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); }; });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -887,7 +930,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan";   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1408,7 +1451,7 @@ function openReport(){
   const addr=$("addr").value, sqs=QUOTE.roofSqft/100;
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
-  const moS=v=>loanPayment(v,6.99,25), moR=v=>loanPayment(v,9.99,12);   // real loan payments
+  const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
   const heroMo=tradeMode==="roof"?moR(rhi):moS(t.hi||rhi);
   const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(x.hi).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
   // enriched roofing section — reflects the chosen material + spec + measured takeoff + detected penetrations
@@ -1439,7 +1482,7 @@ function openReport(){
      ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-REGION.credit)); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
        '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
      ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar 6.99% APR / 25 yr, roofing 9.99% / 12 yr. Soft-pull pre-qualification, no credit impact. ${REGION.credit>0?'Solar shown before the '+Math.round(REGION.credit*100)+'% federal tax credit.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${TENANT.financing.solarYears} yr, roofing ${TENANT.financing.roofApr}% / ${TENANT.financing.roofYears} yr. Soft-pull pre-qualification, no credit impact. ${REGION.credit>0?'Solar shown before the '+Math.round(REGION.credit*100)+'% federal tax credit.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -1456,13 +1499,18 @@ window.__openReport=openReport;
 /* lead capture soft-gate: value (3D + teaser price) shown first; capture unlocks the full report */
 window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
 window.__closeCapture=()=>{ $("lead").style.display="none"; };
+// lead-qualification: priorities toggle + hide the block if the tenant disabled it
+document.querySelectorAll("#lqual .lqp").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
+if(!TENANT.features.leadQual){ const lq=$("lqual"); if(lq) lq.style.display="none"; }
 $("lgo").onclick=async()=>{
   const name=$("lname").value.trim(), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
   if(!name||!/.+@.+\..+/.test(email)){ $("lemail").style.borderColor="#e0556a"; return; }
   const t=solarTiers[selTier]||{};
+  const timeline=($("ltime")&&$("ltime").value)||"", priorities=[...document.querySelectorAll("#lqual .lqp.on")].map(b=>b.dataset.p);
+  const leadScore=timeline==="As soon as possible"?3:timeline==="This year"?2:timeline==="Just exploring"?1:0;   // hot/warm/cold for the installer's CRM
   try{ await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({name,email,phone,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)})}); }catch(_){}
-  window.__lead={name,email,phone}; $("lead").style.display="none"; openReport();
+    body:JSON.stringify({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)})}); }catch(_){}
+  window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none"; openReport();
 };
 window.__book=async()=>{
   const t=solarTiers[selTier]||{};
