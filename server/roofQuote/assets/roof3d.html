@@ -416,6 +416,8 @@ function measureCardBody(){
 const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
 // price-affecting roof options (tear-off layers, ventilation, access) — EagleView-style line items
 const roofOpts={ layers:1, ridgeVent:false, steep:false };
+// solar battery storage (Powerwall-class) — backup + self-consumption
+const BATTERY={ kwh:13.5, cost:11500 }; let addBattery=false;
 function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.layers>1){ const tear=sqs*90; lo+=tear; hi+=tear; }            // 2nd layer tear-off ~$90/sq
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
@@ -494,10 +496,14 @@ function renderQuoteCard(){
   } else if(tradeMode==="solar" && solarTiers.length){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
-    const sMid=(t.lo+t.hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
-    body='<div class="qprice">'+fmtMoney(t.lo)+'–'+fmtMoney(t.hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*</div>'+
+    let lo=t.lo, hi=t.hi;
+    if(addBattery){ lo+=BATTERY.cost; hi+=Math.round(BATTERY.cost*1.1); }   // battery storage (also ITC-eligible in the US)
+    const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
+    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+(addBattery?'✓ ':'+ ')+'Battery storage · '+BATTERY.kwh+' kWh backup</button></div>';
+    const batNote=addBattery?'<div class="qfin" style="margin-top:5px">Keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; the battery also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
+    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*</div>'+
       finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
-      '<div class="qchips">'+chips+'</div>'+
+      '<div class="qchips">'+chips+'</div>'+batToggle+batNote+
       '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
       '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
       '<div class="stat"><div class="v">'+(t.kwhAc?t.kwhAc.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>';
@@ -543,6 +549,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
+  card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
@@ -699,7 +706,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false;   // new address → drop stale material renders + selection + takeoff + options + detection
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
