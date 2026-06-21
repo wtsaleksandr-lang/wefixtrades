@@ -452,12 +452,12 @@ const BATTERY={ kwh:13.5, cost:11500 }; let addBattery=false;
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
 function applyRoofOpts(lo, hi, sqs, t){
-  if(roofOpts.layers>1){ const tear=sqs*90; lo+=tear; hi+=tear; }            // 2nd layer tear-off ~$90/sq
+  if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
-  if(roofOpts.steep){ lo*=1.12; hi*=1.12; }                                  // steep / 2-story access +12%
+  if(roofOpts.steep){ lo*=1.20; hi*=1.45; }                                  // steep (9/12+) / 2-story labour premium +20-45% (was +12%, too low — a 12/12 cut-up roof can ~2x labour)
   const c=window.__roofFeatures&&window.__roofFeatures.counts;               // flashing/boots for detected penetrations
   if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen){ lo+=pen; hi+=pen*1.3; } }
-  if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; lo+=ef*9+ds; hi+=ef*15+ds; }  // new gutters ~$9-15/lf eave + downspouts
+  if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; lo+=ef*9+ds; hi+=ef*18+ds; }  // new gutters ~$9-18/lf eave + downspouts (seamless can reach $25/lf)
   return [lo, hi];
 }
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
@@ -876,7 +876,8 @@ const ROOF_CATALOG=[
    {n:"Weathered Gray",base:"rgb(140,134,128)",p:"weathered silver-gray aged cedar wood shake roof"} ]} ];
 const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type}));   // back-compat alias for the legacy top-down preview
 // installed price per roofing SQUARE (100 sq ft), [low,high] USD — drives the quote AFTER a material is chosen
-const ROOF_PSQ={ arch:[450,700], "3tab":[350,500], metal:[900,1600], mshingle:[700,1100], clay:[800,1500], concrete:[600,1000], slate:[1500,3000], synthetic:[900,1500], cedar:[700,1200] };
+// $/square (100 sqft) installed incl. 1-layer tear-off — validated vs 2024-25 HomeGuide/HomeAdvisor/Angi (2026-06-21)
+const ROOF_PSQ={ arch:[450,750], "3tab":[350,500], metal:[900,1600], mshingle:[700,1100], clay:[1000,2000], concrete:[700,1500], slate:[1500,3000], synthetic:[900,1600], cedar:[700,1200] };
 // trademark-safe material specs (typical industry figures) — helps the buying decision like a real product page
 const ROOF_SPEC={
   arch:{life:"25–30 yr", warranty:"Lifetime limited", note:"Architectural asphalt — wind-rated to 130 mph, the popular choice"},

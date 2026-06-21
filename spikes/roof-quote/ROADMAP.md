@@ -81,3 +81,13 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] 25. Address-data accuracy help-cues — DONE. Help cue (i) on the solar estimate, sun-hours, roof measurements, and roofing price -> modal "How accurate is this?" with the accuracy band (e.g. +/-5-10%) + that an on-site measurement is required to lock the final guaranteed rate (instant estimate, not a locked price). Verified, 0 errors.
 - [x] 26. Add-on thumbnails/icons — DONE. Each feature add-on has an icon: Ridge vent (vented ridge), New gutters (gutter trough), Steep/2-story (angle), Battery storage (battery). Numeric Layers 1/2 stay clean. Verified desktop, 0 errors.
 - [x] 27. Add-on explainer modals — help cue on the roofing options + battery -> modal explaining what each add-on is and why it matters (layers/ridge vent/gutters/steep; battery what-it-does/cost/incentives). Completes the "every component has a help cue" rule. Verified, 0 errors.
+
+## Pricing validation (research 2026-06-21) — corrected to real-world 2024-25
+- [x] 28. Rate corrections — 2nd-layer tear-off $90/sq -> $28/sq (was 3-4x too high, the one a roofer spots instantly); steep/2-story +12% -> +20-45%; clay 800-1500 -> 1000-2000; concrete 600-1000 -> 700-1500; arch top 700 -> 750; synthetic top 1500 -> 1600; gutters hi 15 -> 18/lf. Validated vs EnergySage/HomeGuide/HomeAdvisor/Angi 2024-25. Solar $/W, $0.165/kWh, battery $11,500, 3-tab/metal/slate/cedar/ridge-vent confirmed accurate.
+
+## Research findings — panel/battery TYPES + per-panel (to build, Alex-requested)
+- Panel TIERS (3, brand-mapped): Good = Silfab/JA/Canadian (~$ lowest, 25yr); Better/default = Q CELLS or REC (~21.5%, 25yr, market sweet spot); Best = Maxeon/SunPower/Panasonic (22%+, 40yr warranty). Differentiate by WARRANTY + efficiency, show $/W delta.
+- Battery TYPES (model+qty picker): Tesla Powerwall 3 (13.5kWh, default), FranklinWH aPower 2 (15kWh), Enphase IQ 5P (5kWh modular), SolarEdge (9.7kWh). Label our $11,500 as Powerwall 3 DC-w/-solar.
+- Per-panel: TRUE per-panel add/remove is PRO-tool only (Aurora/OpenSolar). Consumer best-practice = Tesla's roof-AREA toggle (tap an area to add/remove a block). RECOMMEND building area-toggle, not per-module drag, for v1.
+- More homeowner inputs worth adding: utility/rate + net-metering, offset% target, future-load toggles (EV/heat pump/pool), financing choice, shading level. (Monthly bill already done via #20.)
+- FLAG for Alex: the 30% federal residential ITC (25D) reportedly EXPIRED Dec 31 2025 — our US quotes still apply it. Needs Alex's call (gate by install date / keep / replace with state incentives).
