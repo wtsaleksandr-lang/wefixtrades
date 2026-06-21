@@ -868,19 +868,59 @@ const ROOF_SPEC={
 };
 let matPolys=[], matMode=false, matIdx=0, selMat=0, selCol=0;
 /* procedural shingle texture canvas (type tweaks the pattern: asphalt/slate/wood/tile) */
+// shade a colour: f>0 lightens toward white, f<0 darkens toward black. Handles rgb(...) (catalog format) + hex.
+function shadeHex(col,f){ let r,g,b; const m=String(col).match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if(m){ r=+m[1]; g=+m[2]; b=+m[3]; }
+  else { let h=String(col||"#888").replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); if(h.length<6) h="888888"; r=parseInt(h.slice(0,2),16); g=parseInt(h.slice(2,4),16); b=parseInt(h.slice(4,6),16); }
+  const a=v=>Math.max(0,Math.min(255,Math.round((v||128)+(f>0?(255-(v||128))*f:(v||128)*f)))); return 'rgb('+a(r)+','+a(g)+','+a(b)+')'; }
+// realistic per-material roofing texture for the swatches (rendered at 256px, scaled into the 36px chip)
 function makeShingleCanvas(base,type){
-  const c=document.createElement("canvas"); c.width=512; c.height=512; const x=c.getContext("2d");
-  x.fillStyle=base; x.fillRect(0,0,512,512);
-  const cfg={ asphalt:{rows:14,cols:11,gap:2}, slate:{rows:11,cols:8,gap:3}, wood:{rows:22,cols:6,gap:2}, tile:{rows:12,cols:9,gap:2} }[type||"asphalt"];
-  const rh=512/cfg.rows, cw=512/cfg.cols;
-  for(let r=0;r<cfg.rows;r++){ const off=(r%2)*0.5;
-    for(let cc=-1;cc<cfg.cols+1;cc++){ const px=(cc+off)*cw, py=r*rh;
-      const sh=(Math.sin(r*12.9+cc*78.233)*43758.5)%1, v=sh-Math.floor(sh);
-      x.fillStyle="rgba(0,0,0,"+(0.05+v*0.14).toFixed(3)+")"; x.fillRect(px,py,cw-cfg.gap,rh-cfg.gap);
-      x.strokeStyle="rgba(0,0,0,0.3)"; x.lineWidth=1; x.strokeRect(px+0.5,py+0.5,cw-cfg.gap,rh-cfg.gap);
-      x.fillStyle="rgba(255,255,255,0.06)"; x.fillRect(px,py,cw-cfg.gap,1.5);
-    }
+  const S=256, c=document.createElement("canvas"); c.width=S; c.height=S; const x=c.getContext("2d");
+  const dark=shadeHex(base,-0.18), darker=shadeHex(base,-0.36), light=shadeHex(base,0.16), lighter=shadeHex(base,0.32);
+  const rnd=(i,j)=>{ const s=Math.sin(i*12.9898+j*78.233)*43758.5453; return s-Math.floor(s); };
+  x.fillStyle=base; x.fillRect(0,0,S,S);
+  if(type==="metal"){                              // vertical standing-seam panels + metallic sheen
+    const panels=6, pw=S/panels;
+    for(let p=0;p<panels;p++){ const px=p*pw, g=x.createLinearGradient(px,0,px+pw,0);
+      g.addColorStop(0,dark); g.addColorStop(.5,light); g.addColorStop(1,dark); x.fillStyle=g; x.fillRect(px,0,pw,S);
+      x.fillStyle=darker; x.fillRect(px-1,0,2,S); x.fillStyle=lighter; x.fillRect(px,0,1,S); }
+    const rg=x.createLinearGradient(0,0,0,S); rg.addColorStop(0,"rgba(255,255,255,0)"); rg.addColorStop(.46,"rgba(255,255,255,.12)"); rg.addColorStop(.56,"rgba(255,255,255,.12)"); rg.addColorStop(1,"rgba(255,255,255,0)");
+    x.fillStyle=rg; x.fillRect(0,0,S,S);
+  } else if(type==="tile"){                         // barrel / S-tile rows
+    const cols=7, cw=S/cols, rows=5, rh=S/rows;
+    for(let r=0;r<rows;r++){ const py=r*rh, off=(r%2)*cw*0.5;
+      for(let cc=-1;cc<cols+1;cc++){ const px=cc*cw+off, g=x.createLinearGradient(px,0,px+cw,0);
+        g.addColorStop(0,darker); g.addColorStop(.5,light); g.addColorStop(1,darker); x.fillStyle=g; x.fillRect(px,py,cw,rh);
+        x.fillStyle="rgba(255,255,255,.18)"; x.fillRect(px+cw*0.42,py,cw*0.1,rh); }
+      x.fillStyle="rgba(0,0,0,.30)"; x.fillRect(0,py,S,2); }
+  } else if(type==="slate"){                        // irregular mottled slate
+    const rows=9, rh=S/rows;
+    for(let r=0;r<rows;r++){ const py=r*rh; let px=-rnd(r,0)*40;
+      while(px<S){ const w=rh*(1.1+rnd(r,px)*0.9), sh=(rnd(r,px*0.3)-0.5)*0.22;
+        x.fillStyle=shadeHex(base,sh); x.fillRect(px,py,w-2,rh-1.5);
+        x.fillStyle="rgba(0,0,0,.22)"; x.fillRect(px,py+rh-2,w-2,2);
+        x.fillStyle="rgba(255,255,255,.05)"; x.fillRect(px,py,w-2,1); px+=w; } }
+  } else if(type==="wood"){                         // vertical cedar shakes + grain
+    const cols=9; let px=0;
+    while(px<S){ const w=S/cols*(0.8+rnd(px,1)*0.6), sh=(rnd(px,2)-0.5)*0.26;
+      x.fillStyle=shadeHex(base,sh); x.fillRect(px,0,w-1.5,S);
+      for(let gi=0;gi<5;gi++){ const gx=px+rnd(px,gi)*w; x.fillStyle="rgba(0,0,0,"+(0.04+rnd(px,gi*3)*0.06).toFixed(3)+")"; x.fillRect(gx,0,0.8,S); }
+      x.fillStyle=darker; x.fillRect(px+w-1.5,0,1.5,S); px+=w; }
+    for(let r=1;r<5;r++){ x.fillStyle="rgba(0,0,0,.18)"; x.fillRect(0,r*S/5,S,1.5); }
+  } else {                                          // asphalt — dimensional granular courses
+    const rows=10, rh=S/rows, cols=9, cw=S/cols;
+    for(let r=0;r<rows;r++){ const py=r*rh, off=(r%2)*0.5;
+      x.fillStyle="rgba(0,0,0,.22)"; x.fillRect(0,py+rh-3,S,3);
+      for(let cc=-1;cc<cols+1;cc++){ const px=(cc+off)*cw, sh=(rnd(r,cc)-0.5)*0.16;
+        x.fillStyle=shadeHex(base,sh); x.fillRect(px,py,cw-1.5,rh-2.5);
+        x.fillStyle="rgba(0,0,0,.28)"; x.fillRect(px+cw-1.5,py,1.5,rh-2.5);
+        x.fillStyle="rgba(255,255,255,.07)"; x.fillRect(px,py,cw-1.5,1); } }
   }
+  const id=x.getImageData(0,0,S,S), d=id.data, amp=type==="metal"?10:type==="slate"?26:type==="wood"?14:22;   // granular noise
+  for(let i=0;i<d.length;i+=4){ const n=(Math.random()-0.5)*amp; d[i]+=n; d[i+1]+=n; d[i+2]+=n; }
+  x.putImageData(id,0,0);
+  const vg=x.createLinearGradient(0,0,0,S); vg.addColorStop(0,"rgba(255,255,255,.08)"); vg.addColorStop(.5,"rgba(255,255,255,0)"); vg.addColorStop(1,"rgba(0,0,0,.10)");
+  x.fillStyle=vg; x.fillRect(0,0,S,S);
   return c;
 }
 /* FEASIBILITY SPIKE: can Map3D render a textured GLB on the roof? place an 8m textured plane at SITE */
