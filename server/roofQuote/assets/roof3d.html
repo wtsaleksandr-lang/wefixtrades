@@ -34,8 +34,8 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -451,6 +451,13 @@ const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
 const BATTERY={ kwh:13.5, cost:11500 }; let addBattery=false;
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
+// solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped, adjusts price + warranty/efficiency
+const PANEL_TIERS=[
+  {id:"std",  label:"Standard", brand:"Q CELLS / REC-class", mult:1.00, warranty:"25-yr", eff:"~21%",  note:"High-value Tier-1 monocrystalline panels — the market sweet spot most homes get."},
+  {id:"prem", label:"Premium",  brand:"REC Alpha / Panasonic-class", mult:1.18, warranty:"25–30-yr", eff:"~21.7%", note:"Higher efficiency and a longer product warranty — more power from the same roof."},
+  {id:"premp",label:"Premium+", brand:"SunPower / Maxeon-class", mult:1.25, warranty:"40-yr", eff:"22%+", note:"Top efficiency-per-square-foot and a 40-year warranty — the best long-term performance."},
+];
+let selPanel=0;
 function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
@@ -532,6 +539,7 @@ function renderQuoteCard(){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
     let lo=t.lo, hi=t.hi;
+    const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ lo+=BATTERY.cost; hi+=Math.round(BATTERY.cost*1.1); }   // battery storage (also ITC-eligible in the US)
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
     const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage · '+BATTERY.kwh+' kWh backup</button>'+ACUE("battery")+'</div>';
@@ -539,9 +547,11 @@ function renderQuoteCard(){
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
-    // clean default: price, savings, financing, tiers; bill-sizing + battery behind a Customize expander
-    const solDetail=window.__solarExpanded?'<div class="cust">'+billRow+coverLine+batToggle+batNote+'</div>':'';
-    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size to your bill &amp; battery ▾')+'</button>';
+    const panelRow='<div class="opt-row"><span class="opt-l">Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
+    const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
+    // clean default: price, savings, financing, tiers; panel quality + bill-sizing + battery behind a Customize expander
+    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+billRow+coverLine+batToggle+batNote+'</div>':'';
+    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · panels, bill &amp; battery ▾')+'</button>';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*'+HCUE("solar")+'</div>'+
       finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
@@ -602,6 +612,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
+  card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
@@ -762,7 +773,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; solarBill=0; window.__solarExpanded=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; solarBill=0; selPanel=0; window.__solarExpanded=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1380,6 +1391,11 @@ const ADD_INFO={
     {n:"Ridge vent", d:"Continuous venting along the roof peak that lets hot, moist attic air escape. Extends shingle life and lowers cooling costs. ~$11 per linear foot of ridge."},
     {n:"New gutters", d:"Replace gutters & downspouts while roof access is already set up — protects your fascia and foundation. ~$9–15 per foot of eave."},
     {n:"Steep / 2-story", d:"A steep pitch (9/12+) or a two-storey home needs extra fall-protection and slower, safer work — about +12% on labour."},
+  ]},
+  panels:{ title:"Solar panel quality", sub:"Standard / Premium / Premium+", items:[
+    {n:"Standard", d:"High-value Tier-1 monocrystalline panels (Q CELLS / REC-class), ~21% efficient, 25-year warranty — what most homes get."},
+    {n:"Premium (~+18%)", d:"REC Alpha / Panasonic-class — higher efficiency and a longer 25–30-year warranty, so you get more power from the same roof area."},
+    {n:"Premium+ (~+25%)", d:"SunPower / Maxeon-class — the top efficiency-per-square-foot and a 40-year warranty for the best long-term performance and resale."},
   ]},
   battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
