@@ -29,6 +29,8 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] **13. "Customize" collapsible** — DONE. Default roofing surface is clean (price, financing, stats, CTA); waste/options/takeoff live behind a "Customize & see materials" expander. Apple/Tesla-simple default, full detail one tap away.
 - [ ] **14. Mobile: show a compact price chip while browsing materials** — on mobile the quote card and material catalogue share the bottom sheet (card hidden during browse, by design). Card is reachable + scrolls when catalogue closed (verified, not a bug); a persistent compact price/material chip during browse would let the price update live as colours are tapped. Next-session UX enhancement (Alex is particular about mobile UI).
 
+- [x] **15. Full-quote report enrichment** (overnight bonus) — the proposal's roofing section now reflects the chosen material + warranty/lifespan spec + measured takeoff (ridge/hip + drip-edge LF, ±confidence, penetrations flashed) instead of a generic asphalt line; battery bullet added when selected. Region-correct savings already flow through.
+
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
@@ -48,3 +50,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · CI fix 2: rooffeatures.mjs top-level await broke esbuild CJS server bundle → static assert import; full local build clean
 - 2026-06-21 · REGRESSION SWEEP clean — 0 console/page errors across full flow desktop+mobile (all 12 features exercised together). CI green. Overnight feature mandate COMPLETE.
 - 2026-06-21 · Mobile final check: roofing card reachable + fits + scrolls when catalogue closed (top397/bot754). Flow functional. Logged #14 (simultaneous price-while-browsing) for next session.
+- 2026-06-21 · #15 report enrichment · verified (New roof — Standing-Seam Metal $14.3k-25.4k, spec+measured takeoff, region-correct Canada savings), 0 errors
