@@ -1322,7 +1322,7 @@ function openReport(){
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
-     ${(()=>{ const nc=Math.round((best.hi||0)*0.7); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
+     ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-REGION.credit)); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
        '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
      ${roofSec}
      <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar 6.99% APR / 25 yr, roofing 9.99% / 12 yr. Soft-pull pre-qualification, no credit impact. ${REGION.credit>0?'Solar shown before the '+Math.round(REGION.credit*100)+'% federal tax credit.':'Incentives: '+REGION.note+'.'}</div></div>
