@@ -23,6 +23,8 @@
   #card .qtab.on{background:var(--accent-soft);border-color:#0d3cfc;color:#0f172a}
   #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#0f172a}
   #card .qprice .qunit{font-size:13px;font-weight:600;color:var(--muted)}
+  #card .qband{font-size:11px;font-weight:700;color:#5b6573;background:#eef1f6;border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:3px}
+  #card .tk-note{font-size:10px;color:var(--faint);margin-top:7px;line-height:1.35}
   #card .mrows{margin-top:10px;display:flex;flex-direction:column;gap:4px}
   #card .mrow{display:flex;justify-content:space-between;align-items:center;font-size:12px}
   #card .mrow span{color:var(--muted);display:flex;align-items:center}
@@ -373,8 +375,8 @@ function measureCardBody(){
   const t=window.__roofTotals; if(!t) return '<div class="qprompt">Measuring your roof…</div>';
   const f=n=>Math.round(n||0).toLocaleString();
   const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
-  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span></div>'+
-    '<div class="qsub">Measured from 3D — exact areas + edge lengths for an accurate material estimate.</div>'+
+  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+confidencePct(t)+'%</span></div>'+
+    '<div class="qsub">Measured from aerial 3D imagery — edge lengths + areas for the takeoff. Confirm on site before ordering materials.</div>'+
     '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares</div></div>'+
     '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
     '<div class="stat"><div class="v">'+t.predominantPitchX12+'/12</div><div class="l">pitch</div></div></div>'+
@@ -395,6 +397,11 @@ function recommendedWasteIdx(t){
   // cut-up roofs (valleys + hips heavy relative to area) need more waste → 15%
   const cx=((t.valleyFt||0)+(t.hipFt||0))/Math.max(1,(t.squares||(t.roofAreaSqFt/100)));
   return cx>6 ? 2 : 1;
+}
+// honest confidence band — aerial/3D-tile measurement; wider on complex roofs
+function confidencePct(t){
+  const facets=t.facetCount||1, sq=t.squares||(t.roofAreaSqFt/100)||1, cx=facets + (t.valleyFt||0)/sq;
+  return cx>9 ? 7 : cx>5 ? 6 : 5;
 }
 function roofTakeoff(t, wastePct){
   const sq=t.squares||(t.roofAreaSqFt/100), w=1+wastePct/100, fieldSq=sq*w;
@@ -447,7 +454,7 @@ function renderQuoteCard(){
       const wastePct=WASTE_OPTS[selWaste], wf=1+wastePct/100;
       const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*wf*psq[0]/50)*50, hi=Math.round(sqs*wf*psq[1]/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
-      const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>' : '';
+      const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div><div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
       body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+wasteRow+takeoff+stats;
     } else {

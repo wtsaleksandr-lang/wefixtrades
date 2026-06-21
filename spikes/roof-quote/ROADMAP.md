@@ -17,8 +17,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] **2. Inline financing comparison** (TS) — DONE. Monthly loan payment on solar (25-yr 6.99%, after 30% ITC) + roofing (12-yr 9.99%) shown inline under each price; pairs with the "saves $X/mo" line for a net-cashflow story.
   BOTH roof and solar price. Biggest conversion lever.
 - [x] **3. Before/after comparison slider** (DIFF) — DONE. Drag the divider to wipe between the new material (left) and the original roof (right); circular knob, After/Before tags, clip-path wipe, pointer events (mouse + touch). Replaces the old before toggle.
-- [ ] **4. Measurement confidence band** (DIFF/trust) — show ±accuracy + "verify before
-  purchase" + imagery note. Honest re: Google tile precision; builds trust.
+- [x] **4. Measurement confidence band** (DIFF/trust) — DONE. ±5-7% band (wider on complex roofs) chip on the measured area + "confirm on site before ordering" framing on the measure view and the takeoff. Honest re aerial precision; no inch-level overclaim.
 - [ ] **5. Tear-off / layers / ventilation configurator** (TS) — 1 vs 2 layers, ridge-vent LF,
   steep/2-story access multiplier → adjusts price.
 - [ ] **6. Localized incentives + utility rate** (TS) — federal ITC 30% (have) + state/utility
@@ -38,3 +37,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
 - 2026-06-21 · #2 inline financing (solar $282/mo, roof $109/mo) · verified, 0 errors
 - 2026-06-21 · #3 before/after slider · verified desktop drag 55%->25% + mobile 375px (36px knob), 0 errors
+- 2026-06-21 · #4 confidence band (±5-7%) + trust framing · verified, 0 errors
