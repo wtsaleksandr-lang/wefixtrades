@@ -59,3 +59,5 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #18 shareable/restorable quote link · verified (?a=address restores property + auto-runs), 0 errors
 - 2026-06-21 · #18 follow-up: material restore from &m/&c · verified (?a+&m=metal&c=Matte Black lands on that exact quote $14.3-25.4k), 0 errors. Share round-trip complete.
 - 2026-06-21 · #14 mobile price-while-browsing · verified 390px (price in render bar, updates per selection), 0 errors
+- [x] **19. Gutters + downspouts add-on** (new feature, approved) — "New gutters" roofing option priced off the measured eave LF (~$9-15/lf + downspouts), adds a takeoff line. A real upsell using existing geometry.
+- 2026-06-21 · #19 gutters add-on · verified (107 lf eave → +$1.15-1.8k, takeoff line), 0 errors

@@ -426,7 +426,7 @@ function measureCardBody(){
 // ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
 const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
 // price-affecting roof options (tear-off layers, ventilation, access) — EagleView-style line items
-const roofOpts={ layers:1, ridgeVent:false, steep:false };
+const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
 // solar battery storage (Powerwall-class) — backup + self-consumption
 const BATTERY={ kwh:13.5, cost:11500 }; let addBattery=false;
 function applyRoofOpts(lo, hi, sqs, t){
@@ -435,6 +435,7 @@ function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.steep){ lo*=1.12; hi*=1.12; }                                  // steep / 2-story access +12%
   const c=window.__roofFeatures&&window.__roofFeatures.counts;               // flashing/boots for detected penetrations
   if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen){ lo+=pen; hi+=pen*1.3; } }
+  if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; lo+=ef*9+ds; hi+=ef*15+ds; }  // new gutters ~$9-15/lf eave + downspouts
   return [lo, hi];
 }
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
@@ -468,6 +469,7 @@ function roofTakeoff(t, wastePct){
   rows+=r('Roofing nails', Math.ceil(fieldSq*2.2)+' lb');
   const c=window.__roofFeatures&&window.__roofFeatures.counts;
   if(c){ const pen=(c.chimneys||0)+(c.vents||0)+(c.skylights||0); if(pen) rows+=r('Pipe boots + flashing', pen+' penetration'+(pen>1?'s':'')); }
+  if(roofOpts.gutters) rows+=r('Gutters + downspouts', Math.round(eave)+' lf');
   return rows;
 }
 // short "we looked at your roof" summary of detected features — credibility signal
@@ -534,7 +536,7 @@ function renderQuoteCard(){
       lo=Math.round(lo/50)*50; hi=Math.round(hi/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
       const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+lab+'</button>';
-      const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
+      const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
@@ -726,7 +728,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
