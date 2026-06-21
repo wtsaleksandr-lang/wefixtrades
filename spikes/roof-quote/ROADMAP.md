@@ -20,8 +20,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [x] **4. Measurement confidence band** (DIFF/trust) — DONE. ±5-7% band (wider on complex roofs) chip on the measured area + "confirm on site before ordering" framing on the measure view and the takeoff. Honest re aerial precision; no inch-level overclaim.
 - [x] **5. Tear-off / layers / ventilation configurator** (TS) — DONE. Roofing options row: 1/2 layers (2nd-layer tear-off ~$90/sq), Ridge vent (~$11/lf ridge), Steep/2-story (+12%, auto-flagged for pitch>=9/12). Each rescales the price live.
 - [x] **6. Localized incentives + utility rate** (TS) — DONE. Region table (US states + CA provinces) → local $/kWh + incentive note + federal-credit rule, resolved from the address. Fixes a real bug: Ontario no longer claims the US 30%% ITC; rates/savings/financing now region-correct.
-- [ ] **7. Roof-condition / penetration line items** (DIFF) — surface rooffeatures detection
-  (chimneys/vents/skylights/overhang) as estimate line items + counts.
+- [x] **7. Roof-condition / penetration line items** (DIFF) — DONE. Roof-feature detection (chimneys/vents/skylights/dormers + roof type) now runs on load (was Measure-only) and surfaces as a "Detected: hip roof — 2 vents" credibility line, a "Pipe boots + flashing" takeoff item, and per-penetration flashing cost in the price.
 - [ ] **8. Battery/storage toggle** (DIFF) — backup vs self-consumption; payback delta.
 - [ ] **9. Shareable/downloadable PDF proposal + book-a-call CTA** (TS) — close the loop.
 - [ ] **10. Real-SKU material/color library** (DIFF) — branded shingles (GAF Timberline etc.)
@@ -40,3 +39,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #5 tear-off/layers/ventilation configurator · verified (2-layer +$1.3k, ridge vent +$200), 0 errors
 - 2026-06-21 · #6 localized incentives+rate · verified ON (no US ITC, $0.13/kWh) vs TX (30% ITC, $0.15/kWh), 0 errors · FIXED false-ITC bug for Canada
 - 2026-06-21 · #13 Customize collapsible · verified collapsed(clean)/expanded states, 0 errors
+- 2026-06-21 · #7 penetration line items + detected summary · verified (hip roof, 2 vents detected → line+cost), 0 errors · FIXED: detection only ran in Measure mode
