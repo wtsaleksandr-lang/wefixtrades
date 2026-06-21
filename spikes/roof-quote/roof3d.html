@@ -28,6 +28,15 @@
   #card .mrow span{color:var(--muted);display:flex;align-items:center}
   #card .mrow i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
   #card .mrow b{color:#0f172a;font-weight:700}
+  #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+  #card .waste-row>span{margin-right:2px}
+  #card .wb{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .tk-h{font-size:11px;font-weight:700;color:#0f172a;margin:11px 0 5px}
+  #card .takeoff{display:flex;flex-direction:column;gap:3px}
+  #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
+  #card .tk-row span{color:var(--muted)}
+  #card .tk-row b{color:#0f172a;font-weight:600}
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
@@ -363,6 +372,31 @@ function measureCardBody(){
     '<div class="mrows">'+row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt))+row(EDGE_COLORS.hip,"Hip",f(t.hipFt))+
     row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>';
 }
+// ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
+const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
+function getRoofTotals(){
+  if(window.__roofTotals) return window.__roofTotals;
+  try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=m.totals; return m.totals; } }catch(_){}
+  return null;
+}
+function recommendedWasteIdx(t){
+  // cut-up roofs (valleys + hips heavy relative to area) need more waste → 15%
+  const cx=((t.valleyFt||0)+(t.hipFt||0))/Math.max(1,(t.squares||(t.roofAreaSqFt/100)));
+  return cx>6 ? 2 : 1;
+}
+function roofTakeoff(t, wastePct){
+  const sq=t.squares||(t.roofAreaSqFt/100), w=1+wastePct/100, fieldSq=sq*w;
+  const eave=t.eaveFt||0, rake=t.rakeFt||0, ridge=t.ridgeFt||0, hip=t.hipFt||0, valley=t.valleyFt||0;
+  const r=(l,v)=>'<div class="tk-row"><span>'+l+'</span><b>'+v+'</b></div>';
+  let rows=r('Field shingles', fieldSq.toFixed(1)+' sq')
+    + r('Starter strip', Math.round(eave)+' lf')
+    + r('Hip &amp; ridge cap', Math.round(ridge+hip)+' lf')
+    + r('Drip edge', Math.round(eave+rake)+' lf')
+    + r('Underlayment', Math.ceil(fieldSq)+' sq');
+  if(valley>0) rows+=r('Valley flashing', Math.round(valley)+' lf');
+  rows+=r('Roofing nails', Math.ceil(fieldSq*2.2)+' lb');
+  return rows;
+}
 function renderQuoteCard(){
   if(!QUOTE) return; const card=$("card"); card.style.display="block";
   const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
@@ -394,8 +428,13 @@ function renderQuoteCard(){
       '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares</div></div>'+
       '<div class="stat"><div class="v">'+QUOTE.facets+'</div><div class="l">facets</div></div></div>';
     if(sel){
-      const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*psq[0]/50)*50, hi=Math.round(sqs*psq[1]/50)*50;
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+stats;
+      const t=getRoofTotals();
+      if(t && !window.__wasteAuto){ selWaste=recommendedWasteIdx(t); window.__wasteAuto=true; }
+      const wastePct=WASTE_OPTS[selWaste], wf=1+wastePct/100;
+      const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*wf*psq[0]/50)*50, hi=Math.round(sqs*wf*psq[1]/50)*50;
+      const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
+      const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>' : '';
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+wasteRow+takeoff+stats;
     } else {
       body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
     }
@@ -412,6 +451,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
+  card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
@@ -568,7 +608,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null;   // new address → drop stale material renders + selection
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false;   // new address → drop stale material renders + selection + takeoff
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");

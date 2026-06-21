@@ -10,9 +10,10 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 
 ## Backlog (ranked impact × feasibility)
 
-- [ ] **1. Materials line-item estimate + waste factors** (TS) — squares, underlayment, drip
-  edge, ridge cap, starter, flashing, nails, penetration count; waste 0/10/recommended/15%.
-  Derive from existing area + ridge/hip/valley/eave/rake LF. *Makes the roofing quote credible.*
+- [x] **1. Materials line-item estimate + waste factors** (TS) — DONE. Takeoff (field shingles,
+  starter, hip/ridge cap, drip edge, underlayment, valley flashing, nails) + 0/10/15% waste
+  toggle (auto-recommends 15% for cut-up roofs) that adjusts quantities + price. Derived from
+  the roof-geometry totals (hoisted via getRoofTotals/facetsToRoofModel).
 - [ ] **2. Inline financing comparison** (TS) — cash vs loan (monthly @ APR/term) vs lease, on
   BOTH roof and solar price. Biggest conversion lever.
 - [ ] **3. Before/after comparison slider** (DIFF) — drag divider over the AI render: original
@@ -35,3 +36,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 
 ## Log
 (append per cycle: date · feature · commit · verification)
+- 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
