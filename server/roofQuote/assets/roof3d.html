@@ -59,6 +59,13 @@
   #card .ob.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .cust-toggle{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);margin-top:11px;padding:9px 0 0;color:#0d3cfc;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
   #card .cust{margin-top:2px}
+  #card .cust-sec{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9aa7b8;margin:12px 0 2px}
+  #card .cust-sec:first-child{margin-top:4px}
+  #card .addon-card{background:#fbfcfe;border:1px solid var(--line);border-radius:11px;padding:7px 10px;margin-top:7px}
+  #card .addon-card .opt-row:first-child{margin-top:0}
+  #card .ao-sum{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;background:none;border:0;border-top:1px dashed var(--line);margin-top:6px;padding:7px 0 1px;color:#475569;font-size:11.5px;font-family:inherit;cursor:pointer;text-align:left}
+  #card .ao-sum b{color:#0f172a}
+  #card .ao-chev{flex:0 0 auto;color:#0d3cfc;font-weight:700;font-size:11px}
   #card .tk-h{font-size:11px;font-weight:700;color:#0f172a;margin:11px 0 5px}
   #card .takeoff{display:flex;flex-direction:column;gap:3px}
   #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
@@ -662,17 +669,23 @@ function renderQuoteCard(){
     const fin=TENANT.financing, sFin=monthly(sMid*(1-REGION.credit), fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term)
     const leaseMo=Math.round(sysKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(sysKwh);
-    const loadRow=addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
-      '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>':'';
-    const batToggle=TENANT.features.battery?('<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+loadRow+
-      (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'')):'';
-    const batNote=addBattery?(()=>{ const need=backupKwhNeed(), tot=+(curBat().kwh*batCount).toFixed(1);
-      return '<div class="qfin" style="margin-top:5px">≈ <b>'+need+' kWh</b> of backup → <b>'+batCount+'× '+curBat().label+'</b> ('+tot+' kWh)'+(REGION.credit>0?'; qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'. Final sizing confirmed on site.</div>'; })():'';
-    const evToggle=TENANT.features.ev?('<div class="opt-row" style="margin-top:9px"><button class="ob'+(addEV?' on':'')+'" data-ev>'+CAT_ICON.ev+(addEV?'✓ ':'')+'Charge an EV'+(addEV?'':' with solar')+'</button>'+ACUE("ev")+'</div>'+
-      (addEV?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Vehicle</span>'+EV_TYPES.map((e,i)=>'<button class="evt'+(selEV===i?' on':'')+'" data-evt="'+i+'">'+e.label+'</button>').join('')+'</div>'+
-        '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Miles/yr</span>'+EV_MILES_OPTS.map(m=>'<button class="evm'+(evMiles===m?' on':'')+'" data-evm="'+m+'">'+(m/1000)+'k</button>').join('')+'</div>'+
-        '<div class="opt-row" style="margin-top:6px"><button class="ob'+(addCharger?' on':'')+'" data-charger>'+CAT_ICON.charger+(addCharger?'✓ ':'')+'Add Level-2 charger install</button></div>':'')):'';
-    const evNote=addEV?(()=>{ const ev=evSizing(t); return '<div class="qfin" style="margin-top:5px">+<b>'+ev.panels+' panels</b> (~'+ev.kw+' kW) to cover ~<b>'+ev.kwh.toLocaleString()+' kWh/yr</b> of driving'+(addCharger?' · incl. Level-2 charger install':'')+'.</div>'; })():'';
+    const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
+    // BATTERY add-on (accordion)
+    const batConfig=addBattery?('<div class="opt-row" style="margin-top:6px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
+      '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>'+
+      '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>'+
+      '<div class="qfin" style="margin-top:5px">Covers ~<b>'+backupKwhNeed()+' kWh</b> of essentials'+(backupDays>1?' for '+backupDays+' days':'')+' — final sizing confirmed on site.</div>'):'';
+    const batToggle=TENANT.features.battery?('<div class="opt-row"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+
+      (addBattery?('<button class="ao-sum" data-aopen="battery"><span><b>'+batCount+'× '+curBat().label+'</b> · '+(+(curBat().kwh*batCount).toFixed(1))+' kWh backup</span><span class="ao-chev">'+(aOpen==="battery"?'Done ▴':'Customize ▾')+'</span></button>'+(aOpen==="battery"?batConfig:'')):'')):'';
+    const batNote='';
+    // EV add-on (accordion)
+    const evToggle=TENANT.features.ev?('<div class="opt-row"><button class="ob'+(addEV?' on':'')+'" data-ev>'+CAT_ICON.ev+(addEV?'✓ ':'')+'Charge an EV'+(addEV?'':' with solar')+'</button>'+ACUE("ev")+'</div>'+
+      (addEV?(()=>{ const ev=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh}); return '<button class="ao-sum" data-aopen="ev"><span>+<b>'+ev.panels+' panels</b> · '+EV_TYPES[selEV].label+' · '+(evMiles/1000)+'k mi/yr</span><span class="ao-chev">'+(aOpen==="ev"?'Done ▴':'Customize ▾')+'</span></button>'+
+        (aOpen==="ev"?('<div class="opt-row" style="margin-top:6px"><span class="opt-l">Vehicle</span>'+EV_TYPES.map((e,i)=>'<button class="evt'+(selEV===i?' on':'')+'" data-evt="'+i+'">'+e.label+'</button>').join('')+'</div>'+
+          '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Miles/yr</span>'+EV_MILES_OPTS.map(m=>'<button class="evm'+(evMiles===m?' on':'')+'" data-evm="'+m+'">'+(m/1000)+'k</button>').join('')+'</div>'+
+          '<div class="opt-row" style="margin-top:6px"><button class="ob'+(addCharger?' on':'')+'" data-charger>'+CAT_ICON.charger+(addCharger?'✓ ':'')+'Add Level-2 charger install</button></div>'+
+          '<div class="qfin" style="margin-top:5px">+'+ev.panels+' panels (~'+ev.kw+' kW) to cover ~'+ev.kwh.toLocaleString()+' kWh/yr'+(addCharger?' · incl. Level-2 charger':'')+'.</div>'):''); })():'')):'';
+    const evNote='';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
@@ -694,8 +707,14 @@ function renderQuoteCard(){
       : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA · incentives kept by the installer &amp; passed through as a lower rate')
       : finLine(sFin, fin.solarYears+'-yr @ '+fin.solarApr+'%, '+creditTxt());
     const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in SREC credits ('+window.__regionCode+' solar incentive) — on top of your bill savings.</div>':'';
-    // clean default: price, savings, financing, tiers; size + panel quality + bill + battery + EV behind a Customize expander
-    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+sizeRow+billRow+coverLine+batToggle+batNote+evToggle+evNote+'</div>':'';
+    // clean default: price, savings, financing, tiers; everything else behind a Customize expander, organized into
+    // a "Your system" section + contained "Add-ons" cards so it reads as tidy groups, not one long list.
+    const batCard=batToggle?'<div class="addon-card">'+batToggle+batNote+'</div>':'';
+    const evCard=evToggle?'<div class="addon-card">'+evToggle+evNote+'</div>':'';
+    const addonsSec=(batCard||evCard)?'<div class="cust-sec">Add-ons</div>'+batCard+evCard:'';
+    const solDetail=window.__solarExpanded?'<div class="cust">'+
+      '<div class="cust-sec">Your system</div>'+sizeRow+panelRow+panelNote+billRow+coverLine+
+      addonsSec+'</div>':'';
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+
       finDisplay+payRow+
@@ -762,15 +781,16 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
-  card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
+  card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; window.__addonOpen=addBattery?"battery":(window.__addonOpen==="battery"?null:window.__addonOpen); renderQuoteCard(); });
+  card.querySelectorAll("[data-aopen]").forEach(b=>b.onclick=()=>{ const k=b.dataset.aopen; window.__addonOpen=(window.__addonOpen===k?null:k); renderQuoteCard(); });
   card.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{ const id=b.dataset.load; if(selLoads.has(id)) selLoads.delete(id); else selLoads.add(id); renderQuoteCard(); });
   card.querySelectorAll("[data-bdays]").forEach(b=>b.onclick=()=>{ backupDays=+b.dataset.bdays; renderQuoteCard(); });
-  card.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{ addEV=!addEV; renderQuoteCard(); });
+  card.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{ addEV=!addEV; window.__addonOpen=addEV?"ev":(window.__addonOpen==="ev"?null:window.__addonOpen); renderQuoteCard(); });
   card.querySelectorAll("[data-evt]").forEach(b=>b.onclick=()=>{ selEV=+b.dataset.evt; renderQuoteCard(); });
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
-  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); }; });
+  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -930,7 +950,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan";   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1421,7 +1441,8 @@ async function buildPhotoPanels(){
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
   const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
-  const n=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
+  const baseN=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
+  const n=Math.max(4,Math.round(baseN*(window.__sizePct||1)));   // size slider scales how many panels are drawn on the roof
   const list=(sp.solarPanels||[]).slice(0,n);
   const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
   for(const pn of list){
