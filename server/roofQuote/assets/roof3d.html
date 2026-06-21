@@ -38,6 +38,8 @@
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
   #card .ob.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .cust-toggle{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);margin-top:11px;padding:9px 0 0;color:#0d3cfc;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  #card .cust{margin-top:2px}
   #card .tk-h{font-size:11px;font-weight:700;color:#0f172a;margin:11px 0 5px}
   #card .takeoff{display:flex;flex-direction:column;gap:3px}
   #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
@@ -494,7 +496,10 @@ function renderQuoteCard(){
       const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div><div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+wasteRow+optsRow+takeoff+stats;
+      // keep the default surface clean; waste/options/takeoff live behind a Customize expander
+      const detail=window.__roofExpanded ? '<div class="cust">'+wasteRow+optsRow+takeoff+'</div>' : '';
+      const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
     } else {
       body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
     }
@@ -513,6 +518,7 @@ function renderQuoteCard(){
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
+  card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
@@ -669,7 +675,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false;   // new address → drop stale material renders + selection + takeoff + options
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; window.__roofExpanded=false;   // new address → drop stale material renders + selection + takeoff + options
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");

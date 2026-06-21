@@ -30,8 +30,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
   progress, value-first.
 - [ ] **12. AI render quality** — gpt-image-1 (blocked on OpenAI billing — Alex). Browse tier meanwhile.
 
-- [ ] **13. "Customize" collapsible** — the roofing quote card is getting dense (price, finance, waste, options, takeoff, notes, stats); group the configurators/takeoff behind an expander for a cleaner default surface.
-
+- [x] **13. "Customize" collapsible** — DONE. Default roofing surface is clean (price, financing, stats, CTA); waste/options/takeoff live behind a "Customize & see materials" expander. Apple/Tesla-simple default, full detail one tap away.
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
@@ -40,3 +39,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #4 confidence band (±5-7%) + trust framing · verified, 0 errors
 - 2026-06-21 · #5 tear-off/layers/ventilation configurator · verified (2-layer +$1.3k, ridge vent +$200), 0 errors
 - 2026-06-21 · #6 localized incentives+rate · verified ON (no US ITC, $0.13/kWh) vs TX (30% ITC, $0.15/kWh), 0 errors · FIXED false-ITC bug for Canada
+- 2026-06-21 · #13 Customize collapsible · verified collapsed(clean)/expanded states, 0 errors
