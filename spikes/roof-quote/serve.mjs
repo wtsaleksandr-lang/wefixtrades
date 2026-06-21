@@ -1,4 +1,4 @@
-import http from "http"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto";
+import http from "http"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url";
 // ---- persistent disk cache: captures + AI renders survive restarts (cost lever; foundation for cross-tenant cache) ----
 const CACHE_DIR=path.join(import.meta.dirname,"cache");
 try{ mkdirSync(CACHE_DIR,{recursive:true}); }catch(_){}
@@ -150,10 +150,12 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let _browser=null;
 async function getBrowser(){
   if(_browser){ try{ if(_browser.isConnected()) return _browser; }catch(_){} }
-  // PLAYWRIGHT_PATH lets the host point at an installed playwright (e.g. a monorepo's node_modules);
-  // falls back to a bare "playwright" resolve if it's a sibling dependency.
-  const pwPath=process.env.PLAYWRIGHT_PATH||"playwright";
-  const pw=await import(pwPath);
+  // PLAYWRIGHT_PATH lets the host point at an installed playwright (e.g. a monorepo's node_modules).
+  // On Windows, dynamic import() needs a file:// URL — a raw "C:\..." path throws, so convert it.
+  const raw=process.env.PLAYWRIGHT_PATH;
+  let spec="playwright";
+  if(raw){ const full=raw.endsWith(".js")?raw:path.join(raw,"index.js"); spec=pathToFileURL(full).href; }
+  const pw=await import(spec);
   const chromium=(pw.default||pw).chromium;
   // TRUE headless + software WebGL (SwiftShader): renders Google 3D tiles with no GPU/display → deployable on standard server containers
   _browser=await chromium.launch({ headless:true, args:["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader","--no-sandbox","--ignore-gpu-blocklist"] });
