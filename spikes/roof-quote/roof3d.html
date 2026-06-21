@@ -34,8 +34,10 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .opt-l.ico{display:inline-flex;align-items:center;gap:3px}
+  #card .opt-l.ico svg{opacity:.7}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -472,6 +474,22 @@ let backupDays=1, batCount=1;
 function backupKwhNeed(){ let s=0; BACKUP_LOADS.forEach(l=>{ if(selLoads.has(l.id)) s+=l.kwh; }); return +(s*backupDays).toFixed(1); }
 // size COUNT of the chosen model to cover the need (fewest units, clamped 1–9); model choice stays with the user
 function sizeBattery(){ const need=backupKwhNeed(), m=curBat(); batCount = need<=0 ? 1 : Math.max(1, Math.min(9, Math.ceil(need/m.kwh))); }
+// EV: size extra solar to cover charging + an optional Level-2 charger install (real installer cross-sell).
+// Efficiency presets (mi/kWh) avoid Paradise's mislabeled raw-number trap; miles is a bounded chip set.
+const EV_TYPES=[
+  {id:"sedan", label:"Sedan",  mi:4.0, note:"Model 3 / Ioniq-class"},
+  {id:"suv",   label:"SUV",    mi:3.0, note:"Mach-E / Model Y-class"},
+  {id:"truck", label:"Truck",  mi:2.3, note:"F-150 Lightning / Rivian-class"},
+];
+const EV_MILES_OPTS=[6000,10000,12000,15000,20000];
+const CHARGER_COST=1600;   // Level-2 charger hardware + install, typical US/CA
+let addEV=false, selEV=0, evMiles=12000, addCharger=false;
+function evAnnualKwh(){ return Math.round(evMiles/(EV_TYPES[selEV]||EV_TYPES[0]).mi); }   // miles ÷ efficiency
+// extra kW + panels to offset the EV's annual charging, using the selected tier's real production ratio
+function evSizing(t){ if(!addEV||!t||!t.kwhAc||!t.kw) return {kw:0,panels:0,kwh:0};
+  const kwhPerKw=t.kwhAc/t.kw, wattPerPanel=t.kw*1000/Math.max(1,t.panels);
+  const kwh=evAnnualKwh(), kw=+(kwh/kwhPerKw).toFixed(1), panels=Math.max(1,Math.ceil(kw*1000/wattPerPanel));
+  return {kw,panels,kwh}; }
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
 // solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped, adjusts price + warranty/efficiency
@@ -564,6 +582,9 @@ function renderQuoteCard(){
     let lo=t.lo, hi=t.hi;
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
+    const evS=evSizing(t);
+    if(addEV && evS.kw){ const evCost=Math.round(evS.kw*1000*2.8); lo+=evCost; hi+=Math.round(evCost*1.1); }   // extra solar to cover EV charging (~$2.8/W)
+    if(addCharger){ lo+=CHARGER_COST; hi+=Math.round(CHARGER_COST*1.15); }   // Level-2 EV charger install
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost (REGION.credit is 0 for US owned systems post-2025; non-zero only where a state credit applies)
     const loadRow=addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
       '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>':'';
@@ -571,14 +592,19 @@ function renderQuoteCard(){
       (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'');
     const batNote=addBattery?(()=>{ const need=backupKwhNeed(), tot=+(curBat().kwh*batCount).toFixed(1);
       return '<div class="qfin" style="margin-top:5px">≈ <b>'+need+' kWh</b> of backup → <b>'+batCount+'× '+curBat().label+'</b> ('+tot+' kWh)'+(REGION.credit>0?'; qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'. Final sizing confirmed on site.</div>'; })():'';
+    const evToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addEV?' on':'')+'" data-ev>'+CAT_ICON.ev+(addEV?'✓ ':'')+'Charge an EV'+(addEV?'':' with solar')+'</button>'+ACUE("ev")+'</div>'+
+      (addEV?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Vehicle</span>'+EV_TYPES.map((e,i)=>'<button class="evt'+(selEV===i?' on':'')+'" data-evt="'+i+'">'+e.label+'</button>').join('')+'</div>'+
+        '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Miles/yr</span>'+EV_MILES_OPTS.map(m=>'<button class="evm'+(evMiles===m?' on':'')+'" data-evm="'+m+'">'+(m/1000)+'k</button>').join('')+'</div>'+
+        '<div class="opt-row" style="margin-top:6px"><button class="ob'+(addCharger?' on':'')+'" data-charger>'+CAT_ICON.charger+(addCharger?'✓ ':'')+'Add Level-2 charger install</button></div>':'');
+    const evNote=addEV?(()=>{ const ev=evSizing(t); return '<div class="qfin" style="margin-top:5px">+<b>'+ev.panels+' panels</b> (~'+ev.kw+' kW) to cover ~<b>'+ev.kwh.toLocaleString()+' kWh/yr</b> of driving'+(addCharger?' · incl. Level-2 charger install':'')+'.</div>'; })():'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
-    const panelRow='<div class="opt-row"><span class="opt-l">Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
+    const panelRow='<div class="opt-row"><span class="opt-l ico">'+CAT_ICON.panels+'Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
     // clean default: price, savings, financing, tiers; panel quality + bill-sizing + battery behind a Customize expander
-    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+billRow+coverLine+batToggle+batNote+'</div>':'';
-    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · panels, bill &amp; battery ▾')+'</button>';
+    const solDetail=window.__solarExpanded?'<div class="cust">'+panelRow+panelNote+billRow+coverLine+batToggle+batNote+evToggle+evNote+'</div>':'';
+    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · panels, battery &amp; EV ▾')+'</button>';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*'+HCUE("solar")+'</div>'+
       finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
@@ -644,6 +670,10 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{ const id=b.dataset.load; if(selLoads.has(id)) selLoads.delete(id); else selLoads.add(id); renderQuoteCard(); });
   card.querySelectorAll("[data-bdays]").forEach(b=>b.onclick=()=>{ backupDays=+b.dataset.bdays; renderQuoteCard(); });
+  card.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{ addEV=!addEV; renderQuoteCard(); });
+  card.querySelectorAll("[data-evt]").forEach(b=>b.onclick=()=>{ selEV=+b.dataset.evt; renderQuoteCard(); });
+  card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
+  card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -803,7 +833,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1336,6 +1366,7 @@ function openReport(){
     roofSec=`<div class="sec"><h2>New roof option</h2><div class="pricebig">${fmtMoney(rlo)}–${fmtMoney(rhi)}</div><div class="muted">Asphalt-shingle re-roof · ${sqs.toFixed(1)} squares · tear-off + install. Choose a material in the tool for an exact figure.</div></div>`;
   }
   const batteryBul=addBattery?(()=>{ sizeBattery(); const tot=+(curBat().kwh*batCount).toFixed(1); return `<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${batCount}× ${curBat().label}, ${tot} kWh backup (covers ~${backupKwhNeed()} kWh of essentials${backupDays>1?` for ${backupDays} days`:''})</div></div>`; })():'';
+  const evBul=(addEV||addCharger)?(()=>{ const t=solarTiers[selTier]||solarTiers[solarTiers.length-1]||{}; const ev=evSizing(t); const parts=[]; if(addEV&&ev.kw) parts.push(`+${ev.panels} panels (~${ev.kw} kW) to cover ~${ev.kwh.toLocaleString()} kWh/yr of EV driving`); if(addCharger) parts.push('Level-2 home charger install'); return `<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>EV — ${parts.join('; ')}</div></div>`; })():'';
   $("report").innerHTML=`
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
@@ -1352,7 +1383,7 @@ function openReport(){
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
-       <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Solar: production guarantee + monitoring</div></div>${batteryBul}</div>
+       <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Solar: production guarantee + monitoring</div></div>${batteryBul}${evBul}</div>
      <div class="sec"><h2>Next step</h2>
        <button class="rcta" id="bookBtn" onclick="window.__book()">Book my free assessment</button>
        <div class="signbox" id="signbox">No obligation · pick a time that works · we confirm the final price on-site</div></div>
@@ -1432,6 +1463,11 @@ const ADD_INFO={
     {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP); the 30% federal tax credit ended for systems installed after Dec 31, 2025."},
     {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
   ]},
+  ev:{ title:"Charge an EV with solar", sub:"Size extra panels for your driving", items:[
+    {n:"How it works", d:"Pick your vehicle type and how far you drive a year. We translate that into the electricity your car needs and add just enough extra panels to cover it — so your driving runs on sunshine, not the grid."},
+    {n:"Vehicle types", d:"A sedan (Model 3 / Ioniq-class) goes about 4 miles per kWh, an SUV (Mach-E / Model Y-class) about 3, and a truck (F-150 Lightning / Rivian-class) about 2.3. We use these real-world averages so the estimate isn't over- or under-sized."},
+    {n:"Level-2 charger install", d:"The optional Level-2 home charger (240V) charges 5–7× faster than a standard outlet. The price includes the charger and a typical installation; the electrician confirms your panel capacity on site."},
+  ]},
   backup:{ title:"How we size your battery", sub:"Pick what to keep running, we do the math", items:[
     {n:"Just choose your essentials", d:"Tap the things you want powered during an outage — fridge, lights, Wi-Fi, heat, a well pump, medical equipment. You never have to think in watts or kWh; we translate each one into the energy it actually uses per day."},
     {n:"How long it lasts", d:"\"For how long\" multiplies that daily energy by the number of outage days you want covered. More appliances or more days = more battery. We then pick the fewest battery units that cover it."},
@@ -1449,6 +1485,15 @@ const OB_ICON={
   gutters:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/><path d="M12 19v2"/></svg>',
   steep:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20L14 4l6 16z"/></svg>',
   battery:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="15" height="9" rx="2"/><path d="M21 11v3"/><path d="M9 10l-1.5 3h2l-1.5 3"/></svg>',
+};
+// category icons — premium feel across the card (panels, battery, inverter, EV, charger, sun)
+const CAT_ICON={
+  panels:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="1"/><path d="M3 8.5h18M3 13h18M9 4v13M15 4v13"/><path d="M8 21h8M12 17v4"/></svg>',
+  battery:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="15" height="9" rx="2"/><path d="M21 11v3"/><path d="M9 10l-1.5 3h2l-1.5 3"/></svg>',
+  inverter:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M7 14c1.5-3 3-3 4.5 0s3 3 4.5 0"/></svg>',
+  ev:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l1.5-4.5A2 2 0 0 1 6.4 7h7.2a2 2 0 0 1 1.9 1.5L17 13v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><circle cx="6.5" cy="14.5" r="1"/><circle cx="13.5" cy="14.5" r="1"/><path d="M19 8l2 2-2 2"/></svg>',
+  charger:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v4M15 3v4M8 7h8v3a4 4 0 0 1-8 0z"/><path d="M12 14v3a3 3 0 0 0 3 3h1"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>',
 };
 // shareable URL that RESTORES this quote (address + chosen material/colour) — not just the bare widget link
 function quoteUrl(){ const a=encodeURIComponent(($("addr").value||"").trim()); const s=window.__roofSel;
