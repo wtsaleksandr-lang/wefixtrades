@@ -27,9 +27,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [ ] **12. AI render quality** — gpt-image-1 (blocked on OpenAI billing — Alex). Browse tier meanwhile.
 
 - [x] **13. "Customize" collapsible** — DONE. Default roofing surface is clean (price, financing, stats, CTA); waste/options/takeoff live behind a "Customize & see materials" expander. Apple/Tesla-simple default, full detail one tap away.
-- [ ] **14. Mobile: show a compact price chip while browsing materials** — on mobile the quote card and material catalogue share the bottom sheet (card hidden during browse, by design). Card is reachable + scrolls when catalogue closed (verified, not a bug); a persistent compact price/material chip during browse would let the price update live as colours are tapped. Next-session UX enhancement (Alex is particular about mobile UI).
-
-- [x] **15. Full-quote report enrichment** (overnight bonus) — the proposal's roofing section now reflects the chosen material + warranty/lifespan spec + measured takeoff (ridge/hip + drip-edge LF, ±confidence, penetrations flashed) instead of a generic asphalt line; battery bullet added when selected. Region-correct savings already flow through.
+- [x] **14. Mobile price while browsing materials** — DONE (Alex-approved). The render bar (#aiBar, visible during material browse) now shows the live material + price; updates per selection. Fixes the mobile gap where the quote card is hidden behind the catalogue. Verified 390px: "Architectural · Charcoal $7,250-$11,250", 0 errors.
 
 - [x] **16. Material comparison picker** — the roofing "choose a material" empty-state is now a compact comparison of all 9 materials with est. price FOR THIS ROOF + lifespan; tap a row to select it. A real buying-decision aid (vs a bare prompt).
 
@@ -60,3 +58,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #16 material comparison picker · verified (9 materials priced for this roof + lifespan; tap Slate -> selected $23.9-47.8k), 0 errors
 - 2026-06-21 · #18 shareable/restorable quote link · verified (?a=address restores property + auto-runs), 0 errors
 - 2026-06-21 · #18 follow-up: material restore from &m/&c · verified (?a+&m=metal&c=Matte Black lands on that exact quote $14.3-25.4k), 0 errors. Share round-trip complete.
+- 2026-06-21 · #14 mobile price-while-browsing · verified 390px (price in render bar, updates per selection), 0 errors

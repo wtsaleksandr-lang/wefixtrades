@@ -145,6 +145,7 @@
   #aiBar{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:21;display:none;gap:8px;align-items:center;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:6px 8px;box-shadow:var(--card-shadow)}
   #aiBar button{background:#f7f9fc;border:1px solid #e1e7ef;color:#0f172a;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
   #aiBar #aiMat{font-size:11px;color:var(--muted);padding:0 4px}
+  #aiBar #aiMat .ai-price{color:#0d3cfc;font-weight:800;font-size:12px;margin-left:3px}
   #roofReport{position:absolute;top:62px;right:12px;z-index:22;background:#ffffff;border:1px solid #e1e7ef;border-radius:13px;padding:13px 15px;width:208px;display:none;font-size:12px;box-shadow:var(--card-shadow)}
   #roofReport .rr-h{font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
   #roofReport .rr-big{font-size:22px;font-weight:800;color:#0f172a;line-height:1}
@@ -1421,8 +1422,15 @@ function renderCols(){
     d.onclick=()=>{ if(matMode){ selCol=i; renderColor(true); } };
     wrap.appendChild(d); });
 }
+// live price for the current material selection — surfaced in the render bar so mobile sees the price while browsing (the quote card is hidden behind the catalogue on mobile)
+function matPriceStr(){
+  if(!window.__roofSel||!QUOTE) return "";
+  const sel=window.__roofSel, sqs=QUOTE.roofSqft/100, psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
+  let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, getRoofTotals());
+  return fmtMoney(Math.round(lo/50)*50)+"–"+fmtMoney(Math.round(hi/50)*50);
+}
 function showMatImg(key,label){ const img=$("aiPhoto"); img.src=window.__matRenders[key]; img.style.display="block"; matLoading(false);
-  $("aiMat").textContent=label||""; $("aiBar").style.display="flex"; activateBA(); }
+  const pr=matPriceStr(); $("aiMat").innerHTML=(label||"")+(pr?' <b class="ai-price">'+pr+'</b>':''); $("aiBar").style.display="flex"; activateBA(); }
 function markColReady(key){ const m=ROOF_CATALOG[selMat]; if(!m) return; const idx=m.colors.findIndex(c=>colorKey(m,c)===key); const wrap=$("matCols"); if(idx>=0&&wrap&&wrap.children[idx]) wrap.children[idx].classList.add("ready"); }
 async function renderOne(m,c,show){
   const key=colorKey(m,c), addr=$("addr").value.trim(), label=m.label+" · "+c.n;
