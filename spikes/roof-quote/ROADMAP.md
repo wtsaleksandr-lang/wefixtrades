@@ -40,3 +40,5 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #7 penetration line items + detected summary · verified (hip roof, 2 vents detected → line+cost), 0 errors · FIXED: detection only ran in Measure mode
 - 2026-06-21 · #8 battery storage toggle · verified (+$11.5k, $338->$397/mo, backup note), 0 errors
 - 2026-06-21 · #11 address autocomplete · verified (5 Places suggestions, styled, auto-run on select), 0 errors
+- NOTE: verify integration .ts with NODE_OPTIONS=--max-old-space-size=8192 tsc (default heap OOMs + under-reports on this repo)
+- 2026-06-21 · CI fix: duplicate roofing key in TRADE_TEMPLATE_MAP (TS1117) — raised-heap tsc clean · #9 PDF/share/book already in report
