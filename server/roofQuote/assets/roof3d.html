@@ -38,6 +38,16 @@
   #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .opt-l.ico{display:inline-flex;align-items:center;gap:3px}
   #card .opt-l.ico svg{opacity:.7}
+  /* premium KPI strip — shown once the homeowner enters their bill */
+  #card .kpis{display:flex;gap:6px;margin:9px 0 2px}
+  #card .kpi{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;min-width:0}
+  #card .kpi .kv{font-size:16px;font-weight:800;color:#0b1424;line-height:1.1}
+  #card .kpi .kl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+  #card .kpi .kpre{font-size:9px;color:var(--muted);margin-top:1px}
+  #card .kpi.gauge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  #card .gauge-ring{width:40px;height:40px;border-radius:50%;background:conic-gradient(#0d3cfc calc(var(--p)*1%),#e6ebf3 0);display:flex;align-items:center;justify-content:center;position:relative}
+  #card .gauge-ring::before{content:"";position:absolute;inset:4px;background:#fff;border-radius:50%}
+  #card .gauge-ring span{position:relative;font-size:10px;font-weight:800;color:#0d3cfc}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -601,6 +611,13 @@ function renderQuoteCard(){
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
+    // research-backed KPI strip (Tesla/Palmetto-style): new bill before→after, monthly savings, and an offset gauge ("run on sun")
+    const kpiStrip=(solarBill>0&&usage)?(()=>{ const prod=t.kwhAc||0, offsetPct=Math.min(140,Math.round(prod/usage*100)), gridKwh=Math.max(0,usage-prod), newBill=Math.round(gridKwh*REGION.rate/12), save=Math.max(0,solarBill-newBill), gpct=Math.min(100,offsetPct);
+      return '<div class="kpis">'+
+        '<div class="kpi"><div class="kv">$'+newBill+'</div><div class="kl">new bill/mo</div><div class="kpre">was $'+solarBill+'</div></div>'+
+        '<div class="kpi"><div class="kv">$'+save+'</div><div class="kl">you save/mo</div><div class="kpre">~$'+Math.round(save*12).toLocaleString()+'/yr</div></div>'+
+        '<div class="kpi gauge"><div class="gauge-ring" style="--p:'+gpct+'"><span>'+offsetPct+'%</span></div><div class="kl">run on sun</div></div>'+
+        '</div>'; })():'';
     const panelRow='<div class="opt-row"><span class="opt-l ico">'+CAT_ICON.panels+'Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
     // clean default: price, savings, financing, tiers; panel quality + bill-sizing + battery behind a Customize expander
@@ -608,6 +625,7 @@ function renderQuoteCard(){
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · panels, battery &amp; EV ▾')+'</button>';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*'+HCUE("solar")+'</div>'+
       finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
+      kpiStrip+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
       '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
