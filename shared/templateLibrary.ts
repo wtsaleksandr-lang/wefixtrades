@@ -151,6 +151,37 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     ],
   },
   {
+    id: 'roof_solar_visualizer',
+    name: 'Roof & Solar Visualizer',
+    description: 'Address → photoreal 3D roof, measurements, solar tiers & material visualizer → instant quote',
+    best_for: ['roofing', 'solar', 'exterior'],
+    layout_style: 'multi_step',
+    defaults: { ...DEFAULT_DEFAULTS, sticky_summary: false, show_trust_block: true },
+    features: { stepper: true, encourages_contact: true },
+    // The roof_visualizer step mounts the self-contained 3D roof/solar widget
+    // (server route /api/roofquote/widget) via RoofVisualizerStep; lead_capture
+    // reuses the wizard's standard lead step.
+    // TODO(roofquote): bridge the widget's "Get full quote" CTA to advance the
+    // wizard to lead_capture (postMessage) + suppress the widget's own lead form
+    // in embed mode, so there's a single lead-capture surface.
+    wizard_steps: [
+      {
+        id: 'visualize',
+        type: 'roof_visualizer',
+        title: 'Your instant roof & solar quote',
+        questions: [],
+        config: { show_progress: false, can_skip: false, auto_advance: false },
+      },
+      {
+        id: 'contact',
+        type: 'lead_capture',
+        title: 'Get your detailed quote',
+        questions: [],
+        config: { show_progress: true, can_skip: false, auto_advance: false },
+      },
+    ],
+  },
+  {
     id: 'package_selector',
     name: 'Packages (Cards)',
     description: 'Compare packages side-by-side as cards',
@@ -228,6 +259,11 @@ export function getTemplateById(id: string): TemplateDefinition | undefined {
 /* ─── Trade → recommended template ─── */
 
 const TRADE_TEMPLATE_MAP: Record<string, string> = {
+  // Roof & Solar uses the 3D visualizer flow (address → 3D roof → quote)
+  roof_solar: 'roof_solar_visualizer',
+  roofing: 'roof_solar_visualizer',
+  solar_installation: 'roof_solar_visualizer',
+
   house_cleaning: 'classic_two_column',
   office_cleaning: 'classic_two_column',
   deep_cleaning: 'classic_two_column',
