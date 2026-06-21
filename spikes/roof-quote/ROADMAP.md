@@ -27,6 +27,8 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - [ ] **12. AI render quality** — gpt-image-1 (blocked on OpenAI billing — Alex). Browse tier meanwhile.
 
 - [x] **13. "Customize" collapsible** — DONE. Default roofing surface is clean (price, financing, stats, CTA); waste/options/takeoff live behind a "Customize & see materials" expander. Apple/Tesla-simple default, full detail one tap away.
+- [ ] **14. Mobile: show a compact price chip while browsing materials** — on mobile the quote card and material catalogue share the bottom sheet (card hidden during browse, by design). Card is reachable + scrolls when catalogue closed (verified, not a bug); a persistent compact price/material chip during browse would let the price update live as colours are tapped. Next-session UX enhancement (Alex is particular about mobile UI).
+
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
@@ -45,3 +47,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - NOTE: integration server/asset changes need a full `NODE_OPTIONS=--max-old-space-size=8192 npm run build` to verify (tsc alone misses esbuild CJS issues like top-level await). Widget HTML features are fine with the serve.mjs visual gate.
 - 2026-06-21 · CI fix 2: rooffeatures.mjs top-level await broke esbuild CJS server bundle → static assert import; full local build clean
 - 2026-06-21 · REGRESSION SWEEP clean — 0 console/page errors across full flow desktop+mobile (all 12 features exercised together). CI green. Overnight feature mandate COMPLETE.
+- 2026-06-21 · Mobile final check: roofing card reachable + fits + scrolls when catalogue closed (top397/bot754). Flow functional. Logged #14 (simultaneous price-while-browsing) for next session.
