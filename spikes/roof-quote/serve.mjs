@@ -9,6 +9,7 @@ function diskGetBuf(prefix,key){ const f=path.join(CACHE_DIR,prefix+"-"+ckey(key
 function diskSetBuf(prefix,key,buf){ try{ writeFileSync(path.join(CACHE_DIR,prefix+"-"+ckey(key)+".bin"), buf); }catch(_){} }
 const TILES=process.env.TILES_KEY||"";
 const SOLAR=process.env.SOLAR_KEY||"";
+const EIA=process.env.EIA_KEY||process.env.EIA_API_KEY||"";   // US residential electricity rates (public-domain, free commercial use)
 import { detectRoofFeatures } from "./rooffeatures.mjs";
 const REPLICATE=process.env.REPLICATE_KEY||"";
 const GEMINI=process.env.GEMINI_KEY||"";
@@ -243,6 +244,29 @@ http.createServer(async (req,res)=>{
       if(j.status==="OK"&&j.results[0]){ const l=j.results[0].geometry.location;
         res.end(JSON.stringify({lat:l.lat,lng:l.lng,formatted:j.results[0].formatted_address})); }
       else res.end(JSON.stringify({error:j.status,message:j.error_message||""}));
+    }catch(e){ res.end(JSON.stringify({error:String(e)})); }
+    return;
+  }
+  if(u.pathname==="/rates"){
+    // Real local residential electricity rate ($/kWh). US: live EIA (cached ~14d). Canada: researched provincial table (no public API exists).
+    res.setHeader("Content-Type","application/json");
+    const country=(u.searchParams.get("country")||"US").toUpperCase();
+    const region=(u.searchParams.get("region")||u.searchParams.get("state")||u.searchParams.get("province")||"").toUpperCase();
+    // Canadian provincial residential ¢/kWh (approx 2026; refresh ~2x/yr from utility tariffs — no aggregated API exists)
+    const CA_RATES={ON:0.130,BC:0.115,AB:0.170,QC:0.078,MB:0.097,SK:0.180,NS:0.183,NB:0.137,NL:0.139,PE:0.166,NT:0.380,YT:0.190,NU:0.375};
+    try{
+      if(country==="CA"){ const rate=CA_RATES[region]; if(rate) return res.end(JSON.stringify({rate,region,source:"provincial tariff (approx)"}));
+        return res.end(JSON.stringify({error:"no_rate",region})); }
+      // US via EIA
+      if(!region || region.length!==2) return res.end(JSON.stringify({error:"bad_region"}));
+      const cached=diskGetJSON("rate",country+region);
+      if(cached && cached._t && (Date.now()-cached._t)<14*864e5) return res.end(JSON.stringify(cached));
+      if(!EIA) return res.end(JSON.stringify({error:"no_eia_key"}));
+      const url="https://api.eia.gov/v2/electricity/retail-sales/data/?api_key="+EIA+"&frequency=monthly&data%5B0%5D=price&facets%5Bstateid%5D%5B0%5D="+region+"&facets%5Bsectorid%5D%5B0%5D=RES&sort%5B0%5D%5Bcolumn%5D=period&sort%5B0%5D%5Bdirection%5D=desc&length=1";
+      const r=await fetch(url); const j=await r.json();
+      const row=j&&j.response&&j.response.data&&j.response.data[0];
+      if(row&&row.price){ const out={rate:+(row.price/100).toFixed(4),region,period:row.period,source:"EIA "+row.period}; out._t=Date.now(); diskSetJSON("rate",country+region,out); return res.end(JSON.stringify(out)); }
+      return res.end(JSON.stringify({error:"no_rate",region}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
     return;
   }

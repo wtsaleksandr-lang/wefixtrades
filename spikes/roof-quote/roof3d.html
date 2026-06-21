@@ -402,7 +402,17 @@ const REGIONS={
 };
 const DEFAULT_REGION={n:"your area",rate:0.165,credit:0,note:"local & state incentives where available"};
 let REGION=DEFAULT_REGION;
-function setRegion(){ const parts=(($("addr")&&$("addr").value)||"").toUpperCase().split(/[,\s]+/); for(const p of parts){ if(REGIONS[p]){ REGION=REGIONS[p]; return; } } REGION=DEFAULT_REGION; }
+// pull the REAL local residential electricity rate (US: live EIA; Canada: provincial table) and re-render so savings use it.
+const US_STATES=new Set(["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"]);
+const CA_PROV=new Set(["ON","BC","AB","QC","MB","SK","NS","NB","NL","PE","NT","YT","NU"]);
+// detect any US-state / CA-province code in the address; use REGIONS[code] for the incentive note where we have one, else DEFAULT — the live rate fills REGION.rate either way.
+function setRegion(){ const parts=(($("addr")&&$("addr").value)||"").toUpperCase().split(/[,\s]+/); window.__regionCode=""; REGION=DEFAULT_REGION;
+  for(const p of parts){ if(US_STATES.has(p)||CA_PROV.has(p)){ window.__regionCode=p; if(REGIONS[p]) REGION=REGIONS[p]; return; } } }
+let liveRateDone=false;
+async function refreshLiveRate(){ if(liveRateDone) return; const code=window.__regionCode; if(!code){ liveRateDone=true; return; }
+  try{ const country=CA_PROV.has(code)?"CA":"US"; const r=await fetch("/rates?country="+country+"&region="+code); const j=await r.json();
+    if(j&&j.rate){ REGION.rate=j.rate; window.__rateSource=j.source||""; } liveRateDone=true;
+    if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){ liveRateDone=true; } }
 function creditTxt(){ return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
 /* 25-yr cumulative solar savings + payback, as an inline SVG (no chart lib) */
 function savingsModel(kwhAc, netCost){
@@ -571,7 +581,7 @@ function fetchFeatures(){
   }).catch(()=>{ window.__featInflight=false; });
 }
 function renderQuoteCard(){
-  if(!QUOTE) return; setRegion(); const card=$("card"); card.style.display="block";
+  if(!QUOTE) return; setRegion(); refreshLiveRate(); const card=$("card"); card.style.display="block";
   const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
     '<button class="qtab'+(tradeMode==="roof"?" on":"")+'" data-t="roof">Roofing</button></div>';
   let body="";
@@ -851,7 +861,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource="";   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
