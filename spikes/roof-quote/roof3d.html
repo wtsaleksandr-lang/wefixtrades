@@ -63,6 +63,12 @@
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
   #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
   #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3}
+  #card .cmp{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
+  #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
+  #card .cmp-row:hover{border-color:#0d3cfc;background:rgba(13,60,252,0.05)}
+  #card .cmp-n{flex:1;font-size:12px;font-weight:700;color:#0f172a}
+  #card .cmp-p{font-size:12px;font-weight:700;color:#0d3cfc;white-space:nowrap}
+  #card .cmp-l{font-size:10px;color:var(--muted);min-width:52px;text-align:right;white-space:nowrap}
   #card .qchips{display:flex;gap:6px;margin-bottom:11px}
   #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:6px 0;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
   #card .qchip span{font-size:10px;font-weight:500;color:var(--muted)}
@@ -538,7 +544,10 @@ function renderQuoteCard(){
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
       body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
     } else {
-      body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
+      // comparison picker — every material with its est. price FOR THIS ROOF + lifespan; tap to choose
+      const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700], clo=Math.round(sqs*1.1*ps[0]/100)*100, chi=Math.round(sqs*1.1*ps[1]/100)*100, sp=ROOF_SPEC[m.id];
+        return '<button class="cmp-row" data-mat="'+m.id+'"><span class="cmp-n">'+m.label+'</span><span class="cmp-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</span><span class="cmp-l">'+(sp?sp.life:'')+'</span></button>'; }).join('');
+      body='<div class="qprompt">Compare materials for your roof</div><div class="cmp">'+cmp+'</div>'+stats;
     }
   }
   const roofNoSel=(tradeMode==="roof" && !window.__roofSel);
@@ -557,6 +566,9 @@ function renderQuoteCard(){
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
+  card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
+    selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
+    if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
