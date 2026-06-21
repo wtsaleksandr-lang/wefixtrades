@@ -34,8 +34,8 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -455,6 +455,24 @@ const BATTERIES=[
   {id:"enphase",  label:"Enphase 5P",  kwh:5,    cost:8500},
 ]; let selBattery=0, addBattery=false;
 function curBat(){ return BATTERIES[selBattery]||BATTERIES[0]; }
+// appliance-first backup sizing — the homeowner picks what to keep running; we hide all the watt/kWh math
+// and size the battery for them. Per-item values are realistic daily kWh (duty-cycle adjusted), not nameplate watts.
+const BACKUP_LOADS=[
+  {id:"fridge",  label:"Fridge",       kwh:1.5},
+  {id:"lights",  label:"Lights",       kwh:1.0},
+  {id:"wifi",    label:"Wi-Fi &amp; phones", kwh:0.4},
+  {id:"tv",      label:"TV",           kwh:0.5},
+  {id:"heat",    label:"Furnace fan",  kwh:2.0},
+  {id:"pump",    label:"Well / sump pump", kwh:1.2},
+  {id:"kitchen", label:"Microwave / coffee", kwh:0.5},
+  {id:"ac",      label:"Central AC",   kwh:6.0},
+  {id:"medical", label:"Medical device", kwh:1.0},
+];
+let selLoads=new Set(["fridge","lights","wifi"]);   // default = the essentials most people back up
+let backupDays=1, batCount=1;
+function backupKwhNeed(){ let s=0; BACKUP_LOADS.forEach(l=>{ if(selLoads.has(l.id)) s+=l.kwh; }); return +(s*backupDays).toFixed(1); }
+// size COUNT of the chosen model to cover the need (fewest units, clamped 1–9); model choice stays with the user
+function sizeBattery(){ const need=backupKwhNeed(), m=curBat(); batCount = need<=0 ? 1 : Math.max(1, Math.min(9, Math.ceil(need/m.kwh))); }
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
 // solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped, adjusts price + warranty/efficiency
@@ -546,11 +564,14 @@ function renderQuoteCard(){
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
     let lo=t.lo, hi=t.hi;
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
-    if(addBattery){ const bc=curBat().cost; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage
+    if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost (REGION.credit is 0 for US owned systems post-2025; non-zero only where a state credit applies)
-    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+
+    const loadRow=addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
+      '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>':'';
+    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+loadRow+
       (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'');
-    const batNote=addBattery?'<div class="qfin" style="margin-top:5px"><b>'+curBat().label+'</b> · '+curBat().kwh+' kWh — keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
+    const batNote=addBattery?(()=>{ const need=backupKwhNeed(), tot=+(curBat().kwh*batCount).toFixed(1);
+      return '<div class="qfin" style="margin-top:5px">≈ <b>'+need+' kWh</b> of backup → <b>'+batCount+'× '+curBat().label+'</b> ('+tot+' kWh)'+(REGION.credit>0?'; qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'. Final sizing confirmed on site.</div>'; })():'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
@@ -622,6 +643,8 @@ function renderQuoteCard(){
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
+  card.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{ const id=b.dataset.load; if(selLoads.has(id)) selLoads.delete(id); else selLoads.add(id); renderQuoteCard(); });
+  card.querySelectorAll("[data-bdays]").forEach(b=>b.onclick=()=>{ backupDays=+b.dataset.bdays; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -781,7 +804,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1313,7 +1336,7 @@ function openReport(){
   } else {
     roofSec=`<div class="sec"><h2>New roof option</h2><div class="pricebig">${fmtMoney(rlo)}–${fmtMoney(rhi)}</div><div class="muted">Asphalt-shingle re-roof · ${sqs.toFixed(1)} squares · tear-off + install. Choose a material in the tool for an exact figure.</div></div>`;
   }
-  const batteryBul=addBattery?`<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${curBat().label}, ${curBat().kwh} kWh backup (keeps essentials on in an outage)</div></div>`:'';
+  const batteryBul=addBattery?(()=>{ sizeBattery(); const tot=+(curBat().kwh*batCount).toFixed(1); return `<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${batCount}× ${curBat().label}, ${tot} kWh backup (covers ~${backupKwhNeed()} kWh of essentials${backupDays>1?` for ${backupDays} days`:''})</div></div>`; })():'';
   $("report").innerHTML=`
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
@@ -1409,6 +1432,11 @@ const ADD_INFO={
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
     {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP); the 30% federal tax credit ended for systems installed after Dec 31, 2025."},
     {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
+  ]},
+  backup:{ title:"How we size your battery", sub:"Pick what to keep running, we do the math", items:[
+    {n:"Just choose your essentials", d:"Tap the things you want powered during an outage — fridge, lights, Wi-Fi, heat, a well pump, medical equipment. You never have to think in watts or kWh; we translate each one into the energy it actually uses per day."},
+    {n:"How long it lasts", d:"\"For how long\" multiplies that daily energy by the number of outage days you want covered. More appliances or more days = more battery. We then pick the fewest battery units that cover it."},
+    {n:"These are estimates", d:"Per-appliance energy uses typical real-world daily figures (a fridge cycles on and off, it isn't drawing full power all day). Your actual usage and which circuits get backed up are confirmed during the on-site design — that's when the final battery count is locked."},
   ]},
 };
 function addonsModal(key){ const a=ADD_INFO[key]||ADD_INFO.roof;
