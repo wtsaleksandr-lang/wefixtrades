@@ -38,7 +38,8 @@
   #card .wb.on,#card .bb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
-  #card .ob{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .ob svg{flex:0 0 auto;opacity:.85}
   #card .ob.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .cust-toggle{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);margin-top:11px;padding:9px 0 0;color:#0d3cfc;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
   #card .cust{margin-top:2px}
@@ -532,7 +533,7 @@ function renderQuoteCard(){
     let lo=t.lo, hi=t.hi;
     if(addBattery){ lo+=BATTERY.cost; hi+=Math.round(BATTERY.cost*1.1); }   // battery storage (also ITC-eligible in the US)
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
-    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+(addBattery?'✓ ':'+ ')+'Battery storage · '+BATTERY.kwh+' kWh backup</button></div>';
+    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage · '+BATTERY.kwh+' kWh backup</button></div>';
     const batNote=addBattery?'<div class="qfin" style="margin-top:5px">Keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; the battery also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
@@ -561,7 +562,7 @@ function renderQuoteCard(){
       let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, t);
       lo=Math.round(lo/50)*50; hi=Math.round(hi/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
-      const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+lab+'</button>';
+      const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+(v==null?(OB_ICON[o]||''):'')+lab+'</button>';
       const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
@@ -1369,6 +1370,13 @@ function dataModal(key){ const d=DATA_INFO[key]||DATA_INFO.measure;
     '<div class="im-note">'+d.lock+' The number shown here is an instant estimate — not a locked price.</div>';
 }
 const HCUE=(k)=>'<span class="helpcue" data-datainfo="'+k+'" title="How accurate is this?">i</span>';
+// small thumbnails/icons for the add-on toggles
+const OB_ICON={
+  ridgeVent:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l9-7 9 7"/><path d="M7 13v5M12 13v5M17 13v5"/></svg>',
+  gutters:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/><path d="M12 19v2"/></svg>',
+  steep:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20L14 4l6 16z"/></svg>',
+  battery:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="15" height="9" rx="2"/><path d="M21 11v3"/><path d="M9 10l-1.5 3h2l-1.5 3"/></svg>',
+};
 // shareable URL that RESTORES this quote (address + chosen material/colour) — not just the bare widget link
 function quoteUrl(){ const a=encodeURIComponent(($("addr").value||"").trim()); const s=window.__roofSel;
   return location.origin+location.pathname+"?a="+a+(s?"&m="+encodeURIComponent(s.matId)+"&c="+encodeURIComponent(s.colorName):""); }
