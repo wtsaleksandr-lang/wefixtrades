@@ -1249,8 +1249,11 @@ window.__book=async()=>{
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
 window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; };
-window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(location.href); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
-window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+location.href); };
+// shareable URL that RESTORES this quote (address + chosen material/colour) — not just the bare widget link
+function quoteUrl(){ const a=encodeURIComponent(($("addr").value||"").trim()); const s=window.__roofSel;
+  return location.origin+location.pathname+"?a="+a+(s?"&m="+encodeURIComponent(s.matId)+"&c="+encodeURIComponent(s.colorName):""); }
+window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(quoteUrl()); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
+window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+quoteUrl()); };
 $("go").onclick=()=>run($("addr").value.trim());
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
 // Google Places address autocomplete — sub-60s, fewer typos (graceful: plain text if Places is unavailable)
@@ -1491,7 +1494,10 @@ $("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.f
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun(); });
 $("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun(); });
 // auto-run on load for fast iteration — skipped with ?noauto=1 (used by the headless /capture so it controls the single search)
-if(!new URLSearchParams(location.search).get("noauto")) run($("addr").value.trim());
+{ const _qp=new URLSearchParams(location.search);
+  const _a=_qp.get("a"); if(_a) $("addr").value=_a;                 // restore a shared quote's address
+  window.__restoreMat=_qp.get("m")||null; window.__restoreCol=_qp.get("c")||null;   // optional shared material/colour
+  if(!_qp.get("noauto")) run($("addr").value.trim()); }
 </script>
 <script type="module">
   try{ const m=await import("/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }

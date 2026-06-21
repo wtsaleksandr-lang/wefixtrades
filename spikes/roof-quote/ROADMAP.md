@@ -35,6 +35,8 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 
 - [ ] **17. Flat/commercial roof handling** (logic correctness) — rooffeatures returns roofType; when "flat", the sloped-shingle catalog + asphalt $/sq are wrong (flat roofs use TPO/EPDM membrane, priced differently). Add a membrane path + note. Needs a flat-roof test address to verify — next session.
 
+- [x] **18. Shareable/restorable quote link** — Share/Email now copy a URL that encodes the quote (?a=address +optional &m/&c material), and the widget restores the address (auto-runs that property) on load. A shared link reopens the recipient on the same property's quote instead of a blank widget. (Material auto-select from &m/&c captured for a follow-up.)
+
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
@@ -56,3 +58,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · Mobile final check: roofing card reachable + fits + scrolls when catalogue closed (top397/bot754). Flow functional. Logged #14 (simultaneous price-while-browsing) for next session.
 - 2026-06-21 · #15 report enrichment · verified (New roof — Standing-Seam Metal $14.3k-25.4k, spec+measured takeoff, region-correct Canada savings), 0 errors
 - 2026-06-21 · #16 material comparison picker · verified (9 materials priced for this roof + lifespan; tap Slate -> selected $23.9-47.8k), 0 errors
+- 2026-06-21 · #18 shareable/restorable quote link · verified (?a=address restores property + auto-runs), 0 errors
