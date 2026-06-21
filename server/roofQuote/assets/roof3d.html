@@ -37,6 +37,8 @@
   #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
   #card .tk-row span{color:var(--muted)}
   #card .tk-row b{color:#0f172a;font-weight:600}
+  #card .qfin{font-size:11.5px;color:var(--muted);margin:7px 0 0;line-height:1.35}
+  #card .qfin b{color:#0f172a;font-weight:800}
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
@@ -375,6 +377,9 @@ function measureCardBody(){
 }
 // ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
 const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
+// monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
+function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
+function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
 function getRoofTotals(){
   if(window.__roofTotals) return window.__roofTotals;
   try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=m.totals; return m.totals; } }catch(_){}
@@ -417,7 +422,9 @@ function renderQuoteCard(){
   } else if(tradeMode==="solar" && solarTiers.length){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
+    const sMid=(t.lo+t.hi)/2, sFin=monthly(sMid*0.7, 6.99, 25);   // finance the net cost after the 30% federal credit
     body='<div class="qprice">'+fmtMoney(t.lo)+'–'+fmtMoney(t.hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*</div>'+
+      finLine(sFin, '25-yr @ 6.99%, after 30% federal credit')+
       '<div class="qchips">'+chips+'</div>'+
       '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
       '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
@@ -435,7 +442,8 @@ function renderQuoteCard(){
       const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*wf*psq[0]/50)*50, hi=Math.round(sqs*wf*psq[1]/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>' : '';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+wasteRow+takeoff+stats;
+      const rFin=monthly((lo+hi)/2, 9.99, 12);
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+wasteRow+takeoff+stats;
     } else {
       body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
     }

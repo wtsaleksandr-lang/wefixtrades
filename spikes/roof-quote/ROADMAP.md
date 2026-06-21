@@ -14,7 +14,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
   starter, hip/ridge cap, drip edge, underlayment, valley flashing, nails) + 0/10/15% waste
   toggle (auto-recommends 15% for cut-up roofs) that adjusts quantities + price. Derived from
   the roof-geometry totals (hoisted via getRoofTotals/facetsToRoofModel).
-- [ ] **2. Inline financing comparison** (TS) — cash vs loan (monthly @ APR/term) vs lease, on
+- [x] **2. Inline financing comparison** (TS) — DONE. Monthly loan payment on solar (25-yr 6.99%, after 30% ITC) + roofing (12-yr 9.99%) shown inline under each price; pairs with the "saves $X/mo" line for a net-cashflow story.
   BOTH roof and solar price. Biggest conversion lever.
 - [ ] **3. Before/after comparison slider** (DIFF) — drag divider over the AI render: original
   roof ↔ new material. Hover/Owens-Corning-class visualizer moment.
@@ -37,3 +37,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 ## Log
 (append per cycle: date · feature · commit · verification)
 - 2026-06-21 · #1 materials takeoff + waste factor · verified desktop (6 line items, 3 waste btns, 0 errors)
+- 2026-06-21 · #2 inline financing (solar $282/mo, roof $109/mo) · verified, 0 errors
