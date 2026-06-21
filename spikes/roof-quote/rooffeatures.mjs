@@ -1,6 +1,12 @@
 // rooffeatures.mjs — Gemini-vision roof FEATURE detection (locates the things the
 // Solar API does NOT enumerate: chimneys, vents, skylights, dormers + roof type).
 // Standalone ES module. Never throws from the public API.
+//
+// node:assert is a static import (not a top-level `await import`) so the server
+// bundler (esbuild → CJS) can include this module — top-level await is rejected
+// for CJS output. Node-only, used only by the inline self-test; the browser
+// never imports this file.
+import assert from "node:assert/strict";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const VALID_ROOF_TYPES = new Set([
@@ -240,7 +246,6 @@ function isMainModule() {
 }
 
 if (isMainModule() && process.argv[1] && process.argv[1].toLowerCase().includes("rooffeatures")) {
-  const assert = (await import("node:assert/strict")).default;
   let passed = 0;
   let failed = 0;
   const test = (name, fn) => {
