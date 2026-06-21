@@ -59,3 +59,4 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #15 report enrichment · verified (New roof — Standing-Seam Metal $14.3k-25.4k, spec+measured takeoff, region-correct Canada savings), 0 errors
 - 2026-06-21 · #16 material comparison picker · verified (9 materials priced for this roof + lifespan; tap Slate -> selected $23.9-47.8k), 0 errors
 - 2026-06-21 · #18 shareable/restorable quote link · verified (?a=address restores property + auto-runs), 0 errors
+- 2026-06-21 · #18 follow-up: material restore from &m/&c · verified (?a+&m=metal&c=Matte Black lands on that exact quote $14.3-25.4k), 0 errors. Share round-trip complete.
