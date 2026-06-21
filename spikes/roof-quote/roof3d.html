@@ -423,7 +423,7 @@ function solarTiersFrom(spv){
 function sunCardBody(){
   const spv=QUOTE.spv||{}, hrs=Math.round(spv.maxSunshineHoursPerYear||0);
   const panels=spv.maxArrayPanelsCount||0, area=Math.round((spv.maxArrayAreaMeters2||0)*M2_SQFT);
-  return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span></div>'+
+  return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span>'+HCUE("sun")+'</div>'+
     '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power.</div>'+
     '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">panels fit</div></div>'+
     '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
@@ -433,7 +433,7 @@ function measureCardBody(){
   const t=window.__roofTotals; if(!t) return '<div class="qprompt">Measuring your roof…</div>';
   const f=n=>Math.round(n||0).toLocaleString();
   const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
-  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+confidencePct(t)+'%</span></div>'+
+  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+confidencePct(t)+'%</span>'+HCUE("measure")+'</div>'+
     '<div class="qsub">Measured from aerial 3D imagery — edge lengths + areas for the takeoff. Confirm on site before ordering materials.</div>'+
     '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares</div></div>'+
     '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
@@ -540,7 +540,7 @@ function renderQuoteCard(){
     // clean default: price, savings, financing, tiers; bill-sizing + battery behind a Customize expander
     const solDetail=window.__solarExpanded?'<div class="cust">'+billRow+coverLine+batToggle+batNote+'</div>':'';
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size to your bill &amp; battery ▾')+'</button>';
-    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*</div>'+
+    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*'+HCUE("solar")+'</div>'+
       finLine(sFin, '25-yr @ 6.99%, '+creditTxt())+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
@@ -571,7 +571,7 @@ function renderQuoteCard(){
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,'12-yr @ 9.99%')+custToggle+detail+stats;
     } else {
       // comparison picker — every material with its est. price FOR THIS ROOF + lifespan; tap to choose
       const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700], clo=Math.round(sqs*1.1*ps[0]/100)*100, chi=Math.round(sqs*1.1*ps[1]/100)*100, sp=ROOF_SPEC[m.id];
@@ -598,6 +598,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
+  card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
@@ -1354,6 +1355,20 @@ function materialModal(matId){
     (info.benefits?'<div class="im-sec">Benefits</div>'+li(info.benefits):'')+
     (heroUrl?'':'<div class="im-note">Tip: pick a colour and tap “See it on my house” to preview '+m.label+' on your actual roof.</div>');
 }
+// accuracy help cues for the address data (dimensions, sun, solar estimate)
+const DATA_INFO={
+  measure:{ title:"Roof measurements", acc:"±5–7%", body:"These dimensions — roof area, pitch, and ridge / hip / valley / eave / rake lengths — are measured from Google's aerial 3D imagery and elevation data.", lock:"We confirm exact measurements on site before locking your final, guaranteed rate." },
+  sun:{ title:"Sun & shade", acc:"±10%", body:"Sun-hours and shading are modelled from Google's Solar API using satellite imagery and local weather history — a strong estimate of your roof's solar potential.", lock:"A quick site assessment confirms shading from trees and obstructions for your final solar design." },
+  solar:{ title:"Solar estimate", acc:"±10%", body:"System size, annual output and savings are estimated from your roof's area, pitch and orientation plus local sun and electricity-rate data via Google's Solar API.", lock:"Final production and price are confirmed in an on-site solar design." },
+  roof:{ title:"Roofing estimate", acc:"±5–10%", body:"Your price is built from the measured roof area and edge lengths, the material you chose, and the options selected (waste, tear-off, ventilation, access).", lock:"We confirm exact measurements and access on site before locking your final, guaranteed rate." },
+};
+function dataModal(key){ const d=DATA_INFO[key]||DATA_INFO.measure;
+  return '<div class="im-h">'+d.title+'</div><div class="im-sub">How accurate is this?</div>'+
+    '<p class="im-p">'+d.body+'</p>'+
+    '<span class="im-stat">Typically within <b>'+d.acc+'</b></span>'+
+    '<div class="im-note">'+d.lock+' The number shown here is an instant estimate — not a locked price.</div>';
+}
+const HCUE=(k)=>'<span class="helpcue" data-datainfo="'+k+'" title="How accurate is this?">i</span>';
 // shareable URL that RESTORES this quote (address + chosen material/colour) — not just the bare widget link
 function quoteUrl(){ const a=encodeURIComponent(($("addr").value||"").trim()); const s=window.__roofSel;
   return location.origin+location.pathname+"?a="+a+(s?"&m="+encodeURIComponent(s.matId)+"&c="+encodeURIComponent(s.colorName):""); }
