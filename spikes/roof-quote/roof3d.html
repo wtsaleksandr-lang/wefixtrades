@@ -34,6 +34,10 @@
   #card .waste-row>span{margin-right:2px}
   #card .wb{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
   #card .wb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
+  #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
+  #card .ob{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .ob.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .tk-h{font-size:11px;font-weight:700;color:#0f172a;margin:11px 0 5px}
   #card .takeoff{display:flex;flex-direction:column;gap:3px}
   #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
@@ -385,6 +389,14 @@ function measureCardBody(){
 }
 // ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
 const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
+// price-affecting roof options (tear-off layers, ventilation, access) — EagleView-style line items
+const roofOpts={ layers:1, ridgeVent:false, steep:false };
+function applyRoofOpts(lo, hi, sqs, t){
+  if(roofOpts.layers>1){ const tear=sqs*90; lo+=tear; hi+=tear; }            // 2nd layer tear-off ~$90/sq
+  if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
+  if(roofOpts.steep){ lo*=1.12; hi*=1.12; }                                  // steep / 2-story access +12%
+  return [lo, hi];
+}
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
 function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
@@ -451,12 +463,17 @@ function renderQuoteCard(){
     if(sel){
       const t=getRoofTotals();
       if(t && !window.__wasteAuto){ selWaste=recommendedWasteIdx(t); window.__wasteAuto=true; }
+      if(t && !window.__optsAuto){ roofOpts.steep=(t.predominantPitchX12||0)>=9; window.__optsAuto=true; }   // auto-flag steep roofs
       const wastePct=WASTE_OPTS[selWaste], wf=1+wastePct/100;
-      const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*wf*psq[0]/50)*50, hi=Math.round(sqs*wf*psq[1]/50)*50;
+      const psq=ROOF_PSQ[sel.matId]||[450,700];
+      let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, t);
+      lo=Math.round(lo/50)*50; hi=Math.round(hi/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
+      const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+lab+'</button>';
+      const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div><div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+wasteRow+takeoff+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+finLine(rFin,'12-yr @ 9.99%')+wasteRow+optsRow+takeoff+stats;
     } else {
       body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
     }
@@ -474,6 +491,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
+  card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
@@ -630,7 +648,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false;   // new address → drop stale material renders + selection + takeoff
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false;   // new address → drop stale material renders + selection + takeoff + options
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
