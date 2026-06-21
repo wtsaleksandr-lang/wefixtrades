@@ -375,21 +375,21 @@ const fmtMoney=n=>"$"+Math.round(n).toLocaleString();
 function loanPayment(P,apr,years){ const r=apr/100/12, n=years*12; if(!P||r<=0) return Math.round((P||0)/n); return Math.round(P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)); }
 /* ── Localized utility rates + solar incentives (approx; "typical for your area") ── */
 const REGIONS={
-  CA:{n:"California",rate:0.31,credit:0.30,note:"30% federal ITC + CA NEM 3.0 / SGIP battery rebate"},
-  NY:{n:"New York",rate:0.24,credit:0.30,note:"30% federal ITC + NY-Sun + 25% state tax credit"},
-  MA:{n:"Massachusetts",rate:0.30,credit:0.30,note:"30% federal ITC + SMART + state tax credit"},
-  TX:{n:"Texas",rate:0.15,credit:0.30,note:"30% federal ITC + local utility rebates"},
-  FL:{n:"Florida",rate:0.15,credit:0.30,note:"30% federal ITC + net metering, no state tax"},
-  AZ:{n:"Arizona",rate:0.15,credit:0.30,note:"30% federal ITC + AZ 25% state tax credit"},
-  NJ:{n:"New Jersey",rate:0.18,credit:0.30,note:"30% federal ITC + SREC-II"},
-  CO:{n:"Colorado",rate:0.15,credit:0.30,note:"30% federal ITC + local rebates"},
-  IL:{n:"Illinois",rate:0.16,credit:0.30,note:"30% federal ITC + Illinois Shines SREC"},
+  CA:{n:"California",rate:0.31,credit:0,note:"CA NEM 3.0 / SGIP battery rebate + net metering"},
+  NY:{n:"New York",rate:0.24,credit:0,note:"NY-Sun + 25% state tax credit"},
+  MA:{n:"Massachusetts",rate:0.30,credit:0,note:"SMART program + state tax credit"},
+  TX:{n:"Texas",rate:0.15,credit:0,note:"local utility rebates + net metering"},
+  FL:{n:"Florida",rate:0.15,credit:0,note:"net metering, no state income tax"},
+  AZ:{n:"Arizona",rate:0.15,credit:0,note:"AZ 25% state tax credit"},
+  NJ:{n:"New Jersey",rate:0.18,credit:0,note:"SREC-II program"},
+  CO:{n:"Colorado",rate:0.15,credit:0,note:"local utility rebates"},
+  IL:{n:"Illinois",rate:0.16,credit:0,note:"Illinois Shines SREC"},
   ON:{n:"Ontario",rate:0.13,credit:0,note:"Canada Greener Homes Loan + net metering (no US ITC)"},
   BC:{n:"British Columbia",rate:0.11,credit:0,note:"CleanBC + Greener Homes Loan"},
   AB:{n:"Alberta",rate:0.17,credit:0,note:"Greener Homes Loan + micro-gen credit"},
   QC:{n:"Quebec",rate:0.078,credit:0,note:"Greener Homes Loan"},
 };
-const DEFAULT_REGION={n:"your area",rate:0.165,credit:0.30,note:"federal + local incentives"};
+const DEFAULT_REGION={n:"your area",rate:0.165,credit:0,note:"local & state incentives where available"};
 let REGION=DEFAULT_REGION;
 function setRegion(){ const parts=(($("addr")&&$("addr").value)||"").toUpperCase().split(/[,\s]+/); for(const p of parts){ if(REGIONS[p]){ REGION=REGIONS[p]; return; } } REGION=DEFAULT_REGION; }
 function creditTxt(){ return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
@@ -546,8 +546,8 @@ function renderQuoteCard(){
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
     let lo=t.lo, hi=t.hi;
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
-    if(addBattery){ const bc=curBat().cost; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (also ITC-eligible in the US)
-    const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
+    if(addBattery){ const bc=curBat().cost; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage
+    const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost (REGION.credit is 0 for US owned systems post-2025; non-zero only where a state credit applies)
     const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+
       (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'');
     const batNote=addBattery?'<div class="qfin" style="margin-top:5px"><b>'+curBat().label+'</b> · '+curBat().kwh+' kWh — keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
@@ -1407,7 +1407,7 @@ const ADD_INFO={
   ]},
   battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
-    {n:"Cost & incentives", d:"About $11,500 installed. In the US it also qualifies for the 30% federal tax credit when paired with solar."},
+    {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP); the 30% federal tax credit ended for systems installed after Dec 31, 2025."},
     {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
   ]},
 };
