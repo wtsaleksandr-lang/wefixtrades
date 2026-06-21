@@ -61,3 +61,5 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - 2026-06-21 · #14 mobile price-while-browsing · verified 390px (price in render bar, updates per selection), 0 errors
 - [x] **19. Gutters + downspouts add-on** (new feature, approved) — "New gutters" roofing option priced off the measured eave LF (~$9-15/lf + downspouts), adds a takeoff line. A real upsell using existing geometry.
 - 2026-06-21 · #19 gutters add-on · verified (107 lf eave → +$1.15-1.8k, takeoff line), 0 errors
+- [x] **20. Size-to-your-bill solar (Sunroof-class)** (new feature, approved) — pick your monthly power bill ($100-$400+) → the system auto-sizes to the tier that offsets it + shows "covers ~X% of a $Y/mo bill" (uses the region rate). A core best-in-class solar feature.
+- 2026-06-21 · #20 size-to-bill · verified ($100->Good 130%, $400->Best 60%, region-rate based), 0 errors
