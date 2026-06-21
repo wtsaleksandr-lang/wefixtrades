@@ -534,7 +534,7 @@ function renderQuoteCard(){
     let lo=t.lo, hi=t.hi;
     if(addBattery){ lo+=BATTERY.cost; hi+=Math.round(BATTERY.cost*1.1); }   // battery storage (also ITC-eligible in the US)
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
-    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage · '+BATTERY.kwh+' kWh backup</button></div>';
+    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage · '+BATTERY.kwh+' kWh backup</button>'+ACUE("battery")+'</div>';
     const batNote=addBattery?'<div class="qfin" style="margin-top:5px">Keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; the battery also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
@@ -564,7 +564,7 @@ function renderQuoteCard(){
       lo=Math.round(lo/50)*50; hi=Math.round(hi/50)*50;
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
       const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+(v==null?(OB_ICON[o]||''):'')+lab+'</button>';
-      const optsRow='<div class="opt-row"><span class="opt-l">Layers</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
+      const optsRow='<div class="opt-row"><span class="opt-l">Layers'+ACUE("roof")+'</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, 9.99, 12);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
@@ -601,6 +601,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
+  card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
@@ -1371,6 +1372,25 @@ function dataModal(key){ const d=DATA_INFO[key]||DATA_INFO.measure;
     '<div class="im-note">'+d.lock+' The number shown here is an instant estimate — not a locked price.</div>';
 }
 const HCUE=(k)=>'<span class="helpcue" data-datainfo="'+k+'" title="How accurate is this?">i</span>';
+// explainers for the roofing options + battery (what each add-on is + why it matters)
+const ADD_INFO={
+  roof:{ title:"Roofing options", sub:"What these options mean", items:[
+    {n:"Existing layers (1 vs 2)", d:"How many old roofs are on the home now. A second layer has to be torn off and hauled away — about $90 per square more."},
+    {n:"Ridge vent", d:"Continuous venting along the roof peak that lets hot, moist attic air escape. Extends shingle life and lowers cooling costs. ~$11 per linear foot of ridge."},
+    {n:"New gutters", d:"Replace gutters & downspouts while roof access is already set up — protects your fascia and foundation. ~$9–15 per foot of eave."},
+    {n:"Steep / 2-story", d:"A steep pitch (9/12+) or a two-storey home needs extra fall-protection and slower, safer work — about +12% on labour."},
+  ]},
+  battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
+    {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
+    {n:"Cost & incentives", d:"About $11,500 installed. In the US it also qualifies for the 30% federal tax credit when paired with solar."},
+    {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
+  ]},
+};
+function addonsModal(key){ const a=ADD_INFO[key]||ADD_INFO.roof;
+  return '<div class="im-h">'+a.title+'</div><div class="im-sub">'+a.sub+'</div>'+
+    a.items.map(i=>'<div class="im-sec">'+i.n+'</div><p class="im-p" style="margin-bottom:10px">'+i.d+'</p>').join('');
+}
+const ACUE=(k)=>'<span class="helpcue" data-addinfo="'+k+'" title="About these options">i</span>';
 // small thumbnails/icons for the add-on toggles
 const OB_ICON={
   ridgeVent:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l9-7 9 7"/><path d="M7 13v5M12 13v5M17 13v5"/></svg>',
