@@ -34,8 +34,8 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
   #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
@@ -447,7 +447,13 @@ const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
 // price-affecting roof options (tear-off layers, ventilation, access) — EagleView-style line items
 const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
 // solar battery storage (Powerwall-class) — backup + self-consumption
-const BATTERY={ kwh:13.5, cost:11500 }; let addBattery=false;
+// battery storage MODELS (installed $ w/ solar, DC-coupled) — Powerwall 3 default
+const BATTERIES=[
+  {id:"pw3",      label:"Powerwall 3", kwh:13.5, cost:11500},
+  {id:"franklin", label:"FranklinWH",  kwh:15,   cost:14500},
+  {id:"enphase",  label:"Enphase 5P",  kwh:5,    cost:8500},
+]; let selBattery=0, addBattery=false;
+function curBat(){ return BATTERIES[selBattery]||BATTERIES[0]; }
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
 // solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped, adjusts price + warranty/efficiency
@@ -539,10 +545,11 @@ function renderQuoteCard(){
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
     let lo=t.lo, hi=t.hi;
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
-    if(addBattery){ lo+=BATTERY.cost; hi+=Math.round(BATTERY.cost*1.1); }   // battery storage (also ITC-eligible in the US)
+    if(addBattery){ const bc=curBat().cost; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (also ITC-eligible in the US)
     const sMid=(lo+hi)/2, sFin=monthly(sMid*(1-REGION.credit), 6.99, 25);   // finance the net cost after any federal credit
-    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage · '+BATTERY.kwh+' kWh backup</button>'+ACUE("battery")+'</div>';
-    const batNote=addBattery?'<div class="qfin" style="margin-top:5px">Keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; the battery also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
+    const batToggle='<div class="opt-row" style="margin-top:9px"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+
+      (addBattery?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>':'');
+    const batNote=addBattery?'<div class="qfin" style="margin-top:5px"><b>'+curBat().label+'</b> · '+curBat().kwh+' kWh — keeps lights, fridge &amp; Wi-Fi on through outages'+(REGION.credit>0?'; also qualifies for the '+Math.round(REGION.credit*100)+'% federal credit':'')+'.</div>':'';
     const billRow='<div class="opt-row"><span class="opt-l">Bill/mo</span>'+BILL_OPTS.map(v=>'<button class="bb'+(solarBill===v?' on':'')+'" data-bill="'+v+'">$'+v+(v===400?'+':'')+'</button>').join('')+'</div>';
     const usage=solarBill>0?solarBill*12/REGION.rate:0;
     const coverLine=(solarBill>0&&usage)?'<div class="qfin" style="margin-top:5px">This '+t.kw+' kW system covers ~<b>'+Math.min(140,Math.round((t.kwhAc||0)/usage*100))+'%</b> of a $'+solarBill+'/mo bill.</div>':'';
@@ -612,6 +619,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
+  card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; renderQuoteCard(); });
   card.querySelectorAll(".cmp-row").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
@@ -772,7 +780,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; solarBill=0; selPanel=0; window.__solarExpanded=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1304,7 +1312,7 @@ function openReport(){
   } else {
     roofSec=`<div class="sec"><h2>New roof option</h2><div class="pricebig">${fmtMoney(rlo)}–${fmtMoney(rhi)}</div><div class="muted">Asphalt-shingle re-roof · ${sqs.toFixed(1)} squares · tear-off + install. Choose a material in the tool for an exact figure.</div></div>`;
   }
-  const batteryBul=addBattery?`<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${BATTERY.kwh} kWh backup (keeps essentials on in an outage)</div></div>`:'';
+  const batteryBul=addBattery?`<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${curBat().label}, ${curBat().kwh} kWh backup (keeps essentials on in an outage)</div></div>`:'';
   $("report").innerHTML=`
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
