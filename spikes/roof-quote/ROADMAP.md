@@ -33,7 +33,7 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 
 - [x] **16. Material comparison picker** — the roofing "choose a material" empty-state is now a compact comparison of all 9 materials with est. price FOR THIS ROOF + lifespan; tap a row to select it. A real buying-decision aid (vs a bare prompt).
 
-- [ ] **17. Flat/commercial roof handling** (logic correctness) — rooffeatures returns roofType; when "flat", the sloped-shingle catalog + asphalt $/sq are wrong (flat roofs use TPO/EPDM membrane, priced differently). Add a membrane path + note. Needs a flat-roof test address to verify — next session.
+- [ ] **17. Flat/commercial roof handling** (logic correctness) — rooffeatures returns roofType; when "flat", the sloped-shingle catalog + asphalt $/sq are wrong (flat roofs use TPO/EPDM membrane, priced differently). Detect via PITCH (predominantPitchX12<=1 from geometry), NOT Gemini roofType (returns "unknown" for flat — probed downtown+residential, unreliable + commercial addresses time out capture/lack Solar data). Add membrane catalog (TPO/EPDM/PVC/mod-bit) + note. Still needs a CONFIRMED flat-roof test address (Solar coverage + near-flat pitch) to verify it triggers.
 
 - [x] **18. Shareable/restorable quote link** — Share/Email now copy a URL that encodes the quote (?a=address +optional &m/&c material), and the widget restores the address (auto-runs that property) on load. A shared link reopens the recipient on the same property's quote instead of a blank widget. (Material auto-select from &m/&c captured for a follow-up.)
 
