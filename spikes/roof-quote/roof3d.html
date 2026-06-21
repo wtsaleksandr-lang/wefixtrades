@@ -40,8 +40,9 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on,#card .sm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .sectban{margin-top:6px;font-size:11px;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:9px;padding:6px 9px;line-height:1.4}
   #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:4px}
   #card .szval{flex:0 0 auto;font-size:10px;color:var(--muted);font-weight:700;white-space:nowrap}
   #card .opt-l.ico{display:inline-flex;align-items:center;gap:3px}
@@ -502,6 +503,45 @@ function solarTiersFrom(spv){
     return { label:labels[i], panels, kw:+kw.toFixed(1), kwhAc,
       lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
 }
+/* ── Attached-home roof SECTIONING (townhouse / semi-detached) ──
+   Google returns one building for a whole row; for an attached home we detect it and show panels only on
+   the OWNER's section. The geocoded address point lands on the owner's unit, so we project panels onto the
+   building's long axis and keep a window centred on that point. */
+function bldgGeom(spv){
+  const segs=spv.roofSegmentStats||[]; let s=90,w=180,n=-90,e=-180;
+  for(const g of segs){ const b=g.boundingBox; if(!b) continue; s=Math.min(s,b.sw.latitude); n=Math.max(n,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
+  const lat=(s+n)/2, hM=(n-s)*111320, wM=(e-w)*111320*Math.cos(lat*Math.PI/180);
+  const longLng=wM>=hM, longM=Math.max(hM,wM), shortM=Math.max(1,Math.min(hM,wM));
+  const area=(spv.wholeRoofStats&&spv.wholeRoofStats.areaMeters2)||0;
+  return { s,w,n,e,longLng,longM,area,aspect:longM/shortM };
+}
+function isAttached(spv){ const g=bldgGeom(spv); return (g.aspect>=2.0 && g.area>=200) || g.area>=420; }
+function estUnits(spv){ const g=bldgGeom(spv); return Math.max(2,Math.min(6,Math.round(g.longM/7.5))); }   // ~7.5 m typical attached-unit width
+function axisPos(g,lat,lng){ return g.longLng ? (lng-g.w)/Math.max(1e-9,(g.e-g.w)) : (lat-g.s)/Math.max(1e-9,(g.n-g.s)); }
+// panels in the owner's section: a window of fractional width `share` centred on the geocoded point
+function sectionPanels(spv, ll, share){
+  const g=bldgGeom(spv), panels=spv.solarPanels||[]; const t0=ll? axisPos(g,ll.lat,ll.lng):0.5;
+  let lo=t0-share/2, hi=t0+share/2; if(lo<0){ hi-=lo; lo=0; } if(hi>1){ lo-=(hi-1); hi=1; lo=Math.max(0,lo); }
+  return panels.filter(p=>{ if(!p.center) return false; const t=axisPos(g,p.center.latitude,p.center.longitude); return t>=lo&&t<=hi; });
+}
+// Good/Better/Best tiers from an arbitrary panel subset (mirrors solarTiersFrom but on the filtered list)
+function solarTiersFromPanels(list,w){
+  if(!list.length) return []; const rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
+  const sorted=list.slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)), total=sorted.length;
+  const idx=[Math.max(1,Math.floor(total*0.45)),Math.max(1,Math.floor(total*0.72)),total];
+  return idx.map((cnt,i)=>{ cnt=Math.min(total,Math.max(1,cnt)); const sub=sorted.slice(0,cnt);
+    const kw=cnt*w/1000, kwhAc=Math.round(sub.reduce((a,p)=>a+(p.yearlyEnergyDcKwh||0),0)*0.85);
+    return { label:labels[i], panels:cnt, kw:+kw.toFixed(1), kwhAc, lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
+}
+// (re)build the solar tiers from whole-building configs, or from the owner's section when attached+mine
+function rebuildSolarTiers(){
+  const spv=window.__spv; if(!spv) return;
+  if(window.__attached && window.__sectionMode==="mine"){
+    solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), spv.panelCapacityWatts||400);
+    if(!solarTiers.length) solarTiers=solarTiersFrom(spv);   // safety: never leave the user with nothing
+  } else { solarTiers=solarTiersFrom(spv); }
+  selTier=Math.max(0, solarTiers.length-1);
+}
 // contextual card bodies — the card shows info relevant to the active lens, not a static price
 function sunCardBody(){
   const spv=QUOTE.spv||{}, hrs=Math.round(spv.maxSunshineHoursPerYear||0);
@@ -716,6 +756,9 @@ function renderQuoteCard(){
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
     // system-size slider — add/remove panels (Tesla-style "size your system")
     const sizeRow=TENANT.features.sizeSlider?'<div class="opt-row" style="margin-top:6px"><span class="opt-l">System size</span><input class="szrange" type="range" min="40" max="120" step="5" value="'+Math.round(sizePct*100)+'" data-size><span class="szval">'+panels+' panels · '+sysKw+' kW</span></div>':'';
+    // attached-home (townhouse / semi-detached): let the owner pick just their section vs the whole building
+    const sectionRow=window.__attached?'<div class="opt-row" style="margin-top:6px"><span class="opt-l">Roof'+HCUE("section")+'</span><button class="sm'+(window.__sectionMode!=="whole"?' on':'')+'" data-sect="mine">⌂ My section</button><button class="sm'+(window.__sectionMode==="whole"?' on':'')+'" data-sect="whole">Whole building</button></div>'+
+      (window.__sectionMode!=="whole"?'<div class="opt-row" style="margin-top:4px"><span class="opt-l">My share</span><input class="szrange" type="range" min="20" max="100" step="5" value="'+Math.round((window.__sectionShare||0.5)*100)+'" data-sectshare><span class="szval">~'+Math.round((window.__sectionShare||0.5)*100)+'% of building</span></div>':''):'';
     // financing mode (config-driven): Cash / Loan / Lease-PPA
     const payOpts=[{id:"cash",label:"Cash"},{id:"loan",label:"Loan"}].concat((fin.leaseEnabled&&TENANT.features.leasePPA)?[{id:"lease",label:"Lease"}]:[]);
     const payRow='<div class="opt-row" style="margin-top:7px"><span class="opt-l">Pay with</span>'+payOpts.map(o=>'<button class="pm'+(payMode===o.id?' on':'')+'" data-pm="'+o.id+'">'+o.label+'</button>').join('')+'</div>';
@@ -729,10 +772,11 @@ function renderQuoteCard(){
     const evCard=evToggle?'<div class="addon-card">'+evToggle+evNote+'</div>':'';
     const addonsSec=(batCard||evCard)?'<div class="cust-sec">Add-ons</div>'+batCard+evCard:'';
     const solDetail=window.__solarExpanded?'<div class="cust">'+
-      '<div class="cust-sec">Your system</div>'+sizeRow+panelRow+panelNote+billRow+coverLine+
+      '<div class="cust-sec">Your system</div>'+sectionRow+sizeRow+panelRow+panelNote+billRow+coverLine+
       addonsSec+'</div>':'';
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
-    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+
+    const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Customize.</div>':'';
+    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
       finDisplay+payRow+
       kpiStrip+srecLine+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
@@ -811,6 +855,9 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
   card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });
+  const reSection=async()=>{ window.__sizePct=1; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } };
+  card.querySelectorAll("[data-sect]").forEach(b=>b.onclick=()=>{ window.__sectionMode=b.dataset.sect; reSection(); });
+  card.querySelectorAll("[data-sectshare]").forEach(s=>{ s.onchange=()=>{ window.__sectionShare=(+s.value)/100; reSection(); }; });
   card.querySelectorAll(".cmp-row,.mat-card").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -970,7 +1017,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -996,7 +1043,10 @@ async function run(addr){
     // ===== consumer quote card: trade toggle + Good/Better/Best tiers + instant price =====
     const spv=b.solarPotential, wrs=spv.wholeRoofStats||{};
     QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
-    setRegion(); solarTiers=solarTiersFrom(spv); selTier=Math.max(0,solarTiers.length-1);   // default = Best
+    setRegion();
+    window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached → default to the owner's section
+    if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="mine"; if(!window.__sectionShare) window.__sectionShare=+(1/estUnits(spv)).toFixed(2); }
+    rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
     $("sunbar").style.display="flex"; updateSun();
     showLoad(false);
@@ -1466,7 +1516,9 @@ async function buildPhotoPanels(){
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
   const baseN=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
   const n=Math.max(4,Math.round(baseN*(window.__sizePct||1)));   // size slider scales how many panels are drawn on the roof
-  const list=(sp.solarPanels||[]).slice(0,n);
+  // attached home + "my section" → draw only the owner's section panels (best-first), else the whole building's
+  let pool=(window.__attached&&window.__sectionMode==="mine") ? sectionPanels(sp, window.__ll, window.__sectionShare||0.5).slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)) : (sp.solarPanels||[]);
+  const list=pool.slice(0,n);
   const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
   for(const pn of list){
     if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
@@ -1589,6 +1641,7 @@ const DATA_INFO={
   sun:{ title:"Sun & shade", acc:"±10%", body:"Sun-hours and shading are modelled from Google's Solar API using satellite imagery and local weather history — a strong estimate of your roof's solar potential.", lock:"A quick site assessment confirms shading from trees and obstructions for your final solar design." },
   solar:{ title:"Solar estimate", acc:"±10%", body:"System size, annual output and savings are estimated from your roof's area, pitch and orientation plus local sun and electricity-rate data via Google's Solar API.", lock:"Final production and price are confirmed in an on-site solar design." },
   roof:{ title:"Roofing estimate", acc:"±5–10%", body:"Your price is built from the measured roof area and edge lengths, the material you chose, and the options selected (waste, tear-off, ventilation, access).", lock:"We confirm exact measurements and access on site before locking your final, guaranteed rate." },
+  section:{ title:"Your roof section", acc:"approximate", body:"This looks like an attached home (townhouse or semi-detached), where the aerial data covers the whole shared building. We've estimated just your section using your address location, so the system size and price reflect only your roof. Use “My share” to fine-tune how much of the building is yours, or switch to “Whole building”.", lock:"We confirm your exact roof boundary on site before locking the final design and rate." },
 };
 function dataModal(key){ const d=DATA_INFO[key]||DATA_INFO.measure;
   return '<div class="im-h">'+d.title+'</div><div class="im-sub">How accurate is this?</div>'+
