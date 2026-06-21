@@ -174,6 +174,10 @@ export const STEP_TYPES = [
   // Wave R-2 — Stripe Checkout deposit (post-quote, pre-confirmation).
   // See client/src/components/quote-widget/steps/DepositStep.tsx.
   "deposit",
+  // Roof & Solar 3D visualizer — mounts the first-party widget served at
+  // GET /api/roofquote/widget inside the wizard via an iframe.
+  // See client/src/components/quote-widget/steps/RoofVisualizerStep.tsx.
+  "roof_visualizer",
   "confirmation",
 ] as const;
 

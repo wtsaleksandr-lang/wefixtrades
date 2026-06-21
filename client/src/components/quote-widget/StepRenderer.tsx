@@ -9,6 +9,7 @@ import LeadCaptureStep from './steps/LeadCaptureStep';
 import BookingStep from './steps/BookingStep';
 import DepositStep from './steps/DepositStep';
 import SchedulingStep from './steps/SchedulingStep';
+import RoofVisualizerStep from './steps/RoofVisualizerStep';
 import ConfirmationStep from './steps/ConfirmationStep';
 
 interface StepRendererProps {
@@ -51,6 +52,9 @@ export default function StepRenderer({ step, accentColor }: StepRendererProps) {
 
     case 'scheduling':
       return <SchedulingStep step={step} accentColor={accentColor} />;
+
+    case 'roof_visualizer':
+      return <RoofVisualizerStep step={step} accentColor={accentColor} />;
 
     case 'confirmation':
       return <ConfirmationStep step={step} accentColor={accentColor} />;
