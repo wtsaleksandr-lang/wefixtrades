@@ -28,9 +28,11 @@ import {
   geocode,
   houseKnowledge,
   localRate,
+  pvwattsProduction,
   roofFeatures,
   solarInsights,
   streetView,
+  sunHours,
 } from "../services/roofQuote/roofQuoteService";
 
 const log = createLogger("RoofQuote");
@@ -125,6 +127,27 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await localRate(country, region));
     } catch (err) {
       log.error("rates failed", { err: (err as Error).message });
+      return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── PVWatts production fallback (no Google Solar coverage) ─── */
+  app.get("/api/roofquote/pvwatts", async (req: Request, res: Response) => {
+    try {
+      const kw = Number(req.query.kw || 6) || 6;
+      return res.json(await pvwattsProduction(String(req.query.lat || ""), String(req.query.lng || ""), kw));
+    } catch (err) {
+      log.error("pvwatts failed", { err: (err as Error).message });
+      return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── Peak sun-hours (NASA POWER, no key) ─── */
+  app.get("/api/roofquote/sun", async (req: Request, res: Response) => {
+    try {
+      return res.json(await sunHours(String(req.query.lat || ""), String(req.query.lng || "")));
+    } catch (err) {
+      log.error("sun failed", { err: (err as Error).message });
       return res.json({ error: String((err as Error).message || err) });
     }
   });

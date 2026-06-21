@@ -10,6 +10,7 @@ function diskSetBuf(prefix,key,buf){ try{ writeFileSync(path.join(CACHE_DIR,pref
 const TILES=process.env.TILES_KEY||"";
 const SOLAR=process.env.SOLAR_KEY||"";
 const EIA=process.env.EIA_KEY||process.env.EIA_API_KEY||"";   // US residential electricity rates (public-domain, free commercial use)
+const NREL=process.env.NREL_API_KEY||"";   // api.data.gov key for PVWatts production fallback (no Google Solar coverage)
 import { detectRoofFeatures } from "./rooffeatures.mjs";
 const REPLICATE=process.env.REPLICATE_KEY||"";
 const GEMINI=process.env.GEMINI_KEY||"";
@@ -267,6 +268,39 @@ http.createServer(async (req,res)=>{
       const row=j&&j.response&&j.response.data&&j.response.data[0];
       if(row&&row.price){ const out={rate:+(row.price/100).toFixed(4),region,period:row.period,source:"EIA "+row.period}; out._t=Date.now(); diskSetJSON("rate",country+region,out); return res.end(JSON.stringify(out)); }
       return res.end(JSON.stringify({error:"no_rate",region}));
+    }catch(e){ res.end(JSON.stringify({error:String(e)})); }
+    return;
+  }
+  if(u.pathname==="/pvwatts"){
+    // Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8, api.data.gov key). Cached.
+    res.setHeader("Content-Type","application/json");
+    const lat=u.searchParams.get("lat"), lng=u.searchParams.get("lng"), kw=+(u.searchParams.get("kw")||6)||6;
+    if(!lat||!lng) return res.end(JSON.stringify({error:"bad_coords"}));
+    const ckeyStr=(+lat).toFixed(2)+","+(+lng).toFixed(2)+","+kw;
+    const cached=diskGetJSON("pvwatts",ckeyStr); if(cached) return res.end(JSON.stringify(cached));
+    if(!NREL) return res.end(JSON.stringify({error:"no_nrel_key"}));
+    try{
+      const r=await fetch("https://developer.nrel.gov/api/pvwatts/v8.json?api_key="+NREL+"&lat="+lat+"&lon="+lng+"&system_capacity="+kw+"&azimuth=180&tilt=20&array_type=1&module_type=0&losses=14");
+      const j=await r.json();
+      const ann=j&&j.outputs&&j.outputs.ac_annual;
+      if(ann){ const out={annualKwh:Math.round(ann),kw,source:"NREL PVWatts v8"}; diskSetJSON("pvwatts",ckeyStr,out); return res.end(JSON.stringify(out)); }
+      return res.end(JSON.stringify({error:"no_pvwatts",detail:(j&&j.errors)||null}));
+    }catch(e){ res.end(JSON.stringify({error:String(e)})); }
+    return;
+  }
+  if(u.pathname==="/sun"){
+    // Peak sun-hours (annual avg daily irradiance kWh/m²/day) from NASA POWER — no key, public-domain, global (incl. Canada north). Cached long (climatology).
+    res.setHeader("Content-Type","application/json");
+    const lat=u.searchParams.get("lat"), lng=u.searchParams.get("lng");
+    if(!lat||!lng) return res.end(JSON.stringify({error:"bad_coords"}));
+    const ckeyStr=(+lat).toFixed(2)+","+(+lng).toFixed(2);
+    const cached=diskGetJSON("sun",ckeyStr); if(cached) return res.end(JSON.stringify(cached));
+    try{
+      const r=await fetch("https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=ALLSKY_SFC_SW_DWN&community=RE&longitude="+lng+"&latitude="+lat+"&format=JSON");
+      const j=await r.json();
+      const ann=j&&j.properties&&j.properties.parameter&&j.properties.parameter.ALLSKY_SFC_SW_DWN&&j.properties.parameter.ALLSKY_SFC_SW_DWN.ANN;
+      if(ann){ const out={sunHours:+(+ann).toFixed(1),source:"NASA POWER"}; diskSetJSON("sun",ckeyStr,out); return res.end(JSON.stringify(out)); }
+      return res.end(JSON.stringify({error:"no_sun"}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
     return;
   }

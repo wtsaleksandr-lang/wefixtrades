@@ -548,6 +548,55 @@ export async function localRate(country: string, region: string): Promise<RateRe
   return { error: "no_rate", region };
 }
 
+/* ─── Peak sun-hours (annual avg daily irradiance, kWh/m²/day) from NASA POWER —
+   no key, public-domain, global incl. Canada north. Climatology → cache long. ─── */
+export interface SunResult { sunHours?: number; source?: string; error?: string; }
+export async function sunHours(lat: string, lng: string): Promise<SunResult> {
+  if (!lat || !lng) return { error: "bad_coords" };
+  const key = (+lat).toFixed(2) + "," + (+lng).toFixed(2);
+  const cached = diskGetJSON<SunResult>("sun", key);
+  if (cached) return cached;
+  const r = await fetch(
+    "https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=ALLSKY_SFC_SW_DWN&community=RE&longitude=" +
+      lng + "&latitude=" + lat + "&format=JSON",
+  );
+  const j = (await r.json()) as any;
+  const ann = j?.properties?.parameter?.ALLSKY_SFC_SW_DWN?.ANN;
+  if (typeof ann === "number") {
+    const out: SunResult = { sunHours: +ann.toFixed(1), source: "NASA POWER" };
+    diskSetJSON("sun", key, out);
+    return out;
+  }
+  return { error: "no_sun" };
+}
+
+/* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,
+   api.data.gov key). Returns expected annual AC kWh for a typical system. Cached. ─── */
+const nrelKey = (): string => process.env.NREL_API_KEY || "";
+export interface PvwattsResult { annualKwh?: number; kw?: number; source?: string; error?: string }
+export async function pvwattsProduction(lat: string, lng: string, kw: number): Promise<PvwattsResult> {
+  if (!lat || !lng) return { error: "bad_coords" };
+  kw = kw || 6;
+  const key = (+lat).toFixed(2) + "," + (+lng).toFixed(2) + "," + kw;
+  const cached = diskGetJSON<PvwattsResult>("pvwatts", key);
+  if (cached) return cached;
+  const NREL = nrelKey();
+  if (!NREL) return { error: "no_nrel_key" };
+  const r = await fetch(
+    "https://developer.nrel.gov/api/pvwatts/v8.json?api_key=" + NREL +
+      "&lat=" + lat + "&lon=" + lng + "&system_capacity=" + kw +
+      "&azimuth=180&tilt=20&array_type=1&module_type=0&losses=14",
+  );
+  const j = (await r.json()) as any;
+  const ann = j?.outputs?.ac_annual;
+  if (typeof ann === "number") {
+    const out: PvwattsResult = { annualKwh: Math.round(ann), kw, source: "NREL PVWatts v8" };
+    diskSetJSON("pvwatts", key, out);
+    return out;
+  }
+  return { error: "no_pvwatts" };
+}
+
 /** Raw Solar buildingInsights passthrough. Returns the upstream text body + ok flag. */
 export async function solarInsights(lat: string, lng: string): Promise<{ ok: boolean; status: number; body: string }> {
   const SOLAR = solarKey();

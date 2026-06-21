@@ -20,7 +20,7 @@ DST="$DST_DIR/roof3d.html"
 perl -0pi -e 's{(async function geocode\(addr\)\{)}{const RQ_BASE="/api/roofquote";   // ported into the wefixtrades Express app under this path prefix\n$1}' "$DST"
 
 # 2) Prefix backend route fetches.
-perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|rates|solar|streetview|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"
+perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"
 
 # 3) Prefix the dynamic module import.
 perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(RQ_BASE+"/$1.mjs"}g' "$DST"
@@ -30,7 +30,7 @@ perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(RQ_BASE+"/$1.mjs"}
 perl -pi -e 's{="/(capture|streetview)\?}{="/api/roofquote/$1?}g' "$DST"
 
 # Verify: no raw root-relative backend calls remain.
-LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|rates|solar|streetview|analyze)' "$DST" | wc -l | tr -d ' ')
+LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)' "$DST" | wc -l | tr -d ' ')
 PREFIXED=$(grep -oE 'RQ_BASE\+"/' "$DST" | wc -l | tr -d ' ')
 echo "sync done → unprefixed-left:$LEFT  prefixed-sites:$PREFIXED  RQ_BASE:$(grep -c 'const RQ_BASE' "$DST")"
 [ "$LEFT" = "0" ] || { echo "ERROR: $LEFT unprefixed backend fetch(es) remain"; exit 1; }
