@@ -22,6 +22,7 @@ import os from "os";
 import { createHash } from "crypto";
 import { chromium, type Browser } from "playwright";
 import { createLogger } from "../../lib/logger";
+import { noisyCatch } from "../../lib/silentFailureGuard";
 import { detectRoofFeatures } from "../../roofQuote/assets/rooffeatures.mjs";
 
 const log = createLogger("RoofQuote");
@@ -413,7 +414,9 @@ export async function captureOblique(address: string): Promise<Buffer> {
       await sleep(1000);
     }
     await sleep(3500);
-    await page.click("#bPanels").catch(() => {}); // solar panels OFF → clean roof
+    // solar panels OFF → clean roof. Best-effort: if the toggle isn't present the
+    // capture still works, but log (don't swallow) so a persistent failure is visible.
+    await noisyCatch(page.click("#bPanels"), { op: "roofquote.captureOblique.panelsOff" });
     await sleep(700);
     // face the house FROM the street (curb-appeal angle): bearing street-pano → house. Falls back to 180.
     const site = (await page.evaluate(() => (window as any).__site())) as {
