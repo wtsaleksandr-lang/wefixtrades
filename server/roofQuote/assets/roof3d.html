@@ -1,0 +1,1306 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>3D Roof &amp; Solar — true model</title>
+<style>
+  :root{ --bg:#0b1017; --panel:#121a26; --line:#22304a; --muted:#8aa0bd; --cyan:#22d3ee; --blue:#3884ff; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:#e8eef7;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  #scene{position:absolute;inset:0;touch-action:none;display:block}
+  /* search bar */
+  #bar{position:absolute;top:12px;left:12px;right:12px;z-index:20;display:flex;gap:8px;max-width:680px}
+  #addr{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;color:#e8eef7;font-size:15px;outline:none}
+  #go{background:var(--cyan);border:0;border-radius:12px;padding:0 18px;font-weight:700;color:#06222a;font-size:15px;cursor:pointer}
+  /* status chip */
+  #status{position:absolute;top:62px;left:12px;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none}
+  #status.err{color:#fca5a5;border-color:#7f1d1d}
+  /* report card */
+  #card{position:absolute;left:12px;bottom:12px;z-index:20;width:264px;background:rgba(16,22,33,.62);-webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px 14px;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08)}
+  #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
+  #card .qtab{flex:1;background:#0c1320;border:1px solid var(--line);border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+  #card .qtab.on{background:var(--cyan);border-color:var(--cyan);color:#06222a}
+  #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#eaf6ff}
+  #card .qprice .qunit{font-size:13px;font-weight:600;color:var(--muted)}
+  #card .mrows{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+  #card .mrow{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+  #card .mrow span{color:var(--muted);display:flex;align-items:center}
+  #card .mrow i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+  #card .mrow b{color:#eaf6ff;font-weight:700}
+  #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
+  #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#9fb3cd;margin:0 0 9px;line-height:1.2}
+  #card .qaddr svg{flex:0 0 auto;opacity:.8}
+  #card .qpick{font-size:12px;font-weight:700;color:var(--cyan);margin:0 0 2px}
+  #card .qprompt{font-size:14px;color:#cfe0f5;font-weight:600;margin:2px 0 11px;line-height:1.3}
+  #card .qchips{display:flex;gap:6px;margin-bottom:11px}
+  #card .qchip{flex:1;background:#0c1320;border:1px solid var(--line);border-radius:10px;padding:6px 0;color:#cfe0f5;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+  #card .qchip span{font-size:10px;font-weight:500;color:var(--muted)}
+  #card .qchip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  #card .qchip.on span{color:#dbe9ff}
+  #card .qnote{font-size:9.5px;color:#6c819e;margin-top:9px;line-height:1.3}
+  #card .qcta{width:100%;margin-top:11px;background:var(--cyan);border:0;border-radius:10px;padding:11px 0;font-size:14px;font-weight:800;color:#06222a;cursor:pointer}
+  /* ===== quote report (PDF / web) ===== */
+  #report{position:fixed;inset:0;z-index:50;background:#fff;color:#1a2433;overflow:auto;display:none;font:14px/1.55 system-ui,Segoe UI,Roboto,sans-serif}
+  #report .rbar{position:sticky;top:0;background:#0b1017;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;z-index:2}
+  #report .rbar button{background:var(--cyan);border:0;border-radius:8px;padding:8px 15px;font-weight:700;color:#06222a;cursor:pointer;font-size:13px}
+  #report .rbar button.ghost{background:#1b2638;color:#cfe0f5}
+  #report .rwrap{max-width:740px;margin:0 auto;padding-bottom:50px}
+  #report .hero{position:relative;height:230px;background:#0b1017}
+  #report .hero img{width:100%;height:100%;object-fit:cover;opacity:.9}
+  #report .hero .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,11,18,.05),rgba(7,11,18,.82));display:flex;flex-direction:column;justify-content:flex-end;padding:22px 30px;color:#fff}
+  #report .brand{font-weight:800;letter-spacing:.14em;font-size:13px;color:#7fe9f8}
+  #report .hero h1{font-size:25px;margin:6px 0 4px;font-weight:800}
+  #report .hero .addr{opacity:.9;font-size:13px}
+  #report .sec{padding:22px 30px;border-bottom:1px solid #eef1f5}
+  #report .sec h2{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:#7a8aa0;margin:0 0 12px}
+  #report .bul{display:flex;gap:10px;margin:7px 0;align-items:flex-start}
+  #report .bul b{color:#0b8aa0}
+  #report .bm{width:7px;height:7px;border-radius:2px;background:#16b6cf;margin-top:7px;flex:0 0 auto}
+  #report .bc{width:16px;height:16px;flex:0 0 auto;margin-top:1px;fill:none;stroke:#16b6cf;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #report .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  #report .tier{border:1px solid #e3e8ef;border-radius:12px;padding:14px 10px;text-align:center}
+  #report .tier.pop{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(34,211,238,.18)}
+  #report .tier .tn{font-weight:700;font-size:13px}.tier .pop-tag{font-size:9px;color:#0b8aa0;font-weight:700}
+  #report .tier .mo{font-size:21px;font-weight:800;margin:6px 0 1px}
+  #report .tier .ca{font-size:11px;color:#6c819e}
+  #report .pricebig{font-size:30px;font-weight:800}
+  #report .muted{color:#6c819e;font-size:12px}
+  #report .signbox{text-align:center;color:#8493a6;margin-top:10px;font-size:12px}
+  #report .rcta{width:100%;background:var(--cyan);border:0;border-radius:12px;padding:15px 0;font-size:16px;font-weight:800;color:#06222a;cursor:pointer}
+  #report .rcta.done{background:#1f9d57;color:#fff;cursor:default}
+  #report .rbadge{text-align:center;padding:8px 14px 22px;font-size:11px;color:#9aa7b8}
+  #report .rbadge b{color:#16b6cf;font-weight:800}
+  #report .foot{padding:18px 30px;color:#9aa7b8;font-size:10.5px;line-height:1.5}
+  @media print{ #report .rbar{display:none!important} #report{position:static;display:block!important} #app>*:not(#report){display:none!important} }
+  #matHint{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:16;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:11px;color:var(--muted);display:none}
+  /* lead capture */
+  #lead{position:fixed;inset:0;z-index:55;background:rgba(6,10,16,.8);display:none;align-items:center;justify-content:center;padding:20px}
+  #lead .lead-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;width:100%;max-width:360px}
+  #lead .lead-h{font-size:19px;font-weight:800;color:#eaf6ff}
+  #lead .lead-s{font-size:13px;color:var(--muted);margin:4px 0 16px}
+  #lead input{width:100%;background:#0c1320;border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:#e8eef7;font-size:15px;margin-bottom:10px;outline:none}
+  #lead input:focus{border-color:var(--cyan)}
+  #lead #lgo{width:100%;background:var(--cyan);border:0;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;color:#06222a;cursor:pointer;margin-top:4px}
+  #lead .lead-x{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;cursor:pointer}
+  #card .big{font-size:30px;font-weight:800;line-height:1} #card .unit{font-size:12px;color:var(--muted)}
+  #card .sq{font-size:12px;color:var(--cyan);margin-top:2px}
+  #card .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  #card .stat .v{font-size:18px;font-weight:700} #card .stat .l{font-size:11px;color:var(--muted)}
+  /* controls */
+  #ctrls{position:absolute;right:12px;bottom:12px;z-index:20;display:flex;flex-direction:column;gap:7px}
+  #ctrls button{width:56px;height:56px;border-radius:16px;background:rgba(16,22,33,.6);-webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);border:1px solid rgba(255,255,255,.14);color:#9fb3cd;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;box-shadow:0 8px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08)}
+  #ctrls button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  #ctrls button span{font-size:9.5px;font-weight:600;letter-spacing:.01em}
+  #ctrls button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  #ctrls button:hover{border-color:var(--cyan);color:#e8eef7}
+  @media (max-width:560px){ #ctrls{flex-direction:row;left:0;right:0;bottom:2px;justify-content:center;gap:2px;flex-wrap:nowrap} #ctrls button{width:63px;height:54px} #ctrls button svg{width:18px;height:18px} #ctrls button span{font-size:9px} }
+  /* sun-path bar */
+  #sunbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:rgba(16,22,33,.62);-webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:10px 14px;display:none;gap:16px;align-items:center;box-shadow:0 12px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08)}
+  #sunbar .sl{display:flex;flex-direction:column;gap:3px;min-width:150px}
+  #sunbar .sl .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+  #sunbar input[type=range]{width:100%;accent-color:var(--cyan)}
+  #sunbar .icon{font-size:11px;color:var(--muted);font-weight:600}
+  @media (max-width:560px){ #sunbar{left:2px;right:2px;transform:none;bottom:58px;flex-direction:row;justify-content:space-between;padding:9px 12px} #sunbar .sl{min-width:0;flex:1} }
+  /* roof material swatches */
+  #aiBtn{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;background:linear-gradient(180deg,#3884ff,#2f6fe0);border:none;border-radius:9px;padding:8px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(56,132,255,.4);display:none}
+  #aiBtn:disabled{opacity:.6;cursor:default}
+  #aiBar{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:21;display:none;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+  #aiBar button{background:rgba(17,25,37,.84);border:1px solid var(--line);color:#cfe0f5;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  #aiBar #aiMat{font-size:11px;color:var(--muted);padding:0 4px}
+  #roofReport{position:absolute;top:62px;right:12px;z-index:22;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 15px;width:208px;display:none;font-size:12px}
+  #roofReport .rr-h{font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  #roofReport .rr-big{font-size:22px;font-weight:800;color:#eaf6ff;line-height:1}
+  #roofReport .rr-sub{font-size:11px;color:var(--cyan);margin:3px 0 10px}
+  #roofReport .rr-row{display:flex;justify-content:space-between;align-items:center;margin:5px 0;color:var(--muted)}
+  #roofReport .rr-row b{color:#dbe6f4;font-weight:700}
+  #roofReport .rr-row i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
+  @media (max-width:560px){ #roofReport{top:60px;right:8px;width:170px;padding:10px 12px} #roofReport .rr-big{font-size:18px} }
+  #measToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:22;display:none;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px}
+  #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
+  #measToggle button.on{background:var(--cyan);color:#06222a}
+  @media (max-width:560px){ #measToggle{left:8px;transform:none;top:60px} #measToggle button{padding:6px 12px} }
+  #matbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:rgba(16,22,33,.62);-webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;align-items:stretch;max-width:96vw;box-shadow:0 12px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08)}
+  #matCats{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+  #matCats .matcat{background:#0c1320;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #matCats .matcat.on{background:var(--cyan);border-color:var(--cyan);color:#06222a}
+  #matCols{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:92vw}
+  #matbar .sw{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:64px}
+  #matbar .chip{width:36px;height:36px;border-radius:9px;border:2px solid transparent;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+  #matbar .sw.on .chip{border-color:#fff}
+  #matbar .sw.ready .chip::after{content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:#32d74b;border:2px solid var(--panel)}
+  #matbar .nm{font-size:10px;color:var(--muted);text-align:center;line-height:1.1}
+  /* loader */
+  #load{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(6,10,16,.72);flex-direction:column;gap:14px}
+  #load .ring{width:46px;height:46px;border:4px solid var(--line);border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite}
+  #load .t{color:var(--muted);font-size:13px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:58px;max-height:44vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:58px;left:2px;right:2px;max-width:none;transform:none;justify-content:center} }
+  /* mobile: material swatches + category pills scroll horizontally in one row instead of wrapping */
+  @media (max-width:560px){
+    #matCols{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;max-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    #matCols::-webkit-scrollbar{display:none}
+    #matCats{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+    #matCats::-webkit-scrollbar{display:none}
+    #matbar .sw,#matCats .matcat{flex:0 0 auto}
+  }
+</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script>(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({key:"__TILES__",v:"beta"});</script>
+</head><body>
+<div id="app">
+  <canvas id="scene"></canvas>
+  <div id="gmapWrap" style="position:absolute;inset:0;display:none"></div>
+  <canvas id="matCanvas" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0b1017;display:none;z-index:15;touch-action:none"></canvas>
+  <div id="matHint">Top-down material preview · obstructions kept</div>
+  <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0b1017;display:none;z-index:16">
+  <button id="aiBtn" style="display:none">See it on my house</button>
+  <div id="aiBar" style="display:none"><button id="aiToggle">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
+  <div id="roofReport"></div>
+  <div id="measToggle"><button data-v="3d" class="on">3D</button><button data-v="diagram">Diagram</button></div>
+  <div id="bar"><input id="addr" placeholder="Enter your address" value="30 Angus Rd, Hamilton, ON"><button id="go">Get Quote</button></div>
+  <div id="status"></div>
+  <div id="card"></div>
+  <div id="ctrls">
+    <button id="bPanels" class="on" title="Solar panels"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="11" rx="1"/><path d="M3 9.2h18M3 12.8h18M9 5.5v11M15 5.5v11"/></svg><span>Panels</span></button>
+    <button id="bSun" title="Sun &amp; shade"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></svg><span>Sun</span></button>
+    <button id="bLabels" title="Measurements"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l4-4 13 13-4 4z"/><path d="M7.5 7.5l1.8 1.8M10.5 10.5l1.8 1.8M13.5 13.5l1.8 1.8"/></svg><span>Measure</span></button>
+    <button id="bRoof" title="Roof materials &amp; colors" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Materials</span></button>
+    <button id="bReset" title="Recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/></svg><span>Reset</span></button>
+  </div>
+  <div id="matbar"></div>
+  <div id="sunbar">
+    <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
+    <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
+  </div>
+  <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
+  <div id="report"></div>
+  <div id="lead"><div class="lead-card">
+    <div class="lead-h">See your full quote</div>
+    <div class="lead-s">Your personalised roof &amp; solar plan, sent to you instantly.</div>
+    <input id="lname" placeholder="Full name" autocomplete="name">
+    <input id="lemail" type="email" placeholder="Email" autocomplete="email">
+    <input id="lphone" type="tel" placeholder="Phone (optional)" autocomplete="tel">
+    <button id="lgo">See my full quote</button>
+    <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
+  </div></div>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const $=id=>document.getElementById(id);
+const RQ_BASE="/api/roofquote";   // ported into the wefixtrades Express app under this path prefix
+const M2_SQFT=10.7639; const M_FT=3.28084;
+const PLAN=(new URLSearchParams(location.search).get("plan")||"free").toLowerCase();   // free shows our badge; paid = white-label
+const errors=[]; window.__getErrors=()=>errors;
+window.addEventListener("error",e=>errors.push("err:"+(e.message||e)));
+window.addEventListener("unhandledrejection",e=>errors.push("rej:"+(e.reason&&e.reason.message||e.reason)));
+
+function setStatus(t,isErr){ const s=$("status"); if(!t){s.style.display="none";return;} s.style.display="block"; s.textContent=t; s.classList.toggle("err",!!isErr); }
+function showLoad(t){ $("load").style.display=t?"flex":"none"; if(t)$("loadt").textContent=t; }
+
+/* 3D billboard label (canvas sprite) for per-facet sq-ft + pitch */
+function makeLabel(text){
+  const c=document.createElement("canvas"), x=c.getContext("2d");
+  x.font="bold 34px system-ui,Segoe UI,sans-serif"; const tw=x.measureText(text).width;
+  c.width=Math.ceil(tw)+44; c.height=56;
+  x.font="bold 34px system-ui,Segoe UI,sans-serif"; x.fillStyle="rgba(8,14,22,0.85)";
+  x.fillRect(0,0,c.width,c.height); x.strokeStyle="rgba(34,211,238,0.7)"; x.lineWidth=2; x.strokeRect(1,1,c.width-2,c.height-2);
+  x.fillStyle="#9fe7f5"; x.textBaseline="middle"; x.fillText(text,22,c.height/2+1);
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace;
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  spr.scale.set(c.width/56*2.6, 2.6, 1);
+  return spr;
+}
+
+/* ---------- WGS84 -> UTM (forward, for a given zone) ---------- */
+function wgs84ToUTM(lat,lon,zone){
+  const a=6378137, f=1/298.257223563, k0=0.9996, e2=f*(2-f), ep2=e2/(1-e2);
+  const lon0=(zone-1)*6-180+3;
+  const latR=lat*Math.PI/180, lonR=lon*Math.PI/180, lon0R=lon0*Math.PI/180;
+  const N=a/Math.sqrt(1-e2*Math.sin(latR)**2), T=Math.tan(latR)**2, C=ep2*Math.cos(latR)**2;
+  const A=Math.cos(latR)*(lonR-lon0R);
+  const M=a*((1-e2/4-3*e2*e2/64-5*e2**3/256)*latR
+    -(3*e2/8+3*e2*e2/32+45*e2**3/1024)*Math.sin(2*latR)
+    +(15*e2*e2/256+45*e2**3/1024)*Math.sin(4*latR)
+    -(35*e2**3/3072)*Math.sin(6*latR));
+  const E=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000;
+  let Nn=k0*(M+N*Math.tan(latR)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  if(lat<0) Nn+=10000000;
+  return [E,Nn];
+}
+
+/* ---------- solar position (NOAA-style): azimuth (CW from N) + altitude, degrees ---------- */
+function sunPosition(date, lat, lng){
+  const rad=Math.PI/180, deg=180/Math.PI;
+  const jd=(date.getTime()/86400000)+2440587.5, n=jd-2451545.0, T=n/36525.0;
+  let L=(280.46646+36000.76983*T)%360; if(L<0)L+=360;
+  const g=(357.52911+35999.05029*T)*rad;
+  const lambda=(L+(1.914602-0.004817*T)*Math.sin(g)+0.019993*Math.sin(2*g))*rad;
+  const eps=(23.439291-0.0130042*T)*rad;
+  const decl=Math.asin(Math.sin(eps)*Math.sin(lambda));
+  const ra=Math.atan2(Math.cos(eps)*Math.sin(lambda),Math.cos(lambda));
+  let gmst=(280.46061837+360.98564736629*n)%360; if(gmst<0)gmst+=360;
+  const H=(gmst+lng)*rad-ra, phi=lat*rad;
+  const alt=Math.asin(Math.sin(phi)*Math.sin(decl)+Math.cos(phi)*Math.cos(decl)*Math.cos(H));
+  let az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(decl)*Math.cos(phi));
+  az=(az*deg+180)%360;
+  return { azimuth:az, altitude:alt*deg };
+}
+
+/* ---------- data pipeline ---------- */
+async function geocode(addr){ const r=await fetch(RQ_BASE+"/geocode?address="+encodeURIComponent(addr)); const j=await r.json(); if(j.error) throw new Error("geocode "+j.error); return j; }
+async function solar(lat,lng){ const r=await fetch(RQ_BASE+"/solar?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
+async function datalayers(lat,lng){ const r=await fetch(RQ_BASE+"/datalayers?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
+
+async function decodeTiff(url){
+  const ab=await (await fetch(RQ_BASE+"/geotiff?u="+encodeURIComponent(url))).arrayBuffer();
+  const tiff=await GeoTIFF.fromArrayBuffer(ab);
+  const img=await tiff.getImage();
+  const rasters=await img.readRasters();
+  const bbox=img.getBoundingBox();           // [minX,minY,maxX,maxY] in CRS units (UTM metres)
+  let zone=17, north=true;
+  try{ const gk=img.getGeoKeys(); const p=gk.ProjectedCSTypeGeoKey; if(p){ north=p<32700; zone=p-(north?32600:32700);} }catch(_){}
+  return { rasters, width:img.getWidth(), height:img.getHeight(), bbox, zone, north, spd:rasters.length };
+}
+
+/* bilinear sample of a single-band grid at UTM (E,N) */
+function sampleGrid(grid, E, N){
+  const {vals,w,h,bbox}=grid;
+  const fx=(E-bbox[0])/(bbox[2]-bbox[0])*(w-1);
+  const fy=(bbox[3]-N)/(bbox[3]-bbox[1])*(h-1);   // row 0 = north (maxY)
+  if(fx<0||fy<0||fx>w-1||fy>h-1) return null;
+  const x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(x0+1,w-1),y1=Math.min(y0+1,h-1);
+  const tx=fx-x0,ty=fy-y0;
+  const g=(x,y)=>vals[y*w+x];
+  const a=g(x0,y0),b=g(x1,y0),c=g(x0,y1),d=g(x1,y1);
+  if(![a,b,c,d].every(v=>isFinite(v)&&v>NODATA)) { const ok=[a,b,c,d].filter(v=>isFinite(v)&&v>NODATA); return ok.length?ok.reduce((s,v)=>s+v,0)/ok.length:null; }
+  return a*(1-tx)*(1-ty)+b*tx*(1-ty)+c*(1-tx)*ty+d*tx*ty;
+}
+const NODATA=-9000;  // Solar DSM no-data is a large negative; treat < -9000 as void
+/* true only if (E,N) is at least `margin` metres inside the roof mask (8-dir erosion) —
+   keeps every overlay off the roof edge / walls */
+function roofInterior(mg,E,N,margin){
+  if(!mg) return true;
+  if(!(sampleGrid(mg,E,N)>0.5)) return false;
+  const d=margin, o=margin*0.707;
+  return sampleGrid(mg,E+d,N)>0.5&&sampleGrid(mg,E-d,N)>0.5&&sampleGrid(mg,E,N+d)>0.5&&sampleGrid(mg,E,N-d)>0.5
+    &&sampleGrid(mg,E+o,N+o)>0.5&&sampleGrid(mg,E-o,N+o)>0.5&&sampleGrid(mg,E+o,N-o)>0.5&&sampleGrid(mg,E-o,N-o)>0.5;
+}
+
+/* ---------- three.js scene ---------- */
+const canvas=$("scene");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b1017);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.5,4000);
+const controls=new OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=12; controls.maxDistance=400; controls.maxPolarAngle=Math.PI*0.46;
+const sun=new THREE.DirectionalLight(0xfff4e0,2.6); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0005; sun.shadow.normalBias=0.04;
+scene.add(sun); scene.add(sun.target);
+const ambient=new THREE.AmbientLight(0xbfd4ff,0.42); scene.add(ambient);
+scene.add(new THREE.HemisphereLight(0xcfe3ff,0x2a3340,0.45));
+let worldGroup=new THREE.Group(); scene.add(worldGroup);
+/* site + scene scale, driven by the sun-path UI */
+let SITE={lat:43.219,lng:-79.782}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-4, siteAlt=115, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
+let QUOTE=null, solarTiers=[], selTier=0, tradeMode="solar";
+const fmtMoney=n=>"$"+Math.round(n).toLocaleString();
+/* monthly loan payment: P principal, apr %, years term */
+function loanPayment(P,apr,years){ const r=apr/100/12, n=years*12; if(!P||r<=0) return Math.round((P||0)/n); return Math.round(P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)); }
+/* 25-yr cumulative solar savings + payback, as an inline SVG (no chart lib) */
+function savingsModel(kwhAc, netCost){
+  const rate=0.165, esc=0.035, yrs=25; let cum=0, payback=0; const pts=[];
+  for(let n=1;n<=yrs;n++){ cum+=kwhAc*rate*Math.pow(1+esc,n-1); pts.push(cum); if(!payback&&cum>=netCost) payback=n; }
+  const max=Math.max(cum,netCost*1.1)||1, W=440,H=150,pad=10;
+  const X=n=>pad+(n-1)/(yrs-1)*(W-2*pad), Y=v=>H-pad-(v/max)*(H-2*pad);
+  const line=pts.map((v,i)=>(i?"L":"M")+X(i+1).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+  const area=line+" L"+X(yrs).toFixed(1)+" "+(H-pad)+" L"+X(1).toFixed(1)+" "+(H-pad)+" Z";
+  const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="margin-top:10px">'+
+    '<line x1="'+pad+'" y1="'+Y(netCost).toFixed(1)+'" x2="'+(W-pad)+'" y2="'+Y(netCost).toFixed(1)+'" stroke="#c3ccd8" stroke-dasharray="4 4"/>'+
+    '<text x="'+(W-pad)+'" y="'+(Y(netCost)-4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#8493a6">system cost</text>'+
+    '<path d="'+area+'" fill="rgba(34,211,238,0.16)"/>'+
+    '<path d="'+line+'" fill="none" stroke="#0b8aa0" stroke-width="2.5"/>'+
+    (payback?'<line x1="'+X(payback).toFixed(1)+'" y1="'+pad+'" x2="'+X(payback).toFixed(1)+'" y2="'+(H-pad)+'" stroke="#16b6cf" stroke-width="1.5"/>':'')+
+    '<text x="'+pad+'" y="'+(H-2)+'" font-size="10" fill="#8493a6">yr 1</text>'+
+    '<text x="'+(W-pad)+'" y="'+(H-2)+'" text-anchor="end" font-size="10" fill="#8493a6">yr 25</text></svg>';
+  return { svg, net:Math.round(cum-netCost), payback };
+}
+/* 3 Good/Better/Best solar tiers from Google's panel configs + a ballpark installed price + monthly */
+function solarTiersFrom(spv){
+  const cfgs=spv.solarPanelConfigs||[]; if(!cfgs.length) return [];
+  const w=spv.panelCapacityWatts||400, rate=0.165, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
+  const idx=[Math.floor(cfgs.length*0.45),Math.floor(cfgs.length*0.72),cfgs.length-1];
+  return idx.map((ix,i)=>{ ix=Math.min(cfgs.length-1,Math.max(0,ix)); const c=cfgs[ix];
+    const panels=c.panelsCount, kw=panels*w/1000, kwhAc=Math.round((c.yearlyEnergyDcKwh||0)*0.85);
+    return { label:labels[i], panels, kw:+kw.toFixed(1), kwhAc,
+      lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
+}
+// contextual card bodies — the card shows info relevant to the active lens, not a static price
+function sunCardBody(){
+  const spv=QUOTE.spv||{}, hrs=Math.round(spv.maxSunshineHoursPerYear||0);
+  const panels=spv.maxArrayPanelsCount||0, area=Math.round((spv.maxArrayAreaMeters2||0)*M2_SQFT);
+  return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span></div>'+
+    '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power.</div>'+
+    '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">panels fit</div></div>'+
+    '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
+    '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>';
+}
+function measureCardBody(){
+  const t=window.__roofTotals; if(!t) return '<div class="qprompt">Measuring your roof…</div>';
+  const f=n=>Math.round(n||0).toLocaleString();
+  const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
+  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span></div>'+
+    '<div class="qsub">Measured from 3D — exact areas + edge lengths for an accurate material estimate.</div>'+
+    '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares</div></div>'+
+    '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
+    '<div class="stat"><div class="v">'+t.predominantPitchX12+'/12</div><div class="l">pitch</div></div></div>'+
+    '<div class="mrows">'+row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt))+row(EDGE_COLORS.hip,"Hip",f(t.hipFt))+
+    row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>';
+}
+function renderQuoteCard(){
+  if(!QUOTE) return; const card=$("card"); card.style.display="block";
+  const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
+    '<button class="qtab'+(tradeMode==="roof"?" on":"")+'" data-t="roof">Roofing</button></div>';
+  let body="";
+  const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
+  const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
+  if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
+  else if(view==="measure"){ body=measureCardBody(); }
+  else if(tradeMode==="solar" && solarTiers.length && bestKw>30){
+    // large/commercial roof — a residential auto-quote ($/W tiers) isn't meaningful; route to a custom quote
+    body='<div class="qprice">'+bestKw+' kW</div><div class="qsub">Large roof — solar potential beyond a standard home system.</div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
+      '<div class="stat"><div class="v">'+bestKw+'</div><div class="l">kW potential</div></div>'+
+      '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>'+
+      '<div class="qnote" style="margin-top:9px">Request a custom commercial quote for accurate pricing.</div>';
+  } else if(tradeMode==="solar" && solarTiers.length){
+    const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
+    const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
+    body='<div class="qprice">'+fmtMoney(t.lo)+'–'+fmtMoney(t.hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(t.monthly)+'/mo on power*</div>'+
+      '<div class="qchips">'+chips+'</div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+t.panels+'</div><div class="l">Panels</div></div>'+
+      '<div class="stat"><div class="v">'+t.kw+'</div><div class="l">kW</div></div>'+
+      '<div class="stat"><div class="v">'+(t.kwhAc?t.kwhAc.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>';
+  } else {
+    // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
+    const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
+    const stats='<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
+      '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares</div></div>'+
+      '<div class="stat"><div class="v">'+QUOTE.facets+'</div><div class="l">facets</div></div></div>';
+    if(sel){
+      const psq=ROOF_PSQ[sel.matId]||[450,700], lo=Math.round(sqs*psq[0]/50)*50, hi=Math.round(sqs*psq[1]/50)*50;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'</div><div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof</div>'+stats;
+    } else {
+      body='<div class="qprompt">Choose your <b>material &amp; colour</b> to see your price.</div>'+stats;
+    }
+  }
+  const roofNoSel=(tradeMode==="roof" && !window.__roofSel);
+  const note=(roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
+    ? '<div class="qnote">*ballpark before rebates/incentives (e.g. 30% federal credit) · savings at ~$0.165/kWh</div>'
+    : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
+  const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
+  const cta=roofNoSel
+    ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
+    : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Get full quote →</button>';
+  card.innerHTML=tabs+addr+body+note+cta;
+  card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
+  card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
+    if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
+}
+async function applyTradeMode(){
+  window.__trade=tradeMode;
+  const solar=tradeMode==="solar";
+  // exit any open tool first → clean 3D house (a CATEGORY switch never auto-opens a tool)
+  matMode=false; sunMode=false; labelsVisible=false;
+  $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on");
+  if(typeof exitMatCatalogue==="function") exitMatCatalogue();
+  clearHeat(); clearLabels(); clearRoofMeas(); showAnalysis(null); document.body.classList.remove("analyzing");
+  // BOTTOM tools are contextual to the TOP category: Solar → Panels / Sun ; Roofing → Materials (Measure + Reset shared)
+  $("bPanels").style.display=solar?"flex":"none";
+  $("bSun").style.display=solar?"flex":"none";
+  $("bRoof").style.display=solar?"none":"flex";
+  if(solar){ panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"&&gmap){ try{ await buildPhotoPanels(); }catch(_){} } }
+  else { panelsVisible=false; $("bPanels").classList.remove("on"); clearPanels(); }
+}
+function updateSun(){
+  const std=Math.round(SITE.lng/15), dst=(sunMonth>=3&&sunMonth<=10)?1:0; tzOffset=std+dst;
+  const d=new Date(Date.UTC(2026, sunMonth-1, 21, sunHourLocal-tzOffset, 0));
+  const sp=sunPosition(d, SITE.lat, SITE.lng);
+  const lbl=$("sTimeV"); if(lbl){ const h=Math.floor(sunHourLocal), m=Math.round((sunHourLocal-h)*60);
+    const ap=h>=12?"PM":"AM", h12=((h+11)%12)+1; lbl.textContent=h12+":"+String(m).padStart(2,"0")+" "+ap; }
+  const mv=$("sMonthV"); if(mv) mv.textContent=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][sunMonth-1];
+  if(sp.altitude<=1){ sun.intensity=0.15; ambient.intensity=0.55; scene.background.setHex(0x0a0e16); return; }
+  sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=0.42;
+  // dusk tint when low
+  scene.background.setHex(sp.altitude<8?0x10131c:0x0b1017);
+  const a=sp.azimuth*Math.PI/180, e=sp.altitude*Math.PI/180;
+  const dir=new THREE.Vector3(Math.sin(a)*Math.cos(e), Math.sin(e), -Math.cos(a)*Math.cos(e));
+  sun.position.copy(controls.target).addScaledVector(dir, SCENE_R*2.2);
+  sun.target.position.copy(controls.target); sun.target.updateMatrixWorld();
+  window.__sun={az:+sp.azimuth.toFixed(1),alt:+sp.altitude.toFixed(1)};
+}
+
+function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); }
+addEventListener("resize",resize); resize();
+(function loop(){ controls.update(); renderer.render(scene,camera); requestAnimationFrame(loop); })();
+
+function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); }
+
+/* build the textured DSM mesh + panels */
+let panelMesh=null;
+function buildScene(b, dsm, rgb, rgbTex){
+  clearWorld();
+  const {bbox}=dsm, zone=dsm.zone;
+  const E0=(bbox[0]+bbox[2])/2, N0=(bbox[1]+bbox[3])/2;
+  const extE=bbox[2]-bbox[0], extN=bbox[3]-bbox[1];
+  // ground/base elevation = low percentile of valid DSM
+  const valid=[]; for(let i=0;i<dsm.rasters[0].length;i+=7){ const v=dsm.rasters[0][i]; if(isFinite(v)&&v>NODATA) valid.push(v); }
+  valid.sort((a,b)=>a-b); const baseY=valid[Math.floor(valid.length*0.05)]||0; siteAlt=baseY;
+  const grid={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox};
+  // focus the model on the building centre and crop out perimeter tree/edge spikes
+  const bc=(b.center)?wgs84ToUTM(b.center.latitude,b.center.longitude,zone):[E0,N0];
+  const CE=bc[0], CN=bc[1];
+  const CROP=Math.min(30, extE/2-2, extN/2-2);   // half-extent metres around the house
+  const clampH=baseY+22;                          // tame extreme tree spikes
+  window.__roofDebug={dsmW:dsm.width,dsmH:dsm.height,extE:+extE.toFixed(1),extN:+extN.toFixed(1),baseY:+baseY.toFixed(1),zone,crop:+CROP.toFixed(1)};
+
+  // ===== CLEAN SCHEMATIC MODEL: crisp flat ground photo + planar roof facets =====
+  rgbTex.colorSpace=THREE.SRGBColorSpace; rgbTex.flipY=false; rgbTex.anisotropy=8;
+  const rb=rgb.bbox;
+  const uvOf=(E,N)=>[ (E-rb[0])/(rb[2]-rb[0]), (rb[3]-N)/(rb[3]-rb[1]) ];
+  const toLocal=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,zone); return {x:E-CE,z:-(N-CN),E,N}; };
+
+  // ground plane — flat, razor-sharp aerial photo (no smear because it's flat)
+  {
+    const g=new THREE.PlaneGeometry(CROP*2,CROP*2,1,1); g.rotateX(-Math.PI/2);
+    const gp=g.attributes.position, gu=g.attributes.uv;
+    for(let i=0;i<gp.count;i++){ const E=CE+gp.getX(i), N=CN-gp.getZ(i); const [u,v]=uvOf(E,N); gu.setXY(i,u,v); }
+    gu.needsUpdate=true; g.computeVertexNormals();
+    const gm=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:rgbTex,roughness:1,metalness:0}));
+    gm.receiveShadow=true; worldGroup.add(gm);
+  }
+
+  // roof facets — plan footprint is EXACT (bbox), tilted to real pitch/azimuth, photo-textured + cyan outline
+  const sp=b.solarPotential||{};
+  const segs=sp.roofSegmentStats||[];
+  const facetInfo=[];
+  const roofMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:0.9,metalness:0,side:THREE.DoubleSide});
+  const wallMat=new THREE.MeshStandardMaterial({color:0xcabfae,roughness:1,metalness:0,side:THREE.DoubleSide});
+  for(let si=0;si<segs.length;si++){
+    const seg=segs[si], bb=seg.boundingBox;
+    if(!bb||!bb.sw||!bb.ne){ facetInfo.push(null); continue; }
+    const Az=(seg.azimuthDegrees||0)*Math.PI/180, P=(seg.pitchDegrees||0)*Math.PI/180;
+    const sinAz=Math.sin(Az), cosAz=Math.cos(Az), tanP=Math.tan(P);
+    const ctr=seg.center||{latitude:(bb.sw.latitude+bb.ne.latitude)/2,longitude:(bb.sw.longitude+bb.ne.longitude)/2};
+    const c=toLocal(ctr.latitude,ctr.longitude);
+    const y0=((seg.planeHeightAtCenterMeters!=null)?seg.planeHeightAtCenterMeters:baseY+4)-baseY;
+    facetInfo[si]={cx:c.x,cz:c.z,y0,sinAz,cosAz,tanP,P};
+    const cs=[[bb.sw.longitude,bb.sw.latitude],[bb.ne.longitude,bb.sw.latitude],[bb.ne.longitude,bb.ne.latitude],[bb.sw.longitude,bb.ne.latitude]];
+    const V=[], UVs=[];
+    for(const [lng,lat] of cs){
+      const L=toLocal(lat,lng); const ox=L.x-c.x, oz=L.z-c.z;
+      const d=ox*sinAz + oz*(-cosAz);          // signed distance along down-slope (facing) dir
+      V.push(new THREE.Vector3(L.x, y0 - d*tanP, L.z)); UVs.push(uvOf(L.E,L.N));
+    }
+    const fg=new THREE.BufferGeometry();
+    fg.setFromPoints([V[0],V[1],V[2], V[0],V[2],V[3]]);
+    fg.setAttribute("uv",new THREE.Float32BufferAttribute([...UVs[0],...UVs[1],...UVs[2], ...UVs[0],...UVs[2],...UVs[3]],2));
+    fg.computeVertexNormals();
+    const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm);
+    // walls: extrude each footprint edge down to the ground so the building reads as a solid mass
+    const wp=[];
+    for(let k=0;k<4;k++){ const a=V[k], b=V[(k+1)%4], ag=new THREE.Vector3(a.x,0,a.z), bg=new THREE.Vector3(b.x,0,b.z);
+      wp.push(a,ag,bg, a.clone(),bg.clone(),b); }
+    const wg=new THREE.BufferGeometry().setFromPoints(wp); wg.computeVertexNormals();
+    const wm=new THREE.Mesh(wg,wallMat); wm.castShadow=true; wm.receiveShadow=true; worldGroup.add(wm);
+    const eg=new THREE.BufferGeometry().setFromPoints([V[0],V[1],V[2],V[3],V[0]]);
+    worldGroup.add(new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5})));
+    // per-facet sq-ft + pitch label
+    const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
+    const x12=Math.round(Math.abs(Math.tan((seg.pitchDegrees||0)*Math.PI/180))*12);
+    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(c.x, y0+2.4, c.z); worldGroup.add(lb); }
+  }
+
+  // panels — sit EXACTLY on their facet plane (same Solar data → zero drift)
+  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
+  const panels=(sp.solarPanels||[]).slice(0,n);
+  const box=new THREE.BoxGeometry(1,0.06,1);
+  const pmat=new THREE.MeshStandardMaterial({color:0x16335f,roughness:0.3,metalness:0.5,emissive:0x0a1830,emissiveIntensity:0.25});
+  panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1);
+  panelMesh.castShadow=true; panelMesh.receiveShadow=true;
+  const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(),
+        p=new THREE.Vector3(), s=new THREE.Vector3(), nrm=new THREE.Vector3();
+  let placed=0;
+  for(const pn of panels){
+    if(!pn.center) continue;
+    const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
+    const L=toLocal(pn.center.latitude,pn.center.longitude);
+    const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
+    const y=fi.y0 - d*fi.tanP + 0.16;
+    nrm.set(Math.sin(fi.P)*fi.sinAz, Math.cos(fi.P), -Math.sin(fi.P)*fi.cosAz).normalize();
+    q.setFromUnitVectors(up,nrm);
+    p.set(L.x, y, L.z);
+    const land=pn.orientation==="LANDSCAPE"; s.set(land?ph:pw,1,land?pw:ph);
+    m.compose(p,q,s); panelMesh.setMatrixAt(placed++,m);
+  }
+  panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; worldGroup.add(panelMesh);
+  window.__panelsPlaced=placed;
+
+  // ---- frame camera tight on the house ----
+  const span=CROP*2;
+  controls.target.set(0, 5, 0);
+  camera.position.set(span*0.48, span*0.62, span*0.72);
+  controls.minDistance=10; controls.maxDistance=span*2.0;
+  // shadow frustum sized to the scene; sun driven by the sun-path UI
+  SCENE_R=span; const sc=sun.shadow.camera; sc.near=0.5; sc.far=span*6; sc.left=sc.bottom=-span; sc.right=sc.top=span; sc.updateProjectionMatrix();
+  updateSun();
+  controls.update();
+}
+
+/* ---------- run ---------- */
+async function run(addr){
+  showLoad("Locating address…"); setStatus("");
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null;   // new address → drop stale material renders + selection
+  try{
+    const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
+    showLoad("Analysing roof (Solar)…");
+    const b=await solar(g.lat,g.lng); LASTB=b;
+    if(!b.solarPotential) throw new Error("no solar potential for this building");
+    showLoad("Fetching elevation + imagery…");
+    const dl=await datalayers(g.lat,g.lng);
+    if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
+    const [dsm, rgb, flux, mask]=await Promise.all([
+      decodeTiff(dl.dsmUrl), decodeTiff(dl.rgbUrl),
+      dl.annualFluxUrl?decodeTiff(dl.annualFluxUrl).catch(()=>null):null,
+      dl.maskUrl?decodeTiff(dl.maskUrl).catch(()=>null):null ]);
+    LASTFLUX=flux; LASTMASK=mask; LASTDSM=dsm; LASTRGB=rgb;
+    showLoad("Building 3D model…");
+    // RGB -> CanvasTexture
+    const cw=rgb.width,ch=rgb.height, cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+    const cx=cv.getContext("2d"), id=cx.createImageData(cw,ch);
+    const R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
+    for(let i=0;i<cw*ch;i++){ id.data[i*4]=R[i]; id.data[i*4+1]=G[i]; id.data[i*4+2]=B[i]; id.data[i*4+3]=255; }
+    cx.putImageData(id,0,0);
+    const tex=new THREE.CanvasTexture(cv);
+    buildScene(b,dsm,rgb,tex);
+    // ===== consumer quote card: trade toggle + Good/Better/Best tiers + instant price =====
+    const spv=b.solarPotential, wrs=spv.wholeRoofStats||{};
+    QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
+    solarTiers=solarTiersFrom(spv); selTier=Math.max(0,solarTiers.length-1);   // default = Best
+    renderQuoteCard();
+    $("sunbar").style.display="flex"; updateSun();
+    showLoad(false);
+    window.__roofReady=true;
+    try{ await setMode("photoreal"); }catch(e){ errors.push("defaultPhoto:"+e.message); }
+    setTimeout(()=>{ if(window.__roofReady){ fetch(RQ_BASE+"/capture?address="+encodeURIComponent($("addr").value.trim())).catch(()=>{}); } }, 2500);   // pre-warm the capture (free) so the first material render is fast; paid renders happen on demand
+  }catch(e){ showLoad(false); setStatus("Couldn’t build 3D: "+e.message,true); errors.push("run:"+e.message); window.__roofReady=false; }
+}
+/* ======================= PHOTOREAL MODE (Google 3D tiles + panels as 3D polygons) ======================= */
+let gmap=null, photoPanels=[], photoLabels=[], mode="schematic", sunMode=false, panelsVisible=true, labelsVisible=false;
+function clearPanels(){ for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[]; window.__photoPanels=0; }
+function clearLabels(){ for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0; if(typeof clearRoofMeas==="function") clearRoofMeas(); }
+/* roof-material preview: fill the real facet outlines with a shingle colour on the 3D roof */
+/* semi-transparent so the real photoreal shingle TEXTURE shows through, tinted to the material colour */
+// roofing catalogue: Material category → popular Colors (from competitive research). type drives the swatch texture.
+const ROOF_CATALOG=[
+ { id:"arch", label:"Architectural", type:"asphalt", tier:"Most popular", colors:[
+   {n:"Weathered Wood",base:"rgb(122,106,84)",p:"weathered-wood architectural asphalt shingles, warm light gray-brown wood-shake tone"},
+   {n:"Charcoal",base:"rgb(54,57,61)",p:"charcoal-black architectural asphalt shingles"},
+   {n:"Pewter Gray",base:"rgb(126,128,130)",p:"pewter light-gray architectural asphalt shingles"},
+   {n:"Barkwood",base:"rgb(88,72,56)",p:"barkwood dark natural-brown architectural asphalt shingles"},
+   {n:"Driftwood",base:"rgb(142,128,108)",p:"driftwood weathered gray-brown architectural asphalt shingles"},
+   {n:"Estate Gray",base:"rgb(98,101,105)",p:"medium estate-gray architectural asphalt shingles"},
+   {n:"Hickory",base:"rgb(112,84,60)",p:"hickory rich walnut-brown architectural asphalt shingles"},
+   {n:"Slate Blend",base:"rgb(94,104,116)",p:"blue-gray slate-blend architectural asphalt shingles"},
+   {n:"Onyx Black",base:"rgb(38,40,43)",p:"true onyx-black architectural asphalt shingles"},
+   {n:"Hunter Green",base:"rgb(46,72,52)",p:"deep hunter-green architectural asphalt shingles"} ]},
+ { id:"3tab", label:"3-Tab", type:"asphalt", tier:"Budget", colors:[
+   {n:"Charcoal",base:"rgb(54,57,61)",p:"charcoal-gray 3-tab asphalt shingles"},
+   {n:"Weathered Wood",base:"rgb(122,106,84)",p:"weathered-wood 3-tab asphalt shingles"},
+   {n:"Driftwood",base:"rgb(142,128,108)",p:"driftwood gray-brown 3-tab asphalt shingles"},
+   {n:"Silver Gray",base:"rgb(150,152,154)",p:"silver-gray 3-tab asphalt shingles"},
+   {n:"Autumn Brown",base:"rgb(104,76,54)",p:"autumn-brown 3-tab asphalt shingles"},
+   {n:"Slate Gray",base:"rgb(96,104,112)",p:"slate-gray 3-tab asphalt shingles"} ]},
+ { id:"metal", label:"Standing-Seam Metal", type:"metal", tier:"Premium", colors:[
+   {n:"Matte Black",base:"rgb(34,34,36)",p:"matte black standing-seam metal roof"},
+   {n:"Charcoal",base:"rgb(64,66,70)",p:"charcoal-gray standing-seam metal roof"},
+   {n:"Slate Gray",base:"rgb(108,114,120)",p:"slate-gray standing-seam metal roof"},
+   {n:"Dark Bronze",base:"rgb(74,58,44)",p:"dark bronze standing-seam metal roof"},
+   {n:"Galvalume",base:"rgb(168,172,176)",p:"bare galvalume silver metallic standing-seam metal roof"},
+   {n:"Regal Blue",base:"rgb(40,66,104)",p:"regal blue standing-seam metal roof"},
+   {n:"Forest Green",base:"rgb(46,74,54)",p:"forest-green standing-seam metal roof"},
+   {n:"Colonial Red",base:"rgb(132,42,38)",p:"colonial red standing-seam metal roof"},
+   {n:"Copper",base:"rgb(150,90,52)",p:"copper-metallic standing-seam metal roof"} ]},
+ { id:"mshingle", label:"Metal Shingle", type:"metal", tier:"Premium", colors:[
+   {n:"Charcoal",base:"rgb(64,66,70)",p:"charcoal stone-coated steel metal shingle roof"},
+   {n:"Weathered Timber",base:"rgb(110,92,70)",p:"weathered-timber stone-coated steel metal shingle roof"},
+   {n:"Pinnacle Gray",base:"rgb(120,122,124)",p:"pinnacle-gray stone-coated steel metal shingle roof"},
+   {n:"Sierra Sand",base:"rgb(158,140,112)",p:"sierra sand-blend stone-coated steel metal shingle roof"},
+   {n:"Tahoe Brown",base:"rgb(96,72,52)",p:"tahoe brown-blend stone-coated steel metal shingle roof"},
+   {n:"Mission Red",base:"rgb(150,68,50)",p:"mission-red stone-coated steel metal shingle roof"} ]},
+ { id:"clay", label:"Clay Tile", type:"tile", tier:"Premium", colors:[
+   {n:"Natural Red",base:"rgb(178,84,54)",p:"natural red terracotta clay barrel roof tiles"},
+   {n:"Sand",base:"rgb(186,160,120)",p:"sand-buff clay barrel roof tiles"},
+   {n:"Brown Blend",base:"rgb(122,84,58)",p:"brown-blend clay barrel roof tiles"},
+   {n:"Tobacco",base:"rgb(132,92,62)",p:"tobacco-brown clay barrel roof tiles"},
+   {n:"Burgundy",base:"rgb(120,48,48)",p:"burgundy-blend clay barrel roof tiles"},
+   {n:"Aged Mission",base:"rgb(146,96,66)",p:"aged-mission multi-tone clay barrel roof tiles"} ]},
+ { id:"concrete", label:"Concrete Tile", type:"tile", tier:"Mid", colors:[
+   {n:"Terracotta",base:"rgb(170,90,58)",p:"terracotta concrete roof tiles"},
+   {n:"Santa Cruz",base:"rgb(150,108,74)",p:"santa-cruz tan reddish-brown concrete roof tiles"},
+   {n:"Charcoal",base:"rgb(70,72,76)",p:"charcoal-slate concrete roof tiles"},
+   {n:"Sand",base:"rgb(176,154,118)",p:"sand-tan concrete roof tiles"},
+   {n:"Brown Range",base:"rgb(116,86,62)",p:"brown-gray range concrete roof tiles"},
+   {n:"Gray Blend",base:"rgb(124,124,124)",p:"gray-blend concrete roof tiles"} ]},
+ { id:"slate", label:"Natural Slate", type:"slate", tier:"Premium", colors:[
+   {n:"Gray",base:"rgb(96,100,104)",p:"gray natural slate roof tiles"},
+   {n:"Black",base:"rgb(44,46,48)",p:"black natural slate roof tiles"},
+   {n:"Purple",base:"rgb(86,72,92)",p:"purple natural slate roof tiles"},
+   {n:"Green",base:"rgb(74,88,72)",p:"green natural slate roof tiles"},
+   {n:"Red",base:"rgb(120,58,52)",p:"red natural slate roof tiles"},
+   {n:"Mottled",base:"rgb(92,82,90)",p:"mottled purple-green blend natural slate roof tiles"} ]},
+ { id:"synthetic", label:"Synthetic Slate", type:"slate", tier:"Premium", colors:[
+   {n:"Slate Gray",base:"rgb(98,104,110)",p:"slate-gray synthetic composite slate roof tiles"},
+   {n:"Smoke",base:"rgb(72,74,78)",p:"smoke-charcoal synthetic composite slate roof tiles"},
+   {n:"Black",base:"rgb(44,46,48)",p:"black synthetic composite slate roof tiles"},
+   {n:"Green-Gray",base:"rgb(82,92,84)",p:"green-gray synthetic composite slate roof tiles"},
+   {n:"Aged Cedar",base:"rgb(124,100,74)",p:"aged-cedar synthetic composite shake roof"} ]},
+ { id:"cedar", label:"Cedar Shake", type:"wood", tier:"Premium", colors:[
+   {n:"New Cedar",base:"rgb(158,104,64)",p:"new western-red-cedar wood shake roof, warm reddish-brown"},
+   {n:"Honey",base:"rgb(178,134,82)",p:"honey-amber cedar wood shake roof"},
+   {n:"Light Brown",base:"rgb(150,118,84)",p:"light-brown cedar wood shake roof"},
+   {n:"Chocolate",base:"rgb(96,68,48)",p:"chocolate-brown cedar wood shake roof"},
+   {n:"Weathered Gray",base:"rgb(140,134,128)",p:"weathered silver-gray aged cedar wood shake roof"} ]} ];
+const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type}));   // back-compat alias for the legacy top-down preview
+// installed price per roofing SQUARE (100 sq ft), [low,high] USD — drives the quote AFTER a material is chosen
+const ROOF_PSQ={ arch:[450,700], "3tab":[350,500], metal:[900,1600], mshingle:[700,1100], clay:[800,1500], concrete:[600,1000], slate:[1500,3000], synthetic:[900,1500], cedar:[700,1200] };
+let matPolys=[], matMode=false, matIdx=0, selMat=0, selCol=0;
+/* procedural shingle texture canvas (type tweaks the pattern: asphalt/slate/wood/tile) */
+function makeShingleCanvas(base,type){
+  const c=document.createElement("canvas"); c.width=512; c.height=512; const x=c.getContext("2d");
+  x.fillStyle=base; x.fillRect(0,0,512,512);
+  const cfg={ asphalt:{rows:14,cols:11,gap:2}, slate:{rows:11,cols:8,gap:3}, wood:{rows:22,cols:6,gap:2}, tile:{rows:12,cols:9,gap:2} }[type||"asphalt"];
+  const rh=512/cfg.rows, cw=512/cfg.cols;
+  for(let r=0;r<cfg.rows;r++){ const off=(r%2)*0.5;
+    for(let cc=-1;cc<cfg.cols+1;cc++){ const px=(cc+off)*cw, py=r*rh;
+      const sh=(Math.sin(r*12.9+cc*78.233)*43758.5)%1, v=sh-Math.floor(sh);
+      x.fillStyle="rgba(0,0,0,"+(0.05+v*0.14).toFixed(3)+")"; x.fillRect(px,py,cw-cfg.gap,rh-cfg.gap);
+      x.strokeStyle="rgba(0,0,0,0.3)"; x.lineWidth=1; x.strokeRect(px+0.5,py+0.5,cw-cfg.gap,rh-cfg.gap);
+      x.fillStyle="rgba(255,255,255,0.06)"; x.fillRect(px,py,cw-cfg.gap,1.5);
+    }
+  }
+  return c;
+}
+/* FEASIBILITY SPIKE: can Map3D render a textured GLB on the roof? place an 8m textured plane at SITE */
+window.__testTexModel=async function(){
+  try{
+    const { GLTFExporter }=await import("three/addons/exporters/GLTFExporter.js");
+    const tex=new THREE.CanvasTexture(makeShingleCanvas("rgb(230,90,40)","asphalt")); tex.colorSpace=THREE.SRGBColorSpace;
+    const g=new THREE.PlaneGeometry(10,10,1,1); g.rotateX(-Math.PI/2);
+    const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:tex,roughness:0.95,emissive:0x331100,emissiveIntensity:0.4,side:THREE.DoubleSide}));
+    const glb=await new GLTFExporter().parseAsync(mesh,{binary:true});
+    const blob=new Blob([glb],{type:"model/gltf-binary"});
+    const url=await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); // data: URL
+    window.__glbBytes=glb.byteLength;
+    const { Model3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+    const m=new Model3DElement({ src:url, position:{lat:SITE.lat,lng:SITE.lng,altitude:1.5}, altitudeMode:AltitudeMode.RELATIVE_TO_MESH });
+    gmap.append(m); window.__texModelOk=true; return "placed";
+  }catch(e){ window.__texModelErr=String(e); errors.push("texmodel:"+e.message); return "err:"+e.message; }
+};
+function clearMat(){ for(const p of matPolys){ try{ p.remove&&p.remove(); }catch(_){} } matPolys=[]; window.__matPolys=0; }
+async function buildRoofMaterial(){
+  if(!gmap) return; clearMat();
+  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  const mt=ROOF_MATS[matIdx]||ROOF_MATS[0];
+  const fill=mt.base.replace("rgb(","rgba(").replace(")",",0.6)");   // tint; real shingle texture shows through
+  for(const f of extractFacetPolys(0.4)){   // 0.4m erosion → near-full coverage (was 1m gap)
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(0,0,0,0.35)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.4})); gmap.append(poly); matPolys.push(poly);
+  }
+  window.__matPolys=matPolys.length;
+}
+function energyColor(t){ // 0=low sun (blue) -> high sun (red)
+  t=Math.max(0,Math.min(1,t)); const st=[[59,130,246],[34,211,238],[250,204,21],[239,68,68]];
+  const seg=Math.min(2,Math.floor(t*3)), f=t*3-seg, a=st[seg], b=st[seg+1];
+  return `rgba(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)},0.92)`;
+}
+/* Douglas-Peucker simplify of an [x,y] polyline */
+function perpDist(p,a,b){ const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy; if(L===0)return Math.hypot(p[0]-a[0],p[1]-a[1]);
+  const t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L; return Math.hypot(p[0]-(a[0]+t*dx), p[1]-(a[1]+t*dy)); }
+function dpSimplify(pts,eps){ if(pts.length<3) return pts; let dmax=0,idx=0; const a=pts[0],b=pts[pts.length-1];
+  for(let i=1;i<pts.length-1;i++){ const d=perpDist(pts[i],a,b); if(d>dmax){dmax=d;idx=i;} }
+  if(dmax>eps){ return dpSimplify(pts.slice(0,idx+1),eps).slice(0,-1).concat(dpSimplify(pts.slice(idx),eps)); } return [a,b]; }
+/* Moore-neighbor boundary trace of a binary predicate grid, clockwise from (sr,sc) */
+function mooreTrace(isF,sr,sc,rows,cols){
+  const N=[[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]];
+  const cont=[[sr,sc]]; let cur=[sr,sc], prev=[sr,sc-1], safety=rows*cols*8;
+  while(safety-->0){
+    let di=0; for(let k=0;k<8;k++){ if(cur[0]+N[k][0]===prev[0]&&cur[1]+N[k][1]===prev[1]){di=k;break;} }
+    let found=false;
+    for(let k=1;k<=8;k++){ const idx=(di+k)%8, nr=cur[0]+N[idx][0], nc=cur[1]+N[idx][1];
+      if(isF(nr,nc)){ prev=[cur[0]+N[(idx+7)%8][0], cur[1]+N[(idx+7)%8][1]]; cur=[nr,nc]; found=true; break; } }
+    if(!found) break;
+    if(cur[0]===sr&&cur[1]===sc) break;
+    cont.push(cur.slice());
+  }
+  return cont;
+}
+/* REAL roof facets from the DSM: assign each roof pixel to its best-fitting Solar plane,
+   then TRACE the true outline (follows the roof edges) + measure area (not Google's bbox) */
+function extractFacetPolys(margin){
+  margin=(margin==null)?0.5:margin;
+  if(!LASTDSM||!LASTB) return [];
+  const dsm=LASTDSM, zone=dsm.zone;
+  const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const segs=LASTB.solarPotential.roofSegmentStats||[];
+  const planes=segs.map((sg,i)=>{ const [cE,cN]=wgs84ToUTM(sg.center.latitude,sg.center.longitude,zone); const az=(sg.azimuthDegrees||0)*Math.PI/180;
+    return {i,cE,cN,h:sg.planeHeightAtCenterMeters||0,sinAz:Math.sin(az),cosAz:Math.cos(az),tanP:Math.tan((sg.pitchDegrees||0)*Math.PI/180),seg:sg,n:0}; });
+  if(!planes.length) return [];
+  let s=90,w=180,nn=-90,e=-180; for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
+  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.3, dLat=step/mLat, dLng=step/mLng, cellA=step*step, pad=4;
+  const cols=Math.ceil((e-w)/dLng)+1+2*pad, rows=Math.ceil((nn-s)/dLat)+1+2*pad;
+  const lab=new Int16Array(rows*cols).fill(-1);
+  for(let r=pad;r<rows-pad;r++)for(let c=pad;c<cols-pad;c++){
+    const lat=s+(r-pad)*dLat, lng=w+(c-pad)*dLng, [E,N]=wgs84ToUTM(lat,lng,zone);
+    if(mg && !roofInterior(mg,E,N,margin)) continue;   // erode `margin` m inside roof edge
+    const z=sampleGrid(dg,E,N); if(z==null||!isFinite(z)) continue;
+    let best=-1,bestR=0.7;
+    for(const p of planes){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const rr=Math.abs(z-(p.h-d*p.tanP)); if(rr<bestR){bestR=rr;best=p.i;} }
+    if(best>=0){ lab[r*cols+c]=best; planes[best].n++; }
+  }
+  const cell2ll=(r,c)=>[ w+(c-pad)*dLng, s+(r-pad)*dLat ];
+  const out=[];
+  for(const p of planes){ if(p.n<10) continue;
+    const isF=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&lab[r*cols+c]===p.i;
+    let sr=-1,sc=-1; outer: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(lab[r*cols+c]===p.i){sr=r;sc=c;break outer;}
+    if(sr<0) continue;
+    let cont=dpSimplify(mooreTrace(isF,sr,sc,rows,cols),1.4);
+    if(cont.length<3) continue;
+    const ring=cont.map(([r,c])=>cell2ll(r,c));
+    const planArea=p.n*cellA, slopeArea=planArea/Math.max(0.3,Math.cos(Math.atan(p.tanP)));
+    out.push({ hull:ring, slopeArea, seg:p.seg });
+  }
+  return out;
+}
+/* ===== EagleView-grade roof geometry (roofgeo.mjs) + measurement visualization ===== */
+let roofMeas=[];
+const EDGE_COLORS={ ridge:"#ff453a", hip:"#ff9f0a", valley:"#2e90ff", eave:"#32d74b", rake:"#bf5af2" };
+function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
+function facetsToRoofModel(){
+  if(!LASTDSM||!LASTB||!window.__buildRoofModel) return null;
+  const dsm=LASTDSM, zone=dsm.zone, dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+  const facets=extractFacetPolys(0.0); if(!facets.length) return null;
+  // local ENU metres centred on the house → metric for the engine, trivially invertible for rendering
+  const lat0=SITE.lat, lng0=SITE.lng, mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
+  const toLocal=(lng,lat)=>[(lng-lng0)*mLng,(lat-lat0)*mLat];
+  const toWgs=(x,y)=>[lng0+x/mLng, lat0+y/mLat];
+  const sampleHeight=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); const z=sampleGrid(dg,E,N); return (z==null||!isFinite(z))?0:z; };
+  const planes=facets.map((f,i)=>({ id:"P"+(i+1), ring:f.hull.map(([lng,lat])=>toLocal(lng,lat)) }));
+  let model; try{ model=window.__buildRoofModel(planes, sampleHeight); }catch(e){ errors.push("roofgeo:"+e.message); return null; }
+  model.__toWgs=toWgs; return model;
+}
+async function buildRoofMeasure(){
+  if(!gmap) return; clearRoofMeas();
+  const model=facetsToRoofModel(); if(!model){ await buildPhotoLabels(); return; }   // graceful fallback to legacy outline
+  const toWgs=model.__toWgs;
+  const { Marker3DElement, AltitudeMode, Polyline3DElement }=await google.maps.importLibrary("maps3d");
+  let PinElement=null; try{ ({PinElement}=await google.maps.importLibrary("marker")); }catch(_){}
+  const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
+    if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.5:0.34 })); }catch(_){} }
+    gmap.append(m); roofMeas.push(m); };
+  // colour-coded dimension lines per edge type, anchored to the roof
+  for(const e of model.edges){
+    const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
+    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:8, drawsOccludedSegments:false,
+      coordinates:[{lat:A[1],lng:A[0],altitude:0.2},{lat:B[1],lng:B[0],altitude:0.2}] }); gmap.append(pl); roofMeas.push(pl); }catch(err){ errors.push("polyline:"+err.message); }
+  }
+  // per-edge LF labels — only significant edges, longest-first, well spread, anchored ON the roof (low altitude → no floating/clustering)
+  const placed=[];
+  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<11) continue; const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
+    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<3.0)) continue; placed.push([mx,my]);
+    const M=toWgs(mx,my); mk({lat:M[1],lng:M[0],altitude:0.25}, Math.round(e.lengthFt)+"′", false, EDGE_COLORS[e.type]); }
+  // per-plane area + pitch label, anchored just above the roof surface (not floating high → stays inside the plane)
+  for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
+    const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round(p.areaSqFt)+" ft² · "+p.pitchX12+"/12", true); }
+  showRoofReport(model.totals);
+  $("measToggle").style.display="flex"; showMeasDiagram(false);   // 3D default + Diagram toggle (accurate top-down)
+  window.__roofMeas={ planes:model.planes.length, edges:model.edges.length, totals:model.totals };
+  // async roof-feature detection (chimneys/vents/skylights/dormers) → fill penetrations into the report, non-blocking
+  fetch(RQ_BASE+"/features?address="+encodeURIComponent($("addr").value.trim())).then(r=>r.json()).then(f=>{
+    if(!f||!f.counts) return; const c=f.counts, pen=(c.chimneys||0)+(c.vents||0)+(c.skylights||0)+(c.dormers||0);
+    const rp=$("roofReport"); if(!rp||rp.style.display==="none") return;
+    rp.insertAdjacentHTML("beforeend",'<div class="rr-row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>Penetrations</span><b>'+pen+'</b></div>'+
+      (f.roofType&&f.roofType!=="unknown"?'<div class="rr-row"><span>Roof type</span><b>'+f.roofType+'</b></div>':''));
+    window.__roofFeatures=f;
+  }).catch(()=>{});
+}
+function rrRound(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+/* ===== clean top-down measurement DIAGRAM (perfectly aligned to the ortho the facets are derived from) ===== */
+function renderRoofDiagram(){
+  if(!LASTRGB||!window.__buildRoofModel) return false;
+  const model=facetsToRoofModel(); if(!model||!model.edges.length) return false;
+  const toWgs=model.__toWgs, rgb=LASTRGB, zone=(LASTFLUX||LASTDSM).zone, rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], W=rgb.width, H=rgb.height;
+  const toPx=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  for(const p of model.planes) for(const v of p.ring){ const [px,py]=toPx(v[0],v[1]); minx=Math.min(minx,px);miny=Math.min(miny,py);maxx=Math.max(maxx,px);maxy=Math.max(maxy,py); }
+  const pad=Math.max(34,(maxx-minx)*0.2); minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
+  const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
+  const cv=$("matCanvas"); cv.width=cw; cv.height=ch; const ctx=cv.getContext("2d");
+  const src=document.createElement("canvas"); src.width=W; src.height=H; const sctx=src.getContext("2d");
+  const od=sctx.createImageData(W,H), d=od.data, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
+  for(let i=0;i<W*H;i++){ d[i*4]=R[i]; d[i*4+1]=G[i]; d[i*4+2]=B[i]; d[i*4+3]=255; }
+  sctx.putImageData(od,0,0);
+  ctx.drawImage(src, minx,miny,cw,ch, 0,0,cw,ch);
+  ctx.fillStyle="rgba(8,12,20,0.5)"; ctx.fillRect(0,0,cw,ch);
+  const P=(x,y)=>{ const [px,py]=toPx(x,y); return [px-minx, py-miny]; };
+  ctx.lineCap="round"; ctx.lineJoin="round"; ctx.lineWidth=Math.max(3,cw/130);
+  for(const e of model.edges){ const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
+    ctx.strokeStyle=EDGE_COLORS[e.type]||"#22d3ee"; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }
+  const fs=Math.max(13,cw/38); ctx.textAlign="center"; ctx.textBaseline="middle";
+  const lbl=(tx,ty,text,col,bold)=>{ ctx.font=(bold?"800 ":"700 ")+fs+"px system-ui,Segoe UI,sans-serif"; const w=ctx.measureText(text).width+12;
+    ctx.fillStyle="rgba(8,12,20,0.86)"; rrRound(ctx,tx-w/2,ty-fs*0.72,w,fs*1.44,5); ctx.fill();
+    ctx.fillStyle=col||"#eaf6ff"; ctx.fillText(text,tx,ty); };
+  const placed=[];
+  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<8) continue;
+    const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]); const mx=(ax+bx)/2,my=(ay+by)/2;
+    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<fs*2.2)) continue; placed.push([mx,my]);
+    lbl(mx,my, Math.round(e.lengthFt)+"′", EDGE_COLORS[e.type]); }
+  for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){const [px,py]=P(v[0],v[1]);cx+=px;cy+=py;} cx/=p.ring.length;cy/=p.ring.length;
+    lbl(cx,cy-fs*0.85, Math.round(p.areaSqFt)+" ft²", "#fff", true); lbl(cx,cy+fs*0.85, p.pitchX12+"/12", "#cfe0f5"); }
+  return true;
+}
+function showMeasDiagram(on){
+  if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; }
+  else { $("matCanvas").style.display="none"; $("gmapWrap").style.display="block"; }
+  const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
+}
+$("measToggle").querySelector('[data-v="3d"]').onclick=()=>showMeasDiagram(false);
+$("measToggle").querySelector('[data-v="diagram"]').onclick=()=>showMeasDiagram(true);
+function showRoofReport(t){ window.__roofTotals=t; const rp=$("roofReport"); if(!rp) return; const f=n=>Math.round(n||0).toLocaleString();
+  const row=(c,l,v)=>'<div class="rr-row"><span>'+(c?'<i style="background:'+c+'"></i>':'')+l+'</span><b>'+v+'</b></div>';
+  rp.innerHTML='<div class="rr-h">Roof measurements</div>'+
+    '<div class="rr-big">'+f(t.roofAreaSqFt)+' ft²</div><div class="rr-sub">'+(t.squares||0).toFixed(1)+' squares · '+t.facetCount+' facets · '+t.predominantPitchX12+'/12 pitch</div>'+
+    row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt)+"′")+row(EDGE_COLORS.hip,"Hip",f(t.hipFt)+"′")+
+    row(EDGE_COLORS.valley,"Valley",f(t.valleyFt)+"′")+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt)+"′")+
+    row(EDGE_COLORS.rake,"Rake",f(t.rakeFt)+"′");
+  rp.style.display="none";   // the quote card now carries measurements contextually → avoid duplicate HUD
+}
+async function buildPhotoLabels(){
+  if(!LASTB||!gmap) return;
+  const { Marker3DElement, Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  let PinElement=null; try{ ({PinElement}=await google.maps.importLibrary("marker")); }catch(_){}
+  // premium minimal label: small dark glassy pin matching the UI (no cheap red teardrop)
+  const mkLabel=(pos,text,big)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
+    if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:"#22d3ee", glyph:"", scale:big?0.5:0.38 })); }catch(_){} }
+    gmap.append(m); photoLabels.push(m); return m; };
+  for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[];
+  const facets=extractFacetPolys();
+  window.__facetAreas=facets.map(f=>Math.round(f.slopeArea*M2_SQFT));
+  window.__facetGoogle=(LASTB.solarPotential.roofSegmentStats||[]).map(s=>Math.round(((s.stats&&s.stats.areaMeters2)||0)*M2_SQFT));
+  const placedMids=[];   // dedupe shared ridge/valley lines so they aren't labelled twice
+  for(const f of facets){
+    // displayed area = Google's reliable tilt-adjusted segment area (the eroded outline is for the visual only)
+    const ga=(f.seg.stats&&f.seg.stats.areaMeters2)||f.slopeArea;
+    const sqft=Math.round(ga*M2_SQFT), x12=Math.round(Math.abs(Math.tan((f.seg.pitchDegrees||0)*Math.PI/180))*12);
+    try{
+      const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:"rgba(34,211,238,0.15)", strokeColor:"rgba(34,211,238,0.95)", strokeWidth:2, extruded:false, drawsOccludedSegments:false });
+      poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.6})); gmap.append(poly); photoLabels.push(poly);
+      const c=f.seg.center;
+      mkLabel({lat:c.latitude,lng:c.longitude,altitude:0.8}, sqft+" ft² · "+x12+"/12", true);
+      // per-roof-line length labels (each significant edge, in feet); dedupe shared lines + skip short rakes → clean, premium
+      const H=f.hull, mLatE=111320, mLngE=111320*Math.cos((H[0][1])*Math.PI/180);
+      for(let e=0;e<H.length;e++){
+        const a=H[e], b=H[(e+1)%H.length];
+        const len=Math.hypot((b[0]-a[0])*mLngE,(b[1]-a[1])*mLatE)*M_FT;
+        if(len<12) continue;
+        const ml=(a[1]+b[1])/2, mo=(a[0]+b[0])/2;
+        if(placedMids.some(p=>Math.hypot((p.lng-mo)*mLngE,(p.lat-ml)*mLatE)<2)) continue; // shared edge already labelled
+        placedMids.push({lat:ml,lng:mo});
+        mkLabel({lat:ml,lng:mo,altitude:0.55}, Math.round(len)+"′", false);
+      }
+    }catch(e){ errors.push("facet:"+e.message); }
+  }
+  window.__photoLabels=photoLabels.length;
+}
+/* full roof sun/shade heat-map: flux raster drawn as roof-clamped colored cells */
+let heatCells=[];
+function clearHeat(){ for(const c of heatCells){ try{ c.remove&&c.remove(); }catch(_){} } heatCells=[]; window.__heatCells=0; }
+async function buildPhotoHeatmap(){
+  if(!gmap||!LASTFLUX||!LASTB){ window.__heatCells=0; return; }
+  clearHeat();
+  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  const fx=LASTFLUX, zone=fx.zone;
+  const fg={vals:fx.rasters[0],w:fx.width,h:fx.height,bbox:fx.bbox};
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const segs=LASTB.solarPotential.roofSegmentStats||[];
+  let s=90,w=180,nn=-90,e=-180;
+  for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
+  if(s>nn) return;
+  // step 0.55 + half-size 0.38 (cells overlap → smooths the grid look); erode only 0.5m so coverage reaches the roofline
+  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.55, dLat=step/mLat, dLng=step/mLng, hLat=0.38/mLat, hLng=0.38/mLng;
+  let fmin=Infinity,fmax=-Infinity; const pts=[];
+  for(let lat=s; lat<=nn; lat+=dLat) for(let lng=w; lng<=e; lng+=dLng){
+    const [E,N]=wgs84ToUTM(lat,lng,zone);
+    if(mg && !roofInterior(mg,E,N,0.5)) continue;   // small erode: keep cells off the wall but still reach the roofline
+    const v=sampleGrid(fg,E,N); if(!(v>0)||!isFinite(v)) continue;
+    if(v<fmin)fmin=v; if(v>fmax)fmax=v; pts.push([lat,lng,v]);
+  }
+  if(!pts.length) return; const range=(fmax-fmin)||1;
+  for(let i=0;i<Math.min(pts.length,1100);i++){ const [lat,lng,v]=pts[i];
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:energyColor((v-fmin)/range), strokeWidth:0, extruded:false, drawsOccludedSegments:false });
+    poly.outerCoordinates=[ {lat:lat-hLat,lng:lng-hLng,altitude:0.12},{lat:lat-hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng-hLng,altitude:0.12} ];
+    gmap.append(poly); heatCells.push(poly);
+  }
+  window.__heatCells=heatCells.length;
+}
+async function ensurePhotoreal(){
+  const cam={ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:78, tilt:58, heading:15 };
+  if(gmap){ // re-search: fly the existing map to the new address (was a bug: 3D stayed on the old address)
+    try{ if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:800}); else Object.assign(gmap,cam); }catch(_){}
+    return gmap; }
+  const { Map3DElement }=await google.maps.importLibrary("maps3d");
+  gmap=new Map3DElement(Object.assign({mode:"HYBRID"},cam));
+  gmap.style.width="100%"; gmap.style.height="100%";
+  $("gmapWrap").appendChild(gmap);
+  window.gmap=gmap; window.__site=()=>({lat:SITE.lat,lng:SITE.lng,alt:siteAlt});  // expose for headless oblique-capture pipeline
+  return gmap;
+}
+/* 4 lat/lng/alt corners of a panel, sitting on its facet plane */
+function panelCornersLL(pn,seg,pw,ph){
+  const lat=pn.center.latitude, lng=pn.center.longitude;
+  const Az=(seg.azimuthDegrees||0)*Math.PI/180, tanP=Math.tan((seg.pitchDegrees||0)*Math.PI/180);
+  const land=pn.orientation==="LANDSCAPE", w=land?ph:pw, h=land?pw:ph;     // across=w, along-slope=h
+  const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
+  const ax=Math.cos(Az), an=-Math.sin(Az), fx=Math.sin(Az), fn=Math.cos(Az); // across / facing in (E,N)
+  // altitude is RELATIVE_TO_MESH → small constant lift drapes the panel onto Google's actual roof surface
+  return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([i,j])=>{
+    const dE=i*(w/2)*ax + j*(h/2)*fx, dN=i*(w/2)*an + j*(h/2)*fn;
+    return { lat:lat+dN/mLat, lng:lng+dE/mLng, altitude: 0.5 };
+  });
+}
+async function buildPhotoPanels(){
+  if(!LASTB||!gmap) return;
+  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
+  const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
+  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const n=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
+  const list=(sp.solarPanels||[]).slice(0,n);
+  const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
+  for(const pn of list){
+    if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
+    const fill=sunMode ? energyColor(((pn.yearlyEnergyDcKwh||0)-emin)/((emax-emin)||1)) : "rgba(56,132,255,0.9)";
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    poly.outerCoordinates=panelCornersLL(pn,seg,pw,ph); gmap.append(poly); photoPanels.push(poly);
+  }
+  window.__photoPanels=photoPanels.length;
+}
+async function setMode(mo){
+  mode=mo; const photo=mo==="photoreal";
+  $("gmapWrap").style.display=photo?"block":"none";
+  $("scene").style.display=photo?"none":"block";
+  $("sunbar").style.display=(!photo&&window.__roofReady)?"flex":"none";
+  if(photo){
+    showLoad("Loading photoreal 3D…");
+    try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+e.message); setStatus("Photoreal: "+e.message,true); }
+    showLoad(false);
+  } else setStatus("");
+  window.__mode=mode;
+}
+
+/* ===== consumer quote REPORT (web view + print-to-PDF + share/email) ===== */
+function openReport(){
+  if(!QUOTE){ return; }
+  const addr=$("addr").value, sqs=QUOTE.roofSqft/100;
+  const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
+  const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
+  const moS=v=>loanPayment(v,6.99,25), moR=v=>loanPayment(v,9.99,12);   // real loan payments
+  const heroMo=tradeMode==="roof"?moR(rhi):moS(t.hi||rhi);
+  const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(x.hi).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
+  $("report").innerHTML=`
+   <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
+   <div class="rwrap">
+     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">WEFIXTRADES</div><h1>Your roof &amp; solar plan</h1><div class="addr">${addr} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
+     <div class="sec"><h2>The plan at a glance</h2>
+       <div class="bul"><span class="bm"></span><div>Roof: <b>${Math.round(QUOTE.roofSqft).toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
+       <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
+       <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
+     <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
+     ${(()=>{ const nc=Math.round((best.hi||0)*0.7); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
+       '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' (after 30% federal credit, 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
+     <div class="sec"><h2>New roof option</h2><div class="pricebig">${fmtMoney(rlo)}–${fmtMoney(rhi)}</div><div class="muted">Asphalt-shingle re-roof · ${sqs.toFixed(1)} squares · tear-off + install. Other materials &amp; financing available.</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar 6.99% APR / 25 yr, roofing 9.99% / 12 yr. Soft-pull pre-qualification, no credit impact. Solar shown before the 30% federal tax credit.</div></div>
+     <div class="sec"><h2>What's included</h2>
+       <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
+       <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
+       <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Solar: production guarantee + monitoring</div></div></div>
+     <div class="sec"><h2>Next step</h2>
+       <button class="rcta" id="bookBtn" onclick="window.__book()">Book my free assessment</button>
+       <div class="signbox" id="signbox">No obligation · pick a time that works · we confirm the final price on-site</div></div>
+     <div class="foot">*Ballpark estimate generated from aerial imagery + Google Solar data, before rebates/incentives. Financing figures are illustrative. Pricing finalised after a free on-site assessment.</div>
+     ${PLAN==="free"?'<div class="rbadge">Powered by <b>WeFixTrades</b></div>':''}
+   </div>`;
+  $("report").style.display="block"; document.body.style.overflow="hidden";
+}
+window.__openReport=openReport;
+/* lead capture soft-gate: value (3D + teaser price) shown first; capture unlocks the full report */
+window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
+window.__closeCapture=()=>{ $("lead").style.display="none"; };
+$("lgo").onclick=async()=>{
+  const name=$("lname").value.trim(), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
+  if(!name||!/.+@.+\..+/.test(email)){ $("lemail").style.borderColor="#e0556a"; return; }
+  const t=solarTiers[selTier]||{};
+  try{ await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name,email,phone,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)})}); }catch(_){}
+  window.__lead={name,email,phone}; $("lead").style.display="none"; openReport();
+};
+window.__book=async()=>{
+  const t=solarTiers[selTier]||{};
+  try{ await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode,tier:t.label,priceHi:t.hi}))}); }catch(_){}
+  const b=$("bookBtn"); if(b){ b.textContent="Assessment requested"; b.classList.add("done"); }
+  const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
+};
+window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; };
+window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(location.href); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
+window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+location.href); };
+$("go").onclick=()=>run($("addr").value.trim());
+$("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
+// Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
+// exits any 2D analysis (sun or material) + restores 3D
+function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
+$("bSun").onclick=async()=>{
+  sunMode=!sunMode; $("bSun").classList.toggle("on",sunMode);
+  matMode=false; $("bRoof").classList.remove("on"); labelsVisible=false; $("bLabels").classList.remove("on");
+  if(sunMode){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Sun replaces the Panels view
+  clearLabels(); clearPanels(); clearHeat();
+  if(sunMode){ showLoad("Mapping sun…"); showAnalysis(null); if(mode!=="photoreal") await setMode("photoreal"); await buildPhotoHeatmap(); showLoad(false); }
+  else { showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
+  renderQuoteCard();
+};
+$("bLabels").onclick=async()=>{
+  labelsVisible=!labelsVisible; $("bLabels").classList.toggle("on",labelsVisible);
+  sunMode=false; matMode=false; $("bSun").classList.remove("on"); $("bRoof").classList.remove("on");
+  if(labelsVisible){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Measure replaces the Panels view
+  clearPanels(); clearHeat(); clearMat(); clearLabels(); clearRoofMeas();
+  if(labelsVisible){ showLoad("Measuring roof…"); showAnalysis(null); if(mode!=="photoreal") await setMode("photoreal"); await buildRoofMeasure(); showLoad(false); }
+  else { showAnalysis(null); if(window.__trade!=="roof"){ panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} } }   // restore panels only in Solar
+  renderQuoteCard();
+};
+$("bPanels").onclick=async()=>{
+  panelsVisible=!panelsVisible; $("bPanels").classList.toggle("on",panelsVisible);
+  if(panelsVisible){ sunMode=false; labelsVisible=false; $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearHeat(); clearLabels(); clearRoofMeas&&clearRoofMeas(); }   // exclusive lens: Panels replaces Sun/Measure
+  if(mode!=="photoreal"){ renderQuoteCard(); return; }
+  leaveMat();
+  if(panelsVisible){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else clearPanels();
+  renderQuoteCard();
+};
+/* 2D material visualizer: composite real shingle texture onto the top-down roof photo,
+   clipped to the roof mask. Obstructions (mask holes: chimneys/vents) + off-roof keep the original photo. */
+function renderMaterialPreview(){
+  if(!LASTRGB) return;
+  const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0], G=rgb.rasters[1]||R, B=rgb.rasters[2]||R;
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  const out=ctx.createImageData(W,H), d=out.data;
+  const mt=ROOF_MATS[matIdx]||ROOF_MATS[0];
+  const sid=makeShingleCanvas(mt.base,mt.type).getContext("2d").getImageData(0,0,512,512).data;
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], tile=72, a=0.6;
+  let roofPx=0; const bb=buildingBox(2.5);
+  for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
+    for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
+      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && (!mg||sampleGrid(mg,E,N)>0.5);
+      if(onRoof){ roofPx++; const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
+        r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
+      d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
+    } }
+  ctx.putImageData(out,0,0); window.__matRoofPx=roofPx;
+}
+/* UTM bbox of the queried building (+margin) so analysis paints only THIS roof, not neighbours */
+function buildingBox(margin){
+  if(!LASTB||!(LASTFLUX||LASTDSM)) return null;
+  const zone=(LASTFLUX||LASTDSM).zone; let minE=1e12,maxE=-1e12,minN=1e12,maxN=-1e12, any=false;
+  for(const s of (LASTB.solarPotential.roofSegmentStats||[])){ const bb=s.boundingBox; if(!bb)continue; any=true;
+    for(const [la,lo] of [[bb.sw.latitude,bb.sw.longitude],[bb.ne.latitude,bb.ne.longitude]]){ const [E,N]=wgs84ToUTM(la,lo,zone);
+      if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; } }
+  if(!any) return null; const m=margin||3; return {minE:minE-m,maxE:maxE+m,minN:minN-m,maxN:maxN+m};
+}
+/* smooth flux color ramp -> [r,g,b] */
+function fluxColorSmooth(t){ t=Math.max(0,Math.min(1,t)); const st=[[44,62,150],[34,150,205],[86,196,120],[248,206,64],[232,86,48]];
+  const seg=Math.min(st.length-2,Math.floor(t*(st.length-1))), f=t*(st.length-1)-seg, a=st[seg],b=st[seg+1];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
+/* 2D sun/shade: smooth flux ramp composited onto the top-down photo, precise mask clip (no gaps, no chunky cells) */
+function renderSunPreview(){
+  if(!LASTRGB||!LASTFLUX) return;
+  const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  const out=ctx.createImageData(W,H), d=out.data;
+  const fg={vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox};
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1];
+  let fmin=Infinity,fmax=-Infinity; for(let i=0;i<fg.vals.length;i++){ const v=fg.vals[i]; if(v>0&&isFinite(v)){ if(v<fmin)fmin=v; if(v>fmax)fmax=v; } }
+  const range=(fmax-fmin)||1, a=0.72, bb=buildingBox(2.5);
+  for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN;
+    for(let col=0;col<W;col++){ const i=row*W+col,k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
+      const inB=!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN);
+      if(inB&&(!mg||sampleGrid(mg,E,N)>0.5)){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); r=r*(1-a)+c[0]*a; g=g*(1-a)+c[1]*a; b=b*(1-a)+c[2]*a; } }
+      d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
+    } }
+  ctx.putImageData(out,0,0); window.__sunDone=true;
+}
+function measLabel(ctx,txt,x,y,W,big){ const fs=Math.max(13,W/(big?34:48)); ctx.font=(big?"800 ":"600 ")+fs+"px system-ui,Segoe UI,sans-serif";
+  const w=ctx.measureText(txt).width, pad=fs*0.38;
+  ctx.fillStyle="rgba(8,14,22,0.84)"; const rx=x-w/2-pad, ry=y-fs/2-pad, rw=w+pad*2, rh=fs+pad*2;
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(rx,ry,rw,rh,5):ctx.rect(rx,ry,rw,rh); ctx.fill();
+  ctx.fillStyle=big?"#ffffff":"#9fe7f5"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(txt,x,y); }
+/* 2D measurement map: precise facet outlines (no erosion) + per-edge lengths + per-facet area */
+function renderMeasurePreview(){
+  if(!LASTRGB) return;
+  const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  const oid=ctx.createImageData(W,H), d=oid.data; for(let i=0;i<W*H;i++){ d[i*4]=R[i];d[i*4+1]=G[i];d[i*4+2]=B[i];d[i*4+3]=255; }
+  ctx.putImageData(oid,0,0); ctx.fillStyle="rgba(8,12,20,0.22)"; ctx.fillRect(0,0,W,H);
+  const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], zone=(LASTFLUX||LASTDSM).zone;
+  const toPx=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
+  const facets=extractFacetPolys(0.0); ctx.lineJoin="round"; let nFacets=0;
+  for(const f of facets){ nFacets++;
+    const pts=f.hull.map(([lng,lat])=>toPx(lat,lng));
+    ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+    ctx.lineWidth=Math.max(2.5,W/420); ctx.strokeStyle="rgba(34,211,238,0.97)"; ctx.stroke();
+    for(let i=0;i<f.hull.length;i++){ const a=f.hull[i], b=f.hull[(i+1)%f.hull.length];
+      const [aE,aN]=wgs84ToUTM(a[1],a[0],zone), [bE,bN]=wgs84ToUTM(b[1],b[0],zone), len=Math.hypot(bE-aE,bN-aN);
+      if(len<3) continue; const ft=Math.round(len*3.28084), inch=Math.round((len*3.28084-ft)*12);   // skip tiny edges to de-clutter
+      measLabel(ctx, ft+(inch?"'"+inch+'"':"'"), (pts[i][0]+pts[(i+1)%pts.length][0])/2, (pts[i][1]+pts[(i+1)%pts.length][1])/2, W); }
+    let cx=0,cy=0; pts.forEach(p=>{cx+=p[0];cy+=p[1];}); cx/=pts.length; cy/=pts.length;
+    const sqft=Math.round(((f.seg.stats&&f.seg.stats.areaMeters2)||f.slopeArea)*M2_SQFT);
+    measLabel(ctx, sqft+" ft²", cx, cy, W, true);
+  }
+  window.__measFacets=nFacets;
+}
+/* shared 2D analysis canvas: "material" | "sun" | "measure" | null */
+function showAnalysis(kind){
+  window.__analysis=kind||null;
+  document.body.classList.toggle("analyzing", kind==="material");  // mobile: swatch bar takes the card's bottom-sheet slot
+  if(kind){ $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matbar").style.display="none";
+    if(kind==="material"){ renderMaterialPreview(); $("matbar").style.display="flex"; $("matHint").textContent="Top-down preview · tap “See it on my house” for a photo"; $("aiBtn").style.display="block"; }
+    else if(kind==="sun"){ renderSunPreview(); $("matHint").textContent="Annual sun & shade · warm = most sun, cool = shaded"; }
+    else { renderMeasurePreview(); $("matHint").textContent="Roof measurements · per-facet area + line lengths"; }
+    $("matCanvas").style.display="block"; $("matHint").style.display=(kind==="material")?"none":"block"; }
+  else { $("matCanvas").style.display="none"; $("matHint").style.display="none"; $("matbar").style.display="none"; $("gmapWrap").style.display="block"; $("aiBtn").style.display="none"; hideAI(); }
+}
+const showMaterial=on=>showAnalysis(on?"material":null);   // back-comp
+// roof material swatches + toggle (2D preview)
+// realistic texture swatches; clicking a material live-previews it on the house (instant if pre-rendered)
+/* ===== roofing material → color catalogue with live AI preview ===== */
+window.__matRenders={}; window.__matInflight={}; window.__matWarming=false;
+const colorKey=(m,c)=>m.id+"|"+c.n;
+function matLoading(on,name){ setStatus(on?("Rendering "+(name||"")+" on your home… (~30s the first time)"):""); }
+function buildMatbar(){
+  const mb=$("matbar"); mb.innerHTML="";
+  const cats=document.createElement("div"); cats.id="matCats";
+  ROOF_CATALOG.forEach((m,i)=>{ const b=document.createElement("button"); b.className="matcat"+(i===selMat?" on":""); b.textContent=m.label;
+    b.onclick=()=>{ selMat=i; selCol=0; [...cats.children].forEach((x,j)=>x.classList.toggle("on",j===i)); renderCols(); if(matMode) renderColor(true); };
+    cats.appendChild(b); });
+  const cols=document.createElement("div"); cols.id="matCols";
+  mb.appendChild(cats); mb.appendChild(cols); renderCols();
+}
+function renderCols(){
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], wrap=$("matCols"); if(!wrap) return; wrap.innerHTML="";
+  m.colors.forEach((c,i)=>{ const d=document.createElement("div"); d.className="sw"+(i===selCol?" on":"")+(window.__matRenders[colorKey(m,c)]?" ready":"");
+    let bg=c.base; try{ bg="center/cover url("+makeShingleCanvas(c.base,m.type).toDataURL()+")"; }catch(_){}
+    d.innerHTML='<div class="chip" style="background:'+bg+'"></div><div class="nm">'+c.n+'</div>';
+    d.onclick=()=>{ if(matMode){ selCol=i; renderColor(true); } };
+    wrap.appendChild(d); });
+}
+function showMatImg(key,label){ const img=$("aiPhoto"); img.src=window.__matRenders[key]; img.style.display="block"; matLoading(false);
+  $("aiMat").textContent=label||""; $("aiBar").style.display="flex"; }
+function markColReady(key){ const m=ROOF_CATALOG[selMat]; if(!m) return; const idx=m.colors.findIndex(c=>colorKey(m,c)===key); const wrap=$("matCols"); if(idx>=0&&wrap&&wrap.children[idx]) wrap.children[idx].classList.add("ready"); }
+async function renderOne(m,c,show){
+  const key=colorKey(m,c), addr=$("addr").value.trim(), label=m.label+" · "+c.n;
+  if(show){ window.__roofSel={matId:m.id,matLabel:m.label,colorName:c.n}; if(typeof renderQuoteCard==="function") renderQuoteCard();
+    const wrap=$("matCols"); if(wrap)[...wrap.children].forEach((x,j)=>x.classList.toggle("on",j===m.colors.indexOf(c)));
+    scheduleFinal(m,c,key,label); }   // upgrade to crisp gpt-image-1 only if they settle on this colour
+  if(window.__matRenders[key]){ if(show) showMatImg(key,label); return window.__matRenders[key]; }
+  if(window.__matInflight[key]){ const u=await window.__matInflight[key]; if(show&&u) showMatImg(key,label); return u; }
+  if(show){ $("aiPhoto").style.display="block"; matLoading(true,c.n); }
+  const pr=(async()=>{ try{ const r=await fetch(RQ_BASE+"/airender?tier=browse&address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(c.p)); const j=await r.json();
+    if(j&&j.url){ if(!window.__matFinal[key]) window.__matRenders[key]=j.url; markColReady(key); return j.url; } }catch(_){} return null; })();   // don't let a late browse render clobber a settled gpt-image-1 (final) one
+  window.__matInflight[key]=pr; const url=await pr; delete window.__matInflight[key];
+  if(url){ if(show&&!window.__matFinal[key]) showMatImg(key,label); }   // final (gpt) already on screen → don't redisplay the cheaper browse image
+  else if(show){ matLoading(false); setStatus("Couldn't render "+c.n+" — try again",true); setTimeout(()=>setStatus(""),3000); }
+  return url;
+}
+function renderColor(show){ const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0]; return renderOne(m, m.colors[selCol]||m.colors[0], show); }
+// cost routing: catalogue clicks render cheap (browse). The colour they SETTLE on (no new click for ~1.8s) upgrades to crisp gpt-image-1.
+window.__matFinal={}; let finalTimer=null;
+function scheduleFinal(m,c,key,label){
+  clearTimeout(finalTimer);
+  if(window.__matFinal[key]) return;   // already upgraded to gpt
+  finalTimer=setTimeout(async()=>{
+    const cur=ROOF_CATALOG[selMat]&&ROOF_CATALOG[selMat].colors[selCol];
+    if(!cur || colorKey(ROOF_CATALOG[selMat],cur)!==key) return;   // they moved on → don't pay for gpt
+    try{ const r=await fetch(RQ_BASE+"/airender?tier=final&address="+encodeURIComponent($("addr").value.trim())+"&material="+encodeURIComponent(c.p)); const j=await r.json();
+      if(j&&j.url){ window.__matFinal[key]=true; window.__matRenders[key]=j.url;
+        const now=ROOF_CATALOG[selMat]&&ROOF_CATALOG[selMat].colors[selCol];
+        if(now && colorKey(ROOF_CATALOG[selMat],now)===key){ const img=$("aiPhoto"); if(img) img.src=j.url; } } }catch(_){}
+  }, 1800);
+}
+async function warmMats(){ if(window.__matWarming||!window.__roofReady) return; window.__matWarming=true;
+  // cost control: pre-warm only the top 3 colours of the selected material; the rest render on click + cache
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0];
+  for(let i=0;i<Math.min(3,m.colors.length);i++){ if(!window.__roofReady||!matMode) break; await renderOne(m,m.colors[i],false); }
+  window.__matWarming=false; }
+async function enterMatCatalogue(){
+  $("matbar").style.display="flex"; $("matHint").style.display="none"; $("aiBtn").style.display="none";
+  if(!$("matCats")) buildMatbar(); else renderCols();
+  await renderColor(true); warmMats(); }
+function exitMatCatalogue(){ if(typeof hideAI==="function") hideAI(); $("matbar").style.display="none"; $("aiBar").style.display="none"; }
+$("bRoof").onclick=async()=>{
+  matMode=!matMode; $("bRoof").classList.toggle("on",matMode);
+  if(matMode){ sunMode=false; labelsVisible=false; panelsVisible=false;
+    $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); $("bPanels").classList.remove("on");
+    clearPanels(); clearHeat(); clearLabels(); clearMat(); clearRoofMeas();
+    showAnalysis(null); document.body.classList.add("analyzing"); enterMatCatalogue(); }
+  else { document.body.classList.remove("analyzing"); exitMatCatalogue(); if(typeof renderQuoteCard==="function") renderQuoteCard(); }   // back to the clean 3D house + updated quote
+};
+// from the card's "Choose materials →" CTA: jump straight into the Roofing material catalogue
+window.__openMaterials=()=>{ if(tradeMode!=="roof"){ tradeMode="roof"; renderQuoteCard(); applyTradeMode(); } if(!matMode) $("bRoof").click(); };
+// ---- AI "See it on my house" photoreal roof render (Street View → Flux Kontext) ----
+function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; }
+$("aiBtn").onclick=async()=>{
+  const addr=$("addr").value.trim(); const mt=ROOF_MATS[matIdx]||ROOF_MATS[0]; const btn=$("aiBtn");
+  btn.disabled=true; btn.textContent="Modeling your home…";
+  setStatus("Building a photoreal view of your home & applying "+mt.n+" — about 30 seconds…");
+  try{
+    const r=await fetch(RQ_BASE+"/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(mt.p));
+    const j=await r.json();
+    setStatus("");
+    if(j.url){
+      const after=j.url, before="/capture?address="+encodeURIComponent(addr);   // before = same oblique aerial as the render input
+      const img=$("aiPhoto"); img.src=after; img.style.display="block";
+      $("aiMat").textContent=mt.n+" — your home"; $("aiToggle").textContent="Before";
+      let showing="after"; $("aiToggle").onclick=()=>{ showing=showing==="after"?"before":"after"; img.src=showing==="after"?after:before; $("aiToggle").textContent=showing==="after"?"Before":"After"; };
+      $("aiBar").style.display="flex"; btn.style.display="none";
+    } else { setStatus(j.error==="no_streetview"?"No street photo for this address yet":"Couldn't render — try again",true); setTimeout(()=>setStatus(""),3500); }
+  }catch(e){ setStatus("Render failed — try again",true); setTimeout(()=>setStatus(""),3500); }
+  btn.disabled=false; btn.textContent="See it on my house";
+};
+$("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block"; };
+$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:78,tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
+$("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun(); });
+$("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun(); });
+// auto-run on load for fast iteration — skipped with ?noauto=1 (used by the headless /capture so it controls the single search)
+if(!new URLSearchParams(location.search).get("noauto")) run($("addr").value.trim());
+</script>
+<script type="module">
+  try{ const m=await import(RQ_BASE+"/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
+  catch(e){ console.warn("roofgeo load failed",e); }
+</script>
+</body></html>

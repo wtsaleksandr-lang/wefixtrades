@@ -3,3 +3,6 @@ node_modules/
 *.png
 *.log
 serve*.log
+
+cache/
+leads.jsonl
