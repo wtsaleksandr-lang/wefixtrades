@@ -42,3 +42,5 @@ Grounded in competitive research (2026-06-21). TS = table-stakes, DIFF = differe
 - NOTE: verify integration .ts with NODE_OPTIONS=--max-old-space-size=8192 tsc (default heap OOMs + under-reports on this repo)
 - 2026-06-21 · CI fix: duplicate roofing key in TRADE_TEMPLATE_MAP (TS1117) — raised-heap tsc clean · #9 PDF/share/book already in report
 - 2026-06-21 · #10 material specs (warranty/lifespan/desc) · verified (metal: 30-50yr warranty, 40-70yr life), 0 errors
+- NOTE: integration server/asset changes need a full `NODE_OPTIONS=--max-old-space-size=8192 npm run build` to verify (tsc alone misses esbuild CJS issues like top-level await). Widget HTML features are fine with the serve.mjs visual gate.
+- 2026-06-21 · CI fix 2: rooffeatures.mjs top-level await broke esbuild CJS server bundle → static assert import; full local build clean
