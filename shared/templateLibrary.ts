@@ -259,10 +259,9 @@ export function getTemplateById(id: string): TemplateDefinition | undefined {
 /* ─── Trade → recommended template ─── */
 
 const TRADE_TEMPLATE_MAP: Record<string, string> = {
-  // Roof & Solar uses the 3D visualizer flow (address → 3D roof → quote)
+  // The dedicated Roof & Solar trade uses the 3D visualizer flow (address → 3D roof → quote).
+  // Existing roofing/solar trades keep their current templates until the visualizer is validated.
   roof_solar: 'roof_solar_visualizer',
-  roofing: 'roof_solar_visualizer',
-  solar_installation: 'roof_solar_visualizer',
 
   house_cleaning: 'classic_two_column',
   office_cleaning: 'classic_two_column',
