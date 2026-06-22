@@ -215,3 +215,8 @@ Root: Sun lens used 3D buildPhotoHeatmap (chunky 0.55m Polygon3D cells). FIX: Su
 ## TSRF + Solar Access % (T6) — DONE, verified
 roofSolarAccess(): per-face Access=median/segMax (shade), TOF=segMax/siteBest (tilt+orientation), TSRF=Access*TOF, all from Google sunshineQuantiles (no invented physics). Area-weighted overall + rating + >=75% incentive-grade badge + 'confirm on site'. Surfaced in sunCardBody + DATA_INFO.tsrf help cue. VERIFIED: Riverside best face S 5/12 @97% TSRF, overall 83% good; Angus S 4/12 @93%, 84%. Best face correctly = south.
 Feeds Trades Mode (the installer-trust metric).
+
+## Trades Mode slice 1 (T5) — report enhancements, verified
+- Materials takeoff: field shingles now shows bundles (3/square roofer convention) — '48.2 sq · 145 bundles'.
+- Report: new 'Sun & shade by roof face' section — per-face table (Face/Area/Access/TOF/TSRF) sorted best-first from roofSolarAccess(); overall TSRF + incentive-grade. VERIFIED: 11 faces, south ranks top (S 5/12 @97%).
+Remaining Trades Mode: 20% waste column, panel-layout w/ configurable setbacks, simple battery helper, exportable-branded framing.

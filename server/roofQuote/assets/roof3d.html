@@ -156,6 +156,12 @@
   #report .mr-waste td{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:9px;padding:8px 4px;text-align:center;font-size:12px;color:#5b6573}
   #report .mr-waste td.rec{border-color:#0d3cfc;background:rgba(13,60,252,.06);color:#0d3cfc}
   #report .mr-waste td b{display:block;font-size:15px;color:#0f172a}#report .mr-waste td.rec b{color:#0d3cfc}
+  #report .satab{width:100%;border-collapse:collapse;margin-top:4px;font-size:12.5px}
+  #report .satab th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-weight:700;padding:4px 8px;border-bottom:1px solid #e1e7ef}
+  #report .satab th:not(:first-child),#report .satab td:not(:first-child){text-align:right}
+  #report .satab td{padding:7px 8px;border-bottom:1px solid #eef2f7;color:#5b6573}
+  #report .satab tbody tr:first-child td b{color:#16a34a}
+  #report .satab td b{color:#0f172a;font-weight:800}
   #report .mr-waste .wp{font-weight:700;margin-bottom:2px}
   #report .rp-about{font-size:14px;color:#334155;line-height:1.6;margin:8px 0 0}
   #report .rp-grid{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
@@ -786,7 +792,7 @@ function roofTakeoff(t, wastePct){
   const sq=t.squares||(t.roofAreaSqFt/100), w=1+wastePct/100, fieldSq=sq*w;
   const eave=t.eaveFt||0, rake=t.rakeFt||0, ridge=t.ridgeFt||0, hip=t.hipFt||0, valley=t.valleyFt||0;
   const r=(l,v,ck)=>'<div class="tk-row"><span>'+l+(ck?'<span class="ccue" data-compinfo="'+ck+'" title="What is this?">i</span>':'')+'</span><b>'+v+'</b></div>';
-  let rows=r('Field shingles', fieldSq.toFixed(1)+' sq')
+  let rows=r('Field shingles', fieldSq.toFixed(1)+' sq · '+Math.ceil(fieldSq*3)+' bundles')
     + r('Starter strip', Math.round(eave)+' lf', 'starter')
     + r('Hip &amp; ridge cap', Math.round(ridge+hip)+' lf', 'ridgecap')
     + r('Drip edge', Math.round(eave+rake)+' lf', 'drip')
@@ -1776,6 +1782,12 @@ function openReport(){
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
      ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-REGION.credit)); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
        '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
+     ${(()=>{ const sa=roofSolarAccess(); if(!sa) return '';
+       const rows=sa.perFace.map(f=>`<tr><td>${f.dir} · ${f.x12}/12</td><td>${f.sqft.toLocaleString()} ft²</td><td>${f.access}%</td><td>${f.tof}%</td><td><b>${f.tsrf}%</b></td></tr>`).join('');
+       return `<div class="sec"><h2>Sun &amp; shade by roof face</h2>
+         <div class="muted" style="margin-bottom:8px">Overall <b>${sa.tsrf}% TSRF — ${sa.rating}</b>${sa.tsrf>=75?' · incentive-grade':''}. Solar Access % is shade only; TOF is tilt &amp; orientation; TSRF combines both (75%+ is the industry "good" floor).</div>
+         <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
+         <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
      ${roofSec}
      <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${TENANT.financing.solarYears} yr, roofing ${TENANT.financing.roofApr}% / ${TENANT.financing.roofYears} yr. Soft-pull pre-qualification, no credit impact. ${REGION.credit>0?'Solar shown before the '+Math.round(REGION.credit*100)+'% federal tax credit.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
