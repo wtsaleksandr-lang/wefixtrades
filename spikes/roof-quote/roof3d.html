@@ -133,6 +133,35 @@
   #report .rbar button{background:#0d3cfc;border:0;border-radius:8px;padding:8px 15px;font-weight:700;color:#ffffff;cursor:pointer;font-size:13px;box-shadow:var(--btn-shadow)}
   #report .rbar button.ghost{background:#f7f9fc;border:1px solid #e1e7ef;color:#0f172a;box-shadow:none}
   #report .rwrap{max-width:740px;margin:0 auto;padding-bottom:50px}
+  /* white-label report: trade header + placeholders */
+  #report .ph{color:#0d3cfc;background:rgba(13,60,252,.07);border:1px dashed rgba(13,60,252,.4);border-radius:5px;padding:0 5px;font-style:italic;font-size:.93em}
+  #report .th{display:flex;align-items:center;gap:14px;padding:18px 30px;border-bottom:1px solid #e1e7ef}
+  #report .th-logo{width:72px;height:72px;border-radius:12px;object-fit:contain;flex:0 0 auto;background:#f7f9fc}
+  #report .th-logo.ph-box{display:flex;align-items:center;justify-content:center;text-align:center;border:1px dashed #c3ccd8;color:#94a3b8;font-size:11px;font-weight:700;line-height:1.2}
+  #report .th-name{font-size:18px;font-weight:800;color:#0f172a}
+  #report .th-meta{font-size:12px;color:#5b6573;margin-top:2px}
+  /* measurement report */
+  #report .mr-stats{display:flex;gap:10px;margin:4px 0 14px}
+  #report .mr-stats>div{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:10px 6px;text-align:center}
+  #report .mr-stats b{display:block;font-size:18px;font-weight:800;color:#0f172a}
+  #report .mr-stats span{font-size:10px;color:#5b6573;text-transform:uppercase;letter-spacing:.03em}
+  #report .mr-diag{width:100%;border:1px solid #e1e7ef;border-radius:12px;margin-bottom:14px;background:#0b1017;display:block}
+  #report .mr-cols{display:flex;gap:24px;flex-wrap:wrap}
+  #report .mr-cols>div{flex:1;min-width:200px}
+  #report .mr-h2{font-size:12px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.03em;margin:16px 0 6px}
+  #report .mr-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #f0f3f8}
+  #report .mr-row span{color:#5b6573}#report .mr-row b{color:#0f172a}
+  #report .mr-row.tot b,#report .mr-row.tot span{font-weight:800;color:#0f172a}
+  #report .mr-waste{width:100%;border-collapse:separate;border-spacing:5px 0;margin-top:4px;table-layout:fixed}
+  #report .mr-waste td{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:9px;padding:8px 4px;text-align:center;font-size:12px;color:#5b6573}
+  #report .mr-waste td.rec{border-color:#0d3cfc;background:rgba(13,60,252,.06);color:#0d3cfc}
+  #report .mr-waste td b{display:block;font-size:15px;color:#0f172a}#report .mr-waste td.rec b{color:#0d3cfc}
+  #report .mr-waste .wp{font-weight:700;margin-bottom:2px}
+  #report .rp-about{font-size:14px;color:#334155;line-height:1.6;margin:8px 0 0}
+  #report .rp-grid{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+  #report .rp-card{flex:1;min-width:170px;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:12px;padding:14px}
+  #report .rp-ct{font-size:14px;font-weight:800;color:#0f172a;margin-bottom:5px}
+  #report .rp-cb{font-size:12.5px;color:#5b6573;line-height:1.5}
   #report .hero{position:relative;height:230px;background:#0b1017}
   #report .hero img{width:100%;height:100%;object-fit:cover;opacity:.9}
   #report .hero .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,11,18,.05),rgba(7,11,18,.82));display:flex;flex-direction:column;justify-content:flex-end;padding:22px 30px;color:#fff}
@@ -600,8 +629,21 @@ const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
    widget is data-driven, not hardcoded. ─── */
 const TENANT={
   brand:"WeFixTrades",
+  // The TRADE's white-label info shown on the downloadable report/proposal. Empty fields render as
+  // Roofr-style PLACEHOLDERS so an installer sees exactly where their branding goes. Injected per business in prod.
+  trade:{
+    company:"",            // → "[Your Company Name]"
+    logo:"",               // logo image URL → placeholder logo box
+    license:"",            // → "[License #]"
+    phone:"", email:"", web:"",
+    tagline:"",            // → "A sentence about why homeowners should trust you."
+    about:"",              // → About-us paragraph placeholder
+    promises:[],           // [{title,body}] up to 3 → 3 placeholder promises
+    certifications:[],     // [{name,body}] → placeholder certs
+    rating:0, reviews:0,   // star rating + review count
+  },
   financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, leaseEnabled:true, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
-  features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true },
+  features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true },
 };
 // Solar Renewable Energy Credit value by state ($/MWh produced ≈ $ per SREC). Real programs; approx 2026 — installer tunes per market.
 const SREC_VALUE={ DC:350, NJ:85, MA:60, MD:55, IL:70, DE:40, PA:35, OH:5 };
@@ -1585,6 +1627,45 @@ async function setMode(mo){
 }
 
 /* ===== consumer quote REPORT (web view + print-to-PDF + share/email) ===== */
+// ── white-label report helpers: the TRADE's branding (with Roofr-style placeholders) + a full measurement report ──
+function rph(text){ return '<span class="ph">'+text+'</span>'; }
+function tradeHeader(){ const tr=TENANT.trade||{};
+  const logo=tr.logo?'<img class="th-logo" src="'+tr.logo+'" alt="">':'<div class="th-logo ph-box">Your<br>logo</div>';
+  const company=tr.company||rph("[Your Company Name]");
+  const contact=[tr.phone,tr.email,tr.web].filter(Boolean).join(' · ')||rph("[Phone · Email · Website]");
+  const lic=tr.license?('License '+tr.license):rph("[License #]");
+  return '<div class="th">'+logo+'<div class="th-co"><div class="th-name">'+company+'</div><div class="th-meta">'+contact+'</div><div class="th-meta">'+lic+'</div></div></div>';
+}
+function measurementReport(t, sqs){
+  if(!t) return '';
+  const f=n=>Math.round(n||0).toLocaleString();
+  const lf=n=>{ const ft=Math.floor(n||0), inch=Math.round(((n||0)-ft)*12); return ft+'′ '+inch+'″'; };
+  const diag=(()=>{ try{ if(typeof renderRoofDiagram==="function" && renderRoofDiagram()) return $("matCanvas").toDataURL("image/png"); }catch(_){} return ''; })();
+  const lenRow=(l,v)=>'<div class="mr-row"><span>'+l+'</span><b>'+lf(v)+'</b></div>';
+  const rec=(typeof recommendedWasteIdx==="function")?recommendedWasteIdx(t):2;
+  const wasteCells=WASTE_OPTS.map((p,i)=>{ const sq=(sqs*(1+p/100)); return '<td class="'+(i===rec?'rec':'')+'"><div class="wp">'+p+'%'+(i===rec?' ✓':'')+'</div><b>'+sq.toFixed(1)+'</b> sq</td>'; }).join('');
+  const tk=roofTakeoff(t, WASTE_OPTS[rec]);
+  return '<div class="sec mr"><h2>Roof measurement report</h2>'+
+    '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+(t.squares||0).toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
+    (diag?'<img class="mr-diag" src="'+diag+'" alt="Roof measurement diagram">':'')+
+    '<div class="mr-cols"><div><div class="mr-h2">Length report</div>'+lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
+      '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div></div>'+
+      '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+(t.squares||0).toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
+    '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
+    '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
+    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div></div>';
+}
+function proposalSections(){ const tr=TENANT.trade||{};
+  const about=tr.about||rph("[About your company — who you are, your experience, and what makes you different. Pulled from your QuoteQuick profile.]");
+  const proms=(tr.promises&&tr.promises.length)?tr.promises:[{title:"[Promise #1]",body:"[e.g. On-time, on-budget, guaranteed.]"},{title:"[Promise #2]",body:"[Your second promise to the homeowner.]"},{title:"[Promise #3]",body:"[Your third promise.]"}];
+  const certs=(tr.certifications&&tr.certifications.length)?tr.certifications:[{name:"[Certification / award]",body:"[e.g. GAF Master Elite, BBB A+, manufacturer-certified.]"}];
+  const tagline=tr.tagline||rph("[A sentence about why homeowners should trust you.]");
+  const hasProm=tr.promises&&tr.promises.length, hasCert=tr.certifications&&tr.certifications.length;
+  return '<div class="sec"><h2>About '+(tr.company||"your contractor")+'</h2><div class="muted">'+tagline+'</div><p class="rp-about">'+about+'</p></div>'+
+    '<div class="sec"><h2>Our promise</h2><div class="rp-grid">'+proms.map(p=>'<div class="rp-card"><div class="rp-ct">'+(hasProm?p.title:rph(p.title))+'</div><div class="rp-cb">'+(hasProm?p.body:rph(p.body))+'</div></div>').join('')+'</div></div>'+
+    '<div class="sec"><h2>Certifications &amp; trust</h2><div class="rp-grid">'+certs.map(c=>'<div class="rp-card"><div class="rp-ct">'+(hasCert?c.name:rph(c.name))+'</div><div class="rp-cb">'+(hasCert?c.body:rph(c.body))+'</div></div>').join('')+
+      (tr.rating?'<div class="rp-card"><div class="rp-ct">★ '+tr.rating+'</div><div class="rp-cb">Based on '+(tr.reviews||0)+'+ reviews</div></div>':'<div class="rp-card"><div class="rp-ct">'+rph("[★ Rating]")+'</div><div class="rp-cb">'+rph("[Based on N reviews]")+'</div></div>')+'</div></div>';
+}
 function openReport(){
   if(!QUOTE){ return; }
   const addr=$("addr").value, sqs=QUOTE.roofSqft/100;
@@ -1612,7 +1693,9 @@ function openReport(){
   $("report").innerHTML=`
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
-     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">WEFIXTRADES</div><h1>Your roof &amp; solar plan</h1><div class="addr">${addr} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
+     ${tradeHeader()}
+     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)||'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${addr} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
+     ${measurementReport(_rt, sqs)}
      <div class="sec"><h2>The plan at a glance</h2>
        <div class="bul"><span class="bm"></span><div>Roof: <b>${Math.round(QUOTE.roofSqft).toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
@@ -1626,11 +1709,12 @@ function openReport(){
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Solar: production guarantee + monitoring</div></div>${batteryBul}${evBul}</div>
+     ${proposalSections()}
      <div class="sec"><h2>Next step</h2>
        <button class="rcta" id="bookBtn" onclick="window.__book()">Book my free assessment</button>
        <div class="signbox" id="signbox">No obligation · pick a time that works · we confirm the final price on-site</div></div>
      <div class="foot">*Ballpark estimate generated from aerial imagery + Google Solar data, before rebates/incentives. Financing figures are illustrative. Pricing finalised after a free on-site assessment.</div>
-     ${PLAN==="free"?'<div class="rbadge">Powered by <b>WeFixTrades</b></div>':''}
+     <div class="rbadge">Measurements &amp; report powered by <b>QuoteQuick</b></div>
    </div>`;
   $("report").style.display="block"; document.body.style.overflow="hidden";
 }
