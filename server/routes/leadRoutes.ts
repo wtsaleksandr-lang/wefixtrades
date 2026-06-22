@@ -84,7 +84,7 @@ const DEDUP_WINDOW_MS = 10_000; // 10 seconds
 const DEDUP_MAP_WARN_THRESHOLD = 100;
 let dedupWarnEmitted = false;
 
-function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
+export function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
   const key = `${calculatorId}:${email || ''}:${phone || ''}`;
   const now = Date.now();
   const last = recentSubmissions.get(key);
@@ -123,7 +123,7 @@ async function requireCalcByToken(token: string) {
   return calculator;
 }
 
-async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
+export async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
   const calc = await storage.getCalculatorById(calculatorId);
   if (!calc) {
     log.warn(`[leads] Cannot enqueue notifications: calculator ${calculatorId} not found`);

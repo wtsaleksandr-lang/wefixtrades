@@ -161,9 +161,11 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     // The roof_visualizer step mounts the self-contained 3D roof/solar widget
     // (server route /api/roofquote/widget) via RoofVisualizerStep; lead_capture
     // reuses the wizard's standard lead step.
-    // TODO(roofquote): bridge the widget's "Get full quote" CTA to advance the
-    // wizard to lead_capture (postMessage) + suppress the widget's own lead form
-    // in embed mode, so there's a single lead-capture surface.
+    // Lead bridge (Phase 3): the widget posts `{type:'qq:lead', payload}` to its
+    // host; in the published AdvancedCalculator embed the host routes it into the
+    // canonical /api/leads pipeline (single owner-notification path via
+    // settings.leadEmail). The widget's own /api/roofquote/lead is the durable,
+    // queue-backed fallback and attributes via ?calc/slug when present.
     wizard_steps: [
       {
         id: 'visualize',
