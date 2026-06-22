@@ -612,11 +612,37 @@ function rebuildSolarTiers(){
   selTier=Math.max(0, solarTiers.length-1);
 }
 // contextual card bodies — the card shows info relevant to the active lens, not a static price
+// Solar Access % (shade), TOF (tilt/orientation) + TSRF per roof face — the metrics installers trust — derived
+// purely from Google's per-segment sunshineQuantiles (no invented physics):
+//   Access = segment median ÷ that segment's own sunniest point (shade only)
+//   TOF    = segment's sunniest point ÷ the roof's best face (tilt/orientation vs optimal)
+//   TSRF   = Access × TOF.  ≥75% is the widely-cited "good / incentive-grade" floor.
+function compass(az){ return ["N","NE","E","SE","S","SW","W","NW"][Math.round(((az%360)/45))%8]; }
+function roofSolarAccess(){
+  const spv=(typeof QUOTE!=="undefined"&&QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential); if(!spv) return null;
+  const segs=(spv.roofSegmentStats||[]).filter(s=>s.stats&&Array.isArray(s.stats.sunshineQuantiles)&&s.stats.sunshineQuantiles.length>=11);
+  if(!segs.length) return null;
+  const top=s=>s.stats.sunshineQuantiles[10]||1, med=s=>s.stats.sunshineQuantiles[5]||0;
+  const siteBest=Math.max(...segs.map(top))||1;
+  let wsum=0, tsrfW=0, accW=0, tofW=0;
+  const perFace=segs.map(s=>{ const mx=top(s), md=med(s), area=(s.stats.areaMeters2||0);
+    const access=Math.min(100,Math.round(100*md/mx)), tof=Math.min(100,Math.round(100*mx/siteBest)), tsrf=Math.min(100,Math.round(100*md/siteBest));
+    wsum+=area; tsrfW+=tsrf*area; accW+=access*area; tofW+=tof*area;
+    return { az:Math.round(s.azimuthDegrees||0), dir:compass(s.azimuthDegrees||0), pitch:Math.round(s.pitchDegrees||0),
+      x12:Math.round(Math.abs(Math.tan((s.pitchDegrees||0)*Math.PI/180))*12), sqft:Math.round(area*M2_SQFT), access, tof, tsrf }; })
+    .sort((a,b)=>b.tsrf-a.tsrf);
+  const W=wsum||1, tsrf=Math.round(tsrfW/W), access=Math.round(accW/W), tof=Math.round(tofW/W);
+  const rating=tsrf>=85?"excellent":tsrf>=75?"good":tsrf>=60?"fair":"limited";
+  return { tsrf, access, tof, rating, perFace };
+}
 function sunCardBody(){
   const spv=QUOTE.spv||{}, hrs=Math.round(spv.maxSunshineHoursPerYear||0);
   const panels=spv.maxArrayPanelsCount||0, area=Math.round((spv.maxArrayAreaMeters2||0)*M2_SQFT);
+  const sa=roofSolarAccess();
+  const saLine=sa?'<div class="qfin" style="margin-top:6px;line-height:1.5">☀ Solar access <b>'+sa.access+'%</b> · TSRF <b>'+sa.tsrf+'%</b> — '+sa.rating+(sa.tsrf>=75?' <span style="color:#16a34a;font-weight:700">✓ incentive-grade</span>':'')+HCUE("tsrf")+'<br><span class="muted" style="font-size:10.5px">Best face: '+sa.perFace[0].dir+' '+sa.perFace[0].x12+'/12 · '+sa.perFace[0].tsrf+'% TSRF. Planning estimate from satellite — confirm on site.</span></div>':'';
   return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span>'+HCUE("sun")+'</div>'+
     '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power.</div>'+
+    saLine+
     '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">panels fit</div></div>'+
     '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
     '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>';
@@ -1861,6 +1887,7 @@ function materialModal(matId){
 const DATA_INFO={
   measure:{ title:"Roof measurements", acc:"±5–7%", body:"These dimensions — roof area, pitch, and ridge / hip / valley / eave / rake lengths — are measured from Google's aerial 3D imagery and elevation data.", lock:"We confirm exact measurements on site before locking your final, guaranteed rate." },
   sun:{ title:"Sun & shade", acc:"±10%", body:"Sun-hours and shading are modelled from Google's Solar API using satellite imagery and local weather history — a strong estimate of your roof's solar potential.", lock:"A quick site assessment confirms shading from trees and obstructions for your final solar design." },
+  tsrf:{ title:"Solar access & TSRF", acc:"±10%", body:"Solar Access % is how much sun your roof gets after shade (from trees, neighbours, obstructions). TSRF (Total Solar Resource Fraction) also factors tilt & orientation vs ideal — the industry yardstick installers and incentive programs use. 75%+ is considered good; 85%+ excellent. Computed per roof face from Google's Solar API sunshine data.", lock:"A site shade assessment confirms the final solar-access figures for your design." },
   solar:{ title:"Solar estimate", acc:"±10%", body:"System size, annual output and savings are estimated from your roof's area, pitch and orientation plus local sun and electricity-rate data via Google's Solar API.", lock:"Final production and price are confirmed in an on-site solar design." },
   roof:{ title:"Roofing estimate", acc:"±5–10%", body:"Your price is built from the measured roof area and edge lengths, the material you chose, and the options selected (waste, tear-off, ventilation, access).", lock:"We confirm exact measurements and access on site before locking your final, guaranteed rate." },
   section:{ title:"Your roof section", acc:"approximate", body:"This looks like an attached home (townhouse or semi-detached), where the aerial data covers the whole shared building. We've estimated just your section using your address location, so the system size and price reflect only your roof. Use “My share” to fine-tune how much of the building is yours, or switch to “Whole building”.", lock:"We confirm your exact roof boundary on site before locking the final design and rate." },

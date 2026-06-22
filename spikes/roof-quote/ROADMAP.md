@@ -211,3 +211,7 @@ Root: Sun lens used 3D buildPhotoHeatmap (chunky 0.55m Polygon3D cells). FIX: Su
 [T4] SCANIFLY grey-massing model: Alex likes Scanifly's CLEAN grey 'minecraft-style' house model done PROPERLY (genuinely follows house structure) — our schematic was crude/crooked, theirs is clean. OK to use grey massing for SOLAR view ONLY (roofing needs photoreal facade match). Also likes their UI: offset KPI ring + unfolding tabs (Utility Bill/System/Details) + minimalistic icon nav. Review demo https://scanifly.com/product/pv-design/. TEARDOWN AGENT DISPATCHED.
 [T5] BUILD TRADES MODE (reaffirmed) — see research: exportable measurement/takeoff PDF, panel-layout w/ configurable setbacks, simple battery helper. Paid add-on, $10-20/report or $49-99/mo.
 [T6] TSRF SCORE (reaffirmed) — Solar Access % + TSRF per roof face (>=75% good) from Google flux we already pull. The installer-trust metric.
+
+## TSRF + Solar Access % (T6) — DONE, verified
+roofSolarAccess(): per-face Access=median/segMax (shade), TOF=segMax/siteBest (tilt+orientation), TSRF=Access*TOF, all from Google sunshineQuantiles (no invented physics). Area-weighted overall + rating + >=75% incentive-grade badge + 'confirm on site'. Surfaced in sunCardBody + DATA_INFO.tsrf help cue. VERIFIED: Riverside best face S 5/12 @97% TSRF, overall 83% good; Angus S 4/12 @93%, 84%. Best face correctly = south.
+Feeds Trades Mode (the installer-trust metric).
