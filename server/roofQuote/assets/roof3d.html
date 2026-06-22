@@ -1721,11 +1721,19 @@ async function setMode(mo){
 /* ===== consumer quote REPORT (web view + print-to-PDF + share/email) ===== */
 // ── white-label report helpers: the TRADE's branding (with Roofr-style placeholders) + a full measurement report ──
 function rph(text){ return '<span class="ph">'+text+'</span>'; }
+// HTML-escape any tenant/trade-supplied string before it is written into innerHTML.
+// Tenant branding is attacker-controlled (a malicious trade) on the published widget,
+// so every tenant string concatenated into a DOM sink MUST pass through this.
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Only allow http(s) or inline data:image logo URLs as an <img src>; reject anything
+// else (javascript:, data:text/html, etc.) so a logo string can't smuggle script.
+function safeLogoUrl(u){ const s=String(u??'').trim(); return (/^https?:\/\//i.test(s)||/^data:image\//i.test(s))?s:''; }
 function tradeHeader(){ const tr=TENANT.trade||{};
-  const logo=tr.logo?'<img class="th-logo" src="'+tr.logo+'" alt="">':'<div class="th-logo ph-box">Your<br>logo</div>';
-  const company=tr.company||rph("[Your Company Name]");
-  const contact=[tr.phone,tr.email,tr.web].filter(Boolean).join(' · ')||rph("[Phone · Email · Website]");
-  const lic=tr.license?('License '+tr.license):rph("[License #]");
+  const logoUrl=safeLogoUrl(tr.logo);
+  const logo=logoUrl?'<img class="th-logo" src="'+esc(logoUrl)+'" alt="">':'<div class="th-logo ph-box">Your<br>logo</div>';
+  const company=tr.company?esc(tr.company):rph("[Your Company Name]");
+  const contact=[tr.phone,tr.email,tr.web].filter(Boolean).map(esc).join(' · ')||rph("[Phone · Email · Website]");
+  const lic=tr.license?('License '+esc(tr.license)):rph("[License #]");
   return '<div class="th">'+logo+'<div class="th-co"><div class="th-name">'+company+'</div><div class="th-meta">'+contact+'</div><div class="th-meta">'+lic+'</div></div></div>';
 }
 function measurementReport(t, sqs){
@@ -1749,15 +1757,15 @@ function measurementReport(t, sqs){
     '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div></div>';
 }
 function proposalSections(){ const tr=TENANT.trade||{};
-  const about=tr.about||rph("[About your company — who you are, your experience, and what makes you different. Pulled from your QuoteQuick profile.]");
+  const about=tr.about?esc(tr.about):rph("[About your company — who you are, your experience, and what makes you different. Pulled from your QuoteQuick profile.]");
   const proms=(tr.promises&&tr.promises.length)?tr.promises:[{title:"[Promise #1]",body:"[e.g. On-time, on-budget, guaranteed.]"},{title:"[Promise #2]",body:"[Your second promise to the homeowner.]"},{title:"[Promise #3]",body:"[Your third promise.]"}];
   const certs=(tr.certifications&&tr.certifications.length)?tr.certifications:[{name:"[Certification / award]",body:"[e.g. GAF Master Elite, BBB A+, manufacturer-certified.]"}];
-  const tagline=tr.tagline||rph("[A sentence about why homeowners should trust you.]");
+  const tagline=tr.tagline?esc(tr.tagline):rph("[A sentence about why homeowners should trust you.]");
   const hasProm=tr.promises&&tr.promises.length, hasCert=tr.certifications&&tr.certifications.length;
-  return '<div class="sec"><h2>About '+(tr.company||"your contractor")+'</h2><div class="muted">'+tagline+'</div><p class="rp-about">'+about+'</p></div>'+
-    '<div class="sec"><h2>Our promise</h2><div class="rp-grid">'+proms.map(p=>'<div class="rp-card"><div class="rp-ct">'+(hasProm?p.title:rph(p.title))+'</div><div class="rp-cb">'+(hasProm?p.body:rph(p.body))+'</div></div>').join('')+'</div></div>'+
-    '<div class="sec"><h2>Certifications &amp; trust</h2><div class="rp-grid">'+certs.map(c=>'<div class="rp-card"><div class="rp-ct">'+(hasCert?c.name:rph(c.name))+'</div><div class="rp-cb">'+(hasCert?c.body:rph(c.body))+'</div></div>').join('')+
-      (tr.rating?'<div class="rp-card"><div class="rp-ct">★ '+tr.rating+'</div><div class="rp-cb">Based on '+(tr.reviews||0)+'+ reviews</div></div>':'<div class="rp-card"><div class="rp-ct">'+rph("[★ Rating]")+'</div><div class="rp-cb">'+rph("[Based on N reviews]")+'</div></div>')+'</div></div>';
+  return '<div class="sec"><h2>About '+(tr.company?esc(tr.company):"your contractor")+'</h2><div class="muted">'+tagline+'</div><p class="rp-about">'+about+'</p></div>'+
+    '<div class="sec"><h2>Our promise</h2><div class="rp-grid">'+proms.map(p=>'<div class="rp-card"><div class="rp-ct">'+(hasProm?esc(p.title):rph(p.title))+'</div><div class="rp-cb">'+(hasProm?esc(p.body):rph(p.body))+'</div></div>').join('')+'</div></div>'+
+    '<div class="sec"><h2>Certifications &amp; trust</h2><div class="rp-grid">'+certs.map(c=>'<div class="rp-card"><div class="rp-ct">'+(hasCert?esc(c.name):rph(c.name))+'</div><div class="rp-cb">'+(hasCert?esc(c.body):rph(c.body))+'</div></div>').join('')+
+      (tr.rating?'<div class="rp-card"><div class="rp-ct">★ '+esc(tr.rating)+'</div><div class="rp-cb">Based on '+esc(tr.reviews||0)+'+ reviews</div></div>':'<div class="rp-card"><div class="rp-ct">'+rph("[★ Rating]")+'</div><div class="rp-cb">'+rph("[Based on N reviews]")+'</div></div>')+'</div></div>';
 }
 function openReport(){
   if(!QUOTE){ return; }
@@ -1788,7 +1796,7 @@ function openReport(){
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
      ${tradeHeader()}
-     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)||'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${addr} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
+     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
      ${measurementReport(_rt, sqs)}
      <div class="sec"><h2>The plan at a glance</h2>
        <div class="bul"><span class="bm"></span><div>Roof: <b>${Math.round(QUOTE.roofSqft).toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
@@ -1880,15 +1888,22 @@ window.addEventListener("message",e=>{
 function bridgeLeadToHost(payload){
   try{ if(window.parent && window.parent!==window){ window.parent.postMessage({type:"qq:lead", payload}, location.origin); } }catch(_){}
 }
+// Calculator attribution from the iframe src (?calc=<id>&slug=<slug>). Without it the
+// durable sink can't attribute/persist the lead — so we forward it on the /lead URL
+// AND in the payload (calculator_id/slug), and persist it into the retry-queue entries.
+function leadAttr(){ try{ const q=new URLSearchParams(location.search); const calc=q.get("calc")||"", slug=q.get("slug")||""; return {calc,slug}; }catch(_){ return {calc:"",slug:""}; } }
+function leadUrl(){ const {calc,slug}=leadAttr(); const qs=new URLSearchParams(); if(calc) qs.set("calc",calc); if(slug) qs.set("slug",slug); const s=qs.toString(); const base=(typeof RQ_BASE!=="undefined"?RQ_BASE:"")+"/lead"; return base+(s?("?"+s):""); }
+function withAttr(payload){ const {calc,slug}=leadAttr(); const out=Object.assign({},payload); if(calc&&/^\d+$/.test(calc)&&out.calculator_id==null) out.calculator_id=Number(calc); if(slug&&!out.slug) out.slug=slug; return out; }
 async function sendLead(payload){
+  payload=withAttr(payload);
   bridgeLeadToHost(payload);
-  try{ const r=await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); if(!r||!r.ok) throw 0; return true; }
+  try{ const r=await fetch(leadUrl(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); if(!r||!r.ok) throw 0; return true; }
   catch(_){ try{ const q=JSON.parse(localStorage.getItem("__qqLeadQ")||"[]"); q.push(Object.assign({_queuedAt:Date.now()},payload)); localStorage.setItem("__qqLeadQ",JSON.stringify(q.slice(-50))); }catch(__){} return false; }
 }
 async function flushLeads(){
   let q; try{ q=JSON.parse(localStorage.getItem("__qqLeadQ")||"[]"); }catch(_){ return; }
   if(!q.length) return; const keep=[];
-  for(const p of q){ try{ const r=await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); if(!r||!r.ok) keep.push(p); }catch(_){ keep.push(p); } }
+  for(const p of q){ try{ const r=await fetch(leadUrl(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); if(!r||!r.ok) keep.push(p); }catch(_){ keep.push(p); } }
   try{ localStorage.setItem("__qqLeadQ",JSON.stringify(keep)); }catch(_){}
 }
 try{ flushLeads(); }catch(_){}

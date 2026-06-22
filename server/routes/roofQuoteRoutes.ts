@@ -21,7 +21,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import { createLogger } from "../lib/logger";
 import { storage } from "../storage";
-import { enqueueLeadNotificationsAndFollowups } from "./leadRoutes";
+import { enqueueLeadNotificationsAndFollowups, isDuplicateSubmission } from "./leadRoutes";
 import {
   aiRender,
   captureOblique,
@@ -400,6 +400,16 @@ export function registerRoofQuoteRoutes(app: Express) {
         intent: body.intent ?? null,
       };
 
+      // DEDUP: a single homeowner submission can arrive via BOTH the host bridge
+      // (parent → /api/leads) and this widget fallback (→ /api/roofquote/lead).
+      // Route this path through the SAME in-memory dedup the wizard uses so we
+      // don't double-persist + double-notify. If it's a duplicate, ack without
+      // re-persisting — the host-bridge path is the canonical persister.
+      if (isDuplicateSubmission(calc.id, email, phone)) {
+        log.info("roofquote lead deduped — already submitted via host bridge / prior post", { calculatorId: calc.id });
+        return res.json({ ok: true, persisted: false, deduped: true });
+      }
+
       const lead = await storage.createLead({
         calculator_id: calc.id,
         name,
@@ -420,9 +430,11 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json({ ok: true, persisted: true });
     } catch (err) {
       log.error("roofquote lead failed", { err: (err as Error).message });
-      // Still ack: the widget queues + retries on non-ok, and a 5xx here would
-      // make it retry a request that may have partially succeeded.
-      return res.json({ ok: true, persisted: false });
+      // The lead WAS attributable (we resolved a calc above) but persistence
+      // threw — return a non-2xx so the widget's localStorage retry queue keeps
+      // the lead and retries it, rather than draining it on a false 200. The
+      // genuinely-unattributable case is handled earlier (ack-200, no retry).
+      return res.status(503).json({ ok: false, persisted: false });
     }
   });
 }

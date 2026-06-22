@@ -84,7 +84,7 @@ const DEDUP_WINDOW_MS = 10_000; // 10 seconds
 const DEDUP_MAP_WARN_THRESHOLD = 100;
 let dedupWarnEmitted = false;
 
-function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
+export function isDuplicateSubmission(calculatorId: number, email: string | null, phone: string | null): boolean {
   const key = `${calculatorId}:${email || ''}:${phone || ''}`;
   const now = Date.now();
   const last = recentSubmissions.get(key);
