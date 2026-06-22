@@ -1822,95 +1822,13 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
-  /* ── 9. Solar panels ── */
-  {
-    id: 'solar_panels', name: 'Solar — Quick Panel Estimate', description: 'Fast ballpark solar price from panel count, capacity and roof orientation.',
-    // BATCH 0 — was mapped to `hvac_services`; this is a solar template
-    // (with a battery-storage toggle) → map the real solar registry ids.
-    category: 'Home Improvement', trades: ['solar_panel', 'solar_battery'],
-    trustBadges: BADGES.solar,
-    layout: 'multi-column', theme: 'light', defaultIcon: 'Sun',
-    requireAddress: true,
-    style: {
-      widgetWidth: 'wide',
-      accent: '#f59e0b',
-      background: '#fffbeb',
-      surface: '#ffffff',
-      border: '#fde9bd',
-      text: '#1c1917',
-      resultsBg: '#1c1402',
-      ctaColor: '#f59e0b',
-      success: '#16a34a',
-      error: '#dc2626',
-      fontFamily: 'outfit',
-      fieldStyle: 'filled',
-      radius: 12,
-      headingWeight: 700,
-      bodyWeight: 400,
-      fontSize: 'medium',
-      logoPlacement: 'top-left',
-      logoSize: 'medium',
-      bgMode: 'solid',
-      resultPanel: {
-        emphasis: 'bold',
-        border: 'subtle',
-        range_mode: { enabled: true, band_pct: 8 },
-      },
-      animations: {
-        step_transition: 'slide-fade',
-        duration_ms: 220,
-        reduced_motion_respect: true,
-      },
-      premiumAnimations: {
-        enabled: true,
-        countUp: true,
-        staggerReveal: true,
-        cardFlip: false,
-        confetti: false,
-      },
-      booking: { enabled: true, source: 'wefixtrades-default' },
-    },
-    header: { title: 'Get Your Solar Install Quote — Plus Your Tax Credit', subtitle: 'NABCEP-certified installers · 25-year panel warranty · 30% federal tax credit eligible', align: 'left' },
-    steps: [
-      { id: 'step_system', label: 'Your system', help: 'Panel count and wattage set your system size.', fields: ['panels', 'capacity'] },
-      { id: 'step_site', label: 'Roof & storage', help: 'Orientation affects production; add a battery for backup.', fields: ['orientation', 'battery'] },
-    ],
-    fields: [
-      { id: 'panels', name: 'Panels', label: 'Number of solar panels', type: 'slider',
-        help: 'Most homes need 15–30 panels — your installer fine-tunes this on site.',
-        min: 1, max: 200, step: 1, default_value: 20, unit: 'panels' },
-      { id: 'capacity', name: 'Capacity', label: 'Capacity per panel (W)', type: 'slider',
-        help: 'Higher-wattage panels make more power from the same roof space.',
-        min: 200, max: 600, step: 10, default_value: 400, unit: 'W' },
-      { id: 'orientation', name: 'Orientation', label: 'Primary roof orientation', type: 'radio',
-        help: 'South-facing roofs make the most power; we adjust for everything else.',
-        options: [
-          { ...opt('South', 0), description: 'Ideal — maximum sun all day, no adjustment.' },
-          { ...opt('South-East', 120), description: 'Strong morning sun — a small array bump.' },
-          { ...opt('South-West', 120), description: 'Strong afternoon sun — a small array bump.' },
-          { ...opt('East / West', 280), description: 'Split exposure — more panels to hit your target.' },
-        ] },
-      { id: 'battery', name: 'Battery', label: 'Add battery storage', type: 'toggle',
-        help: 'Stores daytime power for night use and keeps the lights on in an outage.', on_value: 4500 },
-    ],
-    calculations: [
-      { ...calc('Panel System', '[Panels] * [Capacity] * 0.9'), caption: 'Panels, inverter and mounting scaled to your system size.' },
-      { ...calc('Orientation Adjustment', '[Orientation]'), caption: 'Extra capacity to offset a non-ideal roof direction.' },
-      { ...calc('Battery Storage', '[Battery]'), caption: 'Backup battery where selected.' },
-      { ...calc('Estimated System Cost', '[Panel System] + [Orientation Adjustment] + [Battery Storage]'),
-        resultMode: 'primary', caption: 'Before incentives — eligible for the 30% federal tax credit.' },
-    ],
-    result_calc: 'Estimated System Cost',
-    results: {
-      heading: 'Your Solar Install Estimate',
-      show_breakdown: true,
-      cta_label: 'Schedule My Free Site Survey',
-      cta_heading: 'Lock in today’s 30% federal tax credit',
-      cta_sub: 'Our NABCEP-certified team designs your array, handles every permit, and guarantees production for 25 years. Book a free site survey to see your real savings.',
-      submit_success: 'Requested! Your solar advisor will call within one business day to schedule your free site survey.',
-      footnote: 'Eligible for the 30% federal solar tax credit. Includes panels, inverter, permits, and interconnection. 25-year production guarantee.',
-    },
-  },
+  /* ── 9. (retired) Solar — Quick Panel Estimate ──
+   * The `solar_panels` "Quick Panel Estimate" form was consolidated into the
+   * single canonical manual solar form `solar_panel_install` ("Solar Panel
+   * Installation", #39). The solar lineup is now ONE simple manual fallback
+   * form + the flagship `roof_solar_visualizer` widget. The retired
+   * `/templates/solar_panels` slug 301-redirects to the survivor via
+   * RETIRED_TEMPLATE_REDIRECTS (below) to preserve SEO. */
 
   /* ── 10. Interior painting ── */
   {
@@ -9584,6 +9502,28 @@ export function getTemplatePreset(id: string): TemplateConfig | undefined {
   return TEMPLATE_PRESETS.find(t => t.id === id);
 }
 
+/**
+ * Retired template slugs → the canonical surviving template id they were
+ * consolidated into. The marketing `/templates/:slug` page consults this map
+ * BEFORE its "unknown slug → /templates index" fallback, so an old SEO URL
+ * 301-redirects to its successor (preserving link equity) instead of
+ * dead-ending on the gallery.
+ *
+ * `solar_panels` ("Solar — Quick Panel Estimate") was folded into
+ * `solar_panel_install` ("Solar Panel Installation") when the solar lineup was
+ * reduced to ONE simple manual form + the `roof_solar_visualizer` widget.
+ */
+export const RETIRED_TEMPLATE_REDIRECTS: Readonly<Record<string, string>> = {
+  solar_panels: 'solar_panel_install',
+};
+
+/** Resolve a retired slug to its surviving template id, or undefined if the
+ *  slug was never retired (or its target no longer exists). */
+export function getRetiredTemplateRedirect(slug: string): string | undefined {
+  const target = RETIRED_TEMPLATE_REDIRECTS[slug];
+  return target && getTemplatePreset(target) ? target : undefined;
+}
+
 export function getPresetsByLayout(layout: TemplateLayout): TemplateConfig[] {
   return TEMPLATE_PRESETS.filter(t => t.layout === layout);
 }
@@ -10846,7 +10786,7 @@ const THEME_OVERRIDES_BY_ID: Record<string, string> = {
   // wedding
   photography_package: 'wedding',
   // emi
-  solar_panels: 'emi', solar_panel_install: 'emi',
+  solar_panel_install: 'emi',
   window_replacement: 'emi', window_replacement_quote: 'emi',
   window_cleaning_quote: 'emi', bathroom_renovation: 'emi',
   plumbing_service: 'emi',

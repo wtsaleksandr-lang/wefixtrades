@@ -23,6 +23,7 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import {
   getTemplatePreset,
+  getRetiredTemplateRedirect,
   toAdvancedConfig,
   TEMPLATE_PRESETS,
   collapseLayoutVariants,
@@ -856,7 +857,10 @@ export default function TemplateDetailPage() {
   const template = getTemplatePreset(slug);
 
   if (!template) {
-    return <Redirect to="/templates" />;
+    // Retired template slug → 301 to its canonical successor (preserves SEO),
+    // else fall back to the gallery index (avoids dead-end SEO).
+    const redirectTo = getRetiredTemplateRedirect(slug);
+    return <Redirect to={redirectTo ? `/templates/${redirectTo}` : "/templates"} replace />;
   }
 
   return <TemplateDetailInner template={template} />;
