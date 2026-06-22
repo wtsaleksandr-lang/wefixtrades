@@ -81,6 +81,8 @@
   #card .tk-row{display:flex;justify-content:space-between;font-size:12px;gap:8px}
   #card .tk-row span{color:var(--muted)}
   #card .tk-row b{color:#0f172a;white-space:nowrap}
+  #card .ccue{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#0d3cfc;font-size:9px;font-weight:800;cursor:pointer;margin-left:5px;line-height:1;vertical-align:middle}
+  #card .ccue:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
   #card .tk-tot{border-top:1px solid var(--line);margin-top:4px;padding-top:5px}
   #card .tk-tot span,#card .tk-tot b{color:#0f172a;font-weight:800}
   #card .tk-row span{color:var(--muted)}
@@ -187,6 +189,8 @@
   #infoModal .im-li{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#0f172a;margin:5px 0;line-height:1.4}
   #infoModal .im-li svg{flex:0 0 auto;margin-top:2px;color:#16a34a}
   #infoModal .im-stat{display:inline-block;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:5px 9px;font-size:12px;color:#0f172a;font-weight:700;margin:2px 6px 2px 0}
+  #infoModal .cdiag-wrap{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:12px;padding:10px;margin-bottom:6px}
+  #infoModal .cdiag{width:100%;height:auto;display:block}
   #infoModal .im-perf{display:flex;flex-direction:column;gap:0}
   #infoModal .im-pf{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:6px 0;border-bottom:1px solid #f0f3f8}
   #infoModal .im-pf:last-child{border-bottom:0}
@@ -674,17 +678,18 @@ function confidencePct(t){
 function roofTakeoff(t, wastePct){
   const sq=t.squares||(t.roofAreaSqFt/100), w=1+wastePct/100, fieldSq=sq*w;
   const eave=t.eaveFt||0, rake=t.rakeFt||0, ridge=t.ridgeFt||0, hip=t.hipFt||0, valley=t.valleyFt||0;
-  const r=(l,v)=>'<div class="tk-row"><span>'+l+'</span><b>'+v+'</b></div>';
+  const r=(l,v,ck)=>'<div class="tk-row"><span>'+l+(ck?'<span class="ccue" data-compinfo="'+ck+'" title="What is this?">i</span>':'')+'</span><b>'+v+'</b></div>';
   let rows=r('Field shingles', fieldSq.toFixed(1)+' sq')
-    + r('Starter strip', Math.round(eave)+' lf')
-    + r('Hip &amp; ridge cap', Math.round(ridge+hip)+' lf')
-    + r('Drip edge', Math.round(eave+rake)+' lf')
-    + r('Underlayment', Math.ceil(fieldSq)+' sq');
-  if(valley>0) rows+=r('Valley flashing', Math.round(valley)+' lf');
+    + r('Starter strip', Math.round(eave)+' lf', 'starter')
+    + r('Hip &amp; ridge cap', Math.round(ridge+hip)+' lf', 'ridgecap')
+    + r('Drip edge', Math.round(eave+rake)+' lf', 'drip')
+    + r('Underlayment', Math.ceil(fieldSq)+' sq', 'underlay');
+  if(valley>0) rows+=r('Valley flashing', Math.round(valley)+' lf', 'flashing');
   rows+=r('Roofing nails', Math.ceil(fieldSq*2.2)+' lb');
   const c=window.__roofFeatures&&window.__roofFeatures.counts;
-  if(c){ const pen=(c.chimneys||0)+(c.vents||0)+(c.skylights||0); if(pen) rows+=r('Pipe boots + flashing', pen+' penetration'+(pen>1?'s':'')); }
-  if(roofOpts.gutters) rows+=r('Gutters + downspouts', Math.round(eave)+' lf');
+  if(c){ const pen=(c.chimneys||0)+(c.vents||0)+(c.skylights||0); if(pen) rows+=r('Pipe boots + flashing', pen+' penetration'+(pen>1?'s':''), 'flashing'); }
+  if(roofOpts.ridgeVent) rows+=r('Ridge vent', Math.round(ridge)+' lf', 'ridgevent');
+  if(roofOpts.gutters) rows+=r('Gutters + downspouts', Math.round(eave)+' lf', 'gutters');
   return rows;
 }
 // itemized $ breakdown of how the roofing price was built — shows the homeowner the math (trust)
@@ -869,6 +874,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
+  card.querySelectorAll("[data-compinfo]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openInfoModal(componentModal(b.dataset.compinfo)); });
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
@@ -1650,6 +1656,32 @@ function openInfoModal(html){ const m=$("infoModal"); if(!m) return; $("imBody")
 window.__closeInfo=()=>{ const m=$("infoModal"); if(m) m.style.display="none"; };
 $("infoModal").addEventListener("click",e=>{ if(e.target.id==="infoModal") window.__closeInfo(); });   // backdrop click closes
 const IM_CHK='<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3.2 8.4l3 3L13 4.8"/></svg>';
+// plain-English explainers + simple diagrams for roof components a homeowner won't know (starter strip, drip edge…)
+const RDIAG=(extra)=>'<svg class="cdiag" viewBox="0 0 240 132"><path d="M20 108 L120 40 L220 108" fill="none" stroke="#cbd5e1" stroke-width="10" stroke-linejoin="round"/><path d="M28 104 L120 49 L212 104" fill="none" stroke="#9aa7b8" stroke-width="4" stroke-linejoin="round"/>'+extra+'</svg>';
+const COMPONENT_INFO={
+  starter:{ label:"Starter strip", svg:RDIAG('<path d="M28 104 L120 49 L212 104" fill="none" stroke="#0d3cfc" stroke-width="7" stroke-dasharray="0 0" pathLength="100" stroke-dashoffset="0"/><rect x="20" y="106" width="200" height="7" rx="3" fill="#0d3cfc"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">sealed bottom edge</text>'),
+    what:"A special first row of shingles bonded along the very bottom edge of the roof, hidden under the visible shingles.",
+    why:"It seals and locks down that first course so wind can't get underneath and peel your shingles up. Skipping it is a common cause of edge blow-offs in storms." },
+  drip:{ label:"Drip edge", svg:RDIAG('<path d="M28 104 q-8 2 -8 12 l0 8 M212 104 q8 2 8 12 l0 8" fill="none" stroke="#0d3cfc" stroke-width="6" stroke-linecap="round"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">metal edge guides water off</text>'),
+    what:"A thin L-shaped metal strip fitted along the roof's edges.",
+    why:"It guides rainwater off the edge into the gutter instead of running back under the shingles and rotting the wood deck and fascia. Required by code on most new roofs." },
+  underlay:{ label:"Underlayment", svg:RDIAG('<path d="M24 106 L120 45 L216 106" fill="none" stroke="#0d3cfc" stroke-width="5" stroke-dasharray="6 5"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">waterproof layer under shingles</text>'),
+    what:"A water-resistant layer rolled over the bare wood deck, beneath the shingles.",
+    why:"Your roof's second line of defense — if wind-driven rain or ice ever gets past the shingles, the underlayment keeps it off the wood so your roof and attic stay dry." },
+  ridgevent:{ label:"Ridge vent", svg:RDIAG('<rect x="104" y="34" width="32" height="9" rx="3" fill="#0d3cfc"/><path d="M120 33 l0 -12 M112 26 l8 -7 8 7" stroke="#0d3cfc" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">hot attic air escapes the peak</text>'),
+    what:"A low vent that runs along the very peak of the roof, hidden under the ridge cap.",
+    why:"It lets hot, damp attic air escape at the top while lower vents pull cool air in. That keeps your attic dry, helps prevent winter ice dams, lowers cooling bills, and makes shingles last longer." },
+  ridgecap:{ label:"Hip & ridge cap", svg:RDIAG('<path d="M104 47 L120 36 L136 47" fill="none" stroke="#0d3cfc" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">caps the peaks &amp; angles</text>'),
+    what:"Thicker shingles folded over the peak and the angled edges (hips) of the roof.",
+    why:"Flat field shingles can't bend over a sharp ridge, so these caps seal and waterproof those lines — and give the roof its clean finished look." },
+  flashing:{ label:"Flashing", svg:RDIAG('<rect x="120" y="58" width="22" height="26" fill="#9aa7b8"/><path d="M116 84 l30 0 M118 84 l-4 4 M142 84 l4 4" stroke="#0d3cfc" stroke-width="5" fill="none" stroke-linecap="round"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">seals around chimneys &amp; pipes</text>'),
+    what:"Metal pieces and rubber boots sealed around anything that pokes through the roof — chimneys, vents, skylights, pipes.",
+    why:"Those penetrations are the #1 spot roofs leak. Proper flashing seals the gaps so water runs around them, not into your home." },
+  gutters:{ label:"Gutters & downspouts", svg:RDIAG('<path d="M16 104 q0 12 10 12 l188 0 q10 0 10 -12" fill="none" stroke="#0d3cfc" stroke-width="6"/><path d="M210 116 l0 14 q0 4 4 4 l8 0" fill="none" stroke="#0d3cfc" stroke-width="6" stroke-linecap="round"/><text x="120" y="128" text-anchor="middle" fill="#0d3cfc" font-size="12" font-weight="800">carries runoff away from the house</text>'),
+    what:"Channels along the roof's lower edges that catch runoff and pipe it down and away from the house.",
+    why:"They protect your siding, windows and especially your foundation from water damage and erosion. Worn or missing gutters are a top cause of basement and foundation problems." },
+};
+function componentModal(key){ const c=COMPONENT_INFO[key]; if(!c) return ''; return '<div class="im-h">'+c.label+'</div><div class="im-sub">What it is &amp; why it matters</div><div class="cdiag-wrap">'+c.svg+'</div><div class="im-sec">What it is</div><p class="im-p">'+c.what+'</p><div class="im-sec">Why it matters</div><p class="im-p">'+c.why+'</p>'; }
 // performance/durability per material — the practical stuff homeowners care about
 const MAT_PERF={
   arch:{Water:"Excellent",Wind:"Up to 130 mph",Temperature:"Good in heat & cold",Fire:"Class A",Weight:"Light — no extra framing"},
