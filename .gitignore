@@ -76,3 +76,6 @@ spikes/roof-quote/.launch.sh
 spikes/roof-quote/feat.json
 shadowshot-*.png
 heatmap-*.png
+
+# Roof-Quote runtime disk cache (Solar buildingInsights/dataLayers, captures, AI renders) — never commit
+.cache/roofquote/

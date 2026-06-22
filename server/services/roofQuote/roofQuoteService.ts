@@ -597,8 +597,37 @@ export async function pvwattsProduction(lat: string, lng: string, kw: number): P
   return { error: "no_pvwatts" };
 }
 
-/** Raw Solar buildingInsights passthrough. Returns the upstream text body + ok flag. */
-export async function solarInsights(lat: string, lng: string): Promise<{ ok: boolean; status: number; body: string }> {
+/* ─── Solar API quota protection: buildingInsights + dataLayers are static per
+   location, billable, and daily-quota-capped. Cache SUCCESSFUL responses on disk
+   keyed by lat/lng rounded to ~5 decimals (≈1.1 m — near-identical loads of the
+   same address share one entry). Errors/no_solar are NEVER cached so they retry.
+   TTL 30 days (these effectively never change). `cached` flag is for logging /
+   X-Cache; it is not part of the upstream JSON body. ─── */
+const SOLAR_CACHE_TTL_MS = 30 * 864e5; // 30 days
+// Round to 5 dp so coords like 41.123456 / 41.123461 collapse to one cache key.
+const geoCacheKey = (lat: string, lng: string): string =>
+  (+lat).toFixed(5) + "," + (+lng).toFixed(5);
+interface SolarCacheEntry {
+  body: string;
+  status: number;
+  _t: number;
+}
+function readSolarCache(prefix: string, key: string): SolarCacheEntry | null {
+  const c = diskGetJSON<SolarCacheEntry>(prefix, key);
+  if (c && typeof c.body === "string" && c._t && Date.now() - c._t < SOLAR_CACHE_TTL_MS) return c;
+  return null;
+}
+
+/** Raw Solar buildingInsights passthrough. Returns the upstream text body + ok flag.
+ *  Successful responses are disk-cached by rounded lat/lng to protect the billable
+ *  Solar quota; errors fall through to a live retry. */
+export async function solarInsights(
+  lat: string,
+  lng: string,
+): Promise<{ ok: boolean; status: number; body: string; cached?: boolean }> {
+  const key = geoCacheKey(lat, lng);
+  const hit = readSolarCache("solar", key);
+  if (hit) return { ok: true, status: hit.status || 200, body: hit.body, cached: true };
   const SOLAR = solarKey();
   const r = await fetch(
     "https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=" +
@@ -609,11 +638,21 @@ export async function solarInsights(lat: string, lng: string): Promise<{ ok: boo
       SOLAR,
   );
   const body = await r.text();
-  return { ok: r.ok, status: r.status, body };
+  // Cache ONLY successful responses — a 4xx/5xx (incl. quota-exhausted) must retry next time.
+  if (r.ok) diskSetJSON("solar", key, { body, status: r.status, _t: Date.now() } as SolarCacheEntry);
+  return { ok: r.ok, status: r.status, body, cached: false };
 }
 
-/** Raw Solar dataLayers passthrough. Returns the upstream text body + ok flag. */
-export async function dataLayers(lat: string, lng: string): Promise<{ ok: boolean; status: number; body: string }> {
+/** Raw Solar dataLayers passthrough. Returns the upstream text body + ok flag.
+ *  Successful responses are disk-cached by rounded lat/lng (same quota-protection
+ *  scheme as solarInsights); errors fall through to a live retry. */
+export async function dataLayers(
+  lat: string,
+  lng: string,
+): Promise<{ ok: boolean; status: number; body: string; cached?: boolean }> {
+  const key = geoCacheKey(lat, lng);
+  const hit = readSolarCache("datalayers", key);
+  if (hit) return { ok: true, status: hit.status || 200, body: hit.body, cached: true };
   const SOLAR = solarKey();
   const url =
     "https://solar.googleapis.com/v1/dataLayers:get?location.latitude=" +
@@ -624,7 +663,8 @@ export async function dataLayers(lat: string, lng: string): Promise<{ ok: boolea
     SOLAR;
   const r = await fetch(url);
   const body = await r.text();
-  return { ok: r.ok, status: r.status, body };
+  if (r.ok) diskSetJSON("datalayers", key, { body, status: r.status, _t: Date.now() } as SolarCacheEntry);
+  return { ok: r.ok, status: r.status, body, cached: false };
 }
 
 export type GeoTiffResult =
