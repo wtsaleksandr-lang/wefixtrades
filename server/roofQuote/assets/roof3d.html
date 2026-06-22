@@ -78,7 +78,11 @@
   #card .ao-chev{flex:0 0 auto;color:#0d3cfc;font-weight:700;font-size:11px}
   #card .tk-h{font-size:11px;font-weight:700;color:#0f172a;margin:11px 0 5px}
   #card .takeoff{display:flex;flex-direction:column;gap:3px}
-  #card .tk-row{display:flex;justify-content:space-between;font-size:12px}
+  #card .tk-row{display:flex;justify-content:space-between;font-size:12px;gap:8px}
+  #card .tk-row span{color:var(--muted)}
+  #card .tk-row b{color:#0f172a;white-space:nowrap}
+  #card .tk-tot{border-top:1px solid var(--line);margin-top:4px;padding-top:5px}
+  #card .tk-tot span,#card .tk-tot b{color:#0f172a;font-weight:800}
   #card .tk-row span{color:var(--muted)}
   #card .tk-row b{color:#0f172a;font-weight:600}
   #card .qfin{font-size:11.5px;color:var(--muted);margin:7px 0 0;line-height:1.35}
@@ -177,12 +181,17 @@
   #infoModal .im-x:hover{background:#eef1f6}
   #infoModal .im-h{font-size:19px;font-weight:800;color:#0f172a;margin:0 30px 2px 0}
   #infoModal .im-sub{font-size:12px;font-weight:600;color:#0d3cfc;margin-bottom:12px}
-  #infoModal .im-hero{width:100%;height:120px;border-radius:12px;background:#eef1f6 center/cover;margin-bottom:14px;border:1px solid #e1e7ef}
+  #infoModal .im-hero{width:100%;height:172px;border-radius:12px;background:#eef1f6 center 32%/cover;margin-bottom:14px;border:1px solid #e1e7ef}
   #infoModal .im-p{font-size:13px;color:#5b6573;line-height:1.5;margin:0 0 12px}
   #infoModal .im-sec{font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.03em;margin:14px 0 6px}
   #infoModal .im-li{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#0f172a;margin:5px 0;line-height:1.4}
   #infoModal .im-li svg{flex:0 0 auto;margin-top:2px;color:#16a34a}
   #infoModal .im-stat{display:inline-block;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:5px 9px;font-size:12px;color:#0f172a;font-weight:700;margin:2px 6px 2px 0}
+  #infoModal .im-perf{display:flex;flex-direction:column;gap:0}
+  #infoModal .im-pf{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:6px 0;border-bottom:1px solid #f0f3f8}
+  #infoModal .im-pf:last-child{border-bottom:0}
+  #infoModal .im-pf span{color:#5b6573}
+  #infoModal .im-pf b{color:#0f172a;text-align:right}
   #infoModal .im-stat b{color:#0d3cfc}
   #infoModal .im-note{font-size:11.5px;color:#5b6573;line-height:1.45;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:10px 12px;margin-top:12px}
   .helpcue{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#0d3cfc;font-size:10px;font-weight:800;cursor:pointer;vertical-align:middle;margin-left:5px;line-height:1;flex:0 0 auto}
@@ -678,6 +687,19 @@ function roofTakeoff(t, wastePct){
   if(roofOpts.gutters) rows+=r('Gutters + downspouts', Math.round(eave)+' lf');
   return rows;
 }
+// itemized $ breakdown of how the roofing price was built — shows the homeowner the math (trust)
+function roofCostBreakdown(sel, sqs, wf, t, lo, hi){
+  const psq=ROOF_PSQ[sel.matId]||[450,700], mid=(psq[0]+psq[1])/2;
+  const r=(l,v)=>'<div class="tk-row"><span>'+l+'</span><b>'+fmtMoney(Math.round(v/50)*50)+'</b></div>';
+  let rows=r((sqs*wf).toFixed(1)+' sq '+sel.matLabel.toLowerCase()+' — material + install', sqs*wf*mid);
+  if(roofOpts.layers>1) rows+=r('Tear-off existing layer', sqs*28);
+  if(roofOpts.ridgeVent&&t&&(t.ridgeFt||0)>3) rows+=r('Ridge vent', (t.ridgeFt||0)*11);
+  const c=window.__roofFeatures&&window.__roofFeatures.counts; if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen) rows+=r('Flashing &amp; penetrations', pen); }
+  if(roofOpts.gutters&&t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; rows+=r('New gutters + downspouts', ef*13+ds); }
+  if(roofOpts.steep) rows+=r('Steep / 2-story access (+30%)', sqs*wf*mid*0.30);
+  rows+='<div class="tk-row tk-tot"><span>Estimated total</span><b>'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</b></div>';
+  return rows;
+}
 // short "we looked at your roof" summary of detected features — credibility signal
 function detectedSummary(){
   const f=window.__roofFeatures, c=f&&f.counts; if(!c) return '';
@@ -807,14 +829,15 @@ function renderQuoteCard(){
       const wasteRow='<div class="waste-row"><span>Waste factor</span>'+WASTE_OPTS.map((p,i)=>'<button class="wb'+(i===selWaste?' on':'')+'" data-w="'+i+'">'+p+'%</button>').join('')+'</div>';
       const ob=(o,v,lab,active)=>'<button class="ob'+(active?' on':'')+'" data-o="'+o+'"'+(v!=null?' data-v="'+v+'"':'')+'>'+(v==null?(OB_ICON[o]||''):'')+lab+'</button>';
       const optsRow='<div class="opt-row"><span class="opt-l">Layers'+ACUE("roof")+'</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
-      const takeoff=t ? '<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
+      const breakdown=t ? '<div class="tk-h">Price breakdown</div><div class="takeoff">'+roofCostBreakdown(sel,sqs,wf,t,lo,hi)+'</div>' : '';
+      const takeoff=t ? breakdown+'<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
       const rFin=monthly((lo+hi)/2, TENANT.financing.roofApr, TENANT.financing.roofYears);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
       const spec=ROOF_SPEC[sel.matId];
       const specLine=spec?'<div class="qspec">'+spec.warranty+' warranty · '+spec.life+' lifespan</div>':'';
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
-      const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide breakdown ▴':'Customize &amp; see materials ▾')+'</button>';
+      const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide details ▴':'See price breakdown &amp; options ▾')+'</button>';
       body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats;
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
@@ -1627,6 +1650,18 @@ function openInfoModal(html){ const m=$("infoModal"); if(!m) return; $("imBody")
 window.__closeInfo=()=>{ const m=$("infoModal"); if(m) m.style.display="none"; };
 $("infoModal").addEventListener("click",e=>{ if(e.target.id==="infoModal") window.__closeInfo(); });   // backdrop click closes
 const IM_CHK='<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3.2 8.4l3 3L13 4.8"/></svg>';
+// performance/durability per material — the practical stuff homeowners care about
+const MAT_PERF={
+  arch:{Water:"Excellent",Wind:"Up to 130 mph",Temperature:"Good in heat & cold",Fire:"Class A",Weight:"Light — no extra framing"},
+  "3tab":{Water:"Very good",Wind:"Up to 60–70 mph",Temperature:"Fair",Fire:"Class A",Weight:"Light — no extra framing"},
+  metal:{Water:"Excellent — sheds fast",Wind:"Up to 140+ mph",Temperature:"Excellent — reflects heat",Fire:"Non-combustible",Weight:"Light"},
+  mshingle:{Water:"Excellent",Wind:"Up to 120 mph",Temperature:"Very good",Fire:"Non-combustible",Weight:"Light"},
+  clay:{Water:"Excellent",Wind:"Up to 125 mph",Temperature:"Excellent in heat",Fire:"Non-combustible",Weight:"Heavy — needs strong framing"},
+  concrete:{Water:"Excellent",Wind:"Up to 125 mph",Temperature:"Very good",Fire:"Non-combustible",Weight:"Heavy — needs strong framing"},
+  slate:{Water:"Excellent",Wind:"Up to 110 mph",Temperature:"Excellent",Fire:"Fireproof",Weight:"Very heavy — needs reinforced framing"},
+  synthetic:{Water:"Excellent",Wind:"Up to 110 mph",Temperature:"Very good",Fire:"Class A",Weight:"Light — no extra framing"},
+  cedar:{Water:"Good — needs upkeep",Wind:"Up to 90 mph",Temperature:"Good — natural insulator",Fire:"Class C (treatable to A)",Weight:"Light–medium"},
+};
 function materialModal(matId){
   const m=ROOF_CATALOG.find(x=>x.id===matId)||ROOF_CATALOG[0], info=MAT_INFO[matId]||{}, spec=ROOF_SPEC[matId]||{};
   const sel=window.__roofSel, selColObj=(sel&&sel.matId===matId)?m.colors.find(c=>c.n===sel.colorName):m.colors[selCol]||m.colors[0];
@@ -1639,6 +1674,7 @@ function materialModal(matId){
     (spec.warranty?'<span class="im-stat">'+spec.warranty+' warranty</span><span class="im-stat">'+spec.life+' lifespan</span>':'')+
     (info.features?'<div class="im-sec">Features</div>'+li(info.features):'')+
     (info.benefits?'<div class="im-sec">Benefits</div>'+li(info.benefits):'')+
+    (MAT_PERF[matId]?'<div class="im-sec">How it performs</div><div class="im-perf">'+Object.entries(MAT_PERF[matId]).map(([k,v])=>'<div class="im-pf"><span>'+k+'</span><b>'+v+'</b></div>').join('')+'</div>':'')+
     (heroUrl?'':'<div class="im-note">Tip: pick a colour and tap “See it on my house” to preview '+m.label+' on your actual roof.</div>');
 }
 // accuracy help cues for the address data (dimensions, sun, solar estimate)
