@@ -67,3 +67,12 @@ _p2/
 _vr*/
 _vr6_probe.html
 _vr6_smoke.mjs
+
+# local dev junk (serve/build/tunnel logs + roof-quote spike scratch)
+_*.log
+spikes/roof-quote/serve.*.log
+spikes/roof-quote/verify-*.cjs
+spikes/roof-quote/.launch.sh
+spikes/roof-quote/feat.json
+shadowshot-*.png
+heatmap-*.png

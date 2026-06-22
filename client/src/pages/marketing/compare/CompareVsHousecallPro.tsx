@@ -67,7 +67,7 @@ export default function CompareVsHousecallPro() {
         },
         {
           label: "AI voice agent",
-          us: "Built-in 24/7 TradeLine — answers calls, books jobs",
+          us: "Built-in TradeLine — answers calls, books jobs",
           them: "Limited AI assistant; no full voice agent",
         },
         {

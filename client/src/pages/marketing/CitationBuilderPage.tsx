@@ -34,7 +34,7 @@ import { mkt } from "@/theme/tokens";
 
 const PAGE_PATH = "/citation-builder";
 const SITE_URL = "https://wefixtrades.com";
-const MAILTO_SUBJECT_BASE = "Citation Builder";
+const MAILTO_SUBJECT_BASE = "CiteFlow";
 
 interface TierDef {
   id: "starter" | "pro" | "premium";
@@ -176,7 +176,7 @@ const FAQ_ITEMS = [
   {
     question: "How is this different from MapGuard?",
     answer:
-      "Citation Builder is a one-time submission service — we get you listed everywhere, then you're done. MapGuard is ongoing managed visibility (weekly grid scans, GBP posts, review monitoring) on top of an already-strong citation foundation. Many customers do Citation Builder once, then subscribe to MapGuard.",
+      "CiteFlow is a one-time submission service — we get you listed everywhere, then you're done. MapGuard is ongoing managed visibility (weekly grid scans, GBP posts, review monitoring) on top of an already-strong citation foundation. Many customers do CiteFlow once, then subscribe to MapGuard.",
   },
   {
     question: "What's the catch on Starter vs Pro?",
@@ -191,7 +191,7 @@ const FAQ_ITEMS = [
 ];
 
 function mailto(tierName: string): string {
-  return `mailto:sales@wefixtrades.com?subject=${encodeURIComponent(`${MAILTO_SUBJECT_BASE} — ${tierName}`)}&body=${encodeURIComponent("Hi WeFixTrades team,\n\nI'd like to start the Citation Builder " + tierName + " tier. Here's my business info:\n\nBusiness name:\nWebsite:\nPhone:\nAddress:\n\nLooking forward to next steps.")}`;
+  return `mailto:sales@wefixtrades.com?subject=${encodeURIComponent(`${MAILTO_SUBJECT_BASE} — ${tierName}`)}&body=${encodeURIComponent("Hi WeFixTrades team,\n\nI'd like to start the CiteFlow " + tierName + " tier. Here's my business info:\n\nBusiness name:\nWebsite:\nPhone:\nAddress:\n\nLooking forward to next steps.")}`;
 }
 
 /**
@@ -378,7 +378,7 @@ function CheckoutDetailsDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              Start Citation Builder{tier ? ` · ${tier.name}` : ""}
+              Start CiteFlow{tier ? ` · ${tier.name}` : ""}
             </DialogTitle>
             <DialogDescription>
               We just need a name to put on the order. The rest of your
@@ -441,7 +441,7 @@ function CheckoutDetailsDialog({
 export default function CitationBuilderPage() {
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
-    { name: "Citation Builder", url: `${SITE_URL}${PAGE_PATH}` },
+    { name: "CiteFlow", url: `${SITE_URL}${PAGE_PATH}` },
   ]);
   const faqSchemaItems = useMemo(
     () => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })),
@@ -455,7 +455,7 @@ export default function CitationBuilderPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Citation Builder — get listed on 100+ business directories in 7 days"
+        title="CiteFlow — get listed on 100+ business directories in 7 days"
         description="Done-for-you citation submission service. Starter $79 (25 directories), Pro $179 (50 trade+general), Premium $299 (100+ full sweep). Manual submissions, NAP-clean, completion report."
         canonical={PAGE_PATH}
         keywords={["citation builder", "local citation service", "business directory submission", "yelp bbb angi listing service", "trade business citations"]}
@@ -472,13 +472,13 @@ export default function CitationBuilderPage() {
         }}
       >
         <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-          {/* Wave 11D D5 — Citation Builder is part of the MapGuard Suite. */}
+          {/* Wave 11D D5 — CiteFlow is part of the MapGuard Suite. */}
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
             <Link href="/mapguard-suite" style={{ color: "#6b7280", textDecoration: "none" }}>MapGuard Suite</Link>
             <span style={{ margin: "0 6px" }}>/</span>
-            <span style={{ color: "#111827" }}>Citation Builder</span>
+            <span style={{ color: "#111827" }}>CiteFlow</span>
           </nav>
           <div
             style={{
@@ -811,7 +811,7 @@ export default function CitationBuilderPage() {
         </div>
       </section>
 
-      {/* ── Citation Tracker cross-CTA ──────────────────────────────── */}
+      {/* ── CiteTrack cross-CTA ──────────────────────────────── */}
       {/* Wave 39 — funnel bridge: after listings are created, keep them accurate. */}
       <section
         data-testid="citation-builder-tracker-cta"
@@ -848,7 +848,7 @@ export default function CitationBuilderPage() {
                 lineHeight: 1.2,
               }}
             >
-              Keep them accurate with Citation Tracker
+              Keep them accurate with CiteTrack
             </h3>
             <p
               style={{
@@ -859,7 +859,7 @@ export default function CitationBuilderPage() {
                 maxWidth: 520,
               }}
             >
-              Directories drift. Citation Tracker watches all 50+ daily and alerts you the moment something changes — $19/mo, or $5/mo as a MapGuard add-on.
+              Directories drift. CiteTrack watches all 50+ daily and alerts you the moment something changes — $19/mo, or $5/mo as a MapGuard add-on.
             </p>
             <Link
               href="/citation-tracker"

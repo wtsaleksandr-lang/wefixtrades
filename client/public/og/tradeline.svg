@@ -21,7 +21,7 @@
   <!-- Eyebrow -->
   <text x="80" y="170" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#0D3CFC" letter-spacing="6">WEFIXTRADES · PRODUCT</text>
   <!-- Product name -->
-  <text x="80" y="320" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="96" font-weight="700" fill="#FFFFFF" letter-spacing="-2">24/7 TradeLine</text>
+  <text x="80" y="320" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="96" font-weight="700" fill="#FFFFFF" letter-spacing="-2">TradeLine</text>
   <!-- Tagline -->
   <text x="80" y="400" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#A6B0C2">Never miss a lead. AI answers every call.</text>
   <!-- Accent bar -->

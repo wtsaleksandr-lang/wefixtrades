@@ -525,7 +525,7 @@ export default function DemoPage() {
               Try it yourself
             </h1>
             <p style={{ fontSize: 16, color: mkt.onDarkMuted, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 32px" }}>
-              Chat or call the 24/7 TradeLine assistant. Ask about services, get an estimate, or see how it handles a real conversation.
+              Chat or call the TradeLine assistant. Ask about services, get an estimate, or see how it handles a real conversation.
             </p>
           </div>
           {/* Sound bars — kept as-is */}
@@ -551,7 +551,7 @@ export default function DemoPage() {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E" }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#FFFFFF" }}>24/7 TradeLine</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#FFFFFF" }}>TradeLine</span>
               </div>
               <div style={{
                 display: "flex", gap: 2, padding: 3,

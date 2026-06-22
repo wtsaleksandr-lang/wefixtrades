@@ -88,7 +88,7 @@ const MARKETING_PRODUCTS: MarketingProduct[] = [
   },
   {
     id: "citationbuilder",
-    title: "Citation Builder",
+    title: "CiteFlow",
     icon: ClipboardList,
     aiCapable: false,
     categories: ["Get Found"],
@@ -110,7 +110,7 @@ const MARKETING_PRODUCTS: MarketingProduct[] = [
   },
   {
     id: "tradeline",
-    title: "24/7 TradeLine",
+    title: "TradeLine",
     icon: Phone,
     aiCapable: true,
     categories: ["Convert Leads"],

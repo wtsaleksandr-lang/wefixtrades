@@ -36,7 +36,7 @@ interface ProductItem {
 }
 
 const MONEY_MAKERS: ProductItem[] = [
-  { slug: "tradeline",       name: "24/7 TradeLine™",   tagline: "Never miss a lead — even at 2 AM.",        icon: Phone,      statValue: "62%",    statLabel: "fewer missed calls" },
+  { slug: "tradeline",       name: "TradeLine™",   tagline: "Never miss a lead — even at 2 AM.",        icon: Phone,      statValue: "62%",    statLabel: "fewer missed calls" },
   { slug: "quickquotepro",   name: "QuoteQuick™",       tagline: "Instant quotes on your website.",          icon: Calculator, statValue: "3×",     statLabel: "more booked jobs" },
   { slug: "mapguard",        name: "MapGuard™",         tagline: "Show up first on Google Maps.",            icon: MapPin,     statValue: "Top-3",  statLabel: "local pack" },
   { slug: "webfix",          name: "WebFix™",           tagline: "Lighthouse 42 → 98 in a week.",            icon: TrendingUp, statValue: "98",     statLabel: "Lighthouse score" },

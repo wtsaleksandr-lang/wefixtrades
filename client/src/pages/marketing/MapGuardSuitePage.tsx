@@ -4,8 +4,8 @@
  * Groups the 4 paid local-SEO products under one sub-brand so customers
  * see a coherent platform instead of separate SKUs:
  *   1. MapGuard Core      — managed Google Business Profile visibility
- *   2. Citation Tracker   — directory monitoring
- *   3. Citation Builder   — one-time citation submission service
+ *   2. CiteTrack   — directory monitoring
+ *   3. CiteFlow   — one-time citation submission service
  *   4. Full Audit Master  — five audits combined into one PDF
  *
  * Plus a "Start free with these tools" section that LINKS to the 7
@@ -49,14 +49,14 @@ const SUITE_PRODUCTS: SuiteProduct[] = [
     pitch: "Managed Google Business Profile — weekly monitoring, monthly optimization, real reports.",
   },
   {
-    name: "Citation Tracker",
+    name: "CiteTrack",
     href: "/citation-tracker",
     icon: Search,
     price: "$19 / mo standalone · $5 / mo with MapGuard",
     pitch: "Continuous NAP monitoring across 50+ directories. Catch citation drift before it costs rankings.",
   },
   {
-    name: "Citation Builder",
+    name: "CiteFlow",
     href: "/citation-builder",
     icon: Layers,
     price: "$79 / $179 / $299 one-time",
@@ -120,7 +120,7 @@ export default function MapGuardSuitePage() {
     <MarketingLayout>
       <PageMeta
         title="MapGuard Suite — Local SEO Platform for Trades"
-        description="Four products designed to find, fix, and monitor your local presence. MapGuard Core, Citation Tracker, Citation Builder, and Full Audit Master — your complete local SEO suite."
+        description="Four products designed to find, fix, and monitor your local presence. MapGuard Core, CiteTrack, CiteFlow, and Full Audit Master — your complete local SEO suite."
         canonical="/mapguard-suite"
       />
       <V7PageShell>

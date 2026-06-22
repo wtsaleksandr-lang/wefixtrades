@@ -5,7 +5,7 @@ export { NAV_LINKS } from "./navigation";
 
 export const FOOTER_LINKS = {
   Product: [
-    { label: "24/7 TradeLine\u2122", href: "/products/tradeline" },
+    { label: "TradeLine\u2122", href: "/products/tradeline" },
     { label: "QuoteQuick\u2122", href: "/products/quickquotepro" },
     { label: "MapGuard\u2122", href: "/products/mapguard" },
     { label: "ReputationShield\u2122", href: "/products/reputationshield" },
@@ -53,7 +53,7 @@ export type ProductConfig = {
 };
 
 export const PRODUCTS: ProductConfig[] = [
-  { slug: "tradeline", name: "24/7 TradeLine™", tagline: "24/7 lead handling for busy trades.", primaryCtaLabel: "Get Started", primaryCtaHref: "/signup", secondaryCtaLabel: "View Live Demo", secondaryCtaHref: "/demo", icon: "workflow", bullets: ["AI call + chat answering", "Instant estimates", "Auto follow-ups", "Review requests"] },
+  { slug: "tradeline", name: "TradeLine™", tagline: "24/7 lead handling for busy trades.", primaryCtaLabel: "Get Started", primaryCtaHref: "/signup", secondaryCtaLabel: "View Live Demo", secondaryCtaHref: "/demo", icon: "workflow", bullets: ["AI call + chat answering", "Instant estimates", "Auto follow-ups", "Review requests"] },
   { slug: "quickquotepro", name: "QuoteQuick™", tagline: "Instant quotes on your website. Qualified leads in your inbox.", primaryCtaLabel: "Start Free — No Card", primaryCtaHref: "/wizard", secondaryCtaLabel: "Try a Live Demo", secondaryCtaHref: "/products/quickquotepro/demo", icon: "calculator", bullets: ["Customers get instant prices", "Every quote captures a lead", "Live in 5 minutes", "Works with Jobber, HCP, etc."] },
   { slug: "mapguard", name: "MapGuard™", tagline: "Google Business Profile optimization.", primaryCtaLabel: "Get Started", primaryCtaHref: "/signup", secondaryCtaLabel: "See Pricing", secondaryCtaHref: "/pricing", icon: "map", bullets: ["Rank higher locally", "Fix profile gaps", "Improve reviews & CTR", "Ongoing updates"] },
   { slug: "reputationshield", name: "ReputationShield™", tagline: "Reviews + reputation automation.", primaryCtaLabel: "Get Started", primaryCtaHref: "/signup", secondaryCtaLabel: "See Pricing", secondaryCtaHref: "/pricing", icon: "shield", bullets: ["Review requests", "Response guidance", "Reputation monitoring", "Trust boost"] },

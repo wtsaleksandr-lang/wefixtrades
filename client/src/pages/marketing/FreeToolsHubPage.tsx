@@ -42,7 +42,7 @@ interface ToolEntry {
  * scripts/generate-free-tool-previews.ts, same pipeline as the widget
  * cards below. Stub icon-in-empty-box previews read as unfinished. */
 const LOCAL_SEO_TOOLS: ToolEntry[] = [
-  { name: "Free Audit", href: "/tools/free-audit", blurb: "30-second local SEO health check + GBP rank grid.", thumb: "/free-tools/previews/free-audit.png" },
+  { name: "LocalScore", href: "/tools/free-audit", blurb: "30-second local SEO health check + GBP rank grid.", thumb: "/free-tools/previews/free-audit.png" },
   { name: "Citation Checker", href: "/tools/citation-checker", blurb: "Check your listings across 10 high-impact directories.", thumb: "/free-tools/previews/citation-checker.png" },
   { name: "Google Review Link Generator", href: "/tools/google-review-link-generator", blurb: "Get your direct review link in one click.", thumb: "/free-tools/previews/review-link-generator.png" },
   { name: "Local Rank Grid", href: "/tools/local-rank-grid", blurb: "5×5 geo-grid rank scan for any keyword.", thumb: "/free-tools/previews/rank-grid.png" },
@@ -199,7 +199,7 @@ export default function FreeToolsHubPage() {
           headline={<>Free tools to grow<br/><span style={{ color: mkt.accentOnDark }}>your trade business.</span></>}
           sub="19 free tools across local SEO, AI content, and customer engagement. Use them today — no credit card, no signup."
           ctas={[
-            { label: "Start with Free Audit", href: "/tools/free-audit" },
+            { label: "Start with LocalScore", href: "/tools/free-audit" },
           ]}
         />
 

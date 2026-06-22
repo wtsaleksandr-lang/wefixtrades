@@ -71,7 +71,7 @@ export default function CompareVsServiceTitan() {
         },
         {
           label: "AI voice agent",
-          us: "Built-in 24/7 TradeLine",
+          us: "Built-in TradeLine",
           them: "AI Voice Agent available as a paid add-on",
         },
         {
@@ -173,7 +173,7 @@ export default function CompareVsServiceTitan() {
         {
           question: "Does WeFixTrades have AI voice like ServiceTitan's AI Voice Agent?",
           answer:
-            `Yes — 24/7 TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It starts at ${TRADELINE_FROM}/mo standalone and is included in our ${GROWTH_BUNDLE_NAME} bundle (${GROWTH_BUNDLE_PRICE}/mo) rather than billed as an enterprise add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.`,
+            `Yes — TradeLine answers calls, asks qualifying questions, books jobs, and routes urgent calls to you. It starts at ${TRADELINE_FROM}/mo standalone and is included in our ${GROWTH_BUNDLE_NAME} bundle (${GROWTH_BUNDLE_PRICE}/mo) rather than billed as an enterprise add-on. ServiceTitan's AI Voice Agent is a strong product; the difference is pricing model and target shop size.`,
 
           answerNode: (
             <>

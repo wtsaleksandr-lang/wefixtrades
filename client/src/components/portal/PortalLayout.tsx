@@ -131,7 +131,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
        subscription (Q17). Labels use the canonical product brand name (premium
        SaaS brand consistency) — customers see these brand names in billing,
        catalog, and marketing surfaces. */
-    { label: "24/7 TradeLine", href: "/portal/tradeline/setup", icon: Phone, requires: "tradeline" },
+    { label: "TradeLine", href: "/portal/tradeline/setup", icon: Phone, requires: "tradeline" },
     { label: "AI Receptionists", href: "/portal/tradeline/receptionists", icon: Sparkles, indent: true, requires: "tradeline" },
     { label: "QuoteQuick", href: "/dashboard", icon: Calculator, requires: "quotequick" },
     { label: "Calculator Templates", href: "/portal/quotequick/templates", icon: Sparkles, indent: true, requires: "quotequick" },
@@ -158,7 +158,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
      * had no way to reach them. Gated by `requires` like every other product. */
     { label: "WebCare", href: "/portal/webcare/dashboard", icon: ShieldCheck, requires: "webcare" },
     { label: "AdFlow", href: "/portal/adflow/dashboard", icon: Zap, requires: "adflow" },
-    { label: "Citation Builder", href: "/portal/citation-builder", icon: ClipboardList, requires: "citationbuilder" },
+    { label: "CiteFlow", href: "/portal/citation-builder", icon: ClipboardList, requires: "citationbuilder" },
     /* Wave 36 — AI Insights nav entry removed. The Action Stack is now inline
        on /portal and every product dashboard; the standalone page redirects
        there. Discovery is now via the AI Copilot. */

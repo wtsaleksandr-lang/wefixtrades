@@ -1,8 +1,8 @@
 /**
- * Citation Builder — customer portal dashboard.
+ * CiteFlow — customer portal dashboard.
  *
  * Wave 3.5 launch-wiring closeout (2026-05-25). Lists the customer's
- * one-time Citation Builder orders with progress bar, status badge,
+ * one-time CiteFlow orders with progress bar, status badge,
  * business-info card, and link back to the marketing page to start
  * another submission.
  *
@@ -169,7 +169,7 @@ function SubmissionCard({ row }: { row: SubmissionRow }) {
 }
 
 export default function CitationBuilderDashboard() {
-  usePageTitle("Citation Builder · Portal");
+  usePageTitle("CiteFlow · Portal");
 
   const submissionsQ = useQuery<SubmissionsResp>({
     queryKey: ["/api/citation-builder/submissions"],
@@ -184,7 +184,7 @@ export default function CitationBuilderDashboard() {
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "#111827" }}>Citation Builder</h2>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: "#111827" }}>CiteFlow</h2>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.62)", marginTop: 4 }}>
               One-time submission orders + completion progress.
             </div>
@@ -214,10 +214,10 @@ export default function CitationBuilderDashboard() {
         {submissionsQ.data && submissionsQ.data.submissions.length === 0 && (
           <Card style={{ padding: 32, textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", marginBottom: 8 }}>
-              No Citation Builder orders yet
+              No CiteFlow orders yet
             </div>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.62)", marginBottom: 18 }}>
-              Citation Builder gets your business listed on 25–100+ directories. One-time, no subscription.
+              CiteFlow gets your business listed on 25–100+ directories. One-time, no subscription.
             </div>
             <Link href="/citation-builder">
               <Button>

@@ -30,7 +30,7 @@ const OUT_DIR = join(REPO_ROOT, "client", "public", "og");
 // can run without the TS toolchain. Update both lists when adding a
 // new product page (12 slugs as of PR #683).
 const PRODUCTS = [
-  { slug: "tradeline", name: "24/7 TradeLine", tagline: "Never miss a lead. AI answers every call." },
+  { slug: "tradeline", name: "TradeLine", tagline: "Never miss a lead. AI answers every call." },
   { slug: "quickquotepro", name: "QuoteQuick", tagline: "Instant quotes on your website. Live in 5 minutes." },
   { slug: "mapguard", name: "MapGuard", tagline: "Managed Google Maps visibility for trades." },
   { slug: "webcare", name: "WebCare", tagline: "Website monitoring + maintenance, done for you." },
