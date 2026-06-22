@@ -58,6 +58,9 @@
   #card .gauge-ring::before{content:"";position:absolute;inset:4px;background:#fff;border-radius:50%}
   #card .gauge-ring span{position:relative;font-size:10px;font-weight:800;color:#0d3cfc}
   #card .co2line{margin-top:8px;font-size:11px;color:#1a7a4a;background:#f0faf4;border:1px solid #d6efe0;border-radius:8px;padding:6px 9px;line-height:1.4}
+  #card .prodtog{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-align:left}
+  #card .prodtog.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,.05)}
+  #card .prodtog .pgrad{flex:0 0 auto;width:38px;height:8px;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#22d3ee,#facc15,#ef4444)}
   #card .sunline{margin-top:8px;font-size:11px;color:#9a6a00;background:#fff8e8;border:1px solid #f0e2bf;border-radius:8px;padding:6px 9px;line-height:1.4}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
@@ -784,6 +787,7 @@ function renderQuoteCard(){
       '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">Panels</div></div>'+
       '<div class="stat"><div class="v">'+sysKw+'</div><div class="l">kW</div></div>'+
       '<div class="stat"><div class="v">'+(sysKwh?sysKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
+      '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
       (sysKwh?(()=>{ const kg=sysKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
   } else {
@@ -830,7 +834,7 @@ function renderQuoteCard(){
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
   const cta=roofNoSel
     ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
-    : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Get full quote →</button>';
+    : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   card.innerHTML=tabs+addr+body+note+cta;
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
@@ -859,6 +863,7 @@ function renderQuoteCard(){
   const reSection=async()=>{ window.__sizePct=1; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } };
   card.querySelectorAll("[data-sect]").forEach(b=>b.onclick=()=>{ window.__sectionMode=b.dataset.sect; reSection(); });
   card.querySelectorAll("[data-sectshare]").forEach(s=>{ s.onchange=()=>{ window.__sectionShare=(+s.value)/100; reSection(); }; });
+  card.querySelectorAll("[data-prod]").forEach(b=>b.onclick=async()=>{ window.__prodMode=!window.__prodMode; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } });
   card.querySelectorAll(".cmp-row,.mat-card").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
@@ -1018,7 +1023,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 /* ---------- run ---------- */
 async function run(addr){
   showLoad("Locating address…"); setStatus("");
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
@@ -1523,7 +1528,7 @@ async function buildPhotoPanels(){
   const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
   for(const pn of list){
     if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
-    const fill=sunMode ? energyColor(((pn.yearlyEnergyDcKwh||0)-emin)/((emax-emin)||1)) : "rgba(56,132,255,0.9)";
+    const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-emin)/((emax-emin)||1)) : "rgba(56,132,255,0.9)";
     const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=panelCornersLL(pn,seg,pw,ph); gmap.append(poly); photoPanels.push(poly);
   }
