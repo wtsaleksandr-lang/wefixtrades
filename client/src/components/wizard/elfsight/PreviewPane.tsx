@@ -135,6 +135,12 @@ interface Props {
    */
   category?: string;
   /**
+   * ROOF-VISUALIZER — when `'roof_visualizer'`, the preview's `advanced`
+   * config carries the marker so AdvancedCalculator renders the embedded
+   * `/api/roofquote/widget` iframe instead of the field/result form.
+   */
+  widgetKind?: 'roof_visualizer';
+  /**
    * Click-to-edit (2026-06-06) — Apple/Tesla direct-manipulation. When the
    * user taps a spot on the live preview mock-up that maps to an editor
    * control, this fires with the editor TAB that edits it plus a `targetKey`
@@ -532,7 +538,7 @@ function WizardPinchZoom({
 export default function PreviewPane({
   businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle,
   onHeaderSubtitleChange, onResultsTextChange, logo, layout, device, fields, calculations,
-  header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category,
+  header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category, widgetKind,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
   sessionId = 'draft',
@@ -1890,7 +1896,7 @@ export default function PreviewPane({
     const merged = buildAdvancedConfig({
       layout, businessName, fields, calculations, header, results,
       resultCalcId, style, settings, stepLayout, tiered, trustBadges,
-      defaultIcon, origin: settings?.origin, steps, category,
+      defaultIcon, origin: settings?.origin, steps, category, widgetKind,
     });
     return {
       id: -1,
@@ -1915,7 +1921,7 @@ export default function PreviewPane({
         ...(buildLeadFormConfig(settings) ? { lead_form: buildLeadFormConfig(settings) } : {}),
       },
     } as CalculatorData;
-  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category, widgetKind]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.

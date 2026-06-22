@@ -389,6 +389,13 @@ export interface AdvNumberFormat {
 }
 export interface AdvancedConfig {
   enabled?: boolean;
+  /**
+   * ROOF-VISUALIZER — when `'roof_visualizer'`, the calculator renders the
+   * embedded 3D roof & solar widget (`GET /api/roofquote/widget`) iframe
+   * instead of the field/result form. Carried from the gallery template's
+   * `TemplateConfig.widgetKind`. Absent on every other calculator.
+   */
+  widgetKind?: 'roof_visualizer';
   fields?: AdvField[];
   calculations?: AdvCalc[];
   result_calc?: string;
@@ -1856,10 +1863,97 @@ function EditHint({ testId, color }: { testId: string; color: string }) {
   );
 }
 
+/**
+ * ROOF-VISUALIZER — embedded 3D roof & solar widget.
+ *
+ * When a calculator's `advanced.widgetKind === 'roof_visualizer'` (the
+ * `roof_solar_visualizer` / `roofing_visualizer` gallery templates), the
+ * calculator does NOT render a field/result form — it mounts the first-party
+ * 3D roof & solar visualizer served at `GET /api/roofquote/widget` in an
+ * iframe. This is the SAME widget the schema-flow `RoofVisualizerStep` uses, so
+ * the builder preview and the live published calculator render identically.
+ *
+ * The route is first-party / same-origin and needs scripts + WebGL +
+ * same-origin fetches to `/api/roofquote/*`, so we intentionally do NOT set a
+ * `sandbox` attribute (a sandbox would break its own WebGL + fetches).
+ */
+function RoofVisualizerEmbed({
+  businessName,
+  header,
+  connectedTop,
+}: {
+  businessName?: string;
+  header?: { title?: string; subtitle?: string };
+  connectedTop: boolean;
+}) {
+  const title = header?.title?.trim() || 'See your roof in 3D — instant roof & solar quote';
+  const subtitle = header?.subtitle?.trim()
+    || 'Type your address to load a photoreal 3D model of your roof, then explore materials and solar options.';
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: `1px solid ${eff.buttonBorder}`,
+        borderTopLeftRadius: connectedTop ? 0 : eff.radius2xl,
+        borderTopRightRadius: connectedTop ? 0 : eff.radius2xl,
+        borderBottomLeftRadius: eff.radius2xl,
+        borderBottomRightRadius: eff.radius2xl,
+        boxShadow: eff.shadowCard,
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ padding: '20px 28px 0' }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: eff.text, margin: 0, lineHeight: 1.25 }}>
+          {title}
+        </h2>
+        {subtitle && (
+          <p style={{ fontSize: 14, color: eff.textBody, margin: '6px 0 0', lineHeight: 1.45 }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <div style={{ padding: '16px 20px 20px' }}>
+        <iframe
+          src="/api/roofquote/widget"
+          title={`Roof & Solar visualizer${businessName ? ` — ${businessName}` : ''}`}
+          allow="accelerometer; gyroscope; fullscreen"
+          className="qq-roof-visualizer-frame"
+          style={{
+            display: 'block',
+            width: '100%',
+            height: 'min(78vh, 720px)',
+            border: 'none',
+            borderRadius: eff.radiusLg,
+            background: eff.bgSecondary,
+          }}
+        />
+      </div>
+      <style>{`
+        @media (max-width: 480px) {
+          .qq-roof-visualizer-frame { height: 82vh !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
   planTier, calculatorId, bookingUrl, ownerEmail, connectedTop = false,
 }: Props) {
+  // ROOF-VISUALIZER — short-circuit BEFORE any hook (React rules-of-hooks):
+  // when the template carries the embedded-widget marker, render the 3D roof &
+  // solar iframe instead of the field/result form. Must stay the first
+  // statement in the component so no hook is skipped on the early return.
+  if (advanced.widgetKind === 'roof_visualizer') {
+    return (
+      <RoofVisualizerEmbed
+        businessName={businessName}
+        header={advanced.header}
+        connectedTop={connectedTop}
+      />
+    );
+  }
   // W-AO-6c — Brand Studio gate. When the owner isn't on Pro+ we IGNORE
   // every Brand Studio field even if it's somehow persisted on the row.
   // The server-side strip in `calculatorRoutes.ts` is the primary gate;
