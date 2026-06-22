@@ -69,6 +69,13 @@ export interface BuildAdvancedConfigInput {
   steps?: TemplateStep[];
   category?: string;
   /**
+   * ROOF-VISUALIZER — carried from the chosen template's
+   * `TemplateConfig.widgetKind`. When `'roof_visualizer'`, the persisted/preview
+   * `advanced` config carries it through so AdvancedCalculator renders the
+   * embedded `/api/roofquote/widget` iframe instead of the field/result UI.
+   */
+  widgetKind?: 'roof_visualizer';
+  /**
    * When true, strip the synthetic `__preview` marker inherited from
    * `buildBlankPreviewConfig`. The SAVE path passes this so the persisted /
    * published calculator is NOT flagged as a throwaway placeholder (which the
@@ -99,7 +106,7 @@ export function buildAdvancedConfig(
   const {
     layout, businessName, fields, calculations, header, results,
     resultCalcId, style, settings, stepLayout, tiered, trustBadges,
-    defaultIcon, origin, steps, category, forSave,
+    defaultIcon, origin, steps, category, widgetKind, forSave,
   } = input;
 
   const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -274,6 +281,11 @@ export function buildAdvancedConfig(
   }
   if (category && category.trim() !== '') {
     merged = { ...merged, category };
+  }
+  // ROOF-VISUALIZER — carry the embedded-widget marker through so the renderer
+  // (AdvancedCalculator) mounts the 3D roof/solar iframe instead of the form.
+  if (widgetKind) {
+    merged = { ...merged, widgetKind };
   }
   if (settings?.businessProfile) {
     merged = { ...merged, businessProfile: settings.businessProfile };

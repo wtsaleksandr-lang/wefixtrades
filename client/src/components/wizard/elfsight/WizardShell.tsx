@@ -1550,6 +1550,11 @@ export default function WizardShell({ embed = false }: Props) {
         category: state.activeTemplateId
           ? getTemplatePreset(state.activeTemplateId)?.category
           : undefined,
+        // ROOF-VISUALIZER — carry the active template's embedded-widget marker
+        // so the published calculator renders the 3D roof/solar iframe.
+        widgetKind: state.activeTemplateId
+          ? getTemplatePreset(state.activeTemplateId)?.widgetKind
+          : undefined,
         forSave: true,
       });
 
@@ -2426,6 +2431,14 @@ export default function WizardShell({ embed = false }: Props) {
                   category={
                     state.activeTemplateId
                       ? getTemplatePreset(state.activeTemplateId)?.category
+                      : undefined
+                  }
+                  /* ROOF-VISUALIZER — when the active template is the 3D roof
+                     visualizer, the preview renders the embedded widget iframe
+                     instead of the field/result form. */
+                  widgetKind={
+                    state.activeTemplateId
+                      ? getTemplatePreset(state.activeTemplateId)?.widgetKind
                       : undefined
                   }
                   onRemoveField={removeField}

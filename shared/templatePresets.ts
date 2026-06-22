@@ -706,6 +706,18 @@ export interface TemplateConfig {
    * marketing list. Optional & back-compat (absent on Phase 2 templates).
    */
   matchingTrades?: string[];
+  /**
+   * ROOF-VISUALIZER — opt-in marker for templates that render a self-contained
+   * embedded widget instead of the fields/calculations flow. When set to
+   * `'roof_visualizer'`, AdvancedCalculator (the renderer for every wizard-built
+   * calculator, in both the builder preview AND the live published widget)
+   * short-circuits the field/result UI and mounts the first-party 3D roof &
+   * solar visualizer (`GET /api/roofquote/widget`) in an iframe — the same
+   * widget the schema-flow RoofVisualizerStep uses. The preset still ships a
+   * minimal valid field + calc so the gallery/apply guards pass; those are
+   * inert while `widgetKind` is set. Absent on every other template.
+   */
+  widgetKind?: 'roof_visualizer';
 }
 
 /**
@@ -9480,6 +9492,90 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       footnote: 'Includes ASE-certified mobile technician, parts and a 12-month / 12,000-mile warranty. Diagnostic fee credits toward any repair.',
     },
   },
+
+  /* ── Roof & Solar Visualizer ──────────────────────────────────────────
+   * SURFACED in the wizard gallery (ROOF-VISUALIZER). Unlike every other
+   * preset, this one does NOT render a field/calculation form: it carries
+   * `widgetKind: 'roof_visualizer'`, which makes AdvancedCalculator mount the
+   * first-party 3D roof & solar widget (`GET /api/roofquote/widget`) in an
+   * iframe instead — in BOTH the builder preview and the live published
+   * calculator. The `fields` + `calculations` below are minimal-but-valid only
+   * so the gallery / apply / formula-ref guards pass (they're inert at render
+   * time while `widgetKind` is set). The canonical multi-step definition lives
+   * in shared/templateLibrary.ts (`roof_solar_visualizer`); this entry is the
+   * gallery-facing TemplateConfig bridge to that same widget. */
+  {
+    id: 'roof_solar_visualizer',
+    name: 'Roof & Solar Visualizer',
+    description: 'Address → photoreal 3D roof, measurements, solar tiers & material visualizer → instant quote.',
+    category: 'Home Improvement',
+    trades: ['roof_solar', 'roofing'],
+    matchingTrades: ['roofing', 'solar', 'exterior'],
+    widgetKind: 'roof_visualizer',
+    requireAddress: true,
+    trustBadges: BADGES.roofing,
+    layout: 'single-column', theme: 'light', defaultIcon: 'Sun',
+    header: {
+      title: 'See your roof in 3D — get an instant roof & solar quote',
+      subtitle: 'Type your address to load a photoreal 3D model of your roof, then explore materials and solar options.',
+      align: 'left',
+    },
+    fields: [
+      { id: 'roof_area', name: 'Roof Area', label: 'Approximate roof area', type: 'slider', colSpan: 2,
+        help: 'The visualizer measures this automatically from your address — this is only a fallback.',
+        min: 800, max: 5000, step: 100, default_value: 1800, unit: 'sq ft' },
+    ],
+    calculations: [
+      { ...calc('Estimated Roof Quote', '[Roof Area] * 6'), caption: 'Indicative only — the 3D visualizer produces the precise quote.' },
+    ],
+    result_calc: 'Estimated Roof Quote',
+    results: {
+      heading: 'Your instant roof & solar quote',
+      show_breakdown: false,
+      cta_label: 'Get my full quote',
+      cta_heading: 'Want the exact figure?',
+      cta_sub: 'Share your details and a roofing specialist confirms materials, solar options and the final price.',
+    },
+  },
+
+  /* ── Roofing (3D visualizer) ───────────────────────────────────────────
+   * Roofing had no dedicated builder template. Rather than duplicate the
+   * widget, this entry points roofers at the SAME 3D roof visualizer flow
+   * (widgetKind: 'roof_visualizer'). A separate id keeps it discoverable under
+   * the roofing trade/search while reusing one renderer. */
+  {
+    id: 'roofing_visualizer',
+    name: 'Roofing — 3D Visualizer',
+    description: 'Address → 3D roof model, measurements & material picker → instant roofing quote.',
+    category: 'Home Improvement',
+    trades: ['roofing', 'roof_solar'],
+    matchingTrades: ['roofing', 'exterior'],
+    widgetKind: 'roof_visualizer',
+    requireAddress: true,
+    trustBadges: BADGES.roofing,
+    layout: 'single-column', theme: 'light', defaultIcon: 'Home',
+    header: {
+      title: 'See your roof in 3D — get an instant roofing quote',
+      subtitle: 'Type your address to load a photoreal 3D model of your roof and explore materials.',
+      align: 'left',
+    },
+    fields: [
+      { id: 'roof_area', name: 'Roof Area', label: 'Approximate roof area', type: 'slider', colSpan: 2,
+        help: 'The visualizer measures this automatically from your address — this is only a fallback.',
+        min: 800, max: 5000, step: 100, default_value: 1800, unit: 'sq ft' },
+    ],
+    calculations: [
+      { ...calc('Estimated Roofing Quote', '[Roof Area] * 6'), caption: 'Indicative only — the 3D visualizer produces the precise quote.' },
+    ],
+    result_calc: 'Estimated Roofing Quote',
+    results: {
+      heading: 'Your instant roofing quote',
+      show_breakdown: false,
+      cta_label: 'Get my full quote',
+      cta_heading: 'Want the exact figure?',
+      cta_sub: 'Share your details and a roofing specialist confirms materials and the final price.',
+    },
+  },
 ];
 
 /* ─── Lookups ─── */
@@ -10471,6 +10567,13 @@ export interface AdvancedConfigShape {
    * NOTE: `businessProfile.serviceArea` (free text) is NOT the anchor.
    */
   origin?: { address: string; lat?: number; lng?: number };
+  /**
+   * ROOF-VISUALIZER — carried through from the chosen template's
+   * `TemplateConfig.widgetKind`. When `'roof_visualizer'`, AdvancedCalculator
+   * renders the embedded `/api/roofquote/widget` iframe instead of the
+   * field/result UI. Absent on every other calculator.
+   */
+  widgetKind?: 'roof_visualizer';
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───
