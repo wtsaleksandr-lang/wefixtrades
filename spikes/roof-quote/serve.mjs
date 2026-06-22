@@ -313,9 +313,15 @@ http.createServer(async (req,res)=>{
   if(u.pathname==="/solar"){
     const lat=u.searchParams.get("lat"), lng=u.searchParams.get("lng");
     res.setHeader("Content-Type","application/json");
+    // Solar buildingInsights is static per location + billable + daily-quota-capped → disk-cache successful
+    // responses keyed by lat/lng rounded to 5dp (~1m; near-identical loads share one entry), 30d TTL. Errors NOT cached.
+    const gk=(+lat).toFixed(5)+","+(+lng).toFixed(5);
+    { const c=diskGetJSON("solar",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(c.body); return; } }
+    res.setHeader("X-Cache","MISS");
     try{
       const r=await fetch("https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude="+lat+"&location.longitude="+lng+"&requiredQuality=LOW&key="+SOLAR);
       const t=await r.text();
+      if(r.ok) diskSetJSON("solar",gk,{body:t,_t:Date.now()});
       res.end(r.ok ? t : JSON.stringify({error:"no_solar", code:r.status}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
     return;
@@ -324,11 +330,16 @@ http.createServer(async (req,res)=>{
   if(u.pathname==="/datalayers"){
     const lat=u.searchParams.get("lat"), lng=u.searchParams.get("lng");
     res.setHeader("Content-Type","application/json");
+    // Same quota-protection scheme as /solar: disk-cache successful responses by rounded lat/lng, 30d TTL.
+    const gk=(+lat).toFixed(5)+","+(+lng).toFixed(5);
+    { const c=diskGetJSON("datalayers",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(c.body); return; } }
+    res.setHeader("X-Cache","MISS");
     try{
       const url="https://solar.googleapis.com/v1/dataLayers:get?location.latitude="+lat+
         "&location.longitude="+lng+"&radiusMeters=40&view=FULL_LAYERS&requiredQuality=LOW&pixelSizeMeters=0.1&key="+SOLAR;
       const r=await fetch(url);
       const t=await r.text();
+      if(r.ok) diskSetJSON("datalayers",gk,{body:t,_t:Date.now()});
       res.end(r.ok ? t : JSON.stringify({error:"no_datalayers", code:r.status}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
     return;

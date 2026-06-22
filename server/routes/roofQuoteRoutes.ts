@@ -110,8 +110,9 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Solar buildingInsights passthrough ─── */
   app.get("/api/roofquote/solar", async (req: Request, res: Response) => {
     try {
-      const { ok, body } = await solarInsights(String(req.query.lat || ""), String(req.query.lng || ""));
+      const { ok, body, cached } = await solarInsights(String(req.query.lat || ""), String(req.query.lng || ""));
       res.setHeader("Content-Type", "application/json");
+      res.setHeader("X-Cache", cached ? "HIT" : "MISS");
       return res.send(ok ? body : JSON.stringify({ error: "no_solar" }));
     } catch (err) {
       log.error("solar failed", { err: (err as Error).message });
@@ -155,8 +156,9 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Solar dataLayers passthrough ─── */
   app.get("/api/roofquote/datalayers", async (req: Request, res: Response) => {
     try {
-      const { ok, body } = await dataLayers(String(req.query.lat || ""), String(req.query.lng || ""));
+      const { ok, body, cached } = await dataLayers(String(req.query.lat || ""), String(req.query.lng || ""));
       res.setHeader("Content-Type", "application/json");
+      res.setHeader("X-Cache", cached ? "HIT" : "MISS");
       return res.send(ok ? body : JSON.stringify({ error: "no_datalayers" }));
     } catch (err) {
       log.error("datalayers failed", { err: (err as Error).message });
