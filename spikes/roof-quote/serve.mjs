@@ -194,8 +194,8 @@ async function captureOblique(address){
     }catch(_){}
     // set the camera DIRECTLY (animated flyCameraTo doesn't reliably apply under headless SwiftShader) + fly as backup
     await page.evaluate((h)=>{ try{ const s=window.__site(); const g=window.gmap;
-      g.center={lat:s.lat,lng:s.lng,altitude:s.alt}; g.range=44; g.tilt=52; g.heading=h;
-      if(g.flyCameraTo) g.flyCameraTo({endCamera:{center:{lat:s.lat,lng:s.lng,altitude:s.alt},range:44,tilt:52,heading:h},durationMillis:300});
+      g.center={lat:s.lat,lng:s.lng,altitude:s.alt}; g.range=64; g.tilt=54; g.heading=h;   // zoomed OUT a bit (was 44) → more context, low-res Google imagery less obvious
+      if(g.flyCameraTo) g.flyCameraTo({endCamera:{center:{lat:s.lat,lng:s.lng,altitude:s.alt},range:64,tilt:54,heading:h},durationMillis:300});
     }catch(e){} }, heading);
     await sleep(9000);                                    // SwiftShader streams the closer tiles slowly — give it time
     await page.addStyleTag({ content:"#card,#ctrls,#bar,#status,#matbar,#sunbar,#matHint,#load,#aiBtn,#aiBar,#report{display:none!important}" });
