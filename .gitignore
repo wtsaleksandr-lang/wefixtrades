@@ -79,3 +79,6 @@ heatmap-*.png
 
 # Roof-Quote runtime disk cache (Solar buildingInsights/dataLayers, captures, AI renders) — never commit
 .cache/roofquote/
+spikes/roof-quote/proof-*.mjs
+spikes/roof-quote/proof-*.mts
+spikes/roof-quote/proof-*.cjs
