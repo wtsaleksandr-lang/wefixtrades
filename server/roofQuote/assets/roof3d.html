@@ -215,6 +215,10 @@
   /* sun-path bar */
   #sunbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 14px;display:none;gap:16px;align-items:center;box-shadow:var(--card-shadow)}
   #sunbar .sl{display:flex;flex-direction:column;gap:3px;min-width:150px}
+  #sunbar .sunbtn{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:7px 11px;color:#0d3cfc;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  #sunbar .sunbtn:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
+  #sunbar .sunbtn.on{background:rgba(13,60,252,.1);border-color:#0d3cfc}
+  @media (max-width:480px){ #sunbar{flex-wrap:wrap;justify-content:center;max-width:92vw;gap:8px} #sunbar .sl{min-width:120px} }
   #sunbar .sl .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
   #sunbar input[type=range]{width:100%;accent-color:#0d3cfc}
   #sunbar .icon{font-size:11px;color:var(--muted);font-weight:600}
@@ -294,8 +298,10 @@
   </div>
   <div id="matbar"></div>
   <div id="sunbar">
+    <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
     <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
     <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
+    <button id="sMap" class="sunbtn" title="Switch to the annual sun-exposure heatmap">☀ Sun map</button>
   </div>
   <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
   <div id="report"></div>
@@ -1805,13 +1811,31 @@ $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault()
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
 // exits any 2D analysis (sun or material) + restores 3D
 function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
+// ── Sun & Shade lens: a 3D SHADOW PLAY (real shadows sweep the roof as you scrub/play the day) with a toggle to the annual sun-map heatmap ──
+let sunAnim=null;
+function stopSunPlay(){ if(sunAnim){ clearInterval(sunAnim); sunAnim=null; } const b=$("sPlay"); if(b){ b.textContent="▶ Play day"; b.classList.remove("on"); } }
+async function applySunView(){
+  showLoad("Mapping sun…"); showAnalysis(null);
+  if(window.__sunView==="map"){ stopSunPlay(); if(mode!=="photoreal") await setMode("photoreal"); clearHeat(); await buildPhotoHeatmap(); }
+  else { if(mode!=="schematic") await setMode("schematic"); updateSun(); }   // schematic scene casts real shadows; sliders/play move the sun
+  $("sunbar").style.display="flex";   // keep the controls reachable in BOTH sub-views (setMode would hide it in photoreal)
+  const isMap=window.__sunView==="map";
+  $("sunbar").querySelectorAll(".sl").forEach(s=>s.style.display=isMap?"none":"flex");
+  const sp=$("sPlay"); if(sp) sp.style.display=isMap?"none":"inline-flex";
+  const sm=$("sMap"); if(sm) sm.textContent=isMap?"◑ Shadows":"☀ Sun map";
+  showLoad(false);
+}
+$("sMap").onclick=async()=>{ window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
+$("sPlay").onclick=()=>{ if(sunAnim){ stopSunPlay(); return; } const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
+  sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
+    let v=sunHourLocal+0.2; if(v>=20) v=5.5; sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 80); };
 $("bSun").onclick=async()=>{
   sunMode=!sunMode; $("bSun").classList.toggle("on",sunMode);
   matMode=false; $("bRoof").classList.remove("on"); labelsVisible=false; $("bLabels").classList.remove("on");
   if(sunMode){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Sun replaces the Panels view
   clearLabels(); clearPanels(); clearHeat();
-  if(sunMode){ showLoad("Mapping sun…"); showAnalysis(null); if(mode!=="photoreal") await setMode("photoreal"); await buildPhotoHeatmap(); showLoad(false); }
-  else { showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
+  if(sunMode){ if(!window.__sunView) window.__sunView="shadows"; await applySunView(); }
+  else { stopSunPlay(); $("sunbar").style.display="none"; showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
   renderQuoteCard();
 };
 $("bLabels").onclick=async()=>{
