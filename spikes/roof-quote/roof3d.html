@@ -26,7 +26,7 @@
   #card{position:absolute;left:12px;bottom:12px;z-index:20;width:264px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:18px;padding:12px 14px;display:none;box-shadow:var(--card-shadow)}
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
   #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
-  #card .qtab.on{background:var(--accent-soft);border-color:#0d3cfc;color:#0f172a}
+  #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
   #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#0f172a}
   #card .qprice .qunit{font-size:13px;font-weight:600;color:var(--muted)}
   #card .qband{font-size:11px;font-weight:700;color:#5b6573;background:#eef1f6;border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:3px}
@@ -43,7 +43,7 @@
   #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
   #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on,#card .sm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .sectban{margin-top:6px;font-size:11px;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:9px;padding:6px 9px;line-height:1.4}
-  #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:4px}
+  #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:22px;cursor:pointer}
   #card .szval{flex:0 0 auto;font-size:10px;color:var(--muted);font-weight:700;white-space:nowrap}
   #card .opt-l.ico{display:inline-flex;align-items:center;gap:3px}
   #card .opt-l.ico svg{opacity:.7}
@@ -188,14 +188,22 @@
   #report .rbadge{text-align:center;padding:8px 14px 22px;font-size:11px;color:#94a3b8}
   #report .rbadge b{color:#0d3cfc;font-weight:800}
   #report .foot{padding:18px 30px;color:#94a3b8;font-size:10.5px;line-height:1.5}
-  @media print{ #report .rbar{display:none!important} #report{position:static;display:block!important} #app>*:not(#report){display:none!important} }
+  @media print{
+    #report .rbar{display:none!important} #report{position:static;display:block!important} #app>*:not(#report){display:none!important}
+    #report .hero,#report .hero .ov,#report .tier.pop,#report .rcta,#report .brand,#report .bul b,#report .bm,#report .bc{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    #report .sec,#report .tier,#report .rp-card,#report .mr-waste,#report .mr,#report .bul,#report .hero{break-inside:avoid;page-break-inside:avoid}
+    #report .sec h2{break-after:avoid}
+  }
   #matHint{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:16;background:#ffffff;border:1px solid #e1e7ef;border-radius:9px;padding:6px 12px;font-size:11px;color:var(--muted);display:none;box-shadow:var(--card-shadow)}
   /* lead capture */
   #lead{position:fixed;inset:0;z-index:55;background:rgba(15,23,42,.4);display:none;align-items:center;justify-content:center;padding:20px}
   #lead .lead-card{background:#ffffff;border:1px solid #e1e7ef;border-radius:18px;padding:24px;width:100%;max-width:360px;box-shadow:var(--card-shadow)}
   #lead .lead-h{font-size:19px;font-weight:800;color:#0f172a}
   #lead .lead-s{font-size:13px;color:var(--muted);margin:4px 0 16px}
-  #lead input{width:100%;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:12px 14px;height:48px;color:#0f172a;font-size:15px;margin-bottom:10px;outline:none}
+  #lead .ll{display:block;font-size:11px;font-weight:600;color:#5b6573;margin:8px 0 2px 2px}
+  #lead .ll:first-of-type{margin-top:0}
+  #lead .lopt{color:#94a3b8;font-weight:500}
+  #lead input{width:100%;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:12px 14px;height:48px;color:#0f172a;font-size:15px;margin-bottom:2px;outline:none}
   #lead input::placeholder{color:#94a3b8}
   #lead input:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #lead #ltime{width:100%;background:#fff;border:1px solid #e1e7ef;border-radius:10px;padding:0 14px;height:46px;color:#0f172a;font-size:14px;margin-bottom:10px;outline:none}
@@ -233,6 +241,8 @@
   #card .sq{font-size:12px;color:#0d3cfc;margin-top:2px}
   #card .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
   #card .stat .v{font-size:18px;font-weight:700;color:#0f172a} #card .stat .l{font-size:11px;color:var(--muted)}
+  #card .stat .stx{font-size:9px;font-weight:700;color:#0d3cfc;margin-left:3px;vertical-align:middle}
+  #card .opt-row button{min-height:32px}
   /* controls */
   #ctrls{position:absolute;right:12px;bottom:12px;z-index:20;display:flex;flex-direction:column;gap:7px}
   #ctrls button{width:56px;height:56px;border-radius:16px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;box-shadow:var(--card-shadow)}
@@ -337,11 +347,15 @@
   <div id="lead"><div class="lead-card">
     <div class="lead-h">See your full quote</div>
     <div class="lead-s">Your personalised roof &amp; solar plan, sent to you instantly.</div>
-    <input id="lname" placeholder="Full name" autocomplete="name">
-    <input id="lemail" type="email" placeholder="Email" autocomplete="email">
-    <input id="lphone" type="tel" placeholder="Phone (optional)" autocomplete="tel">
+    <label class="ll" for="lname">Full name</label>
+    <input id="lname" placeholder="Jane Smith" autocomplete="name">
+    <label class="ll" for="lemail">Email</label>
+    <input id="lemail" type="email" placeholder="you@email.com" autocomplete="email">
+    <label class="ll" for="lphone">Phone <span class="lopt">(optional)</span></label>
+    <input id="lphone" type="tel" placeholder="(555) 123-4567" autocomplete="tel">
     <div id="lqual">
-      <select id="ltime"><option value="">When are you looking to start?</option><option>As soon as possible</option><option>This year</option><option>Just exploring</option></select>
+      <label class="ll" for="ltime">When are you looking to start?</label>
+      <select id="ltime"><option value="">Select a timeframe…</option><option>As soon as possible</option><option>This year</option><option>Just exploring</option></select>
       <div class="lq-prios"><span class="lq-l">What matters most? (optional)</span>
         <div class="lq-row"><button type="button" class="lqp" data-p="Lower my bill">Lower my bill</button><button type="button" class="lqp" data-p="Backup power">Backup power</button><button type="button" class="lqp" data-p="Go green">Go green</button><button type="button" class="lqp" data-p="Best price">Best price</button></div>
       </div>
@@ -503,7 +517,9 @@ const CO2_FACTOR={QC:0.002,BC:0.013,MB:0.002,ON:0.03,NL:0.03,YT:0.10,AB:0.45,SK:
 function co2Factor(){ const c=window.__regionCode; if(CO2_FACTOR[c]!=null) return CO2_FACTOR[c]; return CA_PROV.has(c)?0.12:0.39; }
 // detect any US-state / CA-province code in the address; use REGIONS[code] for the incentive note where we have one, else DEFAULT — the live rate fills REGION.rate either way.
 function setRegion(){ const parts=(($("addr")&&$("addr").value)||"").toUpperCase().split(/[,\s]+/); window.__regionCode=""; REGION=DEFAULT_REGION;
-  for(const p of parts){ if(US_STATES.has(p)||CA_PROV.has(p)){ window.__regionCode=p; if(REGIONS[p]) REGION=REGIONS[p]; return; } } }
+  // scan from the END — the real state/province sits near the tail (before the ZIP), so a street word like
+  // "Mt"/"St"/"In"/"Or" can't hijack the match (e.g. "4059 Mt Vernon Ave, Riverside, CA" → CA, not MT/Montana)
+  for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; if(US_STATES.has(p)||CA_PROV.has(p)){ window.__regionCode=p; if(REGIONS[p]) REGION=REGIONS[p]; return; } } }
 let liveRateDone=false;
 async function refreshLiveRate(){ if(liveRateDone) return; const code=window.__regionCode; if(!code){ liveRateDone=true; return; }
   try{ const country=CA_PROV.has(code)?"CA":"US"; const r=await fetch("/rates?country="+country+"&region="+code); const j=await r.json();
@@ -711,8 +727,23 @@ function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; r
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
 function getRoofTotals(){
   if(window.__roofTotals) return window.__roofTotals;
-  try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=m.totals; return m.totals; } }catch(_){}
+  try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=reconcileTotals(m.totals); return window.__roofTotals; } }catch(_){}
   return null;
+}
+// The reconstructed facet model (facetsToRoofModel) sometimes under-/over-captures facets, so its area
+// can diverge wildly from reality (seen: 2.9 sq vs Google's ~11 sq on the same roof). The headline PRICE
+// uses Google's wholeRoofStats area (QUOTE.roofSqft), so anchor the model totals to that same authoritative
+// number — area/squares exactly, edge lengths by √ratio — so the stats, takeoff, waste table AND price all
+// report ONE roof size. Without this the homeowner sees two different square counts side by side.
+function reconcileTotals(t){
+  if(!t || !QUOTE || !QUOTE.roofSqft) return t;
+  const gSqFt=QUOTE.roofSqft, mSqFt=t.roofAreaSqFt||0;
+  const ratio=mSqFt>0?gSqFt/mSqFt:1, k=Math.sqrt(ratio);
+  return Object.assign({}, t, {
+    roofAreaSqFt:gSqFt, squares:gSqFt/100,
+    eaveFt:(t.eaveFt||0)*k, rakeFt:(t.rakeFt||0)*k, ridgeFt:(t.ridgeFt||0)*k,
+    hipFt:(t.hipFt||0)*k, valleyFt:(t.valleyFt||0)*k, __reconRatio:ratio
+  });
 }
 function recommendedWasteIdx(t){
   // cut-up roofs (valleys + hips heavy relative to area) need more waste → 15%
@@ -779,15 +810,18 @@ function renderQuoteCard(){
   let body="";
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
+  const isCommercial=tradeMode==="solar" && solarTiers.length && bestKw>30 && view!=="sun" && view!=="measure";
   if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
   else if(view==="measure"){ body=measureCardBody(); }
-  else if(tradeMode==="solar" && solarTiers.length && bestKw>30){
-    // large/commercial roof — a residential auto-quote ($/W tiers) isn't meaningful; route to a custom quote
-    body='<div class="qprice">'+bestKw+' kW</div><div class="qsub">Large roof — solar potential beyond a standard home system.</div>'+
+  else if(isCommercial){
+    // large/commercial roof — a residential auto-quote ($/W tiers) isn't meaningful; route to a custom quote.
+    // For an ATTACHED home this is reachable by toggling "Whole building" — so always offer a way back to the unit.
+    const backToUnit=window.__attached?'<div class="opt-row" style="margin-bottom:8px"><span class="opt-l">Roof'+HCUE("section")+'</span><button class="sm" data-sect="mine">⌂ My section</button><button class="sm on" data-sect="whole">Whole building</button></div>':'';
+    body=backToUnit+'<div class="qprice">'+bestKw+' kW</div><div class="qsub">Large roof — solar potential beyond a standard home system'+(window.__attached?' (whole building)':'')+'.</div>'+
       '<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
       '<div class="stat"><div class="v">'+bestKw+'</div><div class="l">kW potential</div></div>'+
       '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>'+
-      '<div class="qnote" style="margin-top:9px">Request a custom commercial quote for accurate pricing.</div>';
+      '<div class="qnote" style="margin-top:9px">'+(window.__attached?'Switch to <b>My section</b> above for an instant per-unit price, or request a custom commercial quote for the whole building.':'Request a custom commercial quote for accurate pricing.')+'</div>';
   } else if(tradeMode==="solar" && solarTiers.length){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
@@ -801,10 +835,14 @@ function renderQuoteCard(){
     const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
     if(addEV && evS.kw){ const evCost=Math.round(evS.kw*1000*2.8); lo+=evCost; hi+=Math.round(evCost*1.1); }   // extra solar to cover EV charging (~$2.8/W)
     if(addCharger){ lo+=CHARGER_COST; hi+=Math.round(CHARGER_COST*1.15); }   // Level-2 EV charger install
+    // EV adds real panels to the roof — the headline system (panels/kW/production) and SREC must reflect them,
+    // not just the price. Otherwise the customer pays for panels the system summary never shows.
+    const evAdd=(addEV&&evS.kw)?evS:{panels:0,kw:0,kwh:0};
+    const totPanels=panels+(evAdd.panels||0), totKw=+(sysKw+(evAdd.kw||0)).toFixed(1), totKwh=sysKwh+(evAdd.kwh||0);
     const sMid=(lo+hi)/2;
     const fin=TENANT.financing, sFin=monthly(sMid*(1-REGION.credit), fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term)
-    const leaseMo=Math.round(sysKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
-    const srecYr=srecIncome(sysKwh);
+    const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
+    const srecYr=srecIncome(totKwh);
     const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
     // BATTERY add-on (accordion)
     const batConfig=addBattery?('<div class="opt-row" style="margin-top:6px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
@@ -860,12 +898,12 @@ function renderQuoteCard(){
       finDisplay+payRow+
       kpiStrip+srecLine+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
-      '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">Panels</div></div>'+
-      '<div class="stat"><div class="v">'+sysKw+'</div><div class="l">kW</div></div>'+
-      '<div class="stat"><div class="v">'+(sysKwh?sysKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Panels</div></div>'+
+      '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW</div></div>'+
+      '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
       '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
-      (sysKwh?(()=>{ const kg=sysKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
+      (totKwh?(()=>{ const kg=totKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
@@ -911,6 +949,8 @@ function renderQuoteCard(){
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
   const cta=roofNoSel
     ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
+    : isCommercial
+    ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request commercial quote →</button>'
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   card.innerHTML=tabs+addr+body+note+cta;
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
@@ -988,7 +1028,7 @@ function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.g
 /* build the textured DSM mesh + panels */
 let panelMesh=null;
 function buildScene(b, dsm, rgb, rgbTex){
-  clearWorld();
+  clearWorld(); schemLabels=[];
   const {bbox}=dsm, zone=dsm.zone;
   const E0=(bbox[0]+bbox[2])/2, N0=(bbox[1]+bbox[3])/2;
   const extE=bbox[2]-bbox[0], extN=bbox[3]-bbox[1];
@@ -1057,7 +1097,7 @@ function buildScene(b, dsm, rgb, rgbTex){
     // per-facet sq-ft + pitch label
     const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
     const x12=Math.round(Math.abs(Math.tan((seg.pitchDegrees||0)*Math.PI/180))*12);
-    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(c.x, y0+2.4, c.z); worldGroup.add(lb); }
+    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(c.x, y0+2.4, c.z); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
   }
 
   // panels — sit EXACTLY on their facet plane (same Solar data → zero drift)
@@ -1123,8 +1163,7 @@ async function run(addr){
     for(let i=0;i<cw*ch;i++){ id.data[i*4]=R[i]; id.data[i*4+1]=G[i]; id.data[i*4+2]=B[i]; id.data[i*4+3]=255; }
     cx.putImageData(id,0,0);
     const tex=new THREE.CanvasTexture(cv);
-    buildScene(b,dsm,rgb,tex);
-    // ===== consumer quote card: trade toggle + Good/Better/Best tiers + instant price =====
+    // ===== price card FIRST — it's pure Solar data; the 3D scene below is progressive enhancement =====
     const spv=b.solarPotential, wrs=spv.wholeRoofStats||{};
     QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
     setRegion();
@@ -1132,8 +1171,10 @@ async function run(addr){
     if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="mine"; if(!window.__sectionShare) window.__sectionShare=+(1/estUnits(spv)).toFixed(2); }
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
-    $("sunbar").style.display="flex"; updateSun();
     showLoad(false);
+    // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
+    try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun(); }
+    catch(e){ errors.push("scene:"+((e&&e.message)||e)); }
     window.__roofReady=true;
     try{ await setMode("photoreal"); }catch(e){ errors.push("defaultPhoto:"+e.message); }
     setTimeout(()=>{ if(window.__roofReady){ fetch("/capture?address="+encodeURIComponent($("addr").value.trim())).catch(()=>{}); fetchFeatures(); } }, 2500);   // pre-warm capture (free) + detect roof penetrations so they show in the quote
@@ -1145,6 +1186,9 @@ async function run(addr){
 }
 /* ======================= PHOTOREAL MODE (Google 3D tiles + panels as 3D polygons) ======================= */
 let gmap=null, photoPanels=[], photoLabels=[], mode="schematic", sunMode=false, panelsVisible=true, labelsVisible=false;
+let schemLabels=[];   // per-facet "ft² · pitch" sprites baked into the schematic scene — toggled off in the Sun lens so it shows clean shadows/heatmap
+function setSchemLabels(vis){ for(const l of schemLabels){ try{ l.visible=vis; }catch(_){} } }
+window.__schemInfo=()=>({n:schemLabels.length, vis:schemLabels.filter(l=>l&&l.visible).length});
 function clearPanels(){ for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[]; window.__photoPanels=0; }
 function clearLabels(){ for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0; if(typeof clearRoofMeas==="function") clearRoofMeas(); }
 /* roof-material preview: fill the real facet outlines with a shingle colour on the 3D roof */
@@ -1643,7 +1687,8 @@ function measurementReport(t, sqs){
   const diag=(()=>{ try{ if(typeof renderRoofDiagram==="function" && renderRoofDiagram()) return $("matCanvas").toDataURL("image/png"); }catch(_){} return ''; })();
   const lenRow=(l,v)=>'<div class="mr-row"><span>'+l+'</span><b>'+lf(v)+'</b></div>';
   const rec=(typeof recommendedWasteIdx==="function")?recommendedWasteIdx(t):2;
-  const wasteCells=WASTE_OPTS.map((p,i)=>{ const sq=(sqs*(1+p/100)); return '<td class="'+(i===rec?'rec':'')+'"><div class="wp">'+p+'%'+(i===rec?' ✓':'')+'</div><b>'+sq.toFixed(1)+'</b> sq</td>'; }).join('');
+  const baseSq=(t.squares||sqs);   // waste % applies to the MEASURED (pitch-adjusted) squares shown in stats/takeoff — not the flat footprint, or the table contradicts the rest of the report
+  const wasteCells=WASTE_OPTS.map((p,i)=>{ const sq=(baseSq*(1+p/100)); return '<td class="'+(i===rec?'rec':'')+'"><div class="wp">'+p+'%'+(i===rec?' ✓':'')+'</div><b>'+sq.toFixed(1)+'</b> sq</td>'; }).join('');
   const tk=roofTakeoff(t, WASTE_OPTS[rec]);
   return '<div class="sec mr"><h2>Roof measurement report</h2>'+
     '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+(t.squares||0).toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
@@ -1672,8 +1717,9 @@ function openReport(){
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
   const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
-  const heroMo=tradeMode==="roof"?moR(rhi):moS(t.hi||rhi);
-  const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(x.hi).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
+  const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-REGION.credit);   // MATCH the card teaser: midpoint price, incentive applied — report must never read higher than the price the homeowner just saw
+  const heroMo=tradeMode==="roof"?moR(rhi):moS(t.lo?sFinBasis(t):rhi);
+  const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(sFinBasis(x)).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
   // enriched roofing section — reflects the chosen material + spec + measured takeoff + detected penetrations
   const _sel=window.__roofSel, _rt=getRoofTotals(), _ft=window.__roofFeatures&&window.__roofFeatures.counts;
   let roofSec;
@@ -1725,20 +1771,30 @@ window.__closeCapture=()=>{ $("lead").style.display="none"; };
 // lead-qualification: priorities toggle + hide the block if the tenant disabled it
 document.querySelectorAll("#lqual .lqp").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
 if(!TENANT.features.leadQual){ const lq=$("lqual"); if(lq) lq.style.display="none"; }
+// the lead IS the product — a dropped POST must never be silently lost. Queue failures to localStorage + retry on every load.
+async function sendLead(payload){
+  try{ const r=await fetch("/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); if(!r||!r.ok) throw 0; return true; }
+  catch(_){ try{ const q=JSON.parse(localStorage.getItem("__qqLeadQ")||"[]"); q.push(Object.assign({_queuedAt:Date.now()},payload)); localStorage.setItem("__qqLeadQ",JSON.stringify(q.slice(-50))); }catch(__){} return false; }
+}
+async function flushLeads(){
+  let q; try{ q=JSON.parse(localStorage.getItem("__qqLeadQ")||"[]"); }catch(_){ return; }
+  if(!q.length) return; const keep=[];
+  for(const p of q){ try{ const r=await fetch("/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); if(!r||!r.ok) keep.push(p); }catch(_){ keep.push(p); } }
+  try{ localStorage.setItem("__qqLeadQ",JSON.stringify(keep)); }catch(_){}
+}
+try{ flushLeads(); }catch(_){}
 $("lgo").onclick=async()=>{
   const name=$("lname").value.trim(), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
-  if(!name||!/.+@.+\..+/.test(email)){ $("lemail").style.borderColor="#e0556a"; return; }
+  if(!name||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ $("lemail").style.borderColor="#e0556a"; return; }
   const t=solarTiers[selTier]||{};
   const timeline=($("ltime")&&$("ltime").value)||"", priorities=[...document.querySelectorAll("#lqual .lqp.on")].map(b=>b.dataset.p);
   const leadScore=timeline==="As soon as possible"?3:timeline==="This year"?2:timeline==="Just exploring"?1:0;   // hot/warm/cold for the installer's CRM
-  try{ await fetch("/lead",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)})}); }catch(_){}
+  await sendLead({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)});
   window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none"; openReport();
 };
 window.__book=async()=>{
   const t=solarTiers[selTier]||{};
-  try{ await fetch("/lead",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode,tier:t.label,priceHi:t.hi}))}); }catch(_){}
+  await sendLead(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode,tier:t.label,priceHi:t.hi}));
   const b=$("bookBtn"); if(b){ b.textContent="Assessment requested"; b.classList.add("done"); }
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
@@ -1883,8 +1939,12 @@ function applySharedSelection(){
 }
 window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(quoteUrl()); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
 window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+quoteUrl()); };
-$("go").onclick=()=>run($("addr").value.trim());
+$("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } run(v); };
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
+// Escape closes the topmost open overlay (report sits above the lead modal)
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
+  if($("report")&&$("report").style.display==="block"){ window.__closeReport(); }
+  else if($("lead")&&$("lead").style.display==="flex"){ window.__closeCapture(); } });
 // Google Places address autocomplete — sub-60s, fewer typos (graceful: plain text if Places is unavailable)
 (async()=>{ try{
   await google.maps.importLibrary("places");
@@ -1896,19 +1956,22 @@ $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault()
 function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
 // ── Sun & Shade lens: a 3D SHADOW PLAY (real shadows sweep the roof as you scrub/play the day) with a toggle to the annual sun-map heatmap ──
 let sunAnim=null;
+// The animated "shadows" sub-view uses a hand-built schematic model (extruded walls + DSM roof planes) that
+// looks like a crude toy next to Google's photoreal tiles. Until that can be done on realistic geometry, the
+// Sun lens is the photoreal sun-EXPOSURE heatmap only (painted on the real 3D building). Flip true to restore.
+const SUN_SHADOWS=false;
 function stopSunPlay(){ if(sunAnim){ clearInterval(sunAnim); sunAnim=null; } const b=$("sPlay"); if(b){ b.textContent="▶ Play day"; b.classList.remove("on"); } }
 async function applySunView(){
-  showLoad("Mapping sun…"); showAnalysis(null);
-  if(window.__sunView==="map"){ stopSunPlay(); if(mode!=="photoreal") await setMode("photoreal"); clearHeat(); await buildPhotoHeatmap(); }
-  else { if(mode!=="schematic") await setMode("schematic"); updateSun(); }   // schematic scene casts real shadows; sliders/play move the sun
-  $("sunbar").style.display="flex";   // keep the controls reachable in BOTH sub-views (setMode would hide it in photoreal)
-  const isMap=window.__sunView==="map";
-  $("sunbar").querySelectorAll(".sl").forEach(s=>s.style.display=isMap?"none":"flex");
-  const sp=$("sPlay"); if(sp) sp.style.display=isMap?"none":"inline-flex";
-  const sm=$("sMap"); if(sm) sm.textContent=isMap?"◑ Shadows":"☀ Sun map";
+  showLoad("Mapping sun…"); stopSunPlay(); setSchemLabels(false);
+  window.__sunView="map";
+  // Smooth, Sunroof/Aurora-style sun-exposure heatmap: per-pixel flux colour ramp composited on the top-down
+  // aerial photo, clipped to the roof mask (renderSunPreview) — no chunky 3D cells, no blocky corners.
+  if(LASTFLUX){ showAnalysis("sun"); }
+  else { if(mode!=="photoreal") await setMode("photoreal"); clearPanels(); clearHeat(); await buildPhotoHeatmap(); }   // fallback if Google has no annual-flux layer for this address
+  $("sunbar").style.display="none";
   showLoad(false);
 }
-$("sMap").onclick=async()=>{ window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
+$("sMap").onclick=async()=>{ if(!SUN_SHADOWS) return; window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
 $("sPlay").onclick=()=>{ if(sunAnim){ stopSunPlay(); return; } const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
   sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
     let v=sunHourLocal+0.2; if(v>=20) v=5.5; sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 80); };
@@ -1917,8 +1980,8 @@ $("bSun").onclick=async()=>{
   matMode=false; $("bRoof").classList.remove("on"); labelsVisible=false; $("bLabels").classList.remove("on");
   if(sunMode){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Sun replaces the Panels view
   clearLabels(); clearPanels(); clearHeat();
-  if(sunMode){ if(!window.__sunView) window.__sunView="shadows"; await applySunView(); }
-  else { stopSunPlay(); $("sunbar").style.display="none"; showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
+  if(sunMode){ window.__sunView=SUN_SHADOWS?(window.__sunView||"shadows"):"map"; await applySunView(); }
+  else { stopSunPlay(); setSchemLabels(true); $("sunbar").style.display="none"; showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
   renderQuoteCard();
 };
 $("bLabels").onclick=async()=>{

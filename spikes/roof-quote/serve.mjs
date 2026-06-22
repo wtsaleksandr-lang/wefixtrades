@@ -227,6 +227,12 @@ http.createServer(async (req,res)=>{
     res.setHeader("Content-Type","text/html");
     res.end(readFileSync(path.join(import.meta.dirname,"pricing.html"),"utf8")); return;
   }
+  if(u.pathname==="/shadows-test"){   // standalone photoreal-3D-tiles + sun-shadow spike (read fresh each request for fast iteration)
+    res.setHeader("Content-Type","text/html");
+    try{ res.end(readFileSync(path.join(import.meta.dirname,"shadows-test.html"),"utf8").replaceAll("__TILES__",TILES)); }
+    catch(e){ res.statusCode=503; res.end("shadows-test.html not found"); }
+    return;
+  }
   // ---- capture a homeowner lead (POST) → append to leads.jsonl (real deploy: webhook/email to contractor) ----
   if(u.pathname==="/lead" && req.method==="POST"){
     let body=""; req.on("data",c=>body+=c); req.on("end",()=>{

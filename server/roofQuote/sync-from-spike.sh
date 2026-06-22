@@ -30,7 +30,8 @@ perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(RQ_BASE+"/$1.mjs"}
 perl -pi -e 's{="/(capture|streetview)\?}{="/api/roofquote/$1?}g' "$DST"
 
 # Verify: no raw root-relative backend calls remain.
-LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)' "$DST" | wc -l | tr -d ' ')
-PREFIXED=$(grep -oE 'RQ_BASE\+"/' "$DST" | wc -l | tr -d ' ')
+# `|| LEFT=0` so a zero-match grep (the SUCCESS case — no unprefixed calls left) doesn't abort under set -e/pipefail
+LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)' "$DST" | wc -l | tr -d ' ') || LEFT=0
+PREFIXED=$(grep -oE 'RQ_BASE\+"/' "$DST" | wc -l | tr -d ' ') || PREFIXED=0
 echo "sync done → unprefixed-left:$LEFT  prefixed-sites:$PREFIXED  RQ_BASE:$(grep -c 'const RQ_BASE' "$DST")"
 [ "$LEFT" = "0" ] || { echo "ERROR: $LEFT unprefixed backend fetch(es) remain"; exit 1; }

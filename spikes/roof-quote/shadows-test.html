@@ -1,0 +1,229 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Sun shadows on photoreal 3D — test</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1017;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  #c{position:fixed;inset:0;display:block}
+  #hud{position:fixed;left:12px;top:12px;z-index:10;background:rgba(11,16,23,.78);backdrop-filter:blur(8px);border:1px solid #223;border-radius:14px;padding:12px 14px;color:#e7eefc;width:268px;max-width:calc(100vw - 24px)}
+  #hud h1{font-size:13px;margin:0 0 8px;letter-spacing:.02em}
+  #hud .row{display:flex;align-items:center;gap:8px;margin:8px 0}
+  #hud .row label{font-size:11px;color:#9fb0c8;width:52px;flex:0 0 auto}
+  #hud input[type=range]{flex:1;accent-color:#ffb347;height:22px}
+  #hud .v{font-size:12px;font-weight:700;color:#ffd79a;width:62px;text-align:right;flex:0 0 auto;font-variant-numeric:tabular-nums}
+  #addr{width:100%;box-sizing:border-box;background:#0e1622;border:1px solid #28344a;border-radius:9px;color:#e7eefc;font-size:13px;padding:9px 10px;margin-bottom:6px;outline:none}
+  #go{width:100%;background:#0d63fc;border:0;border-radius:9px;color:#fff;font-weight:700;font-size:13px;padding:9px 0;cursor:pointer;margin-top:2px}
+  #stat{font-size:10.5px;color:#7f93ad;margin-top:8px;line-height:1.5}
+  #stat b{color:#9fe6b0}
+  #err{color:#ff8a8a}
+  #cred{position:fixed;right:8px;bottom:6px;z-index:10;color:#8aa;font-size:10px;background:rgba(11,16,23,.6);padding:2px 7px;border-radius:6px}
+  #play{background:#1b2740;border:1px solid #2c3a58;color:#cfe0ff;border-radius:8px;font-size:12px;font-weight:700;padding:7px 0;width:100%;cursor:pointer;margin-top:4px}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+    "three/examples/jsm/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+    "3d-tiles-renderer": "https://unpkg.com/3d-tiles-renderer@0.4.28/build/index.js",
+    "3d-tiles-renderer/plugins": "https://unpkg.com/3d-tiles-renderer@0.4.28/build/index.plugins.js",
+    "3d-tiles-renderer/core/plugins": "https://unpkg.com/3d-tiles-renderer@0.4.28/build/index.core-plugins.js",
+    "3d-tiles-renderer/three/plugins": "https://unpkg.com/3d-tiles-renderer@0.4.28/build/index.three-plugins.js",
+    "suncalc": "https://cdn.jsdelivr.net/npm/suncalc@1.9.0/+esm"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <h1>☀ Sun shadows · photoreal 3D</h1>
+  <input id="addr" placeholder="Address (optional)" autocomplete="off">
+  <button id="go">Locate</button>
+  <div class="row"><label>Time</label><input id="time" type="range" min="5" max="20" step="0.1" value="14"><span class="v" id="timeV">2:00 PM</span></div>
+  <div class="row"><label>Month</label><input id="month" type="range" min="1" max="12" step="1" value="6"><span class="v" id="monthV">Jun</span></div>
+  <button id="play">▶ Play day</button>
+  <div id="stat">starting…</div>
+</div>
+<div id="cred">Imagery © Google</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { TilesRenderer } from '3d-tiles-renderer';
+import { GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
+import { GLTFExtensionsPlugin, ReorientationPlugin } from '3d-tiles-renderer/three/plugins';
+import SunCalc from 'suncalc';
+
+const KEY = "__TILES__";
+const ST = window.__shadowState = { phase:"init", tilesLoaded:0, meshes:0, error:null, sunEl:0, sunAz:0, lat:null, lng:null, rendered:0 };
+const $ = id => document.getElementById(id);
+const setStat = () => { $("stat").innerHTML = ST.error
+  ? '<span id="err">ERROR: '+ST.error+'</span>'
+  : 'phase <b>'+ST.phase+'</b> · tiles loaded <b>'+ST.tilesLoaded+'</b> · meshes <b>'+ST.meshes+'</b><br>sun elev <b>'+ST.sunEl.toFixed(0)+'°</b> · frames <b>'+ST.rendered+'</b>'; };
+
+// query / default to Angus Rd, Hamilton ON (Alex's test address)
+const q = new URLSearchParams(location.search);
+let LAT = parseFloat(q.get("lat")), LNG = parseFloat(q.get("lng"));
+if (!isFinite(LAT) || !isFinite(LNG)) { LAT = 43.2193; LNG = -79.7820; }
+ST.lat = LAT; ST.lng = LNG;
+
+const canvas = $("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fc6ff);
+const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 1, 6000);
+camera.position.set(70, 80, 90);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 12, 0);
+controls.maxDistance = 600; controls.minDistance = 25;
+controls.maxPolarAngle = Math.PI * 0.49;   // don't go under the ground
+
+// soft fill so the synthetic shadow reads as a tint over the photoreal baked lighting
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x6b5d42, 1.15));
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+const sun = new THREE.DirectionalLight(0xfff3df, 2.1);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.6;
+const SD = 55;   // half-extent (m) of the shadow frustum around the building
+Object.assign(sun.shadow.camera, { left:-SD, right:SD, top:SD, bottom:-SD, near:1, far:600 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.autoUpdate = false;   // we trigger needsUpdate when the sun or tiles change (mobile win)
+scene.add(sun, sun.target);
+
+// ---- sun position: SunCalc → direction in the reoriented local frame (Y up) ----
+// SunCalc azimuth is measured from SOUTH toward WEST (radians); altitude 0=horizon.
+// Reoriented frame here: +Y up, and we map compass-from-north onto X(E)/Z. Z sign tuned empirically.
+let curHour = 14, curMonth = 6, groundY = 0;
+function dateFor(hour, month) { const d = new Date(2026, month-1, 15, 0, 0, 0); d.setHours(Math.floor(hour), Math.round((hour%1)*60), 0, 0); return d; }
+function updateSun() {
+  const d = dateFor(curHour, curMonth);
+  const p = SunCalc.getPosition(d, LAT, LNG);     // {azimuth from south→west, altitude}
+  const azN = p.azimuth + Math.PI;                // compass-from-north, +east
+  const el = Math.max(p.altitude, 0.03);
+  ST.sunEl = el * 180/Math.PI; ST.sunAz = azN * 180/Math.PI;
+  const dir = new THREE.Vector3(
+    Math.cos(el) * Math.sin(azN),    // +X east
+    Math.sin(el),                    // +Y up
+    -Math.cos(el) * Math.cos(azN)    // Z (flip sign here if shadows point the wrong way)
+  ).normalize();
+  // keep the light + tight shadow frustum centred on the building at its real ground elevation
+  sun.target.position.set(0, groundY, 0); sun.target.updateMatrixWorld();
+  sun.position.copy(dir).multiplyScalar(220).add(new THREE.Vector3(0, groundY, 0));
+  sun.shadow.needsUpdate = true;
+  setStat();
+}
+// The recenter puts the building at X=Z=0 but on the ELLIPSOID (sea level); real terrain can be ~tens-hundreds of
+// metres up, so a fixed camera height looks from underground. Raycast straight down at the origin to find the real
+// ground, then frame the camera + shadow target there. Address-agnostic.
+const _ray = new THREE.Raycaster(); let framed = false;
+function tryFrame() {
+  if (framed || !tiles) return;
+  _ray.set(new THREE.Vector3(0, 6000, 0), new THREE.Vector3(0, -1, 0));
+  _ray.far = 12000;
+  const hits = _ray.intersectObject(tiles.group, true);
+  if (hits.length && Math.abs(hits[0].point.y) < 500) {   // ignore wildly-off coarse hits; wait for refinement near origin
+    groundY = hits[0].point.y; ST.groundY = +groundY.toFixed(1);
+    controls.target.set(0, groundY + 8, 0);
+    camera.position.set(48, groundY + 60, 66);
+    controls.update();
+    updateSun();
+    framed = true;
+  }
+}
+
+// ---- 3D Tiles ----
+let tiles = null;
+function loadTiles() {
+  if (tiles) { try { scene.remove(tiles.group); tiles.dispose(); } catch(_){} tiles = null; }
+  ST.phase = "loading-tiles"; ST.tilesLoaded = 0; ST.meshes = 0; ST.error = null; setStat();
+  tiles = new TilesRenderer();
+  tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: KEY, autoRefreshToken: true }));
+  tiles.registerPlugin(new GLTFExtensionsPlugin({
+    dracoLoader: new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.170.0/examples/jsm/libs/draco/gltf/')
+  }));
+  tiles.registerPlugin(new ReorientationPlugin({
+    lat: LAT * THREE.MathUtils.DEG2RAD,
+    lon: LNG * THREE.MathUtils.DEG2RAD,
+    height: 0, recenter: true
+  }));
+  tiles.errorTarget = 6;
+  tiles.maxDepth = 18;
+  tiles.displayActiveTiles = true;   // just-offscreen tiles still cast shadows into view
+  tiles.setCamera(camera);
+  tiles.setResolutionFromRenderer(camera, renderer);
+  tiles.addEventListener('load-tile-set', () => { ST.phase = "tileset"; setStat(); });
+  tiles.addEventListener('load-model', ({ scene: ts }) => {
+    ST.tilesLoaded++;
+    ts.traverse(c => { if (c.isMesh) { ST.meshes++; c.castShadow = true; c.receiveShadow = true; if (c.material) c.material.shadowSide = THREE.DoubleSide; } });
+    sun.shadow.needsUpdate = true; tryFrame(); setStat();
+  });
+  tiles.addEventListener('load-error', e => { ST.error = (e && (e.error?.message || e.message)) || "tile load error"; ST.phase="error"; setStat(); });
+  scene.add(tiles.group);
+}
+
+function frameOK(){ return tiles && ST.tilesLoaded > 0; }
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (tiles) tiles.setResolutionFromRenderer(camera, renderer);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  camera.updateMatrixWorld();
+  if (tiles) { tiles.setResolutionFromRenderer(camera, renderer); try { tiles.update(); } catch(e){ ST.error = "update:"+e.message; } }
+  if (!framed && ST.rendered % 30 === 0) tryFrame();   // keep trying until we find the ground at origin
+  renderer.render(scene, camera);
+  ST.rendered++;
+  if (ST.rendered % 30 === 0) setStat();
+}
+
+// ---- UI ----
+const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtTime(h){ const hr=Math.floor(h), mn=Math.round((h%1)*60); const ap=hr>=12?"PM":"AM"; let hh=hr%12; if(hh===0)hh=12; return hh+":"+String(mn).padStart(2,"0")+" "+ap; }
+$("time").oninput = e => { curHour = +e.target.value; $("timeV").textContent = fmtTime(curHour); updateSun(); };
+$("month").oninput = e => { curMonth = +e.target.value; $("monthV").textContent = months[curMonth-1]; updateSun(); };
+let playT = null;
+$("play").onclick = () => {
+  if (playT) { clearInterval(playT); playT = null; $("play").textContent = "▶ Play day"; return; }
+  $("play").textContent = "⏸ Pause";
+  playT = setInterval(() => { curHour += 0.15; if (curHour > 20) curHour = 5; $("time").value = curHour; $("timeV").textContent = fmtTime(curHour); updateSun(); }, 60);
+};
+$("go").onclick = async () => {
+  const a = $("addr").value.trim(); if (!a) return;
+  ST.phase = "geocoding"; setStat();
+  try {
+    const r = await fetch("/geocode?address=" + encodeURIComponent(a));
+    const j = await r.json();
+    if (j.lat && j.lng) { LAT = j.lat; LNG = j.lng; ST.lat=LAT; ST.lng=LNG; loadTiles(); updateSun(); }
+    else { ST.error = "geocode: " + (j.error||"no result"); setStat(); }
+  } catch(e) { ST.error = "geocode " + e.message; setStat(); }
+};
+
+// ---- debug: where is the geometry vs the camera? ----
+window.__bbox = () => {
+  if (!tiles) return null;
+  let nearest = Infinity, near200 = 0, total = 0; const v = new THREE.Vector3();
+  tiles.group.updateMatrixWorld(true);
+  tiles.group.traverse(o => { if (o.isMesh) { total++; o.getWorldPosition(v); const d = v.length(); if (d < nearest) nearest = d; if (d < 200) near200++; } });
+  return { totalMeshes: total, nearestMeshDist: +nearest.toFixed(1), meshesWithin200m: near200,
+    cam:[camera.position.x,camera.position.y,camera.position.z].map(n=>+n.toFixed(0)),
+    groupQuatSet: (tiles.group.quaternion.x||tiles.group.quaternion.y||tiles.group.quaternion.z||tiles.group.quaternion.w!==1) ? 'yes' : 'no' };
+};
+
+// ---- go ----
+try { loadTiles(); updateSun(); animate(); ST.phase = "running"; setStat(); }
+catch (e) { ST.error = e.message; ST.phase="fatal"; setStat(); console.error(e); }
+window.addEventListener("error", e => { ST.error = (ST.error||"") + " | win:" + e.message; setStat(); });
+window.addEventListener("unhandledrejection", e => { ST.error = (ST.error||"") + " | rej:" + (e.reason?.message||e.reason); setStat(); });
+</script>
+</body></html>
