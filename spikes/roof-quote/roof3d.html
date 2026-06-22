@@ -666,7 +666,7 @@ function measureCardBody(){
     row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>';
 }
 // ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
-const WASTE_OPTS=[0,10,15]; let selWaste=1;   // default 10% (recommended)
+const WASTE_OPTS=[0,10,15,20]; let selWaste=1;   // default 10% (recommended); 20% for very cut-up hip/valley roofs (roofer convention 18-20%)
 // price-affecting roof options (tear-off layers, ventilation, access) — EagleView-style line items
 const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
 // solar battery storage (Powerwall-class) — backup + self-consumption
@@ -778,9 +778,10 @@ function reconcileTotals(t){
   });
 }
 function recommendedWasteIdx(t){
-  // cut-up roofs (valleys + hips heavy relative to area) need more waste → 15%
+  // cut-up roofs (valleys + hips heavy relative to area) need more waste: simple gable ~10%,
+  // cut-up hip/valley ~15%, very cut-up (lots of valleys/hips) ~20% — roofer ordering convention
   const cx=((t.valleyFt||0)+(t.hipFt||0))/Math.max(1,(t.squares||(t.roofAreaSqFt/100)));
-  return cx>6 ? 2 : 1;
+  return cx>10 ? 3 : cx>6 ? 2 : 1;
 }
 // honest confidence band — aerial/3D-tile measurement; wider on complex roofs
 function confidencePct(t){
