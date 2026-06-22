@@ -75,10 +75,19 @@ interface Props {
    *  style slot just for this one toggle. */
   style?: ShellStyle;
   onStyleChange?: (next: ShellStyle) => void;
+  /**
+   * ROOF-WIDGET — hide calculator-only Settings (number formatting, distance-
+   * pricing anchor, the trust/business-profile editor that the Build panel now
+   * owns, and the AI-chat-bubble toggle the iframe ignores). Keep the brand
+   * badge ("Powered by QuoteQuick") toggle — paid parity applies to the widget
+   * too. Slug + hosted-page + language live in the Install tab, which is kept.
+   */
+  isRoofWidget?: boolean;
 }
 
 export default function SettingsTab({
   settings, onChange, planTier = 'free', style, onStyleChange,
+  isRoofWidget = false,
 }: Props) {
   const isPaidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
   // brandBadge field maps to calculator_settings.appearance.show_powered_by
@@ -143,6 +152,8 @@ export default function SettingsTab({
       data-cue-allowed-multiple
     >
       {/* ── CORE: Number formatting ─────────────────────────────── */}
+      {/* ROOF-WIDGET — the iframe formats its own prices; hide this. */}
+      {!isRoofWidget && (
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
         <legend className="qq-style-legend">
           {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
@@ -219,6 +230,7 @@ export default function SettingsTab({
         </div>
         </div>
       </fieldset>
+      )}
 
       {/* ── Pricing model — HIDDEN (fidelity-A4, 2026-06-17) ──────────
        *  This section (mode hourly/fixed/custom + per-mode rate/value/
@@ -332,7 +344,9 @@ export default function SettingsTab({
        *  Behavior control (not appearance), so it lives in Settings.
        *  Writes the SAME persisted key as before — style.aiChatVisibility.
        *  Only rendered when the style slot is plumbed in. */}
-      {onStyleChange && style && (
+      {/* ROOF-WIDGET — the embedded iframe has its own lead flow and does not
+         mount the calculator's AI chat bubble, so this toggle is inert there. */}
+      {!isRoofWidget && onStyleChange && style && (
         <fieldset className="qq-style-group" data-testid="settings-group-ai-chat">
           <legend className="qq-style-legend">
             <HelpCueRow
@@ -385,6 +399,10 @@ export default function SettingsTab({
        *  "Advanced build / action / style" folds, since this IS the
        *  settings tab. Nothing is removed; every fieldset keeps its
        *  testids + wiring. */}
+      {/* ROOF-WIDGET — distance-pricing anchor + the business-profile trust
+         editor are calculator-only / superseded by the Build panel's Branding
+         & trust section; hide this whole fold in roof mode. */}
+      {!isRoofWidget && (
       <AdvancedSection
         id="settings-advanced"
         label="More settings"
@@ -453,6 +471,7 @@ export default function SettingsTab({
         onChange={(next) => patch({ businessProfile: next })}
       />
       </AdvancedSection>
+      )}
 
       <style>{`
         /* Reuse the Style tab's spacing rhythm — see StyleTab.tsx for the

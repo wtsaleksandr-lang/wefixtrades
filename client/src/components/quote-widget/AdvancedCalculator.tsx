@@ -9,7 +9,7 @@
  *
  * Phases 1c / 2 / visual-parity / theming of the advanced-builder epic.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import {
   normalizeLayout, type TemplateLayout,
@@ -22,6 +22,7 @@ import {
   resolveTieredConfig,
   inlineElementStyleToCss,
   parseVideoEmbedSrc,
+  type RoofWidgetTenantConfig,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -396,6 +397,13 @@ export interface AdvancedConfig {
    * `TemplateConfig.widgetKind`. Absent on every other calculator.
    */
   widgetKind?: 'roof_visualizer';
+  /**
+   * ROOF-WIDGET — owner-authored tenant config for the roof visualizer
+   * (settings.roofWidget → advanced.roofWidget). Bridged into the embedded
+   * iframe over postMessage. Structurally matches `RoofWidgetTenantConfig`
+   * (shared) / `RoofWidgetConfig` (wizard); every field optional.
+   */
+  roofWidget?: RoofWidgetTenantConfig;
   fields?: AdvField[];
   calculations?: AdvCalc[];
   result_calc?: string;
@@ -1881,14 +1889,35 @@ function RoofVisualizerEmbed({
   businessName,
   header,
   connectedTop,
+  roofWidget,
 }: {
   businessName?: string;
   header?: { title?: string; subtitle?: string };
   connectedTop: boolean;
+  /** ROOF-WIDGET — owner-authored tenant config bridged into the iframe. */
+  roofWidget?: RoofWidgetTenantConfig;
 }) {
   const title = header?.title?.trim() || 'See your roof in 3D — instant roof & solar quote';
   const subtitle = header?.subtitle?.trim()
     || 'Type your address to load a photoreal 3D model of your roof, then explore materials and solar options.';
+  // ROOF-WIDGET — bridge the tenant config into the embedded iframe. The widget
+  // listens for `{type:'qq:tenant-config', tenant}` and re-applies live. We post
+  // (a) once the iframe loads (so first paint after this handler is configured),
+  // and (b) whenever `roofWidget` changes (live preview edits in the wizard).
+  // Serialised once per change so the effect dep is value-stable.
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const tenantJson = useMemo(() => JSON.stringify(roofWidget ?? {}), [roofWidget]);
+  const postTenant = useCallback(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    try {
+      win.postMessage(
+        { type: 'qq:tenant-config', tenant: JSON.parse(tenantJson) },
+        window.location.origin,
+      );
+    } catch { /* iframe not ready / cross-origin — ignored */ }
+  }, [tenantJson]);
+  useEffect(() => { postTenant(); }, [postTenant]);
   return (
     <div
       style={{
@@ -1914,6 +1943,8 @@ function RoofVisualizerEmbed({
       </div>
       <div style={{ padding: '16px 20px 20px' }}>
         <iframe
+          ref={iframeRef}
+          onLoad={postTenant}
           src="/api/roofquote/widget"
           title={`Roof & Solar visualizer${businessName ? ` — ${businessName}` : ''}`}
           allow="accelerometer; gyroscope; fullscreen"
@@ -1951,6 +1982,7 @@ export default function AdvancedCalculator({
         businessName={businessName}
         header={advanced.header}
         connectedTop={connectedTop}
+        roofWidget={advanced.roofWidget}
       />
     );
   }

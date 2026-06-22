@@ -54,6 +54,7 @@ import {
 import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { AE } from './appleEditor';
 import LogoCropModal from './LogoCropModal';
 import RichTextField from './RichTextField';
 import { StyledSelect } from './StyledSelect';
@@ -134,6 +135,14 @@ interface Props {
    * legacy calculators see no behaviour change.
    */
   currencySymbol?: string;
+  /**
+   * ROOF-WIDGET — when true the active template renders the embedded 3D
+   * roof/solar iframe, which does NOT consume the calculator's `style` object
+   * (it's a self-contained iframe). Its theme/accent + branding are edited in
+   * the Build tab's adaptive panel instead, so the Style tab shows a short
+   * pointer there rather than calculator-only controls that would do nothing.
+   */
+  isRoofWidget?: boolean;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -237,11 +246,65 @@ const TOKEN_FALLBACKS = {
 export default function StyleTab({
   style, onChange, logo, onLogoChange, planTier = 'free',
   trustBadges, onTrustBadgesChange, autoBadgeCount = 0,
+  isRoofWidget = false,
   // stepLayout / tiered / templateCategory / aiChatVisibility / floatingLauncher
   // controls were relocated out of Style (see Build / Settings / Install). Those
   // props are no longer passed. currencySymbol is still on Props (callers pass
   // it) but no longer destructured — the deposit input that used it moved out.
 }: Props) {
+  // ROOF-WIDGET — the embedded iframe doesn't read the calculator's style
+  // tokens, so the per-field colour/typography/shape controls below would be
+  // inert. Surface a single pointer to where the widget's look IS configured
+  // (Build → Theme + Branding) instead of showing dead controls.
+  if (isRoofWidget) {
+    return (
+      <section
+        data-theme="light"
+        className="qq-style-panel"
+        data-testid="editor-tabpanel-style"
+        data-section
+        aria-label="Style"
+        role="tabpanel"
+      >
+        <div className="qq-roofwidget-notice" data-testid="style-roofwidget-notice">
+          <h3 className="qq-roofwidget-notice-title">
+            <InfoCue
+              testid="style-roofwidget"
+              region="header"
+              text="The 3D Roof & Solar visualizer is a self-contained widget, so the calculator's colour, typography and shape controls don't apply to it. Set its accent colour, logo and branding in the Build tab — the Theme and Branding & trust sections — and they flow straight into the live widget."
+            />
+            <span>Styling lives in the Build tab</span>
+          </h3>
+          <p className="qq-roofwidget-notice-body">
+            This template renders the interactive 3D roof &amp; solar widget.
+            Its accent colour, logo, company branding and trust info are all
+            edited in <strong>Build → Branding &amp; trust</strong> and{' '}
+            <strong>Build → Theme</strong>, and update the widget live.
+          </p>
+        </div>
+        <style>{`
+          .qq-roofwidget-notice {
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 16px; margin: 8px 0;
+            background: ${AE.color.accentTint};
+            border: 1px solid ${AE.color.accent}40;
+            border-radius: ${AE.radius.md};
+          }
+          .qq-roofwidget-notice-title {
+            margin: 0;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: ${AE.type.title.size}; font-weight: 700;
+            color: ${AE.color.text};
+          }
+          .qq-roofwidget-notice-body {
+            margin: 0;
+            font-size: ${AE.type.helper.size}; line-height: 1.5;
+            color: ${AE.color.secondary};
+          }
+        `}</style>
+      </section>
+    );
+  }
   // Wave 57 — UNLOCK the builder. Trust Badges, Brand Studio, Button copy,
   // Floating-launcher icon + label, AI chat visibility, Brand Kits, and the
   // floating-launcher Pro fields are all BUILDER-TIME features. Per the

@@ -286,12 +286,116 @@ export const DEFAULT_SHELL_NUMBER_FORMAT: Readonly<ShellNumberFormat> = {
   currency: 'USD',
 };
 
+/* ─────────────────────────────────────────────────────────────────────
+ * ROOF-WIDGET — adaptive config for the 3D Roof & Solar visualizer template.
+ *
+ * This is the wizard-side mirror of the widget's `TENANT` object
+ * (spikes/roof-quote/roof3d.html ~679-696). When the active template's
+ * `widgetKind === 'roof_visualizer'`, the Build tab edits THIS object instead
+ * of fields/calcs, and it is:
+ *   1. persisted via buildAdvancedConfig → `advanced.roofWidget`, and
+ *   2. bridged into the embedded iframe over postMessage
+ *      (`{ type: 'qq:tenant-config', tenant }`), where `applyTenant()` merges
+ *      it into the live TENANT and re-renders branding / financing / features.
+ *
+ * Every field is optional so older persisted state parses cleanly and the
+ * widget falls back to its showcase defaults / placeholders for anything unset.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/** A single trust "promise" card shown in the proposal (title + body). */
+export interface RoofWidgetPromise {
+  title: string;
+  body: string;
+}
+/** A single certification / award card (name + body). */
+export interface RoofWidgetCertification {
+  name: string;
+  body: string;
+}
+
+/** TENANT.trade — the trade's white-label branding + trust info. */
+export interface RoofWidgetTrade {
+  company?: string;
+  /** Logo image URL (data URL or hosted). */
+  logo?: string;
+  license?: string;
+  phone?: string;
+  email?: string;
+  web?: string;
+  tagline?: string;
+  about?: string;
+  /** Up to 3 trust promises shown in the proposal. */
+  promises?: RoofWidgetPromise[];
+  /** Certifications / awards. */
+  certifications?: RoofWidgetCertification[];
+  /** Aggregate star rating (e.g. 4.8). */
+  rating?: number;
+  /** Review count. */
+  reviews?: number;
+}
+
+/** TENANT.financing — loan/lease terms used by the widget's payment math. */
+export interface RoofWidgetFinancing {
+  solarApr?: number;
+  solarYears?: number;
+  roofApr?: number;
+  roofYears?: number;
+  leaseEnabled?: boolean;
+  /** $/mo per kW for a $0-down lease/PPA. */
+  leasePerKwMo?: number;
+}
+
+/** TENANT.features — which add-ons / lenses appear in the widget. */
+export interface RoofWidgetFeatures {
+  battery?: boolean;
+  ev?: boolean;
+  srec?: boolean;
+  leasePPA?: boolean;
+  leadQual?: boolean;
+  sizeSlider?: boolean;
+  report?: boolean;
+}
+
+export interface RoofWidgetConfig {
+  trade?: RoofWidgetTrade;
+  financing?: RoofWidgetFinancing;
+  features?: RoofWidgetFeatures;
+  /** Accent colour for the widget UI (overrides the widget's --cyan/--blue). */
+  accent?: string;
+}
+
+/** Default roof-widget config — mirrors the showcase TENANT defaults so the
+ *  editor opens with the same sensible values the widget ships with. Readers
+ *  spread this under the persisted config so any unset branch falls back. */
+export const DEFAULT_ROOF_WIDGET_CONFIG: Readonly<RoofWidgetConfig> = {
+  trade: {
+    company: '', logo: '', license: '', phone: '', email: '', web: '',
+    tagline: '', about: '', promises: [], certifications: [], rating: 0, reviews: 0,
+  },
+  financing: {
+    solarApr: 6.99, solarYears: 25, roofApr: 9.99, roofYears: 12,
+    leaseEnabled: true, leasePerKwMo: 11,
+  },
+  features: {
+    battery: true, ev: true, srec: true, leasePPA: true,
+    leadQual: true, sizeSlider: true, report: true,
+  },
+};
+
 /**
  * Settings tab state — Wave H6. Every field optional so older persisted state
  * pre-dating H6 still parses cleanly. Defaults are applied lazily by readers
  * (StyleTab pattern) — there is no per-field migration required.
  */
 export interface ShellSettings {
+  /**
+   * ROOF-WIDGET — config for the 3D Roof & Solar visualizer template, edited in
+   * the adaptive Build panel (RoofWidgetBuildPanel) when the active template's
+   * widgetKind is 'roof_visualizer'. Persisted via buildAdvancedConfig →
+   * `advanced.roofWidget` and bridged into the iframe over postMessage. Absent
+   * for every non-roof template.
+   */
+  roofWidget?: RoofWidgetConfig;
   /** WeFixTrades trade id (matches `client/src/data/trades.ts`). */
   tradeId?: string;
   /** Lead notification email — single recipient. Basic format check only. */

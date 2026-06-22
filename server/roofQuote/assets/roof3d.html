@@ -676,7 +676,12 @@ const roofOpts={ layers:1, ridgeVent:false, steep:false, gutters:false };
    brand, financing terms, which add-ons appear, and incentive toggles. In production this object is
    injected per business (DB-backed); here it carries the template-showcase defaults so the whole
    widget is data-driven, not hardcoded. ─── */
-const TENANT={
+/* TENANT is MUTABLE (was const): the host (wizard preview + published page)
+   injects per-business config at runtime via window.__TENANT__ (first paint) and
+   over postMessage ({type:'qq:tenant-config', tenant}) for live edits. A deep
+   merge into this object + applyTenant() re-runs the feature gates and re-renders
+   branding/financing/lead surfaces without a reload. */
+let TENANT={
   brand:"WeFixTrades",
   // The TRADE's white-label info shown on the downloadable report/proposal. Empty fields render as
   // Roofr-style PLACEHOLDERS so an installer sees exactly where their branding goes. Injected per business in prod.
@@ -1811,6 +1816,54 @@ window.__closeCapture=()=>{ $("lead").style.display="none"; };
 // lead-qualification: priorities toggle + hide the block if the tenant disabled it
 document.querySelectorAll("#lqual .lqp").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
 if(!TENANT.features.leadQual){ const lq=$("lqual"); if(lq) lq.style.display="none"; }
+/* ─── HOST → WIDGET config bridge ───────────────────────────────────────
+   The embedding host (QuoteQuick wizard preview + the published page) owns the
+   TENANT config (RoofWidgetBuildPanel → settings.roofWidget). It is delivered:
+     1. window.__TENANT__ — seeded before this script runs for first-paint
+        branding (published widget); and/or
+     2. postMessage {type:'qq:tenant-config', tenant} — for live preview edits.
+   deepMergeTenant merges only KNOWN branches (trade/financing/features/accent)
+   so a partial patch never wipes untouched fields. applyTenant() re-runs the
+   runtime feature gates + re-renders the quote card so a change is visible
+   immediately, no reload. */
+function deepMergeTenant(patch){
+  if(!patch || typeof patch!=="object") return;
+  if(patch.trade && typeof patch.trade==="object"){ TENANT.trade=Object.assign({}, TENANT.trade, patch.trade); }
+  if(patch.financing && typeof patch.financing==="object"){ TENANT.financing=Object.assign({}, TENANT.financing, patch.financing); }
+  if(patch.features && typeof patch.features==="object"){ TENANT.features=Object.assign({}, TENANT.features, patch.features); }
+  if(typeof patch.accent==="string") TENANT.accent=patch.accent;
+}
+function applyAccent(){
+  // The widget's brand colour is driven by the --cyan / --blue CSS vars (and a
+  // handful of accent-tint derivations). Overriding both at :root recolours
+  // every button/highlight/selected state live. Empty/invalid accent → restore
+  // the brand default so clearing it doesn't strand a bad colour.
+  const a=TENANT.accent, ok=typeof a==="string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(a);
+  const root=document.documentElement;
+  const v=ok?a:"#0d3cfc";
+  root.style.setProperty("--cyan",v);
+  root.style.setProperty("--blue",v);
+}
+function applyTenant(){
+  // Feature gates that toggle DOM at runtime.
+  const lq=$("lqual"); if(lq) lq.style.display=TENANT.features.leadQual?"":"none";
+  applyAccent();
+  // Re-render the quote card so financing/feature toggles (battery/EV/SREC/lease/
+  // size-slider) + any branding the card surfaces reflect the new config. Guarded
+  // because the card only exists once a roof has been measured.
+  try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
+}
+// 1) First-paint seed (published widget injects window.__TENANT__ before boot).
+try{ if(window.__TENANT__){ deepMergeTenant(window.__TENANT__); applyTenant(); } }catch(_){}
+// 2) Live config from the host (same-origin iframe). Accept the qq:tenant-config
+//    message; ignore everything else. Same-origin only (the host and the widget
+//    share an origin under /api/roofquote), so we don't widen postMessage attack
+//    surface.
+window.addEventListener("message",e=>{
+  if(e.origin!==location.origin) return;
+  const d=e.data; if(!d || d.type!=="qq:tenant-config" || !d.tenant) return;
+  deepMergeTenant(d.tenant); applyTenant();
+});
 // the lead IS the product — a dropped POST must never be silently lost. Queue failures to localStorage + retry on every load.
 async function sendLead(payload){
   try{ const r=await fetch(RQ_BASE+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); if(!r||!r.ok) throw 0; return true; }
