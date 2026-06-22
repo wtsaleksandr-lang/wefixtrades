@@ -1694,7 +1694,9 @@ async function buildPhotoPanels(){
   const baseN=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
   const n=Math.max(4,Math.round(baseN*(window.__sizePct||1)));   // size slider scales how many panels are drawn on the roof
   // attached home + "my section" → draw only the owner's section panels (best-first), else the whole building's
-  let pool=(window.__attached&&window.__sectionMode==="mine") ? sectionPanels(sp, window.__ll, window.__sectionShare||0.5).slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)) : (sp.solarPanels||[]);
+  const allPanels=sp.solarPanels||[];
+  let pool=(window.__attached&&window.__sectionMode==="mine") ? sectionPanels(sp, window.__ll, window.__sectionShare||0.5).slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)) : allPanels;
+  if(!pool.length) pool=allPanels;   // section window missed every panel (bad geocode/odd footprint) → never render an empty roof; fall back to the whole building so the count on the card is always visible
   const list=pool.slice(0,n);
   const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
   for(const pn of list){
