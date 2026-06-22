@@ -239,7 +239,7 @@ export function MarketingNav() {
 
             {!isMobile && (
               <Menu active={active} setActive={setActive} containerRef={innerRef}>
-                {NAV_LINKS.map(({ label, href, children: navChildren, subgroups, footer }) => (
+                {NAV_LINKS.map(({ label, href, children: navChildren, subgroups, footer, flagship }) => (
                   <MenuItem
                     key={href}
                     setActive={setActive}
@@ -249,6 +249,7 @@ export function MarketingNav() {
                     children={navChildren}
                     subgroups={subgroups}
                     footer={footer}
+                    flagship={flagship}
                   />
                 ))}
               </Menu>

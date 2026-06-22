@@ -78,6 +78,7 @@ export const MenuItem = ({
   children,
   subgroups,
   footer,
+  flagship,
   placement = "below",
 }: {
   setActive: (item: string | null) => void;
@@ -85,6 +86,10 @@ export const MenuItem = ({
   item: string;
   href?: string;
   children?: NavItemChild[];
+  /** Flagship trio (our home-grown tools) rendered as full rich screenshot
+   *  cards in a hero row ABOVE the normal `children` product grid. Additive —
+   *  when present the dropdown leads with these cards. */
+  flagship?: NavItemChild[];
   /** Wave 14 — when set, the dropdown renders a multi-column mega-menu
    *  (FreeToolsMegaPanel) instead of the default icon-grid. Used by the
    *  Free Tools nav item so the navbar unfolds inline. */
@@ -99,7 +104,8 @@ export const MenuItem = ({
   placement?: "below" | "above";
 }) => {
   const hasSubgroups = !!(subgroups && subgroups.length > 0);
-  const hasChildren = !!(children && children.length > 0) || hasSubgroups;
+  const hasFlagship = !!(flagship && flagship.length > 0);
+  const hasChildren = !!(children && children.length > 0) || hasSubgroups || hasFlagship;
   const isOpen = active === item;
   const ctx = useContext(MenuContext);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -228,6 +234,40 @@ export const MenuItem = ({
                    linger open after navigating). */
                 <ToolsRichCards items={children!} onNavigate={() => setActive(null)} />
               ) : (
+                <>
+                {/* Flagship hero row — our three home-grown tools, surfaced
+                    FIRST as full screenshot cards (real poster + on-hover
+                    Ken-Burns motion) above the standard product grid. Hidden
+                    on narrow trays so the grid never gets squeezed. */}
+                {hasFlagship && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div
+                      style={{
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: mkt.onDarkFaint,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Built by WeFixTrades
+                    </div>
+                    <ToolsRichCards items={flagship!} onNavigate={() => setActive(null)} />
+                  </div>
+                )}
+                {hasFlagship && children && children.length > 0 && (
+                  <div
+                    aria-hidden
+                    style={{
+                      height: 1,
+                      background: "rgba(255,255,255,0.08)",
+                      margin: "2px 0 14px",
+                    }}
+                  />
+                )}
+                {children && children.length > 0 && (
                 <motion.div
                   layout
                   style={{
@@ -296,6 +336,8 @@ export const MenuItem = ({
                     ),
                   )}
                 </motion.div>
+                )}
+                </>
               )}
               {footer && footer.length > 0 && !hasSubgroups && item !== "Tools" && (
                 /* Wayfinding footer CTAs — accent-blue fill matching the Free

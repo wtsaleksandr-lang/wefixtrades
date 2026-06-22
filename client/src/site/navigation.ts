@@ -71,6 +71,12 @@ export type NavItem = {
    *  bottom of the dropdown tray (desktop only). Not used on Free Tools
    *  (has its own mega-panel) or Resources. */
   footer?: { label: string; href: string }[];
+  /** Flagship trio — our three home-grown ("built from scratch") tools.
+   *  Rendered as full-bleed rich cards (real product screenshot poster +
+   *  on-hover motion) in a prominent row ABOVE the normal product grid via
+   *  <ToolsRichCards>. Purely additive: when set, the desktop dropdown shows
+   *  this hero row first, then the standard `children` grid below it. */
+  flagship?: NavItemChild[];
 };
 
 /**
@@ -105,6 +111,15 @@ export const NAV_LINKS: NavItem[] = [
     // here. BookFlow removed as standalone (bundled into QuoteQuick per D2).
     label: "Products",
     href: "/products/tradeline",
+    // Our three home-grown flagship tools, surfaced FIRST as rich
+    // screenshot cards above the full product grid. These are the tools we
+    // built from scratch: an AI receptionist, a quote-wizard builder, and a
+    // free local-SEO audit. See <ToolsRichCards>.
+    flagship: [
+      { label: "TradeLine™", href: "/products/tradeline", description: "AI receptionist — answers every call & chat, books the job.", icon: "workflow" },
+      { label: "QuoteQuick™", href: "/products/quickquotepro/demo", description: "Instant-quote calculator builder for your site.", icon: "calculator" },
+      { label: "LocalScore", href: "/tools/free-audit", description: "Free website + Google Business audit in 30 seconds.", icon: "shieldCheck" },
+    ],
     children: [
       { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
       { label: "CiteTrack", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
