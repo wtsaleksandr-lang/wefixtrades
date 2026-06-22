@@ -288,6 +288,8 @@
     <button id="bSun" title="Sun &amp; shade"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></svg><span>Sun</span></button>
     <button id="bLabels" title="Measurements"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l4-4 13 13-4 4z"/><path d="M7.5 7.5l1.8 1.8M10.5 10.5l1.8 1.8M13.5 13.5l1.8 1.8"/></svg><span>Measure</span></button>
     <button id="bRoof" title="Roof materials &amp; colors" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Materials</span></button>
+    <button id="bRotL" title="Rotate left"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M3.5 12l2.8 0M3.5 12l0 2.8" stroke-linecap="round"/></svg><span>Rotate</span></button>
+    <button id="bRotR" title="Rotate right"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 0-2.3 5.6"/><path d="M20.5 12l-2.8 0M20.5 12l0 2.8" stroke-linecap="round"/></svg><span>Rotate</span></button>
     <button id="bReset" title="Recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/></svg><span>Reset</span></button>
   </div>
   <div id="matbar"></div>
@@ -1376,18 +1378,18 @@ async function buildRoofMeasure(){
   const { Marker3DElement, AltitudeMode, Polyline3DElement }=await google.maps.importLibrary("maps3d");
   let PinElement=null; try{ ({PinElement}=await google.maps.importLibrary("marker")); }catch(_){}
   const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
-    if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.5:0.34 })); }catch(_){} }
+    if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.4:0.24 })); }catch(_){} }   // smaller pins → less cluttered
     gmap.append(m); roofMeas.push(m); };
-  // colour-coded dimension lines per edge type, anchored to the roof
+  // colour-coded dimension lines per edge type, anchored to the roof — slim so they read as guide lines, not bars
   for(const e of model.edges){
     const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:8, drawsOccludedSegments:false,
+    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:4, drawsOccludedSegments:false,
       coordinates:[{lat:A[1],lng:A[0],altitude:0.2},{lat:B[1],lng:B[0],altitude:0.2}] }); gmap.append(pl); roofMeas.push(pl); }catch(err){ errors.push("polyline:"+err.message); }
   }
-  // per-edge LF labels — only significant edges, longest-first, well spread, anchored ON the roof (low altitude → no floating/clustering)
+  // per-edge LF labels — only the significant edges, longest-first, well spread (wider min-gap → no hectic clustering)
   const placed=[];
-  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<11) continue; const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
-    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<3.0)) continue; placed.push([mx,my]);
+  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<14) continue; const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
+    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<5.0)) continue; placed.push([mx,my]);
     const M=toWgs(mx,my); mk({lat:M[1],lng:M[0],altitude:0.25}, Math.round(e.lengthFt)+"′", false, EDGE_COLORS[e.type]); }
   // per-plane area + pitch label, anchored just above the roof surface (not floating high → stays inside the plane)
   for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
@@ -1408,7 +1410,8 @@ function renderRoofDiagram(){
   for(const p of model.planes) for(const v of p.ring){ const [px,py]=toPx(v[0],v[1]); minx=Math.min(minx,px);miny=Math.min(miny,py);maxx=Math.max(maxx,px);maxy=Math.max(maxy,py); }
   const pad=Math.max(34,(maxx-minx)*0.2); minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
-  const cv=$("matCanvas"); cv.width=cw; cv.height=ch; const ctx=cv.getContext("2d");
+  const S=Math.min(3,Math.max(1.8,1000/Math.max(cw,ch)));   // supersample → crisp dimension lines & numbers even on a small roof crop
+  const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingQuality="high";
   const src=document.createElement("canvas"); src.width=W; src.height=H; const sctx=src.getContext("2d");
   const od=sctx.createImageData(W,H), d=od.data, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
   for(let i=0;i<W*H;i++){ d[i*4]=R[i]; d[i*4+1]=G[i]; d[i*4+2]=B[i]; d[i*4+3]=255; }
@@ -2033,6 +2036,16 @@ $("aiBtn").onclick=async()=>{
   btn.disabled=false; btn.textContent="See it on my house";
 };
 $("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block"; };
+// orbit the camera around the house (desktop has no 2-finger gesture — these buttons give the same control)
+function rotateCam(delta){
+  if(mode==="photoreal"&&gmap){ const h=(((+gmap.heading||0)+delta)%360+360)%360;
+    const cam={ center:gmap.center||{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:gmap.range||78, tilt:gmap.tilt||58, heading:h };
+    if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:550}); else gmap.heading=h; return; }
+  if(window.__roofReady&&typeof controls!=="undefined"&&controls){ const a=delta*Math.PI/180, x=camera.position.x, z=camera.position.z;   // schematic mode → orbit the Three.js camera
+    camera.position.x=x*Math.cos(a)-z*Math.sin(a); camera.position.z=x*Math.sin(a)+z*Math.cos(a); controls.update(); }
+}
+$("bRotL").onclick=()=>rotateCam(-45);
+$("bRotR").onclick=()=>rotateCam(45);
 $("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:78,tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun(); });
 $("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun(); });
