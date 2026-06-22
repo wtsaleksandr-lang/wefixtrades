@@ -549,6 +549,15 @@ export default function PreviewPane({
   onFullscreenChange,
 }: Props) {
   const selection = useSelection();
+  // ROOF-WIDGET — when the active template renders the embedded 3D roof/solar
+  // iframe (instead of the field/result form), the form-builder preview chrome
+  // must NOT intercept pointer events: the pane-level drag-to-pan handler calls
+  // preventDefault()+setPointerCapture on pointerdown anywhere in the canvas, so
+  // a click meant for the iframe's controls never reaches it ("clicking the
+  // widget does nothing"), and the empty-state CTA (mounted when there are 0
+  // fields, which a widget template always is) paints an opaque white card over
+  // the iframe. Both are suppressed below when this is true.
+  const isRoofWidget = widgetKind === 'roof_visualizer';
   // Apple-mobile-clean (2026-06-05) — detect a REAL small viewport (≤768px),
   // NOT the device-PREVIEW toggle (`device` prop). On a real phone the preview
   // becomes a clean, full-width, vertically-scrollable Elfsight-style
@@ -2864,7 +2873,7 @@ export default function PreviewPane({
   // a native `title` tooltip so power users can still confirm what the
   // control does without it being a permanent visual feature. Icon centres
   // in the 28-px bar; height stays at 28 to match DRAG_HANDLE_TOP_RESERVE.
-  const dragHandle = fullscreenOpen ? null : (
+  const dragHandle = fullscreenOpen || isRoofWidget ? null : (
     <div
       className={`qq-widget-drag-handle${widgetSelected ? ' is-selected' : ''}`}
       data-testid="preview-drag-handle"
@@ -3074,7 +3083,7 @@ export default function PreviewPane({
               onUpdateField={onUpdateField}
             />
           )}
-          {shellFields.length === 0 && onAddField && (
+          {!isRoofWidget && shellFields.length === 0 && onAddField && (
             <PreviewEmptyState onAddField={onAddField} />
           )}
           {sectionEditorEl}
@@ -3148,9 +3157,12 @@ export default function PreviewPane({
        * widget (surfacing drag/resize chrome) and started a canvas pan behind
        * the modal. Detaching the handlers makes the fullscreen overlay a pure,
        * chrome-free test surface — clicks only drive the live calculator. */
-      onPointerDown={isMobileViewport || fullscreenOpen ? undefined : onPaneBackgroundPointerDown}
-      onPointerMove={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerMove}
-      onPointerUp={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
+      /* ROOF-WIDGET — omit the canvas drag-to-pan handlers so pointerdowns pass
+         through to the embedded iframe (they otherwise capture the pointer and
+         swallow every click meant for the widget's own controls). */
+      onPointerDown={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onPaneBackgroundPointerDown}
+      onPointerMove={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerMove}
+      onPointerUp={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerUp}
       onPointerCancel={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
     >
       {isMobileViewport ? mobileCleanContent : (
@@ -3278,7 +3290,7 @@ export default function PreviewPane({
                     onAddField={onAddField}
                   />
                 )}
-                {shellFields.length === 0 && onAddField && (
+                {!isRoofWidget && shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
                 {sectionEditorEl}
@@ -3417,7 +3429,7 @@ export default function PreviewPane({
                     onAddField={onAddField}
                   />
                 )}
-                {shellFields.length === 0 && onAddField && (
+                {!isRoofWidget && shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
                 {sectionEditorEl}

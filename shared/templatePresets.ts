@@ -10514,6 +10514,55 @@ export interface AdvancedConfigShape {
    * field/result UI. Absent on every other calculator.
    */
   widgetKind?: 'roof_visualizer';
+  /**
+   * ROOF-WIDGET — adaptive config for the 3D Roof & Solar visualizer template,
+   * authored in the wizard's RoofWidgetBuildPanel and stored under
+   * `settings.roofWidget`. Mirrors the widget's TENANT object
+   * (spikes/roof-quote/roof3d.html). The host postMessages it into the iframe
+   * (`qq:tenant-config`) for the live preview + published widget. Only present
+   * when `widgetKind === 'roof_visualizer'`. Structurally matches the client's
+   * `RoofWidgetConfig` (every field optional) so the two stay assignable
+   * without `shared/` importing from `client/`.
+   */
+  roofWidget?: RoofWidgetTenantConfig;
+}
+
+/* ─── ROOF-WIDGET tenant config (shared shape) ─────────────────────────
+ * Kept structurally identical to the client's RoofWidgetConfig so the wizard
+ * value assigns cleanly into AdvancedConfigShape. All fields optional. */
+export interface RoofWidgetTenantConfig {
+  trade?: {
+    company?: string;
+    logo?: string;
+    license?: string;
+    phone?: string;
+    email?: string;
+    web?: string;
+    tagline?: string;
+    about?: string;
+    promises?: { title: string; body: string }[];
+    certifications?: { name: string; body: string }[];
+    rating?: number;
+    reviews?: number;
+  };
+  financing?: {
+    solarApr?: number;
+    solarYears?: number;
+    roofApr?: number;
+    roofYears?: number;
+    leaseEnabled?: boolean;
+    leasePerKwMo?: number;
+  };
+  features?: {
+    battery?: boolean;
+    ev?: boolean;
+    srec?: boolean;
+    leasePPA?: boolean;
+    leadQual?: boolean;
+    sizeSlider?: boolean;
+    report?: boolean;
+  };
+  accent?: string;
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───

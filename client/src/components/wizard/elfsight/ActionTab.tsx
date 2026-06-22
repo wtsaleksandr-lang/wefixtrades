@@ -118,10 +118,18 @@ interface Props {
   /** Calculator edit token — the Integrations panel uses it to read/save its
    *  outbound-webhook config. Empty in the pre-save create flow. */
   editToken?: string;
+  /**
+   * ROOF-WIDGET — the 3D visualizer owns its own multi-step lead form, soft
+   * gate, qualification and submit flow (it POSTs to /api/roofquote/lead), so
+   * the calculator's action-mode / lead-form-fields / deposit / booking cards
+   * don't apply. The ONE thing that still matters is WHERE those leads are
+   * sent — so roof mode shows only the lead-notification-email card.
+   */
+  isRoofWidget?: boolean;
 }
 
 export default function ActionTab({
-  settings, onChange, editToken = '',
+  settings, onChange, editToken = '', isRoofWidget = false,
 }: Props) {
   const patch = useCallback(
     (next: Partial<ShellSettings>) => onChange({ ...settings, ...next }),
@@ -197,6 +205,91 @@ export default function ActionTab({
   );
 
   const leadEmailInvalid = leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim());
+
+  // ROOF-WIDGET — the visualizer runs its own lead capture + qualification +
+  // submit flow, so the only Action setting that still applies is the lead
+  // notification recipient. Render just that card (same testids/wiring as the
+  // full tab's Email-notifications card so saved state + the InfoCue/help-cue
+  // rules carry over).
+  if (isRoofWidget) {
+    return (
+      <section
+        data-theme="light"
+        className="qq-action-panel"
+        data-testid="editor-tabpanel-action"
+        aria-label="Action"
+        data-section
+        role="tabpanel"
+      >
+        <div className="qq-action-card" data-testid="action-group-email">
+          <div className="qq-action-card-head">
+            <span className="qq-action-card-headicon" aria-hidden="true">
+              <BellRing size={16} />
+            </span>
+            <span className="qq-action-card-title">Email notifications</span>
+            <InfoCue
+              testid="action-section-email"
+              text="Where leads from the 3D roof & solar widget are sent when a visitor submits their details. Single recipient; the widget collects and qualifies the lead itself."
+            />
+          </div>
+          <div className="qq-action-card-body">
+            <FloatField
+              label="Lead notification email"
+              htmlFor="qq-action-leademail-roof"
+              infoText="Where leads from this widget are sent. Single email; team forwarding is configured upstream."
+              infoTestid="settings-lead-email"
+            >
+              <input
+                id="qq-action-leademail-roof"
+                type="email"
+                className="premium-input"
+                placeholder=" "
+                value={leadEmail}
+                onChange={(e) => patch({ leadEmail: e.target.value })}
+                data-testid="settings-input-lead-email"
+                aria-invalid={leadEmailInvalid ? 'true' : 'false'}
+              />
+            </FloatField>
+            {leadEmailInvalid && (
+              <p className="qq-action-error" data-testid="settings-lead-email-error">
+                Enter a valid email address.
+              </p>
+            )}
+          </div>
+        </div>
+        <style>{`
+          .qq-action-panel {
+            display: flex; flex-direction: column; gap: 12px;
+            font-family: ${AE.font.family};
+          }
+          .qq-action-card {
+            background: ${AE.color.bg};
+            border: 1px solid ${AE.color.hairline};
+            border-radius: ${AE.radius.md};
+            box-shadow: ${AE.shadow.card};
+            padding: 14px 16px;
+            display: flex; flex-direction: column; gap: 10px;
+          }
+          .qq-action-card-head {
+            display: flex; align-items: center; gap: 8px;
+          }
+          .qq-action-card-headicon {
+            display: inline-flex; align-items: center; justify-content: center;
+            color: ${AE.color.accent};
+          }
+          .qq-action-card-title {
+            font-size: ${AE.type.title.size}; font-weight: 600;
+            color: ${AE.color.text};
+          }
+          .qq-action-card-body { display: flex; flex-direction: column; gap: 8px; }
+          .qq-action-error {
+            margin: 0; font-size: ${AE.type.helper.size};
+            color: ${AE.color.danger}; line-height: 1.4;
+          }
+        `}</style>
+      </section>
+    );
+  }
 
   return (
     <section

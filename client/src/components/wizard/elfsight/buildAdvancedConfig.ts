@@ -290,6 +290,13 @@ export function buildAdvancedConfig(
   if (settings?.businessProfile) {
     merged = { ...merged, businessProfile: settings.businessProfile };
   }
+  // ROOF-WIDGET — carry the roof-visualizer config through so the renderer /
+  // host can postMessage it into the embedded iframe (and a published widget can
+  // first-paint with it). Only threaded when the active template is the roof
+  // visualizer (widgetKind set) so non-roof calculators never carry the slot.
+  if (widgetKind === 'roof_visualizer' && settings?.roofWidget) {
+    merged = { ...merged, roofWidget: settings.roofWidget } as typeof merged;
+  }
   {
     const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
     const numberFormat = {

@@ -83,8 +83,10 @@ import {
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
   type ShellSettings,
+  type RoofWidgetConfig,
   type PublicFieldType,
 } from './types';
+import RoofWidgetBuildPanel from './RoofWidgetBuildPanel';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -873,6 +875,18 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setSettings = useCallback((next: ShellSettings) => {
     setState((s) => ({ ...s, settings: next }));
+  }, []);
+
+  // ROOF-WIDGET — patch the roof-visualizer config that lives under
+  // `settings.roofWidget`. Mirrors the widget's TENANT object (roof3d.html) and
+  // is persisted via buildAdvancedConfig → advanced.roofWidget, then bridged
+  // into the live iframe over postMessage. A shallow merge keeps untouched
+  // branches (trade / financing / features / theme) intact.
+  const setRoofWidget = useCallback((next: RoofWidgetConfig) => {
+    setState((s) => ({
+      ...s,
+      settings: { ...(s.settings ?? {}), roofWidget: next },
+    }));
   }, []);
 
   /** BD-2a — owner-level override for the multi-step renderer. */
@@ -1765,6 +1779,17 @@ export default function WizardShell({ embed = false }: Props) {
     if (!isMobile) setMobileSheetOpen(false);
   }, [isMobile]);
 
+  // ROOF-WIDGET — when the active template is the 3D Roof & Solar visualizer,
+  // the whole editing surface adapts: the Build tab swaps the generic form-
+  // builder for a widget-specific config panel (RoofWidgetBuildPanel) and the
+  // Style / Settings / Action tabs trim the calculator-only controls. The
+  // template's `widgetKind` is the single source of truth (mirrors PreviewPane
+  // + AdvancedCalculator, which both branch on `advanced.widgetKind`). Hoisted
+  // here so every render site can share one derivation.
+  const isRoofWidget = state.activeTemplateId
+    ? getTemplatePreset(state.activeTemplateId)?.widgetKind === 'roof_visualizer'
+    : false;
+
   // First-run discoverability (fix/wizard-mobile-firstrun) — on a real phone a
   // brand-new user lands on the full-screen preview + bottom tab bar with NO
   // obvious "start editing" affordance (the Build sheet is closed by default).
@@ -2234,6 +2259,20 @@ export default function WizardShell({ embed = false }: Props) {
               >
                 <div className="qq-editor-left-inner">
                   {!isMobile && (activeTab === 'build' ? (
+                    isRoofWidget ? (
+                      <RoofWidgetBuildPanel
+                        businessName={state.businessName}
+                        onBusinessNameChange={setBusinessName}
+                        logo={state.logo ?? null}
+                        onLogoChange={setLogo}
+                        activeTemplateId={state.activeTemplateId}
+                        onApplyTemplate={requestApplyTemplate}
+                        config={state.settings?.roofWidget}
+                        onConfigChange={setRoofWidget}
+                        header={state.header ?? {}}
+                        onHeaderChange={setHeader}
+                      />
+                    ) : (
                     <BuildTab
                       businessName={state.businessName}
                       onBusinessNameChange={setBusinessName}
@@ -2268,6 +2307,7 @@ export default function WizardShell({ embed = false }: Props) {
                       }
                       onGenerateWithAI={handleAIGenerate}
                     />
+                    )
                   ) : activeTab === 'style' ? (
                     <StyleTab
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
@@ -2281,6 +2321,9 @@ export default function WizardShell({ embed = false }: Props) {
                       onTrustBadgesChange={setTrustBadges}
                       autoBadgeCount={autoBadgeCount}
                       currencySymbol={currencySymbol}
+                      /* ROOF-WIDGET — trim calculator-only structure controls
+                         (pricing tiers etc.); keep theme/accent. */
+                      isRoofWidget={isRoofWidget}
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
@@ -2289,6 +2332,10 @@ export default function WizardShell({ embed = false }: Props) {
                       planTier={planTier}
                       style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                       onStyleChange={setStyle}
+                      /* ROOF-WIDGET — hide pricing-model / number-format /
+                         deposit (calculator-only); keep lead email + brand
+                         badge + slug. */
+                      isRoofWidget={isRoofWidget}
                     />
                   ) : activeTab === 'action' ? (
                     <ActionTab
@@ -2296,6 +2343,9 @@ export default function WizardShell({ embed = false }: Props) {
                       onChange={setSettings}
                       planTier={planTier}
                       editToken={editToken}
+                      /* ROOF-WIDGET — the widget owns its own lead form; trim
+                         the calculator lead-form-fields builder, keep notify. */
+                      isRoofWidget={isRoofWidget}
                     />
                   ) : activeTab === 'install' ? (
                     <InstallTab
@@ -2515,6 +2565,20 @@ export default function WizardShell({ embed = false }: Props) {
                 isBusy={saveDraftMutation.isPending}
               >
                 {activeTab === 'build' ? (
+                  isRoofWidget ? (
+                    <RoofWidgetBuildPanel
+                      businessName={state.businessName}
+                      onBusinessNameChange={setBusinessName}
+                      logo={state.logo ?? null}
+                      onLogoChange={setLogo}
+                      activeTemplateId={state.activeTemplateId}
+                      onApplyTemplate={requestApplyTemplate}
+                      config={state.settings?.roofWidget}
+                      onConfigChange={setRoofWidget}
+                      header={state.header ?? {}}
+                      onHeaderChange={setHeader}
+                    />
+                  ) : (
                   <BuildTab
                     businessName={state.businessName}
                     onBusinessNameChange={setBusinessName}
@@ -2543,6 +2607,7 @@ export default function WizardShell({ embed = false }: Props) {
                     }
                     onGenerateWithAI={handleAIGenerate}
                   />
+                  )
                 ) : activeTab === 'style' ? (
                   <StyleTab
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
@@ -2554,6 +2619,7 @@ export default function WizardShell({ embed = false }: Props) {
                     onTrustBadgesChange={setTrustBadges}
                     autoBadgeCount={autoBadgeCount}
                     currencySymbol={currencySymbol}
+                    isRoofWidget={isRoofWidget}
                   />
                 ) : activeTab === 'settings' ? (
                   <SettingsTab
@@ -2562,6 +2628,7 @@ export default function WizardShell({ embed = false }: Props) {
                     planTier={planTier}
                     style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                     onStyleChange={setStyle}
+                    isRoofWidget={isRoofWidget}
                   />
                 ) : activeTab === 'action' ? (
                   <ActionTab
@@ -2569,6 +2636,7 @@ export default function WizardShell({ embed = false }: Props) {
                     onChange={setSettings}
                     planTier={planTier}
                     editToken={editToken}
+                    isRoofWidget={isRoofWidget}
                   />
                 ) : activeTab === 'install' ? (
                   <InstallTab

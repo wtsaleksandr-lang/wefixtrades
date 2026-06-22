@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
@@ -18,14 +19,36 @@ interface RoofVisualizerStepProps {
  * Sizing: full width; height is min(78vh, 720px) on desktop. On narrow
  * (mobile) screens the media query bumps it to 82vh so the 3D experience
  * gets most of the viewport.
+ *
+ * ROOF-WIDGET — the schema-flow renderer only carries the calculator's
+ * `accentColor` (the full tenant config travels through the AdvancedCalculator
+ * path, RoofVisualizerEmbed). Bridge at least the accent into the iframe over
+ * postMessage (`qq:tenant-config`) so the widget's brand colour matches the
+ * surrounding calculator. The widget merges only known branches, so an
+ * accent-only patch is safe and leaves every other field at its default.
  */
-export default function RoofVisualizerStep({ step }: RoofVisualizerStepProps) {
+export default function RoofVisualizerStep({ step, accentColor }: RoofVisualizerStepProps) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const postTenant = useCallback(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !accentColor) return;
+    try {
+      win.postMessage(
+        { type: 'qq:tenant-config', tenant: { accent: accentColor } },
+        window.location.origin,
+      );
+    } catch { /* iframe not ready — ignored */ }
+  }, [accentColor]);
+  useEffect(() => { postTenant(); }, [postTenant]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
       {step.subtitle && <p style={stepSubtitleStyle}>{step.subtitle}</p>}
 
       <iframe
+        ref={iframeRef}
+        onLoad={postTenant}
         src="/api/roofquote/widget"
         title="Roof & Solar visualizer"
         allow="accelerometer; gyroscope; fullscreen"
