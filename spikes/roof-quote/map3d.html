@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>Roof &amp; Solar — Native 3D Maps</title>
+<script src="https://cdn.jsdelivr.net/npm/geotiff/dist-browser/geotiff.js"></script>
+<style>
+  :root{
+    --bg:#0b1220; --panel:rgba(12,18,32,.92); --line:#1e293b; --txt:#e5e7eb;
+    --muted:#94a3b8; --cyan:#22d3ee; --accent:#22d3ee; --blue:#9ec5ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden}
+  #map{position:absolute;inset:0}
+  gmp-map-3d{width:100%;height:100%;display:block}
+
+  /* ---------- search bar (top-center) ---------- */
+  #bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:30;
+    display:flex;gap:8px;align-items:center;background:var(--panel);padding:8px 10px;
+    border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(8px);
+    width:min(440px,calc(100vw - 24px))}
+  #addr{flex:1;min-width:0;padding:10px 12px;border-radius:9px;border:1px solid var(--line);
+    background:#0f172a;color:var(--txt);font-size:14px;outline:none}
+  #addr:focus{border-color:var(--cyan)}
+  #go{padding:10px 14px;border-radius:9px;border:0;background:var(--cyan);color:#062a30;
+    font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap}
+  .pac-container{z-index:9999 !important;border-radius:10px;margin-top:4px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+
+  /* ---------- report card (left desktop / bottom sheet mobile) ---------- */
+  #card{position:absolute;top:74px;left:14px;z-index:25;width:300px;background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.5);
+    backdrop-filter:blur(8px);overflow:hidden;max-height:calc(100vh - 92px);display:flex;flex-direction:column}
+  #cardHead{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  #cardHead .dot{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  #cardHead h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.2px}
+  #cardHead .sub{font-size:11px;color:var(--muted);margin-left:auto}
+  #cardBody{padding:6px 16px 14px;overflow:auto}
+  .hero{display:flex;gap:14px;align-items:flex-end;margin:10px 0 6px}
+  .hero .big{font-size:30px;font-weight:800;line-height:1;color:#fff}
+  .hero .unit{font-size:12px;color:var(--muted);margin-bottom:3px}
+  .hero .sq{font-size:13px;color:var(--cyan);font-weight:600;margin-bottom:3px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid rgba(255,255,255,.05);font-size:13px}
+  .row .k{color:var(--muted)}
+  .row b{color:#fff;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .stat{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .stat .v{font-size:18px;font-weight:800;color:#fff;line-height:1}
+  .stat .l{font-size:10.5px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+  .loading{color:var(--muted);font-size:13px;padding:14px 0;text-align:center}
+  .mgrip{display:none}
+
+  /* ---------- prefetch progress chip ---------- */
+  #prog{position:absolute;left:14px;bottom:14px;z-index:25;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:10px 13px;font-size:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(8px);display:none;align-items:center;gap:10px;max-width:280px}
+  #prog .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.18);border-top-color:var(--cyan);
+    border-radius:50%;animation:sp 0.8s linear infinite;flex:none}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #prog .pbarwrap{flex:1;height:4px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:4px}
+  #prog .pbar{height:100%;width:0%;background:var(--cyan);transition:width .3s ease}
+  #prog .ptxt{display:block;color:var(--muted)}
+
+  /* ---------- control dock (right) ---------- */
+  #dock{position:absolute;right:14px;top:74px;z-index:25;display:flex;flex-direction:column;gap:8px}
+  .ctl{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--panel);
+    color:var(--txt);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 22px rgba(0,0,0,.45);backdrop-filter:blur(8px);user-select:none}
+  .ctl:hover{border-color:var(--cyan);color:var(--cyan)}
+  .ctl small{font-size:10px}
+
+  /* ---------- overlay toggles (bottom-center) ---------- */
+  #toggles{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:25;display:flex;gap:6px;
+    background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:5px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(8px)}
+  .tg{padding:8px 14px;border-radius:9px;border:0;background:transparent;color:var(--muted);
+    font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .tg[aria-pressed="true"]{background:var(--cyan);color:#062a30}
+
+  /* ---------- shading overlay (draped top-down canvas — pan/zoom interactive) ---------- */
+  #shadeWrap{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
+    background:rgba(8,12,22,.55);backdrop-filter:blur(2px);overflow:hidden;touch-action:none}
+  #shadeCanvas{max-width:min(78vw,560px);max-height:72vh;border-radius:14px;
+    box-shadow:0 18px 60px rgba(0,0,0,.6);border:1px solid var(--line);
+    transform-origin:0 0;will-change:transform;cursor:grab;touch-action:none}
+  #shadeCanvas.grabbing{cursor:grabbing}
+  /* zoom hint chip (overlay mode) */
+  #zoomHint{position:absolute;bottom:64px;left:50%;transform:translateX(-50%);z-index:22;display:none;
+    background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:6px 11px;
+    font-size:11px;color:var(--muted);box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;
+    transition:opacity .5s ease}
+  #shadeLegend{position:absolute;bottom:78px;left:50%;transform:translateX(-50%);z-index:21;display:none;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 13px;
+    font-size:11px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  #shadeLegend .barL{height:9px;width:200px;border-radius:5px;margin:6px 0 3px;
+    background:linear-gradient(90deg,rgb(59,31,143),rgb(37,99,235),rgb(16,185,129),rgb(250,204,21),rgb(249,115,22),rgb(220,38,38))}
+  #shadeLegend .lab{display:flex;justify-content:space-between;color:var(--muted)}
+
+  #toast{position:absolute;top:74px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(127,29,29,.95);
+    color:#fee;padding:9px 14px;border-radius:10px;font-size:13px;display:none;max-width:90vw}
+
+  /* ================= MOBILE ================= */
+  @media (max-width:560px){
+    #bar{top:10px;width:calc(100vw - 20px);padding:7px 8px}
+    #go{padding:10px 12px}
+    #dock{top:64px;right:10px}
+    .ctl{width:38px;height:38px;font-size:16px}
+    #toggles{bottom:auto;top:initial;left:0;transform:none;width:100%;border-radius:0;justify-content:center;
+      bottom:calc(var(--sheetPeek,128px) + 8px);background:transparent;border:0;box-shadow:none;pointer-events:none}
+    #toggles .tg{pointer-events:auto;background:var(--panel);border:1px solid var(--line)}
+    #toggles .tg[aria-pressed="true"]{background:var(--cyan)}
+    /* bottom sheet */
+    #card{top:auto;left:0;right:0;bottom:0;width:100%;max-height:82vh;border-radius:18px 18px 0 0;
+      transform:translateY(calc(100% - var(--sheetPeek,128px)));transition:transform .28s cubic-bezier(.4,0,.2,1)}
+    #card.open{transform:translateY(0)}
+    .mgrip{display:block;width:40px;height:4px;border-radius:3px;background:#475569;margin:8px auto 2px;cursor:grab}
+    #cardHead{padding-top:6px}
+    #prog{bottom:auto;top:62px;left:10px;right:10px;max-width:none}
+    #shadeCanvas{max-width:92vw;max-height:54vh}
+    #shadeLegend{bottom:calc(var(--sheetPeek,128px) + 56px)}
+    #zoomHint{bottom:calc(var(--sheetPeek,128px) + 48px)}
+  }
+</style>
+</head>
+<body>
+<div id="bar">
+  <input id="addr" value="30 Angus Rd, Hamilton, ON" placeholder="Enter your address" autocomplete="off"/>
+  <button id="go">Analyze roof</button>
+</div>
+
+<div id="map"></div>
+
+<!-- shading drape (pan/zoom interactive) -->
+<div id="shadeWrap"><canvas id="shadeCanvas"></canvas><div id="zoomHint">Pinch / scroll to zoom · drag to move · drag&nbsp;down&nbsp;↓ for 3D</div></div>
+<div id="shadeLegend">
+  <div style="font-weight:600;color:#fff">Annual sunlight (kWh/kW)</div>
+  <div class="barL"></div>
+  <div class="lab"><span id="legMin">low</span><span id="legMax">high</span></div>
+</div>
+
+<!-- report card -->
+<div id="card">
+  <div class="mgrip" id="mgrip"></div>
+  <div id="cardHead">
+    <span class="dot"></span><h2>Roof &amp; Solar Report</h2><span class="sub" id="cardImagery"></span>
+  </div>
+  <div id="cardBody"><div class="loading">Analyzing…</div></div>
+</div>
+
+<!-- prefetch progress -->
+<div id="prog">
+  <div class="spin"></div>
+  <div style="flex:1">
+    <span class="ptxt" id="progTxt">Loading high-resolution imagery…</span>
+    <div class="pbarwrap"><div class="pbar" id="progBar"></div></div>
+  </div>
+</div>
+
+<!-- control dock -->
+<div id="dock">
+  <div class="ctl" id="cZoomIn" title="Zoom in">+</div>
+  <div class="ctl" id="cZoomOut" title="Zoom out">&minus;</div>
+  <div class="ctl" id="cTilt" title="Tilt into 3D"><small>TILT</small></div>
+  <div class="ctl" id="cRotate" title="Rotate"><small>ROT</small></div>
+  <div class="ctl" id="cReset" title="Reset to top-down">⟲</div>
+</div>
+
+<!-- overlay toggles -->
+<div id="toggles">
+  <button class="tg" id="tgPanels" aria-pressed="true">Panels</button>
+  <button class="tg" id="tgRoof" aria-pressed="false">Roof</button>
+  <button class="tg" id="tgShade" aria-pressed="false">Shading</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ----- Maps JS API bootstrap loader (v=beta required for Map3DElement) ----- */
+(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+  key:"__TILES__", v:"beta"
+});
+
+const M2_TO_SQFT=10.7639;
+const ADDR_DEFAULT={addr:"30 Angus Rd, Hamilton, ON", lat:43.218978, lng:-79.7824607};
+const fmt=n=>Math.round(n).toLocaleString();
+const errors=[];
+window.addEventListener("error",e=>{ errors.push("window.error: "+(e.message||e)); });
+window.addEventListener("unhandledrejection",e=>{ errors.push("unhandledrejection: "+(e.reason&&e.reason.message||e.reason)); });
+window.__getErrors=()=>errors.slice();
+
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none",4200); }
+</script>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+let Map3DElement, Polygon3DElement, AltitudeMode, Geocoder, Autocomplete;
+let map3d;
+let facetPolys=[], panelPolys=[];
+let lastSegs=null, lastSP=null;
+let lastPanelList=null;          // the solarPanels[] subset we render (recommended count)
+let analyzedLatLng=null;
+
+/* overlay drape mode — mutually exclusive; ALL render on the registered orthophoto canvas.
+   null = clean 3D Explore (no overlay). "panels" | "roof" | "shading". */
+let overlayMode="panels";
+const show={ get panels(){return overlayMode==="panels";}, get roof(){return overlayMode==="roof";}, get shading(){return overlayMode==="shading";} };
+
+/* analysis (geotiff) cache, keyed per address */
+let anaData=null, anaBusyKey=null;
+
+/* ---------- camera presets ---------- */
+const TOPDOWN={ tilt:20, range:85, heading:0 };   // near-top-down (minimal parallax for overlays), tight on the house
+function curCenter(){ return analyzedLatLng ? {lat:analyzedLatLng.lat,lng:analyzedLatLng.lng,altitude:analyzedLatLng.alt||140} : null; }
+
+async function boot(){
+  try{
+    const maps3d   = await google.maps.importLibrary("maps3d");
+    const places   = await google.maps.importLibrary("places");
+    await google.maps.importLibrary("geometry");
+    const geocoding= await google.maps.importLibrary("geocoding");
+    Map3DElement=maps3d.Map3DElement; Polygon3DElement=maps3d.Polygon3DElement;
+    AltitudeMode=maps3d.AltitudeMode; Geocoder=geocoding.Geocoder; Autocomplete=places.Autocomplete;
+    window.__libsLoaded=true; window.__map3dAvailable=!!Map3DElement; window.__poly3dAvailable=!!Polygon3DElement;
+    if(!Map3DElement){ toast("Map3DElement unavailable for this key/version."); errors.push("Map3DElement undefined"); return; }
+
+    map3d=new Map3DElement({
+      center:{ lat:ADDR_DEFAULT.lat, lng:ADDR_DEFAULT.lng, altitude:200 },
+      range:1200, tilt:45, heading:0, mode:"HYBRID"
+    });
+    map3d.id="m3d";
+    $("map").appendChild(map3d);
+    window.__map3dMounted=true;
+
+    // Places autocomplete
+    try{
+      const ac=new Autocomplete($("addr"),{types:["address"],componentRestrictions:{country:["us","ca"]},fields:["geometry","formatted_address"]});
+      ac.addListener("place_changed",()=>{
+        const pl=ac.getPlace();
+        if(pl&&pl.geometry&&pl.geometry.location){ analyze(pl.geometry.location.lat(), pl.geometry.location.lng()); }
+        else searchBox();
+      });
+    }catch(e){ errors.push("autocomplete: "+e.message); }
+
+    $("go").addEventListener("click", searchBox);
+    $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); searchBox(); }});
+    wireControls(); wireToggles(); wireSheet(); wireDrapeInteract();
+
+    await analyze(ADDR_DEFAULT.lat, ADDR_DEFAULT.lng);
+    window.__bootDone=true;
+  }catch(e){
+    errors.push("boot: "+(e&&e.message||e));
+    window.__bootError=String(e&&e.message||e);
+    toast("Boot error: "+(e&&e.message||e));
+  }
+}
+
+async function searchBox(){
+  const v=$("addr").value.trim(); if(!v) return;
+  try{
+    const g=new Geocoder();
+    const {results}=await g.geocode({address:v});
+    if(results&&results[0]){ const loc=results[0].geometry.location; await analyze(loc.lat(),loc.lng()); }
+    else toast("No results for that address.");
+  }catch(e){ errors.push("geocode: "+e.message); toast("Geocode error."); }
+}
+
+/* ========================================================================
+   ANALYZE: buildingInsights -> report card + overlays + camera frame,
+   then PREFETCH dataLayers (geotiff) in the background with progress UI.
+   ======================================================================== */
+async function analyze(lat,lng){
+  // reset
+  clearOverlays(); lastSegs=null; lastSP=null; lastPanelList=null;
+  anaData=null; anaBusyKey=null;
+  // hide the stale drape; keep overlayMode so the active tab re-opens on the new address
+  $("shadeWrap").style.display="none"; $("shadeLegend").style.display="none";
+  $("cardBody").innerHTML='<div class="loading">Analyzing…</div>';
+  $("cardImagery").textContent="";
+
+  let targetLat=lat, targetLng=lng, j=null;
+  try{
+    const r=await fetch("/solar?lat="+lat+"&lng="+lng); j=await r.json();
+    if(j.center&&j.center.latitude){ targetLat=j.center.latitude; targetLng=j.center.longitude; }
+  }catch(e){ errors.push("solar fetch: "+e.message); }
+
+  analyzedLatLng={lat:targetLat,lng:targetLng,alt:140};
+  await frame(targetLat,targetLng);
+
+  if(!j || j.error || !j.solarPotential){
+    $("cardBody").innerHTML='<div class="loading">No Solar data for this address (coverage gap).<br/>The 3D view still applies.</div>';
+    window.__analyzeState="no_solar";
+    return;
+  }
+
+  const sp=j.solarPotential; lastSP=sp;
+  const segs=sp.roofSegmentStats||[]; lastSegs=segs;
+  buildCard(sp,segs,j.imageryQuality);
+
+  // overlay source data (panels/facets rendered on the REGISTERED orthophoto canvas, not the 3D mesh).
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
+  lastPanelList=(sp.solarPanels||[]).slice(0,n);
+  window.__facetCount=segs.length; window.__panelCount=lastPanelList.length;
+  window.__analyzeState="ok";
+
+  // PREFETCH dataLayers in background (don't await) so the registered drape (panels/roof/shading) is instant.
+  // applyVisibility() opens the active drape the moment imagery is ready.
+  applyVisibility();
+  prefetchAnalysis(targetLat,targetLng);
+}
+
+/* ---------- camera framing: near-top-down with fly animation ---------- */
+async function frame(lat,lng){
+  const endCamera={ center:{lat,lng,altitude:115}, range:TOPDOWN.range, tilt:TOPDOWN.tilt, heading:TOPDOWN.heading };
+  try{
+    if(typeof map3d.flyCameraTo==="function"){ map3d.flyCameraTo({endCamera,durationMillis:1600}); }
+    else Object.assign(map3d,endCamera);
+  }catch(e){ errors.push("frame: "+e.message); try{Object.assign(map3d,endCamera);}catch(_){} }
+}
+
+/* ======================= REPORT CARD ======================= */
+function buildCard(sp,segs,imageryQuality){
+  const kw=((sp.maxArrayPanelsCount||0)*(sp.panelCapacityWatts||400)/1000).toFixed(1);
+  const wrs=sp.wholeRoofStats||{}; const roofM2=wrs.areaMeters2||segs.reduce((s,g)=>s+((g.stats&&g.stats.areaMeters2)||0),0);
+  const roofSqft=roofM2*M2_TO_SQFT; const squares=roofSqft/100;
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const panels=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
+  const kwh=cfg?Math.round(cfg.yearlyEnergyDcKwh):0;
+  const sun=(sp.maxSunshineHoursPerYear||0).toFixed(0);
+
+  $("cardImagery").textContent=imageryQuality?("imagery: "+imageryQuality):"";
+  $("cardBody").innerHTML=
+    '<div class="hero">'+
+      '<div class="big">'+fmt(roofSqft)+'</div><div class="unit">sq ft</div>'+
+      '<div class="sq">'+squares.toFixed(1)+' squares</div>'+
+    '</div>'+
+    '<div class="grid">'+
+      '<div class="stat"><div class="v">'+segs.length+'</div><div class="l">Roof facets</div></div>'+
+      '<div class="stat"><div class="v">'+panels+'</div><div class="l">Panels</div></div>'+
+      '<div class="stat"><div class="v">'+kw+'</div><div class="l">System kW</div></div>'+
+      '<div class="stat"><div class="v">'+(kwh?fmt(kwh):'—')+'</div><div class="l">kWh / yr</div></div>'+
+    '</div>'+
+    '<div class="row"><span class="k">Recommended panels</span><b>'+sp.maxArrayPanelsCount+'</b></div>'+
+    '<div class="row"><span class="k">Sun hours / yr</span><b>'+fmt(sun)+'</b></div>'+
+    '<div class="row"><span class="k">Array area</span><b>'+fmt((sp.maxArrayAreaMeters2||0)*M2_TO_SQFT)+' sq ft</b></div>';
+  window.__cardData={roofSqft:Math.round(roofSqft),squares:+squares.toFixed(1),facets:segs.length,panels,kw:+kw,kwh};
+}
+
+/* ======================= OVERLAY GEOMETRY =======================
+   Panels + roof facets are NOT drawn as 3D Polygon3DElements anymore (those carried a
+   1-2m Solar-vs-mesh offset). They are rendered onto the registered orthophoto drape
+   canvas — see renderDrape() / drawPanelsOnDrape() / drawFacetsOnDrape() below — which
+   makes them pixel-exact, exactly like the shading layer. */
+function clearOverlays(){
+  // legacy 3D polys (no longer created); keep the cleanup as a safety net
+  facetPolys.forEach(p=>{ try{ p.remove&&p.remove(); }catch(e){} }); facetPolys=[];
+  panelPolys.forEach(p=>{ try{ p.remove&&p.remove(); }catch(e){} }); panelPolys=[];
+}
+
+/* Apply the active overlay mode. ALL overlays (panels/roof/shading) render on the
+   SAME registered orthophoto drape canvas — pixel-exact — never on the 3D mesh.
+   overlayMode===null => clean 3D Explore (drape hidden). */
+function applyVisibility(){
+  $("tgPanels").setAttribute("aria-pressed", overlayMode==="panels");
+  $("tgRoof").setAttribute("aria-pressed",   overlayMode==="roof");
+  $("tgShade").setAttribute("aria-pressed",  overlayMode==="shading");
+  if(!overlayMode){
+    $("shadeWrap").style.display="none";
+    $("shadeLegend").style.display="none";
+    $("zoomHint").style.display="none";
+    return;
+  }
+  $("shadeWrap").style.display="flex";
+  renderDrape(overlayMode);
+}
+
+/* ======================= DRAPE PAN / ZOOM (Approach B) =======================
+   The orthophoto drape is a flat 2D canvas. To let the user (esp. on mobile) zoom
+   into the roof and move around, we apply a CSS transform (translate + scale) on top
+   of the browser-fitted canvas. transform-origin is the canvas top-left (0,0); we
+   anchor zoom to the pointer / pinch-midpoint so it zooms toward the finger. Pixel
+   accuracy is preserved — we never re-register, only scale the already-exact raster. */
+const drapeView={ scale:1, tx:0, ty:0 };
+const DRAPE_MIN=1, DRAPE_MAX=8;
+function applyDrapeTransform(){
+  const cv=$("shadeCanvas");
+  cv.style.transform="translate("+drapeView.tx+"px,"+drapeView.ty+"px) scale("+drapeView.scale+")";
+  window.__drapeView={scale:+drapeView.scale.toFixed(4),tx:Math.round(drapeView.tx),ty:Math.round(drapeView.ty)};
+}
+function resetDrapeView(){ drapeView.scale=1; drapeView.tx=0; drapeView.ty=0; applyDrapeTransform(); }
+/* zoom by factor f, anchored at wrap-space point (ax,ay) so content under the
+   pointer stays put. The canvas top-left in wrap space is (rectLeft - wrapLeft + tx... )
+   but since transform-origin is the canvas's own top-left and translate is applied in
+   the canvas's pre-transform coordinate frame, we work in screen space directly. */
+function zoomDrapeAt(f,ax,ay){
+  const cv=$("shadeCanvas"), wrap=$("shadeWrap");
+  const ns=Math.max(DRAPE_MIN,Math.min(DRAPE_MAX,drapeView.scale*f));
+  const realF=ns/drapeView.scale; if(realF===1) return;
+  // canvas top-left in screen coords (base fitted position + current translate)
+  const cr=cv.getBoundingClientRect(); const wr=wrap.getBoundingClientRect();
+  // pointer relative to canvas current top-left (screen)
+  const px=ax-cr.left, py=ay-cr.top;
+  // after scaling about top-left, the point moves; counter-translate to keep it under pointer
+  drapeView.tx += (px - px*realF);
+  drapeView.ty += (py - py*realF);
+  drapeView.scale=ns;
+  applyDrapeTransform();
+  clampDrapePan();
+}
+/* keep at least part of the canvas on screen so the user can't lose it entirely */
+function clampDrapePan(){
+  const cv=$("shadeCanvas"), wrap=$("shadeWrap");
+  if(drapeView.scale<=1.001){ // fully zoomed out → recenter (clear pan)
+    drapeView.tx=0; drapeView.ty=0; applyDrapeTransform(); return;
+  }
+  applyDrapeTransform();
+  const cr=cv.getBoundingClientRect(), wr=wrap.getBoundingClientRect();
+  const margin=Math.min(cr.width,cr.height)*0.25;
+  let dx=0,dy=0;
+  if(cr.right < wr.left+margin)  dx=(wr.left+margin)-cr.right;
+  if(cr.left > wr.right-margin)  dx=(wr.right-margin)-cr.left;
+  if(cr.bottom< wr.top+margin)   dy=(wr.top+margin)-cr.bottom;
+  if(cr.top  > wr.bottom-margin) dy=(wr.bottom-margin)-cr.top;
+  if(dx||dy){ drapeView.tx+=dx; drapeView.ty+=dy; applyDrapeTransform(); }
+}
+function wireDrapeInteract(){
+  const cv=$("shadeCanvas"), wrap=$("shadeWrap");
+  // ---- desktop wheel zoom (anchored at cursor) ----
+  wrap.addEventListener("wheel",e=>{
+    if(!overlayMode) return;
+    e.preventDefault();
+    const f=e.deltaY<0 ? 1.12 : 1/1.12;
+    zoomDrapeAt(f, e.clientX, e.clientY);
+  },{passive:false});
+
+  // ---- pointer drag to pan (mouse + single-touch via Pointer Events) ----
+  const pointers=new Map();
+  let panLast=null, pinchPrev=null, bridgeStart=null, bridged=false;
+  const BRIDGE_DY=70; // deliberate downward drag (px) to tilt into 3D, Google-Maps style
+  /* Google-Maps gesture bridge: when zoomed OUT on the flat overlay, a deliberate
+     one-finger drag DOWN tilts into the interactive photoreal 3D (overlayMode=null).
+     Only fires at scale<=1.05 where panning is already a no-op, so it never touches
+     the verified pan/pinch path (scale>1). */
+  function bridgeTo3D(){
+    const c=curCenter();
+    overlayMode=null; resetDrapeView(); applyVisibility();
+    if(c && map3d){
+      try{
+        if(typeof map3d.flyCameraTo==="function") map3d.flyCameraTo({endCamera:{center:c,range:120,tilt:62,heading:0},durationMillis:1100});
+        else Object.assign(map3d,{center:c,range:120,tilt:62,heading:0});
+      }catch(e){ errors.push("bridge3d: "+e.message); }
+    }
+    pointers.clear(); panLast=null; pinchPrev=null; bridgeStart=null; cv.classList.remove("grabbing");
+    window.__bridged3d=true;
+  }
+  cv.addEventListener("pointerdown",e=>{
+    if(!overlayMode) return;
+    try{ cv.setPointerCapture && cv.setPointerCapture(e.pointerId); }catch(_){}
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    cv.classList.add("grabbing");
+    if(pointers.size===1){ panLast={x:e.clientX,y:e.clientY}; bridgeStart={x:e.clientX,y:e.clientY}; bridged=false; }
+    else if(pointers.size===2){ panLast=null; bridgeStart=null; pinchPrev=pinchState(); }
+  });
+  cv.addEventListener("pointermove",e=>{
+    if(!overlayMode||!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pointers.size===1 && panLast){
+      e.preventDefault();
+      // zoomed-out downward drag → bridge into 3D (pan is a no-op here anyway)
+      if(drapeView.scale<=1.05 && !bridged && bridgeStart){
+        const tdx=e.clientX-bridgeStart.x, tdy=e.clientY-bridgeStart.y;
+        if(tdy>BRIDGE_DY && tdy>Math.abs(tdx)*1.3){ bridged=true; bridgeTo3D(); return; }
+      }
+      drapeView.tx += e.clientX-panLast.x;
+      drapeView.ty += e.clientY-panLast.y;
+      panLast={x:e.clientX,y:e.clientY};
+      clampDrapePan();
+    } else if(pointers.size===2){
+      e.preventDefault();
+      const cur=pinchState();
+      if(pinchPrev && pinchPrev.dist>0){
+        const f=cur.dist/pinchPrev.dist;
+        // anchor zoom at the pinch midpoint; also pan by midpoint delta
+        zoomDrapeAt(f, cur.mx, cur.my);
+        drapeView.tx += cur.mx-pinchPrev.mx;
+        drapeView.ty += cur.my-pinchPrev.my;
+        applyDrapeTransform(); clampDrapePan();
+      }
+      pinchPrev=cur;
+    }
+  });
+  function endPtr(e){
+    if(pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+    if(pointers.size<2) pinchPrev=null;
+    if(pointers.size===1){ const only=[...pointers.values()][0]; panLast={x:only.x,y:only.y}; }
+    if(pointers.size===0){ panLast=null; cv.classList.remove("grabbing"); }
+  }
+  cv.addEventListener("pointerup",endPtr);
+  cv.addEventListener("pointercancel",endPtr);
+  function pinchState(){
+    const ps=[...pointers.values()];
+    const dx=ps[0].x-ps[1].x, dy=ps[0].y-ps[1].y;
+    return { dist:Math.hypot(dx,dy), mx:(ps[0].x+ps[1].x)/2, my:(ps[0].y+ps[1].y)/2 };
+  }
+  // double-tap / double-click to zoom in toward the point
+  let lastTap=0;
+  cv.addEventListener("dblclick",e=>{ if(overlayMode){ e.preventDefault(); zoomDrapeAt(1.8,e.clientX,e.clientY); }});
+  cv.addEventListener("pointerup",e=>{
+    if(e.pointerType!=="touch") return;
+    const now=Date.now();
+    if(now-lastTap<300){ zoomDrapeAt(drapeView.scale>1.5?1/2.4:1.9, e.clientX, e.clientY); }
+    lastTap=now;
+  });
+  window.__resetDrapeView=resetDrapeView;
+}
+
+/* ======================= PREFETCH + SHADING (geotiff) ======================= */
+function progShow(on,txt,pct){
+  const el=$("prog"); el.style.display=on?"flex":"none";
+  if(txt!=null) $("progTxt").textContent=txt;
+  if(pct!=null) $("progBar").style.width=Math.max(0,Math.min(100,pct))+"%";
+}
+
+function wgs84ToUTM(lat,lng,zone,north){
+  const a=6378137.0,f=1/298.257223563,e2=f*(2-f),ep2=e2/(1-e2),k0=0.9996,lon0=((zone-1)*6-180+3)*Math.PI/180;
+  const phi=lat*Math.PI/180,lam=lng*Math.PI/180,N=a/Math.sqrt(1-e2*Math.sin(phi)**2);
+  const T=Math.tan(phi)**2,C=ep2*Math.cos(phi)**2,A=(lam-lon0)*Math.cos(phi);
+  const M=a*((1-e2/4-3*e2*e2/64-5*e2*e2*e2/256)*phi-(3*e2/8+3*e2*e2/32+45*e2*e2*e2/1024)*Math.sin(2*phi)+(15*e2*e2/256+45*e2*e2*e2/1024)*Math.sin(4*phi)-(35*e2*e2*e2/3072)*Math.sin(6*phi));
+  let x=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000;
+  let y=k0*(M+N*Math.tan(phi)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  if(!north) y+=10000000; return [x,y];
+}
+function geoToPx(lng,lat,bbox,W,H,crs){
+  const [w,s,e,n]=bbox; const [E,N]=wgs84ToUTM(lat,lng,crs.zone,crs.north);
+  return [ (E-w)/(e-w)*W, (n-N)/(n-s)*H ];
+}
+async function decodeLayer(url){
+  const r=await fetch("/geotiff?u="+encodeURIComponent(url));
+  if(!r.ok) throw new Error("geotiff "+r.status);
+  const buf=await r.arrayBuffer();
+  const tiff=await GeoTIFF.fromArrayBuffer(buf);
+  const image=await tiff.getImage();
+  const width=image.getWidth(), height=image.getHeight(), bbox=image.getBoundingBox();
+  const gk=image.getGeoKeys()||{}; const epsg=gk.ProjectedCSTypeGeoKey||0;
+  let crs;
+  if(epsg>=32601&&epsg<=32660) crs={zone:epsg-32600,north:true};
+  else if(epsg>=32701&&epsg<=32760) crs={zone:epsg-32700,north:false};
+  else { const lngForZone=window.__decodeRefLng; const zone=(lngForZone!=null)?Math.floor((lngForZone+180)/6)+1:14;
+    crs={zone,north:(window.__decodeRefLat!=null)?window.__decodeRefLat>=0:true}; }
+  const rasters=await image.readRasters();
+  return { rasters, width, height, bbox, crs };
+}
+function fluxColor(t){
+  const stops=[[59,31,143],[37,99,235],[16,185,129],[250,204,21],[249,115,22],[220,38,38]];
+  t=Math.max(0,Math.min(1,t)); const f=t*(stops.length-1),i=Math.floor(f),k=f-i;
+  const a=stops[i],b=stops[Math.min(i+1,stops.length-1)];
+  return [Math.round(a[0]+(b[0]-a[0])*k),Math.round(a[1]+(b[1]-a[1])*k),Math.round(a[2]+(b[2]-a[2])*k)];
+}
+
+async function prefetchAnalysis(lat,lng){
+  const key=lat.toFixed(5)+","+lng.toFixed(5);
+  if(anaData&&anaData.key===key) return anaData;
+  if(anaBusyKey===key) return null;
+  anaBusyKey=key;
+  window.__decodeRefLat=lat; window.__decodeRefLng=lng;
+  progShow(true,"Loading high-resolution imagery…",8);
+  const t0=performance.now();
+  try{
+    const r=await fetch("/datalayers?lat="+lat+"&lng="+lng); const j=await r.json();
+    if(j.error||!j.rgbUrl){ progShow(false); anaBusyKey=null; anaData={key,unavailable:true}; window.__anaDebug={unavailable:true,reason:"no_rgbUrl"}; return anaData; }
+    progShow(true,"Decoding orthophoto…",30);
+    const rgb=await decodeLayer(j.rgbUrl);
+    const W=rgb.width,H=rgb.height,bbox=rgb.bbox,crs=rgb.crs;
+    const img=new ImageData(W,H); const [R,G,B]=rgb.rasters;
+    for(let i=0;i<W*H;i++){ img.data[i*4]=R[i]; img.data[i*4+1]=G[i]; img.data[i*4+2]=B[i]; img.data[i*4+3]=255; }
+    progShow(true,"Decoding sunlight analysis…",62);
+    let flux=null;
+    try{
+      const fl=await decodeLayer(j.annualFluxUrl); const vals=fl.rasters[0];
+      let min=Infinity,max=-Infinity;
+      for(let i=0;i<vals.length;i++){ const v=vals[i]; if(v>0&&isFinite(v)){ if(v<min)min=v; if(v>max)max=v; } }
+      if(!isFinite(min)){ min=0; max=1; }
+      flux={ vals, w:fl.width, h:fl.height, bbox:fl.bbox, min, max };
+    }catch(e){ errors.push("flux decode: "+e.message); }
+    progShow(true,"Clipping to roof…",85);
+    let mask=null;
+    try{
+      if(j.maskUrl){
+        const mk=await decodeLayer(j.maskUrl); const mvals=mk.rasters[0];
+        let roofCount=0; for(let i=0;i<mvals.length;i++){ if(mvals[i]>0){ roofCount++; if(roofCount>20) break; } }
+        if(roofCount>0) mask={ vals:mvals, w:mk.width, h:mk.height, bbox:mk.bbox };
+      }
+    }catch(e){ errors.push("mask decode: "+e.message); }
+    anaData={ key, lat, lng, bbox, crs, w:W, h:H, rgbImage:img, flux, mask, unavailable:false };
+    const ms=Math.round(performance.now()-t0);
+    window.__anaDebug={ hasFlux:!!flux, hasMask:!!mask, unavailable:false, w:W, h:H, crsZone:crs.zone, ms, fluxRange:flux?[flux.min,flux.max]:null };
+    window.__prefetchMs=ms;
+    progShow(true,"Analysis ready ✓",100);
+    setTimeout(()=>progShow(false),700);
+    // imagery is registered & decoded — open/refresh whatever overlay is active (panels/roof/shading)
+    if(overlayMode) applyVisibility();
+    anaBusyKey=null;
+    return anaData;
+  }catch(e){ errors.push("analysis load: "+e.message); progShow(false); anaBusyKey=null; anaData={key,unavailable:true,error:String(e)}; return anaData; }
+}
+
+/* ----- registered orthophoto pixel mapping (the SAME math that makes shading pixel-exact) -----
+   Every overlay maps WGS84 lat/lng -> UTM (wgs84ToUTM, shared CRS) -> orthophoto pixel
+   via the orthophoto's own UTM bbox. This is exactly how the flux/mask heatmap is registered. */
+function drapeMapper(){
+  const W=anaData.w,H=anaData.h,bbox=anaData.bbox,crs=anaData.crs;
+  const utmToPx=(E,N)=>[ (E-bbox[0])/(bbox[2]-bbox[0])*W, (bbox[3]-N)/(bbox[3]-bbox[1])*H ];
+  const llToPx=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,crs.zone,crs.north); return utmToPx(E,N); };
+  // meters per pixel from the registered UTM extent (UTM units are metres)
+  const mppX=(bbox[2]-bbox[0])/W, mppY=(bbox[3]-bbox[1])/H;
+  return { W,H,utmToPx,llToPx,mppX,mppY };
+}
+
+/* draw the flux heatmap (roof-clipped) onto an already-orthophoto'd ctx */
+function drawShadingHeat(ctx,map){
+  const { W,H,utmToPx } = map;
+  const fx=anaData.flux, mk=anaData.mask; if(!fx) return;
+  let isRoof;
+  if(mk){
+    const [fminE,fminN,fmaxE,fmaxN]=fx.bbox, [mminE,mminN,mmaxE,mmaxN]=mk.bbox;
+    const fdx=(fmaxE-fminE)/fx.w, fdy=(fmaxN-fminN)/fx.h, mdx=(mmaxE-mminE)/mk.w, mdy=(mmaxN-mminN)/mk.h;
+    isRoof=(col,row)=>{ const E=fminE+(col+0.5)*fdx, N=fmaxN-(row+0.5)*fdy;
+      const mc=Math.floor((E-mminE)/mdx), mr=Math.floor((mmaxN-N)/mdy);
+      if(mc<0||mr<0||mc>=mk.w||mr>=mk.h) return false; return mk.vals[mr*mk.w+mc]>0; };
+  } else isRoof=()=>true;
+  const heat=document.createElement("canvas"); heat.width=fx.w; heat.height=fx.h;
+  const hctx=heat.getContext("2d"); const hid=hctx.createImageData(fx.w,fx.h);
+  const range=(fx.max-fx.min)||1;
+  for(let i=0;i<fx.vals.length;i++){
+    const v=fx.vals[i];
+    if(!(v>0)||!isFinite(v)){ hid.data[i*4+3]=0; continue; }
+    const col=i%fx.w, row=(i/fx.w)|0;
+    if(!isRoof(col,row)){ hid.data[i*4+3]=0; continue; }
+    const c=fluxColor((v-fx.min)/range);
+    hid.data[i*4]=c[0]; hid.data[i*4+1]=c[1]; hid.data[i*4+2]=c[2]; hid.data[i*4+3]=200;
+  }
+  hctx.putImageData(hid,0,0);
+  const fb=fx.bbox;
+  const [x0,y0]=utmToPx(fb[0],fb[3]), [x1,y1]=utmToPx(fb[2],fb[1]);
+  ctx.imageSmoothingEnabled=true; ctx.drawImage(heat,x0,y0,x1-x0,y1-y0);
+  $("legMin").textContent=Math.round(fx.min)+""; $("legMax").textContent=Math.round(fx.max)+"";
+  $("shadeLegend").style.display="block";
+}
+
+/* oriented rectangle in PIXEL space, centred at (cx,cy), w/h in metres, rotated to azimuth.
+   Azimuth is degrees clockwise from north; on the registered top-down ortho, north = -Y. */
+function pxRect(cx,cy,wM,hM,azDeg,map){
+  const az=(azDeg||0)*Math.PI/180, ca=Math.cos(az), sa=Math.sin(az);
+  const hw=wM/2, hh=hM/2;
+  // local axes in metres -> pixels: east = +X (mppX), north = -Y (mppY)
+  return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([lx,ly])=>{
+    // rotate local (east,north) by azimuth: east' = lx*cos + ly*sin ; north' = -lx*sin + ly*cos
+    const east =  lx*ca + ly*sa;
+    const north= -lx*sa + ly*ca;
+    return [ cx + east/map.mppX, cy - north/map.mppY ];
+  });
+}
+
+/* PANELS overlay — each solarPanel as a small blue filled rect on the registered ortho */
+function drawPanelsOnDrape(ctx,map){
+  if(!lastPanelList||!lastSegs) return;
+  const W=1.045, H=1.879; // single-panel module footprint (m)
+  let drawn=0;
+  for(const p of lastPanelList){
+    if(!p.center) continue;
+    const seg=lastSegs[p.segmentIndex]||{};
+    const az=seg.azimuthDegrees||0;
+    const land=p.orientation==="LANDSCAPE";
+    const wM=(land?H:W)*0.94, hM=(land?W:H)*0.94;
+    const [cx,cy]=map.llToPx(p.center.latitude,p.center.longitude);
+    const pts=pxRect(cx,cy,wM,hM,az,map);
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
+    ctx.fillStyle="rgba(56,132,255,0.88)"; ctx.fill();
+    ctx.lineWidth=Math.max(1,map.W/900); ctx.strokeStyle="rgba(191,224,255,0.95)"; ctx.stroke();
+    drawn++;
+  }
+  window.__panelsDrawn=drawn;
+}
+
+/* ROOF facets overlay — oriented rectangle outline + sq-ft + pitch label, on the registered ortho */
+function drawFacetsOnDrape(ctx,map){
+  if(!lastSegs) return;
+  let drawn=0;
+  for(const seg of lastSegs){
+    const bb=seg.boundingBox; if(!bb||!bb.sw||!bb.ne) continue;
+    const ctr=seg.center||{latitude:(bb.sw.latitude+bb.ne.latitude)/2,longitude:(bb.sw.longitude+bb.ne.longitude)/2};
+    // true flat footprint sizing (same logic as the old oriented facet rect)
+    const lat0=ctr.latitude, mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
+    const bw=Math.abs(bb.ne.longitude-bb.sw.longitude)*mLng;
+    const bh=Math.abs(bb.ne.latitude-bb.sw.latitude)*mLat;
+    const slopeArea=(seg.stats&&seg.stats.areaMeters2)||(bw*bh)||1;
+    const pitchDeg=seg.pitchDegrees||0;
+    const footArea=slopeArea*Math.cos(pitchDeg*Math.PI/180);
+    let aspect=(bh>0)?bw/bh:1; if(!isFinite(aspect)||aspect<=0) aspect=1;
+    const hM=Math.sqrt(footArea/aspect), wM=aspect*hM;
+    const [cx,cy]=map.llToPx(ctr.latitude,ctr.longitude);
+    const pts=pxRect(cx,cy,wM,hM,seg.azimuthDegrees||0,map);
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
+    ctx.fillStyle="rgba(34,211,238,0.12)"; ctx.fill();
+    ctx.lineWidth=Math.max(2,map.W/420); ctx.strokeStyle="#22d3ee"; ctx.stroke();
+    // label: sq-ft + pitch (X/12)
+    const sqft=Math.round(slopeArea*M2_TO_SQFT);
+    const pitch12=Math.round(Math.tan(pitchDeg*Math.PI/180)*12);
+    const fs=Math.max(11,Math.round(map.W/52));
+    ctx.font="700 "+fs+"px Inter, system-ui, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    const l1=fmt(sqft)+" sq ft", l2=pitch12+"/12 pitch";
+    ctx.lineWidth=Math.max(3,fs/3); ctx.strokeStyle="rgba(2,12,22,0.85)";
+    ctx.strokeText(l1,cx,cy-fs*0.6); ctx.strokeText(l2,cx,cy+fs*0.6);
+    ctx.fillStyle="#e8feff";
+    ctx.fillText(l1,cx,cy-fs*0.6); ctx.fillText(l2,cx,cy+fs*0.6);
+    drawn++;
+  }
+  window.__facetsDrawn=drawn;
+}
+
+/* Unified registered top-down drape: ortho base + the active overlay (panels|roof|shading).
+   All three are pixel-exact because they share the orthophoto's UTM->pixel registration. */
+function renderDrape(mode){
+  const cv=$("shadeCanvas");
+  $("shadeLegend").style.display="none";
+  if(!anaData || anaData.unavailable || !anaData.rgbImage){
+    // imagery not decoded yet — show progress; applyVisibility() re-fires when prefetch completes
+    if(!anaData || anaBusyKey){ progShow(true,"Loading high-resolution imagery…",null); }
+    else toast("Imagery unavailable for this address (coverage gap).");
+    return;
+  }
+  const map=drapeMapper();
+  // reset pan/zoom only when the underlying raster changes (new address / new imagery);
+  // switching tabs (panels↔roof↔shading) on the same imagery keeps the user's view.
+  const sig=anaData.key+"|"+map.W+"x"+map.H;
+  if(window.__drapeSig!==sig){ window.__drapeSig=sig; resetDrapeView(); }
+  cv.width=map.W; cv.height=map.H;
+  const ctx=cv.getContext("2d");
+  ctx.putImageData(anaData.rgbImage,0,0);
+  if(mode==="shading") drawShadingHeat(ctx,map);
+  else if(mode==="panels") drawPanelsOnDrape(ctx,map);
+  else if(mode==="roof")   drawFacetsOnDrape(ctx,map);
+  // re-apply the current transform after the browser re-fits the (possibly resized) canvas
+  applyDrapeTransform();
+  const zh=$("zoomHint"); zh.style.display="block"; zh.style.opacity="1";
+  clearTimeout(window.__zoomHintT); window.__zoomHintT=setTimeout(()=>{ zh.style.opacity="0"; },3600);
+  window.__shadingRendered = (mode==="shading");
+  window.__drapeRendered = mode;
+}
+
+/* ======================= CONTROLS ======================= */
+function nudge(prop,delta,min,max){
+  let v=(map3d[prop]||0)+delta; if(min!=null) v=Math.max(min,v); if(max!=null) v=Math.min(max,v); map3d[prop]=v;
+}
+function wireControls(){
+  $("cZoomIn").onclick =()=>nudge("range",-Math.max(20,(map3d.range||150)*0.25),40,4000);
+  $("cZoomOut").onclick=()=>nudge("range", Math.max(20,(map3d.range||150)*0.30),40,4000);
+  $("cTilt").onclick   =()=>nudge("tilt", 18, 0, 80);
+  $("cRotate").onclick =()=>nudge("heading", 30, null, null);
+  $("cReset").onclick  =()=>{ const c=curCenter(); if(!c) return;
+    if(typeof map3d.flyCameraTo==="function") map3d.flyCameraTo({endCamera:{center:c,range:TOPDOWN.range,tilt:TOPDOWN.tilt,heading:0},durationMillis:900});
+    else Object.assign(map3d,{center:c,range:TOPDOWN.range,tilt:TOPDOWN.tilt,heading:0}); };
+}
+
+/* ======================= TOGGLES =======================
+   Panels / Roof / Shading are mutually-exclusive registered-drape modes.
+   Clicking the active one again drops back to clean 3D Explore (overlayMode=null). */
+function setOverlay(mode){
+  overlayMode = (overlayMode===mode) ? null : mode;
+  applyVisibility();
+}
+function wireToggles(){
+  $("tgPanels").onclick=()=>setOverlay("panels");
+  $("tgRoof").onclick  =()=>setOverlay("roof");
+  $("tgShade").onclick =()=>setOverlay("shading");
+  // clicking the dim backdrop drops to clean 3D Explore
+  $("shadeWrap").addEventListener("click",e=>{ if(e.target.id==="shadeWrap"){ overlayMode=null; applyVisibility(); } });
+}
+
+/* ======================= MOBILE BOTTOM SHEET ======================= */
+function wireSheet(){
+  const card=$("card"); let startY=0, startOpen=false, dragging=false;
+  const grip=$("mgrip");
+  const head=$("cardHead");
+  function down(y){ startY=y; startOpen=card.classList.contains("open"); dragging=true; }
+  function move(y){ if(!dragging) return; const dy=y-startY;
+    if(startOpen && dy>60){ card.classList.remove("open"); dragging=false; }
+    else if(!startOpen && dy<-30){ card.classList.add("open"); dragging=false; } }
+  function up(){ dragging=false; }
+  [grip,head].forEach(el=>{
+    el.addEventListener("touchstart",e=>down(e.touches[0].clientY),{passive:true});
+    el.addEventListener("touchmove", e=>move(e.touches[0].clientY),{passive:true});
+    el.addEventListener("touchend",up);
+    el.addEventListener("click",()=>{ if(window.innerWidth<=560) card.classList.toggle("open"); });
+  });
+}
+
+boot();
+</script>
+</body>
+</html>

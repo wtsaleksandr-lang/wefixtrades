@@ -55,6 +55,7 @@ export const TRADES: Trade[] = [
   { id: "home_addition", categoryId: "reno", label: "Home Addition / Extension" },
   { id: "general_renovation", categoryId: "reno", label: "General Renovation" },
   { id: "general_contractor", categoryId: "reno", label: "General Contractor" },
+  { id: "roof_solar", categoryId: "reno", label: "Roof & Solar" },
   { id: "handyman", categoryId: "reno", label: "Handyman Services" },
   { id: "interior_painting", categoryId: "reno", label: "Interior Painting" },
   { id: "exterior_painting", categoryId: "reno", label: "Exterior Painting" },
