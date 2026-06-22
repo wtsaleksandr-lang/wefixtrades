@@ -3133,13 +3133,76 @@ export default function PreviewPane({
     </div>
   );
 
+  /* DESKTOP ROOF FULL-BLEED (2026-06-22) — Alex's recurring complaint: in the
+   * builder the desktop preview for the Roof & Solar map widget was rendered
+   * inside the narrow, centered "browser-chrome" bezel card AND fit-zoomed with
+   * 5% gutters, so the full-bleed map was cut off on the right and never used
+   * the pane width. The map widget has no form fields / header to frame, so the
+   * device-frame chrome (browser dots + fake URL + rounded card) added nothing
+   * and only constrained it.
+   *
+   * For `isRoofWidget` on a desktop/tablet viewport we therefore bypass the
+   * whole zoom-stage + bezel machinery and mount the live widget (its embedded
+   * `/api/roofquote/widget` iframe) DIRECTLY into a full-width, full-height
+   * container so it fills the preview pane edge-to-edge. No stage transform
+   * (zoom is implicitly 100%), no browser chrome, no fit-zoom shrink — exactly
+   * what a full-bleed map needs. The pane-level drag/pan handlers are already
+   * suppressed for the roof widget (so iframe clicks pass through), and the
+   * zoom toolbar / drag handle are already null for it, so nothing else is
+   * lost. Mobile keeps the existing `mobileCleanContent` path (also bezel-less
+   * + full-width). Non-roof (form/template) previews are untouched. */
+  const roofFullBleedDesktopContent = (
+    <div
+      className="qq-preview-roof-fullbleed"
+      data-testid="preview-roof-fullbleed"
+      style={{
+        width: '100%', height: '100%', minHeight: 0,
+        display: 'flex', flexDirection: 'column',
+        background: previewBodyBg, position: 'relative',
+      }}
+    >
+      <div
+        ref={(el) => {
+          // Thread the same refs the bezel branches use so live editing /
+          // selection measurement keep working. No zoom/fit on this path so
+          // bezelMeasureRef/stageRef stay unset (they only feed the fit-zoom).
+          setBezelRef(el);
+          overlayHostRef.current = el;
+        }}
+        data-testid="preview-bezel-roof-fullbleed"
+        className="qq-bezel--roof-fullbleed"
+        onClick={onBezelClick}
+        style={{
+          position: 'relative', flex: 1, minHeight: 0,
+          width: '100%', background: previewBodyBg,
+          // overflow:clip (not hidden) keeps any position:sticky descendant in
+          // the iframe anchored — see project_overflow_clip_for_sticky.
+          overflow: 'clip', display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {renderPreviewWidget}
+        {sectionEditorEl}
+      </div>
+      {undo && (
+        <div
+          className="qq-preview-undo-toast"
+          role="status"
+          data-testid="preview-undo-toast"
+        >
+          <span>Field removed</span>
+          <button type="button" onClick={onUndo} data-testid="preview-undo-button">Undo</button>
+        </div>
+      )}
+    </div>
+  );
+
   // Desktop keeps the drag-from-anywhere + zoom pointer wiring. On real mobile
   // the clean preview is a plain scrollable widget — no stage, no drag — so the
   // pane-level pointer handlers are omitted.
   return (
     <div
       data-theme="light"
-      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
+      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${!isMobileViewport && isRoofWidget ? ' is-roof-fullbleed' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       /* fix/wizard-preview-p0 — expose which inline section is being edited so
        * the underlying-text hide rule can target the RIGHT node (subtitle /
@@ -3165,7 +3228,7 @@ export default function PreviewPane({
       onPointerUp={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerUp}
       onPointerCancel={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
     >
-      {isMobileViewport ? mobileCleanContent : (
+      {isMobileViewport ? mobileCleanContent : isRoofWidget ? roofFullBleedDesktopContent : (
        <>
       {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || zoom !== 1) && (
         <button
@@ -3747,6 +3810,23 @@ export default function PreviewPane({
          * white, edge-to-edge, and below the widget too. !important wins over
          * any dark editor-shell background applied to the pane. Desktop is
          * untouched (all rules scoped to .is-mobile-clean / .qq-bezel--mobile-clean). */
+        /* DESKTOP ROOF FULL-BLEED (2026-06-22) — when the desktop preview hosts
+         * the full-bleed Roof & Solar map widget, the pane drops its centering +
+         * 24px/20px gutter padding (from WizardShell's .qq-preview-pane rule)
+         * and becomes a plain full-size column so the map fills the pane edge to
+         * edge — no narrow centered card, no fit-zoom side gutters. Scoped to
+         * .is-roof-fullbleed so form/template previews keep the centered card. */
+        .qq-preview-pane.is-roof-fullbleed {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: flex-start;
+          padding: 0 !important;
+        }
+        .qq-preview-pane.is-roof-fullbleed .qq-preview-roof-fullbleed {
+          flex: 1;
+          min-height: 0;
+        }
         .qq-preview-pane.is-mobile-clean {
           display: block;
           padding: 0 !important;

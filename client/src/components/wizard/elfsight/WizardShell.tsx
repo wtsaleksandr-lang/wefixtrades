@@ -3656,7 +3656,16 @@ export default function WizardShell({ embed = false }: Props) {
               background-image: none;
             }
             .qq-preview-stage {
-              width: 100%; max-width: 920px;
+              /* desktop-fullwidth-preview (2026-06-22) — Alex's recurring ask:
+                 the desktop preview must use the FULL width of the preview pane.
+                 The old max-width:920px capped the stage well below the pane
+                 width, so the 1280px device-preset mockup got fit-zoomed into a
+                 narrow 920px column with big side gutters. Dropping the cap lets
+                 the stage span the pane; the per-device width + fit-zoom system
+                 (DEVICE_PRESET_WIDTH + computeFitZoom) still scales the mockup to
+                 fit, now against the real pane width instead of 920px. The roof
+                 widget takes the separate full-bleed path (is-roof-fullbleed). */
+              width: 100%;
               display: flex; flex-direction: column;
               align-items: center; justify-content: flex-start; background: transparent;
             }
