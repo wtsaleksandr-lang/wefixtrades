@@ -20,6 +20,8 @@ import type { Express, Request, Response } from "express";
 import { readFileSync } from "fs";
 import path from "path";
 import { createLogger } from "../lib/logger";
+import { storage } from "../storage";
+import { enqueueLeadNotificationsAndFollowups } from "./leadRoutes";
 import {
   aiRender,
   captureOblique,
@@ -41,22 +43,59 @@ const ASSET_DIR = path.join(process.cwd(), "server", "roofQuote", "assets");
 const tilesKey = (): string =>
   process.env.ROOFQUOTE_TILES_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
 
-// Read the widget HTML lazily + cache once the tiles key is known (key is filled
-// at boot by bootstrapDoppler, but we still read lazily so a missing key on a
-// cold path degrades to an empty placeholder rather than crashing).
-let _widgetHtml: string | null = null;
-function widgetHtml(): string {
-  if (_widgetHtml !== null) return _widgetHtml;
+// Read the raw widget HTML lazily + cache it once (file never changes at runtime;
+// only the per-request placeholder substitutions do). We cache the FILE contents,
+// not the rendered output, so per-tenant requests can substitute fresh values
+// without busting a shared rendered cache.
+let _widgetRaw: string | null = null;
+function widgetRaw(): string {
+  if (_widgetRaw !== null) return _widgetRaw;
   try {
-    _widgetHtml = readFileSync(path.join(ASSET_DIR, "roof3d.html"), "utf8").replaceAll(
-      "__TILES__",
-      tilesKey(),
-    );
+    _widgetRaw = readFileSync(path.join(ASSET_DIR, "roof3d.html"), "utf8");
   } catch (err) {
     log.error("widget html read failed", { err: (err as Error).message });
-    _widgetHtml = "<!doctype html><title>Roof Quote</title><p>Widget unavailable.</p>";
+    _widgetRaw = "<!doctype html><title>Roof Quote</title><p>Widget unavailable.</p>";
   }
-  return _widgetHtml;
+  return _widgetRaw;
+}
+
+// Embed a JSON value inside an inline <script> safely: prevent a `</script>` in
+// the data from terminating the tag (the only real breakout vector here). Also
+// escape U+2028 / U+2029 \u2014 JSON.stringify leaves them raw, but they are JS line
+// terminators inside a <script>. The matchers are built via String.fromCharCode
+// so no raw separator byte ever lands in THIS source file (one would terminate
+// this very line). The replacement strings use a doubled backslash so the OUTPUT
+// is the 6-char literal escape the browser un-escapes \u2014 NOT a raw separator.
+// The widget reads window.__TENANT__ before its deferred boot module runs.
+const SEP_2028 = new RegExp(String.fromCharCode(0x2028), "g");
+const SEP_2029 = new RegExp(String.fromCharCode(0x2029), "g");
+function escapeForScript(json: string): string {
+  return json
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(SEP_2028, "\\u2028")
+    .replace(SEP_2029, "\\u2029");
+}
+
+// Default (no-token) rendered HTML — memoized, tenant-agnostic, __TENANT_JSON__→null.
+// This is the exact byte-output the public default widget + builder preview get today.
+let _widgetHtmlDefault: string | null = null;
+function widgetHtml(): string {
+  if (_widgetHtmlDefault !== null) return _widgetHtmlDefault;
+  _widgetHtmlDefault = widgetRaw()
+    .replaceAll("__TILES__", tilesKey())
+    .replace("__TENANT_JSON__", "null");
+  return _widgetHtmlDefault;
+}
+
+// Per-tenant rendered HTML — NOT memoized (each tenant differs). Injects the
+// calculator's persisted advanced.roofWidget as window.__TENANT__ for first-paint
+// branding, alongside the same __TILES__ key substitution as the default path.
+function widgetHtmlForTenant(tenant: unknown): string {
+  const json = escapeForScript(JSON.stringify(tenant ?? null));
+  return widgetRaw()
+    .replaceAll("__TILES__", tilesKey())
+    .replace("__TENANT_JSON__", json);
 }
 
 function readModule(name: string): string {
@@ -64,12 +103,47 @@ function readModule(name: string): string {
 }
 
 export function registerRoofQuoteRoutes(app: Express) {
-  /* ─── Widget HTML (tiles key injected in place of __TILES__) ─── */
-  app.get("/api/roofquote/widget", (_req: Request, res: Response) => {
+  /* ─── Widget HTML (tiles key injected in place of __TILES__) ───
+   *
+   * Default (no identifier) → memoized, tenant-agnostic HTML (unchanged behaviour).
+   * Published embed passes ?calc=<id> (or ?slug=<slug>) so the widget paints the
+   * trade's persisted branding/financing/features on FIRST load (window.__TENANT__
+   * injected next to __TILES__; no flash of defaults). Per-tenant requests bypass
+   * the static memo. A bad/unknown identifier silently degrades to the default. */
+  app.get("/api/roofquote/widget", async (req: Request, res: Response) => {
     try {
       res.setHeader("Cache-Control", "no-store, must-revalidate");
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(widgetHtml());
+
+      const calcParam = String(req.query.calc || "").trim();
+      const slugParam = String(req.query.slug || "").trim();
+
+      // No identifier → default widget (memoized, exactly as before).
+      if (!calcParam && !slugParam) {
+        return res.send(widgetHtml());
+      }
+
+      let calc;
+      try {
+        if (calcParam && /^\d+$/.test(calcParam)) {
+          calc = await storage.getCalculatorById(Number(calcParam));
+        } else if (slugParam) {
+          calc = await storage.getCalculatorBySlug(slugParam);
+        }
+      } catch (lookupErr) {
+        log.warn("widget tenant lookup failed (serving default)", {
+          err: (lookupErr as Error).message,
+        });
+      }
+
+      const advanced = (calc?.calculator_settings as any)?.advanced;
+      const roofWidget = advanced?.roofWidget;
+
+      // Identifier resolved but no per-tenant roof config → default widget.
+      if (!roofWidget || typeof roofWidget !== "object") {
+        return res.send(widgetHtml());
+      }
+      return res.send(widgetHtmlForTenant(roofWidget));
     } catch (err) {
       log.error("widget serve failed", { err: (err as Error).message });
       return res.status(500).send("widget error");
@@ -261,11 +335,94 @@ export function registerRoofQuoteRoutes(app: Express) {
     }
   });
 
-  /* ─── Lead capture — no-op sink (the spike appended to leads.jsonl; the
-   *     widget fires this best-effort inside a try/catch, so we accept + ack
-   *     without persisting. TODO(roofquote): wire to the real CRM/contact
-   *     pipeline once the widget carries owner/calculator context). ─── */
-  app.post("/api/roofquote/lead", (_req: Request, res: Response) => {
-    return res.json({ ok: true });
+  /* ─── Lead capture — real sink into the QuoteQuick lead pipeline ───
+   *
+   * The customer-facing path is the HOST BRIDGE: the embedded widget posts
+   * `{type:'qq:lead', payload}` to its parent, the QuoteQuick host attributes it
+   * to the live calculator (which it already knows) and POSTs the normal
+   * `/api/leads` body — that route owns rate-limit/quota/dedup + notifications.
+   *
+   * This endpoint is the widget's own durable, queue-backed fallback (sendLead /
+   * flushLeads in roof3d.html). When the request can be attributed to a calculator
+   * — via ?calc=<id> / ?slug=<slug> on the iframe src, or a calculator_id/slug in
+   * the body — we persist the lead (storage.createLead) and fire the SAME owner
+   * notification + followups the wizard uses (enqueueLeadNotificationsAndFollowups,
+   * which reads lead_form.delivery.primary_email i.e. settings.leadEmail). Without
+   * an attributable calculator we ack so the widget's retry queue drains (a lead
+   * with no owner has nowhere to route). Resolves templateLibrary.ts TODO. */
+  app.post("/api/roofquote/lead", async (req: Request, res: Response) => {
+    try {
+      const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, any>;
+
+      // Resolve the owning calculator: query identifier first (iframe src), then body.
+      const calcQuery = String(req.query.calc || "").trim();
+      const slugQuery = String(req.query.slug || "").trim();
+      const calcBody = body.calculator_id;
+      const slugBody = typeof body.slug === "string" ? body.slug.trim() : "";
+
+      let calc;
+      try {
+        if (calcQuery && /^\d+$/.test(calcQuery)) calc = await storage.getCalculatorById(Number(calcQuery));
+        else if (typeof calcBody === "number" && Number.isInteger(calcBody)) calc = await storage.getCalculatorById(calcBody);
+        else if (slugQuery) calc = await storage.getCalculatorBySlug(slugQuery);
+        else if (slugBody) calc = await storage.getCalculatorBySlug(slugBody);
+      } catch (lookupErr) {
+        log.warn("lead calculator lookup failed", { err: (lookupErr as Error).message });
+      }
+
+      // Unattributable lead — ack so the widget's localStorage retry queue drains.
+      if (!calc) {
+        log.warn("roofquote lead with no resolvable calculator — acked, not persisted");
+        return res.json({ ok: true, persisted: false });
+      }
+
+      // Map the widget payload onto the leads schema. name/email/phone are direct
+      // columns; everything roof-specific (timeline, priorities, lead score, tier,
+      // kW, price range, sqft, intent) lives in `answers` (jsonb).
+      const name = typeof body.name === "string" ? body.name.trim() : null;
+      const email = typeof body.email === "string" ? body.email.trim() : null;
+      const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+      const priceHi = Number(body.priceHi);
+      const quoteAmount = Number.isFinite(priceHi) && priceHi > 0 ? Math.round(priceHi) : null;
+
+      const answers: Record<string, any> = {
+        source: "roof_visualizer",
+        address: body.address ?? null,
+        trade: body.trade ?? null,
+        tier: body.tier ?? null,
+        kw: body.kw ?? null,
+        priceLo: body.priceLo ?? null,
+        priceHi: body.priceHi ?? null,
+        roofSqft: body.roofSqft ?? null,
+        timeline: body.timeline ?? null,
+        priorities: Array.isArray(body.priorities) ? body.priorities : null,
+        leadScore: body.leadScore ?? null,
+        intent: body.intent ?? null,
+      };
+
+      const lead = await storage.createLead({
+        calculator_id: calc.id,
+        name,
+        email,
+        phone,
+        quote_amount: quoteAmount,
+        answers,
+      });
+
+      // Same notification/followup pipeline the wizard lead step uses — emails the
+      // owner at lead_form.delivery.primary_email (settings.leadEmail). Best-effort.
+      try {
+        await enqueueLeadNotificationsAndFollowups(lead, calc.id);
+      } catch (notifyErr) {
+        log.warn("roofquote lead notification enqueue failed", { err: (notifyErr as Error).message });
+      }
+
+      return res.json({ ok: true, persisted: true });
+    } catch (err) {
+      log.error("roofquote lead failed", { err: (err as Error).message });
+      // Still ack: the widget queues + retries on non-ok, and a 5xx here would
+      // make it retry a request that may have partially succeeded.
+      return res.json({ ok: true, persisted: false });
+    }
   });
 }

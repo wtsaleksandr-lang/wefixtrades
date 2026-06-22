@@ -1890,12 +1890,18 @@ function RoofVisualizerEmbed({
   header,
   connectedTop,
   roofWidget,
+  calculatorId,
 }: {
   businessName?: string;
   header?: { title?: string; subtitle?: string };
   connectedTop: boolean;
   /** ROOF-WIDGET — owner-authored tenant config bridged into the iframe. */
   roofWidget?: RoofWidgetTenantConfig;
+  /** Published calculator id — appended to the iframe src so the server injects
+   *  this tenant's saved roofWidget config on FIRST paint (no flash of defaults).
+   *  Only positive integer ids are "published"; preview/draft ids (negative /
+   *  undefined) stay param-less and rely on the postMessage bridge below. */
+  calculatorId?: string | number;
 }) {
   const title = header?.title?.trim() || 'See your roof in 3D — instant roof & solar quote';
   const subtitle = header?.subtitle?.trim()
@@ -1906,6 +1912,21 @@ function RoofVisualizerEmbed({
   // and (b) whenever `roofWidget` changes (live preview edits in the wizard).
   // Serialised once per change so the effect dep is value-stable.
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // Published path: a positive integer id means a live, persisted calculator the
+  // server can look up → append ?calc=<id> so window.__TENANT__ is injected at
+  // first paint. Preview/draft (negative or non-numeric id) → param-less; the
+  // postMessage bridge below paints the live builder edits.
+  const publishedCalcId = useMemo(() => {
+    const n = typeof calculatorId === 'number'
+      ? calculatorId
+      : typeof calculatorId === 'string' && /^\d+$/.test(calculatorId)
+        ? Number(calculatorId)
+        : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }, [calculatorId]);
+  const iframeSrc = publishedCalcId
+    ? `/api/roofquote/widget?calc=${publishedCalcId}`
+    : '/api/roofquote/widget';
   const tenantJson = useMemo(() => JSON.stringify(roofWidget ?? {}), [roofWidget]);
   const postTenant = useCallback(() => {
     const win = iframeRef.current?.contentWindow;
@@ -1918,6 +1939,52 @@ function RoofVisualizerEmbed({
     } catch { /* iframe not ready / cross-origin — ignored */ }
   }, [tenantJson]);
   useEffect(() => { postTenant(); }, [postTenant]);
+
+  // LEAD BRIDGE — the widget posts `{type:'qq:lead', payload}` up when a homeowner
+  // submits inside the iframe. Route it into the canonical QuoteQuick lead pipeline
+  // (POST /api/leads) using this published calculator's id, so it shares the exact
+  // rate-limit/quota/dedup + owner-notification path (settings.leadEmail) the wizard
+  // lead step uses. Same-origin only; no-ops in preview (no published id).
+  useEffect(() => {
+    if (!publishedCalcId) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data;
+      if (!d || d.type !== 'qq:lead' || !d.payload || typeof d.payload !== 'object') return;
+      const p = d.payload as Record<string, any>;
+      const priceHi = Number(p.priceHi);
+      const body = {
+        calculator_id: publishedCalcId,
+        name: typeof p.name === 'string' ? p.name : null,
+        email: typeof p.email === 'string' ? p.email : null,
+        phone: typeof p.phone === 'string' && p.phone ? p.phone : null,
+        quote_amount: Number.isFinite(priceHi) && priceHi > 0 ? Math.round(priceHi) : null,
+        answers: {
+          source: 'roof_visualizer',
+          address: p.address ?? null,
+          trade: p.trade ?? null,
+          tier: p.tier ?? null,
+          kw: p.kw ?? null,
+          priceLo: p.priceLo ?? null,
+          priceHi: p.priceHi ?? null,
+          roofSqft: p.roofSqft ?? null,
+          timeline: p.timeline ?? null,
+          priorities: Array.isArray(p.priorities) ? p.priorities : null,
+          leadScore: p.leadScore ?? null,
+          intent: p.intent ?? null,
+        },
+      };
+      // Best-effort; the widget keeps its own durable /api/roofquote/lead fallback.
+      void fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [publishedCalcId]);
+
   return (
     <div
       style={{
@@ -1945,7 +2012,7 @@ function RoofVisualizerEmbed({
         <iframe
           ref={iframeRef}
           onLoad={postTenant}
-          src="/api/roofquote/widget"
+          src={iframeSrc}
           title={`Roof & Solar visualizer${businessName ? ` — ${businessName}` : ''}`}
           allow="accelerometer; gyroscope; fullscreen"
           className="qq-roof-visualizer-frame"
@@ -1983,6 +2050,7 @@ export default function AdvancedCalculator({
         header={advanced.header}
         connectedTop={connectedTop}
         roofWidget={advanced.roofWidget}
+        calculatorId={calculatorId}
       />
     );
   }

@@ -123,7 +123,7 @@ async function requireCalcByToken(token: string) {
   return calculator;
 }
 
-async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
+export async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
   const calc = await storage.getCalculatorById(calculatorId);
   if (!calc) {
     log.warn(`[leads] Cannot enqueue notifications: calculator ${calculatorId} not found`);
