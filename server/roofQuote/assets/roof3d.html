@@ -444,7 +444,7 @@ function sunPosition(date, lat, lng){
 }
 
 /* ---------- data pipeline ---------- */
-const RQ_BASE="/api/roofquote";   // ported into the wefixtrades Express app under this path prefix
+const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it
 async function geocode(addr){ const r=await fetch(RQ_BASE+"/geocode?address="+encodeURIComponent(addr)); const j=await r.json(); if(j.error) throw new Error("geocode "+j.error); return j; }
 async function solar(lat,lng){ const r=await fetch(RQ_BASE+"/solar?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
 async function datalayers(lat,lng){ const r=await fetch(RQ_BASE+"/datalayers?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
@@ -2355,7 +2355,7 @@ $("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__
   if(!_qp.get("noauto")) run($("addr").value.trim()); }
 </script>
 <script type="module">
-  try{ const m=await import(RQ_BASE+"/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
+  try{ const m=await import(window.RQ_BASE+"/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
   catch(e){ console.warn("roofgeo load failed",e); }
 </script>
 </body></html>

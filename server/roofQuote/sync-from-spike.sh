@@ -17,13 +17,22 @@ cp "$SRC_DIR/roof3d.html" "$DST_DIR/roof3d.html"
 DST="$DST_DIR/roof3d.html"
 
 # 1) Inject the RQ_BASE const just before the first backend helper.
-perl -0pi -e 's{(async function geocode\(addr\)\{)}{const RQ_BASE="/api/roofquote";   // ported into the wefixtrades Express app under this path prefix\n$1}' "$DST"
+#    Also expose it as a window global: the dynamic module import (step 3) lives in
+#    a SECOND <script type="module"> block, which does NOT share top-level scope with
+#    this first block. Referencing the bare `RQ_BASE` const there throws
+#    "RQ_BASE is not defined", so the second block reads window.RQ_BASE instead.
+perl -0pi -e 's{(async function geocode\(addr\)\{)}{const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it\n$1}' "$DST"
 
 # 2) Prefix backend route fetches.
 perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"
 
 # 3) Prefix the dynamic module import.
-perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(RQ_BASE+"/$1.mjs"}g' "$DST"
+#    This import lives in the SECOND <script type="module"> block (after the first block
+#    closes), which has its own top-level scope and cannot see the `const RQ_BASE` from
+#    block 1. Use window.RQ_BASE (set in step 1) so the reference resolves at runtime —
+#    referencing the bare const here threw "RQ_BASE is not defined" and left the 3D model,
+#    measurements, sun builders and the Materials (#bRoof) button dead in prod.
+perl -pi -e 's{import\("/(roofgeo|rooffeatures)\.mjs"}{import(window.RQ_BASE+"/$1.mjs"}g' "$DST"
 
 # 4) Prefix backend URLs used as string/img-src literals (e.g. baBefore.src="/capture?...").
 #    Matches `="/capture?` (assignment), never `+"/capture` (the fetch form), so no double-prefix.
