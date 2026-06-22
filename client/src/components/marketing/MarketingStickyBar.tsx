@@ -125,7 +125,7 @@ export default function MarketingStickyBar() {
             reachable via the top nav. */}
         <div className="mkt-sticky-menu-wrap">
           <Menu active={active} setActive={setActive} containerRef={innerRef}>
-            {STICKY_LINKS.map(({ label, href, children, subgroups }) => (
+            {STICKY_LINKS.map(({ label, href, children, subgroups, flagship }) => (
               <MenuItem
                 key={href}
                 setActive={setActive}
@@ -134,6 +134,7 @@ export default function MarketingStickyBar() {
                 href={href}
                 children={children}
                 subgroups={subgroups}
+                flagship={flagship}
                 placement="above"
               />
             ))}
