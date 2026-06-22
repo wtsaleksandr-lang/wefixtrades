@@ -1195,6 +1195,19 @@ async function run(addr){
     showLoad("Analysing roof (Solar)…");
     const b=await solar(g.lat,g.lng); LASTB=b;
     if(!b.solarPotential) throw new Error("no solar potential for this building");
+    // ── Anchor the scene to the REAL roof, not the raw geocode point ──
+    // The geocode can resolve to a non-rooftop spot (downtown parking lot, city
+    // centroid on a bare "City, ST" address, or a point a dozen metres off the
+    // building). Solar's buildingInsights.center IS the true building centroid, so
+    // we re-anchor SITE to it. Every visual that frames on SITE — the photoreal
+    // Map3D camera (ensurePhotoreal/bReset/streetview-heading), the schematic origin,
+    // the sun heatmap, the feasibility Model3D — then lands on the actual roof even
+    // when the geocode is imprecise. __ll stays the geocode: it drives sun-hours and
+    // the attached-section/panel filtering, which intentionally want the owner's unit
+    // point inside an attached building (see sectionPanels), not the building centroid.
+    if(b.center && isFinite(b.center.latitude) && isFinite(b.center.longitude)){
+      SITE={lat:b.center.latitude,lng:b.center.longitude};
+    }
     showLoad("Fetching elevation + imagery…");
     const dl=await datalayers(g.lat,g.lng);
     if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
