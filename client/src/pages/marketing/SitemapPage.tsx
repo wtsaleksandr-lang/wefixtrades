@@ -44,8 +44,8 @@ const SECTIONS: SitemapSection[] = [
     entries: [
       { href: "/mapguard-suite", label: "MapGuard Suite (Overview)" },
       { href: "/products/mapguard", label: "MapGuard Core" },
-      { href: "/citation-tracker", label: "Citation Tracker" },
-      { href: "/citation-builder", label: "Citation Builder" },
+      { href: "/citation-tracker", label: "CiteTrack" },
+      { href: "/citation-builder", label: "CiteFlow" },
       { href: "/tools/free-audit", label: "Full Audit Master" },
     ],
   },
@@ -54,7 +54,7 @@ const SECTIONS: SitemapSection[] = [
     description: "Core WeFixTrades products.",
     entries: [
       { href: "/products", label: "All Products" },
-      { href: "/products/tradeline", label: "24/7 TradeLine" },
+      { href: "/products/tradeline", label: "TradeLine" },
       { href: "/products/quickquotepro", label: "QuoteQuick (includes BookFlow)" },
       { href: "/products/contentflow", label: "ContentFlow" },
       { href: "/products/reputationshield", label: "ReputationShield" },
@@ -165,7 +165,7 @@ const SECTIONS: SitemapSection[] = [
       { href: "/contact", label: "Contact Sales" },
       { href: "/pricing", label: "Pricing" },
       { href: "/pricing/quotequick", label: "QuoteQuick Pricing" },
-      { href: "/citation-builder", label: "Citation Builder (Paid Service)" },
+      { href: "/citation-builder", label: "CiteFlow (Paid Service)" },
       { href: "/blog", label: "Blog" },
       { href: "/case-studies", label: "Case Studies" },
       { href: "/resources", label: "Resources" },

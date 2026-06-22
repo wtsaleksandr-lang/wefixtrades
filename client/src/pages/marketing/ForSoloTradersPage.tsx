@@ -13,7 +13,7 @@ export default function ForSoloTradersPage() {
       path="/for-solo-traders"
       breadcrumbLabel="For Solo Traders"
       pageTitle="For Solo Traders"
-      pageDescription="Everything a one-person trade business needs without the agency price tag. A free quote-tool tier to start, 24/7 TradeLine voice agent so you never miss a call, and one-click onboarding."
+      pageDescription="Everything a one-person trade business needs without the agency price tag. A free quote-tool tier to start, TradeLine voice agent so you never miss a call, and one-click onboarding."
       productName="For Solo Traders"
       heroEyebrow="Every missed call is a job that went to the next plumber on the list."
       heroHeadline={
@@ -34,7 +34,7 @@ export default function ForSoloTradersPage() {
         },
         {
           icon: Phone,
-          title: "TradeLine 24/7 voice agent",
+          title: "TradeLine voice agent",
           body: "A real-time AI phone agent picks up when you can't. Books the appointment, captures the lead, and texts you a summary before you're back at the truck.",
         },
         {
@@ -49,7 +49,7 @@ export default function ForSoloTradersPage() {
         },
       ]}
       pricingTeaserTitle="Start free. No card to try it."
-      pricingTeaserBody="Upgrade to the $29/mo quote tool, or add the 24/7 TradeLine voice agent from $99/mo when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees."
+      pricingTeaserBody="Upgrade to the $29/mo quote tool, or add the TradeLine voice agent from $99/mo when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees."
       testimonialQuote="I'm a one-truck plumber. Before WeFixTrades I was missing maybe six calls a week. The voice agent picks up everything now, and I bid on three extra jobs a week that I would've never known existed."
       testimonialAttribution="— Solo plumber case study placeholder · Q3 launch"
       finalCtaTitle={
@@ -65,7 +65,7 @@ export default function ForSoloTradersPage() {
         { label: "ReputationShield", href: "/products/reputationshield", tagline: "Automatically request reviews after every completed job" },
       ]}
       recommendedFreeTools={[
-        { label: "Free Audit", href: "/tools/free-audit" },
+        { label: "LocalScore", href: "/tools/free-audit" },
         { label: "Citation Checker", href: "/tools/citation-checker" },
         { label: "Google Review Link Generator", href: "/tools/google-review-link-generator" },
       ]}

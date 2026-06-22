@@ -1,5 +1,5 @@
 /**
- * Citation Tracker — customer portal dashboard.
+ * CiteTrack — customer portal dashboard.
  *
  * Surfaces:
  *   - Subscription status card (plan tier, next billing, total tracked)
@@ -98,7 +98,7 @@ function alertTitle(a: AlertRow): string {
 }
 
 export default function CitationTrackerDashboard() {
-  usePageTitle("Citation Tracker");
+  usePageTitle("CiteTrack");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -176,7 +176,7 @@ export default function CitationTrackerDashboard() {
       <div data-theme="light" className="ct-dashboard" style={{ display: "grid", gap: 2, padding: 16 }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Citation Tracker</h2>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>CiteTrack</h2>
             <p style={{ margin: "2px 0 0", color: "var(--muted-foreground)", fontSize: 13 }}>
               Continuous NAP drift monitoring across 50+ directories.
             </p>
@@ -193,7 +193,7 @@ export default function CitationTrackerDashboard() {
         {!subscriptionQ.isLoading && !sub && (
           <Card style={{ padding: 24, textAlign: "center" }}>
             <Activity size={32} style={{ margin: "0 auto 8px", display: "block", color: "var(--muted-foreground)" }} />
-            <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 600 }}>You're not subscribed to Citation Tracker yet</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 600 }}>You're not subscribed to CiteTrack yet</h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted-foreground)", fontSize: 14 }}>
               Catch NAP changes before they tank your local rankings. From $5/mo as a MapGuard add-on.
             </p>
@@ -211,7 +211,7 @@ export default function CitationTrackerDashboard() {
                 <div>
                   <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Subscription</div>
                   <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>
-                    {sub.plan_tier === "bundle" ? "Citation Tracker (bundle add-on)" : "Citation Tracker (standalone)"}
+                    {sub.plan_tier === "bundle" ? "CiteTrack (bundle add-on)" : "CiteTrack (standalone)"}
                   </div>
                   <div style={{ marginTop: 6, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: "var(--muted-foreground)" }}>
                     <span>Status: <strong style={{ color: sub.status === "active" ? "var(--success, rgb(46, 160, 67))" : "var(--destructive)" }}>{sub.status}</strong></span>

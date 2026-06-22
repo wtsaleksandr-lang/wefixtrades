@@ -107,9 +107,9 @@ export const NAV_LINKS: NavItem[] = [
     href: "/products/tradeline",
     children: [
       { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
-      { label: "Citation Tracker", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
-      { label: "Citation Builder", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
-      { label: "24/7 TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
+      { label: "CiteTrack", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
+      { label: "CiteFlow", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
+      { label: "TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
       { label: "QuoteQuick\u2122", href: "/products/quickquotepro", description: "Instant quotes + booking on your site.", icon: "calculator" },
       { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
@@ -138,7 +138,7 @@ export const NAV_LINKS: NavItem[] = [
         heading: "Local SEO Tools",
         hubAnchor: "/free-tools#local-seo",
         items: [
-          { label: "Free Audit", href: "/tools/free-audit", icon: "shieldCheck" },
+          { label: "LocalScore", href: "/tools/free-audit", icon: "shieldCheck" },
           { label: "Citation Checker", href: "/tools/citation-checker", icon: "search" },
           { label: "Local Rank Grid", href: "/tools/local-rank-grid", icon: "mapPinned" },
           { label: "Local Rank Tracker", href: "/tools/local-rank-tracker", icon: "trendingUp" },

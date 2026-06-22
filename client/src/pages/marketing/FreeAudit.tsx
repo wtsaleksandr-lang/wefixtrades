@@ -536,7 +536,7 @@ export default function FreeAudit() {
 
   const auditBreadcrumbs = useMemo(() => [
     { name: "Home", url: `${AUDIT_BASE}/` },
-    { name: "Free Audit", url: `${AUDIT_BASE}/tools/free-audit` },
+    { name: "LocalScore", url: `${AUDIT_BASE}/tools/free-audit` },
   ], []);
   useBreadcrumbSchema(auditBreadcrumbs);
   const isMobile = useIsMobile();
@@ -983,7 +983,7 @@ export default function FreeAudit() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Free Google Maps & website audit"
+        title="LocalScore — Free Google Maps & website audit"
         description="Get a free instant audit of your Google Business Profile and website. See your score, competitor analysis, and a fix plan — no signup required."
         canonical="/tools/free-audit"
         keywords={["free google business audit", "free website audit", "trades local seo audit"]}
@@ -1194,7 +1194,7 @@ export default function FreeAudit() {
               <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 18 }}>
                 <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
                 <span style={{ margin: "0 6px" }}>/</span>
-                <span style={{ color: "#111827" }}>Free Audit</span>
+                <span style={{ color: "#111827" }}>LocalScore</span>
               </nav>
 
               {/* Eyebrow chip */}
@@ -1212,7 +1212,7 @@ export default function FreeAudit() {
                 textTransform: "uppercase",
                 marginBottom: 16,
               }}>
-                Free Google Business Audit
+                LocalScore — Free Google Business Audit
               </div>
 
               {/* H1 */}

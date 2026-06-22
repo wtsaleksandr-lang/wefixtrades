@@ -328,7 +328,7 @@ export default function ServicesPage() {
     <MarketingLayout>
       <PageMeta
         title="Growth services for trade businesses"
-        description="QuoteQuick calculators, 24/7 TradeLine AI, MapGuard local SEO, RankFlow, ReputationShield — pick the services that move the needle for your trade business."
+        description="QuoteQuick calculators, TradeLine AI, MapGuard local SEO, RankFlow, ReputationShield — pick the services that move the needle for your trade business."
         canonical="/services"
         keywords={["trades growth services", "local seo for trades", "ai for trades"]}
         jsonLd={[
@@ -337,7 +337,7 @@ export default function ServicesPage() {
             name: "Growth services for trade businesses",
             serviceType: "Marketing and operations services for trades",
             description:
-              "Done-for-you growth stack for plumbers, electricians, HVAC, roofers and other trades: QuoteQuick instant quotes, 24/7 TradeLine AI receptionist, MapGuard local SEO, RankFlow, ReputationShield, SocialSync and more.",
+              "Done-for-you growth stack for plumbers, electricians, HVAC, roofers and other trades: QuoteQuick instant quotes, TradeLine AI receptionist, MapGuard local SEO, RankFlow, ReputationShield, SocialSync and more.",
             areaServed: ["United States", "Canada"],
             provider: { name: SITE_NAME, url: SITE_URL },
             url: `${SITE_URL}/services`,

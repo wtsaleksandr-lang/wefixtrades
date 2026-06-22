@@ -68,9 +68,9 @@ export interface ProductPage {
 export const PRODUCT_PAGES: ProductPage[] = [
   {
     slug: "tradeline",
-    name: "24/7 TradeLine\u2122",
+    name: "TradeLine\u2122",
     shortTagline: "Always-On Lead Handling",
-    seoTitle: "24/7 TradeLine\u2122 — Never Miss a Lead Again | WeFixTrades",
+    seoTitle: "TradeLine\u2122 — Never Miss a Lead Again | WeFixTrades",
     seoDescription: "Your always-on lead handling system. TradeLine answers calls and chats 24/7, provides instant estimates, books jobs, sends follow-ups, and requests reviews — automatically.",
     category: "ai",
     heroVisualType: "chat",

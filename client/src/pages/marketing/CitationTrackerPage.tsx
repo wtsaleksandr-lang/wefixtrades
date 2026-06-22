@@ -1,5 +1,5 @@
 /**
- * /citation-tracker — Citation Tracker subscription product (Wave 3).
+ * /citation-tracker — CiteTrack subscription product (Wave 3).
  *
  * Continuous monitoring across 50+ directories. Distinct from
  * /citation-builder which is the one-shot $79-$299 submission service.
@@ -26,8 +26,8 @@ const SITE_URL = "https://wefixtrades.com";
 
 const FAQ_ITEMS = [
   {
-    question: "How is Citation Tracker different from Citation Builder?",
-    answer: "Citation Builder is a one-shot $79–$299 service: we list you on 25–100+ directories. Citation Tracker is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.",
+    question: "How is CiteTrack different from CiteFlow?",
+    answer: "CiteFlow is a one-shot $79–$299 service: we list you on 25–100+ directories. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.",
   },
   {
     question: "How often do you scan?",
@@ -39,7 +39,7 @@ const FAQ_ITEMS = [
   },
   {
     question: "Can I bundle this with MapGuard?",
-    answer: "Yes — that's the discount tier. MapGuard customers pay just $5/mo for Citation Tracker (instead of $19/mo standalone). MapGuard handles your Google Business Profile; Citation Tracker handles the rest of the citation graph.",
+    answer: "Yes — that's the discount tier. MapGuard customers pay just $5/mo for CiteTrack (instead of $19/mo standalone). MapGuard handles your Google Business Profile; CiteTrack handles the rest of the citation graph.",
   },
   {
     question: "What happens when a NAP change is detected?",
@@ -79,13 +79,13 @@ const PLANS: PlanOption[] = [
     id: "bundle_monthly",
     title: "MapGuard bundle add-on",
     priceLabel: "$5/mo",
-    blurb: "Already a MapGuard customer? Add Citation Tracker for $5/mo.",
+    blurb: "Already a MapGuard customer? Add CiteTrack for $5/mo.",
     badge: "Best value",
     highlight: true,
     features: [
       "Everything in Standalone",
       "$24/mo combined vs $19+$19 separately",
-      "Unified MapGuard + Citation Tracker alerts",
+      "Unified MapGuard + CiteTrack alerts",
       "One billing line, one dashboard",
     ],
   },
@@ -105,7 +105,7 @@ const PLANS: PlanOption[] = [
 export default function CitationTrackerPage() {
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
-    { name: "Citation Tracker", url: `${SITE_URL}${PAGE_PATH}` },
+    { name: "CiteTrack", url: `${SITE_URL}${PAGE_PATH}` },
   ]);
   const faqSchemaItems = useMemo(
     () => FAQ_ITEMS.map((f) => ({ question: f.question, answer: f.answer })),
@@ -116,14 +116,14 @@ export default function CitationTrackerPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Citation Tracker — continuous NAP drift monitoring across 50+ directories"
+        title="CiteTrack — continuous NAP drift monitoring across 50+ directories"
         description="Catch NAP changes before they tank your local rankings. Daily monitoring of 50+ business directories. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
         canonical={PAGE_PATH}
         keywords={["citation tracker", "NAP monitoring", "local citation monitoring", "directory listing monitoring", "yelp BBB listing tracker"]}
       />
 
       <div data-theme="light">
-        <SuiteBreadcrumb productName="Citation Tracker" variant="light" />
+        <SuiteBreadcrumb productName="CiteTrack" variant="light" />
         <CitationTrackerHero />
         <CitationTrackerThreeColumnHelps />
         <CitationTrackerFeatures />
@@ -171,7 +171,7 @@ function CitationTrackerHero() {
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginBottom: 14 }}>
             <Link href="/" style={{ color: "rgba(255,255,255,0.55)", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>›</span>
-            <span style={{ color: "rgb(255,255,255)" }}>Citation Tracker</span>
+            <span style={{ color: "rgb(255,255,255)" }}>CiteTrack</span>
           </nav>
           {/* Pill badge — BrightLocal-style "category" tag. */}
           <div
@@ -197,7 +197,7 @@ function CitationTrackerHero() {
             Stay accurate everywhere customers find you.
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.55, color: "rgba(255,255,255,0.75)", margin: "0 0 22px", maxWidth: 560 }}>
-            Citation Tracker watches your business's name, address, and phone across
+            CiteTrack watches your business's name, address, and phone across
             50+ directories — Yelp, BBB, Bing Places, Apple Maps, Foursquare, Angi,
             Houzz — and alerts you the moment a listing drifts, a new auto-citation
             appears, or a directory removes you.
@@ -380,7 +380,7 @@ function CitationTrackerHeroPreview() {
   );
 }
 
-/* Wave 6C — 3-column "How Citation Tracker helps you" section.
+/* Wave 6C — 3-column "How CiteTrack helps you" section.
    White-card numbered items (01/02/03) — BrightLocal pattern but with our
    tokens. Sits directly under the hero. */
 function CitationTrackerThreeColumnHelps() {
@@ -398,7 +398,7 @@ function CitationTrackerThreeColumnHelps() {
     {
       n: "03",
       title: "Reclaim your time",
-      body: "Stop manually re-checking 50 directories every quarter. Citation Tracker does it daily and only pings you when something actually changes.",
+      body: "Stop manually re-checking 50 directories every quarter. CiteTrack does it daily and only pings you when something actually changes.",
     },
   ];
   return (
@@ -408,7 +408,7 @@ function CitationTrackerThreeColumnHelps() {
     >
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <h2 style={{ fontSize: 26, fontWeight: 800, textAlign: "center", margin: "0 0 32px", color: "rgb(11,18,32)" }}>
-          How Citation Tracker helps you
+          How CiteTrack helps you
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           {items.map((item) => (
@@ -520,7 +520,7 @@ function CitationTrackerFeatures() {
     <section style={{ padding: "60px 16px", background: "rgba(255,255,255,1)" }}>
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <h2 style={{ fontSize: 26, fontWeight: 800, textAlign: "center", margin: "0 0 32px", color: "#0b1220" }}>
-          Why customers pay for Citation Tracker
+          Why customers pay for CiteTrack
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
           {features.map((f) => (
@@ -704,7 +704,7 @@ function CitationTrackerBuilderCta() {
               lineHeight: 1.2,
             }}
           >
-            Get listed first with Citation Builder
+            Get listed first with CiteFlow
           </h3>
           <p
             style={{
@@ -715,7 +715,7 @@ function CitationTrackerBuilderCta() {
               maxWidth: 520,
             }}
           >
-            Citation Tracker monitors your listings. Citation Builder creates them — 25–100+ directories, done for you in 7 days.
+            CiteTrack monitors your listings. CiteFlow creates them — 25–100+ directories, done for you in 7 days.
           </p>
           <Link
             href="/citation-builder"
@@ -733,7 +733,7 @@ function CitationTrackerBuilderCta() {
               textDecoration: "none",
             }}
           >
-            Start Citation Builder from $79 <ArrowRight size={14} />
+            Start CiteFlow from $79 <ArrowRight size={14} />
           </Link>
         </div>
       </div>
@@ -750,10 +750,10 @@ function CitationTrackerFAQ() {
           {FAQ_ITEMS.map((f) => (
             <details key={f.question} style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, padding: "12px 14px", background: "rgba(255,255,255,1)" }}>
               <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#0b1220" }}>{f.question}</summary>
-              {f.question === "How is Citation Tracker different from Citation Builder?" ? (
+              {f.question === "How is CiteTrack different from CiteFlow?" ? (
                 <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>
-                  <Link href="/citation-builder" style={{ color: "rgb(13,60,252)", fontWeight: 600, textDecoration: "underline" }}>Citation Builder</Link>
-                  {" "}is a one-shot $79–$299 service: we list you on 25–100+ directories. Citation Tracker is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.
+                  <Link href="/citation-builder" style={{ color: "rgb(13,60,252)", fontWeight: 600, textDecoration: "underline" }}>CiteFlow</Link>
+                  {" "}is a one-shot $79–$299 service: we list you on 25–100+ directories. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.
                 </p>
               ) : (
                 <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>{f.answer}</p>

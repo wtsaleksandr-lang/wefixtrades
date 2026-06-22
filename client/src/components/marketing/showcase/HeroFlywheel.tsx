@@ -102,7 +102,7 @@ const NODES: NodeDef[] = [
   { id: "need",  label: "Customer Need",    x: 130,  y: 340, Icon: Icons.Magnify    },
   { id: "map",   label: "MapGuard",         x: 290,  y: 175, Icon: Icons.Pin        },
   { id: "site",  label: "SiteLaunch",       x: 490,  y: 125, Icon: Icons.Monitor    },
-  { id: "line",  label: "24/7 TradeLine",   x: 680,  y: 220, Icon: Icons.Phone      },
+  { id: "line",  label: "TradeLine",   x: 680,  y: 220, Icon: Icons.Phone      },
   { id: "quote", label: "QuoteQuick Pro",   x: 870,  y: 130, Icon: Icons.Calculator },
   { id: "book",  label: "BookFlow",         x: 1060, y: 285, Icon: Icons.Calendar   },
   { id: "rep",   label: "ReputationShield", x: 660,  y: 480, Icon: Icons.Star       },
@@ -271,7 +271,7 @@ export default function HeroFlywheel({
     <div
       ref={wrapRef}
       role="region"
-      aria-label="WeFixTrades flywheel — animated journey from Customer Need through MapGuard, SiteLaunch, 24/7 TradeLine, QuoteQuick Pro, BookFlow and ReputationShield, looping back into more leads."
+      aria-label="WeFixTrades flywheel — animated journey from Customer Need through MapGuard, SiteLaunch, TradeLine, QuoteQuick Pro, BookFlow and ReputationShield, looping back into more leads."
       style={{
         position: "relative",
         width: "100%",

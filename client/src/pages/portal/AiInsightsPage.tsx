@@ -2,7 +2,7 @@
  * AI Insights — portal page (Wave 7).
  *
  * Customer-facing view of Claude-generated prioritized actions, derived
- * from MapGuard / Citation Tracker signals. Bundled with MapGuard
+ * from MapGuard / CiteTrack signals. Bundled with MapGuard
  * subscription — gated server-side.
  *
  * Structure (per BrightLocal-style reference Alex shared):

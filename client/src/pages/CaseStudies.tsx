@@ -94,7 +94,7 @@ interface Study {
 const STUDIES: Study[] = [
   {
     slug: "tradeline-plumbing-solo", trade: "Plumbing", city: "Tucson, AZ",
-    size: "Solo · owner-operator", product: "24/7 TradeLine", timeline: "Live in 3 days",
+    size: "Solo · owner-operator", product: "TradeLine", timeline: "Live in 3 days",
     headline: "Solo plumber stopped losing every other after-hours call",
     outcomes: [
       { icon: PhoneCall,     tint: "cyan",    label: "Calls answered",  before: "~40%",  after: "100%" },

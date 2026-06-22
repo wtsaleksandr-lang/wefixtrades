@@ -52,7 +52,7 @@ const SERVICES: ServiceCard[] = [
   },
   {
     id: "tradeline",
-    title: "24/7 TradeLine",
+    title: "TradeLine",
     tagline: "Never Miss a Call",
     description:
       "Never miss a job call again. Our 24/7 answering service captures every enquiry, books appointments, and sends you the details — even at 3 am.",

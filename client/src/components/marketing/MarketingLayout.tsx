@@ -220,7 +220,7 @@ function MarketingFooter() {
             links={[
               { href: "/mapguard-suite", label: "MapGuard Suite™" },
               { href: "/free-tools", label: "Free Tools (Hub)" },
-              { href: "/products/tradeline", label: "24/7 TradeLine™" },
+              { href: "/products/tradeline", label: "TradeLine™" },
               { href: "/products/quickquotepro", label: "QuoteQuick™" },
               { href: "/products/mapguard", label: "MapGuard™" },
               { href: "/products/reputationshield", label: "ReputationShield™" },
@@ -231,8 +231,8 @@ function MarketingFooter() {
               { href: "/products/webfix", label: "WebFix™" },
               { href: "/products/contentflow", label: "ContentFlow™" },
               { href: "/products/adflow", label: "AdFlow™" },
-              { href: "/citation-tracker", label: "Citation Tracker" },
-              { href: "/citation-builder", label: "Citation Builder" },
+              { href: "/citation-tracker", label: "CiteTrack" },
+              { href: "/citation-builder", label: "CiteFlow" },
             ]}
           />
 
@@ -316,7 +316,7 @@ function MarketingFooter() {
               Wave 11D D5 — top entry now links to the /free-tools hub. */}
           <FooterColumn title="Free Tools">
             <FtLink href="/free-tools">All Free Tools</FtLink>
-            <FtLink href="/tools/free-audit">Free Audit</FtLink>
+            <FtLink href="/tools/free-audit">LocalScore</FtLink>
             {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
                 with its own /tools/* URL + lead-magnet page. */}
             {/* Wave 49 — labels shortened so each fits one line at the

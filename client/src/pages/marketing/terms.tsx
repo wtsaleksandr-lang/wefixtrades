@@ -93,7 +93,7 @@ export default function TermsPage() {
         </p>
         <ul style={ul}>
           <li><strong>QuoteQuick</strong> — instant-quote calculator software</li>
-          <li><strong>24/7 TradeLine</strong> — AI voice and chat assistant for your business</li>
+          <li><strong>TradeLine</strong> — AI voice and chat assistant for your business</li>
           <li><strong>MapGuard</strong> — Google Business Profile management</li>
           <li><strong>ReputationShield</strong> — review request and response automation</li>
           <li><strong>RankFlow</strong> — ongoing local SEO work</li>
@@ -161,7 +161,7 @@ export default function TermsPage() {
           plan as described on the applicable pricing page.
         </p>
         <p>
-          <strong>All other paid recurring services</strong> (24/7 TradeLine,
+          <strong>All other paid recurring services</strong> (TradeLine,
           MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) come with a
           <strong> 30-day money-back guarantee</strong>. If the service isn't
           working for you, email us within 30 days of your first charge and we'll

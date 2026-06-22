@@ -272,7 +272,7 @@ export default function DemoCenter() {
     <MarketingLayout>
       <PageMeta
         title="Interactive Demos — see every WeFixTrades product in action"
-        description="Try interactive demos of WeFixTrades products: 24/7 TradeLine voice and chat, QuoteQuick instant calculators, SocialSync AI posts, RankFlow keyword tracking, and ReputationShield review automation."
+        description="Try interactive demos of WeFixTrades products: TradeLine voice and chat, QuoteQuick instant calculators, SocialSync AI posts, RankFlow keyword tracking, and ReputationShield review automation."
         canonical="/demos"
       />
       <V7PageShell>

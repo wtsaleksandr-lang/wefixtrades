@@ -76,7 +76,7 @@ const CAP_INFO: {
     href: "/products/quickquotepro",
   },
   {
-    product: "24/7 TradeLine",
+    product: "TradeLine",
     desc: "AI answers every call and chat around the clock, books the job, and texts the caller back.",
     benefits: ["Never miss a lead — even at 2 AM", "Books appointments automatically", "Replaces a $240/mo answering service"],
     href: "/products/tradeline",

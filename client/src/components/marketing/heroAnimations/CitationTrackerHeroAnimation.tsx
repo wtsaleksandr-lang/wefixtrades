@@ -19,7 +19,7 @@ export default function CitationTrackerHeroAnimation() {
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="Citation Tracker scans directories, finds NAP mismatch, fixes automatically">
+      <AnimationFrame ariaLabel="CiteTrack scans directories, finds NAP mismatch, fixes automatically">
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>Citation tracker · scan</span>

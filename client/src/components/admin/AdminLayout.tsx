@@ -203,7 +203,7 @@ const PRODUCTS_ITEMS: NavItem[] = [
    * SiteLaunch/WebFix they have no dedicated CRM ops surface yet — point at
    * the catalog editor. They surface under "Products · inactive" until a tier
    * is activated. */
-  { label: "Citation Builder", href: "/admin/products/citationbuilder", icon: ClipboardList, productId: "citationbuilder" },
+  { label: "CiteFlow", href: "/admin/products/citationbuilder", icon: ClipboardList, productId: "citationbuilder" },
   { label: "Full Audit Master", href: "/admin/products/full_audit_master", icon: FileText, productId: "full_audit_master" },
 ];
 

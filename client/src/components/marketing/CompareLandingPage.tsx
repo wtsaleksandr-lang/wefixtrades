@@ -192,7 +192,7 @@ function MatrixCell({ value }: { value: MatrixValue }) {
 
 /* ─── Internal links — keep the topic clusters tight ────────────── */
 const INTERNAL_LINKS = [
-  { href: "/products/tradeline", label: "24/7 TradeLine (AI voice)" },
+  { href: "/products/tradeline", label: "TradeLine (AI voice)" },
   { href: "/products/contentflow", label: "ContentFlow (AI content)" },
   { href: "/products/mapguard", label: "MapGuard (Google Business)" },
   { href: "/products/reputationshield", label: "ReputationShield" },
