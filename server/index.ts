@@ -35,6 +35,7 @@ import { setupPassport, impersonationMiddleware } from "./auth";
 import { createLogger } from "./lib/logger";
 import { mountRaisedBodyLimits } from "./lib/bodyLimits";
 import { requestId } from "./middleware/requestId";
+import { HOSTING_DOMAIN } from "@shared/slugUtils";
 // res2: AI provider readiness diagnostics at boot. readyFallbackProviders()
 // only reads env (key presence) — safe to call synchronously in validateEnv().
 import { readyFallbackProviders } from "./services/llmFallbackChain";
@@ -484,6 +485,38 @@ const corsAllowlist = [
   "https://www.wefixtrades.ca",
 ];
 const corsAllowDevRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|\.replit\.dev$/;
+
+/* QuoteQuick hosted-link domain. Every published calculator is served at
+ * `{slug}.your-quote.net` (see shared/slugUtils + infra/quotequick-wildcard-
+ * proxy.worker.js). The Cloudflare Worker fronting `*.your-quote.net` rewrites
+ * the `Host` header to the Replit origin, but the BROWSER keeps the customer
+ * subdomain — so every `/assets/*` and `/api/*` subrequest the SPA fires from
+ * that page carries `Origin: https://{slug}.your-quote.net`. That origin is
+ * this app's OWN hosted surface, NOT a foreign embedder, so it must pass CORS.
+ * Without this the SPA's CSS/JS chunks 403 ("cors_origin_denied") and the
+ * hosted calculator renders a blank page for EVERY calculator type. Matches
+ * the apex + any single-level, non-www subdomain — the same shape
+ * hostedSlugFromHost() resolves a slug from. HOSTING_DOMAIN is build/env-
+ * derived (defaults to your-quote.net) so this tracks the live domain. */
+const isHostedCalculatorOrigin = (origin: string): boolean => {
+  if (!HOSTING_DOMAIN) return false;
+  let host: string;
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    host = u.hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  const domain = HOSTING_DOMAIN.toLowerCase();
+  if (host === domain || host === `www.${domain}`) return true;
+  const suffix = `.${domain}`;
+  if (!host.endsWith(suffix)) return false;
+  const sub = host.slice(0, -suffix.length);
+  // Only a single, non-empty, non-www label (no nested dots) — exactly the
+  // hosted-calculator subdomain shape, never an arbitrary deep wildcard.
+  return !!sub && sub !== "www" && !sub.includes(".");
+};
 app.use(
   cors({
     origin: (origin, cb) => {
@@ -491,6 +524,9 @@ app.use(
       if (!origin) return cb(null, true);
       if (corsAllowlist.includes(origin)) return cb(null, true);
       if (corsAllowDevRegex.test(origin)) return cb(null, true);
+      // QuoteQuick hosted calculators ({slug}.your-quote.net) are this app's
+      // own surface — their same-page asset/API subrequests must pass CORS.
+      if (isHostedCalculatorOrigin(origin)) return cb(null, true);
       // Preview-only escape hatch: allow Cloudflare quick-tunnel origins when
       // PREVIEW_TUNNEL_HOSTS=1 is set, so the local full-stack preview works
       // through a *.trycloudflare.com tunnel. NEVER set in production.
@@ -499,12 +535,12 @@ app.use(
       }
       logger.info("[cors] rejected cross-origin request", { origin });
       // Sentry NODEWEFIXTRADES-K (183 events): a bare Error here defaults to
-      // HTTP 500 in the error envelope and logs at error level — foreign
-      // domains pointed at this deployment (e.g. your-quote.net loading
-      // /assets/*.js with its own Origin) were generating an error-level
-      // Sentry event per asset request. The denial itself is correct and the
-      // allowlist is unchanged; it is a CLIENT error (403), not a server
-      // fault. The envelope below logs 4xx at warn.
+      // HTTP 500 in the error envelope and logs at error level. NOTE — those
+      // 183 events were the hosted-calculator domain ({slug}.your-quote.net)
+      // loading /assets/*.js with its own Origin being WRONGLY denied (that is
+      // this app's own hosted surface, now allowed via isHostedCalculatorOrigin
+      // above). A genuinely foreign embedder reaching here is still a CLIENT
+      // error (403), not a server fault; the envelope below logs 4xx at warn.
       const corsErr = new Error("CORS: origin not allowed") as Error & {
         status?: number;
         code?: string;
