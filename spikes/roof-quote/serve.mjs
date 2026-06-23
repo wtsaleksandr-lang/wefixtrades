@@ -335,10 +335,15 @@ http.createServer(async (req,res)=>{
   // ---- Solar dataLayers metadata (returns rgbUrl/maskUrl/dsmUrl/annualFluxUrl as geoTiff:get URLs) ----
   if(u.pathname==="/datalayers"){
     const lat=u.searchParams.get("lat"), lng=u.searchParams.get("lng");
+    const fresh=u.searchParams.get("fresh")==="1";   // client sets this to bypass cache + re-mint signed geoTiff URLs after a stale-token 400
     res.setHeader("Content-Type","application/json");
-    // Same quota-protection scheme as /solar: disk-cache successful responses by rounded lat/lng, 30d TTL.
+    // dataLayers responses EMBED geoTiff:get URLs whose signed tokens expire in ~hours.
+    // Cache them only for DATALAYERS_TTL_MS (well under the token lifetime) so a cached
+    // address never serves stale-token URLs that 400 → "Invalid byte order" client-side.
+    // (buildingInsights /solar stays 30d — it has no tokens.) `fresh=1` skips the read.
+    const DATALAYERS_TTL_MS=30*60*1000;   // 30 min — under Google's signed-token lifetime
     const gk=(+lat).toFixed(5)+","+(+lng).toFixed(5);
-    { const c=diskGetJSON("datalayers",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(c.body); return; } }
+    if(!fresh){ const c=diskGetJSON("datalayers",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<DATALAYERS_TTL_MS){ res.setHeader("X-Cache","HIT"); res.end(c.body); return; } }
     res.setHeader("X-Cache","MISS");
     try{
       const url="https://solar.googleapis.com/v1/dataLayers:get?location.latitude="+lat+

@@ -231,7 +231,11 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Solar dataLayers passthrough ─── */
   app.get("/api/roofquote/datalayers", async (req: Request, res: Response) => {
     try {
-      const { ok, body, cached } = await dataLayers(String(req.query.lat || ""), String(req.query.lng || ""));
+      const { ok, body, cached } = await dataLayers(
+        String(req.query.lat || ""),
+        String(req.query.lng || ""),
+        req.query.fresh === "1", // client retries with fresh=1 after a stale-token 400 to re-mint URLs
+      );
       res.setHeader("Content-Type", "application/json");
       res.setHeader("X-Cache", cached ? "HIT" : "MISS");
       return res.send(ok ? body : JSON.stringify({ error: "no_datalayers" }));
