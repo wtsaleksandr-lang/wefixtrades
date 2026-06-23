@@ -19,6 +19,47 @@
   #addr::placeholder{color:#94a3b8}
   #addr:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #go{background:#0d3cfc;border:0;border-radius:10px;padding:0 18px;font-weight:700;color:#ffffff;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow)}
+  /* ===== LANDING HERO (initial/empty state) — title-left, visual-right, clean, premium ===== */
+  #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:24px clamp(20px,5vw,72px);background:radial-gradient(120% 120% at 82% 12%,rgba(13,60,252,.12),transparent 56%),var(--bg)}
+  #hero .hero-inner{width:100%;max-width:1180px;display:flex;align-items:center;justify-content:space-between;gap:clamp(24px,5vw,72px)}
+  #hero .hero-panel{flex:1 1 0;min-width:0;max-width:560px;text-align:left}
+  /* right-half product preview — desktop only */
+  #hero .hero-visual{flex:0 0 auto;width:min(40%,420px);display:flex;justify-content:center}
+  #hero .hv-card{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:12px;box-shadow:0 24px 60px rgba(15,23,42,.14),0 4px 14px rgba(15,23,42,.06);transform:rotate(-1.2deg);transition:transform .25s ease}
+  #hero .hv-card:hover{transform:rotate(0deg)}
+  #hero .hv-render{position:relative;border-radius:14px;overflow:hidden;background:#eef2fb;aspect-ratio:320/220}
+  #hero .hv-svg{display:block;width:100%;height:100%}
+  #hero .hv-badge{position:absolute;top:10px;left:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(15,23,42,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px}
+  #hero .hv-dot{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.25)}
+  #hero .hv-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:11px 6px 4px}
+  #hero .hv-plabel{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+  #hero .hv-price{font-size:22px;font-weight:900;color:var(--ink);line-height:1.05;letter-spacing:-.01em}
+  #hero .hv-price span{font-size:13px;font-weight:700;color:var(--muted)}
+  #hero .hv-spec{font-size:11px;font-weight:700;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:8px;padding:5px 9px;white-space:nowrap}
+  #hero .hero-eyebrow{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:5px 12px;margin-bottom:16px}
+  #hero .hero-title{margin:0;font-size:clamp(28px,4.6vw,46px);line-height:1.07;font-weight:900;letter-spacing:-.02em;color:var(--ink);text-wrap:balance}
+  #hero .hero-sub{margin:14px 0 22px;font-size:clamp(15px,1.7vw,18px);line-height:1.5;color:var(--muted);max-width:48ch}
+  #hero .hero-bar{display:flex;gap:8px;max-width:480px}
+  #hero #addrHero{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 16px;height:54px;color:var(--ink);font-size:16px;font-family:inherit;outline:none;box-shadow:var(--card-shadow)}
+  #hero #addrHero::placeholder{color:var(--faint)}
+  #hero #addrHero:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,.12)}
+  #hero #goHero{flex:0 0 auto;background:#0d3cfc;border:0;border-radius:12px;padding:0 22px;height:54px;font-weight:800;color:#fff;font-size:16px;cursor:pointer;box-shadow:var(--btn-shadow);font-family:inherit}
+  #hero .hero-sample{display:inline-block;margin:12px 0 0;background:none;border:0;padding:0;color:#0d3cfc;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  #hero .hero-sample:hover{text-decoration:underline}
+  #hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:22px}
+  #hero .hero-tchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  #hero .hero-tchip svg{flex:0 0 auto;width:15px;height:15px;stroke:#16a34a;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* below ~900px the two-column split gets cramped → drop the visual, let the panel breathe full-width */
+  @media (max-width:900px){ #hero .hero-visual{display:none} #hero .hero-panel{max-width:640px} #hero .hero-inner{justify-content:center} }
+  @media (max-width:560px){
+    #hero{align-items:flex-start;justify-content:flex-start;padding:64px 20px 24px}
+    #hero .hero-inner{display:block}
+    #hero .hero-visual{display:none}            /* mobile: clean stack only, no right-side visual, no overflow */
+    #hero .hero-bar{flex-direction:column}
+    #hero #goHero{height:50px;width:100%}
+    #hero #addrHero{height:50px}
+    #hero .hero-trust{gap:7px 14px;margin-top:18px}
+  }
   /* status chip */
   #status{position:absolute;top:62px;left:12px;z-index:20;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none;box-shadow:var(--card-shadow)}
   #status.err{color:#dc2626;border-color:#fecaca}
@@ -138,6 +179,11 @@
   #card .qchip.on span{color:var(--muted)}
   #card .qnote{font-size:9.5px;color:#94a3b8;margin-top:9px;line-height:1.3}
   #card .qcta{width:100%;margin-top:11px;background:#0d3cfc;border:0;border-radius:10px;padding:11px 0;font-size:14px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow)}
+  /* timeline + "why us" trust signals shown on the quote before the email gate */
+  #card .qtrust{display:flex;flex-direction:column;gap:5px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+  #card .qtrust-row{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#475569;line-height:1.35}
+  #card .qtrust-row svg{flex:0 0 auto;width:14px;height:14px;stroke:#16a34a;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #card .qtrust-row b{color:#0f172a;font-weight:700}
   /* ===== quote report (PDF / web) ===== */
   #report{position:fixed;inset:0;z-index:50;background:#fff;color:#0f172a;overflow:auto;display:none;font:14px/1.55 "Satoshi","Satoshi Variable",system-ui,sans-serif}
   #report .rbar{position:sticky;top:0;background:#ffffff;border-bottom:1px solid #e1e7ef;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;z-index:2}
@@ -360,7 +406,69 @@
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
   <div id="measToggle"><button data-v="diagram" class="on">Top-down</button><button data-v="3d">3D</button></div>
-  <div id="bar"><input id="addr" placeholder="Enter your address" value="30 Angus Rd, Hamilton, ON"><button id="go">Get Quote</button></div>
+  <div id="bar"><input id="addr" placeholder="1024 Vallejo Way, Sacramento CA" value=""><button id="go">Get Quote</button></div>
+  <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads (renderQuoteCard). Title-left, visual-right per Alex's hero rules. -->
+  <div id="hero">
+    <div class="hero-inner">
+    <div class="hero-panel">
+      <div class="hero-eyebrow">Instant roof &amp; solar quote</div>
+      <h1 class="hero-title">See your home in 3D and get a real roof &amp; solar quote in ~60 seconds.</h1>
+      <p class="hero-sub">Type your address — we measure your roof from satellite imagery and price it instantly. No call, no obligation.</p>
+      <div class="hero-bar">
+        <input id="addrHero" placeholder="Enter your home address" autocomplete="off">
+        <button id="goHero">Get my quote</button>
+      </div>
+      <button id="heroSample" class="hero-sample" type="button">Or try a sample address →</button>
+      <div class="hero-trust">
+        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Real measurements from satellite imagery</span>
+        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant — about 60 seconds</span>
+        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Free · no obligation</span>
+      </div>
+    </div>
+    <!-- RIGHT-HALF VISUAL (desktop only) — an illustrative "this is what you'll get" preview that reads as the real
+         product: a 3D roof with solar panels + a floating price chip. Hidden on mobile so the clean stack is untouched. -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="hv-card">
+        <div class="hv-render">
+          <svg class="hv-svg" viewBox="0 0 320 220" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="hvSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dce6fb"/><stop offset="1" stop-color="#eef2fb"/></linearGradient>
+              <linearGradient id="hvRoofL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4a63"/><stop offset="1" stop-color="#2a3850"/></linearGradient>
+              <linearGradient id="hvRoofR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#52617c"/><stop offset="1" stop-color="#3c4a63"/></linearGradient>
+              <linearGradient id="hvPanel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d49d6"/><stop offset="1" stop-color="#0d3cfc"/></linearGradient>
+            </defs>
+            <rect width="320" height="220" fill="url(#hvSky)"/>
+            <!-- ground -->
+            <path d="M0 168 L320 150 L320 220 L0 220 Z" fill="#e3e9f4"/>
+            <!-- house body -->
+            <path d="M96 132 L168 148 L168 196 L96 184 Z" fill="#f2f5fb"/>
+            <path d="M168 148 L232 134 L232 184 L168 196 Z" fill="#e4eaf4"/>
+            <!-- left roof plane (with panels) -->
+            <path d="M96 132 L150 96 L222 110 L168 148 Z" fill="url(#hvRoofL)"/>
+            <!-- right roof plane -->
+            <path d="M150 96 L208 78 L280 92 L222 110 Z" fill="url(#hvRoofR)"/>
+            <!-- ridge -->
+            <path d="M150 96 L222 110" stroke="#1c2638" stroke-width="1.4"/>
+            <!-- solar panel grid on the left plane (parallelogram rows) -->
+            <g class="hv-panels" fill="url(#hvPanel)" stroke="#7fa0ff" stroke-width="0.5">
+              <path d="M112 130 L130 118 L146 121 L128 133 Z"/>
+              <path d="M148 121 L166 109 L182 112 L164 124 Z"/>
+              <path d="M132 142 L150 130 L166 133 L148 145 Z"/>
+              <path d="M168 133 L186 121 L202 124 L184 136 Z"/>
+            </g>
+            <!-- panel sheen -->
+            <path class="hv-sheen" d="M112 130 L146 121 L184 136 L148 145 Z" fill="#ffffff" opacity="0.07"/>
+          </svg>
+          <span class="hv-badge"><span class="hv-dot"></span>Live 3D roof model</span>
+        </div>
+        <div class="hv-foot">
+          <div class="hv-pricewrap"><div class="hv-plabel">Your instant quote</div><div class="hv-price">$33,000<span>–$40,900</span></div></div>
+          <div class="hv-spec">7.2 kW · 18 panels</div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
   <div id="status"></div>
   <div id="overlayNote"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg><span id="overlayNoteText"></span></div>
   <div id="card"></div>
@@ -827,6 +935,8 @@ let TENANT={
     promises:[],           // [{title,body}] up to 3 → 3 placeholder promises
     certifications:[],     // [{name,body}] → placeholder certs
     rating:0, reviews:0,   // star rating + review count
+    roofWarranty:"",       // e.g. "25-yr" → "Licensed & insured · 25-yr workmanship warranty" trust line on roof quotes
+    solarWarranty:"",      // e.g. "25-yr" → workmanship-warranty trust line on solar quotes
   },
   financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, leaseEnabled:true, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
   features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true },
@@ -895,6 +1005,29 @@ function applyRoofOpts(lo, hi, sqs, t){
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
 function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
+// Trust + timeline strip shown ON the quote card, before the email gate. A buyer's two open
+// questions — "how long does this take?" and "why trust you?" — answered up front.
+//   • Timeline is generic + honest (roofing vs solar), always shown.
+//   • The "why us" line is TENANT-driven (license/insured + warranty); it HIDES gracefully when the
+//     tenant fields are unset, so a buyer never sees an empty or placeholder trust claim (ties to #2).
+const CHK_SVG='<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+function quoteTrustStrip(modeKind){
+  const tr=TENANT.trade||{};
+  const rows=[];
+  // 1) Timeline — honest, generic, no tenant data needed.
+  const timeline=modeKind==="roof"
+    ? 'Most roofs done in <b>1–2 days</b> · typical install'
+    : 'Solar installed in <b>~1 day</b> · permitting ~4–8 wks';
+  rows.push('<div class="qtrust-row">'+CHK_SVG+'<span>'+timeline+'</span></div>');
+  // 2) Why-us — license/insured + warranty, only the parts the tenant has configured.
+  const trustBits=[];
+  if(tr.license) trustBits.push('Licensed &amp; insured');
+  // a roofing-material or solar workmanship warranty, if the tenant supplied one
+  const warr=modeKind==="roof"?tr.roofWarranty:tr.solarWarranty;
+  if(warr) trustBits.push(esc(warr)+' workmanship warranty');
+  if(trustBits.length) rows.push('<div class="qtrust-row">'+CHK_SVG+'<span>'+trustBits.join(' · ')+'</span></div>');
+  return '<div class="qtrust">'+rows.join('')+'</div>';
+}
 function getRoofTotals(){
   if(window.__roofTotals) return window.__roofTotals;
   try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=reconcileTotals(m.totals); return window.__roofTotals; } }catch(_){}
@@ -1164,7 +1297,9 @@ function renderQuoteCard(){
     : isCommercial
     ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request commercial quote →</button>'
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
-  card.innerHTML=tabs+addr+body+note+cta;
+  // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
+  const trust=(view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
+  card.innerHTML=tabs+addr+body+note+trust+cta;
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
@@ -1472,6 +1607,7 @@ function applyModelGate(){
 
 /* ---------- run ---------- */
 async function run(addr){
+  if(typeof window.__leaveHero==="function") window.__leaveHero();   // dismiss the landing hero once a quote starts
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
   window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
@@ -2098,11 +2234,14 @@ function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 function safeLogoUrl(u){ const s=String(u??'').trim(); return (/^https?:\/\//i.test(s)||/^data:image\//i.test(s))?s:''; }
 function tradeHeader(){ const tr=TENANT.trade||{};
   const logoUrl=safeLogoUrl(tr.logo);
-  const logo=logoUrl?'<img class="th-logo" src="'+esc(logoUrl)+'" alt="">':'<div class="th-logo ph-box">Your<br>logo</div>';
-  const company=tr.company?esc(tr.company):rph("[Your Company Name]");
-  const contact=[tr.phone,tr.email,tr.web].filter(Boolean).map(esc).join(' · ')||rph("[Phone · Email · Website]");
-  const lic=tr.license?('License '+esc(tr.license)):rph("[License #]");
-  return '<div class="th">'+logo+'<div class="th-co"><div class="th-name">'+company+'</div><div class="th-meta">'+contact+'</div><div class="th-meta">'+lic+'</div></div></div>';
+  // No tenant logo → show the WeFixTrades wordmark, never an empty "Your logo" box.
+  const logo=logoUrl?'<img class="th-logo" src="'+esc(logoUrl)+'" alt="">':'<div class="th-name">'+esc(TENANT.brand||"WeFixTrades")+'</div>';
+  // Unset fields hide gracefully (Roofr-style placeholders only ever showed in the wizard editor; a homeowner must never see "[Your Company Name]").
+  const company=tr.company?'<div class="th-name">'+esc(tr.company)+'</div>':'';
+  const contactStr=[tr.phone,tr.email,tr.web].filter(Boolean).map(esc).join(' · ');
+  const contact=contactStr?'<div class="th-meta">'+contactStr+'</div>':'';
+  const lic=tr.license?'<div class="th-meta">License '+esc(tr.license)+'</div>':'';
+  return '<div class="th">'+logo+'<div class="th-co">'+company+contact+lic+'</div></div>';
 }
 function measurementReport(t, sqs){
   if(!t) return '';
@@ -2125,15 +2264,24 @@ function measurementReport(t, sqs){
     '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div></div>';
 }
 function proposalSections(){ const tr=TENANT.trade||{};
-  const about=tr.about?esc(tr.about):rph("[About your company — who you are, your experience, and what makes you different. Pulled from your QuoteQuick profile.]");
-  const proms=(tr.promises&&tr.promises.length)?tr.promises:[{title:"[Promise #1]",body:"[e.g. On-time, on-budget, guaranteed.]"},{title:"[Promise #2]",body:"[Your second promise to the homeowner.]"},{title:"[Promise #3]",body:"[Your third promise.]"}];
-  const certs=(tr.certifications&&tr.certifications.length)?tr.certifications:[{name:"[Certification / award]",body:"[e.g. GAF Master Elite, BBB A+, manufacturer-certified.]"}];
-  const tagline=tr.tagline?esc(tr.tagline):rph("[A sentence about why homeowners should trust you.]");
-  const hasProm=tr.promises&&tr.promises.length, hasCert=tr.certifications&&tr.certifications.length;
-  return '<div class="sec"><h2>About '+(tr.company?esc(tr.company):"your contractor")+'</h2><div class="muted">'+tagline+'</div><p class="rp-about">'+about+'</p></div>'+
-    '<div class="sec"><h2>Our promise</h2><div class="rp-grid">'+proms.map(p=>'<div class="rp-card"><div class="rp-ct">'+(hasProm?esc(p.title):rph(p.title))+'</div><div class="rp-cb">'+(hasProm?esc(p.body):rph(p.body))+'</div></div>').join('')+'</div></div>'+
-    '<div class="sec"><h2>Certifications &amp; trust</h2><div class="rp-grid">'+certs.map(c=>'<div class="rp-card"><div class="rp-ct">'+(hasCert?esc(c.name):rph(c.name))+'</div><div class="rp-cb">'+(hasCert?esc(c.body):rph(c.body))+'</div></div>').join('')+
-      (tr.rating?'<div class="rp-card"><div class="rp-ct">★ '+esc(tr.rating)+'</div><div class="rp-cb">Based on '+esc(tr.reviews||0)+'+ reviews</div></div>':'<div class="rp-card"><div class="rp-ct">'+rph("[★ Rating]")+'</div><div class="rp-cb">'+rph("[Based on N reviews]")+'</div></div>')+'</div></div>';
+  // Every block is tenant-driven and HIDES when its field is unset — a homeowner must never see a "[placeholder]".
+  const hasProm=tr.promises&&tr.promises.length, hasCert=tr.certifications&&tr.certifications.length, hasRating=tr.rating;
+  let out='';
+  // About — only render if there's a company name, tagline or about copy to show.
+  if(tr.company||tr.tagline||tr.about){
+    const tagline=tr.tagline?'<div class="muted">'+esc(tr.tagline)+'</div>':'';
+    const about=tr.about?'<p class="rp-about">'+esc(tr.about)+'</p>':'';
+    out+='<div class="sec"><h2>About '+(tr.company?esc(tr.company):"your contractor")+'</h2>'+tagline+about+'</div>';
+  }
+  if(hasProm){
+    out+='<div class="sec"><h2>Our promise</h2><div class="rp-grid">'+tr.promises.map(p=>'<div class="rp-card"><div class="rp-ct">'+esc(p.title)+'</div><div class="rp-cb">'+esc(p.body)+'</div></div>').join('')+'</div></div>';
+  }
+  if(hasCert||hasRating){
+    const certCards=hasCert?tr.certifications.map(c=>'<div class="rp-card"><div class="rp-ct">'+esc(c.name)+'</div><div class="rp-cb">'+esc(c.body)+'</div></div>').join(''):'';
+    const ratingCard=hasRating?'<div class="rp-card"><div class="rp-ct">★ '+esc(tr.rating)+'</div><div class="rp-cb">Based on '+esc(tr.reviews||0)+'+ reviews</div></div>':'';
+    out+='<div class="sec"><h2>Certifications &amp; trust</h2><div class="rp-grid">'+certCards+ratingCard+'</div></div>';
+  }
+  return out;
 }
 function openReport(){
   if(!QUOTE){ return; }
@@ -2451,6 +2599,21 @@ window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeTe
 window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+quoteUrl()); };
 $("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } run(v); };
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
+// ── LANDING HERO wiring ──────────────────────────────────────────────────
+// The hero owns the empty state: the top search bar (#bar) is hidden behind it until a quote
+// loads, so the buyer sees one clear value prop + CTA. leaveHero() swaps to the results layout.
+const SAMPLE_ADDR="1024 Vallejo Way, Sacramento CA";   // verified clean single-family home with good Solar coverage
+// Hero is the default first view. The headless /capture renderer drives #addr/#go directly with
+// ?noauto=1 and must NOT be blocked by the hero overlay — so in that mode skip the hero entirely.
+const _heroOff=new URLSearchParams(location.search).get("noauto");
+if(_heroOff){ const _h=$("hero"); if(_h) _h.style.display="none"; }
+else { $("bar").style.display="none"; }   // hero is up first
+function leaveHero(){ const h=$("hero"); if(h) h.style.display="none"; $("bar").style.display="flex"; }
+window.__leaveHero=leaveHero;
+function submitHero(){ const v=($("addrHero").value||"").trim(); if(!v){ const a=$("addrHero"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } $("addr").value=v; leaveHero(); run(v); }
+$("goHero").onclick=submitHero;
+$("addrHero").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); submitHero(); } });
+$("heroSample").onclick=()=>{ $("addrHero").value=SAMPLE_ADDR; submitHero(); };
 // Escape closes the topmost open overlay (report sits above the lead modal)
 document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
   if($("report")&&$("report").style.display==="block"){ window.__closeReport(); }
@@ -2460,7 +2623,10 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
   await google.maps.importLibrary("places");
   const ac=new google.maps.places.Autocomplete($("addr"), { types:["address"], fields:["formatted_address","geometry"] });
   ac.addListener("place_changed",()=>{ const pl=ac.getPlace(); if(pl&&pl.formatted_address){ $("addr").value=pl.formatted_address; $("go").click(); } });
-}catch(_){ /* input still works as a plain text field */ } })();
+  // same typeahead on the hero's prominent address box
+  const acH=new google.maps.places.Autocomplete($("addrHero"), { types:["address"], fields:["formatted_address","geometry"] });
+  acH.addListener("place_changed",()=>{ const pl=acH.getPlace(); if(pl&&pl.formatted_address){ $("addrHero").value=pl.formatted_address; $("addr").value=pl.formatted_address; if(typeof window.__leaveHero==="function") window.__leaveHero(); run(pl.formatted_address); } });
+}catch(_){ /* inputs still work as plain text fields */ } })();
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
 // exits any 2D analysis (sun or material) + restores 3D
 function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
@@ -2854,7 +3020,10 @@ $("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__
 { const _qp=new URLSearchParams(location.search);
   const _a=_qp.get("a"); if(_a) $("addr").value=_a;                 // restore a shared quote's address
   window.__restoreMat=_qp.get("m")||null; window.__restoreCol=_qp.get("c")||null;   // optional shared material/colour
-  if(!_qp.get("noauto")) run($("addr").value.trim()); }
+  // auto-run ONLY when an address is actually present (e.g. a shared ?a= quote). With the empty
+  // default the landing HERO stays up until the buyer enters their address — never run("").
+  const _addr0=$("addr").value.trim();
+  if(!_qp.get("noauto") && _addr0) run(_addr0); }
 </script>
 <script type="module">
   try{ const m=await import("/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
