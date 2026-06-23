@@ -329,7 +329,7 @@ export default function SettingsTab({
                       className="qq-brand-badge-link"
                       data-testid="settings-brand-badge-upgrade"
                     >
-                      Upgrade to Pro ($29/mo) to remove it →
+                      Upgrade to Pro ($19/mo) to remove it →
                     </a>
                   </>
                 )}

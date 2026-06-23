@@ -126,7 +126,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     seoTitle: "QuoteQuick vs Jobber, ServiceTitan, Housecall Pro | WeFixTrades",
     seoDescription:
       "Compare QuoteQuick to Jobber, ServiceTitan, and Housecall Pro. AI-powered instant quotes, embeddable widget, no manual work.",
-    // Wave Q — three-tier ladder. Free forever, paid plans start at $29/mo (Pro).
+    // Three-tier ladder. Free forever, paid plans start at $19/mo (Pro) — lowest on market.
     weFixTradesPrice: `Free + from ${formatPrice(getTier(QUOTEQUICK, "Pro")!.price)}/mo`,
     competitors: [
       { name: "Jobber", price: "$30–$100/mo" },

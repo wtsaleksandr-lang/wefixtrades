@@ -588,7 +588,7 @@ const DEMO_FAQ_ITEMS = [
   {
     question: "Is there a free trial?",
     answer:
-      "Yes — QuoteQuick has a Free forever plan. Try the full demo on this page to see exactly how it works. Paid plans start at $29/mo (Pro removes the WeFixTrades badge + adds custom domain & SMS). No contracts — cancel anytime.",
+      "Yes — QuoteQuick has a Free forever plan. Try the full demo on this page to see exactly how it works. Paid plans start at just $19/mo (Pro removes the WeFixTrades badge + adds custom domain & SMS) — the lowest-priced paid quote tool on the market. No contracts — cancel anytime.",
   },
 ];
 

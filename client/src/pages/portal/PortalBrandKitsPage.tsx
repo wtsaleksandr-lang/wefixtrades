@@ -186,7 +186,7 @@ export default function PortalBrandKitsPage() {
               <Sparkles size={14} aria-hidden="true" /> Brand Kits require Pro
             </strong>
             <p style={{ margin: 0, color: "#475569", fontSize: 13 }}>
-              Upgrade at least one QuoteQuick calculator to Pro ($29/mo) to unlock reusable
+              Upgrade at least one QuoteQuick calculator to Pro ($19/mo) to unlock reusable
               Brand Kits, custom CSS, image backgrounds, and step animations.
             </p>
             <a
