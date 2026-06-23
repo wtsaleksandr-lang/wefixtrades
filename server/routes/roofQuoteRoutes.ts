@@ -18,6 +18,7 @@
 
 import type { Express, Request, Response } from "express";
 import { readFileSync } from "fs";
+import { createHash } from "node:crypto";
 import path from "path";
 import { createLogger } from "../lib/logger";
 import { storage } from "../storage";
@@ -40,6 +41,15 @@ import {
 } from "../services/roofQuote/roofQuoteService";
 
 const log = createLogger("RoofQuote");
+
+// Same client-IP resolution leadRoutes uses (proxy-aware). The raw IP is never
+// stored — only a SHA-256 hash, so the consent record is privacy-preserving but
+// still correlatable with access logs if a TCPA/consent challenge ever arises.
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+    || req.ip
+    || "unknown";
+}
 
 const ASSET_DIR = path.join(process.cwd(), "server", "roofQuote", "assets");
 const tilesKey = (): string =>
@@ -426,6 +436,34 @@ export function registerRoofQuoteRoutes(app: Express) {
         return res.json({ ok: true, persisted: false, deduped: true });
       }
 
+      // ── Privacy/consent audit trail ───────────────────────────────────────
+      // The widget's lead modal shows an always-visible consent + Privacy Policy
+      // notice directly above the submit button; submitting it IS the consent
+      // event. Record WHAT they agreed to (consent_text_version), WHEN
+      // (consent_timestamp), HOW (consent_method="widget_submit") and WHERE
+      // (consent_url = the homeowner-facing page). IP hash + user-agent are
+      // computed/captured server-side (never trusted from the client), mirroring
+      // the /api/leads path. sms_consent is intentionally NOT set true here — the
+      // widget has no SMS opt-in checkbox, so homeowner-SMS stays fail-safe off.
+      const consentTimestamp = typeof body.consent_timestamp === "string" && body.consent_timestamp.trim()
+        ? new Date(body.consent_timestamp)
+        : new Date();
+      const consentTextVersion = typeof body.consent_text_version === "string" && body.consent_text_version.trim()
+        ? body.consent_text_version.trim().slice(0, 50)
+        : null;
+      const consentUrl = typeof body.consent_url === "string" && body.consent_url.trim()
+        ? body.consent_url.trim().slice(0, 500)
+        : null;
+      const consentMethod = typeof body.consent_method === "string" && body.consent_method.trim()
+        ? body.consent_method.trim().slice(0, 20)
+        : "widget_submit";
+      const rawIp = getClientIp(req);
+      const consentIpHash = rawIp && rawIp !== "unknown"
+        ? createHash("sha256").update(rawIp).digest("hex")
+        : null;
+      const rawUserAgent = (req.headers["user-agent"] as string | undefined) ?? null;
+      const consentUserAgent = rawUserAgent ? rawUserAgent.slice(0, 200) : null;
+
       const lead = await storage.createLead({
         calculator_id: calc.id,
         name,
@@ -433,6 +471,13 @@ export function registerRoofQuoteRoutes(app: Express) {
         phone,
         quote_amount: quoteAmount,
         answers,
+        // sms_consent left at its default (false) — no SMS opt-in in the widget.
+        consent_timestamp: consentTimestamp,
+        consent_text_version: consentTextVersion,
+        consent_url: consentUrl,
+        consent_ip_hash: consentIpHash,
+        consent_user_agent: consentUserAgent,
+        consent_method: consentMethod,
       });
 
       // Same notification/followup pipeline the wizard lead step uses — emails the

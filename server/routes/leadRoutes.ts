@@ -47,7 +47,7 @@ const createLeadBody = z.object({
   // the server below (never trust the client for those).
   consent_url: z.string().max(500).nullable().optional(),
   consent_method: z
-    .enum(["web_form", "sms_keyword", "phone_call", "paper"])
+    .enum(["web_form", "sms_keyword", "phone_call", "paper", "widget_submit"])
     .nullable()
     .optional(),
   coupon_code: z.string().nullable().optional(),
@@ -360,13 +360,23 @@ export function registerLeadRoutes(app: Express): void {
 
       const safeQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
 
-      // Wave 79 — TCPA audit trail. Capture immutable context at the moment
-      // of consent so we can defend a future challenge: which URL the
-      // homeowner consented on, a SHA-256 of their IP (privacy-preserving
-      // — enough to correlate with access logs without storing raw PII),
-      // and a truncated user-agent. Only populated when sms_consent=true;
-      // a row without SMS consent doesn't need audit metadata.
-      const consentHasContext = !!parsed.data.sms_consent;
+      // Wave 79 — TCPA / privacy audit trail. Capture immutable context at the
+      // moment of consent so we can defend a future challenge: which URL the
+      // homeowner consented on, a SHA-256 of their IP (privacy-preserving —
+      // enough to correlate with access logs without storing raw PII), and a
+      // truncated user-agent.
+      //
+      // Originally gated on sms_consent only. Now ALSO records a general
+      // data-sharing consent event: the embedded roof/solar widget shows an
+      // always-visible consent + Privacy Policy notice above its submit button
+      // (consent_method="widget_submit") with sms_consent=false. Whenever the
+      // client sends ANY consent signal (a method, a version, or sms_consent),
+      // we stamp the full audit metadata so the consent the homeowner gave is
+      // recorded — not just the SMS-specific case.
+      const consentHasContext =
+        !!parsed.data.sms_consent ||
+        !!parsed.data.consent_method ||
+        !!parsed.data.consent_text_version;
       const rawIp = consentHasContext ? getClientIp(req) : null;
       const consentIpHash = rawIp && rawIp !== "unknown"
         ? createHash("sha256").update(rawIp).digest("hex")
@@ -407,10 +417,15 @@ export function registerLeadRoutes(app: Express): void {
         answers: parsed.data.answers || null,
         status: 'new',
         sms_consent: parsed.data.sms_consent || false,
-        consent_timestamp: parsed.data.sms_consent && parsed.data.consent_timestamp
+        // Stamp timestamp/version for ANY consent event (SMS opt-in OR the
+        // widget's general data-sharing consent), keyed off the same
+        // consentHasContext gate as the audit fields below.
+        consent_timestamp: consentHasContext && parsed.data.consent_timestamp
           ? new Date(parsed.data.consent_timestamp)
-          : null,
-        consent_text_version: parsed.data.sms_consent && parsed.data.consent_text_version
+          : consentHasContext
+            ? new Date()
+            : null,
+        consent_text_version: consentHasContext && parsed.data.consent_text_version
           ? parsed.data.consent_text_version
           : null,
         // Wave 79 — TCPA audit trail fields. Forward-only; pre-existing

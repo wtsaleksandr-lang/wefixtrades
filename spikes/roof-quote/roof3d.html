@@ -275,6 +275,10 @@
   #lead .lqp{flex:0 0 auto;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:6px 10px;color:#64748b;font-size:12px;font-weight:700;cursor:pointer}
   #lead .lqp.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #lead #lgo{width:100%;background:#0d3cfc;border:0;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;color:#ffffff;cursor:pointer;margin-top:4px;box-shadow:var(--btn-shadow)}
+  /* Always-visible consent + privacy notice directly above the submit button.
+     Theme-aware (uses --muted), inline-friendly, kept small but legible. */
+  #lead .lead-consent{font-size:11px;line-height:1.45;color:var(--muted);margin:10px 0 0;text-align:left}
+  #lead .lead-consent a{color:var(--muted);text-decoration:underline}
   #lead .lead-x{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;cursor:pointer}
   /* reusable info modal (material + data help cues) */
   #infoModal{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px}
@@ -507,6 +511,7 @@
         <div class="lq-row"><button type="button" class="lqp" data-p="Lower my bill">Lower my bill</button><button type="button" class="lqp" data-p="Backup power">Backup power</button><button type="button" class="lqp" data-p="Go green">Go green</button><button type="button" class="lqp" data-p="Best price">Best price</button></div>
       </div>
     </div>
+    <p class="lead-consent" id="leadConsent">By submitting, you agree to share these details with <span id="leadConsentCo">this business</span> and WeFixTrades to prepare your quote. See our <a href="https://wefixtrades.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
     <button id="lgo">See my full quote</button>
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
@@ -519,6 +524,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const $=id=>document.getElementById(id);
 const M2_SQFT=10.7639; const M_FT=3.28084;
 const PLAN=(new URLSearchParams(location.search).get("plan")||"free").toLowerCase();   // free shows our badge; paid = white-label
+// Privacy/consent notice version stamped on every lead the widget submits. Bump
+// when the lead-consent wording (above the submit button) materially changes so
+// the stored consent record reflects which text the homeowner actually saw.
+const LEAD_CONSENT_VERSION="roofwidget-2026-06-23";
 const errors=[]; window.__getErrors=()=>errors;
 window.addEventListener("error",e=>errors.push("err:"+(e.message||e)));
 window.addEventListener("unhandledrejection",e=>errors.push("rej:"+(e.reason&&e.reason.message||e.reason)));
@@ -2382,9 +2391,14 @@ function applyAccent(){
   root.style.setProperty("--cyan",v);
   root.style.setProperty("--blue",v);
 }
+// The business name shown in the lead-consent notice ("share these details with
+// {company}"). Falls back to "this business" when the tenant hasn't set a company.
+function consentCompany(){ const c=(TENANT.trade&&typeof TENANT.trade.company==="string")?TENANT.trade.company.trim():""; return c||"this business"; }
+function applyConsentCompany(){ const el=$("leadConsentCo"); if(el) el.textContent=consentCompany(); }
 function applyTenant(){
   // Feature gates that toggle DOM at runtime.
   const lq=$("lqual"); if(lq) lq.style.display=TENANT.features.leadQual?"":"none";
+  applyConsentCompany();
   applyAccent();
   // Re-render the quote card so financing/feature toggles (battery/EV/SREC/lease/
   // size-slider) + any branding the card surfaces reflect the new config. Guarded
@@ -2415,8 +2429,21 @@ function bridgeLeadToHost(payload){
 function leadAttr(){ try{ const q=new URLSearchParams(location.search); const calc=q.get("calc")||"", slug=q.get("slug")||""; return {calc,slug}; }catch(_){ return {calc:"",slug:""}; } }
 function leadUrl(){ const {calc,slug}=leadAttr(); const qs=new URLSearchParams(); if(calc) qs.set("calc",calc); if(slug) qs.set("slug",slug); const s=qs.toString(); const base=(typeof RQ_BASE!=="undefined"?RQ_BASE:"")+"/lead"; return base+(s?("?"+s):""); }
 function withAttr(payload){ const {calc,slug}=leadAttr(); const out=Object.assign({},payload); if(calc&&/^\d+$/.test(calc)&&out.calculator_id==null) out.calculator_id=Number(calc); if(slug&&!out.slug) out.slug=slug; return out; }
+// Stamp the privacy-consent audit fields onto every lead payload. The always-
+// visible notice above the submit button IS the consent surface, so submitting
+// the form = consenting to the data-sharing described there. IP hash + user-agent
+// are computed server-side (never trusted from the client). sms_consent is left
+// unset — the widget has no SMS opt-in checkbox, so homeowner-SMS must not fire.
+function withConsent(payload){
+  const out=Object.assign({},payload);
+  out.consent_timestamp=new Date().toISOString();
+  out.consent_method="widget_submit";
+  out.consent_text_version=LEAD_CONSENT_VERSION;
+  try{ out.consent_url=location.href; }catch(_){ out.consent_url=null; }
+  return out;
+}
 async function sendLead(payload){
-  payload=withAttr(payload);
+  payload=withAttr(withConsent(payload));
   bridgeLeadToHost(payload);
   try{ const r=await fetch(leadUrl(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); if(!r||!r.ok) throw 0; return true; }
   catch(_){ try{ const q=JSON.parse(localStorage.getItem("__qqLeadQ")||"[]"); q.push(Object.assign({_queuedAt:Date.now()},payload)); localStorage.setItem("__qqLeadQ",JSON.stringify(q.slice(-50))); }catch(__){} return false; }

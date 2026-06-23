@@ -1959,6 +1959,15 @@ function RoofVisualizerEmbed({
         email: typeof p.email === 'string' ? p.email : null,
         phone: typeof p.phone === 'string' && p.phone ? p.phone : null,
         quote_amount: Number.isFinite(priceHi) && priceHi > 0 ? Math.round(priceHi) : null,
+        // Privacy/consent audit trail forwarded from the widget's lead-consent
+        // notice (always-visible above its submit button). sms_consent stays
+        // unset — the widget has no SMS opt-in, so homeowner-SMS won't fire. The
+        // server hashes the IP + captures the user-agent; we only relay the
+        // client-known fields (timestamp/method/version/url).
+        consent_timestamp: typeof p.consent_timestamp === 'string' ? p.consent_timestamp : null,
+        consent_method: typeof p.consent_method === 'string' ? p.consent_method : null,
+        consent_text_version: typeof p.consent_text_version === 'string' ? p.consent_text_version : null,
+        consent_url: typeof p.consent_url === 'string' ? p.consent_url : null,
         answers: {
           source: 'roof_visualizer',
           address: p.address ?? null,
