@@ -216,6 +216,7 @@ const InstallQueuePage = lazy(() => import("@/pages/admin/InstallQueuePage"));
 const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
 const MarketingHubPage = lazy(() => import("@/pages/portal/MarketingHubPage"));
 const PortalCalculatorAnalytics = lazy(() => import("@/pages/portal/PortalCalculatorAnalytics"));
+const PortalLeadAnalytics = lazy(() => import("@/pages/portal/PortalLeadAnalytics"));
 const PortalServices = lazy(() => import("@/pages/portal/PortalServices"));
 const PortalReviews = lazy(() => import("@/pages/portal/PortalReviews"));
 const PortalCompetitors = lazy(() => import("@/pages/portal/PortalCompetitors"));
@@ -516,6 +517,7 @@ function Router() {
       <Route path="/portal/quotequick/brand">{() => <RequireClient><QuoteQuickBrandSettings /></RequireClient>}</Route>
       <Route path="/portal/quotequick/builder">{() => <RequireClient><QuoteQuickFormBuilderPage /></RequireClient>}</Route>
       <Route path="/portal/quotequick/notifications">{() => <RequireClient><QuoteQuickNotificationSettings /></RequireClient>}</Route>
+      <Route path="/portal/quotequick/leads">{() => <RequireClient><PortalLeadAnalytics /></RequireClient>}</Route>
       {/* Wave 30 — AdFlow UI upgrade routes. Trade-first dashboard,
           3-question setup wizard, notification preferences. Mounted above
           the legacy /portal/services/:id route which would otherwise
