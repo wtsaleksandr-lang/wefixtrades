@@ -359,6 +359,7 @@
   <div id="card"></div>
   <div id="ctrls">
     <button id="bPanels" class="on" title="Solar panels"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="11" rx="1"/><path d="M3 9.2h18M3 12.8h18M9 5.5v11M15 5.5v11"/></svg><span>Panels</span></button>
+    <button id="bModel" title="Clean 3D model"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Model</span></button>
     <button id="bSun" title="Sun &amp; shade"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></svg><span>Sun</span></button>
     <button id="bLabels" title="Measurements"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l4-4 13 13-4 4z"/><path d="M7.5 7.5l1.8 1.8M10.5 10.5l1.8 1.8M13.5 13.5l1.8 1.8"/></svg><span>Measure</span></button>
     <button id="bRoof" title="Roof materials &amp; colors" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Materials</span></button>
@@ -564,6 +565,9 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
+// Photographic falloff so the grey clay model reads as a real architectural model, not a flat toy.
+// Safe for photoreal too — that's a separate Google Map3D surface, not this WebGL scene.
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0xeef1f6);   // light pre-load sky to match the wizard surface
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.5,4000);
 const controls=new OrbitControls(camera,canvas);
@@ -573,7 +577,16 @@ const sun=new THREE.DirectionalLight(0xfff4e0,2.6); sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0005; sun.shadow.normalBias=0.04;
 scene.add(sun); scene.add(sun.target);
 const ambient=new THREE.AmbientLight(0xbfd4ff,0.42); scene.add(ambient);
-scene.add(new THREE.HemisphereLight(0xcfe3ff,0x2a3340,0.45));
+const hemi=new THREE.HemisphereLight(0xcfe3ff,0x2a3340,0.45); scene.add(hemi);
+// "Model" (Scanifly-style clay) lens palette + surface — a single neutral matte grey across
+// roof+walls reads FORM, not material; light studio floor receives a soft contact shadow.
+const GREY_SURFACE=0xeef1f6;   // wizard surface colour the grey-model background is pinned to
+const GREY={
+  roof:new THREE.MeshStandardMaterial({color:0x9aa0a8,roughness:0.92,metalness:0,side:THREE.DoubleSide}),
+  wall:new THREE.MeshStandardMaterial({color:0x8b9098,roughness:0.95,metalness:0,side:THREE.DoubleSide}),
+  ground:new THREE.MeshStandardMaterial({color:0xe3e7ec,roughness:1,metalness:0}),
+  edge:new THREE.LineBasicMaterial({color:0x6b7280,transparent:true,opacity:0.35})
+};
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
 /* site + scene scale, driven by the sun-path UI */
 let SITE={lat:43.219,lng:-79.782}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-4, siteAlt=115, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
@@ -1113,11 +1126,13 @@ async function applyTradeMode(){
   const solar=tradeMode==="solar";
   // exit any open tool first → clean 3D house (a CATEGORY switch never auto-opens a tool)
   matMode=false; sunMode=false; labelsVisible=false;
+  if(typeof exitGrey==="function") exitGrey();
   $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on");
   if(typeof exitMatCatalogue==="function") exitMatCatalogue();
   clearHeat(); clearLabels(); clearRoofMeas(); showAnalysis(null); document.body.classList.remove("analyzing");
-  // BOTTOM tools are contextual to the TOP category: Solar → Panels / Sun ; Roofing → Materials (Measure + Reset shared)
+  // BOTTOM tools are contextual to the TOP category: Solar → Panels / Model / Sun ; Roofing → Materials (Measure + Reset shared)
   $("bPanels").style.display=solar?"flex":"none";
+  $("bModel").style.display=solar?"flex":"none";
   $("bSun").style.display=solar?"flex":"none";
   $("bRoof").style.display=solar?"none":"flex";
   if(solar){ panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"&&gmap){ try{ await buildPhotoPanels(); }catch(_){} } }
@@ -1130,10 +1145,12 @@ function updateSun(){
   const lbl=$("sTimeV"); if(lbl){ const h=Math.floor(sunHourLocal), m=Math.round((sunHourLocal-h)*60);
     const ap=h>=12?"PM":"AM", h12=((h+11)%12)+1; lbl.textContent=h12+":"+String(m).padStart(2,"0")+" "+ap; }
   const mv=$("sMonthV"); if(mv) mv.textContent=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][sunMonth-1];
-  if(sp.altitude<=1){ sun.intensity=0.15; ambient.intensity=0.55; scene.background.setHex(0x0a0e16); return; }
+  if(sp.altitude<=1){ sun.intensity=0.15; ambient.intensity=0.55; if(!greyMode) scene.background.setHex(0x0a0e16); else scene.background.setHex(GREY_SURFACE); return; }
   sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=0.42;
-  // dusk tint when low
-  scene.background.setHex(sp.altitude<8?0x10131c:0x0b1017);
+  // dusk tint when low — but the grey "Model" lens stays a calm light studio surface
+  // (Scanifly-style); only the sun INTENSITY drops so shadows still lengthen at dusk.
+  if(!greyMode) scene.background.setHex(sp.altitude<8?0x10131c:0x0b1017);
+  else scene.background.setHex(GREY_SURFACE);
   const a=sp.azimuth*Math.PI/180, e=sp.altitude*Math.PI/180;
   const dir=new THREE.Vector3(Math.sin(a)*Math.cos(e), Math.sin(e), -Math.cos(a)*Math.cos(e));
   sun.position.copy(controls.target).addScaledVector(dir, SCENE_R*2.2);
@@ -1149,8 +1166,11 @@ function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.g
 
 /* build the textured DSM mesh + panels */
 let panelMesh=null;
+let modelSkin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
 function buildScene(b, dsm, rgb, rgbTex){
   clearWorld(); schemLabels=[];
+  // collects refs so the grey "Model" lens can re-skin meshes WITHOUT rebuilding geometry
+  const skin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
   const {bbox}=dsm, zone=dsm.zone;
   const E0=(bbox[0]+bbox[2])/2, N0=(bbox[1]+bbox[3])/2;
   const extE=bbox[2]-bbox[0], extN=bbox[3]-bbox[1];
@@ -1171,14 +1191,31 @@ function buildScene(b, dsm, rgb, rgbTex){
   const uvOf=(E,N)=>[ (E-rb[0])/(rb[2]-rb[0]), (rb[3]-N)/(rb[3]-rb[1]) ];
   const toLocal=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,zone); return {x:E-CE,z:-(N-CN),E,N}; };
 
-  // ground plane — flat, razor-sharp aerial photo (no smear because it's flat)
+  // ground plane — flat, razor-sharp aerial photo (no smear because it's flat).
+  // In the grey "Model" lens it becomes a clean light studio floor (GREY.ground) that
+  // RECEIVES the building's contact shadow. We keep the photo material for swap-back.
   {
     const g=new THREE.PlaneGeometry(CROP*2,CROP*2,1,1); g.rotateX(-Math.PI/2);
     const gp=g.attributes.position, gu=g.attributes.uv;
     for(let i=0;i<gp.count;i++){ const E=CE+gp.getX(i), N=CN-gp.getZ(i); const [u,v]=uvOf(E,N); gu.setXY(i,u,v); }
     gu.needsUpdate=true; g.computeVertexNormals();
-    const gm=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:rgbTex,roughness:1,metalness:0}));
+    const photoGroundMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:1,metalness:0});
+    const gm=new THREE.Mesh(g,photoGroundMat);
     gm.receiveShadow=true; worldGroup.add(gm);
+    skin.ground=gm; skin.groundPhotoMat=photoGroundMat;
+  }
+  // baked soft contact shadow under the building (radial-gradient sprite on the floor) —
+  // ~0-cost "real vs cardboard" lever for the grey lens; hidden in the photo lens.
+  {
+    const cc=document.createElement("canvas"); cc.width=cc.height=256;
+    const cx=cc.getContext("2d"), gr=cx.createRadialGradient(128,128,8,128,128,124);
+    gr.addColorStop(0,"rgba(20,26,34,0.42)"); gr.addColorStop(0.55,"rgba(20,26,34,0.18)"); gr.addColorStop(1,"rgba(20,26,34,0)");
+    cx.fillStyle=gr; cx.fillRect(0,0,256,256);
+    const ctex=new THREE.CanvasTexture(cc);
+    const csz=CROP*1.5, cg=new THREE.PlaneGeometry(csz,csz); cg.rotateX(-Math.PI/2);
+    const cm=new THREE.Mesh(cg,new THREE.MeshBasicMaterial({map:ctex,transparent:true,depthWrite:false}));
+    cm.position.set(0,0.04,0); cm.renderOrder=1; cm.visible=false; worldGroup.add(cm);
+    skin.contact=cm;
   }
 
   // roof facets — plan footprint is EXACT (bbox), tilted to real pitch/azimuth, photo-textured + cyan outline
@@ -1187,6 +1224,7 @@ function buildScene(b, dsm, rgb, rgbTex){
   const facetInfo=[];
   const roofMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:0.9,metalness:0,side:THREE.DoubleSide});
   const wallMat=new THREE.MeshStandardMaterial({color:0xcabfae,roughness:1,metalness:0,side:THREE.DoubleSide});
+  skin.roofPhotoMat=roofMat;
   for(let si=0;si<segs.length;si++){
     const seg=segs[si], bb=seg.boundingBox;
     if(!bb||!bb.sw||!bb.ne){ facetInfo.push(null); continue; }
@@ -1207,15 +1245,16 @@ function buildScene(b, dsm, rgb, rgbTex){
     fg.setFromPoints([V[0],V[1],V[2], V[0],V[2],V[3]]);
     fg.setAttribute("uv",new THREE.Float32BufferAttribute([...UVs[0],...UVs[1],...UVs[2], ...UVs[0],...UVs[2],...UVs[3]],2));
     fg.computeVertexNormals();
-    const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm);
+    const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm); skin.roofMeshes.push(fm);
     // walls: extrude each footprint edge down to the ground so the building reads as a solid mass
     const wp=[];
     for(let k=0;k<4;k++){ const a=V[k], b=V[(k+1)%4], ag=new THREE.Vector3(a.x,0,a.z), bg=new THREE.Vector3(b.x,0,b.z);
       wp.push(a,ag,bg, a.clone(),bg.clone(),b); }
     const wg=new THREE.BufferGeometry().setFromPoints(wp); wg.computeVertexNormals();
-    const wm=new THREE.Mesh(wg,wallMat); wm.castShadow=true; wm.receiveShadow=true; worldGroup.add(wm);
+    const wm=new THREE.Mesh(wg,wallMat); wm.castShadow=true; wm.receiveShadow=true; worldGroup.add(wm); skin.wallMeshes.push(wm);
     const eg=new THREE.BufferGeometry().setFromPoints([V[0],V[1],V[2],V[3],V[0]]);
-    worldGroup.add(new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5})));
+    const edgeLine=new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5}));
+    edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
     // per-facet sq-ft + pitch label
     const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
     const x12=Math.round(Math.abs(Math.tan((seg.pitchDegrees||0)*Math.PI/180))*12);
@@ -1256,8 +1295,35 @@ function buildScene(b, dsm, rgb, rgbTex){
   controls.minDistance=10; controls.maxDistance=span*2.0;
   // shadow frustum sized to the scene; sun driven by the sun-path UI
   SCENE_R=span; const sc=sun.shadow.camera; sc.near=0.5; sc.far=span*6; sc.left=sc.bottom=-span; sc.right=sc.top=span; sc.updateProjectionMatrix();
+  modelSkin=skin;
+  applyModelSkin(greyMode);   // honour the active lens if the scene was rebuilt while Model was on
   updateSun();
   controls.update();
+}
+
+/* Re-skin the existing schematic meshes into the Scanifly-style grey clay "Model" lens
+   (or restore the aerial-photo schematic) WITHOUT rebuilding geometry. */
+function applyModelSkin(grey){
+  const s=modelSkin; if(!s) return;
+  for(const m of s.roofMeshes){ m.material=grey?GREY.roof:s.roofPhotoMat; }
+  for(const m of s.wallMeshes){ if(m.userData.wallPhotoMat===undefined) m.userData.wallPhotoMat=m.material; m.material=grey?GREY.wall:m.userData.wallPhotoMat; }
+  for(const e of s.edges){ e.material=grey?GREY.edge:(e.userData.schemMat||e.material); }
+  if(s.ground) s.ground.material=grey?GREY.ground:s.groundPhotoMat;
+  if(s.contact) s.contact.visible=grey;
+  // neutralise the sun + lift the soft fill so flat grey doesn't read as cardboard
+  sun.color.setHex(grey?0xfff8f0:0xfff4e0);
+  hemi.intensity=grey?0.6:0.45;
+  // grey-model labels are about geometry+shade, not numbers — keep the ft²/pitch chips off
+  if(grey) setSchemLabels(false);
+}
+// Leave the grey "Model" lens (called when another exclusive lens is entered). Restores the
+// aerial-photo schematic skin + clears the Model button + hint. Does NOT itself switch mode.
+function exitGrey(){
+  if(!greyMode) return;
+  greyMode=false; const b=$("bModel"); if(b) b.classList.remove("on");
+  applyModelSkin(false); if(typeof setSchemLabels==="function") setSchemLabels(true);
+  if(panelMesh) panelMesh.visible=true;
+  const mh=$("matHint"); if(mh){ mh.style.display="none"; }
 }
 
 /* ---------- run ---------- */
@@ -1333,7 +1399,7 @@ async function run(addr){
     setStatus("Couldn’t build 3D: "+e.message,true); }
 }
 /* ======================= PHOTOREAL MODE (Google 3D tiles + panels as 3D polygons) ======================= */
-let gmap=null, photoPanels=[], photoLabels=[], mode="schematic", sunMode=false, panelsVisible=true, labelsVisible=false;
+let gmap=null, photoPanels=[], photoLabels=[], mode="schematic", sunMode=false, panelsVisible=true, labelsVisible=false, greyMode=false;
 let schemLabels=[];   // per-facet "ft² · pitch" sprites baked into the schematic scene — toggled off in the Sun lens so it shows clean shadows/heatmap
 function setSchemLabels(vis){ for(const l of schemLabels){ try{ l.visible=vis; }catch(_){} } }
 window.__schemInfo=()=>({n:schemLabels.length, vis:schemLabels.filter(l=>l&&l.visible).length});
@@ -2205,12 +2271,26 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
 function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
 // ── Sun & Shade lens: a 3D SHADOW PLAY (real shadows sweep the roof as you scrub/play the day) with a toggle to the annual sun-map heatmap ──
 let sunAnim=null;
-// The animated "shadows" sub-view uses a hand-built schematic model (extruded walls + DSM roof planes) that
-// looks like a crude toy next to Google's photoreal tiles. Until that can be done on realistic geometry, the
-// Sun lens is the photoreal sun-EXPOSURE heatmap only (painted on the real 3D building). Flip true to restore.
-const SUN_SHADOWS=false;
+// The animated "shadows" sub-view renders real moving sun-shadows on the grey "Model" lens
+// (Scanifly-style clay massing). Now that the schematic model has a presentable grey skin
+// (applyModelSkin), the shadow play looks professional rather than like a toy, so it's enabled.
+const SUN_SHADOWS=true;
 function stopSunPlay(){ if(sunAnim){ clearInterval(sunAnim); sunAnim=null; } const b=$("sPlay"); if(b){ b.textContent="▶ Play day"; b.classList.remove("on"); } }
 async function applySunView(){
+  // SHADOW PLAY sub-view: when the grey "Model" lens is mounted, keep the Three.js scene and
+  // let the directional sun cast real moving shadows on the clay model (sunbar visible). This
+  // is the Scanifly-style intuition view. Otherwise fall through to the annual flux heatmap.
+  if(SUN_SHADOWS && greyMode && window.__sunView==="shadows"){
+    stopSunPlay(); setSchemLabels(false); showAnalysis(null);
+    if(mode!=="schematic") await setMode("schematic");
+    // force the Three.js scene to the front: the photoreal map div + any 2D analysis
+    // overlay must be hidden so the grey model's cast shadows are what's visible.
+    $("gmapWrap").style.display="none"; $("scene").style.display="block";
+    applyModelSkin(true);
+    if(panelMesh) panelMesh.visible=false;
+    $("sunbar").style.display="flex"; updateSun();
+    showLoad(false); return;
+  }
   showLoad("Mapping sun…"); stopSunPlay(); setSchemLabels(false);
   window.__sunView="map";
   // Smooth, Sunroof/Aurora-style sun-exposure heatmap: per-pixel flux colour ramp composited on the top-down
@@ -2220,7 +2300,7 @@ async function applySunView(){
   $("sunbar").style.display="none";
   showLoad(false);
 }
-$("sMap").onclick=async()=>{ if(!SUN_SHADOWS) return; window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
+$("sMap").onclick=async()=>{ window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
 $("sPlay").onclick=()=>{ if(sunAnim){ stopSunPlay(); return; } const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
   sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
     let v=sunHourLocal+0.2; if(v>=20) v=5.5; sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 80); };
@@ -2229,11 +2309,44 @@ $("bSun").onclick=async()=>{
   matMode=false; $("bRoof").classList.remove("on"); labelsVisible=false; $("bLabels").classList.remove("on");
   if(sunMode){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Sun replaces the Panels view
   clearLabels(); clearPanels(); clearHeat();
-  if(sunMode){ window.__sunView=SUN_SHADOWS?(window.__sunView||"shadows"):"map"; await applySunView(); }
-  else { stopSunPlay(); setSchemLabels(true); $("sunbar").style.display="none"; showAnalysis(null); panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
+  if(sunMode){
+    // Sun layers ON whatever 3D base is mounted: on the grey Model lens it's the 3D moving-shadow
+    // play; otherwise the annual flux heatmap. (bModel stays lit — Model is the base, Sun the sub-mode.)
+    window.__sunView = SUN_SHADOWS ? (window.__sunView || (greyMode?"shadows":"map")) : "map";
+    await applySunView();
+  }
+  else {
+    stopSunPlay(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none"; showAnalysis(null);
+    if(greyMode){ if(panelMesh) panelMesh.visible=false; }   // back to the static grey Model lens
+    else { panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
+  }
+  renderQuoteCard();
+};
+$("bModel").onclick=async()=>{
+  greyMode=!greyMode; $("bModel").classList.toggle("on",greyMode);
+  // Model = the clean 3D-scene base. Entering it clears the other lenses; Sun can layer back on top.
+  sunMode=false; matMode=false; labelsVisible=false;
+  $("bSun").classList.remove("on"); $("bRoof").classList.remove("on"); $("bLabels").classList.remove("on");
+  stopSunPlay(); clearLabels(); clearPanels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas(); showAnalysis(null);
+  if(greyMode){
+    panelsVisible=false; $("bPanels").classList.remove("on");
+    if(mode!=="schematic") await setMode("schematic");
+    applyModelSkin(true);
+    if(panelMesh) panelMesh.visible=false;   // grey lens = clean geometry + shade, panels off
+    window.__sunView="shadows"; updateSun();
+    $("matHint").textContent="Clean 3D model · drag to orbit · open Sun to see shadows move";
+    $("matHint").style.display="block"; $("sunbar").style.display="none";
+  } else {
+    applyModelSkin(false); setSchemLabels(true);
+    $("matHint").style.display="none"; $("sunbar").style.display="none";
+    panelsVisible=true; $("bPanels").classList.add("on");
+    if(mode!=="photoreal") await setMode("photoreal");
+    if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false); }
+  }
   renderQuoteCard();
 };
 $("bLabels").onclick=async()=>{
+  exitGrey();   // Measure forces the photoreal base; leave the grey Model lens
   labelsVisible=!labelsVisible; $("bLabels").classList.toggle("on",labelsVisible);
   sunMode=false; matMode=false; $("bSun").classList.remove("on"); $("bRoof").classList.remove("on");
   if(labelsVisible){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Measure replaces the Panels view
@@ -2243,8 +2356,10 @@ $("bLabels").onclick=async()=>{
   renderQuoteCard();
 };
 $("bPanels").onclick=async()=>{
+  const wasGrey=greyMode; exitGrey();   // Panels forces the photoreal base; leave the grey Model lens
   panelsVisible=!panelsVisible; $("bPanels").classList.toggle("on",panelsVisible);
   if(panelsVisible){ sunMode=false; labelsVisible=false; $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearHeat(); clearLabels(); clearRoofMeas&&clearRoofMeas(); }   // exclusive lens: Panels replaces Sun/Measure
+  if(wasGrey && mode!=="photoreal"){ await setMode("photoreal"); }   // leaving the grey 3D base → restore the default "that's my house" photoreal view
   if(mode!=="photoreal"){ renderQuoteCard(); return; }
   leaveMat();
   if(panelsVisible){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else clearPanels();
@@ -2454,6 +2569,7 @@ async function enterMatCatalogue(){
   await renderColor(true); warmMats(); }
 function exitMatCatalogue(){ if(typeof hideAI==="function") hideAI(); $("matbar").style.display="none"; $("aiBar").style.display="none"; }
 $("bRoof").onclick=async()=>{
+  exitGrey();   // Materials forces the photoreal/2D base; leave the grey Model lens
   matMode=!matMode; $("bRoof").classList.toggle("on",matMode);
   if(matMode){ sunMode=false; labelsVisible=false; panelsVisible=false;
     $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); $("bPanels").classList.remove("on");
