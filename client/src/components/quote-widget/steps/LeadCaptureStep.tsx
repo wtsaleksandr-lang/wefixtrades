@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { trackEvent } from '@/lib/trackEvent';
 import { Send, Loader2, Lock } from 'lucide-react';
 import HelpTip from '../HelpTip';
-import { SmsConsentDisclosure } from '@/components/forms/SmsConsentDisclosure';
+import { SmsConsentDisclosure, SMS_CONSENT_VERSION } from '@/components/forms/SmsConsentDisclosure';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculateEstimate } from '@shared/calculateEstimate';
 import { useWidgetState } from '../useWidgetState';
@@ -173,6 +173,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
               answers: safeAnswers,
               sms_consent: smsConsent,
               consent_timestamp: smsConsent ? new Date().toISOString() : null,
+              consent_text_version: smsConsent ? SMS_CONSENT_VERSION : null,
               landing_page: window.location.href || null,
               referrer: document.referrer || null,
               utm_source: params.get('utm_source') || null,
@@ -437,7 +438,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
           gap: '5px',
         }}>
           <Lock style={{ width: 11, height: 11, opacity: 0.6 }} />
-          Your info is shared only with this business.
+          Your info goes to {config.calculator.business_name || 'this business'} (and is processed by WeFixTrades) to prepare your quote.
         </p>
       </form>
     </div>
