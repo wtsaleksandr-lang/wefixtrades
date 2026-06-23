@@ -93,6 +93,13 @@
   #card .tk-row b{color:#0f172a;font-weight:600}
   #card .qfin{font-size:11.5px;color:var(--muted);margin:7px 0 0;line-height:1.35}
   #card .qfin b{color:#0f172a;font-weight:800}
+  /* money-story strip: ITC line + payback/lifetime pair — supportive numbers under the headline price */
+  #card .itc-line{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#0f172a;font-weight:700;margin:6px 0 0;line-height:1.35}
+  #card .itc-line .itc-amt{color:#16a34a;font-weight:800}
+  #card .ms-pair{display:flex;gap:7px;margin-top:8px}
+  #card .ms-cell{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+  #card .ms-cell .msv{font-size:15px;font-weight:800;color:#0f172a;line-height:1.1;display:flex;align-items:center;flex-wrap:wrap}
+  #card .ms-cell .msl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;line-height:1.2}
   #baHandle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.35);z-index:18;cursor:ew-resize;touch-action:none}
   #baHandle .ba-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#0d3cfc}
   .ba-tag{position:absolute;top:12px;z-index:18;background:rgba(16,22,33,.72);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
@@ -666,7 +673,17 @@ async function pvwattsFallback(ll){ try{ const kw=6;
     '<div class="qfin" style="margin-top:6px">We couldn’t pull detailed roof imagery here, but for your exact location a '+kw+' kW system would produce ~<b>'+prod.toLocaleString()+' kWh/yr</b>. A quick site visit confirms the roof fit and final price.</div>'+
     '<button class="rcta" style="margin-top:10px;width:100%" onclick="window.__book&&window.__book()">Get my custom on-site quote →</button>';
   return true; }catch(_){ return false; } }
-function creditTxt(){ return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
+function creditTxt(){ const r=itcRate(); if(r>0) return 'after est. '+Math.round(r*100)+'% federal tax credit'; return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
+/* ── Federal solar Investment Tax Credit (ITC) ──
+   30% of the installed system cost, current through 2032 (US only; Canada has no US ITC).
+   Hedged everywhere it shows: labelled an ESTIMATE + "consult a tax professional" — it's a
+   tax claim, not a guarantee. itcRate() is the single source of truth; REGION.credit stays
+   per-region (kept 0) for any future state-specific overlay, but the federal ITC is wired here. */
+function itcRate(){ const c=window.__regionCode; if(c && CA_PROV.has(c)) return 0; return US_STATES.has(c) ? 0.30 : (REGION===DEFAULT_REGION ? 0.30 : 0); }
+function itcAmount(grossCost){ return Math.round((grossCost||0)*itcRate()); }
+/* effective solar incentive fraction used by the financing/net-cost math: prefer the real
+   federal ITC; fall back to any region-specific credit if ITC doesn't apply. */
+function solarIncentiveRate(){ const r=itcRate(); return r>0 ? r : (REGION.credit||0); }
 /* 25-yr cumulative solar savings + payback, as an inline SVG (no chart lib) */
 function savingsModel(kwhAc, netCost){
   const rate=REGION.rate, esc=0.035, yrs=25; let cum=0, payback=0; const pts=[];
@@ -776,9 +793,9 @@ function measureCardBody(){
   const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
   return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+confidencePct(t)+'%</span>'+HCUE("measure")+'</div>'+
     '<div class="qsub">Measured from aerial 3D imagery — edge lengths + areas for the takeoff. Confirm on site before ordering materials.</div>'+
-    '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares</div></div>'+
+    '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
     '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
-    '<div class="stat"><div class="v">'+t.predominantPitchX12+'/12</div><div class="l">pitch</div></div></div>'+
+    '<div class="stat"><div class="v">'+t.predominantPitchX12+'/12</div><div class="l">pitch'+TCUE("pitch")+'</div></div></div>'+
     '<div class="mrows">'+row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt))+row(EDGE_COLORS.hip,"Hip",f(t.hipFt))+
     row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>';
 }
@@ -1009,7 +1026,8 @@ function renderQuoteCard(){
     const evAdd=(addEV&&evS.kw)?evS:{panels:0,kw:0,kwh:0};
     const totPanels=panels+(evAdd.panels||0), totKw=+(sysKw+(evAdd.kw||0)).toFixed(1), totKwh=sysKwh+(evAdd.kwh||0);
     const sMid=(lo+hi)/2;
-    const fin=TENANT.financing, sFin=monthly(sMid*(1-REGION.credit), fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term)
+    const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));   // net price after the 30% federal ITC (US); feeds payback + financing
+    const fin=TENANT.financing, sFin=monthly(netCost, fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term), financed on the post-ITC net cost
     const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(totKwh);
     const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
@@ -1017,7 +1035,7 @@ function renderQuoteCard(){
     const batConfig=addBattery?('<div class="opt-row" style="margin-top:6px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
       '<div class="opt-row" style="margin-top:4px"><span class="opt-l">For how long</span>'+[1,2,3].map(d=>'<button class="bd'+(backupDays===d?' on':'')+'" data-bdays="'+d+'">'+d+' day'+(d>1?'s':'')+'</button>').join('')+'</div>'+
       '<div class="opt-row" style="margin-top:4px"><span class="opt-l">Model</span>'+BATTERIES.map((bt,i)=>'<button class="btm'+(selBattery===i?' on':'')+'" data-batm="'+i+'">'+bt.label+'</button>').join('')+'</div>'+
-      '<div class="qfin" style="margin-top:5px">Covers ~<b>'+backupKwhNeed()+' kWh</b> of essentials'+(backupDays>1?' for '+backupDays+' days':'')+' — final sizing confirmed on site.</div>'):'';
+      '<div class="qfin" style="margin-top:5px">Covers ~<b>'+backupKwhNeed()+' kWh</b>'+TCUE("kwh")+' of essentials'+(backupDays>1?' for '+backupDays+' days':'')+' — final sizing confirmed on site.</div>'):'';
     const batToggle=TENANT.features.battery?('<div class="opt-row"><button class="ob'+(addBattery?' on':'')+'" data-bat>'+OB_ICON.battery+(addBattery?'✓ ':'')+'Battery storage'+(addBattery?'':' · backup power')+'</button>'+ACUE("battery")+'</div>'+
       (addBattery?('<button class="ao-sum" data-aopen="battery"><span><b>'+batCount+'× '+curBat().label+'</b> · '+(+(curBat().kwh*batCount).toFixed(1))+' kWh backup</span><span class="ao-chev">'+(aOpen==="battery"?'Done ▴':'Customize ▾')+'</span></button>'+(aOpen==="battery"?batConfig:'')):'')):'';
     const batNote='';
@@ -1050,9 +1068,18 @@ function renderQuoteCard(){
     const payOpts=[{id:"cash",label:"Cash"},{id:"loan",label:"Loan"}].concat((fin.leaseEnabled&&TENANT.features.leasePPA)?[{id:"lease",label:"Lease"}]:[]);
     const payRow='<div class="opt-row" style="margin-top:7px"><span class="opt-l">Pay with</span>'+payOpts.map(o=>'<button class="pm'+(payMode===o.id?' on':'')+'" data-pm="'+o.id+'">'+o.label+'</button>').join('')+'</div>';
     const finDisplay = payMode==="cash" ? '<div class="qfin"><b>'+fmtMoney(Math.round(sMid))+'</b> cash price · '+creditTxt()+'</div>'
-      : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA · incentives kept by the installer &amp; passed through as a lower rate')
+      : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA'+TCUE("ppa")+' · incentives kept by the installer &amp; passed through as a lower rate')
       : finLine(sFin, fin.solarYears+'-yr @ '+fin.solarApr+'%, '+creditTxt());
-    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits — on top of bill savings.</div>':'';
+    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits'+TCUE("srec")+' — on top of bill savings.</div>':'';
+    // ── MONEY STORY (surfaced UPFRONT, before the email wall) ──
+    // 1) the 30% federal ITC as a line that REDUCES the price (hedged: "est." + tax-pro cue)
+    // 2) payback period + 25-yr lifetime savings, computed from the post-ITC net cost
+    const itcLine=(itcR>0&&itcAmt>0)?'<div class="itc-line">−<span class="itc-amt">'+fmtMoney(itcAmt)+'</span> est. 30% federal tax credit (ITC)'+TCUE("itc")+'</div>':'';
+    const ms=totKwh?savingsModel(totKwh, netCost):null;   // payback + 25-yr cumulative net savings, on the post-ITC net price
+    const moneyStory=ms?('<div class="ms-pair">'+
+      (ms.payback?'<div class="ms-cell"><div class="msv">~'+ms.payback+' yrs</div><div class="msl">pays for itself in</div></div>':'')+
+      '<div class="ms-cell"><div class="msv">'+fmtMoney(ms.net)+'</div><div class="msl">est. 25-yr savings'+TCUE("lifetime")+'</div></div>'+
+      '</div>'):'';
     // clean default: price, savings, financing, tiers; everything else behind a Customize expander, organized into
     // a "Your system" section + contained "Add-ons" cards so it reads as tidy groups, not one long list.
     const batCard=batToggle?'<div class="addon-card">'+batToggle+batNote+'</div>':'';
@@ -1064,12 +1091,12 @@ function renderQuoteCard(){
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
     const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Customize.</div>':'';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
-      finDisplay+payRow+
-      kpiStrip+srecLine+
+      itcLine+finDisplay+payRow+
+      moneyStory+kpiStrip+srecLine+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Panels</div></div>'+
-      '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW</div></div>'+
-      '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr</div></div></div>'+
+      '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW'+TCUE("kw")+'</div></div>'+
+      '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr'+TCUE("kwhyr")+'</div></div></div>'+
       '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
       (totKwh?(()=>{ const kg=totKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
@@ -1077,7 +1104,7 @@ function renderQuoteCard(){
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
     const stats='<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
-      '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares</div></div>'+
+      '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
       '<div class="stat"><div class="v">'+QUOTE.facets+'</div><div class="l">facets</div></div></div>';
     if(sel){
       const t=getRoofTotals();
@@ -1123,8 +1150,14 @@ function renderQuoteCard(){
     }
   }
   const roofNoSel=(tradeMode==="roof" && !window.__roofSel);
+  // append plain-language cues for any incentive jargon the region note happens to mention
+  const noteCues=(s=>{ const n=REGION.note||''; let c='';
+    if(/NEM/i.test(n)) c+=TCUE("nem");
+    if(/SGIP/i.test(n)) c+=TCUE("sgip");
+    if(/net metering/i.test(n)) c+=TCUE("netmeter");
+    return c; })();
   const note=(roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
-    ? '<div class="qnote">*'+REGION.note+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
+    ? '<div class="qnote">*'+REGION.note+noteCues+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
     : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
   const cta=roofNoSel
@@ -1146,6 +1179,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-compinfo]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openInfoModal(componentModal(b.dataset.compinfo)); });
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
+  card.querySelectorAll("[data-terminfo]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openInfoModal(termModal(b.dataset.terminfo)); });
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; window.__addonOpen=addBattery?"battery":(window.__addonOpen==="battery"?null:window.__addonOpen); renderQuoteCard(); });
@@ -2108,7 +2142,7 @@ function openReport(){
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
   const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
-  const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-REGION.credit);   // MATCH the card teaser: midpoint price, incentive applied — report must never read higher than the price the homeowner just saw
+  const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-solarIncentiveRate());   // MATCH the card teaser: midpoint price, post-ITC net — report must never read higher than the price the homeowner just saw
   const heroMo=tradeMode==="roof"?moR(rhi):moS(t.lo?sFinBasis(t):rhi);
   const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(sFinBasis(x)).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
   // enriched roofing section — reflects the chosen material + spec + measured takeoff + detected penetrations
@@ -2138,7 +2172,7 @@ function openReport(){
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
-     ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-REGION.credit)); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
+     ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-solarIncentiveRate())); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
        '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
      ${(()=>{ const sa=roofSolarAccess(); if(!sa) return '';
        const rows=sa.perFace.map(f=>`<tr><td>${f.dir} · ${f.x12}/12</td><td>${f.sqft.toLocaleString()} ft²</td><td>${f.access}%</td><td>${f.tof}%</td><td><b>${f.tsrf}%</b></td></tr>`).join('');
@@ -2147,7 +2181,7 @@ function openReport(){
          <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
          <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
      ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${TENANT.financing.solarYears} yr, roofing ${TENANT.financing.roofApr}% / ${TENANT.financing.roofYears} yr. Soft-pull pre-qualification, no credit impact. ${REGION.credit>0?'Solar shown before the '+Math.round(REGION.credit*100)+'% federal tax credit.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${TENANT.financing.solarYears} yr, roofing ${TENANT.financing.roofApr}% / ${TENANT.financing.roofYears} yr. Soft-pull pre-qualification, no credit impact. ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -2344,7 +2378,7 @@ const ADD_INFO={
   ]},
   battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
-    {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP); the 30% federal tax credit ended for systems installed after Dec 31, 2025."},
+    {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP), and a battery charged by solar can qualify for the 30% federal tax credit. These are estimates — consult a tax professional for your situation."},
     {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
   ]},
   ev:{ title:"Charge an EV with solar", sub:"Size extra panels for your driving", items:[
@@ -2363,6 +2397,26 @@ function addonsModal(key){ const a=ADD_INFO[key]||ADD_INFO.roof;
     a.items.map(i=>'<div class="im-sec">'+i.n+'</div><p class="im-p" style="margin-bottom:10px">'+i.d+'</p>').join('');
 }
 const ACUE=(k)=>'<span class="helpcue" data-addinfo="'+k+'" title="About these options">i</span>';
+// ── Plain-language explainers for jargon a normal homeowner wouldn't know ──
+// Reuses the EXACT existing help-cue pattern (.helpcue "i" → openInfoModal). One short
+// plain-English sentence per term, in the same modal shell (im-h / im-sub / im-p) as the
+// material/data/add-on modals — ONE help-cue pattern per surface (Alex's hard UI rule).
+const TERM_INFO={
+  kw:{ t:"kW (kilowatt)", s:"System size", d:"A measure of how much power your solar system can produce at once. A typical home system is around 6–10 kW — bigger roof, bigger number." },
+  kwh:{ t:"kWh (kilowatt-hour)", s:"A unit of electricity", d:"The unit your power bill is measured in — one kilowatt running for one hour. A typical home uses roughly 30 kWh a day." },
+  kwhyr:{ t:"kWh per year", s:"Yearly electricity", d:"How many units of electricity (kWh) your solar panels are estimated to make in a full year. A typical home uses about 10,000–11,000 kWh a year." },
+  nem:{ t:"Net metering / NEM 3.0", s:"Crediting extra solar", d:"When your panels make more power than you're using, the extra goes to the grid and your utility credits you for it. NEM 3.0 is California's current version of those rules — the credit is smaller than it used to be, which is why a battery often pays off there." },
+  sgip:{ t:"SGIP", s:"California battery rebate", d:"The Self-Generation Incentive Program — a California rebate that helps pay for a home battery. Amounts vary by utility and household; we confirm what you qualify for on site." },
+  srec:{ t:"SREC / SREC-II", s:"Solar credit you can sell", d:"In some states your system earns a certificate for the clean energy it makes (one per ~1,000 kWh) that you can sell for cash — income on top of your bill savings. SREC-II is New Jersey's current version of the program." },
+  itc:{ t:"Federal tax credit (ITC)", s:"30% off your taxes", d:"The federal Investment Tax Credit lets you claim 30% of your solar system's cost back on your federal income taxes (currently available through 2032). It's an estimate shown here — the exact amount depends on your tax situation, so consult a tax professional." },
+  netmeter:{ t:"Net metering", s:"Credit for extra power", d:"Credit from your utility for the extra solar power you send back to the grid — it spins your meter backward, lowering your bill." },
+  ppa:{ t:"PPA / lease", s:"$0-down solar", d:"A Power Purchase Agreement (or lease) means a company installs the panels at no upfront cost and you simply pay a lower rate for the power they make — instead of buying the system yourself." },
+  pitch:{ t:'Roof pitch ("8/12")', s:"How steep the roof is", d:"How steep your roof is, written as rise over run — an 8/12 pitch climbs 8 inches up for every 12 inches across. Steeper roofs (9/12+) need extra safety setup, which costs a little more." },
+  squares:{ t:"Squares", s:"Roofing area unit", d:"The unit roofers measure in — 1 square = 100 square feet of roof. A typical house is about 15–30 squares." },
+  lifetime:{ t:"25-year savings", s:"Lifetime estimate", d:"Your estimated total bill savings over 25 years (your panels' warrantied life), after the federal tax credit and assuming utility rates keep rising ~3.5% a year. It's a planning estimate — your actual savings depend on usage and future rates." },
+};
+function termModal(key){ const x=TERM_INFO[key]; if(!x) return ''; return '<div class="im-h">'+x.t+'</div><div class="im-sub">'+x.s+'</div><p class="im-p">'+x.d+'</p>'; }
+const TCUE=(k)=>'<span class="helpcue" data-terminfo="'+k+'" title="What does this mean?">i</span>';
 // small thumbnails/icons for the add-on toggles
 const OB_ICON={
   ridgeVent:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l9-7 9 7"/><path d="M7 13v5M12 13v5M17 13v5"/></svg>',
