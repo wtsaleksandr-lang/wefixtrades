@@ -44,16 +44,22 @@ async function renderOpenAI(dataUri,material,pkg){
   if(!b) throw new Error("openai_no_image");
   return "data:image/png;base64,"+b;
 }
+// Deterministic per-house seed: SAME input image (same address) → SAME seed for every material, so Flux Kontext's
+// stochastic sampling lands on the SAME house each time and only the roof (driven by the prompt) changes. Without a
+// fixed seed each material is a fresh random draw → the model re-imagines walls/trees/cars ("different house per material").
+function houseSeed(dataUri){ const h=createHash("sha1").update(dataUri).digest();
+  return ((h[0]<<23)|(h[1]<<15)|(h[2]<<7)|(h[3]&0x7f))&0x7fffffff; }
 async function renderReplicate(dataUri,material,pkg){
   if(!REPLICATE) throw new Error("no_replicate_key");
   // Replicate (Flux Kontext) is true img2img → keeps the house identical, only the roof changes, framing matches the
   // capture. Retry transient failures so it stays the CONSISTENT provider rather than intermittently dropping to Gemini.
+  const seed=houseSeed(dataUri);   // lock seed per-house so every material renders the SAME house
   let lastErr;
   for(let attempt=0; attempt<3; attempt++){
     try{
       const rr=await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions",{
         method:"POST", headers:{ "Authorization":"Bearer "+REPLICATE, "Content-Type":"application/json", "Prefer":"wait" },
-        body:JSON.stringify({ input:{ prompt:roofPrompt(material,pkg), input_image:dataUri, output_format:"jpg", safety_tolerance:2 } }) });
+        body:JSON.stringify({ input:{ prompt:roofPrompt(material,pkg), input_image:dataUri, output_format:"jpg", safety_tolerance:2, seed } }) });
       let j=await rr.json(); let tries=0;
       while(j.status && !["succeeded","failed","canceled"].includes(j.status) && tries<40){
         await new Promise(s=>setTimeout(s,1500));

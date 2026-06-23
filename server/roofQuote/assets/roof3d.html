@@ -306,6 +306,10 @@
   #load .ring{width:46px;height:46px;border:4px solid #e1e7ef;border-top-color:#0d3cfc;border-radius:50%;animation:spin 1s linear infinite}
   #load .t{color:var(--muted);font-size:13px}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* small "rendering photo…" badge shown over the instant swatch tint while the AI photo loads behind it */
+  #aiRendering{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:19;display:none;align-items:center;gap:8px;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:999px;padding:6px 13px;box-shadow:var(--card-shadow);font-size:12px;font-weight:700;color:var(--muted);pointer-events:none}
+  #aiRendering .mini{width:14px;height:14px;border:2.5px solid #e1e7ef;border-top-color:#0d3cfc;border-radius:50%;animation:spin .9s linear infinite}
+  @media (max-width:560px){ #aiRendering{top:64px} }
   @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:58px;max-height:44vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:58px;left:2px;right:2px;max-width:none;transform:none;justify-content:center} }
   /* mobile: material swatches + category pills scroll horizontally in one row instead of wrapping */
   @media (max-width:560px){
@@ -338,6 +342,7 @@
   <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:17">
   <div id="baHandle" style="display:none"><div class="ba-knob"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
   <span class="ba-tag" id="baTagA" style="display:none">After</span><span class="ba-tag" id="baTagB" style="display:none">Before</span>
+  <div id="aiRendering"><span class="mini"></span><span>Rendering photo…</span></div>
   <button id="aiBtn" style="display:none">See it on my house</button>
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
@@ -2214,6 +2219,38 @@ function renderMaterialPreview(){
     } }
   ctx.putImageData(out,0,0); window.__matRoofPx=roofPx;
 }
+/* ── INSTANT swatch tint: paint the SELECTED material+colour onto only the roof pixels of the top-down
+   Solar RGB ortho, reusing the exact same precise mask (LASTMASK) + building bbox the heatmap/measure use.
+   Zero AI cost, renders in ~1 frame — gives the user an immediate approximate "new roof" while the
+   photoreal AI image loads behind it (kills the dead ~30s). base/type come from ROOF_CATALOG[].colors[].
+   Returns true on success (canvas painted), false if the ortho/mask aren't ready (caller keeps spinner only). */
+function renderInstantTint(base,type){
+  if(!LASTRGB) return false;
+  const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0], G=rgb.rasters[1]||R, B=rgb.rasters[2]||R;
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  const out=ctx.createImageData(W,H), d=out.data;
+  let sid; try{ sid=makeShingleCanvas(base,type).getContext("2d").getImageData(0,0,512,512).data; }catch(_){ return false; }
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], tile=72, a=0.62;
+  const bb=buildingBox(2.5);
+  for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
+    for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
+      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && (!mg||sampleGrid(mg,E,N)>0.5);
+      if(onRoof){ const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
+        r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
+      d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
+    } }
+  ctx.putImageData(out,0,0); return true;
+}
+/* Show the instant tint of the currently-selected catalogue colour as the immediate placeholder, with the
+   "Rendering photo…" badge, while the AI photo renders behind. Hidden the moment the real photo swaps in. */
+function showInstantTint(m,c){
+  const ok=renderInstantTint((c&&c.base)||(m&&m.colors&&m.colors[0]&&m.colors[0].base)||"rgb(110,110,110)", m&&m.type);
+  if(ok){ $("matCanvas").style.display="block"; const ai=$("aiPhoto"); if(ai) ai.style.display="none"; }
+  const r=$("aiRendering"); if(r) r.style.display="flex";
+  return ok;
+}
+function clearInstantTint(){ const r=$("aiRendering"); if(r) r.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
 /* UTM bbox of the queried building (+margin) so analysis paints only THIS roof, not neighbours */
 function buildingBox(margin){
   if(!LASTB||!(LASTFLUX||LASTDSM)) return null;
@@ -2318,6 +2355,7 @@ function matPriceStr(){
   return fmtMoney(Math.round(lo/50)*50)+"–"+fmtMoney(Math.round(hi/50)*50);
 }
 function showMatImg(key,label){ const img=$("aiPhoto"); img.src=window.__matRenders[key]; img.style.display="block"; matLoading(false);
+  clearInstantTint();   // real photoreal image is now on screen → drop the instant swatch placeholder + spinner
   const pr=matPriceStr(); $("aiMat").innerHTML=(label||"")+(pr?' <b class="ai-price">'+pr+'</b>':''); $("aiBar").style.display="flex"; activateBA(); }
 function markColReady(key){ const m=ROOF_CATALOG[selMat]; if(!m) return; const idx=m.colors.findIndex(c=>colorKey(m,c)===key); const wrap=$("matCols"); if(idx>=0&&wrap&&wrap.children[idx]) wrap.children[idx].classList.add("ready"); }
 async function renderOne(m,c,show){
@@ -2326,13 +2364,16 @@ async function renderOne(m,c,show){
     const wrap=$("matCols"); if(wrap)[...wrap.children].forEach((x,j)=>x.classList.toggle("on",j===m.colors.indexOf(c)));
     scheduleFinal(m,c,key,label); }   // upgrade to crisp gpt-image-1 only if they settle on this colour
   if(window.__matRenders[key]){ if(show) showMatImg(key,label); return window.__matRenders[key]; }
+  // INSTANT swatch tint + spinner the moment they pick this colour — no waiting on the ~30s AI render.
+  // (Shown for both the inflight-await and the fresh-fetch paths; the real photo replaces it via showMatImg.)
+  if(show){ showInstantTint(m,c); }
   if(window.__matInflight[key]){ const u=await window.__matInflight[key]; if(show&&u) showMatImg(key,label); return u; }
-  if(show){ $("aiPhoto").style.display="block"; matLoading(true,c.n); }
   const pr=(async()=>{ try{ const r=await fetch(RQ_BASE+"/airender?tier=browse&address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(c.p)); const j=await r.json();
     if(j&&j.url){ if(!window.__matFinal[key]) window.__matRenders[key]=j.url; markColReady(key); return j.url; } }catch(_){} return null; })();   // don't let a late browse render clobber a settled gpt-image-1 (final) one
   window.__matInflight[key]=pr; const url=await pr; delete window.__matInflight[key];
   if(url){ if(show&&!window.__matFinal[key]) showMatImg(key,label); }   // final (gpt) already on screen → don't redisplay the cheaper browse image
-  else if(show){ matLoading(false); setStatus("Couldn't render "+c.n+" — try again",true); setTimeout(()=>setStatus(""),3000); }
+  else if(show){ matLoading(false); const r=$("aiRendering"); if(r) r.style.display="none";   // drop the spinner; keep the instant tint as the (approximate) fallback view
+    setStatus("Showing an approximate preview — couldn't render the photo for "+c.n,true); setTimeout(()=>setStatus(""),3500); }
   return url;
 }
 function renderColor(show){ const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0]; return renderOne(m, m.colors[selCol]||m.colors[0], show); }
@@ -2383,7 +2424,7 @@ function deactivateBA(){ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{
   const h=$("baHandle"); if(h){ h.addEventListener("pointerdown",e=>{ drag=true; e.preventDefault(); try{h.setPointerCapture(e.pointerId);}catch(_){} });
     window.addEventListener("pointermove",e=>{ if(drag) upd(e.clientX); }); window.addEventListener("pointerup",()=>{ drag=false; }); }
 })();
-function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); }
+function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); const r=$("aiRendering"); if(r) r.style.display="none"; }
 $("aiBtn").onclick=async()=>{
   const addr=$("addr").value.trim(); const mt=ROOF_MATS[matIdx]||ROOF_MATS[0]; const btn=$("aiBtn");
   btn.disabled=true; btn.textContent="Modeling your home…";
