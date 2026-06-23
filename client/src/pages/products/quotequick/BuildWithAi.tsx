@@ -999,7 +999,6 @@ export default function BuildWithAi() {
                   gauge animates 0→70 + number counts up.
                   On scroll-in: same animation fires once (statsVisible). */}
               <GaugeCard
-                statsVisible={statsVisible}
                 reducedMotion={reducedMotion}
                 scopeId={scopeId}
               />
@@ -1112,11 +1111,9 @@ export default function BuildWithAi() {
  *  boot animation (0→70 count-up). On reduced-motion: shows final state,
  *  no count animation. */
 function GaugeCard({
-  statsVisible,
   reducedMotion,
   scopeId: _scopeId,
 }: {
-  statsVisible: boolean;
   reducedMotion: boolean;
   scopeId: string;
 }) {
@@ -1153,9 +1150,15 @@ function GaugeCard({
         cursor: "default",
       }}
     >
+      {/* Always render the real value (70). The KpiGauge owns its own
+          mount/boot count-up (min→max→value), and remounts via `bootKey`
+          on hover to replay it. Previously this gated the value on
+          `statsVisible`, so before the section scrolled into view the gauge
+          sat at a bare "0%" — a broken-looking placeholder the trust audit
+          flagged. `statsVisible` is unused here now. */}
       <KpiGauge
         key={bootKey}
-        value={statsVisible || hovered ? 70 : 0}
+        value={70}
         min={0}
         max={100}
         label=""

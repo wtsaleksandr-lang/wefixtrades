@@ -748,6 +748,12 @@ function parseValue(raw: string): { prefix: string; num: number; suffix: string;
  */
 function isCountable(value: string): boolean {
   if (value.includes("/")) return false;
+  // Star-rating values (e.g. "4.9★") must NEVER animate. The count-up starts
+  // partway (START_FRACTION) and would render a depressed value mid-flight —
+  // "4.9★" briefly shows "2.0★", which reads as a terrible review score and
+  // actively damages trust. A rating ticking up also looks odd. Render the
+  // literal so the real score shows immediately. (Found by the trust audit.)
+  if (value.includes("★")) return false;
   // Range dash (hyphen / en-dash / em-dash) sitting between two digits.
   if (/\d\s*[-–—]\s*\d/.test(value)) return false;
   // Count distinct number groups, treating "1,234" and "120 547" (thousands
