@@ -2728,7 +2728,12 @@ $("bPanels").onclick=async()=>{
   if(panelsVisible){ sunMode=false; labelsVisible=false; $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearHeat(); clearLabels(); clearRoofMeas&&clearRoofMeas(); }   // exclusive lens: Panels replaces Sun/Measure
   if(wasGrey && mode!=="photoreal"){ await setMode("photoreal"); }   // leaving the grey 3D base → restore the default "that's my house" photoreal view
   if(mode!=="photoreal"){ renderQuoteCard(); return; }
-  leaveMat();
+  // Tear down any active 2D analysis overlay (Sun's flux heatmap / Measure / Material) and
+  // restore the photoreal Map3D base. leaveMat() alone is a no-op here because sunMode/labelsVisible
+  // were already cleared above, so showAnalysis(null) never fired → gmapWrap stayed display:none and
+  // the map went blank grey. Mirror the Measure handler: always restore the base explicitly.
+  matMode=false; $("bRoof").classList.remove("on"); clearMat(); clearLabels();
+  showAnalysis(null);   // sets gmapWrap.display=block — the actual blank-map fix
   if(panelsVisible){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else clearPanels();
   renderQuoteCard();
 };
