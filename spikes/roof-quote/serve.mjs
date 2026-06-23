@@ -19,22 +19,40 @@ const OPENAI=process.env.OPENAI_KEY||"";
 const aiCache=new Map();   // address|material → rendered image url (avoid paying twice for the same render)
 const featuresCache=new Map();   // address → roof feature detection (chimneys/vents/skylights/dormers)
 
-function roofPrompt(material, pkg){
+function roofPrompt(material, pkg, view){
   // STRONG preservation anchor — img2img models (Flux Kontext) will otherwise regenerate a whole new house for
   // dramatic materials (e.g. metal). Lead with "edit THIS photo / same house / do NOT generate a new house".
   const geom = pkg ? (" The roof is "+pkg+"; keep that exact roof geometry — ridges, planes, pitch and outline.") : "";
+  if(view==="street"){
+    // Street-level base photo (prod fallback when no headless capture): only the visible roof slope changes.
+    return "Edit THIS exact street-level photo of a house. Replace ONLY the visible roof covering (the sloped roof surface) of the main house in the centre with "+material+", covering the whole visible roof."+geom+
+      " Keep the IDENTICAL same house from the input photo — same walls, siding, windows, doors, porch, chimney, gutters, lawn, driveway, vehicles, fences, trees, neighbouring houses, sky, camera angle and lighting. Do NOT generate a new or different house, building or scene; preserve every other pixel exactly. Photorealistic, sharp, natural realistic roof colour."; }
   return "Edit THIS exact photo. Change ONLY the roof covering of the main house in the centre to "+material+", covering the whole roof."+geom+
     " Keep the IDENTICAL same house from the input photo — same walls, siding, windows, doors, chimney, gutters, lawn, driveway, vehicles, trees, neighbouring houses, camera angle and lighting. Do NOT generate a new or different house, building or scene; preserve every other pixel exactly. Photorealistic, sharp, natural realistic roof colour."; }
 
+// Street View "before" photo as a base image (plain signed-URL fetch, no headless browser) → the prod-safe fallback base.
+// Probes metadata first: the Static SV image API returns 200 + a grey "no imagery" placeholder for uncovered spots,
+// so check metadata status (OK vs ZERO_RESULTS/NOT_FOUND) to detect real coverage before using the image.
+async function streetViewBuf(address){
+  try{
+    const m=await fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+encodeURIComponent(address)+"&key="+SOLAR);
+    const mj=await m.json();
+    if(mj.status && mj.status!=="OK") return { ok:false, status:404, error:"no_coverage:"+mj.status };
+  }catch(_){ /* best-effort; fall through */ }
+  const r=await fetch("https://maps.googleapis.com/maps/api/streetview?size=640x640&location="+encodeURIComponent(address)+"&key="+SOLAR+"&fov=80&pitch=12");
+  if(!r.ok) return { ok:false, status:r.status, error:"upstream "+r.status };
+  return { ok:true, buf:Buffer.from(await r.arrayBuffer()) };
+}
+
 // ---- image-render providers (failover chain). Each returns an <img>-loadable url (http or data:) or throws ----
-async function renderOpenAI(dataUri,material,pkg){
+async function renderOpenAI(dataUri,material,pkg,view){
   // GPT-4o image model (gpt-image-1) via the edits endpoint — the model ChatGPT uses; crispest + best house preservation.
   if(!OPENAI) throw new Error("no_openai_key");
   const buf=Buffer.from(dataUri.split(",")[1],"base64");
   const fd=new FormData();
   fd.append("model","gpt-image-1");
   fd.append("image", new Blob([buf],{type:"image/png"}), "house.png");
-  fd.append("prompt", roofPrompt(material,pkg));
+  fd.append("prompt", roofPrompt(material,pkg,view));
   fd.append("size","1536x1024");        // force consistent high-res landscape (auto returns inconsistent square/landscape)
   fd.append("quality","high");
   fd.append("input_fidelity","high");   // keep the input house faithful
@@ -49,7 +67,7 @@ async function renderOpenAI(dataUri,material,pkg){
 // fixed seed each material is a fresh random draw → the model re-imagines walls/trees/cars ("different house per material").
 function houseSeed(dataUri){ const h=createHash("sha1").update(dataUri).digest();
   return ((h[0]<<23)|(h[1]<<15)|(h[2]<<7)|(h[3]&0x7f))&0x7fffffff; }
-async function renderReplicate(dataUri,material,pkg){
+async function renderReplicate(dataUri,material,pkg,view){
   if(!REPLICATE) throw new Error("no_replicate_key");
   // Replicate (Flux Kontext) is true img2img → keeps the house identical, only the roof changes, framing matches the
   // capture. Retry transient failures so it stays the CONSISTENT provider rather than intermittently dropping to Gemini.
@@ -59,7 +77,7 @@ async function renderReplicate(dataUri,material,pkg){
     try{
       const rr=await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions",{
         method:"POST", headers:{ "Authorization":"Bearer "+REPLICATE, "Content-Type":"application/json", "Prefer":"wait" },
-        body:JSON.stringify({ input:{ prompt:roofPrompt(material,pkg), input_image:dataUri, output_format:"jpg", safety_tolerance:2, seed } }) });
+        body:JSON.stringify({ input:{ prompt:roofPrompt(material,pkg,view), input_image:dataUri, output_format:"jpg", safety_tolerance:2, seed } }) });
       let j=await rr.json(); let tries=0;
       while(j.status && !["succeeded","failed","canceled"].includes(j.status) && tries<40){
         await new Promise(s=>setTimeout(s,1500));
@@ -73,13 +91,13 @@ async function renderReplicate(dataUri,material,pkg){
   }
   throw lastErr;
 }
-async function renderGemini(dataUri,material,pkg){
+async function renderGemini(dataUri,material,pkg,view){
   if(!GEMINI) throw new Error("no_gemini_key");
   const b64=dataUri.split(",")[1];
   const mime=(dataUri.slice(5).split(";")[0])||"image/jpeg";
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key="+GEMINI,{
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ contents:[{ parts:[ {inline_data:{mime_type:mime,data:b64}}, {text:roofPrompt(material,pkg)} ] }] }) });
+    body:JSON.stringify({ contents:[{ parts:[ {inline_data:{mime_type:mime,data:b64}}, {text:roofPrompt(material,pkg,view)} ] }] }) });
   if(!r.ok) throw new Error("gemini_"+r.status);
   const j=await r.json();
   const parts=(((j.candidates||[])[0]||{}).content||{}).parts||[];
@@ -87,11 +105,11 @@ async function renderGemini(dataUri,material,pkg){
   if(!img) throw new Error("gemini_no_image");
   return "data:image/jpeg;base64,"+(img.inline_data||img.inlineData).data;
 }
-async function renderFal(dataUri,material,pkg){
+async function renderFal(dataUri,material,pkg,view){
   if(!FAL) throw new Error("no_fal_key");
   const fr=await fetch("https://fal.run/fal-ai/flux-pro/kontext",{
     method:"POST", headers:{ "Authorization":"Key "+FAL, "Content-Type":"application/json" },
-    body:JSON.stringify({ image_url:dataUri, prompt:roofPrompt(material,pkg), num_images:1, safety_tolerance:"5", output_format:"jpeg" }) });
+    body:JSON.stringify({ image_url:dataUri, prompt:roofPrompt(material,pkg,view), num_images:1, safety_tolerance:"5", output_format:"jpeg" }) });
   if(!fr.ok) throw new Error("fal_"+fr.status);
   const j=await fr.json();
   const url=j.images && j.images[0] && j.images[0].url;
@@ -177,6 +195,9 @@ function bearing(lat1,lng1,lat2,lng2){
   return (Math.atan2(y,x)/r+360)%360;
 }
 async function captureOblique(address){
+  // VERIFY HOOK: simulate the prod (Replit publish) runtime that ships no headless Chromium,
+  // so the /airender oblique→Street View fallback can be exercised locally. Off by default.
+  if(process.env.RQ_FORCE_NO_CHROMIUM==="1") throw new Error("headless browser unavailable in this runtime");
   if(captureCache.has(address)) return captureCache.get(address);
   { const d=diskGetBuf("cap",address); if(d){ captureCache.set(address,d); return d; } }
   const browser=await getBrowser();
@@ -427,17 +448,23 @@ http.createServer(async (req,res)=>{
     if(aiCache.has(ck)){ res.end(JSON.stringify(Object.assign({cached:true},aiCache.get(ck)))); return; }
     { const d=diskGetJSON("air",ck); if(d){ aiCache.set(ck,d); res.end(JSON.stringify(Object.assign({cached:true},d))); return; } }
     try{
-      // Image Collector → oblique aerial of the house (cached per address; one headless render, then materials reuse it)
-      let dataUri;
+      // Base "before" image. Preferred = oblique 3D aerial (needs headless Chromium); prod has none, so
+      // fall back to Street View (plain URL fetch, no browser) — the documented prod path. No coverage on
+      // either → graceful "capture_failed" (widget keeps its swatch-tint fallback).
+      let dataUri, view="oblique";
       try{ const buf=await captureOblique(address); dataUri="data:image/png;base64,"+buf.toString("base64"); }
-      catch(capErr){ res.end(JSON.stringify({error:"capture_failed",detail:String(capErr&&capErr.message||capErr)})); return; }
+      catch(capErr){
+        const sv=await streetViewBuf(address).catch(e=>({ok:false,status:0,error:String(e&&e.message||e)}));
+        if(!sv.ok){ res.end(JSON.stringify({error:"capture_failed",detail:"no base image: capture("+String(capErr&&capErr.message||capErr)+") + streetview("+(sv.status?sv.status+" ":"")+sv.error+")"})); return; }
+        dataUri="data:image/jpeg;base64,"+sv.buf.toString("base64"); view="street";
+      }
       // Property Analysis Agent → House Knowledge Package (cached); injected so the render preserves roof geometry
       let pkg=""; try{ pkg=await houseKnowledge(address); }catch(_){}
       // failover chain: try each provider until one renders (resilience like our LLM fallback chain)
       const tried=[];
       const chain = tier==="browse" ? RENDER_CHAIN.filter(x=>x[0]!=="openai") : RENDER_CHAIN;   // browse skips the pricey gpt-image-1
       for(const [name,fn] of chain){
-        try{ const url=await fn(dataUri,material,pkg); const r={url,provider:name,knowledge:pkg||undefined,tier}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
+        try{ const url=await fn(dataUri,material,pkg,view); const r={url,provider:name,knowledge:pkg||undefined,tier}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
         catch(e){ tried.push(name+":"+e.message); console.error("[render fail]",name,e.message); }
       }
       res.end(JSON.stringify({error:"all_providers_failed",tried}));
