@@ -217,6 +217,9 @@ let roof3dHtml=""; try{ roof3dHtml=readFileSync(path.join(import.meta.dirname,"r
 http.createServer(async (req,res)=>{
   const u=new URL(req.url,"http://x");
   res.setHeader("Cache-Control","no-store, must-revalidate");  // HTML must never cache (geotiff route overrides below)
+  if(u.pathname==="/"){   // the real widget lives at /roof3d; the old index.html root is a stale blank-void foot-gun → redirect the dev-server root to the real widget
+    res.statusCode=302; res.setHeader("Location","/roof3d"+(u.search||"")); res.end(); return;
+  }
   if(u.pathname==="/map3d"){
     res.setHeader("Content-Type","text/html"); res.end(map3dHtml); return;
   }

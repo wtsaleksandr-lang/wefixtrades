@@ -1272,7 +1272,7 @@ function renderQuoteCard(){
       if(tCat) roofOpts.steep=(tCat.predominantPitchX12||0)>=9;   // mirror the auto-flag select applies
       const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700];
         let [clo,chi]=applyRoofOpts(sqs*catWf*ps[0], sqs*catWf*ps[1], sqs, tCat);
-        clo=Math.round(clo/100)*100; chi=Math.round(chi/100)*100; const sp=ROOF_SPEC[m.id];
+        clo=Math.round(clo/50)*50; chi=Math.round(chi/50)*50; const sp=ROOF_SPEC[m.id];   // round to $50 to match the selected card (lines 1248/2305/2898) — was /100, causing e.g. Metal $16,800 (catalogue) vs $16,850 (selected)
         return '<button class="mat-card" data-mat="'+m.id+'">'+
           '<div class="mat-img" style="background-image:url('+matThumb(m)+')">'+(m.tier?'<span class="mat-badge">'+m.tier+'</span>':'')+'</div>'+
           '<div class="mat-n">'+m.label+'</div><div class="mat-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</div><div class="mat-l">'+(sp?sp.life:'')+'</div>'+
@@ -1865,7 +1865,12 @@ async function buildRoofMaterial(){
   if(!gmap) return; clearMat();
   if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → facet polys would drift onto the ground; suppress the material tint
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
-  const mt=ROOF_MATS[matIdx]||ROOF_MATS[0];
+  // Use the SELECTED catalogue material+colour (selMat/selCol), not the legacy ROOF_MATS[matIdx] alias —
+  // ROOF_MATS is always Architectural's colours, so the 3D overlay tinted the roof the wrong colour
+  // (e.g. matte-black metal rendered bright red) regardless of what the buyer picked. Mirror the 2D
+  // preview (line ~2739) and the AI render (line ~2977) which already derive from ROOF_CATALOG[selMat].
+  const cm=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cc=(cm.colors&&cm.colors[selCol])||(cm.colors&&cm.colors[0]);
+  const mt={ base:(cc&&cc.base)||"rgb(110,110,110)", type:cm.type };
   const fill=mt.base.replace("rgb(","rgba(").replace(")",",0.6)");   // tint; real shingle texture shows through
   for(const f of extractFacetPolys(0.4)){   // 0.4m erosion → near-full coverage (was 1m gap)
     const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(0,0,0,0.35)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
@@ -2900,6 +2905,9 @@ async function renderOne(m,c,show){
   const key=colorKey(m,c), addr=$("addr").value.trim(), label=m.label+" · "+c.n;
   if(show){ window.__roofSel={matId:m.id,matLabel:m.label,colorName:c.n}; if(typeof renderQuoteCard==="function") renderQuoteCard();
     const wrap=$("matCols"); if(wrap)[...wrap.children].forEach((x,j)=>x.classList.toggle("on",j===m.colors.indexOf(c)));
+    // Tint the 3D photoreal roof overlay to the SELECTED colour too (it reads selMat/selCol, already set by the
+    // catalogue click before renderOne runs). Without this the 3D facet polygons never refreshed on a switch.
+    if(mode==="photoreal"&&gmap){ try{ buildRoofMaterial(); }catch(_){} }
     scheduleFinal(m,c,key,label); }   // upgrade to crisp gpt-image-1 only if they settle on this colour
   if(window.__matRenders[key]){ if(show) showMatImg(key,label); return window.__matRenders[key]; }
   // INSTANT swatch tint + spinner the moment they pick this colour — no waiting on the ~30s AI render.
