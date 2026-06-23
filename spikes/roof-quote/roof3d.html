@@ -291,6 +291,11 @@
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
   @media (max-width:560px){ #measToggle{left:8px;transform:none;top:60px} #measToggle button{padding:6px 12px} }
+  /* Measure-lens minimap (Scanifly-style wide-context inset, top-left of the diagram) */
+  #measMini{position:absolute;top:62px;left:12px;z-index:23;width:118px;height:118px;border-radius:13px;overflow:hidden;background:#0b1220;border:1px solid #ffffff;box-shadow:var(--card-shadow);display:none}
+  #measMini canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #measMini .mm-ring{position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,69,58,0.92);pointer-events:none}
+  @media (max-width:560px){ #measMini{width:92px;height:92px;top:60px;left:8px} }
   #matbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;align-items:stretch;max-width:96vw;box-shadow:var(--card-shadow)}
   #matCats{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
   #matCats .matcat{background:#f7f9fc;border:1px solid #e1e7ef;color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -337,6 +342,7 @@
   <canvas id="scene"></canvas>
   <div id="gmapWrap" style="position:absolute;inset:0;display:none"></div>
   <canvas id="matCanvas" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:15;touch-action:none"></canvas>
+  <div id="measMini"><canvas id="measMiniCv"></canvas><div class="mm-ring"></div></div>
   <div id="matHint">Top-down material preview · obstructions kept</div>
   <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:16">
   <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:17">
@@ -346,7 +352,7 @@
   <button id="aiBtn" style="display:none">See it on my house</button>
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
-  <div id="measToggle"><button data-v="3d" class="on">3D</button><button data-v="diagram">Diagram</button></div>
+  <div id="measToggle"><button data-v="diagram" class="on">Top-down</button><button data-v="3d">3D</button></div>
   <div id="bar"><input id="addr" placeholder="Enter your address" value="30 Angus Rd, Hamilton, ON"><button id="go">Get Quote</button></div>
   <div id="status"></div>
   <div id="overlayNote"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg><span id="overlayNoteText"></span></div>
@@ -1565,7 +1571,7 @@ function extractFacetPolys(margin){
 /* ===== EagleView-grade roof geometry (roofgeo.mjs) + measurement visualization ===== */
 let roofMeas=[];
 const EDGE_COLORS={ ridge:"#ff453a", hip:"#ff9f0a", valley:"#2e90ff", eave:"#32d74b", rake:"#bf5af2" };
-function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
+function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
 function facetsToRoofModel(){
   if(!LASTDSM||!LASTB||!window.__buildRoofModel) return null;
   const dsm=LASTDSM, zone=dsm.zone, dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
@@ -1604,49 +1610,95 @@ async function buildRoofMeasure(){
   for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
     const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round(p.areaSqFt)+" ft² · "+p.pitchX12+"/12", true); }
   showRoofReport(model.totals);
-  $("measToggle").style.display="flex"; showMeasDiagram(false);   // 3D default + Diagram toggle (accurate top-down)
+  $("measToggle").style.display="flex"; showMeasDiagram(true);   // Scanifly-style top-down is the default lens; 3D is a toggle
   window.__roofMeas={ planes:model.planes.length, edges:model.edges.length, totals:model.totals };
   fetchFeatures();   // ensure penetration detection is available in measure mode too
 }
 function rrRound(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-/* ===== clean top-down measurement DIAGRAM (perfectly aligned to the ortho the facets are derived from) ===== */
+/* ===== Scanifly-style top-down measurement DIAGRAM =====
+   Clean ortho aerial of the roof with every facet outlined tight in RED, a per-facet
+   area+pitch label centred in each facet, and a wide-context minimap inset (top-left).
+   Perfectly aligned to the ortho the facets are derived from. */
+const MEAS_RED="#ff453a";
 function renderRoofDiagram(){
   if(!LASTRGB||!window.__buildRoofModel) return false;
-  const model=facetsToRoofModel(); if(!model||!model.edges.length) return false;
+  const model=facetsToRoofModel(); if(!model||!model.planes.length) return false;
   const toWgs=model.__toWgs, rgb=LASTRGB, zone=(LASTFLUX||LASTDSM).zone, rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], W=rgb.width, H=rgb.height;
   const toPx=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
+  // Drop DSM noise slivers: a clean Scanifly look skips tiny sub-facets that the segmenter
+  // throws off on flat/commercial roofs. Keep facets ≥25 ft²; if everything is tiny (small
+  // outbuilding) keep them all so we never render an empty diagram. Edges keep all (they trace the shell).
+  const bigPlanes=model.planes.filter(p=>p.areaSqFt>=25);
+  const planes=(bigPlanes.length?bigPlanes:model.planes);
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
-  for(const p of model.planes) for(const v of p.ring){ const [px,py]=toPx(v[0],v[1]); minx=Math.min(minx,px);miny=Math.min(miny,py);maxx=Math.max(maxx,px);maxy=Math.max(maxy,py); }
-  const pad=Math.max(34,(maxx-minx)*0.2); minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
+  for(const p of planes) for(const v of p.ring){ const [px,py]=toPx(v[0],v[1]); minx=Math.min(minx,px);miny=Math.min(miny,py);maxx=Math.max(maxx,px);maxy=Math.max(maxy,py); }
+  const pad=Math.max(40,(maxx-minx)*0.28); minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;   // breathing room so the red outline never kisses the frame
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
-  const S=Math.min(3,Math.max(1.8,1000/Math.max(cw,ch)));   // supersample → crisp dimension lines & numbers even on a small roof crop
-  const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingQuality="high";
+  const S=Math.min(3,Math.max(1.8,1100/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop
+  const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+  // full ortho RGB → offscreen source (reused for both the main crop and the minimap)
   const src=document.createElement("canvas"); src.width=W; src.height=H; const sctx=src.getContext("2d");
   const od=sctx.createImageData(W,H), d=od.data, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
   for(let i=0;i<W*H;i++){ d[i*4]=R[i]; d[i*4+1]=G[i]; d[i*4+2]=B[i]; d[i*4+3]=255; }
   sctx.putImageData(od,0,0);
   ctx.drawImage(src, minx,miny,cw,ch, 0,0,cw,ch);
-  ctx.fillStyle="rgba(8,12,20,0.5)"; ctx.fillRect(0,0,cw,ch);
+  // very light scrim only (keep the aerial bright & legible like the reference — NOT the old dark wash)
+  ctx.fillStyle="rgba(10,14,22,0.14)"; ctx.fillRect(0,0,cw,ch);
   const P=(x,y)=>{ const [px,py]=toPx(x,y); return [px-minx, py-miny]; };
-  ctx.lineCap="round"; ctx.lineJoin="round"; ctx.lineWidth=Math.max(3,cw/130);
+  // pre-compute each kept facet's pixel ring + bbox + centroid (reused for fill, nodes, labels)
+  const fp=planes.filter(p=>p.ring.length>=3).map(p=>{ const ring=p.ring.map(v=>P(v[0],v[1]));
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,cx=0,cy=0; for(const [px,py] of ring){ x0=Math.min(x0,px);y0=Math.min(y0,py);x1=Math.max(x1,px);y1=Math.max(y1,py);cx+=px;cy+=py; }
+    return { p, ring, cx:cx/ring.length, cy:cy/ring.length, bw:x1-x0, bh:y1-y0 }; });
+  // 1) subtle facet fill so each plane reads as a surface (Scanifly look), drawn under the red strokes
+  ctx.lineJoin="round"; ctx.lineCap="round";
+  for(const f of fp){ ctx.beginPath(); f.ring.forEach(([px,py],i)=>{ i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath();
+    ctx.fillStyle="rgba(255,69,58,0.07)"; ctx.fill(); }
+  // 2) every facet edge stroked tight in RED — a crisp white hairline under it lifts it off the aerial
+  const lw=Math.max(2.4,cw/150);
   for(const e of model.edges){ const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
-    ctx.strokeStyle=EDGE_COLORS[e.type]||"#22d3ee"; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }
-  const fs=Math.max(13,cw/38); ctx.textAlign="center"; ctx.textBaseline="middle";
-  const lbl=(tx,ty,text,col,bold)=>{ ctx.font=(bold?"800 ":"700 ")+fs+"px system-ui,Segoe UI,sans-serif"; const w=ctx.measureText(text).width+12;
-    ctx.fillStyle="rgba(8,12,20,0.86)"; rrRound(ctx,tx-w/2,ty-fs*0.72,w,fs*1.44,5); ctx.fill();
-    ctx.fillStyle=col||"#eaf6ff"; ctx.fillText(text,tx,ty); };
-  const placed=[];
-  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<8) continue;
-    const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]); const mx=(ax+bx)/2,my=(ay+by)/2;
-    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<fs*2.2)) continue; placed.push([mx,my]);
-    lbl(mx,my, Math.round(e.lengthFt)+"′", EDGE_COLORS[e.type]); }
-  for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){const [px,py]=P(v[0],v[1]);cx+=px;cy+=py;} cx/=p.ring.length;cy/=p.ring.length;
-    lbl(cx,cy-fs*0.85, Math.round(p.areaSqFt)+" ft²", "#fff", true); lbl(cx,cy+fs*0.85, p.pitchX12+"/12", "#cfe0f5"); }
+    ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=lw+1.6; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.strokeStyle=MEAS_RED; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }
+  // small red vertex nodes at facet corners (echoes the reference's traced-corner look)
+  const seen=[]; const node=(px,py)=>{ if(seen.some(s=>Math.hypot(s[0]-px,s[1]-py)<lw*1.5)) return; seen.push([px,py]);
+    ctx.beginPath(); ctx.arc(px,py,lw*0.95,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.beginPath(); ctx.arc(px,py,lw*0.6,0,7); ctx.fillStyle=MEAS_RED; ctx.fill(); };
+  for(const f of fp) for(const [px,py] of f.ring){ node(px,py); }
+  // 3) per-facet label — area (bold) + pitch, dark pill for guaranteed contrast.
+  // Drawn largest-facet-first; a label is skipped if its pill would collide with one already
+  // placed (keeps cluttered/commercial roofs legible) or won't fit the facet's bbox at all.
+  const fs=Math.max(12,cw/40); ctx.textAlign="center"; ctx.textBaseline="middle";
+  const lblBoxes=[];
+  for(const f of fp.slice().sort((a,b)=>b.p.areaSqFt-a.p.areaSqFt)){
+    const a=Math.round(f.p.areaSqFt)+" ft²", pit=f.p.pitchX12+"/12";
+    ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
+    ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
+    const pw=Math.max(w1,w2)+fs*0.9, ph=fs*2.5, cx=f.cx, cy=f.cy;
+    const box={x:cx-pw/2,y:cy-ph/2,w:pw,h:ph};
+    if(lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2))<(b.w+box.w)/2-2 && Math.abs(b.y+b.h/2-(box.y+box.h/2))<(b.h+box.h)/2-2)) continue;   // overlap → skip
+    lblBoxes.push(box);
+    ctx.fillStyle="rgba(11,18,32,0.82)"; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.fill();
+    ctx.strokeStyle="rgba(255,69,58,0.55)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.stroke();
+    ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.52);
+    ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#ffd0cc"; ctx.fillText(pit,cx,cy+fs*0.58); }
+  renderMeasMini(src,W,H,minx,miny,cw,ch);
   return true;
 }
+/* wide-context minimap: zoomed-out aerial with the roof crop outlined in red */
+function renderMeasMini(src,W,H,minx,miny,cw,ch){
+  const mc=$("measMiniCv"); if(!mc) return; const SZ=236; mc.width=SZ; mc.height=SZ; const x=mc.getContext("2d");
+  x.imageSmoothingQuality="high";
+  const ccx=minx+cw/2, ccy=miny+ch/2, span=Math.max(cw,ch)*2.6;   // ~2.6× wider context around the roof
+  let sx=ccx-span/2, sy=ccy-span/2, ss=span;
+  // clamp the source window inside the ortho so the minimap never samples out of bounds
+  sx=Math.max(0,Math.min(sx,W-ss)); sy=Math.max(0,Math.min(sy,H-ss)); if(ss>Math.min(W,H)){ ss=Math.min(W,H); sx=Math.max(0,Math.min(ccx-ss/2,W-ss)); sy=Math.max(0,Math.min(ccy-ss/2,H-ss)); }
+  x.drawImage(src, sx,sy,ss,ss, 0,0,SZ,SZ);
+  // outline the main-view crop within the minimap (red rect)
+  const rx=(minx-sx)/ss*SZ, ry=(miny-sy)/ss*SZ, rw=cw/ss*SZ, rh=ch/ss*SZ;
+  x.strokeStyle="rgba(255,69,58,0.95)"; x.lineWidth=2.5; x.strokeRect(rx,ry,rw,rh);
+  x.strokeStyle="rgba(255,255,255,0.5)"; x.lineWidth=1; x.strokeRect(rx-1,ry-1,rw+2,rh+2);
+}
 function showMeasDiagram(on){
-  if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; }
-  else { $("matCanvas").style.display="none"; $("gmapWrap").style.display="block"; }
+  if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block"; }
+  else { $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="block"; }
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
 }
 $("measToggle").querySelector('[data-v="3d"]').onclick=()=>showMeasDiagram(false);
