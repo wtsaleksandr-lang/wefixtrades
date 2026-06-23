@@ -400,6 +400,18 @@ export interface ShellSettings {
   tradeId?: string;
   /** Lead notification email — single recipient. Basic format check only. */
   leadEmail?: string;
+  /**
+   * Action tab — owner SMS lead notification. When `leadSmsEnabled` is true and
+   * `leadSmsPhone` is a valid number, the lead pipeline texts the owner on every
+   * new lead. Persisted via the save mutation as the top-level `owner_phone`
+   * column + `calculator_settings.followup.notifications.sms_enabled`, which
+   * `enqueueLeadNotificationsAndFollowups` reads to enqueue the owner-SMS
+   * notification (same path the email notification uses). Applies to both the
+   * generic calculator lead form and the 3D roof/solar widget's own lead form.
+   */
+  leadSmsEnabled?: boolean;
+  /** Action tab — owner SMS recipient (E.164-ish). Paired with leadSmsEnabled. */
+  leadSmsPhone?: string;
   /** Pricing model + per-mode value inputs. */
   pricing?: ShellPricing;
   /** Number formatting (thousands / decimal / currency). */

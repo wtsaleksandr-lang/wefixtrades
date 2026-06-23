@@ -1520,6 +1520,14 @@ export default function WizardShell({ embed = false }: Props) {
       const settings = state.settings ?? {};
       const leadEmail = (settings.leadEmail ?? '').trim();
       const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail);
+      // Owner-SMS lead notification (Action tab). Only wire the SMS path when the
+      // owner enabled it AND supplied a phone with enough digits to dial — the
+      // server's enqueueLeadNotificationsAndFollowups needs both calc.owner_phone
+      // and followup.notifications.sms_enabled to enqueue the owner text.
+      const leadSmsPhone = (settings.leadSmsPhone ?? '').trim();
+      const leadSmsOk =
+        settings.leadSmsEnabled === true &&
+        leadSmsPhone.replace(/\D/g, '').length >= 10;
       const tradeId = (settings.tradeId ?? '').trim();
 
       // P0 data-loss fix (fix/wizard-persistence) — Fix 2: BLOCK the save if any
@@ -1584,6 +1592,9 @@ export default function WizardShell({ embed = false }: Props) {
         is_draft: true,
         pricing_config: toPricingConfig(settings.pricing),
         ...(leadEmailOk ? { owner_email: leadEmail } : {}),
+        // Owner-SMS recipient — the lead pipeline texts this number on every new
+        // lead when followup.notifications.sms_enabled is set (below).
+        ...(leadSmsOk ? { owner_phone: leadSmsPhone } : {}),
         primary_color: p.colors.accent,
         // Wave P-F — pass the user's custom slug pick (if any) so the
         // server uses it verbatim instead of slugifying business name.
@@ -1606,6 +1617,15 @@ export default function WizardShell({ embed = false }: Props) {
           // Omitted entirely when there are none, keeping the payload
           // byte-identical to before for existing calculators.
           ...(buildLeadFormConfig(settings) ? { lead_form: buildLeadFormConfig(settings) } : {}),
+          // OWNER-SMS — when the owner enabled SMS lead notifications, write the
+          // notifications block enqueueLeadNotificationsAndFollowups reads
+          // (email stays on by default; sms_enabled gates the owner text, paired
+          // with the top-level owner_phone above). Omitted entirely when SMS is
+          // off so the payload stays byte-identical for calculators that don't
+          // use it (the server schema defaults followup.* anyway).
+          ...(leadSmsOk
+            ? { followup: { notifications: { email_enabled: true, sms_enabled: true } } }
+            : {}),
           language,
           // Wave R-pre D — map brandBadge (wizard) to appearance
           // .show_powered_by (server schema). The server-side gate
