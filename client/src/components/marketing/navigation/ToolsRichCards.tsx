@@ -8,11 +8,11 @@
  * jank, tiny payload. The motion is purely CSS and is fully disabled under
  * `prefers-reduced-motion: reduce` (the poster simply sits still).
  *
- * Posters are local WebP assets under /tool-cards/, captured from each
- * tool's own public surface:
- *   - QuoteQuick  → /templates  (live calculator template previews)
- *   - TradeLine   → /products/tradeline  (AI dispatcher chat reply)
- *   - LocalScore  → /tools/free-audit  (Google Business audit score card)
+ * Posters are local WebP assets under /tool-cards/, real captures of each
+ * tool's own UI:
+ *   - QuoteQuick  → the roof & solar 3D instant-quote widget
+ *   - TradeLine   → the AI dispatcher/receptionist chat reply
+ *   - LocalScore  → the local audit report (score breakdown)
  */
 
 import { Link } from "wouter";
@@ -34,7 +34,7 @@ function posterFor(href: string): PosterMeta | null {
   if (h.includes("free-audit") || h.includes("localscore") || h.includes("/audit")) {
     return {
       src: "/tool-cards/localscore.webp",
-      alt: "LocalScore audit result — Google Business health score with GBP Health, Site Speed, Reviews and competitor bars.",
+      alt: "LocalScore audit result — local visibility score with a Google Maps profile and website-quality breakdown.",
     };
   }
   // QuoteQuick — the quote-wizard builder. Demo + product + templates routes.
@@ -46,7 +46,7 @@ function posterFor(href: string): PosterMeta | null {
   ) {
     return {
       src: "/tool-cards/quotequick.webp",
-      alt: "QuoteQuick calculator templates — ready-made instant-quote calculators for trades like towing, paving and cleaning.",
+      alt: "QuoteQuick roof & solar quote widget — 3D roof view with instant solar and roofing pricing.",
     };
   }
   // TradeLine — the AI receptionist.
