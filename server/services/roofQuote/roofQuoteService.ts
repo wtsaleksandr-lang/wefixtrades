@@ -354,8 +354,25 @@ export async function houseKnowledge(address: string): Promise<string> {
 }
 
 // ── Image Collector: headless capture of the Google 3D oblique aerial ──────────
+// Marker error the route layer recognises to degrade gracefully (204, not 502)
+// when the runtime simply cannot launch a headless browser. Server-side capture
+// is a pre-warm OPTIMISATION (the before/after slider), never required — the
+// widget already hides the slider on a failed image. The prod (Replit publish)
+// runtime ships without the Playwright Chromium binary, so chromium.launch()
+// throws instantly; we must NOT log a 502 on every widget load for that.
+export class CaptureUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CaptureUnavailableError";
+  }
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 let _browser: Browser | null = null;
+// Once a launch fails (no Chromium binary / missing system lib in this runtime),
+// every subsequent launch in the same process fails the same way. Latch it so we
+// fast-fail without re-attempting (and re-logging) a multi-second launch per request.
+let _browserUnavailable = false;
 async function getBrowser(): Promise<Browser> {
   if (_browser) {
     try {
@@ -364,17 +381,28 @@ async function getBrowser(): Promise<Browser> {
       /* relaunch below */
     }
   }
+  if (_browserUnavailable) {
+    throw new CaptureUnavailableError("headless browser unavailable in this runtime");
+  }
   // TRUE headless + software WebGL (SwiftShader): renders Google 3D tiles with no GPU/display → deployable on standard server containers
-  _browser = await chromium.launch({
-    headless: true,
-    args: [
-      "--use-gl=angle",
-      "--use-angle=swiftshader",
-      "--enable-unsafe-swiftshader",
-      "--no-sandbox",
-      "--ignore-gpu-blocklist",
-    ],
-  });
+  try {
+    _browser = await chromium.launch({
+      headless: true,
+      args: [
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--no-sandbox",
+        "--ignore-gpu-blocklist",
+      ],
+    });
+  } catch (err) {
+    _browserUnavailable = true;
+    log.warn("roofquote capture disabled — headless Chromium failed to launch (pre-warm optimisation skipped)", {
+      err: (err as Error).message,
+    });
+    throw new CaptureUnavailableError((err as Error).message || "chromium launch failed");
+  }
   return _browser;
 }
 
@@ -489,7 +517,7 @@ export async function roofFeatures(address: string): Promise<unknown> {
 
 // ── simple upstream proxies (key hidden server-side) ──────────────────────────
 export type GeocodeResult =
-  | { lat: number; lng: number; formatted: string }
+  | { lat: number; lng: number; formatted: string; precise: boolean; locationType: string }
   | { error: string; message: string };
 
 export async function geocode(address: string): Promise<GeocodeResult> {
@@ -502,8 +530,21 @@ export async function geocode(address: string): Promise<GeocodeResult> {
   );
   const j = (await r.json()) as any;
   if (j.status === "OK" && j.results[0]) {
-    const l = j.results[0].geometry.location;
-    return { lat: l.lat, lng: l.lng, formatted: j.results[0].formatted_address };
+    const res0 = j.results[0];
+    const l = res0.geometry.location;
+    // location_type tells us how precise the point is: ROOFTOP = exact building,
+    // RANGE_INTERPOLATED ≈ interpolated along the street, GEOMETRIC_CENTER /
+    // APPROXIMATE = a centroid (city / parking lot / region) that can sit dozens of
+    // metres off the actual roof. The widget re-anchors imprecise points to Solar's
+    // building centroid; `precise` lets it know when that re-anchor matters most.
+    const locationType = String(res0.geometry.location_type || "");
+    return {
+      lat: l.lat,
+      lng: l.lng,
+      formatted: res0.formatted_address,
+      locationType,
+      precise: locationType === "ROOFTOP",
+    };
   }
   return { error: j.status, message: j.error_message || "" };
 }

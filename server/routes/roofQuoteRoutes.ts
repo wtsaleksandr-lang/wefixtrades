@@ -25,6 +25,7 @@ import { enqueueLeadNotificationsAndFollowups, isDuplicateSubmission } from "./l
 import {
   aiRender,
   captureOblique,
+  CaptureUnavailableError,
   dataLayers,
   geoTiff,
   geocode,
@@ -306,6 +307,16 @@ export function registerRoofQuoteRoutes(app: Express) {
       res.setHeader("Cache-Control", "public, max-age=3600");
       return res.send(buf);
     } catch (err) {
+      // Capture is a best-effort PRE-WARM (the before/after slider). The widget
+      // fires it fire-and-forget on every load and hides the slider on a failed
+      // image (baBefore.onerror). When the runtime can't launch a headless
+      // browser (prod ships without the Playwright Chromium binary), degrade
+      // CLEANLY — 204 No Content, no error log — so we don't 502-spam on every
+      // widget load. A 204 satisfies the <img> onerror path just like a 5xx,
+      // and the fire-and-forget fetch's .catch(()=>{}) swallows it either way.
+      if (err instanceof CaptureUnavailableError) {
+        return res.status(204).end();
+      }
       log.error("capture failed", { err: (err as Error).message });
       return res
         .status(502)
