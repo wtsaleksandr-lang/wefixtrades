@@ -22,6 +22,10 @@
   /* status chip */
   #status{position:absolute;top:62px;left:12px;z-index:20;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none;box-shadow:var(--card-shadow)}
   #status.err{color:#dc2626;border-color:#fecaca}
+  /* overlay-suppression note: shown when tree canopy hides the roof so the heatmap/panels/measure can't be placed reliably */
+  #overlayNote{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;display:none;align-items:center;gap:8px;background:#fffaf0;border:1px solid #f4d9a6;border-radius:12px;padding:9px 13px;font-size:12.5px;line-height:1.35;color:#7a5a18;max-width:min(420px,92vw);box-shadow:var(--card-shadow)}
+  #overlayNote svg{flex:0 0 auto;width:16px;height:16px;stroke:#b8860b;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  @media (max-width:560px){ #overlayNote{top:54px;font-size:12px;max-width:94vw} }
   /* report card */
   #card{position:absolute;left:12px;bottom:12px;z-index:20;width:264px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:18px;padding:12px 14px;display:none;box-shadow:var(--card-shadow)}
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
@@ -340,6 +344,7 @@
   <div id="measToggle"><button data-v="3d" class="on">3D</button><button data-v="diagram">Diagram</button></div>
   <div id="bar"><input id="addr" placeholder="Enter your address" value="30 Angus Rd, Hamilton, ON"><button id="go">Get Quote</button></div>
   <div id="status"></div>
+  <div id="overlayNote"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg><span id="overlayNoteText"></span></div>
   <div id="card"></div>
   <div id="ctrls">
     <button id="bPanels" class="on" title="Solar panels"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="11" rx="1"/><path d="M3 9.2h18M3 12.8h18M9 5.5v11M15 5.5v11"/></svg><span>Panels</span></button>
@@ -481,6 +486,64 @@ function roofInterior(mg,E,N,margin){
   const d=margin, o=margin*0.707;
   return sampleGrid(mg,E+d,N)>0.5&&sampleGrid(mg,E-d,N)>0.5&&sampleGrid(mg,E,N+d)>0.5&&sampleGrid(mg,E,N-d)>0.5
     &&sampleGrid(mg,E+o,N+o)>0.5&&sampleGrid(mg,E-o,N+o)>0.5&&sampleGrid(mg,E+o,N-o)>0.5&&sampleGrid(mg,E-o,N-o)>0.5;
+}
+
+/* ── ROOF-OVERLAY CONFIDENCE GUARD ──────────────────────────────────────────
+   The heatmap / panels / measure overlays only land correctly when the loaded
+   DSM/flux/mask rasters actually COVER the roof the Solar segments describe.
+   When a tree canopy hides the roof in Google's photoreal tiles, or the geocode
+   was far enough off that the raster window misses the building, the overlays
+   drift onto open ground (the Tucson parking-lot bug). A drifted overlay on the
+   lawn looks broken, so we DETECT that case and suppress the overlay — while the
+   numeric solar tiers/quote (pure Solar data, immune to this) still display.
+
+   Detector — per Solar roof segment, compare the DSM height at the segment
+   CENTRE against Solar's authoritative `planeHeightAtCenterMeters` (the true roof
+   height there, from the aerial pass). On a clean roof the DSM ≈ the plane height.
+   Under a tree the DSM at that point is the CANOPY — metres ABOVE the roof plane —
+   so the overlay, draped onto Google's photoreal mesh (which is also the tree),
+   floats up onto foliage / appears to slide off onto open ground. If too many
+   segments are tree-covered (or the raster can't sample them at all), the overlays
+   can't be trusted on the roof, so we suppress them and show the note. The numeric
+   quote (pure Solar data) is unaffected and still renders. */
+let overlaySuppressed=false;
+function roofOverlayConfidence(){
+  try{
+    if(!LASTB||!LASTDSM) return {ok:true, frac:1, reason:"no-data"};
+    const segs=(LASTB.solarPotential&&LASTB.solarPotential.roofSegmentStats)||[];
+    if(!segs.length) return {ok:true, frac:1, reason:"no-segs"};
+    const dsm=LASTDSM, zone=dsm.zone;
+    const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+    const CANOPY_M=2.0;   // DSM more than 2 m above the Solar roof plane at the centre ⇒ tree/foliage occludes it
+    let clear=0, occluded=0, missing=0; const detail=[];
+    for(const sg of segs){ const c=sg.center; if(!c){ missing++; continue; }
+      const [E,N]=wgs84ToUTM(c.latitude,c.longitude,zone);
+      const z=sampleGrid(dg,E,N);                          // null if outside raster; ≤NODATA if void
+      const ph=sg.planeHeightAtCenterMeters;
+      if(z==null||!isFinite(z)){ missing++; detail.push({z:null}); continue; }
+      if(ph==null||!isFinite(ph)){ clear++; continue; }    // no reference → can't judge; treat as clear
+      const dz=z-ph;
+      if(dz>CANOPY_M){ occluded++; } else { clear++; }
+      detail.push({dz:+dz.toFixed(1)});
+    }
+    const total=segs.length, frac=clear/total;             // fraction of roof that is cleanly visible
+    // suppress when fewer than half the roof segments are cleanly visible (rest tree-covered / off-raster)
+    return {ok:frac>=0.5, frac:+frac.toFixed(2), clear, occluded, missing, total, detail};
+  }catch(e){ return {ok:true, frac:1, reason:"err:"+e.message}; }
+}
+window.__roofConf=()=>roofOverlayConfidence();
+function setOverlayNote(on,text){
+  const el=$("overlayNote"); if(!el) return;
+  if(on){ const t=$("overlayNoteText"); if(t) t.textContent=text||"Roof partially obscured by tree cover — solar estimate shown, visual overlay unavailable."; el.style.display="flex"; }
+  else el.style.display="none";
+  window.__overlaySuppressed=on;
+}
+/* call once after rasters load: sets overlaySuppressed + shows/hides the note. */
+function evaluateOverlayConfidence(){
+  const c=roofOverlayConfidence(); window.__overlayConf=c;
+  overlaySuppressed=!c.ok;
+  setOverlayNote(overlaySuppressed);
+  return c;
 }
 
 /* ---------- three.js scene ---------- */
@@ -1187,7 +1250,7 @@ function buildScene(b, dsm, rgb, rgbTex){
 
 /* ---------- run ---------- */
 async function run(addr){
-  showLoad("Locating address…"); setStatus("");
+  showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
   window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
@@ -1208,13 +1271,26 @@ async function run(addr){
       SITE={lat:b.center.latitude,lng:b.center.longitude};
     }
     showLoad("Fetching elevation + imagery…");
-    const dl=await datalayers(g.lat,g.lng);
+    // ── Fetch DSM/RGB/flux/mask rasters CENTRED ON THE ROOF, not the raw geocode ──
+    // The geocode can land tens of metres off the building (Tucson: 33 m onto the
+    // adjacent parking lot). dataLayers returns a fixed-radius (40 m) raster window
+    // CENTRED on the requested point, so a geocode-centred window can leave the roof
+    // at its edge / outside it entirely — then the flux/DSM the overlays sample is the
+    // PARKING LOT, and the heatmap/measure drift off-building (looks broken).
+    // SITE was just re-anchored to buildingInsights.center (the true roof centroid),
+    // so fetch the rasters there: the window then frames the roof and the overlays —
+    // which derive their lat/lng from Solar segment geometry — land on it.
+    const dl=await datalayers(SITE.lat,SITE.lng);
     if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
     const [dsm, rgb, flux, mask]=await Promise.all([
       decodeTiff(dl.dsmUrl), decodeTiff(dl.rgbUrl),
       dl.annualFluxUrl?decodeTiff(dl.annualFluxUrl).catch(()=>null):null,
       dl.maskUrl?decodeTiff(dl.maskUrl).catch(()=>null):null ]);
     LASTFLUX=flux; LASTMASK=mask; LASTDSM=dsm; LASTRGB=rgb;
+    // Confidence gate: if the loaded rasters don't cover the roof the Solar segments
+    // describe (tree canopy / off-building geocode), suppress the drift-prone overlays
+    // and show the inline note — the numeric quote below still renders from Solar data.
+    evaluateOverlayConfidence();
     showLoad("Building 3D model…");
     // RGB -> CanvasTexture
     const cw=rgb.width,ch=rgb.height, cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
@@ -1407,6 +1483,7 @@ window.__testTexModel=async function(){
 function clearMat(){ for(const p of matPolys){ try{ p.remove&&p.remove(); }catch(_){} } matPolys=[]; window.__matPolys=0; }
 async function buildRoofMaterial(){
   if(!gmap) return; clearMat();
+  if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → facet polys would drift onto the ground; suppress the material tint
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   const mt=ROOF_MATS[matIdx]||ROOF_MATS[0];
   const fill=mt.base.replace("rgb(","rgba(").replace(")",",0.6)");   // tint; real shingle texture shows through
@@ -1499,6 +1576,7 @@ function facetsToRoofModel(){
 }
 async function buildRoofMeasure(){
   if(!gmap) return; clearRoofMeas();
+  if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → DSM-derived measure would drift; suppress (quote still shows measured ft² from Solar)
   const model=facetsToRoofModel(); if(!model){ await buildPhotoLabels(); return; }   // graceful fallback to legacy outline
   const toWgs=model.__toWgs;
   const { Marker3DElement, AltitudeMode, Polyline3DElement }=await google.maps.importLibrary("maps3d");
@@ -1579,6 +1657,7 @@ function showRoofReport(t){ window.__roofTotals=t; const rp=$("roofReport"); if(
 }
 async function buildPhotoLabels(){
   if(!LASTB||!gmap) return;
+  if(overlaySuppressed){ for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0; setOverlayNote(true); return; }
   const { Marker3DElement, Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   let PinElement=null; try{ ({PinElement}=await google.maps.importLibrary("marker")); }catch(_){}
   // premium minimal label: small dark glassy pin matching the UI (no cheap red teardrop)
@@ -1620,6 +1699,7 @@ function clearHeat(){ for(const c of heatCells){ try{ c.remove&&c.remove(); }cat
 async function buildPhotoHeatmap(){
   if(!gmap||!LASTFLUX||!LASTB){ window.__heatCells=0; return; }
   clearHeat();
+  if(overlaySuppressed){ window.__heatCells=0; setOverlayNote(true); return; }   // canopy/off-roof → don't paint drifted cells on the ground
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   const fx=LASTFLUX, zone=fx.zone;
   const fg={vals:fx.rasters[0],w:fx.width,h:fx.height,bbox:fx.bbox};
@@ -1674,6 +1754,7 @@ async function buildPhotoPanels(){
   if(!LASTB||!gmap) return;
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
+  if(overlaySuppressed){ window.__photoPanels=0; setOverlayNote(true); return; }   // canopy/off-roof → don't drape panels onto the lawn
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
   const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
