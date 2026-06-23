@@ -5,11 +5,13 @@ import { PageMeta } from "@/components/seo/PageMeta";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors } from "@/theme/tokens";
 import { trackEvent } from "@/lib/trackEvent";
-import { QUOTEQUICK, getTier, qqYearlyMonthlyEquiv } from "@shared/pricing";
+import { QUOTEQUICK, getTier, qqYearlyMonthlyEquiv, qqYearlyTotal } from "@shared/pricing";
 
 /* Canonical QuoteQuick pricing — single source of truth (shared/pricing.ts).
-   Wave Q — three-tier ladder: Free (badge shown) / Pro $29 (badge removed,
+   Three-tier ladder: Free forever (badge shown) / Pro $19 (badge removed,
    custom domain, SMS) / Business $79 (+AI, +bookings, +CRM, +5 calcs).
+   Free is the hero/front door; Pro is the lowest-priced paid quote tool on
+   the market ($19 vs Roofr ~$125, Roofle $350, Demand IQ ~$495).
    Annual = 17% off (industry-standard "two months free"). */
 const FREE = getTier(QUOTEQUICK, "Free")!;
 const PRO = getTier(QUOTEQUICK, "Pro")!;
@@ -22,7 +24,7 @@ const FAQS = [
   { q: "Can I use this with Jobber or Housecall Pro?", a: "Yes. QuoteQuick works alongside whatever you already use. Leads come to your email and dashboard — no platform switch needed." },
   { q: "How fast can I set it up?", a: "Most users go live in under 5 minutes. Pick your trade, set your rate, and publish. No code, no design skills needed." },
   { q: "What happens if I don't upgrade?", a: "Your calculator stays on the Free plan forever — hosted link works, embed works, leads flow in. You'll see a small 'QuoteQuick by WeFixTrades' badge on the widget. Upgrade to Pro any time to remove it; downgrade any time to put it back." },
-  { q: "What's the difference between Pro and Business?", a: "Pro ($29/mo) removes the WeFixTrades badge, adds a custom domain, SMS follow-ups, and unlimited slug reservation. Business ($79/mo) adds up to 5 calculators, online booking + deposits, the AI quote assistant, and CRM webhooks." },
+  { q: "What's the difference between Pro and Business?", a: `Pro ($${PRO.price}/mo) removes the WeFixTrades badge, adds a custom domain, SMS follow-ups, and unlimited slug reservation. Business ($${BUSINESS.price}/mo) adds up to 5 calculators, online booking + deposits, the AI quote assistant, and CRM webhooks.` },
   { q: "Can I cancel anytime?", a: "Yes. No contracts, no lock-in. Cancel from your dashboard in one click. Annual plans keep access until the period ends." },
 ];
 
@@ -141,8 +143,8 @@ export default function QuoteQuickPricing() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="QuoteQuick pricing — free quote calculator, $29/mo Pro"
-        description="QuoteQuick pricing for trades: Free for unlimited quotes, Pro at $29/mo for booking + deposits, Business for multi-location teams. No credit card required to start."
+        title={`QuoteQuick pricing — free quote calculator, $${PRO.price}/mo Pro`}
+        description={`QuoteQuick pricing for trades: Free forever quote calculator (no card), Pro at just $${PRO.price}/mo to remove branding + add a custom domain — the lowest-priced paid quote tool on the market. Business for multi-calculator teams.`}
         canonical="/pricing/quotequick"
         keywords={["quotequick pricing", "quote calculator pricing"]}
       />
@@ -200,46 +202,7 @@ export default function QuoteQuickPricing() {
           gap: 20, marginBottom: "clamp(48px, 6vw, 72px)", maxWidth: 980, margin: "0 auto",
         }}>
 
-          {/* FREE */}
-          <div style={{
-            borderRadius: 16, padding: "32px 28px",
-            background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`,
-          }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Free</p>
-            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Try, ship, and share at zero cost</p>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>$0</span>
-              <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
-            </div>
-            <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Forever — no credit card required</p>
-
-            <button
-              onClick={() => startCheckout('free')}
-              disabled={!!checkoutLoading}
-              style={{
-                width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
-                background: "transparent", color: mkt.onDark, cursor: "pointer",
-                fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
-                opacity: checkoutLoading ? 0.6 : 1,
-              }}
-              onMouseEnter={e => { if (!checkoutLoading) { e.currentTarget.style.borderColor = mkt.accent; e.currentTarget.style.color = mkt.accent; } }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = mkt.border as string; e.currentTarget.style.color = mkt.text; }}
-            >
-              {checkoutLoading === 'free' ? 'Loading...' : 'Start free'}
-            </button>
-            <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>No card required</p>
-
-            <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
-              <Feature text="1 instant quote calculator" />
-              <Feature text="Hosted page on {your-name}.your-quote.net" />
-              <Feature text="Embed snippet for any website" />
-              <Feature text="Lead capture with every quote" />
-              <Feature text="50 leads/month" />
-              <Feature text="QuoteQuick by WeFixTrades branding shown" />
-            </div>
-          </div>
-
-          {/* PRO */}
+          {/* FREE — acquisition hero / primary CTA (front door) */}
           <div style={{
             borderRadius: 16, padding: "32px 28px",
             background: mkt.sectionLight,
@@ -252,20 +215,19 @@ export default function QuoteQuickPricing() {
               background: mkt.accent, color: "#FFFFFF",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.03em",
             }}>
-              MOST POPULAR
+              START HERE — FREE FOREVER
             </div>
 
-            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Pro</p>
-            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Look professional. No branding.</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Free</p>
+            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Build, publish, and capture leads at zero cost</p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${proPrice}</span>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>$0</span>
               <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
             </div>
-            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${proPrice * 12}/yr)</p>}
-            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${qqYearlyMonthlyEquiv(PRO.price)}/mo billed annually</p>}
+            <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Forever — no credit card required</p>
 
             <button
-              onClick={() => startCheckout('pro')}
+              onClick={() => startCheckout('free')}
               disabled={!!checkoutLoading}
               style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: "none",
@@ -276,9 +238,50 @@ export default function QuoteQuickPricing() {
               onMouseEnter={e => { if (!checkoutLoading) e.currentTarget.style.background = mkt.ctaBgHover; }}
               onMouseLeave={e => { e.currentTarget.style.background = mkt.ctaBg; }}
             >
-              {checkoutLoading === 'pro' ? 'Redirecting...' : hasCalc ? 'Choose Pro' : 'Start Pro'}
+              {checkoutLoading === 'free' ? 'Loading...' : 'Start free — no card'}
             </button>
-            <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'Cancel any time'}</p>
+            <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>Live in 5 minutes</p>
+
+            <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
+              <Feature text="1 instant quote calculator" />
+              <Feature text="Hosted page on {your-name}.your-quote.net" />
+              <Feature text="Embed snippet for any website" />
+              <Feature text="Lead capture with every quote" />
+              <Feature text="50 leads/month" />
+              <Feature text="QuoteQuick by WeFixTrades branding shown" />
+            </div>
+          </div>
+
+          {/* PRO — paid upsell (badge removal). Lowest paid plan on the market. */}
+          <div style={{
+            borderRadius: 16, padding: "32px 28px",
+            background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`,
+            position: "relative",
+          }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Pro</p>
+            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>Look professional. No branding.</p>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${proPrice}</span>
+              <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
+            </div>
+            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${qqYearlyTotal(PRO.price)}/yr)</p>}
+            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${qqYearlyMonthlyEquiv(PRO.price)}/mo billed annually</p>}
+
+            <button
+              onClick={() => startCheckout('pro')}
+              disabled={!!checkoutLoading}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
+                background: "transparent", color: mkt.onDark, cursor: "pointer",
+                fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
+                opacity: checkoutLoading ? 0.6 : 1,
+              }}
+              onMouseEnter={e => { if (!checkoutLoading) { e.currentTarget.style.borderColor = mkt.accent; e.currentTarget.style.color = mkt.accent; } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = mkt.border as string; e.currentTarget.style.color = mkt.text; }}
+            >
+              {checkoutLoading === 'pro' ? 'Redirecting...' : hasCalc ? 'Choose Pro' : 'Upgrade to Pro'}
+            </button>
+            <p style={{ fontSize: 11, color: mkt.accent, textAlign: "center", margin: "0 0 20px", fontWeight: 600 }}>Lowest-priced paid quote tool on the market</p>
 
             <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
               <Feature text="Everything in Free, plus:" />

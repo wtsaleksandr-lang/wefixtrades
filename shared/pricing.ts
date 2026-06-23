@@ -178,15 +178,26 @@ export const QUOTEQUICK: ProductDef = {
   category: "leads",
   tiers: [
     /* Wave Q — pricing restructure. Three-tier ladder anchored on a free
-     * forever plan with WeFixTrades branding (Wave P-H badge). Pro at $29
-     * unlocks badge removal + custom domain + SMS; Business at $79 adds
-     * the AI assistant + bookings + webhooks + multi-calc. Matches the
-     * market: free-with-badge is the standard freemium pattern; $29 is
-     * the badge-removal sweet spot (Calculoid $19, Jotform Bronze $39,
-     * ConvertCalculator Pro $40); $79 sits with Involve.me Grow $69 and
-     * Interact Growth $89. The Starter $49 tier was removed because it
-     * couldn't differentiate from a free-with-badge plan above or a $79
-     * Pro below — classic muddy-middle. */
+     * forever plan with WeFixTrades branding (Wave P-H badge). Pro unlocks
+     * badge removal + custom domain + SMS; Business at $79 adds the AI
+     * assistant + bookings + webhooks + multi-calc.
+     *
+     * Lowest-on-market repricing (2026-06-23) — Pro dropped $29 → $19/mo to
+     * make QuoteQuick unambiguously the cheapest paid quote tool on the
+     * market for a brand-new no-reviews entrant (Roofr ~$125/mo, Roofle
+     * $350, Demand IQ ~$495; Calculoid $19 is the lone freemium comparable).
+     * The FREE tier is the acquisition hero — paid Pro is the upsell once
+     * a user wants the badge gone. New Stripe live prices minted on the same
+     * QuoteQuick™ Pro product (prod_UOZ3pnrSGhhZoC):
+     *   $19/mo  price_1TlXsZFWY4wju6QiXQm0DBDY  (lookup_key qq_pro_monthly_v3)
+     *   $189/yr price_1TlXshFWY4wju6QiCJtTCjBc  (lookup_key qq_pro_annual_v3, 17% off)
+     * The prior $29/$290 v2 prices stay ACTIVE so any existing subscriber
+     * grandfathers (Stripe keeps a subscription on its original price). The
+     * app resolves Pro checkout via STRIPE_PRICE_QQ_PRO_MONTHLY/_ANNUAL
+     * (Doppler wefixtrades/prd), now repointed at the v3 ids.
+     *
+     * The Starter $49 tier was removed because it couldn't differentiate
+     * from a free-with-badge plan above or a $79 Pro below — muddy-middle. */
     {
       id: "quotequick-free",
       name: "Free",
@@ -204,7 +215,7 @@ export const QUOTEQUICK: ProductDef = {
     {
       id: "quotequick-pro",
       name: "Pro",
-      price: 29,
+      price: 19,
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",

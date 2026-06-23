@@ -173,7 +173,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
             onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
           >
-            Get QuoteQuick — Free + from $29/mo
+            Get QuoteQuick — Free + from $19/mo
             <ArrowRight style={{ width: 14, height: 14 }} />
           </a>
           <div style={{ marginTop: '12px' }}>
