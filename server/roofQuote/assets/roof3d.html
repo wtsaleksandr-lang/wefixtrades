@@ -1571,6 +1571,31 @@ async function buildRoofMaterial(){
   }
   window.__matPolys=matPolys.length;
 }
+/* ── Roof MASK for inpaint: render the SAME facet polygons as opaque WHITE on the live map at the SAME
+   camera as the oblique capture, so the headless capture pipeline can screenshot a mask perfectly aligned
+   to the house photo. Node then thresholds white-poly-vs-baseline → a clean roof-only mask for flux-fill-pro.
+   We deliberately reuse extractFacetPolys (same geometry the material tint + measurements use). */
+let maskPolys=[];
+function clearRoofMask(){ for(const p of maskPolys){ try{ p.remove&&p.remove(); }catch(_){} } maskPolys=[]; window.__maskPolys=0; }
+window.__roofMask=async function(on){
+  if(!gmap){ window.__maskPolys=0; return 0; }
+  clearRoofMask();
+  if(!on) return 0;
+  // overlaySuppressed → facets would drift onto the ground; signal "no mask" so capture falls back to img2img.
+  if(overlaySuppressed){ window.__maskPolys=-1; return -1; }
+  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  // 0.0 erosion → mask covers the FULL roof to the edge (the tint uses 0.4 to avoid a visible lip; the mask
+  // wants full coverage + we feather the edge in Node, so go edge-to-edge here).
+  // SOLID white mask. FLAT polygon (NOT extruded — extrusion makes 3D towers). The flat fill was being occluded by the
+  // building mesh (only the stroke survived), so force drawsOccludedSegments:true and float the plane a touch above the
+  // roof so its full filled area shows from the oblique camera. Pure white fill → Node thresholds it directly.
+  for(const f of extractFacetPolys(0.0)){
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:"rgba(255,255,255,1)", strokeColor:"rgba(255,255,255,1)", strokeWidth:8, extruded:false, drawsOccludedSegments:true });
+    poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.2})); gmap.append(poly); maskPolys.push(poly);
+  }
+  window.__maskPolys=maskPolys.length;
+  return maskPolys.length;
+};
 function energyColor(t){ // 0=low sun (blue) -> high sun (red)
   t=Math.max(0,Math.min(1,t)); const st=[[59,130,246],[34,211,238],[250,204,21],[239,68,68]];
   const seg=Math.min(2,Math.floor(t*3)), f=t*3-seg, a=st[seg], b=st[seg+1];

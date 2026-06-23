@@ -1,4 +1,5 @@
 import http from "http"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url";
+import { PNG } from "pngjs";   // dependency-free PNG read/write for compositing the roof inpaint mask (repo-root dep)
 // ---- persistent disk cache: captures + AI renders survive restarts (cost lever; foundation for cross-tenant cache) ----
 const CACHE_DIR=path.join(import.meta.dirname,"cache");
 try{ mkdirSync(CACHE_DIR,{recursive:true}); }catch(_){}
@@ -49,6 +50,33 @@ async function renderOpenAI(dataUri,material,pkg){
 // fixed seed each material is a fresh random draw → the model re-imagines walls/trees/cars ("different house per material").
 function houseSeed(dataUri){ const h=createHash("sha1").update(dataUri).digest();
   return ((h[0]<<23)|(h[1]<<15)|(h[2]<<7)|(h[3]&0x7f))&0x7fffffff; }
+// ── Roof-MASKED INPAINT (the proper fix): flux-fill-pro repaints ONLY the white-masked roof pixels and keeps every
+//    other pixel of the house photo bit-for-bit. Same per-house seed. mask = white(inpaint)/black(keep), aligned to image.
+async function renderFluxFill(dataUri,material,pkg,maskUri){
+  if(!REPLICATE) throw new Error("no_replicate_key");
+  if(!maskUri) throw new Error("no_mask");
+  const seed=houseSeed(dataUri);
+  // Inpaint prompt: only the roof is editable, so describe the new covering. The rest is locked by the mask, not the prompt.
+  const prompt="A photorealistic roof covering of "+material+" on this house, covering the entire roof surface."+(pkg?(" The roof is "+pkg+".") :"")+" Natural realistic roofing colour and texture, sharp, matching the photo's lighting and camera angle.";
+  let lastErr;
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const rr=await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-fill-pro/predictions",{
+        method:"POST", headers:{ "Authorization":"Bearer "+REPLICATE, "Content-Type":"application/json", "Prefer":"wait" },
+        body:JSON.stringify({ input:{ prompt, image:dataUri, mask:maskUri, output_format:"jpg", safety_tolerance:2, seed } }) });
+      let j=await rr.json(); let tries=0;
+      while(j.status && !["succeeded","failed","canceled"].includes(j.status) && tries<40){
+        await new Promise(s=>setTimeout(s,1500));
+        const pr=await fetch(j.urls.get,{headers:{"Authorization":"Bearer "+REPLICATE}}); j=await pr.json(); tries++;
+      }
+      if(j.status!=="succeeded") throw new Error("fluxfill_"+(j.error||j.status||"failed"));
+      const out=Array.isArray(j.output)?j.output[0]:j.output;
+      if(!out) throw new Error("fluxfill_no_output");
+      return out;
+    }catch(e){ lastErr=e; await new Promise(s=>setTimeout(s,1800)); }
+  }
+  throw lastErr;
+}
 async function renderReplicate(dataUri,material,pkg){
   if(!REPLICATE) throw new Error("no_replicate_key");
   // Replicate (Flux Kontext) is true img2img → keeps the house identical, only the roof changes, framing matches the
@@ -160,11 +188,15 @@ async function getBrowser(){
   if(_browser){ try{ if(_browser.isConnected()) return _browser; }catch(_){} }
   // PLAYWRIGHT_PATH lets the host point at an installed playwright (e.g. a monorepo's node_modules).
   // On Windows, dynamic import() needs a file:// URL — a raw "C:\..." path throws, so convert it.
-  const raw=process.env.PLAYWRIGHT_PATH;
+  // Default fallback: resolve the repo-root playwright (no spike-local node_modules).
+  const raw=process.env.PLAYWRIGHT_PATH || path.resolve(import.meta.dirname,"../../node_modules/playwright/index.js");
   let spec="playwright";
-  if(raw){ const full=raw.endsWith(".js")?raw:path.join(raw,"index.js"); spec=pathToFileURL(full).href; }
+  try{ const full=raw.endsWith(".js")?raw:path.join(raw,"index.js"); if(existsSync(full)) spec=pathToFileURL(full).href; }catch(_){}
   const pw=await import(spec);
   const chromium=(pw.default||pw).chromium;
+  // HEADED=1 → real GPU window (required to verify the Map3D screenshot; SwiftShader works headless on prod containers).
+  const headed=process.env.HEADED==="1"||process.env.HEADED==="true";
+  if(headed){ _browser=await chromium.launch({ headless:false, args:["--no-sandbox","--ignore-gpu-blocklist"] }); return _browser; }
   // TRUE headless + software WebGL (SwiftShader): renders Google 3D tiles with no GPU/display → deployable on standard server containers
   _browser=await chromium.launch({ headless:true, args:["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader","--no-sandbox","--ignore-gpu-blocklist"] });
   return _browser;
@@ -176,9 +208,54 @@ function bearing(lat1,lng1,lat2,lng2){
   const x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lng2-lng1)*r);
   return (Math.atan2(y,x)/r+360)%360;
 }
-async function captureOblique(address){
-  if(captureCache.has(address)) return captureCache.get(address);
-  { const d=diskGetBuf("cap",address); if(d){ captureCache.set(address,d); return d; } }
+// Build a roof-only inpaint mask (white=roof to repaint, black=keep) from two screenshots at the SAME camera:
+//   base = the house photo (no overlays); polyPng = same frame + WHITE facet polygons (Map3D renders them as closed
+//   white OUTLINES, not solid fill). So we: (1) extract the white outline (pixels that turned white only in polyPng),
+//   (2) dilate it a couple px to seal any AA gaps, (3) flood-fill the BACKGROUND inward from the image border over
+//   non-outline pixels, (4) anything the flood never reaches = roof INTERIOR → white. Then dilate+feather the edge so
+//   flux-fill blends the new roof. This gives a SOLID roof mask without depending on Map3D polygon fill.
+function compositeRoofMask(basePng, polyPng){
+  const a=PNG.sync.read(basePng), b=PNG.sync.read(polyPng);
+  const w=Math.min(a.width,b.width), h=Math.min(a.height,b.height);
+  const line=new Uint8Array(w*h); let lineCount=0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const ia=(y*a.width+x)*4, ib=(y*b.width+x)*4;
+    const polyWhite = b.data[ib]>222&&b.data[ib+1]>222&&b.data[ib+2]>222;
+    const baseWhite = a.data[ia]>222&&a.data[ia+1]>222&&a.data[ia+2]>222;
+    if(polyWhite && !baseWhite){ line[y*w+x]=1; lineCount++; }
+  }
+  // seal small gaps in the traced outline so the flood can't leak through them
+  const SEAL=2; const wall=new Uint8Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ if(!line[y*w+x]) continue;
+    for(let dy=-SEAL;dy<=SEAL;dy++)for(let dx=-SEAL;dx<=SEAL;dx++){ const ny=y+dy,nx=x+dx; if(ny>=0&&nx>=0&&ny<h&&nx<w) wall[ny*w+nx]=1; } }
+  // flood-fill the exterior (background) from all border pixels, blocked by the sealed outline
+  const bg=new Uint8Array(w*h); const stack=[];
+  for(let x=0;x<w;x++){ stack.push(x); stack.push((h-1)*w+x); }
+  for(let y=0;y<h;y++){ stack.push(y*w); stack.push(y*w+(w-1)); }
+  while(stack.length){ const i=stack.pop(); if(bg[i]||wall[i]) continue; bg[i]=1;
+    const x=i%w, y=(i-x)/w;
+    if(x>0)stack.push(i-1); if(x<w-1)stack.push(i+1); if(y>0)stack.push(i-w); if(y<h-1)stack.push(i+w); }
+  // roof = everything NOT background (interior of the loops) plus the outline itself
+  const bin=new Uint8Array(w*h); let count=0;
+  for(let i=0;i<w*h;i++){ if(!bg[i]){ bin[i]=1; count++; } }
+  // dilate a few px (covers AA edge), then a light box-blur feather so flux-fill blends the new roof.
+  const R=3; const dil=new Uint8Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ if(!bin[y*w+x]) continue;
+    for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){ const ny=y+dy,nx=x+dx; if(ny>=0&&nx>=0&&ny<h&&nx<w) dil[ny*w+nx]=1; } }
+  const out=new PNG({width:w,height:h}); const F=3; // feather radius
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let s=0,n=0; for(let dy=-F;dy<=F;dy++)for(let dx=-F;dx<=F;dx++){ const ny=y+dy,nx=x+dx; if(ny>=0&&nx>=0&&ny<h&&nx<w){ s+=dil[ny*w+nx]; n++; } }
+    const v=Math.round(255*s/n); const i=(y*w+x)*4; out.data[i]=v; out.data[i+1]=v; out.data[i+2]=v; out.data[i+3]=255;
+  }
+  return { mask: PNG.sync.write(out), coverage: count, outline: lineCount };
+}
+// captureOblique(address, {withMask}) → Buffer (photo) by default; {photo,mask} when withMask.
+// The mask is rendered at the IDENTICAL camera as the photo (second screenshot in the same page session),
+// so it lines up pixel-for-pixel with the captured house — the whole point of mask-aligned inpaint.
+async function captureOblique(address, opts){
+  const withMask=!!(opts&&opts.withMask);
+  if(!withMask && captureCache.has(address)) return captureCache.get(address);
+  if(!withMask){ const d=diskGetBuf("cap",address); if(d){ captureCache.set(address,d); return d; } }
   const browser=await getBrowser();
   const ctx=await browser.newContext({ viewport:{width:1080,height:840} });
   const page=await ctx.newPage();
@@ -206,9 +283,23 @@ async function captureOblique(address){
     await sleep(9000);                                    // SwiftShader streams the closer tiles slowly — give it time
     await page.addStyleTag({ content:"#card,#ctrls,#bar,#status,#matbar,#sunbar,#matHint,#load,#aiBtn,#aiBar,#report{display:none!important}" });
     await sleep(700);
-    const buf=await page.screenshot({ type:"png" });
+    const buf=await page.screenshot({ type:"png" });     // base house photo (no overlays)
+    if(!withMask){ captureCache.set(address,buf); diskSetBuf("cap",address,buf); return buf; }
+    // ── mask pass: same camera, render white facet polys, screenshot, threshold vs base ──
+    let mask=null;
+    try{
+      const n=await page.evaluate(()=>window.__roofMask&&window.__roofMask(true));
+      if(typeof n==="number" && n>0){
+        await sleep(1200);                                // let the polys paint
+        const polyBuf=await page.screenshot({ type:"png" });
+        const r=compositeRoofMask(buf,polyBuf);
+        if(r.coverage>400) mask="data:image/png;base64,"+r.mask.toString("base64"); // need a real roof region
+      }
+      await page.evaluate(()=>window.__roofMask&&window.__roofMask(false)).catch(()=>{});
+    }catch(_){ /* mask is best-effort → caller falls back to img2img */ }
+    // cache the base photo (mask is request-scoped, not cached on disk — cheap to regenerate)
     captureCache.set(address,buf); diskSetBuf("cap",address,buf);
-    return buf;
+    return { photo:buf, mask };
   } finally { await ctx.close(); }
 }
 const html=readFileSync(path.join(import.meta.dirname,"index.html"),"utf8").replaceAll("__TILES__",TILES);
@@ -419,17 +510,25 @@ http.createServer(async (req,res)=>{
     if(aiCache.has(ck)){ res.end(JSON.stringify(Object.assign({cached:true},aiCache.get(ck)))); return; }
     { const d=diskGetJSON("air",ck); if(d){ aiCache.set(ck,d); res.end(JSON.stringify(Object.assign({cached:true},d))); return; } }
     try{
-      // Image Collector → oblique aerial of the house (cached per address; one headless render, then materials reuse it)
-      let dataUri;
-      try{ const buf=await captureOblique(address); dataUri="data:image/png;base64,"+buf.toString("base64"); }
+      // Image Collector → oblique aerial of the house + roof MASK (same camera). One headless render; materials reuse the photo.
+      let dataUri, maskUri=null;
+      try{ const cap=await captureOblique(address,{withMask:true});
+        const buf=cap&&cap.photo?cap.photo:cap; dataUri="data:image/png;base64,"+buf.toString("base64"); maskUri=cap&&cap.mask||null; }
       catch(capErr){ res.end(JSON.stringify({error:"capture_failed",detail:String(capErr&&capErr.message||capErr)})); return; }
       // Property Analysis Agent → House Knowledge Package (cached); injected so the render preserves roof geometry
       let pkg=""; try{ pkg=await houseKnowledge(address); }catch(_){}
-      // failover chain: try each provider until one renders (resilience like our LLM fallback chain)
       const tried=[];
+      // PROPER FIX: roof-MASKED INPAINT first — flux-fill-pro repaints ONLY the roof pixels, every other pixel of the
+      // house stays bit-for-bit identical across materials. Only attempt when we produced a valid aligned mask.
+      if(maskUri){
+        try{ const url=await renderFluxFill(dataUri,material,pkg,maskUri);
+          const r={url,provider:"flux-fill-inpaint",knowledge:pkg||undefined,tier,masked:true}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
+        catch(e){ tried.push("flux-fill-inpaint:"+e.message); console.error("[render fail]","flux-fill-inpaint",e.message); }
+      } else { tried.push("flux-fill-inpaint:no_mask"); }
+      // FALLBACK: existing seed-locked img2img chain (keeps the working render; instant client-side tint is the always-on backstop)
       const chain = tier==="browse" ? RENDER_CHAIN.filter(x=>x[0]!=="openai") : RENDER_CHAIN;   // browse skips the pricey gpt-image-1
       for(const [name,fn] of chain){
-        try{ const url=await fn(dataUri,material,pkg); const r={url,provider:name,knowledge:pkg||undefined,tier}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
+        try{ const url=await fn(dataUri,material,pkg); const r={url,provider:name,knowledge:pkg||undefined,tier,masked:false}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
         catch(e){ tried.push(name+":"+e.message); console.error("[render fail]",name,e.message); }
       }
       res.end(JSON.stringify({error:"all_providers_failed",tried}));
