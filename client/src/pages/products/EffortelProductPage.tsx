@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
+import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket, ShieldCheck, Building2, Lock, FileText, CreditCard, PlayCircle, Zap, Mail } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { SuiteBreadcrumb } from "@/components/marketing/SuiteBreadcrumb";
@@ -235,6 +235,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
             — visitors don't just read about it, they touch it. Skipped for
             products without a real customer-facing widget. */}
         {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
+        {slug === "quickquotepro" && <QuickQuoteCredibility />}
         {slug === "mapguard" && <MapGuardLandingTeaser />}
         {slug === "rankflow" && <RankFlowFreeTools />}
         {slug === "tradeline" && <TradeLineArchSection />}
@@ -1215,6 +1216,441 @@ function QuickQuoteLandingLiveDemo() {
         </div>
       </div>
     </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: QuoteQuick credibility / honest social proof
+   ----------------------------------------------------------------
+   QuoteQuick is a brand-new tool with no review history yet. Skeptical
+   buyers' #1 objection is "who else uses this?". Instead of faking
+   testimonials, this section builds trust from things that are
+   LITERALLY TRUE and verifiable in the live demo above:
+
+     1. CAPABILITY PROOF — the genuine "what it does" a buyer can
+        confirm themselves in the no-signup demo on this page. No
+        labels needed; each line is checkable.
+     2. TRUST STRIP — real, verifiable company/security signals
+        (Wyoming LLC, AWS + Cloudflare infra, Stripe PCI, live legal
+        pages, no-signup demo, cancel anytime). Each links to the real
+        page that substantiates it.
+     3. FOUNDING-CONTRACTOR PROGRAM — an honest "we're new" offer:
+        free Pro for the first cohort in exchange for feedback + a
+        review. Leans INTO being new rather than faking maturity.
+     4. REVIEW AREA — renders REAL reviews from a data source; while
+        that source is empty it shows the founding-customer CTA, NOT
+        fake placeholders. Backend collection endpoint is flagged as a
+        follow-up (see REAL_QUOTEQUICK_REVIEWS below).
+
+   HARD RULE: nothing here is fabricated. No invented names, quotes,
+   logos, or "illustrative" testimonials. Every claim is true or is an
+   honest, clearly-labelled offer.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Real, verifiable QuoteQuick capabilities — each is confirmable by the
+ * visitor in the live no-signup demo above, or stated on the page already.
+ * Deliberately conservative: only claims QuoteQuick demonstrably does today. */
+const QQ_CAPABILITY_PROOF: { icon: typeof Zap; title: string; detail: string }[] = [
+  {
+    icon: Zap,
+    title: "Instant prices on your website, 24/7",
+    detail: "Customers get a real estimate from your own pricing rules in seconds — try it in the live calculator above, no signup.",
+  },
+  {
+    icon: Mail,
+    title: "Every quote captures a lead",
+    detail: "Name, email and phone land in your inbox and dashboard automatically — so a price request is also a warm lead.",
+  },
+  {
+    icon: Clock,
+    title: "Live in about 5 minutes",
+    detail: "Pick your trade, set your rates, paste one line of code. Works on WordPress, Wix, Squarespace, Shopify or plain HTML.",
+  },
+  {
+    icon: Check,
+    title: "Works with what you already use",
+    detail: "Runs alongside Jobber, Housecall Pro or anything else — no platform switch. Booking and email/SMS follow-up are built in.",
+  },
+];
+
+/* Real trust signals — each substantiated by a live page on this site or a
+ * named third-party provider. The `href` points at the page that proves it. */
+const QQ_TRUST_SIGNALS: { icon: typeof ShieldCheck; label: string; sub: string; href: string }[] = [
+  {
+    icon: Building2,
+    label: "Registered US company",
+    sub: "MR Holdings & Trade LLC — a Wyoming LLC",
+    href: "/terms",
+  },
+  {
+    icon: ShieldCheck,
+    label: "Enterprise-grade infrastructure",
+    sub: "Runs on AWS + Cloudflare (SOC 2-audited)",
+    href: "/security",
+  },
+  {
+    icon: Lock,
+    label: "Secure payments",
+    sub: "Stripe — PCI DSS Level 1. We never touch card numbers",
+    href: "/security",
+  },
+  {
+    icon: FileText,
+    label: "Real legal + privacy pages",
+    sub: "Plain-English Terms & Privacy Policy",
+    href: "/privacy",
+  },
+  {
+    icon: PlayCircle,
+    label: "Try it with no signup",
+    sub: "Live demo on this page — see it before you decide",
+    href: "/products/quickquotepro/demo",
+  },
+  {
+    icon: Check,
+    label: "No contract, cancel anytime",
+    sub: "Free plan free forever — no card to start",
+    href: "/wizard",
+  },
+];
+
+/* REAL reviews data source. Intentionally EMPTY at launch — QuoteQuick is a
+ * brand-new tool with no review history, and the honesty mandate forbids
+ * placeholder/fabricated reviews. When genuine reviews are collected, push
+ * them here (or wire this to a `/api/reviews?product=quickquotepro` feed).
+ *
+ * FOLLOW-UP (backend): no public review-submission endpoint exists yet. The
+ * "Leave a review" CTA below currently routes to the support inbox so real
+ * feedback can be captured manually; a structured collection endpoint +
+ * moderation is the next step. Until a review lands here, the section shows
+ * the founding-contractor offer instead of empty space — never fake cards. */
+interface QuickQuickReview { quote: string; author: string; trade: string; city: string; rating: 5 }
+const REAL_QUOTEQUICK_REVIEWS: QuickQuickReview[] = [];
+
+function QuickQuoteCredibility() {
+  return (
+    <section style={{ padding: "8px 24px 8px" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+
+        {/* ── 1. CAPABILITY PROOF ─────────────────────────────── */}
+        <Reveal>
+          <p style={{
+            fontSize: 11, fontWeight: 700, color: mkt.accentOnDark,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            margin: "0 0 8px", fontFamily: MONO,
+          }}>
+            Proof it works — check it yourself
+          </p>
+        </Reveal>
+        <Reveal delay={0.04}>
+          <h2 style={{
+            fontSize: "clamp(26px, 3.6vw, 38px)", fontWeight: 600,
+            color: mkt.onDark, letterSpacing: "-0.025em",
+            lineHeight: 1.1, margin: "0 0 8px", maxWidth: 640,
+          }}>
+            New tool, real capability.
+          </h2>
+        </Reveal>
+        <Reveal delay={0.08}>
+          <p style={{
+            fontSize: 15, lineHeight: 1.6, color: mkt.onDarkMuted,
+            margin: "0 0 24px", maxWidth: 560,
+          }}>
+            We&rsquo;re upfront: QuoteQuick is brand new, so we won&rsquo;t pretend to have
+            thousands of reviews. Instead, here&rsquo;s exactly what it does — every line is
+            something you can verify in the live calculator above.
+          </p>
+        </Reveal>
+
+        <div
+          className="qq-cred-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 12,
+            marginBottom: 44,
+          }}
+        >
+          {QQ_CAPABILITY_PROOF.map((c, i) => {
+            const Icon = c.icon;
+            return (
+              <Reveal key={c.title} delay={i * 0.05}>
+                <div style={{
+                  display: "flex", gap: 14, alignItems: "flex-start",
+                  background: mkt.sectionLight,
+                  border: `1px solid var(--hairline)`,
+                  borderRadius: 16, padding: "18px 18px", height: "100%",
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: mkt.accentTint, color: mkt.accentOnDark,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon size={20} aria-hidden="true" />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.01em", marginBottom: 4 }}>
+                      {c.title}
+                    </div>
+                    <p style={{ fontSize: 13, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0 }}>
+                      {c.detail}
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+            );
+          })}
+        </div>
+
+        {/* ── 2. TRUST STRIP ──────────────────────────────────── */}
+        <Reveal>
+          <p style={{
+            fontSize: 11, fontWeight: 700, color: mkt.accentOnDark,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+            margin: "0 0 8px", fontFamily: MONO,
+          }}>
+            Trust signals you can verify
+          </p>
+        </Reveal>
+        <Reveal delay={0.04}>
+          <h2 style={{
+            fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 600,
+            color: mkt.onDark, letterSpacing: "-0.02em",
+            lineHeight: 1.12, margin: "0 0 22px", maxWidth: 560,
+          }}>
+            A real company behind the tool.
+          </h2>
+        </Reveal>
+
+        <div
+          className="qq-trust-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+            marginBottom: 44,
+          }}
+        >
+          {QQ_TRUST_SIGNALS.map((t, i) => {
+            const Icon = t.icon;
+            return (
+              <Reveal key={t.label} delay={i * 0.04}>
+                <Link
+                  href={t.href}
+                  className="qq-trust-card"
+                  style={{
+                    display: "flex", gap: 12, alignItems: "flex-start",
+                    background: mkt.sectionLight,
+                    border: `1px solid var(--hairline)`,
+                    borderRadius: 14, padding: "16px 16px", height: "100%",
+                    textDecoration: "none", color: mkt.onDark,
+                    transition: "transform 0.2s ease, border-color 0.2s ease",
+                  }}
+                >
+                  <Icon size={20} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.01em", marginBottom: 3 }}>
+                      {t.label}
+                    </div>
+                    <div style={{ fontSize: 12, lineHeight: 1.5, color: mkt.onDarkMuted }}>
+                      {t.sub}
+                    </div>
+                  </div>
+                </Link>
+              </Reveal>
+            );
+          })}
+        </div>
+
+        {/* ── 3 + 4. FOUNDING PROGRAM + REVIEW AREA ───────────── */}
+        <QuickQuoteFoundingAndReviews />
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .qq-cred-grid { grid-template-columns: 1fr !important; }
+          .qq-trust-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .qq-trust-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        .qq-trust-card:hover {
+          transform: translateY(-3px);
+          border-color: #FFFFFF !important;
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* Founding-contractor offer + the real-reviews area.
+ * When REAL_QUOTEQUICK_REVIEWS is empty (launch state) the review area shows
+ * the founding offer as its empty state — never fake review cards. Once real
+ * reviews exist, they render above the (still-present) "leave a review" CTA. */
+function QuickQuoteFoundingAndReviews() {
+  const reviews = REAL_QUOTEQUICK_REVIEWS;
+  const hasReviews = reviews.length > 0;
+
+  return (
+    <div
+      className="qq-founding-card"
+      style={{
+        position: "relative",
+        background: mkt.sectionLight,
+        border: `1px solid ${mkt.accent}`,
+        borderRadius: 24,
+        padding: "36px 32px",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: "radial-gradient(ellipse 60% 90% at 100% 0%, rgba(13,60,252,0.12) 0%, transparent 60%)",
+      }} />
+
+      <div style={{ position: "relative" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 7,
+          padding: "6px 12px", borderRadius: 999,
+          background: mkt.accent, color: "#FFFFFF",
+          fontSize: 11, fontWeight: 700, fontFamily: MONO,
+          letterSpacing: "0.08em", textTransform: "uppercase",
+          marginBottom: 16,
+        }}>
+          <Rocket size={14} aria-hidden="true" /> Founding contractors — limited spots
+        </span>
+
+        <h2 style={{
+          fontSize: "clamp(24px, 3.4vw, 36px)", fontWeight: 700,
+          color: mkt.onDark, letterSpacing: "-0.025em",
+          lineHeight: 1.08, margin: "0 0 12px", maxWidth: 620,
+        }}>
+          Be one of our first contractors —{" "}
+          <span style={{ color: mkt.accentOnDark }}>Pro free for your first 3 months.</span>
+        </h2>
+
+        <p style={{
+          fontSize: 15, lineHeight: 1.6, color: mkt.onDarkMuted,
+          margin: "0 0 22px", maxWidth: 580,
+        }}>
+          We&rsquo;re building QuoteQuick&rsquo;s reputation the honest way: with real customers.
+          Join the founding cohort and get <strong style={{ color: mkt.onDark }}>QuoteQuick Pro free for 3 months</strong>.
+          In return, we ask for your honest feedback and — if you love it — a review. No fake
+          testimonials here; the proof gets built by people like you.
+        </p>
+
+        {/* Honest "what you get / what we ask" — two short columns */}
+        <div
+          className="qq-founding-split"
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 26, maxWidth: 620 }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              What you get
+            </div>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              {["3 months of Pro, free", "Direct line to the founders", "Your feature requests prioritized"].map((f) => (
+                <li key={f} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.4, color: mkt.onDark }}>
+                  <Check size={16} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              All we ask
+            </div>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              {["Use it on a real job or two", "Tell us honestly what works", "Leave a review if you'd recommend it"].map((f) => (
+                <li key={f} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.4, color: mkt.onDark }}>
+                  <Check size={16} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <CtaLink
+            href="/wizard"
+            className="wft-hover-border-white"
+            style={{ ...ctaPrimary, fontSize: 13, padding: "14px 24px" }}
+          >
+            Claim a founding spot <ArrowRight size={16} />
+          </CtaLink>
+          <CtaLink
+            href="mailto:support@wefixtrades.com?subject=QuoteQuick%20founding%20contractor%20program"
+            style={{ ...ctaGhost, fontSize: 13, padding: "14px 24px" }}
+          >
+            Ask us a question
+          </CtaLink>
+        </div>
+
+        {/* ── REVIEW AREA ────────────────────────────────────────
+            Real reviews render here when REAL_QUOTEQUICK_REVIEWS is
+            populated. Until then we show NOTHING fake — just the honest
+            "first reviews land here" line + the leave-a-review CTA. */}
+        <div style={{ marginTop: 30, paddingTop: 24, borderTop: `1px solid var(--hairline)` }}>
+          <div style={{ fontSize: 11, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 14 }}>
+            Reviews from real contractors
+          </div>
+
+          {hasReviews ? (
+            <div className="qq-reviews-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 16 }}>
+              {reviews.slice(0, 4).map((r) => (
+                <div key={r.quote} style={{
+                  background: mkt.bg, border: `1px solid var(--hairline)`,
+                  borderRadius: 14, padding: "16px 16px",
+                  display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  <div style={{ display: "flex", gap: 2, color: "#F59E0B" }}>
+                    {[1, 2, 3, 4, 5].map((n) => <Star key={n} size={14} fill="#F59E0B" stroke="#F59E0B" />)}
+                  </div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: mkt.onDark, margin: 0 }}>&ldquo;{r.quote}&rdquo;</p>
+                  <div style={{ fontSize: 12, color: mkt.onDarkFaint }}>
+                    {r.author} · {r.trade} · {r.city}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{
+              background: mkt.bg, border: `1px dashed ${mkt.onDarkBorder}`,
+              borderRadius: 14, padding: "18px 18px", marginBottom: 16,
+              display: "flex", gap: 12, alignItems: "flex-start",
+            }}>
+              <Star size={20} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0 }}>
+                No reviews yet — and we won&rsquo;t fake any. The first verified reviews from
+                founding contractors will appear right here. Want to be one of them?
+              </p>
+            </div>
+          )}
+
+          <CtaLink
+            href="mailto:support@wefixtrades.com?subject=QuoteQuick%20review"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              fontSize: 13, fontWeight: 600, fontFamily: MONO,
+              letterSpacing: "0.04em", color: mkt.accentOnDark,
+              textDecoration: "none",
+            }}
+          >
+            <MessageSquare size={16} /> Already using QuoteQuick? Leave a review
+          </CtaLink>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 600px) {
+          .qq-founding-card { padding: 28px 20px !important; }
+          .qq-founding-split { grid-template-columns: 1fr !important; gap: 18px !important; }
+          .qq-reviews-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </div>
   );
 }
 
