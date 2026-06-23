@@ -22,6 +22,7 @@ import path from "path";
 import { createLogger } from "../lib/logger";
 import { storage } from "../storage";
 import { enqueueLeadNotificationsAndFollowups, isDuplicateSubmission } from "./leadRoutes";
+import { fireLeadWebhook } from "../services/quotequickLeadWebhook";
 import {
   aiRender,
   captureOblique,
@@ -435,12 +436,30 @@ export function registerRoofQuoteRoutes(app: Express) {
       });
 
       // Same notification/followup pipeline the wizard lead step uses — emails the
-      // owner at lead_form.delivery.primary_email (settings.leadEmail). Best-effort.
+      // owner at lead_form.delivery.primary_email (settings.leadEmail) and, when the
+      // owner enabled it, enqueues the owner-SMS notification (followup.notifications
+      // .sms_enabled + calc.owner_phone). Best-effort.
       try {
         await enqueueLeadNotificationsAndFollowups(lead, calc.id);
       } catch (notifyErr) {
         log.warn("roofquote lead notification enqueue failed", { err: (notifyErr as Error).message });
       }
+
+      // QuoteQuick Integrations — owner-configured OUTBOUND lead webhook
+      // (Zapier/Make/n8n/HubSpot/GoHighLevel/Google Sheets/Slack/custom), stored at
+      // calculator_settings.integrations.webhook and surfaced by the wizard Action
+      // tab's IntegrationsPanel (now also shown for the roof widget). The generic
+      // /api/leads path already fires this; the roof lead path previously skipped it
+      // entirely, so roof-widget leads never reached the owner's CRM/Zapier hook.
+      // Reuse the SAME signed, SSRF-guarded, non-blocking deliverer — no-op unless
+      // integrations.webhook.{enabled,url,secret} is configured. Never throws.
+      void fireLeadWebhook(calc, lead).catch((webhookErr) =>
+        log.error("roofquote lead webhook fire threw unexpectedly", {
+          err: (webhookErr as Error).message,
+          calculatorId: calc.id,
+          leadId: lead.id,
+        }),
+      );
 
       return res.json({ ok: true, persisted: true });
     } catch (err) {

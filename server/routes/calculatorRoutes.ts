@@ -101,6 +101,11 @@ const createCalculatorBody = z.object({
   tagline: z.string().nullable().optional(),
   logo_url: z.string().nullable().optional(),
   owner_email: z.string().email().nullable().optional(),
+  // Owner SMS-notification recipient. Captured by the wizard Action tab's
+  // owner-SMS card; the lead pipeline (enqueueLeadNotificationsAndFollowups)
+  // texts this number when followup.notifications.sms_enabled is set. Mirrors
+  // owner_email (loose string — the wizard validates format client-side).
+  owner_phone: z.string().nullable().optional(),
   pricing_config: z.record(z.any()),
   primary_color: z.string().optional(),
   theme_overrides: z.record(z.any()).nullable().optional(),
@@ -192,6 +197,7 @@ export function registerCalculatorRoutes(app: Express): void {
         tagline: parsed.data.tagline || null,
         logo_url: parsed.data.logo_url || null,
         owner_email: parsed.data.owner_email || null,
+        owner_phone: parsed.data.owner_phone || null,
         pricing_config: validatedPricingConfig,
         primary_color: parsed.data.primary_color || "#6366f1",
         theme_overrides: parsed.data.theme_overrides || null,

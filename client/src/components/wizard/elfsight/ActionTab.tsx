@@ -25,6 +25,7 @@ import {
   CreditCard, BellRing, CalendarDays,
   MousePointerClick, Plug, ShieldCheck,
   Copy, RefreshCw, Send, ExternalLink, Trash2,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { AE } from './appleEditor';
@@ -206,6 +207,18 @@ export default function ActionTab({
 
   const leadEmailInvalid = leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim());
 
+  // ── Owner-SMS lead notification (settings.leadSmsEnabled / leadSmsPhone).
+  //    Persisted on save as the top-level `owner_phone` column +
+  //    followup.notifications.sms_enabled, which the lead pipeline reads to text
+  //    the owner on every new lead. Surfaced on BOTH the generic Action tab and
+  //    the roof widget so contractors get SMS lead delivery either way. ──
+  const leadSmsEnabled = settings.leadSmsEnabled === true;
+  const leadSmsPhone = settings.leadSmsPhone ?? '';
+  const leadSmsPhoneInvalid =
+    leadSmsEnabled &&
+    leadSmsPhone.trim() !== '' &&
+    leadSmsPhone.replace(/\D/g, '').length < 10;
+
   // ROOF-WIDGET — the visualizer runs its own lead capture + qualification +
   // submit flow, so the only Action setting that still applies is the lead
   // notification recipient. Render just that card (same testids/wiring as the
@@ -257,10 +270,104 @@ export default function ActionTab({
             )}
           </div>
         </div>
+
+        {/* Owner-SMS lead notification — text the owner on every new roof/solar
+            lead. Same control + persisted keys as the generic Action tab. */}
+        <OwnerSmsCard
+          enabled={leadSmsEnabled}
+          phone={leadSmsPhone}
+          invalid={leadSmsPhoneInvalid}
+          onToggle={(next) => patch({ leadSmsEnabled: next })}
+          onPhoneChange={(next) => patch({ leadSmsPhone: next })}
+        />
+
+        {/* Integrations — outbound lead webhook (Zapier / Make / HubSpot /
+            Google Sheets / Slack / custom). The roof widget POSTs leads to
+            /api/roofquote/lead, which now fires this SAME signed webhook — so
+            CRM/Zapier delivery works for the 3D widget exactly as it does for a
+            generic calculator. Reuses the generic tab's IntegrationsPanel. */}
+        <IntegrationsPanel editToken={editToken} />
+
         <style>{`
           .qq-action-panel {
             display: flex; flex-direction: column; gap: 12px;
             font-family: ${AE.font.family};
+          }
+          /* Integrations / owner-SMS panel styling — the roof branch reuses the
+             generic Action panel's card chrome (the full tab's <style> isn't
+             mounted here), so the shared selectors are duplicated below scoped
+             to this section's cards. */
+          .qq-action-toggle {
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
+          }
+          .qq-action-toggle input[type="checkbox"] {
+            width: 16px; height: 16px; accent-color: ${AE.color.accent};
+          }
+          .qq-action-toggle-title {
+            font-size: ${AE.type.label.size}; font-weight: 600; color: ${AE.color.text};
+          }
+          .qq-action-seg-hint {
+            margin: 8px 0 0; font-size: ${AE.type.helper.size};
+            color: ${AE.color.secondary}; line-height: 1.45;
+          }
+          .qq-integ .qq-action-card-body { display: flex; flex-direction: column; gap: 12px; }
+          .qq-integ-hint {
+            margin: 0; font-size: ${AE.type.helper.size};
+            color: ${AE.color.secondary}; line-height: 1.5;
+          }
+          .qq-integ-error {
+            margin: -4px 0 0; font-size: ${AE.type.helper.size};
+            color: ${AE.color.danger}; line-height: 1.4;
+          }
+          .qq-integ-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+          .qq-integ-btn {
+            display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+            padding: 0 16px; background: ${AE.color.accent}; color: ${AE.color.publishText};
+            border: none; border-radius: ${AE.radius.md};
+            font: inherit; font-size: ${AE.type.label.size}; font-weight: 600; cursor: pointer;
+            transition: background 0.12s ease, opacity 0.12s ease;
+          }
+          .qq-integ-btn:hover:not(:disabled) { background: ${AE.color.accentHover}; }
+          .qq-integ-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .qq-integ-btn:focus-visible { outline: 2px solid ${AE.color.accent}; outline-offset: 2px; }
+          .qq-integ-testresult { font-size: ${AE.type.helper.size}; font-weight: 500; line-height: 1.4; }
+          .qq-integ-testresult.is-ok { color: ${AE.color.success}; }
+          .qq-integ-testresult.is-err { color: ${AE.color.danger}; }
+          .qq-integ-secret {
+            display: flex; flex-direction: column; gap: 6px; padding: 12px;
+            background: ${AE.color.surface}; border: 1px solid ${AE.color.hairline};
+            border-radius: ${AE.radius.md};
+          }
+          .qq-integ-secret-label {
+            font-size: ${AE.type.caption.size}; font-weight: 600;
+            letter-spacing: ${AE.type.caption.tracking}; text-transform: uppercase;
+            color: ${AE.color.secondary};
+          }
+          .qq-integ-secret-row { display: flex; align-items: center; gap: 8px; }
+          .qq-integ-secret-value {
+            flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px;
+            color: ${AE.color.text}; background: ${AE.color.bg};
+            border: 1px solid ${AE.color.hairline}; border-radius: ${AE.radius.sm}; padding: 8px 10px;
+          }
+          .qq-integ-iconbtn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 44px; height: 44px; flex: 0 0 auto; background: ${AE.color.bg};
+            border: 1px solid ${AE.color.hairline}; border-radius: ${AE.radius.md};
+            color: ${AE.color.secondary}; cursor: pointer;
+            transition: border-color 0.12s ease, color 0.12s ease;
+          }
+          .qq-integ-iconbtn:hover:not(:disabled) { border-color: ${AE.color.hairlineStrong}; color: ${AE.color.text}; }
+          .qq-integ-iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .qq-integ-iconbtn:focus-visible { outline: 2px solid ${AE.color.accent}; outline-offset: 1px; }
+          .qq-integ-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: ${AE.color.accent}; font-weight: 500; text-decoration: none;
+          }
+          .qq-integ-link:hover { text-decoration: underline; }
+          .qq-action-card-headicon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; flex: 0 0 auto; line-height: 0; color: ${AE.color.accent};
           }
           .qq-action-card {
             background: ${AE.color.bg};
@@ -659,6 +766,17 @@ export default function ActionTab({
                 )}
               </div>
             </div>
+
+            {/* Text notifications — owner-SMS lead alert. Same shared card the
+                roof widget surfaces; writes settings.leadSmsEnabled /
+                leadSmsPhone → owner_phone + followup.notifications.sms_enabled. */}
+            <OwnerSmsCard
+              enabled={leadSmsEnabled}
+              phone={leadSmsPhone}
+              invalid={leadSmsPhoneInvalid}
+              onToggle={(next) => patch({ leadSmsEnabled: next })}
+              onPhoneChange={(next) => patch({ leadSmsPhone: next })}
+            />
 
             {/* Online booking — RELOCATED from SettingsTab. The PERSISTED
                 built-in scheduler (settings.scheduling → appearance.scheduling
@@ -1547,6 +1665,78 @@ function LeadFieldEditor({
           />
           <span className="qq-action-toggle-title">Required</span>
         </label>
+      </div>
+    </div>
+  );
+}
+
+/* ── Owner-SMS lead notification card ───────────────────────────────────
+   One shared card surfaced on BOTH the generic Action tab and the roof widget.
+   The toggle + phone write settings.leadSmsEnabled / settings.leadSmsPhone,
+   which the save mutation persists as the top-level `owner_phone` column +
+   followup.notifications.sms_enabled — the keys the lead pipeline
+   (enqueueLeadNotificationsAndFollowups) reads to text the owner on every lead.
+   Same card chrome / testid conventions as the Email-notifications card. */
+function OwnerSmsCard({
+  enabled, phone, invalid, onToggle, onPhoneChange,
+}: {
+  enabled: boolean;
+  phone: string;
+  invalid: boolean;
+  onToggle: (next: boolean) => void;
+  onPhoneChange: (next: string) => void;
+}) {
+  return (
+    <div className="qq-action-card" data-testid="action-group-sms">
+      <div className="qq-action-card-head">
+        <span className="qq-action-card-headicon" aria-hidden="true">
+          <MessageSquare size={16} />
+        </span>
+        <span className="qq-action-card-title">Text notifications</span>
+        <InfoCue
+          testid="action-section-sms"
+          text="Get a text the moment a lead comes in. We send the SMS to this number on every new lead, alongside the email notification."
+        />
+      </div>
+      <div className="qq-action-card-body">
+        <label className="qq-action-toggle">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => onToggle(e.target.checked)}
+            data-testid="action-sms-enabled"
+            aria-label="Text me on every new lead"
+          />
+          <span className="qq-action-toggle-title">Text me on every new lead</span>
+        </label>
+        <p className="qq-action-seg-hint" data-testid="action-sms-hint">
+          A short SMS with the customer's name and quote, sent to your phone the instant they submit.
+        </p>
+        {enabled && (
+          <FloatField
+            label="Notification phone number"
+            htmlFor="qq-action-sms-phone"
+            infoText="Where lead-alert texts are sent. Use the full number including area/country code."
+            infoTestid="action-sms-phone"
+          >
+            <input
+              id="qq-action-sms-phone"
+              type="tel"
+              inputMode="tel"
+              className="premium-input"
+              placeholder=" "
+              value={phone}
+              onChange={(e) => onPhoneChange(e.target.value)}
+              data-testid="action-input-sms-phone"
+              aria-invalid={invalid ? 'true' : 'false'}
+            />
+          </FloatField>
+        )}
+        {invalid && (
+          <p className="qq-action-error" data-testid="action-sms-phone-error">
+            Enter a valid phone number (at least 10 digits).
+          </p>
+        )}
       </div>
     </div>
   );
