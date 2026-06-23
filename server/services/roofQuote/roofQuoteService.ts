@@ -141,11 +141,22 @@ async function renderOpenAI(dataUri: string, material: string, pkg: string): Pro
   return "data:image/png;base64," + b;
 }
 
+// Deterministic per-house seed: SAME input image (same address) → SAME seed for every material, so Flux Kontext's
+// stochastic sampling lands on the SAME house each time and only the roof (driven by the prompt) changes. Without a
+// fixed seed, each material is a fresh random draw and the model re-imagines walls/trees/cars per material
+// (the "different house per material" bug). Derived from the input image bytes so it's stable across requests + restarts.
+function houseSeed(dataUri: string): number {
+  const h = createHash("sha1").update(dataUri).digest();
+  // 31-bit positive int (Replicate seeds are uint32-ish; keep it well inside range)
+  return ((h[0] << 23) | (h[1] << 15) | (h[2] << 7) | (h[3] & 0x7f)) & 0x7fffffff;
+}
+
 async function renderReplicate(dataUri: string, material: string, pkg: string): Promise<string> {
   const REPLICATE = replicateKey();
   if (!REPLICATE) throw new Error("no_replicate_key");
   // Replicate (Flux Kontext) is true img2img → keeps the house identical, only the roof changes, framing matches the
   // capture. Retry transient failures so it stays the CONSISTENT provider rather than intermittently dropping to Gemini.
+  const seed = houseSeed(dataUri); // lock the seed per-house so every material renders the SAME house (see houseSeed)
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -164,6 +175,7 @@ async function renderReplicate(dataUri: string, material: string, pkg: string): 
               input_image: dataUri,
               output_format: "jpg",
               safety_tolerance: 2,
+              seed, // fixed per-house → consistent house identity across materials
             },
           }),
         },
