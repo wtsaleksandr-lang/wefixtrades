@@ -43,6 +43,7 @@ import { registerPortalCatalogRoutes } from "./portal/catalog";
 import { registerPortalTicketsRoutes } from "./portal/tickets";
 import { registerPortalSettingsRoutes } from "./portal/settings";
 import { registerPortalUniversalNotificationsRoutes } from "./portal/notifications";
+import { registerPortalLeadAnalyticsRoutes } from "./portal/leadAnalytics";
 
 const log = createLogger("Portal");
 
@@ -131,6 +132,10 @@ export function registerPortalRoutes(app: Express) {
   // notification-settings routes shipped in Waves 27-31; the unified
   // /api/portal/notifications endpoints are the new source of truth.
   registerPortalUniversalNotificationsRoutes(app);
+  // Lead Analytics — contractor-facing QuoteQuick ROI dashboard
+  // (GET /api/portal/leads/analytics + /api/portal/leads/list). Auth-scoped
+  // to the client's owned calculators; see leadAnalytics.ts header.
+  registerPortalLeadAnalyticsRoutes(app);
 
   /**
    * GET /api/portal/overview

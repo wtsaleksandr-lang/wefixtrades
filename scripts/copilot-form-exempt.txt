@@ -131,6 +131,10 @@ client/src/pages/admin/AdminAiGatesPage.tsx
 client/src/pages/admin/AdminAiChannelsPage.tsx
 client/src/pages/portal/PortalCalculatorAnalytics.tsx
 
+# ── Lead Analytics — contractor-facing QuoteQuick ROI dashboard. Read-only:
+#    KPI cards, leads-over-time chart, breakdowns, paginated lead list. No form. ──
+client/src/pages/portal/PortalLeadAnalytics.tsx
+
 # ── Free Tools foundation wave — index is a read-only card grid. ──
 # (SchemaGenerator.tsx is NOT exempt — it wires useCopilotForm for address/price fields.)
 client/src/pages/portal/FreeTools/index.tsx
