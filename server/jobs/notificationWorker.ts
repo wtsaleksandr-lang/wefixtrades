@@ -5,6 +5,7 @@ import { buildTransactionalEmail, buildPlainText } from "../lib/transactionalShe
 import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
 import { createLogger } from "../lib/logger";
 import { assertPublicHttpsUrl } from "../lib/webhookSsrfGuard";
+import { generateProposalPdf } from "../lib/proposalPdfGenerator";
 
 const log = createLogger("NotificationWorker");
 
@@ -133,12 +134,34 @@ export async function processNotificationQueue(): Promise<{ processed: number; e
 
         const { subject, html, text } = buildBusinessNotificationEmail(calc, lead, payload);
 
+        // Branded proposal-PDF lead packet (server/lib/proposalPdfGenerator.ts).
+        // Pure-Node PDFKit — no headless browser (prod has no Chromium). The
+        // contractor receives a clean, follow-up-ready packet attached to this
+        // owner-notification email. Best-effort: a PDF failure NEVER blocks the
+        // notification — we log it and send the email without the attachment.
+        let attachments: Array<{ filename: string; content: Buffer; contentType: string }> | undefined;
+        try {
+          const pdf = await generateProposalPdf(calc, lead);
+          if (pdf.ok) {
+            attachments = [{ filename: pdf.filename, content: pdf.buffer, contentType: "application/pdf" }];
+          } else {
+            log.warn("Proposal PDF generation failed; sending email without packet", {
+              leadId: lead.id, error: pdf.error,
+            });
+          }
+        } catch (pdfErr: any) {
+          log.warn("Proposal PDF threw; sending email without packet", {
+            leadId: lead.id, error: pdfErr?.message,
+          });
+        }
+
         await mail.sendMail({
           from: `WeFixTrades <${getFromAddress()}>`,
           to: toEmail,
           subject,
           html,
           text,
+          ...(attachments ? { attachments } : {}),
         });
 
         await storage.updateNotification(notif.id, {
