@@ -1283,13 +1283,6 @@ const ROOF_CATALOG=[
    {n:"Forest Green",base:"rgb(46,74,54)",p:"forest-green standing-seam metal roof"},
    {n:"Colonial Red",base:"rgb(132,42,38)",p:"colonial red standing-seam metal roof"},
    {n:"Copper",base:"rgb(150,90,52)",p:"copper-metallic standing-seam metal roof"} ]},
- { id:"mshingle", label:"Metal Shingle", type:"metal", tier:"Premium", colors:[
-   {n:"Charcoal",base:"rgb(64,66,70)",p:"charcoal stone-coated steel metal shingle roof"},
-   {n:"Weathered Timber",base:"rgb(110,92,70)",p:"weathered-timber stone-coated steel metal shingle roof"},
-   {n:"Pinnacle Gray",base:"rgb(120,122,124)",p:"pinnacle-gray stone-coated steel metal shingle roof"},
-   {n:"Sierra Sand",base:"rgb(158,140,112)",p:"sierra sand-blend stone-coated steel metal shingle roof"},
-   {n:"Tahoe Brown",base:"rgb(96,72,52)",p:"tahoe brown-blend stone-coated steel metal shingle roof"},
-   {n:"Mission Red",base:"rgb(150,68,50)",p:"mission-red stone-coated steel metal shingle roof"} ]},
  { id:"clay", label:"Clay Tile", type:"tile", tier:"Premium", colors:[
    {n:"Natural Red",base:"rgb(178,84,54)",p:"natural red terracotta clay barrel roof tiles"},
    {n:"Sand",base:"rgb(186,160,120)",p:"sand-buff clay barrel roof tiles"},
@@ -1297,13 +1290,6 @@ const ROOF_CATALOG=[
    {n:"Tobacco",base:"rgb(132,92,62)",p:"tobacco-brown clay barrel roof tiles"},
    {n:"Burgundy",base:"rgb(120,48,48)",p:"burgundy-blend clay barrel roof tiles"},
    {n:"Aged Mission",base:"rgb(146,96,66)",p:"aged-mission multi-tone clay barrel roof tiles"} ]},
- { id:"concrete", label:"Concrete Tile", type:"tile", tier:"Mid", colors:[
-   {n:"Terracotta",base:"rgb(170,90,58)",p:"terracotta concrete roof tiles"},
-   {n:"Santa Cruz",base:"rgb(150,108,74)",p:"santa-cruz tan reddish-brown concrete roof tiles"},
-   {n:"Charcoal",base:"rgb(70,72,76)",p:"charcoal-slate concrete roof tiles"},
-   {n:"Sand",base:"rgb(176,154,118)",p:"sand-tan concrete roof tiles"},
-   {n:"Brown Range",base:"rgb(116,86,62)",p:"brown-gray range concrete roof tiles"},
-   {n:"Gray Blend",base:"rgb(124,124,124)",p:"gray-blend concrete roof tiles"} ]},
  { id:"slate", label:"Natural Slate", type:"slate", tier:"Premium", colors:[
    {n:"Gray",base:"rgb(96,100,104)",p:"gray natural slate roof tiles"},
    {n:"Black",base:"rgb(44,46,48)",p:"black natural slate roof tiles"},
@@ -1311,12 +1297,6 @@ const ROOF_CATALOG=[
    {n:"Green",base:"rgb(74,88,72)",p:"green natural slate roof tiles"},
    {n:"Red",base:"rgb(120,58,52)",p:"red natural slate roof tiles"},
    {n:"Mottled",base:"rgb(92,82,90)",p:"mottled purple-green blend natural slate roof tiles"} ]},
- { id:"synthetic", label:"Synthetic Slate", type:"slate", tier:"Premium", colors:[
-   {n:"Slate Gray",base:"rgb(98,104,110)",p:"slate-gray synthetic composite slate roof tiles"},
-   {n:"Smoke",base:"rgb(72,74,78)",p:"smoke-charcoal synthetic composite slate roof tiles"},
-   {n:"Black",base:"rgb(44,46,48)",p:"black synthetic composite slate roof tiles"},
-   {n:"Green-Gray",base:"rgb(82,92,84)",p:"green-gray synthetic composite slate roof tiles"},
-   {n:"Aged Cedar",base:"rgb(124,100,74)",p:"aged-cedar synthetic composite shake roof"} ]},
  { id:"cedar", label:"Cedar Shake", type:"wood", tier:"Premium", colors:[
    {n:"New Cedar",base:"rgb(158,104,64)",p:"new western-red-cedar wood shake roof, warm reddish-brown"},
    {n:"Honey",base:"rgb(178,134,82)",p:"honey-amber cedar wood shake roof"},
@@ -1329,17 +1309,14 @@ const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type})
 // Installed $/square as a TIGHT ±12% band (~1.26x low–high) around a realistic midpoint — matches what credible
 // instant-quote tools show (EnergySage/InstantRoofer ~±12-15%), not a 1.6-2x cost-guide spread. On-site confirms final.
 // Midpoints: arch $5.2/sqft, metal $11/sqft, slate $22/sqft, etc. (validated vs 2024-25 sources).
-const ROOF_PSQ={ arch:[460,580], "3tab":[355,445], metal:[970,1230], mshingle:[750,950], clay:[1320,1680], concrete:[880,1120], slate:[1940,2460], synthetic:[1010,1290], cedar:[840,1060] };
+const ROOF_PSQ={ arch:[460,580], "3tab":[355,445], metal:[970,1230], clay:[1320,1680], slate:[1940,2460], cedar:[840,1060] };
 // trademark-safe material specs (typical industry figures) — helps the buying decision like a real product page
 const ROOF_SPEC={
   arch:{life:"25–30 yr", warranty:"Lifetime limited", note:"Architectural asphalt — wind-rated to 130 mph, the popular choice"},
   "3tab":{life:"15–20 yr", warranty:"25-yr limited", note:"Classic 3-tab asphalt — budget-friendly, flat profile"},
   metal:{life:"40–70 yr", warranty:"30–50 yr", note:"Standing-seam metal — energy-efficient, fire-resistant, low-maintenance"},
-  mshingle:{life:"30–50 yr", warranty:"40-yr", note:"Metal shingle — durable, lighter than standing-seam"},
   clay:{life:"50–100 yr", warranty:"50-yr", note:"Clay tile — premium, excellent in heat, very long-lasting"},
-  concrete:{life:"40–75 yr", warranty:"50-yr", note:"Concrete tile — durable and cost-effective vs clay"},
   slate:{life:"75–150 yr", warranty:"50–100 yr", note:"Natural slate — the longest-lasting, highest-end roof"},
-  synthetic:{life:"40–50 yr", warranty:"50-yr", note:"Synthetic slate — slate look, much lighter + lower cost"},
   cedar:{life:"25–40 yr", warranty:"30-yr", note:"Cedar shake — natural wood look, needs periodic maintenance"},
 };
 // rich per-material content for the help-cue modal
@@ -1347,11 +1324,8 @@ const MAT_INFO={
   arch:{ desc:"Architectural (dimensional) asphalt shingles — the most popular roof in North America. Multi-layer laminated shingles that add depth and mimic wood shake or slate.", features:["Laminated multi-layer build for a dimensional look","Wind-rated up to 130 mph","Class A fire rating","Algae-resistant granules"], benefits:["Best balance of price, looks and durability","Lifetime limited warranty","Widest colour selection","Affordable to repair"] },
   "3tab":{ desc:"Classic 3-tab asphalt shingles — a flat, uniform single-layer shingle. The budget-friendly traditional choice.", features:["Single-layer flat profile","Lightweight","Uniform clean lines","Class A fire rating"], benefits:["Lowest upfront cost","Proven and widely available","Simple to install and repair"] },
   metal:{ desc:"Standing-seam metal roofing — interlocking vertical panels with raised seams. A premium, modern, ultra-durable system.", features:["Concealed-fastener standing seams","Reflective, energy-efficient finish","Non-combustible","Sheds snow and rain fast"], benefits:["40–70 year lifespan","Lower cooling bills","Excellent in snow, wind and fire zones","Very low maintenance"] },
-  mshingle:{ desc:"Metal shingles — metal formed into shingle/shake/tile profiles. The durability of metal with a traditional look.", features:["Interlocking metal panels","Looks like shake, slate or tile","Lighter than tile/slate","Corrosion-resistant coatings"], benefits:["Long life with a classic look","Lighter load on the structure","Fire and wind resistant"] },
   clay:{ desc:"Clay tile — kiln-fired clay barrel/S-tiles. A premium, long-lasting roof iconic to Spanish and Mediterranean styles.", features:["Kiln-fired natural clay","Barrel / S-tile profiles","Excellent in hot, sunny climates","Colour-through (won't fade)"], benefits:["50–100 year lifespan","Outstanding heat performance","Timeless premium curb appeal","Non-combustible"] },
-  concrete:{ desc:"Concrete tile — moulded cement tiles; a durable, cost-effective alternative to clay with a similar look.", features:["Moulded cement tiles","Many profiles and colours","Heavy and very durable","Good in heat and wind"], benefits:["40–75 year lifespan","Lower cost than clay","Strong and impact-resistant"] },
   slate:{ desc:"Natural slate — quarried stone tiles. The longest-lasting, highest-end roof, seen on historic and luxury homes.", features:["Quarried natural stone","Unique mottled colours","Completely fireproof","Each tile is individual"], benefits:["75–150 year lifespan — often a 'forever' roof","Unmatched premium appearance","Adds significant home value","Eco-friendly natural material"] },
-  synthetic:{ desc:"Synthetic (composite) slate — engineered polymer tiles that replicate slate at a fraction of the weight and cost.", features:["Engineered polymer composite","Slate / shake look","Much lighter than real slate","Impact and weather resistant"], benefits:["40–50 year lifespan","Slate looks without the cost or weight","Class A fire & impact ratings","No structural reinforcement needed"] },
   cedar:{ desc:"Cedar shakes/shingles — natural western red cedar. A warm, rustic wood roof that weathers to a silver-grey.", features:["Natural western red cedar","Hand-split shake or sawn shingle","Natural insulation value","Weathers gracefully"], benefits:["Beautiful natural wood character","Good insulator","Renewable material","Distinctive curb appeal"] },
 };
 let matPolys=[], matMode=false, matIdx=0, selMat=0, selCol=0;
@@ -1973,11 +1947,8 @@ const MAT_PERF={
   arch:{Water:"Excellent",Wind:"Up to 130 mph",Temperature:"Good in heat & cold",Fire:"Class A",Weight:"Light — no extra framing"},
   "3tab":{Water:"Very good",Wind:"Up to 60–70 mph",Temperature:"Fair",Fire:"Class A",Weight:"Light — no extra framing"},
   metal:{Water:"Excellent — sheds fast",Wind:"Up to 140+ mph",Temperature:"Excellent — reflects heat",Fire:"Non-combustible",Weight:"Light"},
-  mshingle:{Water:"Excellent",Wind:"Up to 120 mph",Temperature:"Very good",Fire:"Non-combustible",Weight:"Light"},
   clay:{Water:"Excellent",Wind:"Up to 125 mph",Temperature:"Excellent in heat",Fire:"Non-combustible",Weight:"Heavy — needs strong framing"},
-  concrete:{Water:"Excellent",Wind:"Up to 125 mph",Temperature:"Very good",Fire:"Non-combustible",Weight:"Heavy — needs strong framing"},
   slate:{Water:"Excellent",Wind:"Up to 110 mph",Temperature:"Excellent",Fire:"Fireproof",Weight:"Very heavy — needs reinforced framing"},
-  synthetic:{Water:"Excellent",Wind:"Up to 110 mph",Temperature:"Very good",Fire:"Class A",Weight:"Light — no extra framing"},
   cedar:{Water:"Good — needs upkeep",Wind:"Up to 90 mph",Temperature:"Good — natural insulator",Fire:"Class C (treatable to A)",Weight:"Light–medium"},
 };
 function materialModal(matId){
