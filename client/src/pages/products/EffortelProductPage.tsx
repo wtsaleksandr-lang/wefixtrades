@@ -1386,7 +1386,7 @@ function QuickQuoteCredibility() {
                     background: mkt.accentTint, color: mkt.accentOnDark,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    <Icon size={19} aria-hidden="true" />
+                    <Icon size={20} aria-hidden="true" />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.01em", marginBottom: 4 }}>
@@ -1447,7 +1447,7 @@ function QuickQuoteCredibility() {
                     transition: "transform 0.2s ease, border-color 0.2s ease",
                   }}
                 >
-                  <Icon size={18} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                  <Icon size={20} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: mkt.onDark, letterSpacing: "-0.01em", marginBottom: 3 }}>
                       {t.label}
@@ -1517,7 +1517,7 @@ function QuickQuoteFoundingAndReviews() {
           letterSpacing: "0.08em", textTransform: "uppercase",
           marginBottom: 16,
         }}>
-          <Rocket size={13} aria-hidden="true" /> Founding contractors — limited spots
+          <Rocket size={14} aria-hidden="true" /> Founding contractors — limited spots
         </span>
 
         <h2 style={{
@@ -1551,7 +1551,7 @@ function QuickQuoteFoundingAndReviews() {
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               {["3 months of Pro, free", "Direct line to the founders", "Your feature requests prioritized"].map((f) => (
                 <li key={f} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.4, color: mkt.onDark }}>
-                  <Check size={15} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
+                  <Check size={16} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
                   {f}
                 </li>
               ))}
@@ -1564,7 +1564,7 @@ function QuickQuoteFoundingAndReviews() {
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               {["Use it on a real job or two", "Tell us honestly what works", "Leave a review if you'd recommend it"].map((f) => (
                 <li key={f} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.4, color: mkt.onDark }}>
-                  <Check size={15} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
+                  <Check size={16} strokeWidth={3} style={{ marginTop: 2, flexShrink: 0, color: mkt.accentOnDark }} />
                   {f}
                 </li>
               ))}
@@ -1606,7 +1606,7 @@ function QuickQuoteFoundingAndReviews() {
                   display: "flex", flexDirection: "column", gap: 10,
                 }}>
                   <div style={{ display: "flex", gap: 2, color: "#F59E0B" }}>
-                    {[1, 2, 3, 4, 5].map((n) => <Star key={n} size={13} fill="#F59E0B" stroke="#F59E0B" />)}
+                    {[1, 2, 3, 4, 5].map((n) => <Star key={n} size={14} fill="#F59E0B" stroke="#F59E0B" />)}
                   </div>
                   <p style={{ fontSize: 13.5, lineHeight: 1.55, color: mkt.onDark, margin: 0 }}>&ldquo;{r.quote}&rdquo;</p>
                   <div style={{ fontSize: 12, color: mkt.onDarkFaint }}>
@@ -1621,7 +1621,7 @@ function QuickQuoteFoundingAndReviews() {
               borderRadius: 14, padding: "18px 18px", marginBottom: 16,
               display: "flex", gap: 12, alignItems: "flex-start",
             }}>
-              <Star size={18} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+              <Star size={20} color={mkt.accentOnDark} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
               <p style={{ fontSize: 13.5, lineHeight: 1.55, color: mkt.onDarkMuted, margin: 0 }}>
                 No reviews yet — and we won&rsquo;t fake any. The first verified reviews from
                 founding contractors will appear right here. Want to be one of them?
@@ -1638,7 +1638,7 @@ function QuickQuoteFoundingAndReviews() {
               textDecoration: "none",
             }}
           >
-            <MessageSquare size={15} /> Already using QuoteQuick? Leave a review
+            <MessageSquare size={16} /> Already using QuoteQuick? Leave a review
           </CtaLink>
         </div>
       </div>
