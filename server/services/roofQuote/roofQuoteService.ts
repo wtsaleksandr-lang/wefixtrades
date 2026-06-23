@@ -97,13 +97,29 @@ const featuresCache = new Map<string, unknown>();
 const knowledgeCache = new Map<string, string>();
 const captureCache = new Map<string, Buffer>();
 
-// ── render prompt (unchanged from serve.mjs) ────────────────────────────────
-function roofPrompt(material: string, pkg: string): string {
+// View of the base image fed to the repaint model. The oblique aerial frames the
+// roof from above; a street-level (Street View) photo frames the house from the
+// curb, so the prompt anchors which surfaces to preserve differently.
+type BaseView = "oblique" | "street";
+
+// ── render prompt (ported from serve.mjs; extended with a street-level variant) ──
+function roofPrompt(material: string, pkg: string, view: BaseView = "oblique"): string {
   // STRONG preservation anchor — img2img models (Flux Kontext) will otherwise regenerate a whole new house for
   // dramatic materials (e.g. metal). Lead with "edit THIS photo / same house / do NOT generate a new house".
   const geom = pkg
     ? " The roof is " + pkg + "; keep that exact roof geometry — ridges, planes, pitch and outline."
     : "";
+  if (view === "street") {
+    // Street-level photo: only the upper portion (the visible roof slope) changes; the
+    // façade, sky, yard and street must stay pixel-identical.
+    return (
+      "Edit THIS exact street-level photo of a house. Replace ONLY the visible roof covering (the sloped roof surface) of the main house in the centre with " +
+      material +
+      ", covering the whole visible roof." +
+      geom +
+      " Keep the IDENTICAL same house from the input photo — same walls, siding, windows, doors, porch, chimney, gutters, lawn, driveway, vehicles, fences, trees, neighbouring houses, sky, camera angle and lighting. Do NOT generate a new or different house, building or scene; preserve every other pixel exactly. Photorealistic, sharp, natural realistic roof colour."
+    );
+  }
   return (
     "Edit THIS exact photo. Change ONLY the roof covering of the main house in the centre to " +
     material +
@@ -114,7 +130,7 @@ function roofPrompt(material: string, pkg: string): string {
 }
 
 // ── image-render providers (failover chain). Each returns an <img>-loadable url (http or data:) or throws ──
-async function renderOpenAI(dataUri: string, material: string, pkg: string): Promise<string> {
+async function renderOpenAI(dataUri: string, material: string, pkg: string, view: BaseView = "oblique"): Promise<string> {
   // GPT-4o image model (gpt-image-1) via the edits endpoint — the model ChatGPT uses; crispest + best house preservation.
   const OPENAI = openaiKey();
   if (!OPENAI) throw new Error("no_openai_key");
@@ -122,7 +138,7 @@ async function renderOpenAI(dataUri: string, material: string, pkg: string): Pro
   const fd = new FormData();
   fd.append("model", "gpt-image-1");
   fd.append("image", new Blob([buf], { type: "image/png" }), "house.png");
-  fd.append("prompt", roofPrompt(material, pkg));
+  fd.append("prompt", roofPrompt(material, pkg, view));
   fd.append("size", "1536x1024"); // force consistent high-res landscape (auto returns inconsistent square/landscape)
   fd.append("quality", "high");
   fd.append("input_fidelity", "high"); // keep the input house faithful
@@ -151,7 +167,7 @@ function houseSeed(dataUri: string): number {
   return ((h[0] << 23) | (h[1] << 15) | (h[2] << 7) | (h[3] & 0x7f)) & 0x7fffffff;
 }
 
-async function renderReplicate(dataUri: string, material: string, pkg: string): Promise<string> {
+async function renderReplicate(dataUri: string, material: string, pkg: string, view: BaseView = "oblique"): Promise<string> {
   const REPLICATE = replicateKey();
   if (!REPLICATE) throw new Error("no_replicate_key");
   // Replicate (Flux Kontext) is true img2img → keeps the house identical, only the roof changes, framing matches the
@@ -171,7 +187,7 @@ async function renderReplicate(dataUri: string, material: string, pkg: string): 
           },
           body: JSON.stringify({
             input: {
-              prompt: roofPrompt(material, pkg),
+              prompt: roofPrompt(material, pkg, view),
               input_image: dataUri,
               output_format: "jpg",
               safety_tolerance: 2,
@@ -205,7 +221,7 @@ async function renderReplicate(dataUri: string, material: string, pkg: string): 
   throw lastErr;
 }
 
-async function renderGemini(dataUri: string, material: string, pkg: string): Promise<string> {
+async function renderGemini(dataUri: string, material: string, pkg: string, view: BaseView = "oblique"): Promise<string> {
   const GEMINI = geminiKey();
   if (!GEMINI) throw new Error("no_gemini_key");
   const b64 = dataUri.split(",")[1];
@@ -221,7 +237,7 @@ async function renderGemini(dataUri: string, material: string, pkg: string): Pro
           {
             parts: [
               { inline_data: { mime_type: mime, data: b64 } },
-              { text: roofPrompt(material, pkg) },
+              { text: roofPrompt(material, pkg, view) },
             ],
           },
         ],
@@ -238,7 +254,7 @@ async function renderGemini(dataUri: string, material: string, pkg: string): Pro
   return "data:image/jpeg;base64," + (img.inline_data || img.inlineData).data;
 }
 
-async function renderFal(dataUri: string, material: string, pkg: string): Promise<string> {
+async function renderFal(dataUri: string, material: string, pkg: string, view: BaseView = "oblique"): Promise<string> {
   const FAL = falKey();
   if (!FAL) throw new Error("no_fal_key");
   const fr = await fetch("https://fal.run/fal-ai/flux-pro/kontext", {
@@ -246,7 +262,7 @@ async function renderFal(dataUri: string, material: string, pkg: string): Promis
     headers: { Authorization: "Key " + FAL, "Content-Type": "application/json" },
     body: JSON.stringify({
       image_url: dataUri,
-      prompt: roofPrompt(material, pkg),
+      prompt: roofPrompt(material, pkg, view),
       num_images: 1,
       safety_tolerance: "5",
       output_format: "jpeg",
@@ -259,7 +275,7 @@ async function renderFal(dataUri: string, material: string, pkg: string): Promis
   return url;
 }
 
-type RenderFn = (dataUri: string, material: string, pkg: string) => Promise<string>;
+type RenderFn = (dataUri: string, material: string, pkg: string, view?: BaseView) => Promise<string>;
 const RENDER_CHAIN: Array<[string, RenderFn]> = [
   ["openai", renderOpenAI],
   ["replicate", renderReplicate],
@@ -761,9 +777,29 @@ export type StreetViewResult =
   | { ok: true; buf: Buffer }
   | { ok: false; status: number; error: string };
 
-/** Street View proxy (key hidden server-side) → the "before" photo for the visualizer. */
+/** Street View proxy (key hidden server-side) → the "before" photo for the visualizer.
+ *  Probes the (free) metadata endpoint FIRST: the Static Street View image API returns
+ *  HTTP 200 with a grey "Sorry, we have no imagery here" placeholder for uncovered
+ *  locations (it never 4xx's), so a naive `r.ok` check would hand back a placeholder.
+ *  Metadata reports status OK / ZERO_RESULTS / NOT_FOUND, letting us treat no-coverage
+ *  as a clean miss — both for the "before" photo and the aiRender base fallback. */
 export async function streetView(address: string): Promise<StreetViewResult> {
   const SOLAR = solarKey();
+  // 1) coverage probe (free, no image billed) — bail cleanly when there is no panorama.
+  try {
+    const m = await fetch(
+      "https://maps.googleapis.com/maps/api/streetview/metadata?location=" +
+        encodeURIComponent(address) +
+        "&key=" +
+        SOLAR,
+    );
+    const mj = (await m.json()) as { status?: string };
+    if (mj.status && mj.status !== "OK") {
+      return { ok: false, status: 404, error: "no_coverage:" + mj.status };
+    }
+  } catch {
+    /* metadata probe is best-effort; fall through to the image fetch below */
+  }
   const r = await fetch(
     "https://maps.googleapis.com/maps/api/streetview?size=640x640&location=" +
       encodeURIComponent(address) +
@@ -816,15 +852,47 @@ export async function aiRender(
       return { cached: true, ...d };
     }
   }
-  // Image Collector → oblique aerial of the house (cached per address; one headless render, then materials reuse it)
+  // Base "before" image for the repaint. Preferred source is the oblique 3D aerial
+  // (richest framing of the whole roof) — but that needs a headless Chromium, which
+  // the prod (Replit publish) runtime does NOT ship. When the capture is unavailable
+  // there, fall back to a Google Street View photo, which is a plain signed-URL fetch
+  // (no browser) and works in every runtime. This is the documented design
+  // ("Street View → Flux Kontext repaint") and is what makes "see it on my house"
+  // render in prod. Local/dev (with Chromium) still uses the richer oblique base.
   let dataUri: string;
+  let view: BaseView = "oblique";
   try {
     const buf = await captureOblique(address);
     dataUri = "data:image/png;base64," + buf.toString("base64");
   } catch (capErr) {
-    return { error: "capture_failed", detail: String((capErr as Error)?.message || capErr) };
+    // Only fall back for the runtime-has-no-browser case (or any capture failure):
+    // try Street View. A street-level photo of the SAME house is a perfectly good
+    // img2img base for repainting the visible roof.
+    const sv = await streetView(address).catch(
+      (e: unknown): StreetViewResult => ({ ok: false, status: 0, error: String((e as Error)?.message || e) }),
+    );
+    if (!sv.ok) {
+      // No oblique capture AND no Street View coverage for this address → degrade
+      // gracefully. Return the "AI unavailable" signal (NOT a 500) so the widget
+      // keeps its instant swatch-tint fallback.
+      return {
+        error: "capture_failed",
+        detail:
+          "no base image: capture(" +
+          String((capErr as Error)?.message || capErr) +
+          ") + streetview(" +
+          (sv.status ? sv.status + " " : "") +
+          sv.error +
+          ")",
+      };
+    }
+    dataUri = "data:image/jpeg;base64," + sv.buf.toString("base64");
+    view = "street";
+    log.info("airender base fell back to street view (no headless capture in this runtime)", { address });
   }
-  // Property Analysis Agent → House Knowledge Package (cached); injected so the render preserves roof geometry
+  // Property Analysis Agent → House Knowledge Package (cached); injected so the render preserves roof geometry.
+  // NOTE: houseKnowledge() also calls captureOblique() internally; in a no-Chromium
+  // runtime that simply yields an empty package (best-effort), which is fine.
   let pkg = "";
   try {
     pkg = await houseKnowledge(address);
@@ -836,7 +904,7 @@ export async function aiRender(
   const chain = tier === "browse" ? RENDER_CHAIN.filter((x) => x[0] !== "openai") : RENDER_CHAIN; // browse skips the pricey gpt-image-1
   for (const [name, fn] of chain) {
     try {
-      const url = await fn(dataUri, material, pkg);
+      const url = await fn(dataUri, material, pkg, view);
       const result: AiRenderResult = { url, provider: name, knowledge: pkg || undefined, tier };
       aiCache.set(ck, result);
       diskSetJSON("air", ck, result);
