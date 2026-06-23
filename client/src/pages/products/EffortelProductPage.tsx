@@ -234,6 +234,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
             cards). The actual interactive widget for products that ship one
             — visitors don't just read about it, they touch it. Skipped for
             products without a real customer-facing widget. */}
+        {slug === "quickquotepro" && <QuickQuoteRoofSolarHeroDemo />}
         {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
         {slug === "quickquotepro" && <QuickQuoteCredibility />}
         {slug === "mapguard" && <MapGuardLandingTeaser />}
@@ -1098,6 +1099,186 @@ function FinalCta({ cfg, comingSoon, oneTime }: { cfg: ReturnType<typeof getProd
 }
 
 /* ════════════════════════════════════════════════════════════════
+   SECTION: FLAGSHIP — Roof & Solar 3D visualizer HERO demo
+   ----------------------------------------------------------------
+   QuoteQuick's single biggest differentiator is the first-party 3D
+   roof & solar visualizer (photoreal 3D house + "see it on my house"
+   AI material preview + instant roof/solar quote), served same-origin
+   at `GET /api/roofquote/widget`. It used to be buried inside the
+   wizard gallery — never featured on its own product page. This puts
+   it FRONT AND CENTER, above the generic window-replacement calculator
+   demo, as the hero "try it" experience.
+
+   Desktop: the REAL widget is embedded same-origin in an iframe so a
+   visitor types an address and sees the live 3D roof + instant quote
+   right here (no signup). `?calc=3` loads the published roof calc.
+
+   Mobile (≤768px): the full WebGL 3D widget is heavy and cramped at
+   375px, so we show a tasteful framed preview + a prominent "Try the
+   live roof & solar demo" CTA that opens the real widget full-screen.
+   This is the documented fallback in the brief — prefer the real
+   embedded experience on desktop, graceful CTA on mobile.
+   ════════════════════════════════════════════════════════════════ */
+function QuickQuoteRoofSolarHeroDemo() {
+  const ROOF_WIDGET_SRC = "/api/roofquote/widget?calc=3";
+  return (
+    <section style={{ padding: "12px 24px 36px" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+        {/* FLAGSHIP badge — eyebrow, top-left aligned with the heading block */}
+        <div style={{ textAlign: "center", marginBottom: 14 }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 12px",
+              borderRadius: 999,
+              background: "rgba(110,139,255,0.12)",
+              border: `1px solid ${mkt.accentOnDark}55`,
+              color: mkt.accentOnDark,
+              fontFamily: MONO,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            <Sparkles size={14} aria-hidden="true" /> Flagship feature
+          </span>
+        </div>
+        <h2
+          style={{
+            fontSize: "clamp(26px, 4vw, 40px)",
+            fontWeight: 600,
+            color: mkt.onDark,
+            textAlign: "center",
+            letterSpacing: "-0.025em",
+            lineHeight: 1.1,
+            margin: "0 0 12px",
+          }}
+        >
+          See your roof in 3D.{" "}
+          <span style={{ color: mkt.accentOnDark }}>Get an instant quote.</span>
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            lineHeight: 1.55,
+            color: mkt.onDarkMuted,
+            textAlign: "center",
+            maxWidth: 620,
+            margin: "0 auto 26px",
+          }}
+        >
+          Type any address to load a photoreal 3D model of the roof, preview
+          materials on the actual house, and price roof &amp; solar in seconds —
+          the same experience your customers get. No signup.
+        </p>
+
+        {/* DESKTOP — the REAL roof & solar widget, embedded same-origin.
+            First-party route + WebGL + same-origin fetches → no sandbox
+            (a sandbox would break its own WebGL + /api/roofquote/* calls),
+            matching RoofVisualizerEmbed / RoofVisualizerStep. */}
+        <div
+          className="qq-roof-hero-desktop"
+          style={{
+            borderRadius: 20,
+            overflow: "hidden",
+            border: `1px solid ${mkt.onDarkBorder}`,
+            background: "#0b1418",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.35)",
+          }}
+        >
+          <iframe
+            src={ROOF_WIDGET_SRC}
+            title="Roof & Solar 3D visualizer — live demo"
+            allow="accelerometer; gyroscope; fullscreen"
+            loading="lazy"
+            className="qq-roof-hero-frame"
+            style={{
+              display: "block",
+              width: "100%",
+              height: "min(76vh, 680px)",
+              border: "none",
+              background: "#0b1418",
+            }}
+          />
+        </div>
+
+        {/* MOBILE — preview card + prominent CTA to the real widget.
+            The full WebGL widget is too heavy / cramped at 375px, so we
+            give a clean framed teaser and route the tap to the live widget. */}
+        <div
+          className="qq-roof-hero-mobile"
+          style={{
+            display: "none",
+            borderRadius: 20,
+            overflow: "hidden",
+            border: `1px solid ${mkt.onDarkBorder}`,
+            background: "linear-gradient(160deg, #16252b 0%, #0b1418 100%)",
+            padding: "26px 20px 24px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              margin: "0 auto 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: mkt.accent,
+              color: "#FFFFFF",
+            }}
+          >
+            <Sparkles size={24} aria-hidden="true" />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, marginBottom: 6 }}>
+            The 3D roof &amp; solar experience
+          </div>
+          <p style={{ fontSize: 13, lineHeight: 1.5, color: mkt.onDarkMuted, margin: "0 0 18px" }}>
+            Best explored full-screen — load any address, spin the photoreal 3D
+            roof, and preview materials on the real house.
+          </p>
+          <a
+            href={ROOF_WIDGET_SRC}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "13px 20px",
+              borderRadius: 12,
+              background: mkt.accent,
+              color: "#FFFFFF",
+              fontFamily: MONO,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+            data-testid="link-roof-solar-live-demo"
+          >
+            Try the live roof &amp; solar demo <ArrowRight size={14} />
+          </a>
+        </div>
+
+        <style>{`
+          @media (max-width: 768px) {
+            .qq-roof-hero-desktop { display: none !important; }
+            .qq-roof-hero-mobile { display: block !important; }
+          }
+        `}</style>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    SECTION: BG-4 — QuickQuote Pro live widget mount
    Mounts the real <AdvancedCalculator> (via QuoteWidget) on
    /products/quickquotepro pre-loaded with the styled
@@ -1166,7 +1347,7 @@ function QuickQuoteLandingLiveDemo() {
             fontFamily: MONO,
           }}
         >
-          Try the real calculator
+          Works for every trade
         </p>
         <h2
           style={{
@@ -1179,7 +1360,7 @@ function QuickQuoteLandingLiveDemo() {
             margin: "0 0 22px",
           }}
         >
-          This is what your customers will see
+          Not roofing? Build any quote calculator
         </h2>
         <div style={{ marginBottom: 22 }}>
           {/* Real widget — anonymous-visitor-safe (isEmbed=false matches
