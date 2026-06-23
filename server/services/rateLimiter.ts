@@ -465,3 +465,76 @@ export const tradelineWidgetConvsPerSiteKeyPerDayLimiter = new RateLimiter(
   envInt("TRADELINE_WIDGET_CONVS_PER_SITEKEY_PER_DAY", 100),
   DAY_MS,
 );
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * ROOFQUOTE COST GATING — public /api/roofquote/* endpoints.
+ *
+ * The roof-quote widget is fully PUBLIC (no auth, same posture as the QuoteQuick
+ * public routes). Several of its endpoints spend real upstream money on every
+ * uncached call, and until now had NO per-IP application-layer limit — anyone
+ * could curl-loop them to run up Google + Replicate bills. These limiters add
+ * the per-IP defense (Google-side per-minute quota caps are the backstop).
+ *
+ * Two cost tiers:
+ *   1. /airender — a PAID Replicate/gpt-image render (~$0.04 each). Worst abuse
+ *      surface: vary address/material to defeat the cache → unbounded spend.
+ *      Gated tightest: a strict per-IP min + per-IP day cap AND, where the
+ *      widget passes a calc identifier, a per-calculator day cap. Shaped a bit
+ *      higher than anonImageToTemplate (2/min,10/day) because a real homeowner
+ *      session legitimately renders several materials/colours back-to-back.
+ *   2. The Google-billed reads (solar/datalayers/geotiff/streetview/capture/
+ *      analyze/features) — a single real session fires each roughly once
+ *      (geotiff up to ~4×). One shared generous per-IP/min limiter bounds a
+ *      loop without touching a normal session.
+ *
+ * All counts are env-overridable so they can be tuned without a redeploy.
+ * NOTE (multi-instance): like every limiter here these are backed by the
+ * in-memory MemoryRateLimitStore (single-process). On a multi-instance
+ * Replit Autoscale deploy the per-IP counts are per-pod, so the effective
+ * ceiling is roughly N×; the Google-side per-minute quota caps remain the
+ * hard backstop. Migrate to the Redis store (see top-of-file checklist) if
+ * roofquote ever runs multi-pod. ──────────────────────────────────────────*/
+
+/** /api/roofquote/airender — per-IP per-minute burst cap. A real session
+ *  renders a handful of materials in a row, so 6/min/IP is comfortably above
+ *  legitimate use while bounding a render loop. */
+export const roofQuoteAiRenderPerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_AIRENDER_PER_MIN", 6),
+  60_000,
+);
+
+/** /api/roofquote/airender — per-IP per-day cap. The hard per-IP paid-render
+ *  ceiling: at ~$0.04/render this bounds a single IP to ~$1.60/day worst case
+ *  even if it rotates address/material to defeat the cache. */
+export const roofQuoteAiRenderPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_AIRENDER_PER_DAY", 40),
+  DAY_MS,
+);
+
+/** /api/roofquote/airender — per-CALCULATOR per-day cap, applied only when the
+ *  widget request carries a resolvable calc/slug identifier. The per-tenant
+ *  paid-render budget: bounds spend attributable to one trade's embed across
+ *  ALL visitor IPs (a single IP can't, but a botnet hitting one embed could).
+ *  Generous for a real embed's daily traffic; this is NOT per-account dollar
+ *  metering (see roofQuoteRoutes airender comment — that needs owner context
+ *  the widget doesn't yet pass). */
+export const roofQuoteAiRenderPerCalcPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_AIRENDER_PER_CALC_PER_DAY", 300),
+  DAY_MS,
+);
+
+/** Shared per-IP per-minute limiter for the Google-billed roofquote reads
+ *  (solar/datalayers/geotiff/streetview/capture/analyze/features). One real
+ *  session fires each of these about once (geotiff up to ~4×), so 30/min/IP
+ *  across the whole group is generous for legitimate use while bounding a
+ *  scripted loop. Window length is exported so the route can set Retry-After. */
+export const ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS = 60_000;
+
+export const roofQuoteGooglePerMinLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_GOOGLE_PER_MIN", 30),
+  ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS,
+);

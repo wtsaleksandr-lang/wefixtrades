@@ -25,6 +25,16 @@ import { storage } from "../storage";
 import { enqueueLeadNotificationsAndFollowups, isDuplicateSubmission } from "./leadRoutes";
 import { fireLeadWebhook } from "../services/quotequickLeadWebhook";
 import {
+  roofQuoteAiRenderPerMinLimiter,
+  roofQuoteAiRenderPerDayLimiter,
+  roofQuoteAiRenderPerCalcPerDayLimiter,
+  roofQuoteGooglePerMinLimiter,
+  ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS,
+  leadsSubmissionRateLimiter,
+  leadsIpRateLimiter,
+  LEADS_RATE_LIMIT_WINDOW_MS,
+} from "../services/rateLimiter";
+import {
   aiRender,
   captureOblique,
   CaptureUnavailableError,
@@ -50,6 +60,75 @@ function getClientIp(req: Request): string {
     || req.ip
     || "unknown";
 }
+
+/**
+ * Shared per-IP rate gate for the Google-billed roofquote reads
+ * (solar/datalayers/geotiff/streetview/capture/analyze/features). These are
+ * public, unauthenticated, and spend real Google money per uncached call, so a
+ * single generous per-IP/min limiter bounds a curl-loop without touching a real
+ * session (which fires each of these about once). Over-cap → 429 with a clean
+ * JSON error + Retry-After.
+ *
+ * Returns `true` when it has ALREADY sent a 429 (the caller must `return`);
+ * `false` when the request may proceed. Keying every endpoint in the group on
+ * the SAME bucket (`roofquote:google:<ip>`) means a loop that rotates across
+ * endpoints still trips the shared cap.
+ */
+async function googleRateBlocked(req: Request, res: Response): Promise<boolean> {
+  const ip = getClientIp(req);
+  const ok = await roofQuoteGooglePerMinLimiter.check(`roofquote:google:${ip}`);
+  if (ok) return false;
+  res.setHeader("Retry-After", String(Math.ceil(ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS / 1000)));
+  res.status(429).json({ error: "rate_limited", code: "rate_limited" });
+  return true;
+}
+
+/** Minimal limiter shape the gate helpers depend on — `RateLimiter` satisfies
+ *  it, and the regression test injects fresh in-memory instances. */
+export interface RateLimiterLike {
+  check(key: string): Promise<boolean>;
+}
+
+export interface AiRenderGateLimiters {
+  perMin: RateLimiterLike;
+  perDay: RateLimiterLike;
+  perCalcPerDay: RateLimiterLike;
+}
+
+/**
+ * PURE cost-gate decision for /api/roofquote/airender (no express, no DB).
+ * Exported so the regression gate (check:roofquote-cost-gating) can prove a
+ * normal session passes while a loop trips 429 — and that the per-calc cap only
+ * engages when a calc id is resolvable.
+ *
+ * Order matters: the per-IP min+day caps are checked first (every call), then
+ * the per-calc/day cap only when `calcId != null`. `allowed:false` carries the
+ * `retryAfter` seconds the handler stamps on the 429.
+ */
+export async function evaluateAiRenderGate(
+  limiters: AiRenderGateLimiters,
+  input: { ip: string; calcId: number | null },
+): Promise<{ allowed: true } | { allowed: false; retryAfter: number }> {
+  const minOk = await limiters.perMin.check(`roofquote:airender:${input.ip}`);
+  const dayOk = await limiters.perDay.check(`roofquote:airender:day:${input.ip}`);
+  if (!minOk || !dayOk) {
+    // If the minute bucket is what tripped, a 60s retry clears it; otherwise the
+    // day cap is exhausted, so advise an hour.
+    return { allowed: false, retryAfter: minOk ? 3600 : 60 };
+  }
+  if (input.calcId != null) {
+    const calcOk = await limiters.perCalcPerDay.check(`roofquote:airender:calc:${input.calcId}`);
+    if (!calcOk) return { allowed: false, retryAfter: 3600 };
+  }
+  return { allowed: true };
+}
+
+/** The production limiter bundle for the airender gate. */
+const aiRenderGateLimiters: AiRenderGateLimiters = {
+  perMin: roofQuoteAiRenderPerMinLimiter,
+  perDay: roofQuoteAiRenderPerDayLimiter,
+  perCalcPerDay: roofQuoteAiRenderPerCalcPerDayLimiter,
+};
 
 const ASSET_DIR = path.join(process.cwd(), "server", "roofQuote", "assets");
 const tilesKey = (): string =>
@@ -185,6 +264,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Server-side geocode (key hidden; no referrer) ─── */
   app.get("/api/roofquote/geocode", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const addr = String(req.query.address || "");
       return res.json(await geocode(addr));
     } catch (err) {
@@ -196,6 +276,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Solar buildingInsights passthrough ─── */
   app.get("/api/roofquote/solar", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const { ok, body, cached } = await solarInsights(String(req.query.lat || ""), String(req.query.lng || ""));
       res.setHeader("Content-Type", "application/json");
       res.setHeader("X-Cache", cached ? "HIT" : "MISS");
@@ -242,6 +323,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Solar dataLayers passthrough ─── */
   app.get("/api/roofquote/datalayers", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const { ok, body, cached } = await dataLayers(
         String(req.query.lat || ""),
         String(req.query.lng || ""),
@@ -259,6 +341,11 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── GeoTIFF proxy (host-whitelisted to solar.googleapis.com) ─── */
   app.get("/api/roofquote/geotiff", async (req: Request, res: Response) => {
     try {
+      // geotiff is fired up to ~4× per session (one per data-layer URL minted
+      // by /datalayers). It shares the same generous 30/min/IP bucket as the
+      // other Google reads, which comfortably covers 4 + the ~3 sibling calls a
+      // real session makes while still bounding a tile-fetch loop.
+      if (await googleRateBlocked(req, res)) return;
       const raw = String(req.query.u || "");
       if (!raw) return res.status(400).send("missing u");
       const r = await geoTiff(raw);
@@ -275,6 +362,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Street View proxy (the "before" photo) ─── */
   app.get("/api/roofquote/streetview", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const address = String(req.query.address || "");
       if (!address) return res.status(400).send("missing address");
       const r = await streetView(address);
@@ -291,6 +379,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Property Analysis Agent: House Knowledge Package ─── */
   app.get("/api/roofquote/analyze", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const address = String(req.query.address || "");
       if (!address) return res.json({ error: "no_address" });
       return res.json({ knowledge: await houseKnowledge(address) });
@@ -303,6 +392,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Roof feature detection (chimneys/vents/skylights/dormers) ─── */
   app.get("/api/roofquote/features", async (req: Request, res: Response) => {
     try {
+      if (await googleRateBlocked(req, res)) return;
       const address = String(req.query.address || "");
       if (!address) return res.json({ error: "no_address" });
       return res.json(await roofFeatures(address));
@@ -315,6 +405,10 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── Image Collector: oblique 3D aerial (headless capture, cached) ─── */
   app.get("/api/roofquote/capture", async (req: Request, res: Response) => {
     try {
+      // Pre-warm capture fires fire-and-forget on every widget load; a 429 here
+      // is swallowed by the widget's .catch and the <img> onerror just hides the
+      // before/after slider (same graceful degrade as a 204/5xx).
+      if (await googleRateBlocked(req, res)) return;
       const address = String(req.query.address || "");
       if (!address) return res.status(400).send("missing address");
       const buf = await captureOblique(address);
@@ -343,17 +437,72 @@ export function registerRoofQuoteRoutes(app: Express) {
   /* ─── AI photoreal roof material re-render (tier/cost gated) ─── */
   app.get("/api/roofquote/airender", async (req: Request, res: Response) => {
     try {
+      // ── P0 COST GATE: per-IP rate limit on the PAID render ─────────────────
+      // Each uncached call is a real ~$0.04 Replicate/gpt-image render, and the
+      // cache is keyed on address|material|tier — so an attacker varying either
+      // defeats the cache → unbounded spend. Two per-IP layers bound it:
+      //   - per-minute burst  (6/min/IP)  — a real session renders a few
+      //     materials back-to-back; 6/min is comfortably above that.
+      //   - per-day hard cap  (40/day/IP) — ~$1.60/day worst case per IP even
+      //     if it rotates address/material to bust the cache.
+      // Over-cap → 429 with a clean JSON error. The widget reads r.json() and
+      // checks `.url`; a 429 body has none, so it degrades to the instant
+      // swatch-tint fallback (showInstantTint) exactly like a no-url render —
+      // it does NOT crash the widget.
+      //
+      // The per-CALCULATOR daily cap is applied only when the widget src carries
+      // a resolvable ?calc=<id> / ?slug=<slug> (the published embed does). It
+      // bounds paid renders attributable to one trade's embed across ALL visitor
+      // IPs (the per-IP caps alone can't catch a botnet hitting a single embed).
+      // Resolution is best-effort — a bad/absent identifier just skips that cap.
+      const ip = getClientIp(req);
+      const calcParam = String(req.query.calc || "").trim();
+      const slugParam = String(req.query.slug || "").trim();
+      let calcId: number | null = null;
+      if (calcParam && /^\d+$/.test(calcParam)) {
+        calcId = Number(calcParam);
+      } else if (slugParam) {
+        try {
+          const calc = await storage.getCalculatorBySlug(slugParam);
+          calcId = calc?.id ?? null;
+        } catch (lookupErr) {
+          log.warn("airender calc lookup failed (skipping per-calc cap)", {
+            err: (lookupErr as Error).message,
+          });
+        }
+      }
+
+      const gate = await evaluateAiRenderGate(aiRenderGateLimiters, { ip, calcId });
+      if (!gate.allowed) {
+        res.setHeader("Retry-After", String(gate.retryAfter));
+        return res.status(429).json({ error: "rate_limited", code: "rate_limited" });
+      }
+
       const address = String(req.query.address || "");
       const material = String(req.query.material || "new architectural asphalt shingles");
       if (!address) return res.json({ error: "no_address" });
       const requestedTier = String(req.query.tier || "");
       // Cost gate: only a request explicitly marked paid (paid=1/true) may reach
       // the "final" gpt-image-1 tier; everything else is forced to the cheap
-      // browse chain (skips openai). The widget does not yet pass owner context.
-      // TODO(roofquote): integrate server/services/quotequickAiBudget.ts
-      // gateDecision()/recordSpend() once the widget passes a calculatorId/owner
-      // context so spend can be attributed + budget-capped per tenant.
+      // browse chain (skips openai).
       const paid = req.query.paid === "1" || req.query.paid === "true";
+
+      // ── Per-ACCOUNT dollar metering (NOT wired — needs owner-context plumbing)
+      // server/services/quotequickAiBudget.ts gateDecision()/recordSpend() meter
+      // spend per AUTHENTICATED user id (it reads ai_budget_config / ai_spend_log
+      // keyed on users.id). The roof widget is anonymous and does NOT pass an
+      // owner/user id on the airender request (the fetch carries only address +
+      // material + tier — see roof3d.html renderOne/scheduleFinal/aiRenderHandler).
+      // Resolving calcId above gives us a calculator, but not reliably its owning
+      // user_id (anonymous portal calcs have user_id = null), and faking a budget
+      // row for an anonymous visitor would be wrong. So per-account dollar
+      // metering is DEFERRED: the per-IP (min+day) and per-calc/day caps above are
+      // the anonymous spend ceiling here, mirroring how anonImageToTemplate*
+      // limiters ARE the anonymous ceiling for the wizard vision path.
+      // TO WIRE METERING: have the embed pass the owning user/calc context on the
+      // airender request, resolve user_id from it, then call gateDecision(snapshot)
+      // before aiRender() and recordSpend({ userId, imageCount: 1, ... }) after a
+      // successful paid (tier==="final") render.
       return res.json(await aiRender(address, material, requestedTier, paid));
     } catch (err) {
       log.error("airender failed", { err: (err as Error).message });
@@ -380,6 +529,28 @@ export function registerRoofQuoteRoutes(app: Express) {
     try {
       const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, any>;
 
+      // ── Honeypot ──────────────────────────────────────────────────────────
+      // Mirrors /api/leads: bots fill every field; legit users never see
+      // `company_site` (rendered off-screen). Ack with a success-looking shape
+      // so the bot doesn't learn the trap exists, but skip every side-effect
+      // (no DB write, no notify, no webhook). Runs BEFORE the rate-limit checks
+      // so honeypot hits don't even consume a limiter bucket.
+      const honeypot = (typeof body.company_site === "string" ? body.company_site : "").trim();
+      if (honeypot) {
+        log.warn(`roofquote lead honeypot triggered ip=${getClientIp(req)} len=${honeypot.length}`);
+        return res.json({ ok: true, persisted: false });
+      }
+
+      // ── Rate limit (same two layers /api/leads uses) ──────────────────────
+      // Per-IP overall (60/hr) catches a bot from one source; the per-IP×calc
+      // layer (20/hr) is applied once we resolve the owning calculator below.
+      const clientIp = getClientIp(req);
+      const ipOk = await leadsIpRateLimiter.check(`roofquote:lead:ip:${clientIp}`);
+      if (!ipOk) {
+        res.setHeader("Retry-After", String(Math.ceil(LEADS_RATE_LIMIT_WINDOW_MS / 1000)));
+        return res.status(429).json({ ok: false, error: "rate_limited" });
+      }
+
       // Resolve the owning calculator: query identifier first (iframe src), then body.
       const calcQuery = String(req.query.calc || "").trim();
       const slugQuery = String(req.query.slug || "").trim();
@@ -400,6 +571,16 @@ export function registerRoofQuoteRoutes(app: Express) {
       if (!calc) {
         log.warn("roofquote lead with no resolvable calculator — acked, not persisted");
         return res.json({ ok: true, persisted: false });
+      }
+
+      // ── Per-IP×calc rate limit (the second /api/leads layer) ──────────────
+      // 20/hr per (IP, calculator) — bounds a single bot pounding one calculator
+      // while letting a contractor's office submit a few legit quotes in a row.
+      // Applied here (vs above) because it keys on the resolved calculator id.
+      const calcOk = await leadsSubmissionRateLimiter.check(`roofquote:lead:${clientIp}:${calc.id}`);
+      if (!calcOk) {
+        res.setHeader("Retry-After", String(Math.ceil(LEADS_RATE_LIMIT_WINDOW_MS / 1000)));
+        return res.status(429).json({ ok: false, error: "rate_limited" });
       }
 
       // Map the widget payload onto the leads schema. name/email/phone are direct
