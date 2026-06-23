@@ -463,10 +463,30 @@ function sunPosition(date, lat, lng){
 /* ---------- data pipeline ---------- */
 async function geocode(addr){ const r=await fetch("/geocode?address="+encodeURIComponent(addr)); const j=await r.json(); if(j.error) throw new Error("geocode "+j.error); return j; }
 async function solar(lat,lng){ const r=await fetch("/solar?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
-async function datalayers(lat,lng){ const r=await fetch("/datalayers?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
+async function datalayers(lat,lng,fresh){ const r=await fetch("/datalayers?lat="+lat+"&lng="+lng+(fresh?"&fresh=1":"")); const j=await r.json(); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
 
+/* Fetch a Solar geoTiff through our proxy and return its bytes — but ONLY if the
+   response is a real TIFF. The geoTiff:get URLs carry SHORT-LIVED signed tokens
+   (~1h), while a cached dataLayers response can hand them out for far longer, so a
+   stale-token fetch returns a 400 + an ERROR BODY (text/JSON), not a TIFF. Feeding
+   that error body to GeoTIFF.fromArrayBuffer() makes it read the error text's first
+   bytes as the byte-order marker → "Invalid byte order value" → the whole 3D build
+   aborts. Guard against it: require response.ok AND a real TIFF magic number
+   (II=0x4949 little-endian / MM=0x4d4d big-endian) before decoding. Throws a typed
+   Error (.stale=true) so the caller can refetch fresh dataLayers URLs and retry. */
+async function fetchTiffBytes(url){
+  const r=await fetch("/geotiff?u="+encodeURIComponent(url));
+  const ab=await r.arrayBuffer();
+  if(!r.ok){ const e=new Error("geotiff "+r.status); e.stale=true; throw e; }
+  // TIFF magic: first 2 bytes are "II" (0x4949) or "MM" (0x4d4d); also need a length.
+  if(ab.byteLength<8){ const e=new Error("geotiff short body ("+ab.byteLength+"B)"); e.stale=true; throw e; }
+  const b=new Uint8Array(ab,0,2);
+  const isTiff=(b[0]===0x49&&b[1]===0x49)||(b[0]===0x4d&&b[1]===0x4d);
+  if(!isTiff){ const e=new Error("geotiff non-TIFF body (likely stale token)"); e.stale=true; throw e; }
+  return ab;
+}
 async function decodeTiff(url){
-  const ab=await (await fetch("/geotiff?u="+encodeURIComponent(url))).arrayBuffer();
+  const ab=await fetchTiffBytes(url);
   const tiff=await GeoTIFF.fromArrayBuffer(ab);
   const img=await tiff.getImage();
   const rasters=await img.readRasters();
@@ -1357,12 +1377,34 @@ async function run(addr){
     // SITE was just re-anchored to buildingInsights.center (the true roof centroid),
     // so fetch the rasters there: the window then frames the roof and the overlays —
     // which derive their lat/lng from Solar segment geometry — land on it.
-    const dl=await datalayers(SITE.lat,SITE.lng);
+    let dl=await datalayers(SITE.lat,SITE.lng);
     if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
-    const [dsm, rgb, flux, mask]=await Promise.all([
-      decodeTiff(dl.dsmUrl), decodeTiff(dl.rgbUrl),
-      dl.annualFluxUrl?decodeTiff(dl.annualFluxUrl).catch(()=>null):null,
-      dl.maskUrl?decodeTiff(dl.maskUrl).catch(()=>null):null ]);
+    // ── RESILIENT raster load ─────────────────────────────────────────────────
+    // geoTiff URLs carry short-lived signed tokens; a cached dataLayers response can
+    // hand out an EXPIRED one → /geotiff 400 → an error body that, if decoded, throws
+    // "Invalid byte order" and would abort the whole build. So:
+    //  1) decode all four layers; a stale-token (.stale) failure on ANY of them
+    //  2) triggers ONE refetch of dataLayers with fresh=1 (re-mints the signed URLs),
+    //     then re-decodes ONLY the layers that failed.
+    //  3) After the retry: DSM+RGB are mandatory (the schematic geometry+ground photo);
+    //     if they still fail we fall through to pvwattsFallback (the price card already
+    //     rendered). FLUX+MASK are OPTIONAL overlays — if they still fail we set them
+    //     to null and DEGRADE: the 3D scene, measurements and panels still build; only
+    //     the heatmap/mask-eroded overlays are skipped. One bad raster never kills the build.
+    const tryDecode=async(url)=>{ if(!url) return {v:null,stale:false}; try{ return {v:await decodeTiff(url),stale:false}; }catch(e){ return {v:null,stale:!!e.stale,err:e}; } };
+    let [rD,rR,rF,rM]=await Promise.all([ tryDecode(dl.dsmUrl), tryDecode(dl.rgbUrl), tryDecode(dl.annualFluxUrl), tryDecode(dl.maskUrl) ]);
+    if(rD.stale||rR.stale||rF.stale||rM.stale){
+      // at least one raster failed on a stale/expired token — re-mint URLs once and retry the failures
+      try{
+        const dl2=await datalayers(SITE.lat,SITE.lng,true);
+        if(dl2&&!dl2.error){ dl=dl2;
+          const re=async(prev,url)=>prev.v?prev:await tryDecode(url);
+          [rD,rR,rF,rM]=await Promise.all([ re(rD,dl.dsmUrl), re(rR,dl.rgbUrl), re(rF,dl.annualFluxUrl), re(rM,dl.maskUrl) ]);
+        }
+      }catch(_){ /* fresh refetch failed; fall through to the mandatory-layer check below */ }
+    }
+    if(!rD.v||!rR.v) throw new Error("DSM/RGB layers unavailable");   // mandatory → pvwattsFallback path
+    const dsm=rD.v, rgb=rR.v, flux=rF.v, mask=rM.v;   // flux/mask may be null → overlays degrade gracefully
     LASTFLUX=flux; LASTMASK=mask; LASTDSM=dsm; LASTRGB=rgb;
     // Confidence gate: if the loaded rasters don't cover the roof the Solar segments
     // describe (tree canopy / off-building geocode), suppress the drift-prone overlays

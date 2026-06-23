@@ -656,7 +656,11 @@ export async function pvwattsProduction(lat: string, lng: string, kw: number): P
    same address share one entry). Errors/no_solar are NEVER cached so they retry.
    TTL 30 days (these effectively never change). `cached` flag is for logging /
    X-Cache; it is not part of the upstream JSON body. ─── */
-const SOLAR_CACHE_TTL_MS = 30 * 864e5; // 30 days
+const SOLAR_CACHE_TTL_MS = 30 * 864e5; // 30 days — buildingInsights is static, has no tokens
+// dataLayers responses EMBED geoTiff:get URLs whose signed tokens expire in ~hours.
+// They must NOT be cached anywhere near 30 days or cached addresses serve stale-token
+// URLs that 400 → the client's "Invalid byte order" crash. Cap well under the token life.
+const DATALAYERS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 // Round to 5 dp so coords like 41.123456 / 41.123461 collapse to one cache key.
 const geoCacheKey = (lat: string, lng: string): string =>
   (+lat).toFixed(5) + "," + (+lng).toFixed(5);
@@ -665,9 +669,13 @@ interface SolarCacheEntry {
   status: number;
   _t: number;
 }
-function readSolarCache(prefix: string, key: string): SolarCacheEntry | null {
+function readSolarCache(
+  prefix: string,
+  key: string,
+  ttlMs: number = SOLAR_CACHE_TTL_MS,
+): SolarCacheEntry | null {
   const c = diskGetJSON<SolarCacheEntry>(prefix, key);
-  if (c && typeof c.body === "string" && c._t && Date.now() - c._t < SOLAR_CACHE_TTL_MS) return c;
+  if (c && typeof c.body === "string" && c._t && Date.now() - c._t < ttlMs) return c;
   return null;
 }
 
@@ -702,9 +710,12 @@ export async function solarInsights(
 export async function dataLayers(
   lat: string,
   lng: string,
+  fresh = false, // bypass cache + re-mint signed geoTiff URLs after a stale-token 400
 ): Promise<{ ok: boolean; status: number; body: string; cached?: boolean }> {
   const key = geoCacheKey(lat, lng);
-  const hit = readSolarCache("datalayers", key);
+  // Short TTL (not the 30d solar TTL): the embedded geoTiff URLs carry signed tokens
+  // that expire in hours, so a long-cached datalayers entry hands out dead URLs.
+  const hit = fresh ? null : readSolarCache("datalayers", key, DATALAYERS_CACHE_TTL_MS);
   if (hit) return { ok: true, status: hit.status || 200, body: hit.body, cached: true };
   const SOLAR = solarKey();
   const url =
