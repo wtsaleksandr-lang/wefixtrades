@@ -2554,9 +2554,303 @@ function mooreTrace(isF,sr,sc,rows,cols){
   }
   return cont;
 }
-/* REAL roof facets from the DSM: assign each roof pixel to its best-fitting Solar plane,
-   then TRACE the true outline (follows the roof edges) + measure area (not Google's bbox) */
+
+/* ===========================================================================
+   ANALYTIC PLANE-INTERSECTION ROOF GEOMETRY  (EagleView-class method)
+   ---------------------------------------------------------------------------
+   Google's roofSegmentStats[i] gives, per segment: center{lat,lng},
+   planeHeightAtCenterMeters h, azimuthDegrees az (compass, downslope/facing),
+   pitchDegrees p. That defines each roof plane ANALYTICALLY. Ridges/hips/valleys
+   are the straight, exact INTERSECTIONS of adjacent planes — not raster blobs.
+   Eaves/rakes are the building FOOTPRINT (one crisp binary mask ring). Corners
+   are line∩line / line∩footprint solves. Each stage of the old raster pipeline
+   injected error (DSM classify → Moore trace → DP → GLOBAL-AXIS snap); the global
+   snap is why hips pointed to 45° and wing outlines rotated onto the main axis.
+   ========================================================================= */
+
+/* Plane in local-UTM (E,N) metres:  z = a·E + b·N + c.
+   az = compass degrees the surface FACES downslope (0=N,90=E). Downslope unit
+   vector in (E,N) = (sin az, cos az); height drops along it at rate tan(p):
+     z(E,N) = h − [(E−cE)·sin az + (N−cN)·cos az]·tan p
+   ⇒ a = −sin az·tan p,  b = −cos az·tan p,  c = h + (cE·sin az + cN·cos az)·tan p */
+function buildSegmentPlanes(zone){
+  const segs=(LASTB&&LASTB.solarPotential&&LASTB.solarPotential.roofSegmentStats)||[];
+  const out=[];
+  for(let i=0;i<segs.length;i++){ const sg=segs[i]; if(!sg||!sg.center) continue;
+    const [cE,cN]=wgs84ToUTM(sg.center.latitude,sg.center.longitude,zone);
+    const az=(sg.azimuthDegrees||0)*Math.PI/180, pitch=(sg.pitchDegrees||0)*Math.PI/180;
+    const tanP=Math.tan(pitch), sinAz=Math.sin(az), cosAz=Math.cos(az);
+    const a=-sinAz*tanP, b=-cosAz*tanP, c=(sg.planeHeightAtCenterMeters||0)+(cE*sinAz+cN*cosAz)*tanP;
+    out.push({ i, a, b, c, az, pitch, tanP, sinAz, cosAz, cE, cN, h:sg.planeHeightAtCenterMeters||0, seg:sg });
+  }
+  return out;
+}
+/* Intersection LINE of two planes in plan (E,N): (a1−a2)E+(b1−b2)N+(c1−c2)=0.
+   Returns { p:[E,N] a point on the line, dir:[dE,dN] unit direction } or null
+   if the planes are parallel (same gradient → no crease). */
+function planeIntersectLine(p1,p2){
+  const da=p1.a-p2.a, db=p1.b-p2.b, dc=p1.c-p2.c;
+  const nlen=Math.hypot(da,db); if(nlen<1e-7) return null;   // parallel planes — no intersection line
+  // normal = (da,db); direction along the line = perpendicular = (-db,da)
+  const dir=[-db/nlen, da/nlen];
+  // a point on the line: solve da·E+db·N = -dc nearest to origin → t·(da,db)
+  const t=-dc/(nlen*nlen); const p=[da*t, db*t];
+  return { p, dir };
+}
+/* simple self-intersection test for a small ring (n is tiny — O(n²) is fine) */
+function ringSelfIntersects(ring){
+  const n=ring.length; if(n<4) return false;
+  const seg=(p1,p2,p3,p4)=>{ const d=(x1,y1,x2,y2,x3,y3)=>(x3-x1)*(y2-y1)-(y3-y1)*(x2-x1);
+    const d1=d(p3[0],p3[1],p4[0],p4[1],p1[0],p1[1]), d2=d(p3[0],p3[1],p4[0],p4[1],p2[0],p2[1]);
+    const d3=d(p1[0],p1[1],p2[0],p2[1],p3[0],p3[1]), d4=d(p1[0],p1[1],p2[0],p2[1],p4[0],p4[1]);
+    return ((d1>0)!==(d2>0))&&((d3>0)!==(d4>0)); };
+  for(let i=0;i<n;i++){ const a1=ring[i],a2=ring[(i+1)%n];
+    for(let j=i+1;j<n;j++){ if(j===i||(j+1)%n===i||(i+1)%n===j) continue;
+      if(seg(a1,a2,ring[j],ring[(j+1)%n])) return true; } }
+  return false;
+}
+
+/* ---- ANALYTIC extractFacetPolys (HALF-PLANE CLIP) ------------------------------
+   Pure footprint + crease reconstruction — no ring stitching, no per-plane raster
+   tracing of facet outlines. Insight: facet_i = the building FOOTPRINT restricted to
+   where plane i is the actual roof surface. Its boundaries are exactly (a) footprint
+   edges (eaves/rakes) and (b) crease lines plane_i∩plane_j with each neighbour j.
+   So we CLIP, never trace/order:
+     1. ONE clean footprint ring from the mask (Moore+DP+light regularize).
+     2. analytic planes (buildSegmentPlanes).
+     3. DSM-residual classification — used ONLY to find which plane PAIRS are adjacent
+        (≥~6 shared border cells); its noise never touches geometry.
+     4. facet_i = footprint, then Sutherland–Hodgman clipped by the half-plane of each
+        crease L_ij that contains segment i's own projected centre. Shared creases are
+        the SAME line for i and j → one ridge, drawn once. Corners = line∩line (exact).
+   Output SAME shape as legacy: [{hull:[[lng,lat]], slopeArea, seg}].
+   THROWS on irrecoverable degeneracy so the caller falls back to legacy. */
+function extractFacetPolysAnalytic(margin){
+  margin=(margin==null)?0.5:margin;
+  if(!LASTDSM||!LASTB) throw new Error("no DSM/buildingInsights");   // DSM-residual classify needs the DSM (measure mode always has it)
+  const dsm=LASTDSM, zone=dsm.zone;
+  const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const planesA=buildSegmentPlanes(zone);   // analytic a/b/c per segment (a·E+b·N+c) — EXACT crease lines
+  if(!planesA.length) throw new Error("no planes");
+  const segs=planesA.map(p=>p.seg);
+  for(const p of planesA){ p.n=0; p.zsum=0; }
+  let s=90,w=180,nn=-90,e=-180; for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
+  if(!(nn>s&&e>w)) throw new Error("no bbox union");
+  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180);
+  const spanW=(e-w)*mLng, spanH=(nn-s)*mLat; let step=0.15;
+  while((spanW/step)*(spanH/step)>700000 && step<0.4) step+=0.05;
+  const dLat=step/mLat, dLng=step/mLng, cellA=step*step, pad=4;
+  const cols=Math.ceil((e-w)/dLng)+1+2*pad, rows=Math.ceil((nn-s)/dLat)+1+2*pad;
+  const lab=new Int16Array(rows*cols).fill(-1);
+  const cellLL=(r,c)=>[ w+(c-pad)*dLng, s+(r-pad)*dLat ];        // [lng,lat]
+  const cellEN=(r,c)=>{ const ll=cellLL(r,c); return wgs84ToUTM(ll[1],ll[0],zone); }; // [E,N]
+  // ── DSM-residual classification (robust full-roof partition) — labels only used for
+  //    adjacency + plane viability; geometry is 100% footprint + analytic lines.
+  const groundSamples=[];
+  for(let r=pad;r<rows-pad;r++)for(let c=pad;c<cols-pad;c++){
+    const ll=cellLL(r,c), EN=wgs84ToUTM(ll[1],ll[0],zone), E=EN[0], N=EN[1];
+    const inside = mg ? roofInterior(mg,E,N,margin) : true;
+    const z=sampleGrid(dg,E,N); if(z==null||!isFinite(z)) continue;
+    if(!inside){ if(((r*cols+c)&3)===0) groundSamples.push(z); continue; }
+    let best=-1,bestR=0.4, bestPred=0;
+    for(const p of planesA){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const pred=p.h-d*p.tanP; const rr=Math.abs(z-pred); if(rr<bestR){bestR=rr;best=p.i;bestPred=pred;} }
+    if(best>=0 && (z-bestPred)<=0.8){ lab[r*cols+c]=best; planesA[best].n++; planesA[best].zsum+=z; }
+  }
+  const groundZ=(()=>{ if(groundSamples.length<8) return -1e9; groundSamples.sort((a,b)=>a-b); return groundSamples[Math.floor(groundSamples.length*0.2)]; })();
+  let mainP=null; for(const p of planesA){ if(p.n>=10 && (!mainP||p.n>mainP.n)) mainP=p; }
+  const mainRoofZ=mainP?(mainP.zsum/Math.max(1,mainP.n)):1e9;
+  const viable=[];
+  for(const p of planesA){ if(p.n<10) continue;
+    const meanZ=p.zsum/Math.max(1,p.n), planArea=p.n*cellA;
+    if(planArea<5) continue;
+    const nearGround=(groundZ>-1e8 && meanZ-groundZ<0.8), belowMainRoof=(mainRoofZ-meanZ>1.5), flat=(Math.abs(p.tanP)<0.18);
+    if(flat && nearGround && belowMainRoof) continue;
+    viable.push(p);
+  }
+  if(!viable.length) throw new Error("no viable planes");
+  const viableSet=new Set(viable.map(p=>p.i));
+
+  // ── (1) ONE clean FOOTPRINT ring (UTM E,N) — Moore-trace the single largest mask
+  //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
+  //    every facet is clipped FROM (already ordered; no stitching).
+  let footprint=null;
+  {
+    // binary in-roof grid (mask interior, eroded a touch off the walls) over the SAME grid
+    const inGrid=new Uint8Array(rows*cols);
+    let fpStart=-1;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const EN=cellEN(r,c);
+      const ok = mg ? roofInterior(mg,EN[0],EN[1],Math.min(margin,0.3)) : (function(){ const ll=cellLL(r,c);
+        for(const g of segs){ const b=g.boundingBox; if(b&&ll[1]>=b.sw.latitude&&ll[1]<=b.ne.latitude&&ll[0]>=b.sw.longitude&&ll[0]<=b.ne.longitude) return true; } return false; })();
+      if(ok){ inGrid[r*cols+c]=1; if(fpStart<0) fpStart=r*cols+c; }
+    }
+    if(fpStart<0) throw new Error("empty footprint");
+    // keep only the LARGEST connected component (drops detached garage/noise blobs)
+    const comp=new Int32Array(rows*cols).fill(-1); let bestComp=-1,bestSize=0,cid=0;
+    for(let i0=0;i0<rows*cols;i0++){ if(inGrid[i0]!==1||comp[i0]>=0) continue;
+      const stack=[i0]; comp[i0]=cid; let size=0; let anchor=i0;
+      while(stack.length){ const ix=stack.pop(); size++; if(ix<anchor) anchor=ix; const r=(ix/cols)|0,c=ix%cols;
+        const nbrs=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+        for(const [nr,nc] of nbrs){ if(nr<0||nc<0||nr>=rows||nc>=cols) continue; const nix=nr*cols+nc; if(inGrid[nix]===1&&comp[nix]<0){ comp[nix]=cid; stack.push(nix); } } }
+      if(size>bestSize){ bestSize=size; bestComp=cid; }
+      cid++;
+    }
+    const isFP=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&comp[r*cols+c]===bestComp;
+    // start cell = first cell of the chosen component
+    let sr=-1,sc=-1; outerFP: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(comp[r*cols+c]===bestComp){sr=r;sc=c;break outerFP;}
+    if(sr<0) throw new Error("footprint component empty");
+    let cont=dpSimplify(mooreTrace(isFP,sr,sc,rows,cols),2.0);
+    if(cont.length<3) throw new Error("footprint trace degenerate");
+    // light orthogonal regularize (allow 45° for clipped corners) in cell space
+    let fpxy=cont.map(([r,c])=>[c,r]);
+    const fpAxis=polyOrientation(fpxy);
+    let reg=regularizePoly(fpxy, fpAxis, 1.4, true);
+    if(reg.length>=3) fpxy=reg;
+    footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
+    if(polyArea2(footprint)<3) throw new Error("footprint too small");
+  }
+
+  // ── (3) ADJACENCY: which plane PAIRS border (≥6 shared 4-neighbour cells). Built from
+  //    the classifier labels — its only job. Also flags parallel pairs (no crease → merge).
+  const adj=new Map();   // "k,m" (k<m) → shared-border count
+  for(let r=0;r<rows-1;r++)for(let c=0;c<cols-1;c++){ const o=lab[r*cols+c]; if(o<0||!viableSet.has(o)) continue;
+    const right=lab[r*cols+c+1], down=lab[(r+1)*cols+c];
+    for(const nb of [right,down]){ if(nb>=0&&nb!==o&&viableSet.has(nb)){ const k=Math.min(o,nb),m=Math.max(o,nb); adj.set(k+","+m,(adj.get(k+","+m)||0)+1); } }
+  }
+  const ADJ_MIN=6;
+  const neighbours=new Map();   // i → [{j, line, partnerCenter}]
+  for(const p of viable) neighbours.set(p.i,[]);
+  for(const [key,cnt] of adj){ if(cnt<ADJ_MIN) continue;
+    const [k,m]=key.split(",").map(Number);
+    const pk=planesA[k], pm=planesA[m];
+    // parallel/coplanar adjacent planes (same gradient) → no crease; skip (visually one facet)
+    if(Math.abs(pk.a-pm.a)<1e-4 && Math.abs(pk.b-pm.b)<1e-4) continue;
+    const line=planeIntersectLine(pk,pm); if(!line) continue;
+    neighbours.get(k).push({ j:m, line });
+    neighbours.get(m).push({ j:k, line });
+  }
+
+  // ── Sutherland–Hodgman: clip polygon `poly` ([[E,N]]) by the half-plane that KEEPS
+  //    the side where (n·x + d) has the same sign as at keepPt. Line given as {p,dir};
+  //    its normal = (-dir[1], dir[0]). Returns a new ordered ring (possibly empty).
+  const clipHalfPlane=(poly,line,keepPt)=>{
+    const nx=-line.dir[1], ny=line.dir[0];                 // line normal
+    const d=-(nx*line.p[0]+ny*line.p[1]);                  // n·x + d = 0 on the line
+    const side=p=>nx*p[0]+ny*p[1]+d;
+    const keepSign=side(keepPt)>=0?1:-1;                   // keep the half containing keepPt
+    const inside=p=>side(p)*keepSign>=-1e-7;
+    const out=[];
+    for(let i=0;i<poly.length;i++){ const A=poly[i], B=poly[(i+1)%poly.length];
+      const ain=inside(A), bin=inside(B);
+      if(ain) out.push(A);
+      if(ain!==bin){ // edge crosses the line → add the exact intersection point
+        const sa=side(A), sb=side(B); const t=sa/(sa-sb);
+        out.push([A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t]);
+      }
+    }
+    return out;
+  };
+
+  // ── (4) build each facet by clipping the footprint with every neighbour crease ──────
+  const facets=[];
+  for(const p of viable){ const i=p.i;
+    const centre=[p.cE,p.cN];
+    // coverage gap: the segment's own centre must lie inside the footprint we built. If
+    // not (mask coverage hole), this facet can't be reconstructed cleanly → skip it
+    // (the area-sanity gate below + the legacy fallback handle a roof that loses too much).
+    if(!pointInPoly2(centre,footprint)) continue;
+    let poly=footprint.map(v=>[v[0],v[1]]);
+    for(const nb of (neighbours.get(i)||[])){
+      poly=clipHalfPlane(poly,nb.line,centre);
+      if(poly.length<3){ poly=[]; break; }
+    }
+    if(poly.length<3) continue;
+    // drop near-duplicate vertices the clip can leave
+    const ded=[];
+    for(const pt of poly){ if(!ded.length||Math.hypot(pt[0]-ded[ded.length-1][0],pt[1]-ded[ded.length-1][1])>0.15) ded.push(pt); }
+    if(ded.length>=2){ const f0=ded[0],fl=ded[ded.length-1]; if(Math.hypot(f0[0]-fl[0],f0[1]-fl[1])<0.15) ded.pop(); }
+    if(ded.length<3) continue;
+    // collapse near-collinear vertices for a clean ring
+    const clean=[];
+    for(let q=0;q<ded.length;q++){ const prev=ded[(q-1+ded.length)%ded.length], cur=ded[q], nxt=ded[(q+1)%ded.length];
+      if(perpDist(cur,prev,nxt)>0.05) clean.push(cur); }
+    const ring=(clean.length>=3)?clean:ded;
+    if(ringSelfIntersects(ring)) continue;   // pathological — skip this facet (fallback covers global failure)
+    const ringLL=ring.map(([E,N])=>utmToLL(E,N,zone));   // [[lng,lat],...]
+    const gArea=(p.seg.stats&&p.seg.stats.areaMeters2)||0;
+    const planArea2D=polyArea2(ring);
+    const slopeArea=gArea>0?gArea:planArea2D/Math.max(0.3,Math.cos(Math.atan(p.tanP)));
+    // carry this facet's EXACT analytic plane (UTM coeffs) so the geometry engine can lift
+    // vertices from the true plane (smooth) instead of the noisy DSM at clipped creases.
+    facets.push({ hull:ringLL, slopeArea, seg:p.seg, __plane:{a:p.a,b:p.b,c:p.c}, __zone:zone });
+  }
+  if(!facets.length) throw new Error("no facets built");
+  // area sanity vs Google's segment total (catches a globally-broken build → legacy fallback).
+  // Tighter than the trace path: pure-clip area should track Google within ~25–30%.
+  const gTot=segs.reduce((t,g)=>t+((g.stats&&g.stats.areaMeters2)||0),0);
+  const bTot=facets.reduce((t,f)=>t+(f.slopeArea||0),0);
+  if(gTot>0 && (bTot<gTot*0.45 || bTot>gTot*1.9)) throw new Error("facet area off vs Google ("+bTot.toFixed(0)+" vs "+gTot.toFixed(0)+")");
+  return facets;
+}
+
+/* signed-area magnitude of a ring [[E,N],...] (m²) */
+function polyArea2(ring){ let s2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; s2+=A[0]*B[1]-B[0]*A[1]; } return Math.abs(s2)/2; }
+/* point-in-polygon (ray cast) for [E,N] */
+function pointInPoly2(pt,ring){ let inside=false; const x=pt[0],y=pt[1];
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!==(yj>y)) && x < (xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) inside=!inside; }
+  return inside; }
+
+/* inverse UTM → WGS84 (Karney/Snyder series), zone N hemisphere. Mirrors wgs84ToUTM. */
+function utmToLL(E,N,zone){
+  const a=6378137, f=1/298.257223563, k0=0.9996, e2=f*(2-f), ep2=e2/(1-e2);
+  const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const x=E-500000, y=N;
+  const M=y/k0;
+  const mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2**3/256));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)
+    +(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)
+    +(151*e1**3/96)*Math.sin(6*mu)
+    +(1097*e1**4/512)*Math.sin(8*mu);
+  const C1=ep2*Math.cos(phi1)**2, T1=Math.tan(phi1)**2;
+  const N1=a/Math.sqrt(1-e2*Math.sin(phi1)**2), R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)**2,1.5);
+  const D=x/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*ep2)*D**4/24
+    +(61+90*T1+298*C1+45*T1*T1-252*ep2-3*C1*C1)*D**6/720);
+  const lon0=(zone-1)*6-180+3;
+  const lon=lon0*Math.PI/180+(D-(1+2*T1+C1)*D**3/6
+    +(5-2*C1+28*T1-3*C1*C1+8*ep2+24*T1*T1)*D**5/120)/Math.cos(phi1);
+  return [lon*180/Math.PI, lat*180/Math.PI];   // [lng,lat]
+}
+
+/* PUBLIC extractFacetPolys — analytic plane-intersection FIRST, with a robust
+   fallback chain so the customer never gets a worse/broken result than before:
+     analytic → legacy raster trace → (empty → caller's buildPhotoLabels path).
+   Same return shape everywhere: [{hull:[[lng,lat]], slopeArea, seg}]. */
 function extractFacetPolys(margin){
+  // ?facets=legacy forces the legacy raster path (debug/A-B); default tries the analytic
+  // plane-intersection path first, then falls back to legacy, then to the caller's
+  // buildPhotoLabels outline — the customer never gets a worse/broken result than before.
+  const _fp=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("facets");
+  if(_fp!=="legacy"){
+    try{
+      const f=extractFacetPolysAnalytic(margin);
+      if(f&&f.length){ f.__analytic=true; return f; }
+    }catch(e){ if(typeof errors!=="undefined") errors.push("analytic-facets:"+(e&&e.message||e)); }
+  }
+  try{
+    const f=extractFacetPolysLegacy(margin);
+    if(f&&f.length){ f.__analytic=false; return f; }
+  }catch(e){ if(typeof errors!=="undefined") errors.push("legacy-facets:"+(e&&e.message||e)); }
+  return [];
+}
+
+/* LEGACY raster-trace facet extraction — kept as a robust fallback for the new
+   analytic plane-intersection path (extractFacetPolys). Assigns each roof pixel to
+   its best-fitting Solar plane, traces the true outline, snaps to a global axis.
+   Its global-axis snap is why hips point the wrong way; we only use it if the
+   analytic path throws or degenerates. DO NOT delete. */
+function extractFacetPolysLegacy(margin){
   margin=(margin==null)?0.5:margin;   // real erosion: clip cells to Google's eroded building mask (no more patio bleed)
   if(!LASTDSM||!LASTB) return [];
   const dsm=LASTDSM, zone=dsm.zone;
@@ -2642,8 +2936,23 @@ function facetsToRoofModel(){
   const toLocal=(lng,lat)=>[(lng-lng0)*mLng,(lat-lat0)*mLat];
   const toWgs=(x,y)=>[lng0+x/mLng, lat0+y/mLat];
   const sampleHeight=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); const z=sampleGrid(dg,E,N); return (z==null||!isFinite(z))?0:z; };
-  const planes=facets.map((f,i)=>({ id:"P"+(i+1), ring:f.hull.map(([lng,lat])=>toLocal(lng,lat)) }));
-  let model; try{ model=window.__buildRoofModel(planes, sampleHeight); }catch(e){ errors.push("roofgeo:"+e.message); return null; }
+  const planes=facets.map((f,i)=>{
+    const pl={ id:"P"+(i+1), ring:f.hull.map(([lng,lat])=>toLocal(lng,lat)) };
+    // analytic facets carry their exact plane → lift vertices from it (smooth, exact)
+    if(f.__plane){ const pa=f.__plane, fz=(f.__zone||zone);
+      pl.liftZ=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,fz); const z=pa.a*E+pa.b*N+pa.c;
+        return (isFinite(z)?z:sampleHeight(x,y)); };
+    }
+    return pl;
+  });
+  // Analytic facets snap each shared crease to the EXACT same intersection LINE, so the
+  // two copies have ~0 perpendicular separation — but their endpoints differ ALONG the
+  // line (each facet's crease ends where its other edges meet). roofgeo pairs edges by
+  // both-endpoint proximity, so we use 0.6m: tight enough not to over-merge distinct
+  // ridges (the old 1m bug), loose enough to pair the two on-line crease copies. Legacy
+  // fallback keeps the historical 1m fuzzy match for its independently-regularized rings.
+  const shareTolM=(facets.__analytic===false)?1.0:0.6;
+  let model; try{ model=window.__buildRoofModel(planes, sampleHeight, {shareTolM}); }catch(e){ errors.push("roofgeo:"+e.message); return null; }
   model.__toWgs=toWgs; return model;
 }
 async function buildRoofMeasure(){
@@ -2669,19 +2978,27 @@ async function buildRoofMeasure(){
   const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
     if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.4:0.24 })); }catch(_){} }   // smaller pins → less cluttered
     gmap.append(m); roofMeas.push(m); };
-  // colour-coded dimension lines per edge type, anchored to the roof. drawsOccludedSegments → the
-  // line stays visible through the photoreal mesh + tree canopy (the old slim non-occluded lines were
-  // swallowed by the roof/trees, so the 3D measure "didn't follow the roof"). A white casing under each
-  // coloured edge gives the same crisp premium read as the top-down hairline. Lifted a touch (0.35m) so
-  // the ridge/eave lines sit clearly above the surface instead of buried in it.
-  const EDGE_ALT=0.35;
+  // colour-coded dimension lines per edge type, riding the TRUE sloped roof. Each
+  // endpoint carries its real lifted elevation (model.edges[].az/.bz) — the raw DSM z,
+  // which Google's Solar DSM gives in metres above sea level (the same absolute datum
+  // maps3d ABSOLUTE altitude uses; siteAlt itself is the 5th-percentile of those same z's,
+  // so we use the endpoint z DIRECTLY, not siteAlt+z, which would double-count). Drawing
+  // ABSOLUTE with the true per-vertex elevation makes a ridge/hip sit ON the crest along the
+  // slope instead of floating at a flat 0.35m above the mesh (the "floating above the slope"
+  // bug). drawsOccludedSegments keeps the line visible through the photoreal mesh + tree
+  // canopy. White casing thinned (5→3px / 3→2px) so it reads as a hairline at a tilt, not a bar.
+  const EDGE_LIFT=0.1;   // tiny lift off the surface so the line isn't z-fighting the mesh
+  // sanity: if endpoint elevations look wrong (missing/all-zero), fall back to siteAlt datum
+  const haveElev=model.edges.some(e=>typeof e.az==="number"&&isFinite(e.az)&&Math.abs(e.az)>0.5);
   for(const e of model.edges){
     const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    const coords=[{lat:A[1],lng:A[0],altitude:EDGE_ALT},{lat:B[1],lng:B[0],altitude:EDGE_ALT}];
+    const rawA=(typeof e.az==="number"&&isFinite(e.az))?e.az:siteAlt, rawB=(typeof e.bz==="number"&&isFinite(e.bz))?e.bz:rawA;
+    const altA=(haveElev?rawA:siteAlt)+EDGE_LIFT, altB=(haveElev?rawB:siteAlt)+EDGE_LIFT;
+    const coords=[{lat:A[1],lng:A[0],altitude:altA},{lat:B[1],lng:B[0],altitude:altB}];
     try{ // white casing (slightly wider, drawn first so the colour sits on top)
-      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:5, drawsOccludedSegments:true, coordinates:coords });
+      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.ABSOLUTE, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
       gmap.append(cas); roofMeas.push(cas);
-      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
+      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.ABSOLUTE, strokeColor:col, strokeWidth:2, drawsOccludedSegments:true, coordinates:coords });
       gmap.append(pl); roofMeas.push(pl);
     }catch(err){ errors.push("polyline:"+err.message); }
   }

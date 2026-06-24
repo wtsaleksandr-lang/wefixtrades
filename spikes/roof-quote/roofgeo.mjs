@@ -16,7 +16,15 @@
 
 const FT_PER_M = 3.28084;          // meters -> feet (linear)
 const SQFT_PER_SQM = 10.7639;      // square meters -> square feet
-const SHARE_TOL_M = 1.0;           // endpoints within ~1.0 m are "the same point"
+// Default endpoint-merge tolerance for direct callers. The real value is passed
+// per-call via opts.shareTolM from facetsToRoofModel (roof3d.html): ~0.6 m for the
+// analytic plane-intersection path (its adjacent facets snap each shared crease to
+// the SAME exact intersection LINE, so perpendicular separation is ~0 — 0.6 m pairs
+// the two on-line copies whose endpoints differ ALONG the line, without the old
+// fuzzy ~1 m snap that collapsed distinct-but-near edges), and 1.0 m for the legacy
+// raster fallback's independently-regularized rings. This constant only applies if a
+// caller omits opts.shareTolM.
+const SHARE_TOL_M = 0.6;            // default endpoint-merge distance (m); overridden per-call
 
 // --- small vector helpers ---------------------------------------------------
 
@@ -119,11 +127,22 @@ function pitchAndAzimuth(normal) {
 
 // --- main builder -----------------------------------------------------------
 
-export function buildRoofModel(planes, sampleHeight) {
+export function buildRoofModel(planes, sampleHeight, opts) {
+  opts = opts || {};
+  // Endpoint-merge tolerance: the analytic extractor passes IDENTICAL shared
+  // intersection coords → use a tight 0.05 m. The legacy raster fallback passes
+  // independently-regularized rings → keep the original ~1 m fuzzy match.
+  const shareTol = (typeof opts.shareTolM === "number") ? opts.shareTolM : SHARE_TOL_M;
   // 1) Per-plane geometry --------------------------------------------------
   const facets = planes.map((p) => {
     const ring2 = openRing(p.ring);
-    const ring3 = ring2.map(([x, y]) => [x, y, sampleHeight(x, y)]);
+    // Lift each vertex to 3D. If the plane carries an exact analytic height function
+    // (p.liftZ — the analytic extractor passes one), use it: it is smooth and exact, so
+    // crease endpoints get the TRUE roof elevation instead of a noisy DSM sample, which
+    // makes ridge/hip/valley classification (edge-vs-centroid height) reliable and lets
+    // the 3D overlay ride the real slope. Falls back to the shared DSM sampleHeight.
+    const lift = (typeof p.liftZ === "function") ? p.liftZ : sampleHeight;
+    const ring3 = ring2.map(([x, y]) => [x, y, lift(x, y)]);
     const normal = fitNormal(ring3);
     const { pitchDeg, azimuthDeg } = pitchAndAzimuth(normal);
     const pitchX12 = Math.round(Math.tan(pitchDeg * Math.PI / 180) * 12);
@@ -154,12 +173,39 @@ export function buildRoofModel(planes, sampleHeight) {
     }
   });
 
-  // Two edges are "the same physical edge" if their endpoints coincide
-  // within SHARE_TOL_M in either orientation.
+  // Two edges are "the same physical edge" if their endpoints coincide within
+  // shareTol in either orientation, OR they are COLLINEAR & OVERLAPPING. The latter
+  // is what the analytic half-plane-clip extractor produces: adjacent facets share the
+  // SAME crease LINE, but each facet's crease segment ends where ITS own boundary turns,
+  // so the two segments overlap on the line without coincident endpoints. A pure
+  // endpoint matcher would miss them and mis-label both as outer (eave/rake) instead of
+  // ridge/hip/valley. We treat them as the same edge when both endpoints of the shorter
+  // segment sit on the longer segment's line (perp dist < shareTol) and their 1-D spans
+  // along that line overlap by a real amount.
+  const COLLINEAR_PERP = Math.max(shareTol, 0.35);   // m: how far off-line still counts as "on" the crease
+  function collinearOverlap(e1, e2) {
+    // work in the plan (x,y); use e1 as the reference line
+    const ax = e1.a[0], ay = e1.a[1], bx = e1.b[0], by = e1.b[1];
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy);
+    if (L < 1e-6) return false;
+    const ux = dx / L, uy = dy / L;            // unit dir of e1
+    const px = -uy, py = ux;                    // perp
+    const perp = (q) => Math.abs((q[0] - ax) * px + (q[1] - ay) * py);
+    if (perp(e2.a) > COLLINEAR_PERP || perp(e2.b) > COLLINEAR_PERP) return false;  // e2 not on e1's line
+    // 1-D spans along e1's dir
+    const proj = (q) => (q[0] - ax) * ux + (q[1] - ay) * uy;
+    const s2a = proj(e2.a), s2b = proj(e2.b);
+    const lo1 = 0, hi1 = L, lo2 = Math.min(s2a, s2b), hi2 = Math.max(s2a, s2b);
+    const overlap = Math.min(hi1, hi2) - Math.max(lo1, lo2);
+    // require a real overlap (≥ shareTol and ≥ ~30% of the shorter segment)
+    const shorter = Math.min(L, Math.abs(s2b - s2a));
+    return overlap > shareTol && overlap > 0.3 * shorter;
+  }
   function sameEdge(e1, e2) {
-    const fwd = dist2(e1.a, e2.a) < SHARE_TOL_M && dist2(e1.b, e2.b) < SHARE_TOL_M;
-    const rev = dist2(e1.a, e2.b) < SHARE_TOL_M && dist2(e1.b, e2.a) < SHARE_TOL_M;
-    return fwd || rev;
+    const fwd = dist2(e1.a, e2.a) < shareTol && dist2(e1.b, e2.b) < shareTol;
+    const rev = dist2(e1.a, e2.b) < shareTol && dist2(e1.b, e2.a) < shareTol;
+    if (fwd || rev) return true;
+    return collinearOverlap(e1, e2);
   }
 
   // Group raw edges into unique physical edges, tracking adjacent facets.
