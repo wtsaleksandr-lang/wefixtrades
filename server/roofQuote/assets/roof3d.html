@@ -1078,7 +1078,12 @@ function measureCardBody(){
   const t=window.__roofTotals; if(!t) return '<div class="qprompt">Measuring your roof…</div>';
   const f=n=>Math.round(n||0).toLocaleString();
   const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
-  return '<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+confidencePct(t)+'%</span>'+HCUE("measure")+'</div>'+
+  // HONEST GATE: when Google's imagery isn't HIGH quality the DSM-traced outline is coarse —
+  // label it an approximate estimate and widen the band so we never imply survey precision on low-res data.
+  const iq=(LASTB&&LASTB.imageryQuality)||"HIGH", lowIq=(iq&&iq!=="HIGH");
+  const band=lowIq?Math.max(confidencePct(t),15):confidencePct(t);
+  const approxBanner=lowIq?'<div class="qsub" style="color:#f59e0b;font-weight:600;margin-bottom:2px">Approximate estimate — based on lower-resolution aerial imagery for this address. Final measurements are confirmed on site.</div>':'';
+  return approxBanner+'<div class="qprice">'+f(t.roofAreaSqFt)+' <span class="qunit">ft²</span> <span class="qband">±'+band+'%</span>'+HCUE("measure")+'</div>'+
     '<div class="qsub">Measured from aerial 3D imagery — edge lengths + areas for the takeoff. Confirm on site before ordering materials.</div>'+
     '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
     '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
@@ -1847,6 +1852,7 @@ async function run(addr){
     if(!rD.v||!rR.v) throw new Error("DSM/RGB layers unavailable");   // mandatory → pvwattsFallback path
     const dsm=rD.v, rgb=rR.v, flux=rF.v, mask=rM.v;   // flux/mask may be null → overlays degrade gracefully
     LASTFLUX=flux; LASTMASK=mask; LASTDSM=dsm; LASTRGB=rgb;
+    window.LASTB=LASTB; window.LASTDSM=LASTDSM; window.LASTMASK=LASTMASK;   // expose for headless verify diagnostics
     // Confidence gate: if the loaded rasters don't cover the roof the Solar segments
     // describe (tree canopy / off-building geocode), suppress the drift-prone overlays
     // and show the inline note — the numeric quote below still renders from Solar data.
@@ -2069,6 +2075,53 @@ function perpDist(p,a,b){ const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy; if(L===
 function dpSimplify(pts,eps){ if(pts.length<3) return pts; let dmax=0,idx=0; const a=pts[0],b=pts[pts.length-1];
   for(let i=1;i<pts.length-1;i++){ const d=perpDist(pts[i],a,b); if(d>dmax){dmax=d;idx=i;} }
   if(dmax>eps){ return dpSimplify(pts.slice(0,idx+1),eps).slice(0,-1).concat(dpSimplify(pts.slice(idx),eps)); } return [a,b]; }
+/* ===== Edge regularization — turn a staircase Moore-trace into clean architectural
+   edges. Works in a metric planar space (uniform [x,y] in cell units). The SAME
+   dominant orientation `axisRad` is shared across every facet so adjacent ridges/eaves
+   line up (no slivers). Each edge angle is snapped to the nearest of the roof's two
+   orthogonal axes (0°/90°) — and to 45° for genuine hip/clipped runs — then near-collinear
+   segments are merged. Tolerances are in the trace's [x,y] units (≈ cell size). */
+function polyOrientation(pts){
+  // dominant edge direction via PCA-free length-weighted angle histogram folded into [0,90).
+  // returns radians of the roof's primary axis (0 = +x).
+  let sx=0,sy=0,tot=0;
+  for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length];
+    let ang=Math.atan2(b[1]-a[1],b[0]-a[0]); const len=Math.hypot(b[0]-a[0],b[1]-a[1]); if(len<1e-6) continue;
+    let d=((ang%(Math.PI/2))+Math.PI/2)%(Math.PI/2);   // fold to [0,90°) — orthogonal edges reinforce the same axis
+    sx+=Math.cos(4*d)*len; sy+=Math.sin(4*d)*len; tot+=len; }   // 4× → period maps 0..90° to a full circle for a stable circular mean
+  if(tot<1e-6) return 0; return Math.atan2(sy,sx)/4;
+}
+function regularizePoly(pts,axisRad,tol,allow45){
+  if(pts.length<3) return pts;
+  const ca=Math.cos(-axisRad), sa=Math.sin(-axisRad);
+  // 1) rotate into the roof's axis frame
+  let R=pts.map(([x,y])=>[x*ca-y*sa, x*sa+y*ca]);
+  // 2) snap each edge to the nearest allowed orientation, project endpoints onto that line
+  const cand=allow45?[0,Math.PI/4,Math.PI/2,-Math.PI/4]:[0,Math.PI/2];
+  const n=R.length, snapped=R.map(p=>p.slice());
+  const lines=[];   // per-edge: a point + unit dir after snapping
+  for(let i=0;i<n;i++){ const a=R[i],b=R[(i+1)%n]; const ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
+    let bestC=0,bestD=1e9; for(const c of cand){ let dd=Math.abs(((ang-c+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2); if(dd<bestD){bestD=dd;bestC=c;} }
+    const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2], dir=[Math.cos(bestC),Math.sin(bestC)];
+    lines.push({mid,dir}); }
+  // 3) each vertex = intersection of its two adjacent snapped lines (falls back to the
+  //    snapped position if the lines are near-parallel) → crisp corners, no staircase.
+  const out=[];
+  for(let i=0;i<n;i++){ const L1=lines[(i-1+n)%n], L2=lines[i]; const p=lineIntersect(L1.mid,L1.dir,L2.mid,L2.dir);
+    out.push(p||R[i]); }
+  // 4) drop vertices that barely deflect the path (merge near-collinear) and tiny edges
+  let cleaned=[]; for(let i=0;i<out.length;i++){ const prev=out[(i-1+out.length)%out.length], cur=out[i], nxt=out[(i+1)%out.length];
+    const d=perpDist(cur,prev,nxt); if(d>tol*0.35) cleaned.push(cur); }
+  if(cleaned.length<3) cleaned=out;
+  // remove consecutive near-duplicate points
+  const dedup=[]; for(const p of cleaned){ if(!dedup.length||Math.hypot(p[0]-dedup[dedup.length-1][0],p[1]-dedup[dedup.length-1][1])>tol*0.25) dedup.push(p); }
+  if(dedup.length<3) return pts;
+  // 5) rotate back to world axes
+  const cb=Math.cos(axisRad), sb=Math.sin(axisRad);
+  return dedup.map(([x,y])=>[x*cb-y*sb, x*sb+y*cb]);
+}
+function lineIntersect(p1,d1,p2,d2){ const den=d1[0]*d2[1]-d1[1]*d2[0]; if(Math.abs(den)<1e-9) return null;
+  const t=((p2[0]-p1[0])*d2[1]-(p2[1]-p1[1])*d2[0])/den; return [p1[0]+t*d1[0], p1[1]+t*d1[1]]; }
 /* Moore-neighbor boundary trace of a binary predicate grid, clockwise from (sr,sc) */
 function mooreTrace(isF,sr,sc,rows,cols){
   const N=[[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]];
@@ -2087,37 +2140,74 @@ function mooreTrace(isF,sr,sc,rows,cols){
 /* REAL roof facets from the DSM: assign each roof pixel to its best-fitting Solar plane,
    then TRACE the true outline (follows the roof edges) + measure area (not Google's bbox) */
 function extractFacetPolys(margin){
-  margin=(margin==null)?0.5:margin;
+  margin=(margin==null)?0.5:margin;   // real erosion: clip cells to Google's eroded building mask (no more patio bleed)
   if(!LASTDSM||!LASTB) return [];
   const dsm=LASTDSM, zone=dsm.zone;
   const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   const segs=LASTB.solarPotential.roofSegmentStats||[];
   const planes=segs.map((sg,i)=>{ const [cE,cN]=wgs84ToUTM(sg.center.latitude,sg.center.longitude,zone); const az=(sg.azimuthDegrees||0)*Math.PI/180;
-    return {i,cE,cN,h:sg.planeHeightAtCenterMeters||0,sinAz:Math.sin(az),cosAz:Math.cos(az),tanP:Math.tan((sg.pitchDegrees||0)*Math.PI/180),seg:sg,n:0}; });
+    return {i,cE,cN,h:sg.planeHeightAtCenterMeters||0,sinAz:Math.sin(az),cosAz:Math.cos(az),tanP:Math.tan((sg.pitchDegrees||0)*Math.PI/180),seg:sg,n:0,zsum:0}; });
   if(!planes.length) return [];
   let s=90,w=180,nn=-90,e=-180; for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
-  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.3, dLat=step/mLat, dLng=step/mLng, cellA=step*step, pad=4;
+  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180);
+  // finer 0.15m base grid for a crisp boundary, but cap total cells (~700k) so a large/commercial
+  // footprint can't blow up the per-cell×per-plane loop — step up coarser if the window is huge.
+  const spanW=(e-w)*mLng, spanH=(nn-s)*mLat; let step=0.15;
+  while((spanW/step)*(spanH/step)>700000 && step<0.4) step+=0.05;
+  const dLat=step/mLat, dLng=step/mLng, cellA=step*step, pad=4;
   const cols=Math.ceil((e-w)/dLng)+1+2*pad, rows=Math.ceil((nn-s)/dLat)+1+2*pad;
   const lab=new Int16Array(rows*cols).fill(-1);
+  // ground reference: sample DSM at cells OUTSIDE the building mask → the true surrounding-ground floor.
+  // (Sampling roof cells would put "ground" at roof height and wrongly drop legitimate flat roofs.)
+  const groundSamples=[];
   for(let r=pad;r<rows-pad;r++)for(let c=pad;c<cols-pad;c++){
     const lat=s+(r-pad)*dLat, lng=w+(c-pad)*dLng, [E,N]=wgs84ToUTM(lat,lng,zone);
-    if(mg && !roofInterior(mg,E,N,margin)) continue;   // erode `margin` m inside roof edge
+    const inside = mg ? roofInterior(mg,E,N,margin) : true;
     const z=sampleGrid(dg,E,N); if(z==null||!isFinite(z)) continue;
-    let best=-1,bestR=0.7;
-    for(const p of planes){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const rr=Math.abs(z-(p.h-d*p.tanP)); if(rr<bestR){bestR=rr;best=p.i;} }
-    if(best>=0){ lab[r*cols+c]=best; planes[best].n++; }
+    if(!inside){ if(((r*cols+c)&3)===0) groundSamples.push(z); continue; }   // off-roof → ground sample (sparse), skip labeling
+    let best=-1,bestR=0.4, bestPred=0;   // tighter residual band (0.4m) on the finer 0.15m grid → crisper boundary
+    for(const p of planes){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const pred=p.h-d*p.tanP; const rr=Math.abs(z-pred); if(rr<bestR){bestR=rr;best=p.i;bestPred=pred;} }
+    // fix #2a: a cell sitting >0.8m ABOVE its plane's predicted height is a chimney/vent spike — do NOT label it
+    // (so no spurious sliver is traced around it). Below the plane (shadow/no-data dropout) is left to the residual band.
+    if(best>=0 && (z-bestPred)<=0.8){ lab[r*cols+c]=best; planes[best].n++; planes[best].zsum+=z; }
   }
   const cell2ll=(r,c)=>[ w+(c-pad)*dLng, s+(r-pad)*dLat ];
-  const out=[];
+  const groundZ=(()=>{ if(groundSamples.length<8) return -1e9; groundSamples.sort((a,b)=>a-b); return groundSamples[Math.floor(groundSamples.length*0.2)]; })();
+  // main-roof reference height = mean height of the largest labeled plane (the predominant roof surface).
+  let mainP=null; for(const p of planes){ if(p.n>=10 && (!mainP||p.n>mainP.n)) mainP=p; }
+  const mainRoofZ=mainP?(mainP.zsum/Math.max(1,mainP.n)):1e9;
+  // first pass: trace every viable plane into cell-space rings (kept for the shared-orientation calc)
+  const traced=[];
   for(const p of planes){ if(p.n<10) continue;
     const isF=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&lab[r*cols+c]===p.i;
     let sr=-1,sc=-1; outer: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(lab[r*cols+c]===p.i){sr=r;sc=c;break outer;}
     if(sr<0) continue;
-    let cont=dpSimplify(mooreTrace(isF,sr,sc,rows,cols),1.4);
+    let cont=dpSimplify(mooreTrace(isF,sr,sc,rows,cols),2.4);   // DP eps in cells (≈0.36m on the 0.15m grid)
     if(cont.length<3) continue;
-    const ring=cont.map(([r,c])=>cell2ll(r,c));
-    const planArea=p.n*cellA, slopeArea=planArea/Math.max(0.3,Math.cos(Math.atan(p.tanP)));
+    const meanZ=p.zsum/Math.max(1,p.n), planArea=p.n*cellA;
+    // fix #1 patio/deck drop: too small to be a roof slope (<5 m²); OR a (near-)flat surface that is BOTH near the
+    // surrounding ground AND well below the main roof → that's a patio/deck slab, not a roof plane. Both conditions
+    // are required so a legitimately-flat low building (its own roof = the main roof) is never dropped.
+    if(planArea<5) continue;
+    const nearGround=(groundZ>-1e8 && meanZ-groundZ<0.8), belowMainRoof=(mainRoofZ-meanZ>1.5), flat=(Math.abs(p.tanP)<0.18);
+    if(flat && nearGround && belowMainRoof) continue;
+    traced.push({ p, cont, planArea });
+  }
+  if(!traced.length) return [];
+  // fix #3: ONE shared dominant roof orientation (from the largest facet's trace, in cell space [c,r] = [x,y]) —
+  // regularizing every facet to the SAME axis keeps adjacent ridges/eaves parallel so they line up (no slivers).
+  let biggest=traced[0]; for(const t of traced) if(t.planArea>biggest.planArea) biggest=t;
+  const axisRad=polyOrientation(biggest.cont.map(([r,c])=>[c,r]));
+  const TOL=2.0;   // ≈1.3 cells ≈ 0.3m — snap/merge tolerance in cell units
+  const out=[];
+  for(const t of traced){ const p=t.p;
+    // regularize in cell space, then map back to lng/lat
+    let xy=t.cont.map(([r,c])=>[c,r]);
+    xy=regularizePoly(xy, axisRad, TOL, true);
+    if(xy.length<3) xy=t.cont.map(([r,c])=>[c,r]);
+    const ring=xy.map(([x,y])=>cell2ll(y,x));
+    const slopeArea=t.planArea/Math.max(0.3,Math.cos(Math.atan(p.tanP)));
     out.push({ hull:ring, slopeArea, seg:p.seg });
   }
   return out;
@@ -2129,7 +2219,7 @@ function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }
 function facetsToRoofModel(){
   if(!LASTDSM||!LASTB||!window.__buildRoofModel) return null;
   const dsm=LASTDSM, zone=dsm.zone, dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
-  const facets=extractFacetPolys(0.0); if(!facets.length) return null;
+  const facets=extractFacetPolys(0.5); if(!facets.length) return null;   // 0.5m erosion → clip to eroded mask (drop patio/wall bleed)
   // local ENU metres centred on the house → metric for the engine, trivially invertible for rendering
   const lat0=SITE.lat, lng0=SITE.lng, mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
   const toLocal=(lng,lat)=>[(lng-lng0)*mLng,(lat-lat0)*mLat];
@@ -2152,7 +2242,7 @@ async function buildRoofMeasure(){
   // colour-coded dimension lines per edge type, anchored to the roof — slim so they read as guide lines, not bars
   for(const e of model.edges){
     const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:4, drawsOccludedSegments:false,
+    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:2, drawsOccludedSegments:false,
       coordinates:[{lat:A[1],lng:A[0],altitude:0.2},{lat:B[1],lng:B[0],altitude:0.2}] }); gmap.append(pl); roofMeas.push(pl); }catch(err){ errors.push("polyline:"+err.message); }
   }
   // per-edge LF labels — only the significant edges, longest-first, well spread (wider min-gap → no hectic clustering)
@@ -2211,14 +2301,16 @@ function renderRoofDiagram(){
   ctx.lineJoin="round"; ctx.lineCap="round";
   for(const f of fp){ ctx.beginPath(); f.ring.forEach(([px,py],i)=>{ i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath();
     ctx.fillStyle="rgba(255,69,58,0.07)"; ctx.fill(); }
-  // 2) every facet edge stroked tight in RED — a crisp white hairline under it lifts it off the aerial
-  const lw=Math.max(2.4,cw/150);
+  // 2) every facet edge as a thin premium hairline (EagleView/Aurora style): constant ~1.7px RED,
+  //    a white casing only ~1px wider UNDER it (not a fat halo). Width is constant in canvas units →
+  //    crisp regardless of crop size, never a fat bar. Half-pixel offset keeps it razor-sharp.
+  const lw=1.7, half=(v)=>Math.round(v)+0.5;
   for(const e of model.edges){ const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
-    ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=lw+1.6; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
-    ctx.strokeStyle=MEAS_RED; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }
-  // small red vertex nodes at facet corners (echoes the reference's traced-corner look)
-  const seen=[]; const node=(px,py)=>{ if(seen.some(s=>Math.hypot(s[0]-px,s[1]-py)<lw*1.5)) return; seen.push([px,py]);
-    ctx.beginPath(); ctx.arc(px,py,lw*0.95,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.beginPath(); ctx.arc(px,py,lw*0.6,0,7); ctx.fillStyle=MEAS_RED; ctx.fill(); };
+    ctx.strokeStyle="rgba(255,255,255,0.55)"; ctx.lineWidth=lw+1; ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke();
+    ctx.strokeStyle=MEAS_RED; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke(); }
+  // small crisp vertex nodes at facet corners — 4px white fill + 1.5px red stroke (not a fat dot)
+  const seen=[]; const node=(px,py)=>{ if(seen.some(s=>Math.hypot(s[0]-px,s[1]-py)<3)) return; seen.push([px,py]);
+    ctx.beginPath(); ctx.arc(px,py,2.2,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=MEAS_RED; ctx.stroke(); };
   for(const f of fp) for(const [px,py] of f.ring){ node(px,py); }
   // 3) per-facet label — area (bold) + pitch, dark pill for guaranteed contrast.
   // Drawn largest-facet-first; a label is skipped if its pill would collide with one already
@@ -3178,7 +3270,7 @@ function renderMeasurePreview(){
   ctx.putImageData(oid,0,0); ctx.fillStyle="rgba(8,12,20,0.22)"; ctx.fillRect(0,0,W,H);
   const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], zone=(LASTFLUX||LASTDSM).zone;
   const toPx=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
-  const facets=extractFacetPolys(0.0); ctx.lineJoin="round"; let nFacets=0;
+  const facets=extractFacetPolys(0.5); ctx.lineJoin="round"; let nFacets=0;
   // Reconcile the per-facet areas to the SAME roof size the quote charges for (QUOTE.roofSqft).
   // The DSM-reconstructed facet areas sum to ~half of Google's whole-roof area (slope/erosion under-capture),
   // so without this the Measure lens showed e.g. 652 ft² while the quote billed 1,563 ft². Scale every
@@ -3188,7 +3280,9 @@ function renderMeasurePreview(){
   for(const f of facets){ nFacets++;
     const pts=f.hull.map(([lng,lat])=>toPx(lat,lng));
     ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
-    ctx.lineWidth=Math.max(2.5,W/420); ctx.strokeStyle="rgba(34,211,238,0.97)"; ctx.stroke();
+    const plw=Math.max(2,W/620);   // thin premium hairline + white casing only slightly wider (lifts it off the aerial, no fat bar)
+    ctx.lineWidth=plw+plw*0.7; ctx.strokeStyle="rgba(255,255,255,0.5)"; ctx.stroke();
+    ctx.lineWidth=plw; ctx.strokeStyle="rgba(34,211,238,0.97)"; ctx.stroke();
     for(let i=0;i<f.hull.length;i++){ const a=f.hull[i], b=f.hull[(i+1)%f.hull.length];
       const [aE,aN]=wgs84ToUTM(a[1],a[0],zone), [bE,bN]=wgs84ToUTM(b[1],b[0],zone), len=Math.hypot(bE-aE,bN-aN);
       if(len<3) continue; const ft=Math.round(len*3.28084), inch=Math.round((len*3.28084-ft)*12);   // skip tiny edges to de-clutter
