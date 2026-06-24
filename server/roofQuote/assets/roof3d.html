@@ -416,8 +416,13 @@
   /* loader */
   #load{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(238,241,246,.72);flex-direction:column;gap:14px}
   #load .ring{width:46px;height:46px;border:4px solid #e1e7ef;border-top-color:#0d3cfc;border-radius:50%;animation:spin 1s linear infinite}
-  #load .t{color:var(--muted);font-size:13px}
+  #load .t{color:var(--muted);font-size:13px;text-align:center;padding:0 16px}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* (audit-8 P2) mobile: the bottom-sheet quote card (Solar/Roofing tabs) sits at bottom:66 + ≤42vh.
+     The loader is inset:0 and vertically CENTRES its spinner+text — on a short phone that centre landed
+     ON the tabs ("Loading photoreal 3D…" painted over Solar/Roofing). Reserve the sheet's footprint at
+     the bottom so the loader content centres in the MAP area ABOVE the sheet, never over the tabs. */
+  @media (max-width:560px){ #load{justify-content:flex-start;padding-top:24vh;padding-bottom:calc(42vh + 78px)} }
   /* small "rendering photo…" badge shown over the instant swatch tint while the AI photo loads behind it */
   #aiRendering{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:19;display:none;align-items:center;gap:8px;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:999px;padding:6px 13px;box-shadow:var(--card-shadow);font-size:12px;font-weight:700;color:var(--muted);pointer-events:none}
   #aiRendering .mini{width:14px;height:14px;border:2.5px solid #e1e7ef;border-top-color:#0d3cfc;border-radius:50%;animation:spin .9s linear infinite}
@@ -1151,9 +1156,13 @@ function sunCardBody(){
   return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span>'+HCUE("sun")+'</div>'+
     '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power. <span class="muted" style="font-size:10.5px">Colours are relative to this roof.</span></div>'+
     saLine+
-    '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">panels fit</div></div>'+
+    '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">max panels fit</div></div>'+
     '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
-    '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>';
+    '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>'+
+    // (audit-8 P2) the Sun lens shows the MAX the roof could physically hold; the Solar tab shows the
+    // RECOMMENDED system (sized to your bill, and trimmed for shaded/obstructed areas) — so the two
+    // panel counts differ by design. Spell it out so they never read as a contradiction.
+    '<div class="qfin" style="margin-top:6px;font-size:10.5px;line-height:1.4">This is the <b>maximum</b> the roof could hold. Your <b>recommended</b> system on the Solar tab is sized to your bill and excludes shaded/obstructed areas, so it’s usually smaller.</div>';
 }
 function measureCardBody(largeRoof){
   // SINGLE-VERDICT GATE: a large/commercial roof routes Solar to "request a commercial quote"; the
@@ -1820,7 +1829,7 @@ function renderQuoteCard(){
       itcLine+finDisplay+payRow+
       moneyStory+kpiStrip+srecLine+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
-      '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Panels</div></div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Recommended panels</div></div>'+
       '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW'+TCUE("kw")+'</div></div>'+
       '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr'+TCUE("kwhyr")+'</div></div></div>'+
       '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
@@ -2970,6 +2979,7 @@ function extractFacetPolysAnalytic(margin){
   // ── DSM-residual classification (robust full-roof partition) — labels only used for
   //    adjacency + plane viability; geometry is 100% footprint + analytic lines.
   const groundSamples=[];
+  for(const p of planesA){ p.cells=[]; }   // (audit-8 P3) collect each plane's OWN classified cell centres (E,N) → bound its facet to where it actually has roof pixels (no courtyard sprawl)
   for(let r=pad;r<rows-pad;r++)for(let c=pad;c<cols-pad;c++){
     const ll=cellLL(r,c), EN=wgs84ToUTM(ll[1],ll[0],zone), E=EN[0], N=EN[1];
     const inside = mg ? roofInterior(mg,E,N,margin) : true;
@@ -2977,7 +2987,7 @@ function extractFacetPolysAnalytic(margin){
     if(!inside){ if(((r*cols+c)&3)===0) groundSamples.push(z); continue; }
     let best=-1,bestR=0.4, bestPred=0;
     for(const p of planesA){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const pred=p.h-d*p.tanP; const rr=Math.abs(z-pred); if(rr<bestR){bestR=rr;best=p.i;bestPred=pred;} }
-    if(best>=0 && (z-bestPred)<=0.8){ lab[r*cols+c]=best; planesA[best].n++; planesA[best].zsum+=z; }
+    if(best>=0 && (z-bestPred)<=0.8){ lab[r*cols+c]=best; planesA[best].n++; planesA[best].zsum+=z; planesA[best].cells.push([E,N]); }
   }
   const groundZ=(()=>{ if(groundSamples.length<8) return -1e9; groundSamples.sort((a,b)=>a-b); return groundSamples[Math.floor(groundSamples.length*0.2)]; })();
   let mainP=null; for(const p of planesA){ if(p.n>=10 && (!mainP||p.n>mainP.n)) mainP=p; }
@@ -3052,6 +3062,45 @@ function extractFacetPolysAnalytic(margin){
     neighbours.get(m).push({ j:k, line });
   }
 
+  // ── (audit-8 P3) convex hull (Andrew's monotone chain) of a plane's OWN classified
+  //    cell centres [[E,N],...], then inflate it outward by `padM` metres about its
+  //    centroid. A facet clipped to this inflated hull cannot sprawl across an interior
+  //    courtyard / ground void where its plane has NO roof pixels, while the generous
+  //    pad keeps every legitimate facet edge (eave/crease may sit a little past the last
+  //    sampled cell). On a normal solid roof the cells already fill the facet, so the
+  //    hull contains the whole facet and this clip is a no-op → crisp rooflines preserved.
+  const cellHull=(pts,padM)=>{
+    if(!pts||pts.length<3) return null;
+    const p=pts.slice().sort((A,B)=>A[0]-B[0]||A[1]-B[1]);
+    const cross=(O,A,B)=>(A[0]-O[0])*(B[1]-O[1])-(A[1]-O[1])*(B[0]-O[0]);
+    const lo=[]; for(const q of p){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop(); lo.push(q); }
+    const up=[]; for(let i=p.length-1;i>=0;i--){ const q=p[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],q)<=0)up.pop(); up.push(q); }
+    let h=lo.slice(0,-1).concat(up.slice(0,-1));
+    if(h.length<3) return null;
+    let cx=0,cy=0; for(const v of h){ cx+=v[0]; cy+=v[1]; } cx/=h.length; cy/=h.length;
+    return h.map(([x,y])=>{ const dx=x-cx,dy=y-cy,L=Math.hypot(dx,dy)||1; return [x+dx/L*padM, y+dy/L*padM]; });
+  };
+  // ── Sutherland–Hodgman: clip polygon `poly` ([[E,N]]) by a CONVEX ring (each edge a
+  //    half-plane keeping the interior). Returns a new ordered ring (possibly empty).
+  const clipByConvex=(poly,ring)=>{
+    if(!ring||ring.length<3) return poly;
+    // ensure CCW so the interior is the left side of every directed edge
+    let a2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; a2+=A[0]*B[1]-B[0]*A[1]; }
+    const r=(a2<0)?ring.slice().reverse():ring;
+    let out=poly;
+    for(let i=0;i<r.length&&out.length>=3;i++){ const A=r[i],B=r[(i+1)%r.length];
+      const ex=B[0]-A[0],ey=B[1]-A[1];
+      const inside=p=>(ex*(p[1]-A[1])-ey*(p[0]-A[0]))>=-1e-7;
+      const np=[];
+      for(let k=0;k<out.length;k++){ const P=out[k],Q=out[(k+1)%out.length]; const pin=inside(P),qin=inside(Q);
+        if(pin) np.push(P);
+        if(pin!==qin){ const sp=ex*(P[1]-A[1])-ey*(P[0]-A[0]), sq=ex*(Q[1]-A[1])-ey*(Q[0]-A[0]); const t=sp/(sp-sq);
+          np.push([P[0]+(Q[0]-P[0])*t, P[1]+(Q[1]-P[1])*t]); } }
+      out=np;
+    }
+    return out;
+  };
+  const HULL_PAD_M=2.5;   // inflate each plane's cell-hull outward by this much before clipping (keeps legit eave/crease edges, bounds courtyard sprawl)
   // ── Sutherland–Hodgman: clip polygon `poly` ([[E,N]]) by the half-plane that KEEPS
   //    the side where (n·x + d) has the same sign as at keepPt. Line given as {p,dir};
   //    its normal = (-dir[1], dir[0]). Returns a new ordered ring (possibly empty).
@@ -3086,6 +3135,20 @@ function extractFacetPolysAnalytic(margin){
       poly=clipHalfPlane(poly,nb.line,centre);
       if(poly.length<3){ poly=[]; break; }
     }
+    if(poly.length<3) continue;
+    // (audit-8 P3) BOUND the facet to where this plane actually has roof pixels: clip to the
+    // inflated convex hull of its own classified cells. Neighbour-crease clipping alone leaves
+    // a facet free to sprawl across an interior courtyard / ground on any side with no crease
+    // (the Montecito estate: a facet spilled ~1800 ft² over the gravel courtyard). The +2.5 m
+    // pad keeps every real eave/crease edge, so solid suburban roofs are unaffected (no-op).
+    // Guard: a LEGITIMATE sprawl-fix can drop area a lot (a strip plane whose crease-clipped
+    // poly was the whole footprint), so we must NOT reject on a big shrink. Instead accept the
+    // clip only when it is still a real facet — keeps the plane CENTRE (so we never clip away the
+    // actual roof face) and isn't a degenerate sliver (≥ a small absolute floor + ≥8% of orig).
+    const hull=cellHull(p.cells,HULL_PAD_M);
+    if(hull){ const clipped=clipByConvex(poly,hull);
+      const aClip=(clipped.length>=3)?polyArea2(clipped):0;
+      if(clipped.length>=3 && pointInPoly2(centre,clipped) && aClip>=3 && aClip>=polyArea2(poly)*0.08) poly=clipped; }
     if(poly.length<3) continue;
     // drop near-duplicate vertices the clip can leave
     const ded=[];
@@ -3306,30 +3369,43 @@ async function buildRoofMeasure(){
   const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
     if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.4:0.24 })); }catch(_){} }   // smaller pins → less cluttered
     gmap.append(m); roofMeas.push(m); };
-  // colour-coded dimension lines per edge type, riding the TRUE sloped roof. Each
-  // endpoint carries its real lifted elevation (model.edges[].az/.bz) — the raw DSM z,
-  // which Google's Solar DSM gives in metres above sea level (the same absolute datum
-  // maps3d ABSOLUTE altitude uses; siteAlt itself is the 5th-percentile of those same z's,
-  // so we use the endpoint z DIRECTLY, not siteAlt+z, which would double-count). Drawing
-  // ABSOLUTE with the true per-vertex elevation makes a ridge/hip sit ON the crest along the
-  // slope instead of floating at a flat 0.35m above the mesh (the "floating above the slope"
-  // bug). drawsOccludedSegments keeps the line visible through the photoreal mesh + tree
-  // canopy. White casing thinned (5→3px / 3→2px) so it reads as a hairline at a tilt, not a bar.
-  const EDGE_LIFT=0.1;   // tiny lift off the surface so the line isn't z-fighting the mesh
-  // sanity: if endpoint elevations look wrong (missing/all-zero), fall back to siteAlt datum
+  // colour-coded dimension lines per edge type, riding the TRUE sloped roof, drawn with
+  // RELATIVE_TO_MESH so each endpoint sits at its own HEIGHT-ABOVE-GROUND on top of Google's
+  // photoreal mesh — a ridge/hip rides the crest along the slope, an eave sits low.
+  //
+  // WHY NOT ABSOLUTE (audit-8 P1 regression): a prior rework switched these to
+  // AltitudeMode.ABSOLUTE using the endpoint's raw DSM elevation (e.az/e.bz, metres above
+  // sea level). That is mathematically self-consistent with the Solar DSM datum, BUT the
+  // photoreal Map3D mesh the camera actually renders does NOT share that exact datum —
+  // Google's Solar DSM and the 3D-Tiles mesh routinely differ by several metres of vertical
+  // offset (and the mesh is what the user sees). Pinning the lines to ABSOLUTE DSM altitude
+  // therefore parks them metres under/over the visible roof → the 3D measure view rendered
+  // EMPTY (no rooflines). RELATIVE_TO_MESH re-anchors every line to the mesh the user sees,
+  // so a small datum offset can't sink them; the per-endpoint height-above-ground (e.az −
+  // siteAlt) preserves the true slope so lines still ride the crest, not drape flat.
+  const EDGE_LIFT=0.25;   // small constant lift off the mesh so the line isn't z-fighting the surface
+  // height-above-ground per endpoint = absolute lifted z minus the ground datum (siteAlt, the
+  // 5th-percentile of the same z field). Sanity-gate: if elevations are missing/all-zero, draw
+  // every endpoint flat on the mesh (relH=0) rather than at a garbage height.
   const haveElev=model.edges.some(e=>typeof e.az==="number"&&isFinite(e.az)&&Math.abs(e.az)>0.5);
+  const relH=(z)=>{ if(!haveElev) return 0; const v=(typeof z==="number"&&isFinite(z))?(z-siteAlt):0; return (isFinite(v)&&v>-2&&v<120)?Math.max(0,v):0; };
+  const __dbgAlts=[];
   for(const e of model.edges){
     const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    const rawA=(typeof e.az==="number"&&isFinite(e.az))?e.az:siteAlt, rawB=(typeof e.bz==="number"&&isFinite(e.bz))?e.bz:rawA;
-    const altA=(haveElev?rawA:siteAlt)+EDGE_LIFT, altB=(haveElev?rawB:siteAlt)+EDGE_LIFT;
+    const altA=relH(e.az)+EDGE_LIFT, altB=relH(e.bz)+EDGE_LIFT;
+    __dbgAlts.push(+altA.toFixed(2),+altB.toFixed(2));
     const coords=[{lat:A[1],lng:A[0],altitude:altA},{lat:B[1],lng:B[0],altitude:altB}];
     try{ // white casing (slightly wider, drawn first so the colour sits on top)
-      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.ABSOLUTE, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
+      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
       gmap.append(cas); roofMeas.push(cas);
-      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.ABSOLUTE, strokeColor:col, strokeWidth:2, drawsOccludedSegments:true, coordinates:coords });
+      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:2, drawsOccludedSegments:true, coordinates:coords });
       gmap.append(pl); roofMeas.push(pl);
     }catch(err){ errors.push("polyline:"+err.message); }
   }
+  window.__measAltDbg={ mode:"RELATIVE_TO_MESH", siteAlt:+siteAlt.toFixed(2), haveElev,
+    relMin:__dbgAlts.length?+Math.min(...__dbgAlts).toFixed(2):null,
+    relMax:__dbgAlts.length?+Math.max(...__dbgAlts).toFixed(2):null,
+    samples:__dbgAlts.slice(0,20), edges:model.edges.length };
   // per-edge LF labels — only the significant edges, longest-first, well spread (wider min-gap → no hectic clustering)
   const placed=[];
   for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<14) continue; const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
