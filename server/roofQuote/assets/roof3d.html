@@ -432,8 +432,8 @@
   <canvas id="matCanvas" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:15;touch-action:none"></canvas>
   <div id="measMini"><canvas id="measMiniCv"></canvas><div class="mm-ring"></div></div>
   <div id="matHint">Top-down material preview · obstructions kept</div>
-  <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:16">
-  <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:17">
+  <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:16">
+  <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:17">
   <div id="baHandle" style="display:none"><div class="ba-knob"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
   <span class="ba-tag" id="baTagA" style="display:none">After</span><span class="ba-tag" id="baTagB" style="display:none">Before</span>
   <div id="aiRendering"><span class="mini"></span><span>Rendering photo…</span></div>
@@ -520,10 +520,12 @@
   </div>
   <div id="matbar"></div>
   <div id="sunbar">
-    <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
-    <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
-    <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
-    <button id="sMap" class="sunbtn" title="Switch to the annual sun-exposure heatmap">☀ Sun map</button>
+    <div id="sunShadowCtl" style="display:flex;gap:16px;align-items:center">
+      <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
+      <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
+      <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
+    </div>
+    <button id="sMap" class="sunbtn" title="Switch between the moving-shadow day play and the annual sun-exposure heatmap">☀ Sun map</button>
   </div>
   <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
   <div id="report"></div>
@@ -1241,6 +1243,33 @@ function getRoofTotals(){
 // uses Google's wholeRoofStats area (QUOTE.roofSqft), so anchor the model totals to that same authoritative
 // number — area/squares exactly, edge lengths by √ratio — so the stats, takeoff, waste table AND price all
 // report ONE roof size. Without this the homeowner sees two different square counts side by side.
+// ── PITCH SANITY CLAMP ──────────────────────────────────────────────────────
+// The DSM facet-fit (facetsToRoofModel/roofgeo) occasionally returns an IMPOSSIBLE
+// predominant pitch on poor 3D tiles (seen: 30/12 ≈ 68° on a tree-blob in Atlanta).
+// Google's per-segment pitchDegrees are far more robust, so derive the predominant
+// pitch x12 from the LARGEST Solar roof segment and hard-clamp 0..12 (a 12/12 ≈ 45°
+// roof is already at the steep extreme of residential). A homeowner must never see a
+// physically-impossible pitch presented as a confident measurement.
+const MAX_RES_PITCH_X12 = 12;   // 12/12 = 45° — steepest residential pitch we'll display
+function deg2x12(deg){ return Math.round(Math.abs(Math.tan((deg||0)*Math.PI/180))*12); }
+function googlePredominantPitchX12(){
+  const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
+  const segs=(spv&&spv.roofSegmentStats)||[];
+  if(!segs.length) return null;
+  // area-weighted: pick the pitch of the segment covering the most roof area
+  let best=null, bestA=-1;
+  for(const s of segs){ const a=(s.stats&&s.stats.areaMeters2)||0; if(a>bestA){ bestA=a; best=s; } }
+  if(!best || best.pitchDegrees==null) return null;
+  return Math.min(MAX_RES_PITCH_X12, Math.max(0, deg2x12(best.pitchDegrees)));
+}
+// Clamp any pitch value (from the DSM model) to a sane residential range; prefer Google's
+// segment-derived pitch when the model value is impossible.
+function sanePitchX12(modelX12){
+  const g=googlePredominantPitchX12();
+  let v=modelX12;
+  if(!(v>0) || v>MAX_RES_PITCH_X12){ v=(g!=null?g:Math.min(MAX_RES_PITCH_X12, modelX12||6)); }
+  return Math.min(MAX_RES_PITCH_X12, Math.max(0, Math.round(v||0)));
+}
 function reconcileTotals(t){
   if(!t || !QUOTE || !QUOTE.roofSqft) return t;
   const gSqFt=QUOTE.roofSqft, mSqFt=t.roofAreaSqFt||0;
@@ -1250,9 +1279,56 @@ function reconcileTotals(t){
     // facet count must match the quote card too — anchor to Google's segment count (QUOTE.facets),
     // the same number the Roofing quote shows, so Measure and the quote never report 4 vs 8.
     facetCount:(QUOTE.facets||t.facetCount),
+    // pitch sanity clamp — never let an impossible DSM-fit pitch (e.g. 30/12) reach the card/report
+    predominantPitchX12: sanePitchX12(t.predominantPitchX12),
     eaveFt:(t.eaveFt||0)*k, rakeFt:(t.rakeFt||0)*k, ridgeFt:(t.ridgeFt||0)*k,
     hipFt:(t.hipFt||0)*k, valleyFt:(t.valleyFt||0)*k, __reconRatio:ratio
   });
+}
+// ── ROOF-DATA CONFIDENCE GATE ────────────────────────────────────────────────
+// Decide whether Google's data for this address is trustworthy enough to present a
+// CONFIDENT quote. On heavily-wooded / poor-3D-tile addresses Google returns a
+// degenerate read (seen in Atlanta: wholeRoofStats area 212 ft² — a real house roof
+// is never that small — pitch 30/12, 0 solar panel configs, modelQuality:false).
+// When low-confidence we DON'T show a confident result; we show the approximate banner
+// + a "request a precise quote" state instead of $0 / impossible numbers.
+const MIN_PLAUSIBLE_ROOF_SQFT = 350;     // smallest plausible whole-house roof footprint
+const MAX_PLAUSIBLE_ROOF_SQFT = 200000;  // guard absurd over-reads
+function roofDataConfidence(){
+  const reasons=[];
+  const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv)||{};
+  const wrs=spv.wholeRoofStats||{};
+  const areaSqFt=(QUOTE&&QUOTE.roofSqft)||((wrs.areaMeters2||0)*M2_SQFT);
+  const segs=spv.roofSegmentStats||[];
+  const panelCfgs=(spv.solarPanelConfigs||[]).length;
+  const maxPanels=spv.maxArrayPanelsCount||0;
+  const iq=(LASTB&&LASTB.imageryQuality)||(spv.imageryQuality)||"HIGH";
+  if(areaSqFt>0 && areaSqFt<MIN_PLAUSIBLE_ROOF_SQFT) reasons.push("tiny-roof");      // Atlanta: 212 ft²
+  if(areaSqFt>MAX_PLAUSIBLE_ROOF_SQFT) reasons.push("huge-roof");
+  if(!segs.length) reasons.push("no-segments");
+  // no usable solar read at all (0 panels / 0 configs) — only a degradation signal when paired
+  // with another problem; a small/shaded but valid roof can legitimately have few configs.
+  if(panelCfgs===0 && maxPanels===0) reasons.push("no-solar");
+  if(iq && iq!=="HIGH") reasons.push("low-imagery");
+  try{ const rc=roofOverlayConfidence(); if(rc && rc.ok===false) reasons.push("canopy"); }catch(_){}
+  // Model gate already computed a hard "this geometry is unusable" verdict in buildScene.
+  if(window.__modelQuality===false) reasons.push("bad-model");
+  // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
+  // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery).
+  const hard = reasons.includes("tiny-roof")||reasons.includes("huge-roof")||reasons.includes("no-segments");
+  const soft = reasons.filter(r=>r!=="tiny-roof"&&r!=="huge-roof"&&r!=="no-segments").length;
+  const low = hard || soft>=2;
+  return { low, hard, reasons, areaSqFt:Math.round(areaSqFt), panelCfgs, maxPanels, iq };
+}
+window.__roofDataConfidence=()=>roofDataConfidence();
+// Graceful low-confidence card: honest "we couldn't get a confident read" + a precise-quote CTA,
+// shown INSTEAD of a confident $0/garbage breakdown.
+function lowConfidenceCardBody(conf){
+  const addr=($("addr")&&$("addr").value)||"this address";
+  return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — lower-resolution imagery</div>'+
+    '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
+    '<div class="qsub" style="margin-top:6px">This address is heavily shaded or has lower-resolution 3D imagery, so an instant satellite measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
+    '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
 }
 function recommendedWasteIdx(t){
   // cut-up roofs (valleys + hips heavy relative to area) need more waste: simple gable ~10%,
@@ -1351,7 +1427,13 @@ function renderQuoteCard(){
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
   const isCommercial=tradeMode==="solar" && solarTiers.length && bestKw>30 && view!=="sun" && view!=="measure";
-  if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
+  // ── LOW-CONFIDENCE GATE ── poor Google data (tree-blob / lower-res tiles) → never present a
+  // confident $0/impossible quote. Show the graceful "request a precise quote" card on the
+  // headline price views (panels/material). Measure & Sun carry their own approximate banners.
+  const conf=roofDataConfidence(); window.__roofDataConf=conf;
+  const lowConf=conf.low && (view==="panels"||view==="material");
+  if(lowConf){ body=lowConfidenceCardBody(conf); }
+  else if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
   else if(view==="measure"){ body=measureCardBody(); }
   else if(isCommercial){
     // large/commercial roof — a residential auto-quote ($/W tiers) isn't meaningful; route to a custom quote.
@@ -1510,17 +1592,19 @@ function renderQuoteCard(){
     if(/SGIP/i.test(n)) c+=TCUE("sgip");
     if(/net metering/i.test(n)) c+=TCUE("netmeter");
     return c; })();
-  const note=(roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
+  const note=(lowConf || roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
     ? '<div class="qnote">*'+REGION.note+noteCues+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
     : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
-  const cta=roofNoSel
+  const cta=lowConf
+    ? ''   // low-confidence card carries its own "Request a precise on-site quote" CTA — no confident "Lock in my rate"
+    : roofNoSel
     ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
     : isCommercial
     ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request commercial quote →</button>'
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
-  const trust=(view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
+  const trust=(lowConf||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
   card.innerHTML='<button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
   const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
   applyCardFold();   // re-assert fold state after the re-render
@@ -2432,7 +2516,7 @@ function showMeasDiagram(on){
   else { $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="block";
     // entering the 3D lens: tighten the camera onto the roof so the measurement overlay fills the frame
     // (the default 78m range left the roof small + the labels reading like they sat up the street).
-    try{ if(gmap && gmap.flyCameraTo){ gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:46, tilt:52, heading:(+gmap.heading||15) }, durationMillis:700 }); } }catch(_){}
+    try{ if(gmap && gmap.flyCameraTo){ const mr=Math.max(46, Math.round(roofFitRange(46)*0.75)); gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:mr, tilt:52, heading:(+gmap.heading||15) }, durationMillis:700 }); } }catch(_){}   // tight for a house, expands so a large/commercial footprint fits
   }
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
 }
@@ -2517,8 +2601,31 @@ async function buildPhotoHeatmap(){
   }
   window.__heatCells=heatCells.length;
 }
+// Fit the photoreal camera RANGE to the building footprint so the WHOLE roof is in frame.
+// A fixed 78 m range frames a house nicely but crops large/commercial buildings (audit:
+// 1600 Amphitheatre — the whole building wasn't visible). Derive the range from the roof's
+// real extent: prefer the Solar segment bounding boxes (true ground span), else √area.
+function roofFitRange(fallback){
+  fallback=fallback||78;
+  try{
+    const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||window.__spv||{};
+    const segs=spv.roofSegmentStats||[];
+    let minLat=Infinity,maxLat=-Infinity,minLng=Infinity,maxLng=-Infinity, have=false;
+    for(const s of segs){ const b=s.boundingBox; if(!b||!b.sw||!b.ne) continue; have=true;
+      minLat=Math.min(minLat,b.sw.latitude,b.ne.latitude); maxLat=Math.max(maxLat,b.sw.latitude,b.ne.latitude);
+      minLng=Math.min(minLng,b.sw.longitude,b.ne.longitude); maxLng=Math.max(maxLng,b.sw.longitude,b.ne.longitude); }
+    let extentM;
+    if(have){ const cLat=(minLat+maxLat)/2, mLat=111320, mLng=111320*Math.cos(cLat*Math.PI/180);
+      const dN=(maxLat-minLat)*mLat, dE=(maxLng-minLng)*mLng; extentM=Math.hypot(dN,dE); }
+    else { const areaM2=((QUOTE&&QUOTE.roofSqft)||0)/M2_SQFT || (spv.wholeRoofStats&&spv.wholeRoofStats.areaMeters2)||0;
+      extentM=areaM2>0?Math.sqrt(areaM2)*1.6:0; }   // √area → side; ×1.6 to span an L/complex footprint
+    if(!(extentM>0)) return fallback;
+    // range ≈ 2.6× the diagonal extent fits the building with margin at the 58° tilt; clamp sane.
+    return Math.round(Math.min(600, Math.max(60, extentM*2.6)));
+  }catch(_){ return fallback; }
+}
 async function ensurePhotoreal(){
-  const cam={ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:78, tilt:58, heading:15 };
+  const cam={ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:roofFitRange(78), tilt:58, heading:15 };
   if(gmap){ // re-search: fly the existing map to the new address (was a bug: 3D stayed on the old address)
     try{ if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:800}); else Object.assign(gmap,cam); }catch(_){}
     return gmap; }
@@ -3125,7 +3232,7 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
       if(v.length<3){ items=[]; hide(); return; }
       const mine=++seq;
       t=setTimeout(async()=>{ try{
-        const { suggestions }=await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:v, sessionToken:token, includedPrimaryTypes:["street_address","premise","subpremise","route"] });
+        const { suggestions }=await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:v, sessionToken:token, includedPrimaryTypes:["street_address","premise","subpremise","route"], includedRegionCodes:["us","ca"] });   // bias to US/CA so "1600 Amphitheatre Pkwy, Mymensingh, Bangladesh" never out-ranks the local match
         if(mine!==seq) return;   // stale response
         items=(suggestions||[]).filter(s=>s.placePrediction).map(s=>({ sugg:s, text:(s.placePrediction.text&&s.placePrediction.text.text)||"" })).slice(0,6);
         active=-1; render();
@@ -3153,6 +3260,16 @@ let sunAnim=null;
 // (applyModelSkin), the shadow play looks professional rather than like a toy, so it's enabled.
 const SUN_SHADOWS=true;
 function stopSunPlay(){ if(sunAnim){ clearInterval(sunAnim); sunAnim=null; } const b=$("sPlay"); if(b){ b.textContent="▶ Play day"; b.classList.remove("on"); } }
+// Sunbar visibility/labelling per sub-view. The bar (with the #sMap toggle) must ALWAYS be
+// reachable while the Sun lens is active, on BOTH sub-views, or the homeowner can never get to
+// the "Play day" shadow animation (the audit bug: #sMap was never visible/clickable). In the
+// heatmap ("map") sub-view the time/season/play controls are meaningless, so only the toggle shows.
+function setSunbarMode(view){
+  const bar=$("sunbar"); if(!bar) return;
+  bar.style.display = sunMode ? "flex" : "none";
+  const ctl=$("sunShadowCtl"); if(ctl) ctl.style.display = (view==="shadows") ? "flex" : "none";
+  const sm=$("sMap"); if(sm) sm.textContent = (view==="shadows") ? "☀ Sun map" : "▶ Play day & shadows";
+}
 async function applySunView(){
   // SHADOW PLAY sub-view: when the grey "Model" lens is mounted, keep the Three.js scene and
   // let the directional sun cast real moving shadows on the clay model (sunbar visible). This
@@ -3165,7 +3282,7 @@ async function applySunView(){
     $("gmapWrap").style.display="none"; $("scene").style.display="block";
     applyModelSkin(true);
     if(panelMesh) panelMesh.visible=false;
-    $("sunbar").style.display="flex"; updateSun();
+    setSunbarMode("shadows"); updateSun();
     showLoad(false); return;
   }
   showLoad("Mapping sun…"); stopSunPlay(); setSchemLabels(false);
@@ -3174,10 +3291,21 @@ async function applySunView(){
   // aerial photo, clipped to the roof mask (renderSunPreview) — no chunky 3D cells, no blocky corners.
   if(LASTFLUX){ showAnalysis("sun"); }
   else { if(mode!=="photoreal") await setMode("photoreal"); clearPanels(); clearHeat(); await buildPhotoHeatmap(); }   // fallback if Google has no annual-flux layer for this address
-  $("sunbar").style.display="none";
+  // Keep the bar visible (toggle only) so the user can switch INTO the shadow-play day animation.
+  setSunbarMode("map");
   showLoad(false);
 }
-$("sMap").onclick=async()=>{ window.__sunView=(window.__sunView==="map")?"shadows":"map"; await applySunView(); };
+// Toggle the Sun sub-view. Switching map → shadows needs the grey "Model" 3D base (the shadow
+// play renders on the clay massing); enter it so "Play day" actually works from the heatmap.
+$("sMap").onclick=async()=>{
+  if(window.__sunView==="map"){
+    window.__sunView="shadows";
+    if(!greyMode){ greyMode=true; $("bModel").classList.add("on"); }   // shadow play lives on the Model lens
+  } else {
+    window.__sunView="map";
+  }
+  await applySunView();
+};
 $("sPlay").onclick=()=>{ if(sunAnim){ stopSunPlay(); return; } const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
   sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
     let v=sunHourLocal+0.2; if(v>=20) v=5.5; sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 80); };
@@ -3193,7 +3321,9 @@ $("bSun").onclick=async()=>{
     await applySunView();
   }
   else {
-    stopSunPlay(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none"; showAnalysis(null);
+    stopSunPlay(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none";
+    const _ctl=$("sunShadowCtl"); if(_ctl) _ctl.style.display="flex";   // restore time/season controls for the grey Model lens
+    showAnalysis(null);
     if(greyMode){ if(panelMesh) panelMesh.visible=false; }   // back to the static grey Model lens
     else { panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
   }
@@ -3539,7 +3669,7 @@ function rotateCam(delta){
 }
 $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
-$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:78,tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
+$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun(); });
 $("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun(); });
 // auto-run on load for fast iteration — skipped with ?noauto=1 (used by the headless /capture so it controls the single search)
