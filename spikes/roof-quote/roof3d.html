@@ -1415,6 +1415,57 @@ function segmentVsFootprintRatio(spv){
   }catch(_){ return null; }
 }
 const MIN_SEG_FOOTPRINT_RATIO = 0.12;   // dominant roof < 12% of its own bbox extent → implausible (Miami gap)
+// ── BUILDING-HEIGHT probe (audit-5: tall tower with a small rooftop) ───────────
+// "350 Bush St" is a ~20-story office tower, but Google returned a smallish roof
+// (≈3,545 ft², bestKw<30) so the largeRoof(kW) gate MISSED it and the widget showed
+// a CONFIDENT residential solar quote. A multi-story building's roof plane sits FAR
+// above the surrounding ground — that's the tell a kW threshold can't see. We measure
+// the roof plane height (Solar's authoritative `planeHeightAtCenterMeters`) against the
+// surrounding GROUND elevation (sampled from the DSM `LASTDSM` JUST OUTSIDE the building
+// footprint) and return metres-above-grade. A 1–3 story home reads ≤ ~10 m; a 4+ story
+// building reads ≳ 12–15 m → degrade to the commercial card. Fails SAFE (returns null)
+// when the DSM / segments / ground samples are unavailable or unreliable, so a good home
+// with missing data is NEVER false-degraded.
+const TALL_BUILDING_M = 14;          // roof plane ≳ 14 m (~46 ft ≈ 4+ stories) above surrounding grade → high-rise/commercial
+const TALL_MIN_GROUND_SAMPLES = 6;   // need at least this many valid off-footprint ground samples to trust the verdict
+function buildingHeightAboveGrade(spv){
+  try{
+    spv=spv||(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
+    if(!spv) return null;
+    const segs=spv.roofSegmentStats||[]; if(!segs.length) return null;
+    const dsm=LASTDSM; if(!dsm||!dsm.rasters) return null;   // no DSM → can't measure grade → fail safe
+    const zone=dsm.zone; if(zone==null) return null;
+    const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+    // Roof plane height = the MEDIAN of the segments' planeHeightAtCenterMeters (robust to a single
+    // bad segment). These are absolute heights in the SAME DSM/aerial datum as the ground samples below.
+    const phs=segs.map(s=>s.planeHeightAtCenterMeters).filter(v=>v!=null&&isFinite(v)).sort((a,b)=>a-b);
+    if(phs.length<1) return null;
+    const roofPlane=phs[Math.floor(phs.length*0.5)];   // median plane height
+    // Building footprint bbox (lat/lng) → centre + extent, in UTM.
+    const g=bldgGeom(spv);
+    const cLat=(g.s+g.n)/2, cLng=(g.w+g.e)/2;
+    const [cE,cN]=wgs84ToUTM(cLat,cLng,zone);
+    const hM=(g.n-g.s)*111320, wM=(g.e-g.w)*111320*Math.cos(cLat*Math.PI/180);
+    const halfE=Math.max(4,wM/2), halfN=Math.max(4,hM/2);   // half-extents (m); floor so a tiny footprint still rings out far enough
+    // Sample the DSM on a RING well OUTSIDE the footprint (1.6× and 2.4× the half-extent) in 16
+    // directions → surrounding GROUND, not the roof. Take a LOW percentile (25th) as grade so a
+    // neighbouring tree/car/wall doesn't inflate the ground reference (which would mask a tall building).
+    const grounds=[];
+    for(const ringMul of [1.6,2.4]){
+      for(let k=0;k<16;k++){ const a=k/16*2*Math.PI;
+        const E=cE+Math.cos(a)*halfE*ringMul, N=cN+Math.sin(a)*halfN*ringMul;
+        const z=sampleGrid(dg,E,N); if(z!=null&&isFinite(z)&&z>NODATA) grounds.push(z);
+      }
+    }
+    if(grounds.length<TALL_MIN_GROUND_SAMPLES) return null;   // not enough surrounding ground sampled → fail safe
+    grounds.sort((a,b)=>a-b);
+    const grade=grounds[Math.floor(grounds.length*0.25)];     // 25th-pct ground = robust grade reference
+    const heightM=roofPlane-grade;
+    if(!isFinite(heightM)) return null;
+    return +heightM.toFixed(1);
+  }catch(_){ return null; }
+}
+window.__buildingHeight=()=>buildingHeightAboveGrade();
 function roofDataConfidence(){
   const reasons=[];
   const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv)||{};
@@ -1595,8 +1646,15 @@ function renderQuoteCard(){
   // VIEW-INDEPENDENT "large / commercial roof" verdict. Computed once so EVERY lens agrees:
   // a skyscraper that routes Solar to "request commercial quote" must NOT let the Measure/Roofing
   // lens show a confident 55k-ft² takeoff + "Lock in my rate" (audit-3 P0: lenses contradicted).
-  const largeRoof = solarTiers.length>0 && bestKw>30;
-  window.__largeRoof=largeRoof;
+  // BUILDING-HEIGHT signal (audit-5): a tall-but-small-footprint tower (350 Bush St: ~20 stories,
+  // ≈3,545 ft² roof, bestKw<30) slips the kW threshold but its roof plane sits ≳14 m above grade.
+  // Treat it as commercial/high-rise → degrade on EVERY lens via the same large-roof path. Fails SAFE:
+  // buildingHeightAboveGrade returns null when the DSM/ground sample is unreliable, so a normal 1–3
+  // story home (≤ ~10 m) never false-degrades. OR'd into largeRoof so the whole existing gate reuses it.
+  const bH=buildingHeightAboveGrade(); window.__roofHeightAboveGrade=bH;
+  const tallBuilding = (bH!=null && bH>=TALL_BUILDING_M);
+  const largeRoof = (solarTiers.length>0 && bestKw>30) || tallBuilding;
+  window.__largeRoof=largeRoof; window.__tallBuilding=tallBuilding;
   const isCommercial=tradeMode==="solar" && largeRoof && view!=="sun" && view!=="measure";
   // ── LOW-CONFIDENCE GATE (SINGLE SOURCE OF TRUTH) ── poor Google data (tree-blob / lower-res
   // tiles / floating array / tiny-box-on-huge-footprint) → never present a confident quote.
@@ -1607,12 +1665,25 @@ function renderQuoteCard(){
   // roof…" spinner over a Google POI map (the Getty case).
   const conf=roofDataConfidence(); window.__roofDataConf=conf;
   const lowConf=conf.low;
+  // ── VIEW-INDEPENDENT BODY VERDICT (audit-5 P1) ──────────────────────────────
+  // The footer CTA must agree with whatever the BODY decided, on EVERY lens. We compute the
+  // commercial / low-confidence verdict ONCE here (independent of the current view) and drive
+  // BOTH the body gate below AND the footer CTA from it. Previously the body showed the
+  // commercial "too large" message on Measure/Sun while the footer fell through to "Lock in my
+  // rate →" (isCommercial was false off the solar/panels lens) — a contradictory leak.
+  //   bodyCommercial  → body shows the large/commercial "too large — request a commercial quote" message
+  //   bodyLowConf     → body shows the low-confidence "approximate — request a precise on-site quote" message
+  // (largeRoof wins over lowConf for copy: a skyscraper is commercial, not a "shaded house".)
+  const bodyCommercial = (tradeMode==="solar" && largeRoof) || (view==="measure" && largeRoof);
+  const bodyLowConf = lowConf && !bodyCommercial;
   // A LARGE/commercial roof (skyscraper, big-box) is not a "shaded house" — its degrade copy must be the
   // commercial message, never "heavy tree cover" (audit-3: Empire State read canopy-heavy because the DSM
   // sees neighbouring towers ABOVE the plane). largeRoof wins over the low-confidence canopy copy.
   if(lowConf && largeRoof){ body=measureCardBody(true); }
   else if(lowConf){ body=lowConfidenceCardBody(conf); }
-  else if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
+  // Sun lens on a large/commercial roof must ALSO degrade (a skyscraper's "panels fit" sun read is
+  // misleading) — so the body matches the commercial verdict the footer CTA now enforces.
+  else if(view==="sun" && tradeMode==="solar"){ body=largeRoof?measureCardBody(true):sunCardBody(); }
   // Measure/Roofing lens must obey the SAME single verdict the Solar card uses. On a large/commercial
   // roof (or any low-confidence read) the takeoff would be a misleading "confident" survey — degrade
   // instead. measureCardBody(true) renders the commercial/approximate message, never the takeoff + CTA.
@@ -1787,19 +1858,23 @@ function renderQuoteCard(){
     if(/SGIP/i.test(n)) c+=TCUE("sgip");
     if(/net metering/i.test(n)) c+=TCUE("netmeter");
     return c; })();
-  const note=(lowConf || roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
+  const note=(lowConf || bodyCommercial || roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
     ? '<div class="qnote">*'+REGION.note+noteCues+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
     : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
-  const cta=lowConf
+  // FOOTER CTA — driven by the VIEW-INDEPENDENT body verdict (audit-5 P1), so it can never
+  // contradict the body. bodyCommercial → "Request a commercial quote" on EVERY lens (Measure/Sun
+  // no longer leak "Lock in my rate"); bodyLowConf → no confident CTA (the low-conf card carries its
+  // own "Request a precise on-site quote"); otherwise the legitimate residential CTAs.
+  const cta=bodyCommercial
+    ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request a commercial quote →</button>'
+    : bodyLowConf
     ? ''   // low-confidence card carries its own "Request a precise on-site quote" CTA — no confident "Lock in my rate"
     : roofNoSel
     ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
-    : isCommercial
-    ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request commercial quote →</button>'
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
-  const trust=(lowConf||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
+  const trust=(lowConf||bodyCommercial||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
   card.innerHTML='<button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
   const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
   applyCardFold();   // re-assert fold state after the re-render
@@ -2566,7 +2641,8 @@ async function buildRoofMeasure(){
   // via measureCardBody(true). (audit-4 P2: high-rise transient confident takeoff.)
   try{
     const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
-    const largeRoof = solarTiers.length>0 && bestKw>30; window.__largeRoof=largeRoof;
+    const bH=(typeof buildingHeightAboveGrade==="function")?buildingHeightAboveGrade():null;   // audit-5: tall tower w/ small footprint
+    const largeRoof = (solarTiers.length>0 && bestKw>30) || (bH!=null && bH>=TALL_BUILDING_M); window.__largeRoof=largeRoof;
     const conf=(typeof roofDataConfidence==="function")?roofDataConfidence():null;
     if(largeRoof || (conf&&conf.low)) return;   // commercial / low-confidence → no on-map takeoff; the card shows the commercial verdict
   }catch(_){}
@@ -2622,7 +2698,8 @@ function renderRoofDiagram(){
   // Same commercial/low-confidence gate as buildRoofMeasure — never paint a confident top-down
   // takeoff diagram for a large/commercial roof (the card routes it to the commercial verdict).
   try{ const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
-    if((solarTiers.length>0 && bestKw>30) || (typeof roofDataConfidence==="function" && roofDataConfidence().low)) return false; }catch(_){}
+    const bH=(typeof buildingHeightAboveGrade==="function")?buildingHeightAboveGrade():null;   // audit-5: tall tower w/ small footprint
+    if((solarTiers.length>0 && bestKw>30) || (bH!=null && bH>=TALL_BUILDING_M) || (typeof roofDataConfidence==="function" && roofDataConfidence().low)) return false; }catch(_){}
   const model=facetsToRoofModel(); if(!model||!model.planes.length) return false;
   const toWgs=model.__toWgs, rgb=LASTRGB, zone=(LASTFLUX||LASTDSM).zone, rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], W=rgb.width, H=rgb.height;
   const toPx=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
