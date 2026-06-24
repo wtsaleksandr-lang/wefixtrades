@@ -5033,13 +5033,89 @@ function buildingBox(margin){
       if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; } }
   if(!any) return null; const m=margin||3; return {minE:minE-m,maxE:maxE+m,minN:minN-m,maxN:maxN+m};
 }
-/* (BUG 1) PRECISE building-footprint clip for the 2D overlays. The analytic facet extractor
-   builds ONE clean footprint ring (largest connected mask component containing this site) and
-   stashes it on window.__footprintEN ([E,N] UTM) + window.__footprintZone. We cache it per
-   address load. Clipping the heatmap/material tint to point-in-THIS-ring (AND the eroded mask as a
-   secondary gate) excludes a neighbouring house that happens to sit inside Google's 40 m mask —
-   the inflated buildingBox(2.5) could not. Falls back to null (→ legacy bbox path) when the
-   analytic footprint is absent (analytic failed → legacy raster facets). */
+/* (STEP 3) STANDALONE precise-footprint extractor — the SAME largest-connected-mask-component
+   ring the analytic builder produces (Moore-trace → DP-simplify → orthogonal regularize →
+   cleanFootprintRing → semi-detached split), but reconstructed DIRECTLY from the building MASK
+   without needing the per-facet plane reconstruction to succeed. The analytic builder throws on
+   some roofs (e.g. a near-square roof whose facet areas miss Google's segment total, or where
+   the plane-classifier degenerates) → window.__footprintEN never got set → roofFootprintClip()
+   fell back to the inflated bbox (the "bbox" reading the owner saw, which can bleed onto a
+   neighbour). This path always yields the precise polygon as long as a mask exists, so the
+   heatmap clip reliably reads "footprint". Coordinate frame: UTM (E,N) of the flux/DSM zone. */
+let __maskFpCache=null, __maskFpKey=null;
+function maskFootprintRing(){
+  const key=(LASTB&&LASTB.name)||(SITE.lat+","+SITE.lng);
+  if(__maskFpKey===key && __maskFpCache!==undefined) return __maskFpCache;
+  __maskFpKey=key; __maskFpCache=null;
+  try{
+    if(!LASTB||!(LASTFLUX||LASTDSM)) return null;
+    const ref=LASTFLUX||LASTDSM, zone=ref.zone;
+    const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+    const segs=(LASTB.solarPotential&&LASTB.solarPotential.roofSegmentStats)||[];
+    let s=90,w=180,nn=-90,e=-180; for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
+    if(!(nn>s&&e>w)) return null;
+    const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180);
+    const step=0.15, dLat=step/mLat, dLng=step/mLng, pad=4;
+    const cols=Math.ceil((e-w)/dLng)+1+2*pad, rows=Math.ceil((nn-s)/dLat)+1+2*pad;
+    if(rows*cols>4000000) return null;   // guard a pathological span (never paint, never hang)
+    const cellLL=(r,c)=>[ w+(c-pad)*dLng, s+(r-pad)*dLat ];
+    const cellEN=(r,c)=>{ const ll=cellLL(r,c); return wgs84ToUTM(ll[1],ll[0],zone); };
+    // binary in-roof grid — mask interior eroded a touch off the walls (same as the analytic builder)
+    const inGrid=new Uint8Array(rows*cols); let fpStart=-1;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const EN=cellEN(r,c);
+      const ok = mg ? roofInterior(mg,EN[0],EN[1],0.3) : (function(){ const ll=cellLL(r,c);
+        for(const g of segs){ const b=g.boundingBox; if(b&&ll[1]>=b.sw.latitude&&ll[1]<=b.ne.latitude&&ll[0]>=b.sw.longitude&&ll[0]<=b.ne.longitude) return true; } return false; })();
+      if(ok){ inGrid[r*cols+c]=1; if(fpStart<0) fpStart=r*cols+c; }
+    }
+    if(fpStart<0) return null;
+    // keep only the LARGEST connected component containing roof pixels (drops detached garage/noise blobs)
+    const comp=new Int32Array(rows*cols).fill(-1); let bestComp=-1,bestSize=0,cid=0;
+    for(let i0=0;i0<rows*cols;i0++){ if(inGrid[i0]!==1||comp[i0]>=0) continue;
+      const stack=[i0]; comp[i0]=cid; let size=0;
+      while(stack.length){ const ix=stack.pop(); size++; const r=(ix/cols)|0,c=ix%cols;
+        const nbrs=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+        for(const [nr,nc] of nbrs){ if(nr<0||nc<0||nr>=rows||nc>=cols) continue; const nix=nr*cols+nc; if(inGrid[nix]===1&&comp[nix]<0){ comp[nix]=cid; stack.push(nix); } } }
+      if(size>bestSize){ bestSize=size; bestComp=cid; } cid++;
+    }
+    if(bestComp<0) return null;
+    // prefer the component the geocode pin / building centre sits in (the OWNER's blob), not merely
+    // the largest — on a tight lot the neighbour's roof can be the bigger mask blob.
+    try{
+      const gLL=(window.__ll&&isFinite(window.__ll.lat))?window.__ll:(LASTB.center&&isFinite(LASTB.center.latitude)?{lat:LASTB.center.latitude,lng:LASTB.center.longitude}:null);
+      if(gLL){ const [gE,gN]=wgs84ToUTM(gLL.lat,gLL.lng,zone);
+        const gc=Math.round((((gLL.lng-w)/dLng)+pad)), gr=Math.round((((gLL.lat-s)/dLat)+pad));
+        if(gr>=0&&gc>=0&&gr<rows&&gc<cols){ const pc=comp[gr*cols+gc]; if(pc>=0) bestComp=pc; } }
+    }catch(_){}
+    const isFP=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&comp[r*cols+c]===bestComp;
+    let sr=-1,sc=-1; outerFP: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(comp[r*cols+c]===bestComp){sr=r;sc=c;break outerFP;}
+    if(sr<0) return null;
+    let cont=dpSimplify(mooreTrace(isFP,sr,sc,rows,cols),2.0);
+    if(cont.length<3) return null;
+    let fpxy=cont.map(([r,c])=>[c,r]);
+    const cellsPerM=1/step;
+    const fpAxis=polyOrientation(fpxy, 1.0*cellsPerM);
+    let reg=regularizePoly(fpxy, fpAxis, 1.4, /*allow45=*/false);
+    if(reg.length>=3) fpxy=reg;
+    try{ fpxy=cleanFootprintRing(fpxy, fpAxis, { minLen:0.8*cellsPerM, mergeDeg:8, rectTol:0.06, maxVerts:6 }); }catch(_){}
+    let footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...]
+    if(footprint.length<3 || polyArea2(footprint)<3) return null;
+    // semi-detached / townhouse split — clip to the owner's unit (no-op on a detached home)
+    try{
+      const geoLL=(window.__ll&&isFinite(window.__ll.lat))?window.__ll:(LASTB.center&&isFinite(LASTB.center.latitude)?{lat:LASTB.center.latitude,lng:LASTB.center.longitude}:null);
+      const sp=isolateUnitFootprint(footprint, zone, geoLL);
+      if(sp&&sp.diag&&sp.diag.split&&sp.ring&&sp.ring.length>=3&&polyArea2(sp.ring)>=3) footprint=sp.ring;
+    }catch(_){}
+    __maskFpCache={ring:footprint, zone};
+    return __maskFpCache;
+  }catch(_){ return null; }
+}
+/* (BUG 1 / STEP 3) PRECISE building-footprint clip for the 2D overlays. Prefer the analytic
+   facet extractor's ring (window.__footprintEN). If that is absent (analytic threw / hasn't run),
+   build the SAME ring directly from the mask via maskFootprintRing() so the clip ALWAYS engages —
+   no silent bbox fallback on near-square roofs. Only when BOTH are unavailable (no mask at all)
+   does this return null and the caller use the bbox path (still mask-AND-eroded, so even that
+   can't reach a neighbour). Clipping the heatmap/material tint to point-in-THIS-ring excludes a
+   neighbouring house that sits inside Google's 40 m mask — the inflated buildingBox(2.5) could not. */
 let __fpClipCache=null, __fpClipKey=null;
 function roofFootprintClip(){
   const key=(LASTB&&LASTB.name)||(SITE.lat+","+SITE.lng);
@@ -5049,7 +5125,14 @@ function roofFootprintClip(){
     // not yet computed (overlay opened before Measure) → extract once; sets window.__footprintEN as a side effect
     try{ extractFacetPolys(0.5); ring=Array.isArray(window.__footprintEN)?window.__footprintEN:null; zone=window.__footprintZone; }catch(_){ ring=null; }
   }
-  __fpClipKey=key; __fpClipCache=(ring&&ring.length>=3)?{ring,zone}:null;
+  let clip=(ring&&ring.length>=3)?{ring,zone}:null;
+  if(!clip){
+    // analytic footprint genuinely unavailable → reconstruct the precise ring straight from the mask.
+    const mf=maskFootprintRing();
+    if(mf&&mf.ring&&mf.ring.length>=3){ clip=mf;
+      try{ window.__footprintEN=mf.ring; window.__footprintZone=mf.zone; }catch(_){} }
+  }
+  __fpClipKey=key; __fpClipCache=clip;
   return __fpClipCache;
 }
 /* True when (E,N) is inside the precise footprint ring AND the eroded mask (no-mask ⇒ ring only). */
@@ -5072,35 +5155,55 @@ function renderSunPreview(){
   const fg={vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox};
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1];
-  let fmin=Infinity,fmax=-Infinity; for(let i=0;i<fg.vals.length;i++){ const v=fg.vals[i]; if(v>0&&isFinite(v)){ if(v<fmin)fmin=v; if(v>fmax)fmax=v; } }
-  const range=(fmax-fmin)||1, a=0.72;
-  // (BUG 1) Clip to the PRECISE building footprint (largest connected mask component containing the site)
-  // — not the inflated buildingBox(2.5) which reached a neighbour on a tight lot. Fall back to bbox+mask
-  // only when the analytic footprint is unavailable (legacy facets).
+  // robust min/max: clip the flux histogram to the 2nd–98th percentile so a couple of hot/cold
+  // outlier pixels don't compress the whole ramp into one flat colour (premium contrast).
+  let fmin,fmax; { const fv=[]; for(let i=0;i<fg.vals.length;i++){ const v=fg.vals[i]; if(v>0&&isFinite(v)) fv.push(v); }
+    if(fv.length){ fv.sort((x,y)=>x-y); fmin=fv[Math.floor(fv.length*0.02)]; fmax=fv[Math.floor(fv.length*0.98)]; }
+    else { fmin=0; fmax=1; } }
+  const range=(fmax-fmin)||1;
+  // Roof shows THROUGH — ~0.64 base alpha (commercial irradiance look, not an opaque blob),
+  // feathered softer toward the roofline so the edge dissolves instead of cutting hard.
+  const a=0.64;
+  // (STEP 3) Clip to the PRECISE building footprint (largest connected mask component containing the
+  // site, reconstructed from the mask when the analytic builder didn't run) — never the inflated
+  // buildingBox(2.5) which reached a neighbour on a tight lot. The bbox path is now only reached when
+  // there's no mask at all, and it stays mask-AND-eroded so it still can't bleed onto a neighbour.
   const clip=roofFootprintClip(), bb=clip?null:buildingBox(2.5);
   // Pass 1: build the flux TINT in a float buffer over roof pixels only. sampleGrid is BILINEAR on the
   // continuous flux raster → smooth gradient (no nearest-neighbour blockiness). roofMask[i]=1 where painted.
   const tintR=new Float32Array(W*H), tintG=new Float32Array(W*H), tintB=new Float32Array(W*H), roofMask=new Uint8Array(W*H);
-  let roofPx=0, bleedSkipped=0;
+  let roofPx=0;
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN;
     for(let col=0;col<W;col++){ const i=row*W+col; const E=rb[0]+(col+0.5)/W*eW;
       let on;
       if(clip){ on=inRoofFootprint(clip,mg,E,N,0.5); }
       else { on=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5); }
-      if(on){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); tintR[i]=c[0]; tintG[i]=c[1]; tintB[i]=c[2]; roofMask[i]=1; roofPx++; } }
+      if(on){ let v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const t=(v-fmin)/range; const c=fluxColorSmooth(t); tintR[i]=c[0]; tintG[i]=c[1]; tintB[i]=c[2]; roofMask[i]=1; roofPx++; } }
     } }
-  // Pass 2: light separable 3-tap blur of the tint, CONFINED to roof pixels (so it never smears the
-  // colour off the roofline). This removes the residual flux-cell stair-stepping for a clean ramp.
-  const blur=(src)=>{ const t1=new Float32Array(W*H), t2=new Float32Array(W*H);
-    for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){t1[i]=src[i];continue;}
-      let s=src[i],n=1; if(col>0&&roofMask[i-1]){s+=src[i-1];n++;} if(col<W-1&&roofMask[i+1]){s+=src[i+1];n++;} t1[i]=s/n; }
-    for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){t2[i]=t1[i];continue;}
-      let s=t1[i],n=1; if(row>0&&roofMask[i-W]){s+=t1[i-W];n++;} if(row<H-1&&roofMask[i+W]){s+=t1[i+W];n++;} t2[i]=s/n; }
-    return t2; };
+  // Pass 2: weighted 5-tap binomial blur (1-4-6-4-1), separable, run TWICE — CONFINED to roof pixels
+  // (weights for out-of-roof neighbours are dropped & renormalised, so colour never smears off the
+  // roofline). Softens the residual flux-cell stair-stepping into a clean continuous gradient.
+  const KW=[1,4,6,4,1];
+  const blurPass=(src,horiz)=>{ const dst=new Float32Array(W*H);
+    for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){ dst[i]=src[i]; continue; }
+      let s=0,wsum=0;
+      for(let k=-2;k<=2;k++){ const cc=horiz?col+k:col, rr=horiz?row:row+k; if(cc<0||cc>=W||rr<0||rr>=H) continue; const j=rr*W+cc; if(!roofMask[j]) continue; const wk=KW[k+2]; s+=src[j]*wk; wsum+=wk; }
+      dst[i]=wsum>0?s/wsum:src[i]; }
+    return dst; };
+  const blur=(src)=>blurPass(blurPass(blurPass(blurPass(src,true),false),true),false);
   const bR=blur(tintR), bG=blur(tintG), bB=blur(tintB);
-  // Composite the smoothed tint over the aerial photo.
+  // Edge feather: ramp the alpha down near the roof boundary so the heatmap dissolves into the roof
+  // instead of a hard paint cut. dist = how many of the 8 neighbours are also roof (0..8); a fully
+  // interior pixel gets full alpha, a 1-px-from-edge pixel gets ~0.6× — soft commercial edge, still
+  // strictly inside the mask (we only ever touch roofMask pixels).
+  const edgeA=new Float32Array(W*H);
+  for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){edgeA[i]=0;continue;}
+    let nb=0; for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ if(!dr&&!dc) continue; const rr=row+dr,cc=col+dc; if(rr<0||cc<0||rr>=H||cc>=W) continue; if(roofMask[rr*W+cc]) nb++; }
+    edgeA[i]=0.55+0.45*(nb/8);   // 8/8 interior → 1.0 ; 4/8 edge → ~0.78 ; corner → softer
+  }
+  // Composite the smoothed tint over the aerial photo at the feathered alpha.
   for(let i=0;i<W*H;i++){ const k=i*4; let r=R[i],g=G[i],b=B[i];
-    if(roofMask[i]){ r=r*(1-a)+bR[i]*a; g=g*(1-a)+bG[i]*a; b=b*(1-a)+bB[i]*a; }
+    if(roofMask[i]){ const af=a*edgeA[i]; r=r*(1-af)+bR[i]*af; g=g*(1-af)+bG[i]*af; b=b*(1-af)+bB[i]*af; }
     d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
   }
   ctx.putImageData(out,0,0); window.__sunDone=true; window.__sunRoofPx=roofPx; window.__sunClip=clip?"footprint":"bbox";
