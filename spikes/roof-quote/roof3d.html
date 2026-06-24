@@ -977,6 +977,13 @@ const GREY={
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
 /* site + scene scale, driven by the sun-path UI */
 let SITE={lat:43.219,lng:-79.782}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-4, siteAlt=115, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
+// ── Google REAL hourly-shade (hourlyShadeUrls) state ───────────────────────────
+// HOURLY_SHADE_URLS = the 12 monthly GeoTIFF URLs from dataLayers (each = 24 hourly
+// bands of 32-bit-per-pixel day bitmasks; bit N set ⇒ sun visible on day N+1 of the
+// month). SHADECACHE caches DECODED months (lazy, only the month being viewed).
+// LASTSHADE = the currently-decoded month's raster (set by ensureShadeMonth).
+let HOURLY_SHADE_URLS=null, LASTSHADE=null; const SHADECACHE=new Map();
+window.__shadeMonth=null;   // which month index (0-11) LASTSHADE holds, for verify/diagnostics
 let QUOTE=null, solarTiers=[], selTier=0, tradeMode="solar";
 const fmtMoney=n=>"$"+Math.round(n).toLocaleString();
 /* monthly loan payment: P principal, apr %, years term */
@@ -2456,6 +2463,7 @@ function applyModelSkin(grey){
 // Leave the grey "Model" lens (called when another exclusive lens is entered). Restores the
 // aerial-photo schematic skin + clears the Model button + hint. Does NOT itself switch mode.
 function exitGrey(){
+  if(typeof exitRealShade==="function") exitRealShade();   // grey Model lens hosts the shadow play → leaving it drops the real-shade overlay
   if(!greyMode) return;
   greyMode=false; const b=$("bModel"); if(b) b.classList.remove("on");
   applyModelSkin(false); if(typeof setSchemLabels==="function") setSchemLabels(true);
@@ -2545,6 +2553,13 @@ async function run(addr){
     if(!rD.v||!rR.v) throw new Error("DSM/RGB layers unavailable");   // mandatory → pvwattsFallback path
     const dsm=rD.v, rgb=rR.v, flux=rF.v, mask=rM.v;   // flux/mask may be null → overlays degrade gracefully
     LASTFLUX=flux; LASTMASK=mask; LASTDSM=dsm; LASTRGB=rgb;
+    // Google REAL hourly shade: the dataLayers response carries hourlyShadeUrls (12 monthly
+    // 24-band GeoTIFFs). Stash the URLs now (already in the dl JSON the client received — no
+    // server change), but DON'T decode here: the months are decoded lazily on "Play day" so we
+    // never add a billable Solar hit and never block the build on a shade-only raster.
+    HOURLY_SHADE_URLS = (dl && Array.isArray(dl.hourlyShadeUrls) && dl.hourlyShadeUrls.length===12) ? dl.hourlyShadeUrls : null;
+    LASTSHADE=null; SHADECACHE.clear(); window.__shadeMonth=null;
+    window.__hasHourlyShade = !!HOURLY_SHADE_URLS;   // expose for verify
     window.LASTB=LASTB; window.LASTDSM=LASTDSM; window.LASTMASK=LASTMASK;   // expose for headless verify diagnostics
     // Confidence gate: if the loaded rasters don't cover the roof the Solar segments
     // describe (tree canopy / off-building geocode), suppress the drift-prone overlays
@@ -4304,7 +4319,7 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
 }catch(_){ /* inputs still work as plain text fields */ } })();
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
 // exits any 2D analysis (sun or material) + restores 3D
-function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); showAnalysis(null); } }
+function leaveMat(){ if(matMode||sunMode||labelsVisible){ matMode=false; sunMode=false; labelsVisible=false; $("bRoof").classList.remove("on"); $("bSun").classList.remove("on"); $("bLabels").classList.remove("on"); clearMat(); clearLabels(); if(typeof exitRealShade==="function") exitRealShade(); showAnalysis(null); } }
 // ── Sun & Shade lens: a 3D SHADOW PLAY (real shadows sweep the roof as you scrub/play the day) with a toggle to the annual sun-map heatmap ──
 let sunAnim=null;
 // The animated "shadows" sub-view renders real moving sun-shadows on the grey "Model" lens
@@ -4343,6 +4358,7 @@ async function applySunView(){
     showLoad(false); return;
   }
   showLoad("Mapping sun…"); stopSunPlay(); setSchemLabels(false);
+  if(typeof exitRealShade==="function") exitRealShade();   // leaving shadow-play → drop Google's real-shade overlay/caption
   window.__sunView="map"; if(!window.__sunMapDim) window.__sunMapDim="2d";
   if(window.__sunMapDim==="3d"){
     // 3D SUN-EXPOSURE HEATMAP: per-facet sun colours painted on the photoreal 3D model (the 3D option
@@ -4377,6 +4393,37 @@ $("sMap").onclick=async()=>{
   }
   await applySunView();
 };
+// realShadeActive = the Play-day loop is showing Google's REAL hourly shade (top-down
+// overlay on #matCanvas) instead of the synthetic Three.js cast shadow. Set when the
+// current month's hourlyShade raster decodes; cleared on fallback / leaving the lens.
+let realShadeActive=false;
+// Decode the current month's shade raster into LASTSHADE (lazy, cached) and show the
+// real-shade overlay + caption over the 3D scene. Returns true if real shade is live.
+async function enterRealShade(){
+  if(window.__forceNoShade){ realShadeActive=false; return false; }   // debug/test hook: force the Three.js fallback path
+  if(!HOURLY_SHADE_URLS){ realShadeActive=false; return false; }
+  const dec=await ensureShadeMonth(sunMonth);
+  if(!dec){ realShadeActive=false; return false; }   // decode failed → caller keeps Three.js
+  LASTSHADE=dec; window.__shadeMonth=sunMonth-1;
+  realShadeActive=true;
+  $("matCanvas").style.display="block"; $("matCanvas").style.zIndex="15";   // float the real-shade overlay over the grey scene
+  showShadeCaption(true);
+  renderShadePlay();
+  return true;
+}
+function exitRealShade(){
+  realShadeActive=false; showShadeCaption(false);
+  if(window.__analysis!=="material" && !labelsVisible){ const mc=$("matCanvas"); if(mc) mc.style.display="none"; }
+}
+// Premium caption: this is the selling point — the shadows reflect REAL trees & neighbours.
+function showShadeCaption(on){
+  let el=$("shadeCap");
+  if(!el){ el=document.createElement("div"); el.id="shadeCap";
+    el.style.cssText="position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:17;background:rgba(11,16,23,0.9);color:#eaf2ff;border:1px solid #2a3850;border-radius:9px;padding:6px 12px;font-size:11px;font-weight:600;letter-spacing:.01em;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;white-space:nowrap;pointer-events:none";
+    el.innerHTML='<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#24487a;vertical-align:-1px;margin-right:5px"></span>Real shade — includes trees &amp; neighbouring buildings';
+    (document.getElementById("scene")?.parentNode||document.body).appendChild(el); }
+  el.style.display=on?"block":"none";
+}
 $("sPlay").onclick=async()=>{
   if(sunAnim){ stopSunPlay(); return; }
   // REACHABLE FROM THE HEATMAP: if the user hits "Play day" while in the 2D sun-map (or 3D heatmap)
@@ -4390,6 +4437,14 @@ $("sPlay").onclick=async()=>{
     showLoad(false);
   }
   if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic") return;   // guard: applySunView couldn't mount shadows
+  // ── GOOGLE REAL HOURLY SHADE (preferred) ──────────────────────────────────────
+  // Try to source the shadow from Google's DSM-derived hourlyShade raster (trees +
+  // neighbours baked in). If it decodes, the loop paints the REAL shade footprint as a
+  // top-down overlay; otherwise we silently fall back to the Three.js cast-shadow sim.
+  showLoad("Loading real shade…");
+  const real=await enterRealShade().catch(e=>{ console.warn("[shade] enterRealShade failed:", (e&&e.message)||e); return false; });
+  showLoad(false);
+  if(!real) exitRealShade();   // no Google coverage / decode failed → Three.js path below still runs
   // DAYLIGHT-CLAMPED sweep: loop only within [sunrise+0.3, sunset-0.3] for this site/season so there are
   // NO frozen black night frames and no jarring wrap. updateSun() early-returns below ~1° altitude, so
   // staying inside the band keeps shadows moving the whole loop.
@@ -4399,7 +4454,9 @@ $("sPlay").onclick=async()=>{
   // ~1.5 sim-hours/sec: 0.22h per 150ms ≈ 1.47 h/s — a smooth dawn→dusk sweep (was a jittery ~6s whole-day blur)
   sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
     let v=sunHourLocal+0.22; if(v>hi) v=lo;   // wrap dusk→dawn, both inside daylight ⇒ no black frame, no horizon jump
-    sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 150);
+    sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun();
+    if(realShadeActive) renderShadePlay();   // repaint Google's real shade for the new hour (no API hit — cached raster)
+  }, 150);
 };
 $("bSun").onclick=async()=>{
   sunMode=!sunMode; $("bSun").classList.toggle("on",sunMode);
@@ -4413,7 +4470,7 @@ $("bSun").onclick=async()=>{
     await applySunView();
   }
   else {
-    stopSunPlay(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none";
+    stopSunPlay(); exitRealShade(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none";
     const _ctl=$("sunShadowCtl"); if(_ctl) _ctl.style.display="flex";   // restore time/season controls for the grey Model lens
     showAnalysis(null);
     if(greyMode){ if(panelMesh) panelMesh.visible=false; }   // back to the static grey Model lens
@@ -4426,7 +4483,7 @@ $("bModel").onclick=async()=>{
   // Model = the clean 3D-scene base. Entering it clears the other lenses; Sun can layer back on top.
   sunMode=false; matMode=false; labelsVisible=false;
   $("bSun").classList.remove("on"); $("bRoof").classList.remove("on"); $("bLabels").classList.remove("on");
-  stopSunPlay(); clearLabels(); clearPanels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas(); showAnalysis(null);
+  stopSunPlay(); exitRealShade(); clearLabels(); clearPanels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas(); showAnalysis(null);
   if(greyMode){
     panelsVisible=false; $("bPanels").classList.remove("on");
     if(mode!=="schematic") await setMode("schematic");
@@ -4564,6 +4621,105 @@ function renderSunPreview(){
       d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
     } }
   ctx.putImageData(out,0,0); window.__sunDone=true;
+}
+/* ═══════════════════════════════════════════════════════════════════════════════
+   GOOGLE REAL HOURLY SHADE — "Play day & shadows" sourced from Google's hourlyShade
+   GeoTIFFs (DSM-derived → trees & neighbouring buildings baked in), NOT a synthetic
+   Three.js directional-light sim. Each monthly TIFF has 24 hourly bands; each pixel
+   is a 32-bit int bitmask where bit (d-1) = sun visible on day d of the month.
+   ─────────────────────────────────────────────────────────────────────────────── */
+function daysInMonth(m1){ return new Date(2025, m1, 0).getDate(); }   // m1 = 1..12 → days in that month (non-leap ref year)
+// popcount of the low `days` bits of a 32-bit value → number of sunlit days that hour
+function popcountDays(v, days){
+  v = v|0; let n=0;
+  for(let d=0; d<days; d++){ if(v & (1<<d)) n++; }
+  return n;
+}
+// Lazily fetch + decode the hourlyShade GeoTIFF for month `m1` (1..12). Cached in
+// SHADECACHE. Handles the same stale-signed-token refetch the main raster loader uses:
+// a 400 (.stale) triggers ONE fresh dataLayers refetch + retry. Returns the decoded
+// raster ({rasters:[24 bands], width, height, bbox, zone, days}) or null on failure.
+async function ensureShadeMonth(m1){
+  if(!HOURLY_SHADE_URLS) return null;
+  if(SHADECACHE.has(m1)) return SHADECACHE.get(m1);
+  const idx=Math.max(0,Math.min(11,m1-1));
+  try{
+    let dec;
+    try{ dec=await decodeTiff(HOURLY_SHADE_URLS[idx]); }
+    catch(e){
+      if(e&&e.stale){
+        // signed token expired → re-mint dataLayers URLs once, refresh HOURLY_SHADE_URLS, retry
+        const dl2=await datalayers(SITE.lat,SITE.lng,true);
+        if(dl2&&!dl2.error&&Array.isArray(dl2.hourlyShadeUrls)&&dl2.hourlyShadeUrls.length===12){
+          HOURLY_SHADE_URLS=dl2.hourlyShadeUrls;
+          dec=await decodeTiff(HOURLY_SHADE_URLS[idx]);
+        } else throw e;
+      } else throw e;
+    }
+    if(!dec||!dec.rasters||dec.rasters.length<24){ console.warn("[shade] month "+m1+" decoded but only "+(dec&&dec.rasters&&dec.rasters.length)+" bands (expected 24)"); }
+    dec.days=daysInMonth(m1);
+    SHADECACHE.set(m1, dec);
+    return dec;
+  }catch(e){
+    console.warn("[shade] decode failed for month "+m1+":", (e&&e.message)||e);
+    return null;
+  }
+}
+// Map a local clock hour (sunHourLocal, float) to the nearest available hourly band.
+// Google indexes the 24 bands 0..23 by hour-of-day. Shade only matters in daylight, so
+// clamp to [4,20] to avoid sampling all-dark night bands. Returns an integer band 0..23.
+function hourToShadeBand(hourLocal){
+  let h=Math.round(hourLocal);
+  if(h<0) h=0; if(h>23) h=23;
+  return h;
+}
+// Sun fraction (0=fully shaded, 1=fully sunlit) at UTM (E,N) for a decoded shade raster
+// + hour band, using the per-hour day bitmask: fraction of the month's days the sun is
+// visible that hour. Integer bitmask → NEAREST-pixel sample (NOT bilinear: bilinear on a
+// packed bitmask is meaningless). Returns null if off-raster.
+function shadeSunFractionAt(shade, band, E, N){
+  const vals=shade.rasters[band]; if(!vals) return null;
+  const w=shade.width, h=shade.height, bbox=shade.bbox;
+  const fx=(E-bbox[0])/(bbox[2]-bbox[0])*(w-1);
+  const fy=(bbox[3]-N)/(bbox[3]-bbox[1])*(h-1);   // row 0 = north
+  if(fx<0||fy<0||fx>w-1||fy>h-1) return null;
+  const xi=Math.round(fx), yi=Math.round(fy);
+  const v=vals[yi*w+xi];
+  if(v==null||!isFinite(v)) return null;
+  return popcountDays(v, shade.days)/shade.days;
+}
+// Two-tone shade colour: sunlit = warm/clear, shaded = cool blue. t = sun fraction 0..1.
+function shadeColor(t){
+  t=Math.max(0,Math.min(1,t));
+  // shaded (t=0) deep blue → partial → sunlit (t=1) warm amber. Premium, readable.
+  const shade=[36,72,122], sun=[250,214,120];
+  return [ shade[0]+(sun[0]-shade[0])*t, shade[1]+(sun[1]-shade[1])*t, shade[2]+(sun[2]-shade[2])*t ];
+}
+// Paint Google's REAL shade for the CURRENT hour (sunHourLocal) as a top-down overlay on
+// #matCanvas, clipped to the roof exactly like renderSunPreview (eroded mask + buildingBox).
+// Reuses the already-decoded month in LASTSHADE. Returns true if painted, false to fall back.
+function renderShadePlay(){
+  if(!LASTRGB||!LASTSHADE) return false;
+  const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  const out=ctx.createImageData(W,H), d=out.data;
+  const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], a=0.78, bb=buildingBox(2.5);
+  const band=hourToShadeBand(sunHourLocal);
+  let roofPx=0, shadedPx=0;
+  for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN;
+    for(let col=0;col<W;col++){ const i=row*W+col,k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
+      const inB=!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN);
+      if(inB && mg && roofInterior(mg,E,N,0.5)){
+        const f=shadeSunFractionAt(LASTSHADE, band, E, N);
+        if(f!=null){ roofPx++; if(f<0.5) shadedPx++;
+          const c=shadeColor(f); r=r*(1-a)+c[0]*a; g=g*(1-a)+c[1]*a; b=b*(1-a)+c[2]*a; }
+      }
+      d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
+    } }
+  ctx.putImageData(out,0,0);
+  window.__shadePlayPx=roofPx; window.__shadePlayShaded=shadedPx; window.__shadePlayBand=band; window.__realShadeActive=realShadeActive;
+  return roofPx>0;
 }
 function measLabel(ctx,txt,x,y,W,big){ const fs=Math.max(13,W/(big?34:48)); ctx.font=(big?"800 ":"600 ")+fs+"px system-ui,Segoe UI,sans-serif";
   const w=ctx.measureText(txt).width, pad=fs*0.38;
@@ -4788,8 +4944,13 @@ function rotateCam(delta){
 $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
 $("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
-$("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun(); });
-$("sMonth").addEventListener("input",e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun(); });
+$("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun();
+  if(realShadeActive) renderShadePlay();   // scrub the hour → repaint Google's real shade for that hour (cached raster, no API hit)
+});
+$("sMonth").addEventListener("input",async e=>{ sunMonth=+e.target.value; if(window.__roofReady) updateSun();
+  // Changing the season needs a DIFFERENT monthly hourlyShade raster — lazily decode it (cached), then repaint.
+  if(realShadeActive){ const dec=await ensureShadeMonth(sunMonth); if(dec){ LASTSHADE=dec; window.__shadeMonth=sunMonth-1; renderShadePlay(); } }
+});
 // auto-run on load for fast iteration — skipped with ?noauto=1 (used by the headless /capture so it controls the single search)
 { const _qp=new URLSearchParams(location.search);
   const _a=_qp.get("a"); if(_a) $("addr").value=_a;                 // restore a shared quote's address
