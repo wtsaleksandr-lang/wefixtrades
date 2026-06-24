@@ -702,6 +702,162 @@ function roofOverlayConfidence(){
   }catch(e){ return {ok:true, frac:1, reason:"err:"+e.message}; }
 }
 window.__roofConf=()=>roofOverlayConfidence();
+
+/* ── PER-PANEL OCCLUSION TEST (crop panels around trees / patio / yard) ──────
+   The owner wants the photoreal 3D array kept, but with the individual panels
+   that fall on a tree, patio, yard or driveway DROPPED — panels fill the visible
+   bare roof, gaps where obstructions sit, and NEVER a panel on a tree. We test
+   each panel by sampling its FOOTPRINT (centre + the 4 corners, so a panel whose
+   edge clips a tree is caught) against three independent signals, reusing the
+   same 2D layers the heatmap/instant-tint already fetch:
+
+     1. DSM height — the DSM reads DSM_CANOPY_M above the panel's roof plane at a
+        point ⇒ foliage/obstruction above the roof there. (Weak on some roofs where
+        Google's DSM is processed to roof level, so it's one of three, not the only.)
+     2. RGB vegetation — the Solar ortho-aerial pixel is green-dominant (G clearly
+        above R and B) ⇒ tree canopy ⇒ drop. Catches DSM-blind green overhangs.
+     3. Roof mask — the point is OUTSIDE Google's roof mask (maskUrl/LASTMASK) ⇒
+        it's off the roof (patio / yard / driveway) ⇒ drop. The clean patio fix.
+
+   A panel SURVIVES only if its footprint is bare, in-mask, at-plane-height roof.
+   If almost the whole roof is rejected (COUNT_ONLY_REJECT_FRAC) there's too little
+   visible roof to show a layout → fall back to count-only (card kW/count/savings).
+   Footprint points use a margin INSET (FOOT_INSET) so a panel sitting flush to a
+   clean roof edge isn't dropped for a corner landing 1px past the mask. */
+// PRIMARY signal — Google ANNUAL-FLUX / shade mask (LASTFLUX): Google models the
+// actual surrounding trees when it computes annual sunlight, so a low-flux spot on
+// the roof is one a tree shades. This is the most reliable tree detector available
+// (it's exactly what BuildingInsights + Shade Mask are for) and, unlike the DSM/
+// aerial-RGB, it does NOT depend on those layers agreeing with the photoreal tiles.
+// We drop a panel whose flux is a low fraction of the roof's sunny reference.
+const SHADE_FLUX_FRAC=0.55;      // panel flux < 55% of the roof's bright (P90) flux ⇒ tree-shaded ⇒ drop
+const SHADE_E_FRAC=0.55;         // cheap fallback when no flux raster: panel yearlyEnergyDcKwh < 55% of the array's best panel ⇒ shaded ⇒ drop
+const DSM_CANOPY_M=2.0;          // DSM ≥2.0 m above the roof plane at a footprint point ⇒ real tree/obstruction above it (well above AC-unit/parapet/DSM-noise, which sit <1.7 m on clean roofs)
+const DSM_DATUM_TOL=2.0;         // a segment's centre DSM must be within this of its planeHeight, else the DSM has a global offset for this roof → skip the DSM crop for that segment
+const VEG_G_OVER=12;             // green-dominance: G−R ≥ this AND G−B ≥ this ⇒ vegetation pixel (robust to overall brightness)
+const MASK_OUT_MIN=2;            // # of footprint points (of 5) outside the roof mask before the panel is "off-roof" → drop (patio/yard/driveway)
+const FOOT_INSET=0.78;           // sample the 4 corners at 78% out from centre (not the exact corner) → tolerant of 1px mask/edge slop
+const COUNT_ONLY_REJECT_FRAC=0.75; // >75% of panels rejected ⇒ too little bare roof → count-only fallback
+// Roof's "sunny" flux reference = P90 of valid flux samples under the panel set. A
+// panel far below this is in shade (a tree), regardless of what the DSM/RGB show.
+function fluxReference(panels,segs,zone){
+  if(!LASTFLUX||!LASTFLUX.rasters) return null;
+  const fg={vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox};
+  const vals=[];
+  for(const pn of panels){ const c=pn.center; if(!c) continue; const [E,N]=wgs84ToUTM(c.latitude,c.longitude,zone);
+    const v=sampleGrid(fg,E,N); if(v!=null&&isFinite(v)&&v>0) vals.push(v); }
+  if(vals.length<4) return null;
+  vals.sort((a,b)=>a-b);
+  const p90=vals[Math.floor(vals.length*0.9)];
+  return { fg, p90, thresh:p90*SHADE_FLUX_FRAC };
+}
+function rgbBands(){
+  if(!LASTRGB||!LASTRGB.rasters) return null;
+  const bx=LASTRGB.bbox, mk=(i)=>({vals:LASTRGB.rasters[i]||LASTRGB.rasters[0],w:LASTRGB.width,h:LASTRGB.height,bbox:bx});
+  return [mk(0),mk(1),mk(2)];
+}
+function isVegAt(rgb,E,N){
+  if(!rgb) return false;
+  const R=sampleGrid(rgb[0],E,N), G=sampleGrid(rgb[1],E,N), B=sampleGrid(rgb[2],E,N);
+  if(R==null||G==null||B==null) return false;
+  return (G-R)>=VEG_G_OVER && (G-B)>=VEG_G_OVER;   // green-dominant ⇒ foliage
+}
+/* Footprint UTM points for a panel: centre + 4 inset corners (LANDSCAPE-aware),
+   oriented to the segment azimuth so the box matches the rendered quad. */
+function panelFootprintUTM(pn,seg,zone,pw,ph){
+  const c=pn.center; const [cE,cN]=wgs84ToUTM(c.latitude,c.longitude,zone);
+  const Az=(seg.azimuthDegrees||0)*Math.PI/180;
+  const land=pn.orientation==="LANDSCAPE", w=(land?ph:pw)*FOOT_INSET, h=(land?pw:ph)*FOOT_INSET;
+  const ax=Math.cos(Az), an=-Math.sin(Az), fx=Math.sin(Az), fn=Math.cos(Az); // across / facing
+  const pts=[[cE,cN]];
+  for(const [i,j] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+    pts.push([ cE + i*(w/2)*ax + j*(h/2)*fx, cN + i*(w/2)*an + j*(h/2)*fn ]);
+  }
+  return pts;
+}
+/* True if this panel should be DROPPED (tree-shaded / on a tree / patio / yard / driveway).
+   ctx = { dg, mg, rgb, flux, maxE } precomputed once per build. Returns the reason so the
+   verifier can confirm dropped panels line up with the shaded/tree spots. */
+function panelOcclReason(pn,seg,zone,ctx){
+  const ph=seg.planeHeightAtCenterMeters;
+  const pw=(LASTB.solarPotential.panelWidthMeters||1.045), pl=(LASTB.solarPotential.panelHeightMeters||1.879);
+  const pts=panelFootprintUTM(pn,seg,zone,pw,pl);
+  // (0) PRIMARY — Google flux/shade mask: low modelled sunlight here ⇒ a tree shades it.
+  if(ctx.flux){ const v=sampleGrid(ctx.flux.fg, pts[0][0], pts[0][1]); if(v!=null&&isFinite(v)&&v>0&&v<ctx.flux.thresh) return "shade"; }
+  else if(ctx.maxE>0){ // flux raster absent → per-panel yearly energy proxy for shade
+    const e=pn.yearlyEnergyDcKwh||0; if(e>0 && e<ctx.maxE*SHADE_E_FRAC) return "shade-e";
+  }
+  let maskOut=0, dsmHi=0, veg=0;
+  for(const [E,N] of pts){
+    if(ctx.mg){ const m=sampleGrid(ctx.mg,E,N); if(m==null||m<=0.5) maskOut++; }     // off-roof per Google mask (patio/yard/driveway)
+    // DSM tree margin — ONLY when this segment's DSM datum aligns with planeHeight (ctx.dsmOk),
+    // so a roof with a global geoid/ellipsoid DSM offset can't false-crop its whole array.
+    if(ctx.dg && ctx.dsmOk.has(pn.segmentIndex) && ph!=null && isFinite(ph)){ const z=sampleGrid(ctx.dg,E,N); if(z!=null&&isFinite(z)&&(z-ph)>DSM_CANOPY_M) dsmHi++; }
+    if(isVegAt(ctx.rgb,E,N)) veg++;                                                  // green foliage colour
+  }
+  if(ctx.mg && maskOut>=MASK_OUT_MIN) return "offroof";
+  if(dsmHi>0) return "dsm";
+  if(veg>0) return "veg";
+  return null;
+}
+function buildOcclCtx(panels,segs,zone){
+  const dg=LASTDSM?{vals:LASTDSM.rasters[0],w:LASTDSM.width,h:LASTDSM.height,bbox:LASTDSM.bbox}:null;
+  // Per-segment DSM datum check: the segment CENTRE should read ≈ its planeHeight in the DSM.
+  // If it's off by >DSM_DATUM_TOL the DSM has a global offset for this roof (geoid/ellipsoid or
+  // a tall-building plane error) — exclude that segment from the DSM crop so we don't drop a whole
+  // clean array. Flux + mask still apply. This is what kept some offset roofs from false-cropping.
+  const dsmOk=new Set();
+  if(dg){ for(let i=0;i<segs.length;i++){ const sg=segs[i], c=sg&&sg.center, ph=sg&&sg.planeHeightAtCenterMeters;
+    if(!c||ph==null||!isFinite(ph)) continue;
+    const [E,N]=wgs84ToUTM(c.latitude,c.longitude,zone); const z=sampleGrid(dg,E,N);
+    if(z!=null&&isFinite(z)&&Math.abs(z-ph)<=DSM_DATUM_TOL) dsmOk.add(i); } }
+  return {
+    dg, dsmOk,
+    mg: LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null,
+    rgb: rgbBands(),
+    flux: fluxReference(panels,segs,zone),
+    maxE: Math.max(0,...panels.map(p=>p.yearlyEnergyDcKwh||0))
+  };
+}
+function panelOccluded(pn,seg,zone,ctx){ return panelOcclReason(pn,seg,zone,ctx)!=null; }
+/* Aggregate count-only fallback decision: run the per-panel test over the list and
+   report the reject fraction. Only used to decide the degenerate count-only case. */
+function panelCanopyAudit(list){
+  try{
+    if(!LASTB) return {ok:true, reason:"no-bldg"};
+    const sp=LASTB.solarPotential||{}, segs=sp.roofSegmentStats||[];
+    if(!LASTDSM && !LASTMASK && !LASTRGB && !LASTFLUX) return {ok:false, reason:"no-layers", noLayers:true};  // no layer to test against → can't prove panels are clear → count-only
+    const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone;
+    const pool=list&&list.length?list:(sp.solarPanels||[]);
+    const ctx=buildOcclCtx(pool,segs,zone);
+    let total=0, rejected=0;
+    for(const pn of pool){ const seg=segs[pn.segmentIndex]; if(!pn.center||!seg) continue; total++;
+      if(panelOccluded(pn,seg,zone,ctx)) rejected++; }
+    if(!total) return {ok:true, reason:"no-panels"};
+    const frac=rejected/total;
+    return { ok:frac<COUNT_ONLY_REJECT_FRAC, frac:+frac.toFixed(2), rejected, total };
+  }catch(e){ return {ok:true, reason:"err:"+e.message}; }
+}
+window.__panelCanopyAudit=(l)=>panelCanopyAudit(l);
+// Debug probe used by the headed verifier — per-panel crop breakdown by signal.
+window.__panelCanopyProbe=function(){
+  try{ if(!LASTB) return {noData:true};
+    const sp=LASTB.solarPotential||{}, segs=sp.roofSegmentStats||[];
+    const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
+    const list=(sp.solarPanels||[]);
+    const ctx=buildOcclCtx(list,segs,zone);
+    const rgbStat=LASTRGB?LASTRGB.rasters.map(a=>{let s=0,n=0,mn=1e9,mx=-1e9;for(let i=0;i<a.length;i+=29){const v=a[i];s+=v;n++;if(v<mn)mn=v;if(v>mx)mx=v;}return{mean:Math.round(s/n),min:mn,max:mx};}):null;
+    window.__rgbStat=rgbStat;
+    let total=0,rejected=0; const by={shade:0,"shade-e":0,offroof:0,dsm:0,veg:0};
+    for(const pn of list){ const seg=segs[pn.segmentIndex]; if(!pn.center||!seg) continue; total++;
+      const r=panelOcclReason(pn,seg,zone,ctx); if(r){ rejected++; by[r]=(by[r]||0)+1; } }
+    const f=(c)=>total?+(c/total).toFixed(2):null;
+    return { total, rejected, rejectFrac:f(rejected), by,
+      haveFlux:!!ctx.flux, fluxP90:ctx.flux?Math.round(ctx.flux.p90):null, fluxThresh:ctx.flux?Math.round(ctx.flux.thresh):null,
+      haveMask:!!ctx.mg, haveDsm:!!ctx.dg, haveRgb:!!ctx.rgb, maxE:Math.round(ctx.maxE),
+      audit:window.__panelCanopyAudit?window.__panelCanopyAudit():null };
+  }catch(e){ return {err:e.message}; }
+};
 function setOverlayNote(on,text){
   const el=$("overlayNote"); if(!el) return;
   if(on){ const t=$("overlayNoteText"); if(t) t.textContent=text||"Roof partially obscured by tree cover — solar estimate shown, visual overlay unavailable."; el.style.display="flex"; }
@@ -2275,23 +2431,31 @@ async function buildPhotoPanels(){
   // panels are tilted into their facet plane via per-corner slope delta, anchored
   // to the photoreal mesh (RELATIVE_TO_MESH) — see panelCornersLL for why we avoid
   // ABSOLUTE/planeHeightAtCenterMeters (geoid-vs-ellipsoid datum mismatch).
-  const zone=(LASTDSM||LASTFLUX)?(LASTDSM||LASTFLUX).zone:null;
+  const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
   const dg=LASTDSM?{vals:LASTDSM.rasters[0],w:LASTDSM.width,h:LASTDSM.height,bbox:LASTDSM.bbox}:null;
+  const occlCtx=buildOcclCtx(list,segs,zone);   // flux/DSM/mask/RGB precomputed once for the crop test
   const altMode=AltitudeMode.RELATIVE_TO_MESH;
   // #3 setback inset: per-segment bbox shrunk ~0.4 m so edge panels don't overhang the gutter/yard.
-  const INSET_M=0.4, RES_CLAMP_M=1.2;   // plane-residual clamp threshold (#2): panel >1.2 m off its plane = mis-placed
+  const INSET_M=0.4, RES_CLAMP_M=1.0;   // plane-residual clamp (#2): panel >1.0 m off its plane = on a tree / patio / driveway / wrong facet → drop it (tightened from 1.2)
   const insetBox=(seg)=>{ const b=seg.boundingBox; if(!b||!b.sw||!b.ne) return null;
     const cLat=(b.sw.latitude+b.ne.latitude)/2, mLat=111320, mLng=111320*Math.cos(cLat*Math.PI/180);
     const dLat=INSET_M/mLat, dLng=INSET_M/mLng;
     return { s:Math.min(b.sw.latitude,b.ne.latitude)+dLat, n:Math.max(b.sw.latitude,b.ne.latitude)-dLat,
              w:Math.min(b.sw.longitude,b.ne.longitude)+dLng, e:Math.max(b.sw.longitude,b.ne.longitude)-dLng };
   };
-  // First pass: filter (clamp #2 + inset #3) so the safety-net (#4) can react to the drop rate.
-  let dropped=0, considered=0; const keep=[];
+  // ── CROP PANELS AROUND OBSTRUCTIONS ──────────────────────────────────────
+  // Keep a panel only if it's on un-shaded, bare, in-mask, at-plane-height roof. Drops
+  // the individual panels that fall on a tree / patio / yard / driveway via panelOccluded
+  // (PRIMARY = Google flux/shade mask, then off-mask, DSM height, RGB vegetation) while
+  // panels on the open roof render normally — the array fills the roof with gaps where
+  // trees/patio sit, never a panel on a tree. Plus the legacy plane-residual clamp + inset.
+  let dropped=0, considered=0, byOccl=0; const keep=[];
   for(const pn of list){
     if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
     considered++;
-    // #2 plane-residual clamp: drop panels Google placed onto a different/wrong plane (patio/tree/lawn).
+    // PRIMARY crop: shade(flux)/tree/patio/yard/driveway footprint test. (?nocrop=1 bypasses for before/after comparison only.)
+    if(!window.__noCrop && panelOccluded(pn,seg,zone,occlCtx)){ dropped++; byOccl++; continue; }
+    // #2 plane-residual clamp: drop panels Google placed onto a different/wrong plane.
     const cl=classifyPanelPlane(pn,segs,zone,dg);
     if(cl && (cl.ownRes>RES_CLAMP_M || (cl.bestIdx!==pn.segmentIndex && cl.bestRes+0.5<cl.ownRes))){ dropped++; continue; }
     // #3 setback inset: panel centre must sit inside the segment bbox shrunk by INSET_M.
@@ -2300,21 +2464,19 @@ async function buildPhotoPanels(){
       if(la<ib.s||la>ib.n||lo<ib.w||lo>ib.e){ dropped++; continue; } }
     keep.push({pn,seg});
   }
-  // #4 safety-net: if the roof is too cut-up for confident placement (a high fraction of
-  // panels failed the plane clamp/inset), don't draw a wrong-but-detailed scatter. Fall
-  // back to a CLEAN presentation: render only the panels on the single best (largest-area,
-  // most-energetic) facet, regularised. The count/kW on the card still tells the full story.
   const dropFrac=considered?dropped/considered:0;
-  window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelSafetyNet=false;
-  let final=keep;
-  if(dropFrac>0.45 && keep.length){
-    window.__panelSafetyNet=true;
-    // pick the segment carrying the most kept panels (the confidently-placed dominant facet)
-    const byseg=new Map(); for(const k of keep){ byseg.set(k.pn.segmentIndex,(byseg.get(k.pn.segmentIndex)||0)+1); }
-    let bestSeg=-1,bestC=-1; for(const [si,c] of byseg){ if(c>bestC){bestC=c;bestSeg=si;} }
-    final=keep.filter(k=>k.pn.segmentIndex===bestSeg);
+  window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelOcclDrop=byOccl; window.__panelCropped=considered-keep.length;
+  // COUNT-ONLY FALLBACK (degenerate only): almost the whole roof is obstructed, so there's
+  // too little bare roof to show a meaningful layout → show count + savings on the card
+  // instead of a sparse handful of panels. Not the default — only when >COUNT_ONLY_REJECT_FRAC rejected.
+  window.__panelSafetyNet=false; window.__countOnly=false;
+  if(considered>=6 && dropFrac>COUNT_ONLY_REJECT_FRAC){
+    window.__panelSafetyNet=true; window.__countOnly=true; window.__photoPanels=0;
+    setOverlayNote(true, "This roof is mostly under tree cover — your system is shown as count + savings (too little open roof for a panel layout).");
+    return;
   }
-  for(const {pn,seg} of final){
+  setOverlayNote(false);
+  for(const {pn,seg} of keep){
     const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-emin)/((emax-emin)||1)) : "rgba(56,132,255,0.9)";
     const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=panelCornersLL(pn,seg,zone,pw,ph); gmap.append(poly); photoPanels.push(poly);
@@ -2735,6 +2897,7 @@ $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault()
 const SAMPLE_ADDR="4521 T St, Sacramento CA";   // verified-clean single-family home: photoreal 3D roof renders with no photogrammetry artifact + good Solar coverage (the prior 1024 Vallejo Way default had melted red Tiles blobs on the roof)
 // Hero is the default first view. The headless /capture renderer drives #addr/#go directly with
 // ?noauto=1 and must NOT be blocked by the hero overlay — so in that mode skip the hero entirely.
+if(new URLSearchParams(location.search).get("nocrop")==="1") window.__noCrop=true;   // debug-only: render the uncropped array for before/after comparison
 const _heroOff=new URLSearchParams(location.search).get("noauto");
 if(_heroOff){ const _h=$("hero"); if(_h) _h.style.display="none"; }
 else { $("bar").style.display="none"; }   // hero is up first
@@ -2748,14 +2911,64 @@ $("heroSample").onclick=()=>{ $("addrHero").value=SAMPLE_ADDR; submitHero(); };
 document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
   if($("report")&&$("report").style.display==="block"){ window.__closeReport(); }
   else if($("lead")&&$("lead").style.display==="flex"){ window.__closeCapture(); } });
-// Google Places address autocomplete — sub-60s, fewer typos (graceful: plain text if Places is unavailable)
+// Google Places address autocomplete — sub-60s, fewer typos.
+// The legacy google.maps.places.Autocomplete widget is RETIRED for new Cloud
+// projects ("not available to new customers") → it silently renders no dropdown.
+// We use the supported Autocomplete DATA API (AutocompleteSuggestion +
+// fetchAutocompleteSuggestions) and paint our own dropdown, so we keep the plain
+// <input> elements (their styling + the headless /capture path that types into
+// #addr/#go are untouched). Graceful: if Places fails, the fields stay plain text.
 (async()=>{ try{
-  await google.maps.importLibrary("places");
-  const ac=new google.maps.places.Autocomplete($("addr"), { types:["address"], fields:["formatted_address","geometry"] });
-  ac.addListener("place_changed",()=>{ const pl=ac.getPlace(); if(pl&&pl.formatted_address){ $("addr").value=pl.formatted_address; $("go").click(); } });
-  // same typeahead on the hero's prominent address box
-  const acH=new google.maps.places.Autocomplete($("addrHero"), { types:["address"], fields:["formatted_address","geometry"] });
-  acH.addListener("place_changed",()=>{ const pl=acH.getPlace(); if(pl&&pl.formatted_address){ $("addrHero").value=pl.formatted_address; $("addr").value=pl.formatted_address; if(typeof window.__leaveHero==="function") window.__leaveHero(); run(pl.formatted_address); } });
+  const places=await google.maps.importLibrary("places");
+  const { AutocompleteSuggestion, AutocompleteSessionToken }=places;
+  if(!AutocompleteSuggestion||!AutocompleteSuggestion.fetchAutocompleteSuggestions){
+    // very old SDK without the data API → leave inputs as plain text (no broken legacy widget)
+    return;
+  }
+  // shared dropdown UI bound to a single input at a time
+  function attach(input, onPick){
+    const box=document.createElement("div");
+    box.style.cssText="position:absolute;z-index:60;background:#fff;border:1px solid #e1e7ef;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);overflow:hidden;display:none;font-size:14px;color:#0f172a;max-height:280px;overflow-y:auto";
+    document.body.appendChild(box);
+    let token=new AutocompleteSessionToken(), items=[], active=-1, seq=0;
+    const place=()=>{ const r=input.getBoundingClientRect(); box.style.left=(r.left+window.scrollX)+"px"; box.style.top=(r.bottom+window.scrollY+4)+"px"; box.style.width=r.width+"px"; };
+    const hide=()=>{ box.style.display="none"; active=-1; };
+    const render=()=>{ box.innerHTML=""; if(!items.length){ hide(); return; } place();
+      items.forEach((it,i)=>{ const row=document.createElement("div");
+        row.textContent=it.text;
+        row.style.cssText="padding:10px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"+(i===active?";background:#eef2ff":"");
+        row.onmouseenter=()=>{ active=i; paint(); };
+        row.onmousedown=(e)=>{ e.preventDefault(); choose(i); };
+        box.appendChild(row); });
+      box.style.display="block"; };
+    const paint=()=>{ [...box.children].forEach((c,i)=>{ c.style.background=(i===active)?"#eef2ff":""; }); };
+    async function choose(i){ const it=items[i]; if(!it) return; hide();
+      try{ const place=it.sugg.placePrediction.toPlace(); await place.fetchFields({ fields:["formattedAddress"] });
+        const addr=place.formattedAddress||it.text; input.value=addr; onPick(addr);
+      }catch(_){ input.value=it.text; onPick(it.text); }
+      token=new AutocompleteSessionToken(); }
+    let t=null;
+    input.addEventListener("input",()=>{ const v=input.value.trim(); clearTimeout(t);
+      if(v.length<3){ items=[]; hide(); return; }
+      const mine=++seq;
+      t=setTimeout(async()=>{ try{
+        const { suggestions }=await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:v, sessionToken:token, includedPrimaryTypes:["street_address","premise","subpremise","route"] });
+        if(mine!==seq) return;   // stale response
+        items=(suggestions||[]).filter(s=>s.placePrediction).map(s=>({ sugg:s, text:(s.placePrediction.text&&s.placePrediction.text.text)||"" })).slice(0,6);
+        active=-1; render();
+      }catch(_){ items=[]; hide(); } }, 180);
+    });
+    input.addEventListener("keydown",(e)=>{ if(box.style.display==="none") return;
+      if(e.key==="ArrowDown"){ e.preventDefault(); active=Math.min(active+1,items.length-1); paint(); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); active=Math.max(active-1,0); paint(); }
+      else if(e.key==="Enter"){ if(active>=0){ e.preventDefault(); choose(active); } }
+      else if(e.key==="Escape"){ hide(); } });
+    input.addEventListener("blur",()=>setTimeout(hide,150));
+    window.addEventListener("resize",()=>{ if(box.style.display!=="none") place(); });
+  }
+  attach($("addr"), (addr)=>{ $("addr").value=addr; $("go").click(); });
+  attach($("addrHero"), (addr)=>{ $("addrHero").value=addr; $("addr").value=addr; if(typeof window.__leaveHero==="function") window.__leaveHero(); run(addr); });
+  window.__acReady=true;
 }catch(_){ /* inputs still work as plain text fields */ } })();
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
 // exits any 2D analysis (sun or material) + restores 3D
