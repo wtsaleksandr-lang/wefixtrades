@@ -2610,31 +2610,30 @@ function ringSelfIntersects(ring){
   return false;
 }
 
-/* ---- ANALYTIC extractFacetPolys -----------------------------------------------
-   1. decode mask → ONE outer footprint ring (Moore+DP+light regularize), fallback
-      = union of segment bounding boxes when mask absent.
-   2. build analytic planes (buildSegmentPlanes).
-   3. classify footprint cells to planes → per-plane interior regions + adjacency
-      (its noise no longer touches edge geometry — only tells us which planes touch).
-   4. for each ADJACENT plane pair compute the intersection line, clip to footprint
-      → the shared ridge/hip/valley segment.
-   5. each facet ring = footprint arcs (eaves/rakes) stitched with the interior
-      intersection segments, ordered into a polygon; corners are exact solves.
+/* ---- ANALYTIC extractFacetPolys (HALF-PLANE CLIP) ------------------------------
+   Pure footprint + crease reconstruction — no ring stitching, no per-plane raster
+   tracing of facet outlines. Insight: facet_i = the building FOOTPRINT restricted to
+   where plane i is the actual roof surface. Its boundaries are exactly (a) footprint
+   edges (eaves/rakes) and (b) crease lines plane_i∩plane_j with each neighbour j.
+   So we CLIP, never trace/order:
+     1. ONE clean footprint ring from the mask (Moore+DP+light regularize).
+     2. analytic planes (buildSegmentPlanes).
+     3. DSM-residual classification — used ONLY to find which plane PAIRS are adjacent
+        (≥~6 shared border cells); its noise never touches geometry.
+     4. facet_i = footprint, then Sutherland–Hodgman clipped by the half-plane of each
+        crease L_ij that contains segment i's own projected centre. Shared creases are
+        the SAME line for i and j → one ridge, drawn once. Corners = line∩line (exact).
    Output SAME shape as legacy: [{hull:[[lng,lat]], slopeArea, seg}].
-   THROWS on any irrecoverable degeneracy so the caller falls back to legacy. */
+   THROWS on irrecoverable degeneracy so the caller falls back to legacy. */
 function extractFacetPolysAnalytic(margin){
   margin=(margin==null)?0.5:margin;
   if(!LASTDSM||!LASTB) throw new Error("no DSM/buildingInsights");   // DSM-residual classify needs the DSM (measure mode always has it)
   const dsm=LASTDSM, zone=dsm.zone;
   const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
-  const planesA=buildSegmentPlanes(zone);   // analytic a/b/c per segment (a·E+b·N+c) — used for EXACT edge lines
+  const planesA=buildSegmentPlanes(zone);   // analytic a/b/c per segment (a·E+b·N+c) — EXACT crease lines
   if(!planesA.length) throw new Error("no planes");
   const segs=planesA.map(p=>p.seg);
-  // ── classify+trace EXACTLY like the robust legacy path (full-roof capture via DSM
-  //    residual), but keep per-cell labels + analytic planes so we can replace the
-  //    GLOBAL-AXIS snap with a TRUE per-edge plane-intersection snap (the real fix).
-  // accumulators mirrored on planesA
   for(const p of planesA){ p.n=0; p.zsum=0; }
   let s=90,w=180,nn=-90,e=-180; for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
   if(!(nn>s&&e>w)) throw new Error("no bbox union");
@@ -2646,20 +2645,21 @@ function extractFacetPolysAnalytic(margin){
   const lab=new Int16Array(rows*cols).fill(-1);
   const cellLL=(r,c)=>[ w+(c-pad)*dLng, s+(r-pad)*dLat ];        // [lng,lat]
   const cellEN=(r,c)=>{ const ll=cellLL(r,c); return wgs84ToUTM(ll[1],ll[0],zone); }; // [E,N]
+  // ── DSM-residual classification (robust full-roof partition) — labels only used for
+  //    adjacency + plane viability; geometry is 100% footprint + analytic lines.
   const groundSamples=[];
   for(let r=pad;r<rows-pad;r++)for(let c=pad;c<cols-pad;c++){
     const ll=cellLL(r,c), EN=wgs84ToUTM(ll[1],ll[0],zone), E=EN[0], N=EN[1];
     const inside = mg ? roofInterior(mg,E,N,margin) : true;
     const z=sampleGrid(dg,E,N); if(z==null||!isFinite(z)) continue;
     if(!inside){ if(((r*cols+c)&3)===0) groundSamples.push(z); continue; }
-    let best=-1,bestR=0.4, bestPred=0;   // DSM residual band (0.4m) — same robust classifier as legacy
+    let best=-1,bestR=0.4, bestPred=0;
     for(const p of planesA){ const d=(E-p.cE)*p.sinAz+(N-p.cN)*p.cosAz; const pred=p.h-d*p.tanP; const rr=Math.abs(z-pred); if(rr<bestR){bestR=rr;best=p.i;bestPred=pred;} }
     if(best>=0 && (z-bestPred)<=0.8){ lab[r*cols+c]=best; planesA[best].n++; planesA[best].zsum+=z; }
   }
   const groundZ=(()=>{ if(groundSamples.length<8) return -1e9; groundSamples.sort((a,b)=>a-b); return groundSamples[Math.floor(groundSamples.length*0.2)]; })();
   let mainP=null; for(const p of planesA){ if(p.n>=10 && (!mainP||p.n>mainP.n)) mainP=p; }
   const mainRoofZ=mainP?(mainP.zsum/Math.max(1,mainP.n)):1e9;
-  // viable planes (same patio/deck/sliver drops as legacy)
   const viable=[];
   for(const p of planesA){ if(p.n<10) continue;
     const meanZ=p.zsum/Math.max(1,p.n), planArea=p.n*cellA;
@@ -2669,117 +2669,137 @@ function extractFacetPolysAnalytic(margin){
     viable.push(p);
   }
   if(!viable.length) throw new Error("no viable planes");
-  // label lookup for an arbitrary (E,N): map back to the regular lat/lng grid cell
-  const labelAt=(E,N)=>{ const ll=utmToLL(E,N,zone); const c=Math.round((ll[0]-w)/dLng+pad), r=Math.round((ll[1]-s)/dLat+pad);
-    if(r<0||c<0||r>=rows||c>=cols) return -1; return lab[r*cols+c]; };
-  // ── per-plane: trace the label blob (order+topology), then snap each edge to its TRUE
-  //    line — interior crease (k∩partner intersection) or, for an outer edge, the edge's
-  //    own straightened direction (footprint). Corners = intersection of adjacent snapped
-  //    lines → crisp analytic vertices. NO global-axis snap.
+  const viableSet=new Set(viable.map(p=>p.i));
+
+  // ── (1) ONE clean FOOTPRINT ring (UTM E,N) — Moore-trace the single largest mask
+  //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
+  //    every facet is clipped FROM (already ordered; no stitching).
+  let footprint=null;
+  {
+    // binary in-roof grid (mask interior, eroded a touch off the walls) over the SAME grid
+    const inGrid=new Uint8Array(rows*cols);
+    let fpStart=-1;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const EN=cellEN(r,c);
+      const ok = mg ? roofInterior(mg,EN[0],EN[1],Math.min(margin,0.3)) : (function(){ const ll=cellLL(r,c);
+        for(const g of segs){ const b=g.boundingBox; if(b&&ll[1]>=b.sw.latitude&&ll[1]<=b.ne.latitude&&ll[0]>=b.sw.longitude&&ll[0]<=b.ne.longitude) return true; } return false; })();
+      if(ok){ inGrid[r*cols+c]=1; if(fpStart<0) fpStart=r*cols+c; }
+    }
+    if(fpStart<0) throw new Error("empty footprint");
+    // keep only the LARGEST connected component (drops detached garage/noise blobs)
+    const comp=new Int32Array(rows*cols).fill(-1); let bestComp=-1,bestSize=0,cid=0;
+    for(let i0=0;i0<rows*cols;i0++){ if(inGrid[i0]!==1||comp[i0]>=0) continue;
+      const stack=[i0]; comp[i0]=cid; let size=0; let anchor=i0;
+      while(stack.length){ const ix=stack.pop(); size++; if(ix<anchor) anchor=ix; const r=(ix/cols)|0,c=ix%cols;
+        const nbrs=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+        for(const [nr,nc] of nbrs){ if(nr<0||nc<0||nr>=rows||nc>=cols) continue; const nix=nr*cols+nc; if(inGrid[nix]===1&&comp[nix]<0){ comp[nix]=cid; stack.push(nix); } } }
+      if(size>bestSize){ bestSize=size; bestComp=cid; }
+      cid++;
+    }
+    const isFP=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&comp[r*cols+c]===bestComp;
+    // start cell = first cell of the chosen component
+    let sr=-1,sc=-1; outerFP: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(comp[r*cols+c]===bestComp){sr=r;sc=c;break outerFP;}
+    if(sr<0) throw new Error("footprint component empty");
+    let cont=dpSimplify(mooreTrace(isFP,sr,sc,rows,cols),2.0);
+    if(cont.length<3) throw new Error("footprint trace degenerate");
+    // light orthogonal regularize (allow 45° for clipped corners) in cell space
+    let fpxy=cont.map(([r,c])=>[c,r]);
+    const fpAxis=polyOrientation(fpxy);
+    let reg=regularizePoly(fpxy, fpAxis, 1.4, true);
+    if(reg.length>=3) fpxy=reg;
+    footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
+    if(polyArea2(footprint)<3) throw new Error("footprint too small");
+  }
+
+  // ── (3) ADJACENCY: which plane PAIRS border (≥6 shared 4-neighbour cells). Built from
+  //    the classifier labels — its only job. Also flags parallel pairs (no crease → merge).
+  const adj=new Map();   // "k,m" (k<m) → shared-border count
+  for(let r=0;r<rows-1;r++)for(let c=0;c<cols-1;c++){ const o=lab[r*cols+c]; if(o<0||!viableSet.has(o)) continue;
+    const right=lab[r*cols+c+1], down=lab[(r+1)*cols+c];
+    for(const nb of [right,down]){ if(nb>=0&&nb!==o&&viableSet.has(nb)){ const k=Math.min(o,nb),m=Math.max(o,nb); adj.set(k+","+m,(adj.get(k+","+m)||0)+1); } }
+  }
+  const ADJ_MIN=6;
+  const neighbours=new Map();   // i → [{j, line, partnerCenter}]
+  for(const p of viable) neighbours.set(p.i,[]);
+  for(const [key,cnt] of adj){ if(cnt<ADJ_MIN) continue;
+    const [k,m]=key.split(",").map(Number);
+    const pk=planesA[k], pm=planesA[m];
+    // parallel/coplanar adjacent planes (same gradient) → no crease; skip (visually one facet)
+    if(Math.abs(pk.a-pm.a)<1e-4 && Math.abs(pk.b-pm.b)<1e-4) continue;
+    const line=planeIntersectLine(pk,pm); if(!line) continue;
+    neighbours.get(k).push({ j:m, line });
+    neighbours.get(m).push({ j:k, line });
+  }
+
+  // ── Sutherland–Hodgman: clip polygon `poly` ([[E,N]]) by the half-plane that KEEPS
+  //    the side where (n·x + d) has the same sign as at keepPt. Line given as {p,dir};
+  //    its normal = (-dir[1], dir[0]). Returns a new ordered ring (possibly empty).
+  const clipHalfPlane=(poly,line,keepPt)=>{
+    const nx=-line.dir[1], ny=line.dir[0];                 // line normal
+    const d=-(nx*line.p[0]+ny*line.p[1]);                  // n·x + d = 0 on the line
+    const side=p=>nx*p[0]+ny*p[1]+d;
+    const keepSign=side(keepPt)>=0?1:-1;                   // keep the half containing keepPt
+    const inside=p=>side(p)*keepSign>=-1e-7;
+    const out=[];
+    for(let i=0;i<poly.length;i++){ const A=poly[i], B=poly[(i+1)%poly.length];
+      const ain=inside(A), bin=inside(B);
+      if(ain) out.push(A);
+      if(ain!==bin){ // edge crosses the line → add the exact intersection point
+        const sa=side(A), sb=side(B); const t=sa/(sa-sb);
+        out.push([A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t]);
+      }
+    }
+    return out;
+  };
+
+  // ── (4) build each facet by clipping the footprint with every neighbour crease ──────
   const facets=[];
-  for(const p of viable){ const k=p.i;
-    const isK=(r,c)=> r>=0&&c>=0&&r<rows&&c<cols&&lab[r*cols+c]===k;
-    let kr=-1,kc=-1; outerK: for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(lab[r*cols+c]===k){kr=r;kc=c;break outerK;}
-    if(kr<0) continue;
-    let blob=dpSimplify(mooreTrace(isK,kr,kc,rows,cols),2.4);
-    if(blob.length<3) continue;
-    const ringEN=blob.map(([r,c])=>cellEN(r,c));
-    const nR=ringEN.length;
-    // centroid (for outward-normal sign)
-    let cx=0,cy=0; for(const v of ringEN){cx+=v[0];cy+=v[1];} cx/=nR; cy/=nR;
-    const edgeLines=[];   // per traced edge → {p,dir,partner}
-    for(let i=0;i<nR;i++){ const A=ringEN[i], B=ringEN[(i+1)%nR];
-      const ex=B[0]-A[0], ey=B[1]-A[1], el=Math.hypot(ex,ey)||1; let nx=ey/el, ny=-ex/el;
-      const mid=[(A[0]+B[0])/2,(A[1]+B[1])/2];
-      // outward normal points away from centroid
-      if((mid[0]-cx)*nx+(mid[1]-cy)*ny < 0){ nx=-nx; ny=-ny; }
-      // Sample the bordering label at MANY points ALONG the whole edge (just outside it),
-      // not just at the midpoint — an interior crease must border the SAME partner plane
-      // along most of its length. A spurious one-cell label leak then can't fake a crease.
-      const votes={}; let total=0;
-      const NS=Math.max(4,Math.min(20,Math.round(el/step)));   // ~one probe per cell
-      for(let t=1;t<NS;t++){ const f=t/NS; const bx=A[0]+ex*f, by=A[1]+ey*f;
-        for(const dprobe of [1.4,2.4]){ const l=labelAt(bx+nx*step*dprobe, by+ny*step*dprobe);
-          if(l>=0 && l!==k){ votes[l]=(votes[l]||0)+1; } total++; } }
-      let partner=-1, bestv=0; for(const lk in votes){ if(votes[lk]>bestv){ bestv=votes[lk]; partner=+lk; } }
-      let line=null;
-      // require a STRONG majority (≥55% of probes) for the partner AND that the analytic
-      // k∩partner line sits NEAR this traced edge (≤1.2m perp) — otherwise it's an outer edge.
-      if(partner>=0 && total>0 && bestv/total>=0.55){ const pa=planesA.find(q=>q.i===partner);
-        if(pa){ const pl=planeIntersectLine(p,pa);
-          if(pl){ // perp distance from the traced edge midpoint to the analytic line
-            const wpx=mid[0]-pl.p[0], wpy=mid[1]-pl.p[1];
-            const perp=Math.abs(wpx*(-pl.dir[1])+wpy*(pl.dir[0]));
-            if(perp<=1.2) line={ p:pl.p, dir:pl.dir, partner };
-          } }
-      }
-      if(!line) line={ p:[A[0],A[1]], dir:[ex/el,ey/el], partner:-1, _vi:i };   // outer edge: provisional traced direction
-      edgeLines.push(line);
+  for(const p of viable){ const i=p.i;
+    const centre=[p.cE,p.cN];
+    // coverage gap: the segment's own centre must lie inside the footprint we built. If
+    // not (mask coverage hole), this facet can't be reconstructed cleanly → skip it
+    // (the area-sanity gate below + the legacy fallback handle a roof that loses too much).
+    if(!pointInPoly2(centre,footprint)) continue;
+    let poly=footprint.map(v=>[v[0],v[1]]);
+    for(const nb of (neighbours.get(i)||[])){
+      poly=clipHalfPlane(poly,nb.line,centre);
+      if(poly.length<3){ poly=[]; break; }
     }
-    // ── STRAIGHTEN OUTER (eave/rake) RUNS: the Moore-trace leaves the building
-    //    perimeter as a staircase of short outer edges at slightly different angles.
-    //    Group MAXIMAL runs of consecutive outer edges whose traced directions stay
-    //    within ~22° of the run's mean, and replace the whole run with ONE least-squares
-    //    line through its vertices → a single straight eave/rake instead of a jagged
-    //    staircase. Interior creases (already exact analytic lines) are left untouched.
-    {
-      const isOuter=i=>edgeLines[i].partner<0;
-      const angOf=i=>{ const A=ringEN[i],B=ringEN[(i+1)%nR]; return Math.atan2(B[1]-A[1],B[0]-A[0]); };
-      const used=new Array(nR).fill(false);
-      // find a starting boundary between an interior edge (or angle break) and an outer run
-      for(let start=0;start<nR;start++){ if(used[start]||!isOuter(start)) continue;
-        // extend the run forward while edges are outer and roughly collinear
-        const run=[start]; used[start]=true; let baseAng=angOf(start);
-        let j=(start+1)%nR;
-        while(j!==start && isOuter(j) && !used[j]){
-          let da=Math.abs(((angOf(j)-baseAng+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI);
-          if(da>Math.PI/2) da=Math.PI-da;   // treat opposite directions as same line
-          if(da>22*Math.PI/180) break;
-          run.push(j); used[j]=true;
-          // update running mean angle (folded to a line, period π)
-          baseAng=(baseAng+angOf(j))/2;
-          j=(j+1)%nR;
-        }
-        if(run.length<2) continue;   // single edge already straight
-        // least-squares line through the run's vertices (endpoints of every edge)
-        const pts=[]; for(const ei of run){ pts.push(ringEN[ei]); } pts.push(ringEN[(run[run.length-1]+1)%nR]);
-        let mx=0,my=0; for(const q of pts){mx+=q[0];my+=q[1];} mx/=pts.length; my/=pts.length;
-        let sxx=0,sxy=0,syy=0; for(const q of pts){ const dx=q[0]-mx,dy=q[1]-my; sxx+=dx*dx; sxy+=dx*dy; syy+=dy*dy; }
-        const ang=0.5*Math.atan2(2*sxy, sxx-syy);   // principal axis
-        const dir=[Math.cos(ang),Math.sin(ang)];
-        for(const ei of run) edgeLines[ei]={ p:[mx,my], dir, partner:-1 };
-      }
-    }
-    // crisp corners = intersection of consecutive snapped lines (else keep traced vertex)
-    const snapped=[];
-    for(let i=0;i<nR;i++){ const L1=edgeLines[(i-1+nR)%nR], L2=edgeLines[i];
-      const x=lineIntersect(L1.p,L1.dir,L2.p,L2.dir);
-      snapped.push((x&&isFinite(x[0])&&isFinite(x[1])&&Math.hypot(x[0]-ringEN[i][0],x[1]-ringEN[i][1])<2.5)?x:ringEN[i]);
-    }
-    // merge near-collinear + near-duplicate vertices
-    let ded=[];
-    for(let i=0;i<snapped.length;i++){ const prev=snapped[(i-1+snapped.length)%snapped.length], cur=snapped[i], nxt=snapped[(i+1)%snapped.length];
-      if(perpDist(cur,prev,nxt)>0.12) ded.push(cur); }
-    if(ded.length<3) ded=snapped;
-    const dd2=[]; for(const pt of ded){ if(!dd2.length||Math.hypot(pt[0]-dd2[dd2.length-1][0],pt[1]-dd2[dd2.length-1][1])>0.15) dd2.push(pt); }
-    if(dd2.length>=2){ const f0=dd2[0],fl=dd2[dd2.length-1]; if(Math.hypot(f0[0]-fl[0],f0[1]-fl[1])<0.15) dd2.pop(); }
-    ded=dd2;
+    if(poly.length<3) continue;
+    // drop near-duplicate vertices the clip can leave
+    const ded=[];
+    for(const pt of poly){ if(!ded.length||Math.hypot(pt[0]-ded[ded.length-1][0],pt[1]-ded[ded.length-1][1])>0.15) ded.push(pt); }
+    if(ded.length>=2){ const f0=ded[0],fl=ded[ded.length-1]; if(Math.hypot(f0[0]-fl[0],f0[1]-fl[1])<0.15) ded.pop(); }
     if(ded.length<3) continue;
-    if(ringSelfIntersects(ded)){ // analytic snap produced a tangle on THIS facet → keep the raw traced ring (still full-roof)
-      ded=ringEN; }
-    const ringLL=ded.map(([E,N])=>utmToLL(E,N,zone));   // [[lng,lat],...]
+    // collapse near-collinear vertices for a clean ring
+    const clean=[];
+    for(let q=0;q<ded.length;q++){ const prev=ded[(q-1+ded.length)%ded.length], cur=ded[q], nxt=ded[(q+1)%ded.length];
+      if(perpDist(cur,prev,nxt)>0.05) clean.push(cur); }
+    const ring=(clean.length>=3)?clean:ded;
+    if(ringSelfIntersects(ring)) continue;   // pathological — skip this facet (fallback covers global failure)
+    const ringLL=ring.map(([E,N])=>utmToLL(E,N,zone));   // [[lng,lat],...]
     const gArea=(p.seg.stats&&p.seg.stats.areaMeters2)||0;
-    const planArea2D=p.n*cellA;
+    const planArea2D=polyArea2(ring);
     const slopeArea=gArea>0?gArea:planArea2D/Math.max(0.3,Math.cos(Math.atan(p.tanP)));
-    facets.push({ hull:ringLL, slopeArea, seg:p.seg });
+    // carry this facet's EXACT analytic plane (UTM coeffs) so the geometry engine can lift
+    // vertices from the true plane (smooth) instead of the noisy DSM at clipped creases.
+    facets.push({ hull:ringLL, slopeArea, seg:p.seg, __plane:{a:p.a,b:p.b,c:p.c}, __zone:zone });
   }
   if(!facets.length) throw new Error("no facets built");
-  // area sanity vs Google's segment total (catches a globally-broken build → fall back to legacy)
+  // area sanity vs Google's segment total (catches a globally-broken build → legacy fallback).
+  // Tighter than the trace path: pure-clip area should track Google within ~25–30%.
   const gTot=segs.reduce((t,g)=>t+((g.stats&&g.stats.areaMeters2)||0),0);
   const bTot=facets.reduce((t,f)=>t+(f.slopeArea||0),0);
-  if(gTot>0 && (bTot<gTot*0.30 || bTot>gTot*3.2)) throw new Error("facet area off vs Google ("+bTot.toFixed(0)+" vs "+gTot.toFixed(0)+")");
+  if(gTot>0 && (bTot<gTot*0.45 || bTot>gTot*1.9)) throw new Error("facet area off vs Google ("+bTot.toFixed(0)+" vs "+gTot.toFixed(0)+")");
   return facets;
 }
+
+/* signed-area magnitude of a ring [[E,N],...] (m²) */
+function polyArea2(ring){ let s2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; s2+=A[0]*B[1]-B[0]*A[1]; } return Math.abs(s2)/2; }
+/* point-in-polygon (ray cast) for [E,N] */
+function pointInPoly2(pt,ring){ let inside=false; const x=pt[0],y=pt[1];
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!==(yj>y)) && x < (xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) inside=!inside; }
+  return inside; }
 
 /* inverse UTM → WGS84 (Karney/Snyder series), zone N hemisphere. Mirrors wgs84ToUTM. */
 function utmToLL(E,N,zone){
@@ -2916,7 +2936,15 @@ function facetsToRoofModel(){
   const toLocal=(lng,lat)=>[(lng-lng0)*mLng,(lat-lat0)*mLat];
   const toWgs=(x,y)=>[lng0+x/mLng, lat0+y/mLat];
   const sampleHeight=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); const z=sampleGrid(dg,E,N); return (z==null||!isFinite(z))?0:z; };
-  const planes=facets.map((f,i)=>({ id:"P"+(i+1), ring:f.hull.map(([lng,lat])=>toLocal(lng,lat)) }));
+  const planes=facets.map((f,i)=>{
+    const pl={ id:"P"+(i+1), ring:f.hull.map(([lng,lat])=>toLocal(lng,lat)) };
+    // analytic facets carry their exact plane → lift vertices from it (smooth, exact)
+    if(f.__plane){ const pa=f.__plane, fz=(f.__zone||zone);
+      pl.liftZ=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,fz); const z=pa.a*E+pa.b*N+pa.c;
+        return (isFinite(z)?z:sampleHeight(x,y)); };
+    }
+    return pl;
+  });
   // Analytic facets snap each shared crease to the EXACT same intersection LINE, so the
   // two copies have ~0 perpendicular separation — but their endpoints differ ALONG the
   // line (each facet's crease ends where its other edges meet). roofgeo pairs edges by
