@@ -59,6 +59,16 @@
     #hero #goHero{height:50px;width:100%}
     #hero #addrHero{height:50px}
     #hero .hero-trust{gap:7px 14px;margin-top:18px}
+    /* top search bar (active/quote state): at 375px the fixed "Get Quote" button squeezed the
+       input so the entered address was clipped under the button. Let the input keep its full width
+       with a min-width floor, shrink the button's padding/label, and never let it steal input space. */
+    #bar{gap:6px}
+    #addr{min-width:0;font-size:14px;padding:11px 12px;text-overflow:ellipsis}
+    #go{flex:0 0 auto;padding:0 14px;font-size:14px;white-space:nowrap}
+  }
+  @media (max-width:380px){
+    #addr{padding:10px 11px;font-size:13.5px}
+    #go{padding:0 12px}
   }
   /* status chip */
   #status{position:absolute;top:62px;left:12px;z-index:20;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none;box-shadow:var(--card-shadow)}
@@ -338,6 +348,10 @@
   #ctrls button span{font-size:9.5px;font-weight:600;letter-spacing:.01em}
   #ctrls button.on{background:rgba(13,60,252,0.06);border-color:#0d3cfc;color:#0d3cfc}
   #ctrls button:hover{border-color:#0d3cfc;color:#0f172a}
+  /* N/A lens — kept in the rail for a consistent button set across addresses, but greyed + non-interactive
+     (vs omitted, which made the rail jump between addresses — the Miami "missing Model/Materials" bug). */
+  #ctrls button.lens-na{opacity:.4;cursor:not-allowed;pointer-events:none}
+  #ctrls button.lens-na:hover{border-color:#e1e7ef;color:var(--muted)}
   @media (max-width:560px){ #ctrls{flex-direction:row;left:0;right:0;bottom:2px;justify-content:center;gap:2px;flex-wrap:nowrap} #ctrls button{width:63px;height:54px} #ctrls button svg{width:18px;height:18px} #ctrls button span{font-size:9px} }
   /* sun-path bar */
   #sunbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 14px;display:none;gap:16px;align-items:center;box-shadow:var(--card-shadow)}
@@ -619,9 +633,30 @@ function sunPosition(date, lat, lng){
 }
 
 /* ---------- data pipeline ---------- */
-async function geocode(addr){ const r=await fetch("/geocode?address="+encodeURIComponent(addr)); const j=await r.json(); if(j.error) throw new Error("geocode "+j.error); return j; }
-async function solar(lat,lng){ const r=await fetch("/solar?lat="+lat+"&lng="+lng); const j=await r.json(); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
-async function datalayers(lat,lng,fresh){ const r=await fetch("/datalayers?lat="+lat+"&lng="+lng+(fresh?"&fresh=1":"")); const j=await r.json(); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
+// Resilient JSON fetch. A transient backend hiccup can return an HTTP 5xx or a NON-JSON body
+// (an HTML error page, or a truncated/double-written stream → "Unexpected non-whitespace
+// character after JSON at position 5"). Reading .json() on that throws a raw parser string
+// that must NEVER reach the customer UI. So: read the body as text, parse it ourselves, and
+// on a 5xx OR an unparseable body retry the request ONCE before giving up. On final failure we
+// throw a CLEAN tagged Error (e.g. "geocode unavailable") — the caller's catch renders the
+// graceful "request an on-site quote" card, never the raw exception.
+async function fetchJSON(url, tag){
+  let lastErr=null;
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const r=await fetch(url);
+      const body=await r.text();
+      if(r.status>=500){ lastErr=new Error(tag+" unavailable"); continue; }   // transient server error → retry once
+      let j; try{ j=JSON.parse(body); }
+      catch(_){ lastErr=new Error(tag+" unavailable"); continue; }              // non-JSON body → retry once, then give up cleanly
+      return j;
+    }catch(e){ lastErr=new Error(tag+" unavailable"); }                          // network/fetch failure → retry once
+  }
+  throw lastErr||new Error(tag+" unavailable");
+}
+async function geocode(addr){ const j=await fetchJSON("/geocode?address="+encodeURIComponent(addr),"geocode"); if(j.error) throw new Error("geocode "+j.error); return j; }
+async function solar(lat,lng){ const j=await fetchJSON("/solar?lat="+lat+"&lng="+lng,"solar"); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
+async function datalayers(lat,lng,fresh){ const j=await fetchJSON("/datalayers?lat="+lat+"&lng="+lng+(fresh?"&fresh=1":""),"datalayers"); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
 
 /* Fetch a Solar geoTiff through our proxy and return its bytes — but ONLY if the
    response is a real TIFF. The geoTiff:get URLs carry SHORT-LIVED signed tokens
@@ -1094,7 +1129,12 @@ function sunCardBody(){
     '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>';
 }
 function measureCardBody(){
-  const t=window.__roofTotals; if(!t) return '<div class="qprompt">Measuring your roof…</div>';
+  // totals come from getRoofTotals (facet model anchored to Google area). If the model never
+  // produced totals we briefly show "Measuring…", but once the roof read is DONE with no usable
+  // totals we must NOT sit on a stuck spinner (Getty: POI geocode, no building) — fall through to
+  // the graceful approximate card so Measure agrees with the low-confidence verdict.
+  let t=window.__roofTotals; if(!t && typeof getRoofTotals==="function"){ try{ t=getRoofTotals(); }catch(_){} }
+  if(!t){ return window.__roofReady ? lowConfidenceCardBody(window.__roofDataConf||{}) : '<div class="qprompt">Measuring your roof…</div>'; }
   const f=n=>Math.round(n||0).toLocaleString();
   const row=(c,l,v)=>'<div class="mrow"><span><i style="background:'+c+'"></i>'+l+'</span><b>'+v+'′</b></div>';
   // HONEST GATE: when Google's imagery isn't HIGH quality the DSM-traced outline is coarse —
@@ -1237,6 +1277,16 @@ function getRoofTotals(){
   try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=reconcileTotals(m.totals); return window.__roofTotals; } }catch(_){}
   return null;
 }
+// ── SINGLE CANONICAL ROOF AREA ────────────────────────────────────────────────
+// One number, one rounding, everywhere. The quote card, the Measure lens, the report
+// and the takeoff all read THIS — so the homeowner never sees two different square
+// counts for the same roof (Toronto 1,812 vs 1,764; Miami 703 vs 378). Source of truth
+// is Google's wholeRoofStats area (the same number the price is built from).
+function quoteAreaSqFt(){
+  const a=(QUOTE&&QUOTE.roofSqft)||0;
+  return a>0 ? Math.round(a) : 0;
+}
+window.__quoteAreaSqFt=()=>quoteAreaSqFt();
 // The reconstructed facet model (facetsToRoofModel) sometimes under-/over-captures facets, so its area
 // can diverge wildly from reality (seen: 2.9 sq vs Google's ~11 sq on the same roof). The headline PRICE
 // uses Google's wholeRoofStats area (QUOTE.roofSqft), so anchor the model totals to that same authoritative
@@ -1271,7 +1321,7 @@ function sanePitchX12(modelX12){
 }
 function reconcileTotals(t){
   if(!t || !QUOTE || !QUOTE.roofSqft) return t;
-  const gSqFt=QUOTE.roofSqft, mSqFt=t.roofAreaSqFt||0;
+  const gSqFt=quoteAreaSqFt(), mSqFt=t.roofAreaSqFt||0;   // canonical (rounded) area — Measure now matches the card to the foot
   const ratio=mSqFt>0?gSqFt/mSqFt:1, k=Math.sqrt(ratio);
   return Object.assign({}, t, {
     roofAreaSqFt:gSqFt, squares:gSqFt/100,
@@ -1293,6 +1343,54 @@ function reconcileTotals(t){
 // + a "request a precise quote" state instead of $0 / impossible numbers.
 const MIN_PLAUSIBLE_ROOF_SQFT = 350;     // smallest plausible whole-house roof footprint
 const MAX_PLAUSIBLE_ROOF_SQFT = 200000;  // guard absurd over-reads
+// ── FLOATING-PANEL probe (Miami high-rise tell) ───────────────────────────────
+// On a degenerate read Google sometimes places the panel array in mid-air over the
+// gap BETWEEN buildings (the 401 Biscayne case: a 378 ft² mechanical-box "roof" with
+// panels floating over the slot between two towers). The tell is that the panel
+// CENTRES don't sit on ANY detected roof segment plane: the DSM height under each
+// panel is far from every segment's plane (h − d·tanP). Reuse classifyPanelPlane's
+// residual. Returns the FRACTION of the dominant array that is non-coplanar with any
+// segment (0 when we can't sample the DSM — never penalise on missing data).
+const PANEL_FLOAT_RES_M = 1.5;   // panel >1.5 m off the NEAREST segment plane = floating / on a different structure
+function panelFloatFraction(spv){
+  try{
+    spv=spv||(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
+    if(!spv) return {frac:0, sampled:0};
+    const segs=spv.roofSegmentStats||[]; const panels=spv.solarPanels||[];
+    if(!segs.length || !panels.length) return {frac:0, sampled:0};
+    const dsm=LASTDSM; if(!dsm||!dsm.rasters) return {frac:0, sampled:0};   // no DSM loaded yet → can't disprove
+    const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
+    const dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
+    // sample the most-productive panels (the ones an array would actually use), capped for speed
+    const list=panels.slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)).slice(0,Math.min(40,panels.length));
+    let sampled=0, floating=0;
+    for(const pn of list){
+      const cl=classifyPanelPlane(pn,segs,zone,dg);
+      if(!cl||!isFinite(cl.bestRes)) continue;   // off-raster / void → can't disprove this panel
+      sampled++;
+      if(cl.bestRes>PANEL_FLOAT_RES_M) floating++;
+    }
+    return { frac: sampled? floating/sampled : 0, sampled };
+  }catch(_){ return {frac:0, sampled:0}; }
+}
+// ── SMALL-SEGMENT-VS-FOOTPRINT probe ──────────────────────────────────────────
+// Miami also slips the area floor (378 > 350) because Google latched onto a small
+// rooftop box. But the segment bounding extent of the whole "building" it returned is
+// vast (gap between two towers), so the DOMINANT roof area is implausibly small
+// relative to the bounding footprint. A real house roof fills most of its own bbox
+// (ratio ~0.4–0.9); a tiny box inside a huge extent reads ~<0.12. Returns that ratio.
+function segmentVsFootprintRatio(spv){
+  try{
+    spv=spv||(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
+    if(!spv) return null;
+    const g=bldgGeom(spv); const roofM2=(spv.wholeRoofStats&&spv.wholeRoofStats.areaMeters2)||0;
+    if(!roofM2) return null;
+    const lat=(g.s+g.n)/2, hM=(g.n-g.s)*111320, wM=(g.e-g.w)*111320*Math.cos(lat*Math.PI/180);
+    const bboxM2=Math.max(1, hM*wM);
+    return roofM2/bboxM2;
+  }catch(_){ return null; }
+}
+const MIN_SEG_FOOTPRINT_RATIO = 0.12;   // dominant roof < 12% of its own bbox extent → implausible (Miami gap)
 function roofDataConfidence(){
   const reasons=[];
   const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv)||{};
@@ -1312,12 +1410,25 @@ function roofDataConfidence(){
   try{ const rc=roofOverlayConfidence(); if(rc && rc.ok===false) reasons.push("canopy"); }catch(_){}
   // Model gate already computed a hard "this geometry is unusable" verdict in buildScene.
   if(window.__modelQuality===false) reasons.push("bad-model");
+  // ── FLOATING-ARRAY signal (Miami 401 Biscayne) ──────────────────────────────
+  // Panels placed in mid-air over the gap between buildings: a large fraction of the
+  // dominant array sits >1.5 m off EVERY detected segment plane. Only trust this when
+  // we actually sampled a meaningful number of panels against a loaded DSM (sampled>=8),
+  // so a roof whose DSM hasn't loaded yet is never penalised. >35% floating = the tell.
+  const flt=panelFloatFraction(spv); window.__panelFloatFrac=+flt.frac.toFixed(2); window.__panelFloatSampled=flt.sampled;
+  if((flt.sampled>=8 && flt.frac>0.35) || window.__floatingDegrade===true) reasons.push("floating");
+  // ── SMALL-SEGMENT-VS-FOOTPRINT signal (Miami) ───────────────────────────────
+  // Dominant roof area is an implausibly small slice of its own bounding extent — a
+  // small rooftop box latched inside a vast gap between towers.
+  const segRatio=segmentVsFootprintRatio(spv); window.__segFootprintRatio=segRatio!=null?+segRatio.toFixed(3):null;
+  if(segRatio!=null && segRatio<MIN_SEG_FOOTPRINT_RATIO) reasons.push("small-segment");
   // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
-  // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery).
-  const hard = reasons.includes("tiny-roof")||reasons.includes("huge-roof")||reasons.includes("no-segments");
-  const soft = reasons.filter(r=>r!=="tiny-roof"&&r!=="huge-roof"&&r!=="no-segments").length;
+  // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery, or floating + small-segment).
+  // A confirmed floating array is itself disqualifying (panels literally in the air) → treat as hard.
+  const hard = reasons.includes("tiny-roof")||reasons.includes("huge-roof")||reasons.includes("no-segments")||reasons.includes("floating");
+  const soft = reasons.filter(r=>r!=="tiny-roof"&&r!=="huge-roof"&&r!=="no-segments"&&r!=="floating").length;
   const low = hard || soft>=2;
-  return { low, hard, reasons, areaSqFt:Math.round(areaSqFt), panelCfgs, maxPanels, iq };
+  return { low, hard, reasons, areaSqFt:Math.round(areaSqFt), panelCfgs, maxPanels, iq, floatFrac:+flt.frac.toFixed(2), segRatio:window.__segFootprintRatio };
 }
 window.__roofDataConfidence=()=>roofDataConfidence();
 // Graceful low-confidence card: honest "we couldn't get a confident read" + a precise-quote CTA,
@@ -1328,6 +1439,22 @@ function lowConfidenceCardBody(conf){
     '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
     '<div class="qsub" style="margin-top:6px">This address is heavily shaded or has lower-resolution 3D imagery, so an instant satellite measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
     '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
+}
+// Hard-failure degrade card: a backend/parse error (geocode/solar/datalayers unavailable, bad JSON,
+// transient 5xx) must NEVER surface a raw exception string to the customer. Show the SAME graceful
+// "request an on-site quote" UX as the low-confidence path. This is a real user-facing handler — it
+// renders an actionable card, not a silent swallow — so it satisfies the no-silent-catch guard.
+function showGracefulDegrade(){
+  try{
+    const card=$("card"); if(!card) return;
+    if(typeof window.__leaveHero==="function") window.__leaveHero();
+    setStatus("");                       // clear any prior raw status chip
+    card.style.display="block";
+    card.innerHTML='<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — we couldn’t get a confident read</div>'+
+      '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
+      '<div class="qsub" style="margin-top:6px">We couldn’t pull confident satellite data for this address right now, so an instant measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
+      '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
+  }catch(_){ /* card unavailable (pre-mount) — nothing safe to render */ }
 }
 function recommendedWasteIdx(t){
   // cut-up roofs (valleys + hips heavy relative to area) need more waste: simple gable ~10%,
@@ -1426,11 +1553,15 @@ function renderQuoteCard(){
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
   const isCommercial=tradeMode==="solar" && solarTiers.length && bestKw>30 && view!=="sun" && view!=="measure";
-  // ── LOW-CONFIDENCE GATE ── poor Google data (tree-blob / lower-res tiles) → never present a
-  // confident $0/impossible quote. Show the graceful "request a precise quote" card on the
-  // headline price views (panels/material). Measure & Sun carry their own approximate banners.
+  // ── LOW-CONFIDENCE GATE (SINGLE SOURCE OF TRUTH) ── poor Google data (tree-blob / lower-res
+  // tiles / floating array / tiny-box-on-huge-footprint) → never present a confident quote.
+  // The verdict is computed ONCE here and ALL lenses consume it: when low-confidence, EVERY lens
+  // (Panels / Materials / Measure / Sun) shows the graceful "request a precise quote" card —
+  // so the tabs can never contradict (Bedford bug: Solar said "no confident read" while Measure
+  // showed a confident 1,697 ft² / 3 facets), and Measure never sits on a stuck "Measuring your
+  // roof…" spinner over a Google POI map (the Getty case).
   const conf=roofDataConfidence(); window.__roofDataConf=conf;
-  const lowConf=conf.low && (view==="panels"||view==="material");
+  const lowConf=conf.low;
   if(lowConf){ body=lowConfidenceCardBody(conf); }
   else if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
   else if(view==="measure"){ body=measureCardBody(); }
@@ -1439,7 +1570,7 @@ function renderQuoteCard(){
     // For an ATTACHED home this is reachable by toggling "Whole building" — so always offer a way back to the unit.
     const backToUnit=window.__attached?'<div class="opt-row" style="margin-bottom:8px"><span class="opt-l">Roof'+HCUE("section")+'</span><button class="sm" data-sect="mine">⌂ My section</button><button class="sm on" data-sect="whole">Whole building</button></div>':'';
     body=backToUnit+'<div class="qprice">'+bestKw+' kW</div><div class="qsub">Large roof — solar potential beyond a standard home system'+(window.__attached?' (whole building)':'')+'.</div>'+
-      '<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
+      '<div class="grid"><div class="stat"><div class="v">'+quoteAreaSqFt().toLocaleString()+'</div><div class="l">sq ft</div></div>'+
       '<div class="stat"><div class="v">'+bestKw+'</div><div class="l">kW potential</div></div>'+
       '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>'+
       '<div class="qnote" style="margin-top:9px">'+(window.__attached?'Switch to <b>My section</b> above for an instant per-unit price, or request a custom commercial quote for the whole building.':'Request a custom commercial quote for accurate pricing.')+'</div>';
@@ -1538,7 +1669,7 @@ function renderQuoteCard(){
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
-    const stats='<div class="grid"><div class="stat"><div class="v">'+Math.round(QUOTE.roofSqft).toLocaleString()+'</div><div class="l">sq ft</div></div>'+
+    const stats='<div class="grid"><div class="stat"><div class="v">'+quoteAreaSqFt().toLocaleString()+'</div><div class="l">sq ft</div></div>'+
       '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
       '<div class="stat"><div class="v">'+QUOTE.facets+'</div><div class="l">facets</div></div></div>';
     if(sel){
@@ -1897,18 +2028,23 @@ function exitGrey(){
   const mh=$("matHint"); if(mh){ mh.style.display="none"; }
 }
 /* Gate the grey "Model" lens on roofs whose Solar segments don't assemble into a coherent solid
-   (fragmented → floating shards). When gated, hide the Model button so we never present a broken model;
-   a clean model on good roofs beats shards on bad ones. window.__modelQuality is set in buildScene. */
+   (fragmented → floating shards). When gated we DISABLE the button (greyed, non-interactive) rather
+   than removing it, so the lens rail shows the SAME button set on every address — the Miami high-rise
+   showed fewer buttons than a normal home, which looked broken. A clean model on good roofs beats
+   shards on bad ones, so it stays un-clickable when the massing is fragmented. __modelQuality is set in buildScene. */
 function applyModelGate(){
   const b=$("bModel"); if(!b) return;
   const solar=(window.__trade||tradeMode)==="solar";
   const ok=window.__modelQuality!==false;
   // only relevant in Solar (Model is a Solar-context tool); applyTradeMode owns the solar/roof show/hide.
-  if(solar && !ok){
-    if(greyMode && typeof exitGrey==="function") exitGrey();   // back out of a broken model if we're in it
-    b.style.display="none";
-  } else if(solar){
+  if(solar){
     b.style.display="flex";
+    if(!ok){
+      if(greyMode && typeof exitGrey==="function") exitGrey();   // back out of a broken model if we're in it
+      b.classList.add("lens-na"); b.title="Clean 3D model — not available for this roof";
+    } else {
+      b.classList.remove("lens-na"); b.title="Clean 3D model";
+    }
   }
 }
 
@@ -2003,10 +2139,14 @@ async function run(addr){
     try{ await setMode("photoreal"); }catch(e){ errors.push("defaultPhoto:"+e.message); }
     setTimeout(()=>{ if(window.__roofReady){ fetch("/capture?address="+encodeURIComponent($("addr").value.trim())).catch(()=>{}); fetchFeatures(); } }, 2500);   // pre-warm capture (free) + detect roof penetrations so they show in the quote
     applySharedSelection();   // if arrived via a shared link with &m/&c, land on that exact material quote
-  }catch(e){ showLoad(false); errors.push("run:"+e.message); window.__roofReady=false;
+  }catch(e){ showLoad(false); errors.push("run:"+((e&&e.message)||e)); window.__roofReady=false;
     const ll=window.__ll;
-    if(ll && /solar|DSM|RGB|no_solar|layers/i.test(e.message||"")){ try{ if(await pvwattsFallback(ll)) return; }catch(_){} }
-    setStatus("Couldn’t build 3D: "+e.message,true); }
+    if(ll && /solar|DSM|RGB|no_solar|layers/i.test((e&&e.message)||"")){ try{ if(await pvwattsFallback(ll)) return; }catch(_){} }
+    // GRACEFUL UI: never leak the raw exception/parse string ("Unexpected non-whitespace character
+    // after JSON…") to the customer. Show the same approximate / request-on-site-quote card as the
+    // low-confidence path. The dev detail stays in errors[]/console for diagnostics only.
+    try{ console.warn("roofquote degrade:", (e&&e.message)||e); }catch(_){}
+    showGracefulDegrade(); }
 }
 /* ======================= PHOTOREAL MODE (Google 3D tiles + panels as 3D polygons) ======================= */
 let gmap=null, photoPanels=[], photoLabels=[], mode="schematic", sunMode=false, panelsVisible=true, labelsVisible=false, greyMode=false;
@@ -2728,14 +2868,18 @@ async function buildPhotoPanels(){
   // (PRIMARY = Google flux/shade mask, then off-mask, DSM height, RGB vegetation) while
   // panels on the open roof render normally — the array fills the roof with gaps where
   // trees/patio sit, never a panel on a tree. Plus the legacy plane-residual clamp + inset.
-  let dropped=0, considered=0, byOccl=0; const keep=[];
+  let dropped=0, considered=0, byOccl=0, byFloat=0; const keep=[];
   for(const pn of list){
     if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
     considered++;
+    // FLOATING filter (Miami 401 Biscayne): panel sits >1.5 m off EVERY detected segment plane —
+    // it's in mid-air over the gap between buildings, not on any roof. Never draw it. Tracked
+    // separately from occlusion so the post-filter degrade message is honest (floating ≠ tree cover).
+    const cl=classifyPanelPlane(pn,segs,zone,dg);
+    if(cl && isFinite(cl.bestRes) && cl.bestRes>PANEL_FLOAT_RES_M){ dropped++; byFloat++; continue; }
     // PRIMARY crop: shade(flux)/tree/patio/yard/driveway footprint test. (?nocrop=1 bypasses for before/after comparison only.)
     if(!window.__noCrop && panelOccluded(pn,seg,zone,occlCtx)){ dropped++; byOccl++; continue; }
     // #2 plane-residual clamp: drop panels Google placed onto a different/wrong plane.
-    const cl=classifyPanelPlane(pn,segs,zone,dg);
     if(cl && (cl.ownRes>RES_CLAMP_M || (cl.bestIdx!==pn.segmentIndex && cl.bestRes+0.5<cl.ownRes))){ dropped++; continue; }
     // #3 setback inset: panel centre must sit inside the segment bbox shrunk by INSET_M.
     const ib=insetBox(seg);
@@ -2744,7 +2888,20 @@ async function buildPhotoPanels(){
     keep.push({pn,seg});
   }
   const dropFrac=considered?dropped/considered:0;
-  window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelOcclDrop=byOccl; window.__panelCropped=considered-keep.length;
+  window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelOcclDrop=byOccl; window.__panelFloatDrop=byFloat; window.__panelCropped=considered-keep.length;
+  // ── FLOATING-ARRAY DEGRADE ────────────────────────────────────────────────
+  // After filtering ~0 valid panels remain AND the dominant reason was floating (not tree
+  // occlusion) → this is the Miami gap-floater read, not a shaded roof. Push the widget to
+  // low-confidence and re-render the graceful "request an on-site quote" card instead of a
+  // confident price or the misleading "under tree cover" count-only message.
+  window.__floatingDegrade=false;
+  if(considered>=6 && keep.length<=Math.max(2,considered*0.05) && byFloat>=byOccl){
+    window.__floatingDegrade=true; window.__photoPanels=0;
+    for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
+    setOverlayNote(false);
+    try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}   // confidence gate now reads __floatingDegrade → low-confidence card
+    return;
+  }
   // COUNT-ONLY FALLBACK (degenerate only): almost the whole roof is obstructed, so there's
   // too little bare roof to show a meaningful layout → show count + savings on the card
   // instead of a sparse handful of panels. Not the default — only when >COUNT_ONLY_REJECT_FRAC rejected.
@@ -2769,7 +2926,7 @@ async function setMode(mo){
   $("sunbar").style.display=(!photo&&window.__roofReady)?"flex":"none";
   if(photo){
     showLoad("Loading photoreal 3D…");
-    try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+e.message); setStatus("Photoreal: "+e.message,true); }
+    try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+((e&&e.message)||e)); try{ console.warn("photoreal degrade:",(e&&e.message)||e); }catch(_){} setStatus("3D view unavailable — your quote is shown on the card."); }   // enhancement-only failure: never leak a raw exception string; the price card already rendered
     showLoad(false);
   } else setStatus("");
   window.__mode=mode;
@@ -2868,7 +3025,7 @@ function openReport(){
      <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
      ${measurementReport(_rt, sqs)}
      <div class="sec"><h2>The plan at a glance</h2>
-       <div class="bul"><span class="bm"></span><div>Roof: <b>${Math.round(QUOTE.roofSqft).toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
+       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
