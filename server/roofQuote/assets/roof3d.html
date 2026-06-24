@@ -59,15 +59,16 @@
     #hero #goHero{height:50px;width:100%}
     #hero #addrHero{height:50px}
     #hero .hero-trust{gap:7px 14px;margin-top:18px}
-    /* top search bar (active/quote state): at 375px the fixed "Get Quote" button squeezed the
-       input so the entered address was clipped under the button. Let the input keep its full width
-       with a min-width floor, shrink the button's padding/label, and never let it steal input space. */
-    #bar{gap:6px}
-    #addr{min-width:0;font-size:14px;padding:11px 12px;text-overflow:ellipsis}
-    #go{flex:0 0 auto;padding:0 14px;font-size:14px;white-space:nowrap}
+    /* top search bar (active/quote state): at 375px the side-by-side "Get Quote" button squeezed the
+       input and the entered address was clipped under it (wave-2 ellipsis only HID the clip, it didn't
+       fix it). STACK the input above the button so the input gets the full bar width and the whole
+       address ("…TX 75201") is always readable — same pattern the hero bar already uses on mobile. */
+    #bar{gap:6px;flex-direction:column}
+    #addr{min-width:0;width:100%;font-size:14px;padding:12px 13px;text-overflow:clip}
+    #go{width:100%;flex:0 0 auto;height:44px;padding:0 14px;font-size:14px;white-space:nowrap}
   }
   @media (max-width:380px){
-    #addr{padding:10px 11px;font-size:13.5px}
+    #addr{padding:11px 12px;font-size:14px}
     #go{padding:0 12px}
   }
   /* status chip */
@@ -80,8 +81,11 @@
      these top toasts. Drop both below the button band (its bottom ≈ 100px) and lift their z above it so
      the "Showing approx… {material}" toast stays readable. */
   @media (max-width:560px){
-    #status{top:104px;left:50%;right:auto;transform:translateX(-50%);text-align:center;max-width:94vw;z-index:22}
-    #overlayNote{top:104px;font-size:12px;max-width:94vw;z-index:22}
+    /* the active search bar now STACKS (input over button) → it's ~112px tall. Push the top toasts
+       and the centered AI button below it so nothing overlaps the bar. */
+    #status{top:128px;left:50%;right:auto;transform:translateX(-50%);text-align:center;max-width:94vw;z-index:22}
+    #overlayNote{top:128px;font-size:12px;max-width:94vw;z-index:22}
+    #aiBtn{top:118px}
   }
   /* report card */
   /* Cap the desktop card so a tall quote never grows up past the address bar (#bar bottom ≈ 60px). It is
@@ -1111,7 +1115,7 @@ function roofSolarAccess(){
     const access=Math.min(100,Math.round(100*md/mx)), tof=Math.min(100,Math.round(100*mx/siteBest)), tsrf=Math.min(100,Math.round(100*md/siteBest));
     wsum+=area; tsrfW+=tsrf*area; accW+=access*area; tofW+=tof*area;
     return { az:Math.round(s.azimuthDegrees||0), dir:compass(s.azimuthDegrees||0), pitch:Math.round(s.pitchDegrees||0),
-      x12:Math.round(Math.abs(Math.tan((s.pitchDegrees||0)*Math.PI/180))*12), sqft:Math.round(area*M2_SQFT), access, tof, tsrf }; })
+      x12:facetX12(s.pitchDegrees), sqft:Math.round(area*M2_SQFT), access, tof, tsrf }; })
     .sort((a,b)=>b.tsrf-a.tsrf);
   const W=wsum||1, tsrf=Math.round(tsrfW/W), access=Math.round(accW/W), tof=Math.round(tofW/W);
   const rating=tsrf>=85?"excellent":tsrf>=75?"good":tsrf>=60?"fair":"limited";
@@ -1129,7 +1133,17 @@ function sunCardBody(){
     '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
     '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>';
 }
-function measureCardBody(){
+function measureCardBody(largeRoof){
+  // SINGLE-VERDICT GATE: a large/commercial roof routes Solar to "request a commercial quote"; the
+  // Measure/Roofing lens must NOT contradict it with a confident 55k-ft² takeoff + "Lock in my rate"
+  // CTA (audit-3 P0: Empire State / 1700 Owens / commercial). Show the same custom-quote message — one
+  // verdict, every lens agrees. This is a real user-facing card (not a silent swallow).
+  if(largeRoof){
+    return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Large / commercial roof</div>'+
+      '<div class="qprice" style="font-size:20px;line-height:1.25">This roof is too large for an instant takeoff</div>'+
+      '<div class="qsub" style="margin-top:6px">A roof this size needs a measured commercial estimate — an instant satellite takeoff wouldn’t be accurate enough to price from. Request a custom quote and we’ll measure it properly.</div>'+
+      '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__openCapture&&window.__openCapture()">Request a commercial quote →</button>';
+  }
   // totals come from getRoofTotals (facet model anchored to Google area). If the model never
   // produced totals we briefly show "Measuring…", but once the roof read is DONE with no usable
   // totals we must NOT sit on a stuck spinner (Getty: POI geocode, no building) — fall through to
@@ -1302,6 +1316,13 @@ window.__quoteAreaSqFt=()=>quoteAreaSqFt();
 // physically-impossible pitch presented as a confident measurement.
 const MAX_RES_PITCH_X12 = 12;   // 12/12 = 45° — steepest residential pitch we'll display
 function deg2x12(deg){ return Math.round(Math.abs(Math.tan((deg||0)*Math.PI/180))*12); }
+// PER-FACET pitch sanity clamp — same MAX_RES_PITCH_X12 ceiling the predominant pitch uses
+// (sanePitchX12). A 21/12 (~60°) facet label on a suburban house is a DSM/segment artifact, not a
+// real residential plane; never DISPLAY an impossible per-facet pitch. (audit-3 P1: Dallas 21/12.)
+function facetX12(degOrX12,{fromX12=false}={}){
+  let v = fromX12 ? (degOrX12||0) : deg2x12(degOrX12);
+  return Math.min(MAX_RES_PITCH_X12, Math.max(0, Math.round(v||0)));
+}
 function googlePredominantPitchX12(){
   const spv=(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
   const segs=(spv&&spv.roofSegmentStats)||[];
@@ -1418,6 +1439,12 @@ function roofDataConfidence(){
   // so a roof whose DSM hasn't loaded yet is never penalised. >35% floating = the tell.
   const flt=panelFloatFraction(spv); window.__panelFloatFrac=+flt.frac.toFixed(2); window.__panelFloatSampled=flt.sampled;
   if((flt.sampled>=8 && flt.frac>0.35) || window.__floatingDegrade===true) reasons.push("floating");
+  // ── CANOPY-OCCLUSION signal (audit-3 Dallas) ────────────────────────────────
+  // buildPhotoPanels cropped >50% of the real array around tree canopy → most of this roof is not
+  // visible to a satellite read. A roof you mostly can't see should not get a confident price. STRONG
+  // signal (treated as hard) so it degrades on its own, while a lightly-shaded suburban roof (mostly
+  // placeable, occlFrac<=0.5) stays confident. Set by buildPhotoPanels after the real crop runs.
+  if(window.__canopyDegrade===true) reasons.push("canopy-heavy");
   // ── SMALL-SEGMENT-VS-FOOTPRINT signal (Miami) ───────────────────────────────
   // Dominant roof area is an implausibly small slice of its own bounding extent — a
   // small rooftop box latched inside a vast gap between towers.
@@ -1426,8 +1453,9 @@ function roofDataConfidence(){
   // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
   // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery, or floating + small-segment).
   // A confirmed floating array is itself disqualifying (panels literally in the air) → treat as hard.
-  const hard = reasons.includes("tiny-roof")||reasons.includes("huge-roof")||reasons.includes("no-segments")||reasons.includes("floating");
-  const soft = reasons.filter(r=>r!=="tiny-roof"&&r!=="huge-roof"&&r!=="no-segments"&&r!=="floating").length;
+  const HARD_REASONS=["tiny-roof","huge-roof","no-segments","floating","canopy-heavy"];
+  const hard = reasons.some(r=>HARD_REASONS.includes(r));
+  const soft = reasons.filter(r=>!HARD_REASONS.includes(r)).length;
   const low = hard || soft>=2;
   return { low, hard, reasons, areaSqFt:Math.round(areaSqFt), panelCfgs, maxPanels, iq, floatFrac:+flt.frac.toFixed(2), segRatio:window.__segFootprintRatio };
 }
@@ -1436,9 +1464,18 @@ window.__roofDataConfidence=()=>roofDataConfidence();
 // shown INSTEAD of a confident $0/garbage breakdown.
 function lowConfidenceCardBody(conf){
   const addr=($("addr")&&$("addr").value)||"this address";
-  return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — lower-resolution imagery</div>'+
+  // HONEST REASON (audit-3 P2): don't assert "tree cover / shaded" when canopy wasn't the trigger.
+  // Wrigley (a steel stadium) degraded on low-resolution/no-segments, yet the copy claimed "tree cover".
+  // Only name canopy when a canopy/shade signal actually fired; otherwise use a neutral reason.
+  const reasons=(conf&&conf.reasons)||[];
+  const canopyTrig=reasons.includes("canopy")||reasons.includes("canopy-heavy");
+  const reasonLine = canopyTrig
+    ? 'This roof is heavily shaded by tree cover, so an instant satellite measurement here wouldn’t be accurate.'
+    : 'We couldn’t get clear enough 3D imagery for this address, so an instant satellite measurement here wouldn’t be accurate.';
+  const eyebrow = canopyTrig ? 'Approximate estimate — heavy tree cover' : 'Approximate estimate — limited 3D imagery';
+  return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">'+eyebrow+'</div>'+
     '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
-    '<div class="qsub" style="margin-top:6px">This address is heavily shaded or has lower-resolution 3D imagery, so an instant satellite measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
+    '<div class="qsub" style="margin-top:6px">'+reasonLine+' A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
     '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
 }
 // Hard-failure degrade card: a backend/parse error (geocode/solar/datalayers unavailable, bad JSON,
@@ -1553,7 +1590,12 @@ function renderQuoteCard(){
   let body="";
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
-  const isCommercial=tradeMode==="solar" && solarTiers.length && bestKw>30 && view!=="sun" && view!=="measure";
+  // VIEW-INDEPENDENT "large / commercial roof" verdict. Computed once so EVERY lens agrees:
+  // a skyscraper that routes Solar to "request commercial quote" must NOT let the Measure/Roofing
+  // lens show a confident 55k-ft² takeoff + "Lock in my rate" (audit-3 P0: lenses contradicted).
+  const largeRoof = solarTiers.length>0 && bestKw>30;
+  window.__largeRoof=largeRoof;
+  const isCommercial=tradeMode==="solar" && largeRoof && view!=="sun" && view!=="measure";
   // ── LOW-CONFIDENCE GATE (SINGLE SOURCE OF TRUTH) ── poor Google data (tree-blob / lower-res
   // tiles / floating array / tiny-box-on-huge-footprint) → never present a confident quote.
   // The verdict is computed ONCE here and ALL lenses consume it: when low-confidence, EVERY lens
@@ -1565,7 +1607,10 @@ function renderQuoteCard(){
   const lowConf=conf.low;
   if(lowConf){ body=lowConfidenceCardBody(conf); }
   else if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
-  else if(view==="measure"){ body=measureCardBody(); }
+  // Measure/Roofing lens must obey the SAME single verdict the Solar card uses. On a large/commercial
+  // roof (or any low-confidence read) the takeoff would be a misleading "confident" survey — degrade
+  // instead. measureCardBody(true) renders the commercial/approximate message, never the takeoff + CTA.
+  else if(view==="measure"){ body=measureCardBody(largeRoof); }
   else if(isCommercial){
     // large/commercial roof — a residential auto-quote ($/W tiers) isn't meaningful; route to a custom quote.
     // For an ATTACHED home this is reachable by toggling "Whole building" — so always offer a way back to the unit.
@@ -1583,6 +1628,19 @@ function renderQuoteCard(){
     let panels=t.panels, sysKw=t.kw, sysKwh=t.kwhAc||0, sysMonthly=t.monthly||0, lo=t.lo, hi=t.hi;
     if(sizePct!==1){ panels=Math.max(4,Math.round(t.panels*sizePct)); const f=panels/Math.max(1,t.panels);
       sysKw=+(t.kw*f).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*f); sysMonthly=Math.round((t.monthly||0)*f); lo=Math.round(t.lo*f); hi=Math.round(t.hi*f); }
+    // ── PLACEABLE-PANEL RECONCILE (audit-3 Dallas) ──────────────────────────
+    // The 3D overlay crops panels off tree canopy / patio / wrong planes. When a meaningful fraction is
+    // cropped (but not enough to fully degrade), the QUOTE must reflect the panels that actually FIT —
+    // not Google's full array — so the card never promises 75 panels while the roof shows 50. Scale
+    // count/kW/kWh/$/monthly by the survivor fraction. keepFrac≈1 on a clean roof → no change. Only
+    // applied when the user hasn't manually resized (sizePct===1) so the slider stays authoritative.
+    const keepFrac=window.__panelKeepFrac;
+    if(sizePct===1 && view==="panels" && !window.__attached && keepFrac!=null && keepFrac<0.985 && keepFrac>0){
+      const placeable=Math.max(4,Math.round(t.panels*keepFrac)); const g=placeable/Math.max(1,t.panels);
+      panels=placeable; sysKw=+(t.kw*g).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*g);
+      sysMonthly=Math.round((t.monthly||0)*g); lo=Math.round(t.lo*g); hi=Math.round(t.hi*g);
+      window.__quoteScaledByCrop=+g.toFixed(2);
+    } else { window.__quoteScaledByCrop=1; }
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
     const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
@@ -1910,7 +1968,7 @@ function buildScene(b, dsm, rgb, rgbTex){
     edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
     // per-facet sq-ft + pitch label
     const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
-    const x12=Math.round(Math.abs(Math.tan((seg.pitchDegrees||0)*Math.PI/180))*12);
+    const x12=facetX12(seg.pitchDegrees);
     if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(c.x, y0+2.4, c.z); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
   }
 
@@ -2529,7 +2587,7 @@ async function buildRoofMeasure(){
   const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
   const mScale=(QUOTE&&QUOTE.roofSqft&&mPlaneSum>0)?(QUOTE.roofSqft/mPlaneSum):1;
   for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
-    const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round((p.areaSqFt||0)*mScale)+" ft² · "+p.pitchX12+"/12", true); }
+    const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12", true); }
   showRoofReport(model.totals);
   $("measToggle").style.display="flex"; showMeasDiagram(true);   // Scanifly-style top-down is the default lens; 3D is a toggle
   window.__roofMeas={ planes:model.planes.length, edges:model.edges.length, totals:model.totals };
@@ -2623,7 +2681,7 @@ function renderRoofDiagram(){
   const dPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
   const dScale=(QUOTE&&QUOTE.roofSqft&&dPlaneSum>0)?(QUOTE.roofSqft/dPlaneSum):1;
   for(const f of fp.slice().sort((a,b)=>b.p.areaSqFt-a.p.areaSqFt)){
-    const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=f.p.pitchX12+"/12";
+    const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
     ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
     ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
     const pw=Math.max(w1,w2)+fs*0.9, ph=fs*2.5, cx=f.cx, cy=f.cy;
@@ -2688,7 +2746,7 @@ async function buildPhotoLabels(){
   for(const f of facets){
     // displayed area = Google's reliable tilt-adjusted segment area (the eroded outline is for the visual only)
     const ga=(f.seg.stats&&f.seg.stats.areaMeters2)||f.slopeArea;
-    const sqft=Math.round(ga*M2_SQFT), x12=Math.round(Math.abs(Math.tan((f.seg.pitchDegrees||0)*Math.PI/180))*12);
+    const sqft=Math.round(ga*M2_SQFT), x12=facetX12(f.seg.pitchDegrees);
     try{
       const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:"rgba(34,211,238,0.15)", strokeColor:"rgba(34,211,238,0.95)", strokeWidth:2, extruded:false, drawsOccludedSegments:false });
       poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.6})); gmap.append(poly); photoLabels.push(poly);
@@ -2889,7 +2947,19 @@ async function buildPhotoPanels(){
     keep.push({pn,seg});
   }
   const dropFrac=considered?dropped/considered:0;
+  // OCCLUSION fraction = panels dropped specifically by the canopy/shade/off-roof crop (NOT floating /
+  // plane / inset). This is the honest "how much of the roof is under tree cover" measure. Exposed so
+  // (a) the quote can recompute count/kW/$ from the placeable panels and (b) the confidence gate can
+  // degrade a mostly-canopy lot to "request on-site quote". keepFrac drives the quote scaling.
+  const occlFrac = considered ? byOccl/considered : 0;
+  const keepFrac = considered ? keep.length/considered : 1;
   window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelOcclDrop=byOccl; window.__panelFloatDrop=byFloat; window.__panelCropped=considered-keep.length;
+  window.__panelOcclFrac=+occlFrac.toFixed(2); window.__panelKeepFrac=+keepFrac.toFixed(2); window.__panelKept=keep.length; window.__panelConsidered=considered;
+  // CANOPY DEGRADE signal: a roof we mostly can't see (>50% of the array cropped by canopy/shade/off-roof)
+  // should NOT get a confident $75k number. Mark it so roofDataConfidence() treats canopy as a STRONG
+  // signal → "Approximate estimate — request on-site quote". A lightly-shaded suburban roof (mostly
+  // placeable) stays CONFIDENT. Only meaningful once we actually tested a real array (considered>=8).
+  window.__canopyDegrade = (considered>=8 && occlFrac>0.50);
   // ── FLOATING-ARRAY DEGRADE ────────────────────────────────────────────────
   // After filtering ~0 valid panels remain AND the dominant reason was floating (not tree
   // occlusion) → this is the Miami gap-floater read, not a shaded roof. Push the widget to
@@ -2909,7 +2979,23 @@ async function buildPhotoPanels(){
   window.__panelSafetyNet=false; window.__countOnly=false;
   if(considered>=6 && dropFrac>COUNT_ONLY_REJECT_FRAC){
     window.__panelSafetyNet=true; window.__countOnly=true; window.__photoPanels=0;
-    setOverlayNote(true, "This roof is mostly under tree cover — your system is shown as count + savings (too little open roof for a panel layout).");
+    // Honest note: only blame tree cover when occlusion actually dominated the crop; otherwise stay neutral.
+    const note=(byOccl>=byFloat)
+      ? "This roof is mostly under tree cover — your system is shown as count + savings (too little open roof for a panel layout)."
+      : "Too little clearly-visible open roof here for a panel layout — your system is shown as count + savings.";
+    setOverlayNote(true, note);
+    return;
+  }
+  // ── CANOPY-HEAVY DEGRADE (audit-3 Dallas) ─────────────────────────────────
+  // >50% of the array is cropped by tree canopy/shade/off-roof: most of this roof is under cover, so a
+  // confident $75k / 75-panel / 30 kW number is dishonest. Re-render the card so roofDataConfidence()
+  // (which reads __canopyDegrade) shows the graceful "Approximate estimate — request on-site quote".
+  // Don't drape the sparse surviving handful onto a mostly-invisible roof.
+  if(window.__canopyDegrade){
+    window.__photoPanels=0;
+    for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
+    setOverlayNote(false);
+    try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
     return;
   }
   setOverlayNote(false);
@@ -2919,6 +3005,15 @@ async function buildPhotoPanels(){
     poly.outerCoordinates=panelCornersLL(pn,seg,zone,pw,ph); gmap.append(poly); photoPanels.push(poly);
   }
   window.__photoPanels=photoPanels.length;
+  // ── QUOTE↔OVERLAY RECONCILE (audit-3): when SOME panels were cropped (but not enough to degrade),
+  // the displayed count/kW/$ must reflect the PLACEABLE panels, not Google's full array — otherwise the
+  // card promises 75 panels while the roof shows 50. Record the survivor fraction; renderQuoteCard
+  // scales the panel/kW/$ figures by it. keepFrac≈1 on a clean roof → no change.
+  window.__panelKeepFrac = considered ? +(keep.length/considered).toFixed(2) : 1;
+  if(window.__lastKeepFrac==null || Math.abs(window.__lastKeepFrac-window.__panelKeepFrac)>0.01){
+    window.__lastKeepFrac=window.__panelKeepFrac;
+    if(window.__panelKeepFrac<0.985){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }
+  }
 }
 async function setMode(mo){
   mode=mo; const photo=mo==="photoreal";
