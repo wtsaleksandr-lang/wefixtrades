@@ -118,6 +118,30 @@ async function renderFal(dataUri,material,pkg,view){
 }
 const RENDER_CHAIN=[ ["openai",renderOpenAI], ["replicate",renderReplicate], ["gemini",renderGemini], ["fal",renderFal] ];
 
+// ---- DURABLE re-host of rendered images (audit-6 P1) ----
+// Provider delivery URLs (e.g. replicate.delivery/...) are EPHEMERAL → expire to 404.
+// The FIRST visitor cached that soon-dead url, so every LATER visitor got a 404 → black
+// "after" panel. Fix: while the provider url is still alive, fetch the bytes server-side,
+// store them in the on-disk byte cache ("airimg"), and serve them from a STABLE self-hosted
+// route. data: URIs (gemini/openai b64) are already self-contained → no re-host needed.
+// Returns the stable url on success, or null on failure (caller falls back to the raw url).
+async function rehostRenderedImage(ck, providerUrl){
+  if(!providerUrl || providerUrl.startsWith("data:")) return providerUrl;   // data URIs are durable as-is
+  try{
+    const r=await fetch(providerUrl);
+    if(!r.ok) throw new Error("fetch "+r.status);
+    const buf=Buffer.from(await r.arrayBuffer());
+    if(!buf.length) throw new Error("empty");
+    const ct=r.headers.get("content-type")||"image/jpeg";
+    diskSetBuf("airimg",ck,buf);
+    diskSetJSON("airimgct",ck,{ct});   // remember the content-type for the streaming route
+    return "/airender-img?key="+encodeURIComponent(ck);
+  }catch(e){
+    console.error("[airender rehost fail]",e&&e.message||e);   // log + graceful fallback (not a silent swallow)
+    return null;
+  }
+}
+
 // ─── Property Analysis Agent: build a "House Knowledge Package" (Solar API facets + Gemini vision) ───
 const knowledgeCache=new Map();   // address → knowledge package string
 async function geminiVision(buf){
@@ -455,7 +479,9 @@ http.createServer(async (req,res)=>{
     if(!address){ res.end('{"error":"no_address"}'); return; }
     // tier routing: "browse" = cheap Flux/Gemini for catalogue flipping; "final" = gpt-image-1 hero for the settled/quoted colour
     const tier=(u.searchParams.get("tier")==="browse")?"browse":"final";
-    const ck=address+"|"+material+"|"+tier;
+    // "|v2" bumps the cache key so any disk entries cached BEFORE the durable-rehost fix
+    // (which stored soon-to-expire provider urls → 404 → black panel) are skipped, not served.
+    const ck=address+"|"+material+"|"+tier+"|v2";
     if(aiCache.has(ck)){ res.end(JSON.stringify(Object.assign({cached:true},aiCache.get(ck)))); return; }
     { const d=diskGetJSON("air",ck); if(d){ aiCache.set(ck,d); res.end(JSON.stringify(Object.assign({cached:true},d))); return; } }
     try{
@@ -475,11 +501,27 @@ http.createServer(async (req,res)=>{
       const tried=[];
       const chain = tier==="browse" ? RENDER_CHAIN.filter(x=>x[0]!=="openai") : RENDER_CHAIN;   // browse skips the pricey gpt-image-1
       for(const [name,fn] of chain){
-        try{ const url=await fn(dataUri,material,pkg,view); const r={url,provider:name,knowledge:pkg||undefined,tier}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return; }
+        try{
+          const rawUrl=await fn(dataUri,material,pkg,view);
+          // Re-host the provider's (possibly ephemeral) url to a stable self-hosted url so later/cached
+          // visitors never hit an expired 404. On rehost failure, fall back to the raw url (don't fail the render).
+          const stable=await rehostRenderedImage(ck,rawUrl);
+          const url=stable||rawUrl;
+          const r={url,provider:name,knowledge:pkg||undefined,tier}; aiCache.set(ck,r); diskSetJSON("air",ck,r); res.end(JSON.stringify(r)); return;
+        }
         catch(e){ tried.push(name+":"+e.message); console.error("[render fail]",name,e.message); }
       }
       res.end(JSON.stringify({error:"all_providers_failed",tried}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
+    return;
+  }
+  // ---- Stable self-hosted stream of a re-hosted AI render (audit-6 P1): durable url that never 404s ----
+  if(u.pathname==="/airender-img"){
+    const ck=u.searchParams.get("key")||"";
+    const buf=ck?diskGetBuf("airimg",ck):null;
+    if(!buf){ res.statusCode=404; res.setHeader("Content-Type","text/plain"); res.end("not_found"); return; }
+    const meta=diskGetJSON("airimgct",ck)||{}; const ct=meta.ct||"image/jpeg";
+    res.setHeader("Content-Type",ct); res.setHeader("Cache-Control","public, max-age=86400"); res.end(buf);
     return;
   }
   res.setHeader("Content-Type","text/html"); res.end(html);

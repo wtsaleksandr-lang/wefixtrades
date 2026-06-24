@@ -283,6 +283,41 @@ const RENDER_CHAIN: Array<[string, RenderFn]> = [
   ["fal", renderFal],
 ];
 
+// ── DURABLE re-host of rendered images (audit-6 P1) ──
+// Provider delivery URLs (e.g. replicate.delivery/...) are EPHEMERAL → they expire to HTTP 404.
+// The FIRST visitor cached that soon-dead url (aiCache + the on-disk "air" JSON cache), so every
+// LATER visitor to the same address got the dead url → the <img> 404s → naturalWidth:0 → solid-black
+// "after" panel. Fix: while the provider url is still alive, fetch the bytes server-side, store them in
+// the on-disk byte cache ("airimg"), and return a STABLE self-hosted url the route layer serves. data:
+// URIs (gemini/openai b64) are already self-contained → returned unchanged. Returns the stable url on
+// success, or null on failure so the caller can fall back to the raw url (never fails a render on rehost).
+async function rehostRenderedImage(ck: string, providerUrl: string): Promise<string | null> {
+  if (!providerUrl || providerUrl.startsWith("data:")) return providerUrl; // data URIs are durable as-is
+  try {
+    const r = await fetch(providerUrl);
+    if (!r.ok) throw new Error("fetch " + r.status);
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length) throw new Error("empty");
+    const ct = r.headers.get("content-type") || "image/jpeg";
+    diskSetBuf("airimg", ck, buf);
+    diskSetJSON("airimgct", ck, { ct }); // remember the content-type for the streaming route
+    return "/api/roofquote/airender-image?key=" + encodeURIComponent(ck);
+  } catch (e) {
+    // Log + graceful fallback (NOT a silent swallow — no-silent-catch guard): the render still
+    // succeeds with the raw provider url, just without the durability guarantee.
+    log.warn("airender rehost failed (serving raw provider url)", { err: (e as Error).message });
+    return null;
+  }
+}
+
+// Read a re-hosted render's bytes + content-type for the streaming route (server/routes layer).
+export function readRehostedImage(ck: string): { buf: Buffer; contentType: string } | null {
+  const buf = diskGetBuf("airimg", ck);
+  if (!buf) return null;
+  const meta = diskGetJSON<{ ct?: string }>("airimgct", ck);
+  return { buf, contentType: (meta && meta.ct) || "image/jpeg" };
+}
+
 // ── Property Analysis Agent: build a "House Knowledge Package" (Solar facets + Gemini vision) ──
 async function geminiVision(buf: Buffer): Promise<{ roof_type?: string; chimneys?: number; vents?: number }> {
   const GEMINI = geminiKey();
@@ -843,7 +878,9 @@ export async function aiRender(
 ): Promise<AiRenderResult> {
   // Cost gate: an unpaid request can never escalate to the "final" (gpt-image-1) tier.
   const tier: "browse" | "final" = !paid || requestedTier === "browse" ? "browse" : "final";
-  const ck = address + "|" + material + "|" + tier;
+  // "|v2" bumps the cache key so any disk entries cached BEFORE the durable-rehost fix (which stored
+  // soon-to-expire provider urls → 404 → black panel) are skipped, not served (audit-6 P1 invalidation).
+  const ck = address + "|" + material + "|" + tier + "|v2";
   if (aiCache.has(ck)) return { cached: true, ...aiCache.get(ck)! };
   {
     const d = diskGetJSON<AiRenderResult>("air", ck);
@@ -904,7 +941,11 @@ export async function aiRender(
   const chain = tier === "browse" ? RENDER_CHAIN.filter((x) => x[0] !== "openai") : RENDER_CHAIN; // browse skips the pricey gpt-image-1
   for (const [name, fn] of chain) {
     try {
-      const url = await fn(dataUri, material, pkg, view);
+      const rawUrl = await fn(dataUri, material, pkg, view);
+      // Re-host the provider's (possibly ephemeral) url to a stable self-hosted url so later/cached
+      // visitors never hit an expired 404 → black panel. On rehost failure, fall back to the raw url.
+      const stable = await rehostRenderedImage(ck, rawUrl);
+      const url = stable || rawUrl;
       const result: AiRenderResult = { url, provider: name, knowledge: pkg || undefined, tier };
       aiCache.set(ck, result);
       diskSetJSON("air", ck, result);
