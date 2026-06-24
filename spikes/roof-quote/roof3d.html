@@ -389,12 +389,17 @@
   #measToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
-  @media (max-width:560px){ #measToggle{left:8px;transform:none;top:60px} #measToggle button{padding:6px 12px} }
+  /* MOBILE: clear the stacked search bar — sit the Top-down/3D toggle below it (top:128px), left-aligned;
+     the minimap now lives top-right so the two no longer collide (audit-7 P1). */
+  @media (max-width:560px){ #measToggle{left:8px;transform:none;top:128px} #measToggle button{padding:6px 12px} }
   /* Measure-lens minimap (Scanifly-style wide-context inset, top-left of the diagram) */
   #measMini{position:absolute;top:62px;left:12px;z-index:23;width:118px;height:118px;border-radius:13px;overflow:hidden;background:#0b1220;border:1px solid #ffffff;box-shadow:var(--card-shadow);display:none}
   #measMini canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #measMini .mm-ring{position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,69,58,0.92);pointer-events:none}
-  @media (max-width:560px){ #measMini{width:92px;height:92px;top:60px;left:8px} }
+  /* MOBILE (audit-7 P1): the 92px dark minimap inset previously sat at top:60px;left:8px — directly on
+     top of the stacked search bar AND the #measToggle (3D/Top-down) toggle, blocking both. Move it to the
+     top-RIGHT and below the ~112px stacked search bar so it overlaps nothing tappable. */
+  @media (max-width:560px){ #measMini{width:84px;height:84px;top:128px;left:auto;right:8px} }
   #matbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;align-items:stretch;max-width:96vw;box-shadow:var(--card-shadow)}
   #matCats{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
   #matCats .matcat{background:#f7f9fc;border:1px solid #e1e7ef;color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -1675,7 +1680,10 @@ function renderQuoteCard(){
   //   bodyCommercial  → body shows the large/commercial "too large — request a commercial quote" message
   //   bodyLowConf     → body shows the low-confidence "approximate — request a precise on-site quote" message
   // (largeRoof wins over lowConf for copy: a skyscraper is commercial, not a "shaded house".)
-  const bodyCommercial = (tradeMode==="solar" && largeRoof) || (view==="measure" && largeRoof);
+  // Roofing tab must obey the SAME verdict (audit-7 P1): a large/commercial roof that routes Solar +
+  // Measure to "request a commercial quote" must NOT let the Roofing tab print six confident material
+  // price ranges + "Lock in my rate". largeRoof degrades EVERY trade/view, not just solar/measure.
+  const bodyCommercial = (tradeMode==="solar" && largeRoof) || (tradeMode==="roof" && largeRoof) || (view==="measure" && largeRoof);
   const bodyLowConf = lowConf && !bodyCommercial;
   // A LARGE/commercial roof (skyscraper, big-box) is not a "shaded house" — its degrade copy must be the
   // commercial message, never "heavy tree cover" (audit-3: Empire State read canopy-heavy because the DSM
@@ -1803,6 +1811,11 @@ function renderQuoteCard(){
       '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
       (totKwh?(()=>{ const kg=totKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
+  } else if(tradeMode==="roof" && largeRoof){
+    // Roofing tab on a large/commercial roof — degrade to the SAME commercial verdict Solar/Measure
+    // use (audit-7 P1). No confident material price ranges + no "Lock in my rate"; the footer renders
+    // the canonical "Request a commercial quote →" because bodyCommercial is set.
+    body=measureCardBody(true);
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
     const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
@@ -2951,7 +2964,26 @@ async function ensurePhotoreal(){
   gmap.style.width="100%"; gmap.style.height="100%";
   $("gmapWrap").appendChild(gmap);
   window.gmap=gmap; window.__site=()=>({lat:SITE.lat,lng:SITE.lng,alt:siteAlt});  // expose for headless oblique-capture pipeline
+  // BUG-4 (mobile blank-void): appending the element resolves instantly, but the photoreal TILES keep
+  // streaming for several more seconds — fast on desktop, ~10s+ on mobile. The caller drops the spinner
+  // the moment this returns, so mobile showed a dark-olive void with NO indicator until tiles painted.
+  // Hold here until the map reaches its first STEADY state (tiles settled) or a hard cap, so the
+  // "Loading photoreal 3D…" spinner stays up until the oblique view has actually rendered.
+  await waitForTiles(gmap);
   return gmap;
+}
+// Resolve once the Map3DElement has finished streaming/settling its tiles (first gmp-steadychange→steady),
+// or after a hard timeout so we never hang the spinner on a slow/uncovered address. Best-effort: any API
+// shape mismatch falls through to the timeout rather than throwing.
+function waitForTiles(map, capMs){
+  return new Promise(resolve=>{
+    let done=false; const finish=()=>{ if(done) return; done=true; try{ map.removeEventListener&&map.removeEventListener("gmp-steadychange",onSteady); }catch(_){} resolve(); };
+    const onSteady=ev=>{ try{ if(ev && (ev.isSteady===true || (ev.detail&&ev.detail.isSteady===true))) finish(); }catch(_){ finish(); } };
+    try{ map.addEventListener&&map.addEventListener("gmp-steadychange",onSteady); }catch(_){}
+    // Hard cap (longer on mobile/touch where tiles stream slower) so the spinner always clears.
+    const isMobile=(window.innerWidth||1024)<=560 || (("ontouchstart" in window)&&(window.innerWidth||1024)<900);
+    setTimeout(finish, capMs || (isMobile?9000:4500));
+  });
 }
 /* 4 lat/lng/alt corners of a panel, COPLANAR with its facet plane.
    The OLD bug: all 4 corners got a hard-coded flat altitude:0.5, so every panel
