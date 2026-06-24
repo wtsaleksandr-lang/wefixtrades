@@ -253,6 +253,17 @@ http.createServer(async (req,res)=>{
     try{ res.end(readFileSync(path.join(import.meta.dirname,"roofgeo.mjs"),"utf8")); }catch(e){ res.statusCode=503; res.end("// roofgeo.mjs not built yet"); }
     return;
   }
+  // Self-hosted Satoshi/Geist woff2 — the widget's @font-face points at /fonts/*.woff2 (same paths
+  // the embedded wefixtrades app serves from client/public/fonts). Without this route the spike fell
+  // through to the HTML handler, so the browser got text/html for a .woff2 and logged
+  // "OTS parsing error: invalid sfntVersion" on every load. Serve the real files. (audit-4 P2.)
+  if(u.pathname.startsWith("/fonts/") && u.pathname.endsWith(".woff2")){
+    const name=path.basename(u.pathname);   // strip any path traversal; only the bare filename is used
+    const fp=path.join(import.meta.dirname,"..","..","client","public","fonts",name);
+    try{ const buf=readFileSync(fp); res.setHeader("Content-Type","font/woff2"); res.setHeader("Cache-Control","public,max-age=604800"); res.end(buf); }
+    catch(e){ res.statusCode=404; res.end("font not found"); }
+    return;
+  }
   if(u.pathname==="/pricing"){
     res.setHeader("Content-Type","text/html");
     res.end(readFileSync(path.join(import.meta.dirname,"pricing.html"),"utf8")); return;
