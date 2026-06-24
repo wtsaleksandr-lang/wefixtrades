@@ -2201,18 +2201,60 @@ async function ensurePhotoreal(){
   window.gmap=gmap; window.__site=()=>({lat:SITE.lat,lng:SITE.lng,alt:siteAlt});  // expose for headless oblique-capture pipeline
   return gmap;
 }
-/* 4 lat/lng/alt corners of a panel, sitting on its facet plane */
-function panelCornersLL(pn,seg,pw,ph){
+/* 4 lat/lng/alt corners of a panel, COPLANAR with its facet plane.
+   The OLD bug: all 4 corners got a hard-coded flat altitude:0.5, so every panel
+   was a horizontal quad draped flat on the mesh — on a pitched/complex roof it
+   tilts wrong and projects off the roof in the oblique camera.
+
+   The facet plane drops 1 m of height per tanP metres travelled DOWN-slope
+   (along the azimuth). So a corner sitting `dRel` metres down-slope of the panel
+   CENTRE must be `dRel·tanP` LOWER than the centre to lie in the plane. We keep
+   the centre draped on Google's photoreal mesh (RELATIVE_TO_MESH base lift) and
+   add only the per-corner slope DELTA — i.e. a tilt about the panel centre. This
+   makes each quad coplanar with its sloped facet (correct pitch + azimuth) while
+   staying anchored to the real roof surface the mesh reports. We deliberately do
+   NOT use ABSOLUTE altitude from planeHeightAtCenterMeters: that value is a
+   geoid/MSL height, whereas Maps3D ABSOLUTE is ellipsoidal — the geoid–ellipsoid
+   separation (tens of metres) would bury or float the whole array. RELATIVE base
+   + local slope delta sidesteps the datum entirely. */
+function panelCornersLL(pn,seg,zone,pw,ph){
   const lat=pn.center.latitude, lng=pn.center.longitude;
   const Az=(seg.azimuthDegrees||0)*Math.PI/180, tanP=Math.tan((seg.pitchDegrees||0)*Math.PI/180);
   const land=pn.orientation==="LANDSCAPE", w=land?ph:pw, h=land?pw:ph;     // across=w, along-slope=h
   const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
   const ax=Math.cos(Az), an=-Math.sin(Az), fx=Math.sin(Az), fn=Math.cos(Az); // across / facing in (E,N)
-  // altitude is RELATIVE_TO_MESH → small constant lift drapes the panel onto Google's actual roof surface
+  const sinAz=Math.sin(Az), cosAz=Math.cos(Az);
+  const BASE=0.5;   // centre lift above the mesh (RELATIVE_TO_MESH), unchanged from legacy
   return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([i,j])=>{
-    const dE=i*(w/2)*ax + j*(h/2)*fx, dN=i*(w/2)*an + j*(h/2)*fn;
-    return { lat:lat+dN/mLat, lng:lng+dE/mLng, altitude: 0.5 };
+    const dE=i*(w/2)*ax + j*(h/2)*fx, dN=i*(w/2)*an + j*(h/2)*fn;   // corner offset from centre, metres (E,N)
+    const dRel=dE*sinAz+dN*cosAz;            // signed down-slope distance of this corner from the panel centre
+    return { lat:lat+dN/mLat, lng:lng+dE/mLng, altitude: BASE - dRel*tanP };  // tilt the quad into the facet plane
   });
+}
+/* Plane-classify a panel CENTRE against the DSM, reusing the extractFacetPolys
+   classifier math (residual=|z-(h-d·tanP)|). Returns {ownRes,bestRes,bestIdx}:
+   - ownRes  = residual of the DSM height vs the panel's ASSIGNED segment plane
+   - bestRes = residual vs the best-fitting segment plane
+   - bestIdx = that best-fitting segment index
+   If the DSM can't be sampled (off-raster / void), returns null → caller keeps
+   the panel (can't disprove it). Used to drop panels Google placed onto a
+   different (or no) plane on mis-segmented complex roofs — the patio/tree
+   outliers. */
+function classifyPanelPlane(pn,segs,zone,dg){
+  if(!dg) return null;
+  const c=pn.center; if(!c) return null;
+  const [E,N]=wgs84ToUTM(c.latitude,c.longitude,zone);
+  const z=sampleGrid(dg,E,N); if(z==null||!isFinite(z)) return null;
+  let bestRes=Infinity,bestIdx=-1,ownRes=Infinity;
+  for(let i=0;i<segs.length;i++){ const sg=segs[i]; const sc=sg.center, h=sg.planeHeightAtCenterMeters;
+    if(!sc||h==null||!isFinite(h)) continue;
+    const [cE,cN]=wgs84ToUTM(sc.latitude,sc.longitude,zone);
+    const az=(sg.azimuthDegrees||0)*Math.PI/180, tanP=Math.tan((sg.pitchDegrees||0)*Math.PI/180);
+    const d=(E-cE)*Math.sin(az)+(N-cN)*Math.cos(az), rr=Math.abs(z-(h-d*tanP));
+    if(rr<bestRes){ bestRes=rr; bestIdx=i; }
+    if(i===pn.segmentIndex) ownRes=rr;
+  }
+  return { ownRes, bestRes, bestIdx };
 }
 async function buildPhotoPanels(){
   if(!LASTB||!gmap) return;
@@ -2230,11 +2272,53 @@ async function buildPhotoPanels(){
   if(!pool.length) pool=allPanels;   // section window missed every panel (bad geocode/odd footprint) → never render an empty roof; fall back to the whole building so the count on the card is always visible
   const list=pool.slice(0,n);
   const en=list.map(p=>p.yearlyEnergyDcKwh||0), emin=Math.min(...en), emax=Math.max(...en);
+  // === coplanar render context ===
+  // panels are tilted into their facet plane via per-corner slope delta, anchored
+  // to the photoreal mesh (RELATIVE_TO_MESH) — see panelCornersLL for why we avoid
+  // ABSOLUTE/planeHeightAtCenterMeters (geoid-vs-ellipsoid datum mismatch).
+  const zone=(LASTDSM||LASTFLUX)?(LASTDSM||LASTFLUX).zone:null;
+  const dg=LASTDSM?{vals:LASTDSM.rasters[0],w:LASTDSM.width,h:LASTDSM.height,bbox:LASTDSM.bbox}:null;
+  const altMode=AltitudeMode.RELATIVE_TO_MESH;
+  // #3 setback inset: per-segment bbox shrunk ~0.4 m so edge panels don't overhang the gutter/yard.
+  const INSET_M=0.4, RES_CLAMP_M=1.2;   // plane-residual clamp threshold (#2): panel >1.2 m off its plane = mis-placed
+  const insetBox=(seg)=>{ const b=seg.boundingBox; if(!b||!b.sw||!b.ne) return null;
+    const cLat=(b.sw.latitude+b.ne.latitude)/2, mLat=111320, mLng=111320*Math.cos(cLat*Math.PI/180);
+    const dLat=INSET_M/mLat, dLng=INSET_M/mLng;
+    return { s:Math.min(b.sw.latitude,b.ne.latitude)+dLat, n:Math.max(b.sw.latitude,b.ne.latitude)-dLat,
+             w:Math.min(b.sw.longitude,b.ne.longitude)+dLng, e:Math.max(b.sw.longitude,b.ne.longitude)-dLng };
+  };
+  // First pass: filter (clamp #2 + inset #3) so the safety-net (#4) can react to the drop rate.
+  let dropped=0, considered=0; const keep=[];
   for(const pn of list){
     if(!pn.center) continue; const seg=segs[pn.segmentIndex]; if(!seg) continue;
+    considered++;
+    // #2 plane-residual clamp: drop panels Google placed onto a different/wrong plane (patio/tree/lawn).
+    const cl=classifyPanelPlane(pn,segs,zone,dg);
+    if(cl && (cl.ownRes>RES_CLAMP_M || (cl.bestIdx!==pn.segmentIndex && cl.bestRes+0.5<cl.ownRes))){ dropped++; continue; }
+    // #3 setback inset: panel centre must sit inside the segment bbox shrunk by INSET_M.
+    const ib=insetBox(seg);
+    if(ib){ const la=pn.center.latitude, lo=pn.center.longitude;
+      if(la<ib.s||la>ib.n||lo<ib.w||lo>ib.e){ dropped++; continue; } }
+    keep.push({pn,seg});
+  }
+  // #4 safety-net: if the roof is too cut-up for confident placement (a high fraction of
+  // panels failed the plane clamp/inset), don't draw a wrong-but-detailed scatter. Fall
+  // back to a CLEAN presentation: render only the panels on the single best (largest-area,
+  // most-energetic) facet, regularised. The count/kW on the card still tells the full story.
+  const dropFrac=considered?dropped/considered:0;
+  window.__panelDropFrac=+dropFrac.toFixed(2); window.__panelSafetyNet=false;
+  let final=keep;
+  if(dropFrac>0.45 && keep.length){
+    window.__panelSafetyNet=true;
+    // pick the segment carrying the most kept panels (the confidently-placed dominant facet)
+    const byseg=new Map(); for(const k of keep){ byseg.set(k.pn.segmentIndex,(byseg.get(k.pn.segmentIndex)||0)+1); }
+    let bestSeg=-1,bestC=-1; for(const [si,c] of byseg){ if(c>bestC){bestC=c;bestSeg=si;} }
+    final=keep.filter(k=>k.pn.segmentIndex===bestSeg);
+  }
+  for(const {pn,seg} of final){
     const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-emin)/((emax-emin)||1)) : "rgba(56,132,255,0.9)";
-    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
-    poly.outerCoordinates=panelCornersLL(pn,seg,pw,ph); gmap.append(poly); photoPanels.push(poly);
+    const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    poly.outerCoordinates=panelCornersLL(pn,seg,zone,pw,ph); gmap.append(poly); photoPanels.push(poly);
   }
   window.__photoPanels=photoPanels.length;
 }
