@@ -76,7 +76,20 @@
   /* report card */
   /* Cap the desktop card so a tall quote never grows up past the address bar (#bar bottom ≈ 60px). It is
      bottom-anchored; without a max-height it overflowed the top of short windows and overlapped the bar. */
-  #card{position:absolute;left:12px;bottom:12px;z-index:20;width:264px;max-height:calc(100vh - 84px);overflow-y:auto;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:18px;padding:12px 14px;display:none;box-shadow:var(--card-shadow)}
+  #card{position:absolute;left:12px;bottom:12px;z-index:20;width:264px;max-height:calc(100vh - 84px);overflow-y:auto;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:18px;padding:12px 14px;display:none;box-shadow:var(--card-shadow);transition:width .26s cubic-bezier(.4,0,.2,1),max-height .26s cubic-bezier(.4,0,.2,1),padding .26s,transform .26s}
+  /* ── Foldable quote card ──────────────────────────────────────────────
+     #cardFold is a persistent sibling toggle (survives card.innerHTML re-renders).
+     Folded → desktop collapses the card to a slim "Show quote" pill; mobile
+     collapses the bottom sheet to a thin handle so the full roof is visible. */
+  #cardFold{position:absolute;z-index:21;left:12px;bottom:12px;display:none;align-items:center;gap:6px;height:34px;padding:0 13px 0 11px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;box-shadow:var(--card-shadow);color:#0f172a;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);line-height:1;transition:opacity .2s}
+  #cardFold svg{width:13px;height:13px;flex:0 0 auto;stroke:#0d3cfc;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:transform .26s}
+  #cardFold:hover{border-color:#0d3cfc}
+  /* the in-card fold control (chevron) lives in the card header, top-right */
+  #card .card-fold-btn{position:absolute;top:9px;right:10px;z-index:2;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:#f7f9fc;color:#0d3cfc;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  #card .card-fold-btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  #card .card-fold-btn:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
+  #card.folded{width:0;max-height:0;min-height:0;padding:0;border-width:0;overflow:hidden;opacity:0;pointer-events:none}
+  body.card-folded #cardFold{display:inline-flex}
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
   #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
   #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
@@ -383,7 +396,11 @@
   /* mobile: lift the quote card + lens rail clear of the bottom #ctrls rail (bottom:2px, ~54px tall →
      occupies the lowest band). At bottom:58 the matbar sat ~2px off ctrls and read as overlapping; push
      both up to bottom:66 so there's a visible gap and the card footer ("Customize…"/SREC) doesn't collide. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:42vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center} }
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:42vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
+    /* mobile bottom-sheet fold: collapse the whole sheet, surface a centred handle pill above the toolbar */
+    #card.folded{width:auto;left:2px;right:2px;max-height:0;padding:0;border-width:0}
+    #cardFold{left:50%;right:auto;bottom:64px;transform:translateX(-50%)}
+    #card .card-fold-btn{top:7px;right:8px} }
   /* mobile: material swatches + category pills scroll horizontally in one row instead of wrapping */
   @media (max-width:560px){
     #matCols{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;max-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -490,6 +507,7 @@
   <div id="status"></div>
   <div id="overlayNote"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg><span id="overlayNoteText"></span></div>
   <div id="card"></div>
+  <button id="cardFold" type="button" aria-label="Show quote"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span>Show quote</span></button>
   <div id="ctrls">
     <button id="bPanels" class="on" title="Solar panels"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="11" rx="1"/><path d="M3 9.2h18M3 12.8h18M9 5.5v11M15 5.5v11"/></svg><span>Panels</span></button>
     <button id="bModel" title="Clean 3D model"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Model</span></button>
@@ -1306,6 +1324,25 @@ function fetchFeatures(){
     if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard();
   }).catch(()=>{ window.__featInflight=false; });
 }
+/* ── Foldable quote card state ────────────────────────────────────────
+   Folding minimizes the card so the buyer can see the full roof behind it
+   (Alex's standing sticky-widget fold/unfold preference). State is global so
+   it survives card.innerHTML re-renders; reframes the top-down diagram so the
+   roof recenters into the now-fuller view. */
+let cardFolded=false;
+function applyCardFold(){
+  const card=$("card"); if(!card) return;
+  card.classList.toggle("folded", cardFolded);
+  document.body.classList.toggle("card-folded", cardFolded);
+  const fb=card.querySelector(".card-fold-btn"); if(fb) fb.style.display=cardFolded?"none":"flex";
+}
+function setCardFold(folded){
+  if(cardFolded===folded) return;
+  cardFolded=folded; applyCardFold();
+  // reframe the top-down measure diagram for the new available area (card width changed)
+  try{ if(labelsVisible && $("matCanvas") && $("matCanvas").style.display!=="none") renderRoofDiagram(); }catch(_){}
+}
+(function wireCardFold(){ const p=$("cardFold"); if(p) p.onclick=()=>setCardFold(false); })();
 function renderQuoteCard(){
   if(!QUOTE) return; setRegion(); refreshLiveRate(); refreshSunHours(); const card=$("card"); card.style.display="block";
   const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
@@ -1484,7 +1521,9 @@ function renderQuoteCard(){
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
   const trust=(view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
-  card.innerHTML=tabs+addr+body+note+trust+cta;
+  card.innerHTML='<button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
+  const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
+  applyCardFold();   // re-assert fold state after the re-render
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
@@ -2239,11 +2278,21 @@ async function buildRoofMeasure(){
   const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
     if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.4:0.24 })); }catch(_){} }   // smaller pins → less cluttered
     gmap.append(m); roofMeas.push(m); };
-  // colour-coded dimension lines per edge type, anchored to the roof — slim so they read as guide lines, not bars
+  // colour-coded dimension lines per edge type, anchored to the roof. drawsOccludedSegments → the
+  // line stays visible through the photoreal mesh + tree canopy (the old slim non-occluded lines were
+  // swallowed by the roof/trees, so the 3D measure "didn't follow the roof"). A white casing under each
+  // coloured edge gives the same crisp premium read as the top-down hairline. Lifted a touch (0.35m) so
+  // the ridge/eave lines sit clearly above the surface instead of buried in it.
+  const EDGE_ALT=0.35;
   for(const e of model.edges){
     const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    try{ const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:2, drawsOccludedSegments:false,
-      coordinates:[{lat:A[1],lng:A[0],altitude:0.2},{lat:B[1],lng:B[0],altitude:0.2}] }); gmap.append(pl); roofMeas.push(pl); }catch(err){ errors.push("polyline:"+err.message); }
+    const coords=[{lat:A[1],lng:A[0],altitude:EDGE_ALT},{lat:B[1],lng:B[0],altitude:EDGE_ALT}];
+    try{ // white casing (slightly wider, drawn first so the colour sits on top)
+      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:5, drawsOccludedSegments:true, coordinates:coords });
+      gmap.append(cas); roofMeas.push(cas);
+      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
+      gmap.append(pl); roofMeas.push(pl);
+    }catch(err){ errors.push("polyline:"+err.message); }
   }
   // per-edge LF labels — only the significant edges, longest-first, well spread (wider min-gap → no hectic clustering)
   const placed=[];
@@ -2280,7 +2329,34 @@ function renderRoofDiagram(){
   const planes=(bigPlanes.length?bigPlanes:model.planes);
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   for(const p of planes) for(const v of p.ring){ const [px,py]=toPx(v[0],v[1]); minx=Math.min(minx,px);miny=Math.min(miny,py);maxx=Math.max(maxx,px);maxy=Math.max(maxy,py); }
-  const pad=Math.max(40,(maxx-minx)*0.28); minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;   // breathing room so the red outline never kisses the frame
+  // breathing room so the red outline never kisses the frame — sized off the LARGER roof
+  // dimension so a tall/narrow roof gets the same context margin as a wide one (no edge crop).
+  const roofW=maxx-minx, roofH=maxy-miny, pad=Math.max(40,Math.max(roofW,roofH)*0.22);
+  minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
+  // ── Frame around the card: the diagram canvas fills the whole viewport (object-fit:contain),
+  //    but the quote card overlays part of it. Pad the crop ASYMMETRICALLY on the occluded side
+  //    so, after contain-centering, the WHOLE roof lands inside the *visible* (un-occluded) area
+  //    instead of partly behind the card. Folded card → no occlusion → no extra pad (full width).
+  try{
+    const app=$("app"), cardEl=$("card");
+    if(app && cardEl && !cardFolded && getComputedStyle(cardEl).display!=="none"){
+      const A=app.getBoundingClientRect(), C=cardEl.getBoundingClientRect();
+      if(A.width>0 && A.height>0 && C.width>0){
+        const M=8;   // small gap between roof and card
+        const mobile = A.width<=560;   // matches the CSS breakpoint: card = left panel (desktop) vs bottom sheet (mobile)
+        // occluded fraction of the relevant axis (capped so a huge sheet can't push the roof to nothing)
+        let occFrac, axis;
+        if(mobile){ occFrac = Math.max(0, Math.min(0.5, (A.bottom - C.top + M) / A.height)); axis="bottom"; }
+        else      { occFrac = Math.max(0, Math.min(0.5, (C.right - A.left + M) / A.width )); axis="left";   }
+        // extend the crop on the occluded side by span*occFrac/(1-occFrac) so contain-centering
+        // drops the WHOLE roof into the visible band (no part behind the card).
+        if(occFrac>0.02){ const ext=occFrac/(1-occFrac);
+          if(axis==="left")   minx -= (maxx-minx)*ext;
+          else                maxy += (maxy-miny)*ext;
+        }
+      }
+    }
+  }catch(_){}
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
   const S=Math.min(3,Math.max(1.8,1100/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop
   const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
@@ -2353,7 +2429,11 @@ function renderMeasMini(src,W,H,minx,miny,cw,ch){
 }
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block"; }
-  else { $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="block"; }
+  else { $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="block";
+    // entering the 3D lens: tighten the camera onto the roof so the measurement overlay fills the frame
+    // (the default 78m range left the roof small + the labels reading like they sat up the street).
+    try{ if(gmap && gmap.flyCameraTo){ gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:46, tilt:52, heading:(+gmap.heading||15) }, durationMillis:700 }); } }catch(_){}
+  }
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
 }
 $("measToggle").querySelector('[data-v="3d"]').onclick=()=>showMeasDiagram(false);
