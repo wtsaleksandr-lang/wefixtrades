@@ -1340,16 +1340,40 @@ function getRoofTotals(){
   try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=reconcileTotals(m.totals); return window.__roofTotals; } }catch(_){}
   return null;
 }
+// ── SHARED-BUILDING SPLIT RATIO ───────────────────────────────────────────────
+// Google's wholeRoofStats area is the WHOLE building. On a semi-detached / townhouse the
+// STEP-1 geometry split (isolateUnitFootprint) carves the footprint down to the queried
+// owner's unit, so the measured model is the owner's half — but Google's area is still the
+// whole block. To keep ONE honest number everywhere we scale Google's trusted absolute area
+// by the slab ratio keptAreaM2 / wholeAreaM2 (the 2D footprint share the split kept; pitch
+// is shared across the party wall so the 2D share ≈ the slope-area share). Detached homes
+// never split → ratio 1 → exactly the prior behaviour. (30 Angus: ~1340 whole → ~680 unit.)
+function roofSplitRatio(){
+  try{
+    const d=window.__splitDiag;
+    if(d && d.split && d.wholeAreaM2>0 && d.keptAreaM2>0){
+      const r=d.keptAreaM2/d.wholeAreaM2;
+      if(r>0.05 && r<1) return r;   // sane carve (never 0, never ≥ whole)
+    }
+  }catch(_){}
+  return 1;
+}
+window.__roofSplitRatio=()=>roofSplitRatio();
 // ── SINGLE CANONICAL ROOF AREA ────────────────────────────────────────────────
 // One number, one rounding, everywhere. The quote card, the Measure lens, the report
 // and the takeoff all read THIS — so the homeowner never sees two different square
 // counts for the same roof (Toronto 1,812 vs 1,764; Miami 703 vs 378). Source of truth
-// is Google's wholeRoofStats area (the same number the price is built from).
+// is Google's wholeRoofStats area, carved to the owner's unit on a shared building.
 function quoteAreaSqFt(){
-  const a=(QUOTE&&QUOTE.roofSqft)||0;
+  const a=roofUnitSqFt();
   return a>0 ? Math.round(a) : 0;
 }
+// Unrounded owner's-unit area (Google whole × split ratio) — the scale TARGET every measurement
+// surface reconciles to, so the diagram / preview / 3D / report / takeoff all report the SAME
+// owner's-half roof on a shared building (and the whole roof on a detached home).
+function roofUnitSqFt(){ return ((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio(); }
 window.__quoteAreaSqFt=()=>quoteAreaSqFt();
+window.__roofUnitSqFt=()=>roofUnitSqFt();
 // The reconstructed facet model (facetsToRoofModel) sometimes under-/over-captures facets, so its area
 // can diverge wildly from reality (seen: 2.9 sq vs Google's ~11 sq on the same roof). The headline PRICE
 // uses Google's wholeRoofStats area (QUOTE.roofSqft), so anchor the model totals to that same authoritative
@@ -1397,7 +1421,9 @@ function reconcileTotals(t){
     roofAreaSqFt:gSqFt, squares:gSqFt/100,
     // facet count must match the quote card too — anchor to Google's segment count (QUOTE.facets),
     // the same number the Roofing quote shows, so Measure and the quote never report 4 vs 8.
-    facetCount:(QUOTE.facets||t.facetCount),
+    // EXCEPT on a shared-building split: the owner's unit holds only the facets the split kept,
+    // so trust the (split) model's own facetCount rather than the whole-block Google segment count.
+    facetCount:(roofSplitRatio()<1 ? (t.facetCount||QUOTE.facets) : (QUOTE.facets||t.facetCount)),
     // pitch sanity clamp — never let an impossible DSM-fit pitch (e.g. 30/12) reach the card/report
     predominantPitchX12: sanePitchX12(t.predominantPitchX12),
     eaveFt:(t.eaveFt||0)*k, rakeFt:(t.rakeFt||0)*k, ridgeFt:(t.ridgeFt||0)*k,
@@ -1858,10 +1884,11 @@ function renderQuoteCard(){
     body=measureCardBody(true);
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
-    const sqs=QUOTE.roofSqft/100, sel=window.__roofSel;
+    const sqs=quoteAreaSqFt()/100, sel=window.__roofSel;   // squares off the owner's-unit area, so ft²/squares never disagree on a split
+    const tF=getRoofTotals(), facetN=(roofSplitRatio()<1 && tF && tF.facetCount)?tF.facetCount:QUOTE.facets;
     const stats='<div class="grid"><div class="stat"><div class="v">'+quoteAreaSqFt().toLocaleString()+'</div><div class="l">sq ft</div></div>'+
       '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
-      '<div class="stat"><div class="v">'+QUOTE.facets+'</div><div class="l">facets</div></div></div>';
+      '<div class="stat"><div class="v">'+facetN+'</div><div class="l">facets</div></div></div>';
     if(sel){
       const t=getRoofTotals();
       if(t && !window.__wasteAuto){ selWaste=recommendedWasteIdx(t); window.__wasteAuto=true; }
@@ -2219,7 +2246,8 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     }
     // per-facet area+pitch chips (scaled to the quote total like the 2D/3D-tile views), top few facets
     const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
-    const mScale=(QUOTE&&QUOTE.roofSqft&&mPlaneSum>0)?(QUOTE.roofSqft/mPlaneSum):1;
+    const mTarget=(typeof roofUnitSqFt==="function")?roofUnitSqFt():((QUOTE&&QUOTE.roofSqft)||0);   // split-aware owner's-unit area
+    const mScale=(mTarget>0&&mPlaneSum>0)?(mTarget/mPlaneSum):1;
     const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
     const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
     for(const p of mSorted){ if(p===mSorted[0]?false:((p.areaSqFt||0)<mMax*0.18)) continue;
@@ -3714,21 +3742,58 @@ function renderRoofDiagram(){
   const fp=planes.filter(p=>p.ring.length>=3).map(p=>{ const ring=p.ring.map(v=>P(v[0],v[1]));
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,cx=0,cy=0; for(const [px,py] of ring){ x0=Math.min(x0,px);y0=Math.min(y0,py);x1=Math.max(x1,px);y1=Math.max(y1,py);cx+=px;cy+=py; }
     return { p, ring, cx:cx/ring.length, cy:cy/ring.length, bw:x1-x0, bh:y1-y0 }; });
-  // 1) subtle facet fill so each plane reads as a surface (Scanifly look), drawn under the red strokes
+  // 1) subtle translucent facet fill so each plane reads as a surface (the roof imagery shows through)
   ctx.lineJoin="round"; ctx.lineCap="round";
   for(const f of fp){ ctx.beginPath(); f.ring.forEach(([px,py],i)=>{ i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath();
-    ctx.fillStyle="rgba(255,69,58,0.07)"; ctx.fill(); }
-  // 2) every facet edge as a thin premium hairline (EagleView/Aurora style): constant ~1.7px RED,
-  //    a white casing only ~1px wider UNDER it (not a fat halo). Width is constant in canvas units →
-  //    crisp regardless of crop size, never a fat bar. Half-pixel offset keeps it razor-sharp.
-  const lw=1.7, half=(v)=>Math.round(v)+0.5;
-  for(const e of model.edges){ const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
-    ctx.strokeStyle="rgba(255,255,255,0.55)"; ctx.lineWidth=lw+1; ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke();
-    ctx.strokeStyle=MEAS_RED; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke(); }
-  // small crisp vertex nodes at facet corners — 4px white fill + 1.5px red stroke (not a fat dot)
+    ctx.fillStyle="rgba(120,170,235,0.10)"; ctx.fill(); }
+  // 2) survey-grade edges — coloured by TYPE (ridge/hip/valley/eave/rake) with a clear hierarchy:
+  //    a thin white casing UNDER each line lifts the colour off any roof tone; primary structural
+  //    lines (ridge/hip/valley) are a touch heavier than the perimeter (eave/rake). Half-pixel
+  //    snap keeps every line razor-crisp regardless of crop size. (EagleView/Roofr takeoff look.)
+  const half=(v)=>Math.round(v)+0.5;
+  const EW={ ridge:2.0, hip:1.8, valley:1.8, eave:1.5, rake:1.5 };   // per-type line weight (primary > perimeter)
+  const drawEdge=(e,extraCase)=>{ const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
+    const col=EDGE_COLORS[e.type]||MEAS_RED, lw=EW[e.type]||1.7;
+    ctx.strokeStyle="rgba(255,255,255,0.62)"; ctx.lineWidth=lw+(extraCase||1.1); ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke();
+    ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(half(ax),half(ay)); ctx.lineTo(half(bx),half(by)); ctx.stroke(); };
+  // draw perimeter (eave/rake) first, then structural (ridge/hip/valley) ON TOP so creases stay legible
+  const eOrder={ eave:0, rake:0, valley:1, hip:1, ridge:2 };
+  const sortedEdges=model.edges.slice().sort((a,b)=>(eOrder[a.type]||0)-(eOrder[b.type]||0));
+  for(const e of sortedEdges) drawEdge(e);
+  // small crisp vertex nodes at facet corners — white fill + thin slate stroke (neutral, not tied to a type)
   const seen=[]; const node=(px,py)=>{ if(seen.some(s=>Math.hypot(s[0]-px,s[1]-py)<3)) return; seen.push([px,py]);
-    ctx.beginPath(); ctx.arc(px,py,2.2,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=MEAS_RED; ctx.stroke(); };
+    ctx.beginPath(); ctx.arc(px,py,2.1,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.lineWidth=1.3; ctx.strokeStyle="rgba(40,54,78,0.9)"; ctx.stroke(); };
   for(const f of fp) for(const [px,py] of f.ring){ node(px,py); }
+  // ── EDGE-LENGTH LABELS — survey style: the length sits PARALLEL to its edge, just OUTSIDE the
+  //    roof (offset along the edge's outward normal), small and crisp. We label the longest edges
+  //    first and skip any that would overlap an already-placed length tag, so the sheet never
+  //    clutters. Each label box is registered so the facet area pills below also avoid them.
+  const efs=Math.max(8.5,cw/64);                         // edge-label font (secondary to area pills)
+  const edgeLblBoxes=[];
+  const lenTxt=(ft)=>{ const f=Math.max(0,Math.round(ft)); return f+"'"; };
+  // facet centroids (model space) → an "interior" reference so we can offset each label AWAY from the roof
+  let mcx=0,mcy=0,mn=0; for(const f of fp){ mcx+=f.cx; mcy+=f.cy; mn++; } if(mn){ mcx/=mn; mcy/=mn; }
+  const eboxHits=(box)=> edgeLblBoxes.some(b=> Math.abs(b.x-box.x)<(b.w+box.w)/2+2 && Math.abs(b.y-box.y)<(b.h+box.h)/2+2);
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  const labelEdges=model.edges.slice().sort((a,b)=>(b.lengthFt||0)-(a.lengthFt||0));
+  for(const e of labelEdges){ if((e.lengthFt||0)<8) continue;   // skip stubs → de-clutter
+    const [ax,ay]=P(e.a[0],e.a[1]), [bx,by]=P(e.b[0],e.b[1]);
+    const mx=(ax+bx)/2, my=(ay+by)/2; let dx=bx-ax, dy=by-ay; const L=Math.hypot(dx,dy)||1; dx/=L; dy/=L;
+    let ang=Math.atan2(dy,dx); if(ang>Math.PI/2) ang-=Math.PI; if(ang<-Math.PI/2) ang+=Math.PI;   // keep text upright
+    // outward normal = perpendicular, pointed AWAY from the roof interior
+    let nx=-dy, ny=dx; if((mx+nx-mcx)**2+(my+ny-mcy)**2 < (mx-nx-mcx)**2+(my-ny-mcy)**2){ nx=-nx; ny=-ny; }
+    const off=efs*0.95, lx=mx+nx*off, ly=my+ny*off;
+    const txt=lenTxt(e.lengthFt);
+    ctx.font="600 "+efs+"px system-ui,Segoe UI,sans-serif"; const tw=ctx.measureText(txt).width;
+    const box={x:lx, y:ly, w:tw+efs*0.5, h:efs*1.25};
+    if(eboxHits(box)) continue; edgeLblBoxes.push(box);
+    ctx.save(); ctx.translate(lx,ly); ctx.rotate(ang);
+    // crisp white halo behind the rotated text (no pill — survey sheets use bare hairline text)
+    ctx.lineWidth=2.4; ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.lineJoin="round";
+    ctx.strokeText(txt,0,0); ctx.fillStyle="rgba(20,28,44,0.96)"; ctx.fillText(txt,0,0);
+    ctx.restore();
+  }
+  ctx.lineJoin="round"; ctx.lineCap="round";
   // 3) per-facet area callouts — EagleView-style restraint. The crisp red rooflines are the
   //    hero; pills must INFORM without burying the roof. So we (a) label only the FEW largest
   //    facets — never every sliver — and (b) draw small, light, translucent pills (smaller font,
@@ -3736,12 +3801,14 @@ function renderRoofDiagram(){
   //    Tiny facets get NO on-canvas pill (their area still counts in every total + the report
   //    card — only the in-diagram callout is suppressed). (polish: facet-label clutter.)
   const fs=Math.max(10,cw/52); ctx.textAlign="center"; ctx.textBaseline="middle";
-  const lblBoxes=[];
+  // seed the collision set with the edge-length tags so facet pills never sit on a dimension label
+  const lblBoxes=edgeLblBoxes.map(b=>({x:b.x-b.w/2,y:b.y-b.h/2,w:b.w,h:b.h}));
   // Reconcile per-facet areas to the quote's whole-roof total (QUOTE.roofSqft) so the diagram numbers add up
   // to the same roof the quote bills — without this the diagram showed ~652 ft² total while the quote charged
   // 1,563 ft² (DSM under-capture). Scale by Google-total ÷ sum-of-model-planes.
   const dPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
-  const dScale=(QUOTE&&QUOTE.roofSqft&&dPlaneSum>0)?(QUOTE.roofSqft/dPlaneSum):1;
+  const dTarget=roofUnitSqFt();   // owner's-unit area (split-aware) — facet pills must sum to the SAME number the card shows
+  const dScale=(dTarget>0&&dPlaneSum>0)?(dTarget/dPlaneSum):1;
   // ── Which facets earn a pill? Sort largest-first, then keep only the headline facets:
   //    at most TOP_N, and only those ≥ MIN_FRAC of the LARGEST facet's area (so a roof of many
   //    similar facets still shows just the dominant handful, and a sliver next to a big plane is
@@ -3777,11 +3844,30 @@ function renderRoofDiagram(){
       if(!placed) continue;   // nowhere clear within reach → drop (last resort)
     }
     lblBoxes.push(box);
-    // light, translucent pill — lets the aerial + red edges read through (was a near-opaque black box)
-    ctx.fillStyle="rgba(11,18,32,0.55)"; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.fill();
-    ctx.strokeStyle="rgba(255,69,58,0.4)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.stroke();
+    // clean translucent slate chip (neutral — the coloured EDGES now carry the type hierarchy);
+    // area is the headline, pitch a faint sub-line. Lets the aerial + edges read through.
+    ctx.fillStyle="rgba(13,20,34,0.58)"; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,0.22)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.stroke();
+    ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.46);
-    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(255,208,204,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
+    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(196,214,244,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
+  // ── LEGEND — small survey-sheet key (only the edge types actually present), bottom-left, off the roof.
+  try{
+    const present=[...new Set(model.edges.map(e=>e.type))].filter(t=>EDGE_COLORS[t]);
+    const order=["ridge","hip","valley","eave","rake"]; present.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+    if(present.length){
+      const lfs=Math.max(8,cw/72), pad=lfs*0.7, sw=lfs*1.3, row=lfs*1.5;
+      ctx.font="600 "+lfs+"px system-ui,Segoe UI,sans-serif"; ctx.textAlign="left"; ctx.textBaseline="middle";
+      let bw=0; for(const t of present){ bw=Math.max(bw, sw+lfs*0.5+ctx.measureText(t[0].toUpperCase()+t.slice(1)).width); }
+      const lw2=bw+pad*2, lh=present.length*row+pad*2, lx0=6, ly0=ch-lh-6;
+      ctx.fillStyle="rgba(11,17,30,0.72)"; rrRound(ctx,lx0,ly0,lw2,lh,6); ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,0.16)"; ctx.lineWidth=1; rrRound(ctx,lx0,ly0,lw2,lh,6); ctx.stroke();
+      present.forEach((t,i)=>{ const ry=ly0+pad+row*i+row/2;
+        ctx.strokeStyle="rgba(255,255,255,0.55)"; ctx.lineWidth=(EW[t]||1.7)+1.1; ctx.beginPath(); ctx.moveTo(lx0+pad,ry); ctx.lineTo(lx0+pad+sw,ry); ctx.stroke();
+        ctx.strokeStyle=EDGE_COLORS[t]; ctx.lineWidth=EW[t]||1.7; ctx.beginPath(); ctx.moveTo(lx0+pad,ry); ctx.lineTo(lx0+pad+sw,ry); ctx.stroke();
+        ctx.fillStyle="rgba(232,239,250,0.95)"; ctx.fillText(t[0].toUpperCase()+t.slice(1), lx0+pad+sw+lfs*0.5, ry+0.5); });
+    }
+  }catch(_){}
   renderMeasMini(src,W,H,minx,miny,cw,ch);
   return true;
 }
@@ -4223,7 +4309,7 @@ function proposalSections(){ const tr=TENANT.trade||{};
 }
 function openReport(){
   if(!QUOTE){ return; }
-  const addr=$("addr").value, sqs=QUOTE.roofSqft/100;
+  const addr=$("addr").value, sqs=quoteAreaSqFt()/100;   // owner's-unit squares (split-aware) so the report price matches the card
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
   const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
@@ -4253,7 +4339,7 @@ function openReport(){
      <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
      ${measurementReport(_rt, sqs)}
      <div class="sec"><h2>The plan at a glance</h2>
-       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${QUOTE.facets} facets), measured from aerial + elevation data.</div></div>
+       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} facets), measured from aerial + elevation data.</div></div>
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
@@ -5138,7 +5224,8 @@ function renderMeasurePreview(){
   // so without this the Measure lens showed e.g. 652 ft² while the quote billed 1,563 ft². Scale every
   // facet label by Google-total ÷ measured-total so the numbers on the photo add up to the quote.
   const rawSum=facets.reduce((s,f)=>s+(((f.seg.stats&&f.seg.stats.areaMeters2)||f.slopeArea)||0),0)*M2_SQFT;
-  const measScale=(QUOTE&&QUOTE.roofSqft&&rawSum>0)?(QUOTE.roofSqft/rawSum):1;
+  const measTarget=roofUnitSqFt();   // owner's-unit area (split-aware) — same target as the diagram/card
+  const measScale=(measTarget>0&&rawSum>0)?(measTarget/rawSum):1;
   for(const f of facets){ nFacets++;
     const pts=f.hull.map(([lng,lat])=>toPx(lat,lng));
     ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
@@ -5193,7 +5280,7 @@ function renderCols(){
 // live price for the current material selection — surfaced in the render bar so mobile sees the price while browsing (the quote card is hidden behind the catalogue on mobile)
 function matPriceStr(){
   if(!window.__roofSel||!QUOTE) return "";
-  const sel=window.__roofSel, sqs=QUOTE.roofSqft/100, psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
+  const sel=window.__roofSel, sqs=quoteAreaSqFt()/100, psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;   // owner's-unit squares (split-aware)
   let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, getRoofTotals());
   return fmtMoney(Math.round(lo/50)*50)+"–"+fmtMoney(Math.round(hi/50)*50);
 }
