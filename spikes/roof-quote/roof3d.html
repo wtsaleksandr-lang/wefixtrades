@@ -1141,10 +1141,11 @@ function measureCardBody(largeRoof){
   // CTA (audit-3 P0: Empire State / 1700 Owens / commercial). Show the same custom-quote message — one
   // verdict, every lens agrees. This is a real user-facing card (not a silent swallow).
   if(largeRoof){
+    // No CTA button here — the footer renders the single canonical "Request a commercial quote →"
+    // (qcta) whenever bodyCommercial is set, so a button in the body too would duplicate it (audit-6 P2).
     return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Large / commercial roof</div>'+
       '<div class="qprice" style="font-size:20px;line-height:1.25">This roof is too large for an instant takeoff</div>'+
-      '<div class="qsub" style="margin-top:6px">A roof this size needs a measured commercial estimate — an instant satellite takeoff wouldn’t be accurate enough to price from. Request a custom quote and we’ll measure it properly.</div>'+
-      '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__openCapture&&window.__openCapture()">Request a commercial quote →</button>';
+      '<div class="qsub" style="margin-top:6px">A roof this size needs a measured commercial estimate — an instant satellite takeoff wouldn’t be accurate enough to price from. Request a custom quote and we’ll measure it properly.</div>';
   }
   // totals come from getRoofTotals (facet model anchored to Google area). If the model never
   // produced totals we briefly show "Measuring…", but once the roof read is DONE with no usable
@@ -3997,6 +3998,19 @@ function deactivateBA(){ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{
     window.addEventListener("pointermove",e=>{ if(drag) upd(e.clientX); }); window.addEventListener("pointerup",()=>{ drag=false; }); }
 })();
 function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); const r=$("aiRendering"); if(r) r.style.display="none"; }
+// Belt-and-suspenders self-heal (audit-6 P1): if the AI <img> fails to paint (error event, or
+// loads with naturalWidth===0 — the classic expired-provider-url → black-panel symptom), re-request
+// /airender ONCE with a cache-bust so a poisoned/stale cache entry self-heals. Non-looping (single retry).
+function paintAiPhoto(url,addr,material){
+  const img=$("aiPhoto"); if(!img) return; let healed=false;
+  const heal=()=>{ if(healed) return; healed=true;
+    fetch("/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(material)+"&_cb="+Date.now())
+      .then(r=>r.json()).then(j=>{ if(j&&j.url){ img.src=j.url; } }).catch(()=>{});
+  };
+  img.onerror=heal;
+  img.addEventListener("load",function onload(){ img.removeEventListener("load",onload); if(img.naturalWidth===0) heal(); });
+  img.src=url; img.style.display="block";
+}
 $("aiBtn").onclick=async()=>{
   const addr=$("addr").value.trim(); const btn=$("aiBtn");
   // use the SELECTED catalogue colour (not the legacy ROOF_MATS[matIdx], which is always Architectural)
@@ -4011,7 +4025,7 @@ $("aiBtn").onclick=async()=>{
     setStatus("");
     if(j&&j.url){
       window.__aiDown=false;
-      const img=$("aiPhoto"); img.src=j.url; img.style.display="block";
+      const img=$("aiPhoto"); paintAiPhoto(j.url,addr,c?c.p:m.label);
       // audit-4 P1 diagnostic: the before/after preview was reported 0×0/black. The img fills #app
       // (position:fixed;inset:0), so log the container + img rect at the moment the view opens to
       // prove non-zero sizing. img.onload also re-logs naturalWidth once the bytes decode.

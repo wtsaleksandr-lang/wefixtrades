@@ -44,6 +44,7 @@ import {
   houseKnowledge,
   localRate,
   pvwattsProduction,
+  readRehostedImage,
   roofFeatures,
   solarInsights,
   streetView,
@@ -507,6 +508,30 @@ export function registerRoofQuoteRoutes(app: Express) {
     } catch (err) {
       log.error("airender failed", { err: (err as Error).message });
       return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── DURABLE self-hosted stream of a re-hosted AI render (audit-6 P1) ───
+   * aiRender() re-hosts each provider's EPHEMERAL delivery url (e.g.
+   * replicate.delivery/...) to a stable url pointing here, so cached/later
+   * visitors never hit an expired 404 → black "after" panel. This serves those
+   * bytes from the on-disk byte cache keyed on the render cache key. No Google
+   * money is spent (pure disk read), so it sits outside the googleRateBlocked
+   * gate; a missing/expired key just 404s and the widget's self-heal re-renders.
+   * CORS is handled by the app-level middleware (same as the other image
+   * routes), and an <img src> load isn't credentialed so embeds load it fine. */
+  app.get("/api/roofquote/airender-image", (req: Request, res: Response) => {
+    try {
+      const key = String(req.query.key || "");
+      if (!key) return res.status(400).type("text/plain").send("missing key");
+      const hit = readRehostedImage(key);
+      if (!hit) return res.status(404).type("text/plain").send("not_found");
+      res.setHeader("Content-Type", hit.contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.send(hit.buf);
+    } catch (err) {
+      log.error("airender-image failed", { err: (err as Error).message });
+      return res.status(502).type("text/plain").send("airender_image_failed");
     }
   });
 
