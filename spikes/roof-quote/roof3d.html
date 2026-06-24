@@ -592,6 +592,12 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+// (BUG 2) Fat lines for the on-model 3D measure overlay. Plain LineBasicMaterial ignores
+// linewidth>1, so the existing cyan facet outline is a 1px hairline; Line2/LineMaterial draw
+// real px-width screen-space lines so colour-coded ridge/hip/valley edges read crisply.
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const $=id=>document.getElementById(id);
 const M2_SQFT=10.7639; const M_FT=3.28084;
@@ -980,6 +986,17 @@ const GREY={
   edge:new THREE.LineBasicMaterial({color:0x6b7280,transparent:true,opacity:0.35})
 };
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
+// (BUG 2) On-model 3D measurement overlay (colour-coded typed edges + LF/area labels) drawn on OUR
+// Three.js scene — guaranteed on-surface (same M2S as the facet meshes), unlike the old Google-tile
+// Polyline3DElements that floated off the photoreal mesh. Built once per scene build, shown only in
+// the Measure "3D" lens. measLineMats holds the LineMaterials so we can keep their resolution uniform.
+let measGroup3D=null, measLineMats=[];
+// Edge colours for the 3D overlay as hex ints (mirror EDGE_COLORS strings used by the 2D/report views).
+const EDGE_HEX={ ridge:0xff453a, hip:0xff9f0a, valley:0x2e90ff, eave:0x32d74b, rake:0xbf5af2 };
+function clearMeas3D(){ if(measGroup3D){ try{ scene.remove(measGroup3D); measGroup3D.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose&&m.dispose());} }); }catch(_){} } measGroup3D=null; measLineMats=[]; window.__measScene3D=null; }
+// Keep fat-line screen-space resolution correct on resize (LineMaterial needs it in pixels).
+function updateMeasLineRes(){ const w=(canvas&&canvas.clientWidth)||innerWidth, h=(canvas&&canvas.clientHeight)||innerHeight; for(const m of measLineMats){ try{ m.resolution.set(w,h); }catch(_){} } }
+function setMeas3DVisible(on){ if(measGroup3D) measGroup3D.visible=!!on; if(on) updateMeasLineRes(); }
 /* site + scene scale, driven by the sun-path UI */
 let SITE={lat:43.219,lng:-79.782}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-4, siteAlt=115, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
 // ── Google REAL hourly-shade (hourlyShadeUrls) state ───────────────────────────
@@ -2003,11 +2020,11 @@ function daylightBand(minAlt){
   return { rise:Math.max(4,rise), set:Math.min(20,set) };
 }
 
-function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); }
+function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); if(typeof updateMeasLineRes==="function") updateMeasLineRes(); }   // (BUG 2) keep fat-line px resolution correct
 addEventListener("resize",resize); resize();
 (function loop(){ controls.update(); renderer.render(scene,camera); requestAnimationFrame(loop); })();
 
-function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); }
+function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); if(typeof clearMeas3D==="function") clearMeas3D(); }   // (BUG 2) also drop the 3D measure overlay (sibling of worldGroup)
 
 /* build the textured DSM mesh + panels */
 let panelMesh=null;
@@ -2163,6 +2180,57 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // degeneracy guard: built roof area must track Google's segment total (else fall back)
   const gTot=segs.reduce((t,s)=>t+(((s.stats&&s.stats.areaMeters2)||0)*M2_SQFT),0);
   if(gTot>0 && (builtRoofArea < gTot*0.4 || builtRoofArea > gTot*2.2)){ clearWorld(); return false; }
+
+  // ── (BUG 2) ON-MODEL 3D MEASUREMENT OVERLAY ──────────────────────────────────
+  // Draw the classified roof edges (ridge/hip/valley/eave/rake) as crisp colour-coded fat lines
+  // ON our own Three.js roof — mapped through the SAME M2S() the facet meshes use, so every line is
+  // guaranteed on-surface (no Google-tile datum mismatch). Built into a hidden group; shown only in
+  // the Measure "3D" lens. Verifiable headless because the Three.js scene paints under software GL.
+  try{
+    clearMeas3D();
+    const g=new THREE.Group(); g.visible=false; g.renderOrder=3;
+    const resW=(canvas&&canvas.clientWidth)||innerWidth, resH=(canvas&&canvas.clientHeight)||innerHeight;
+    // small offset toward the camera-up so the line rides just above the roof skin (no z-fighting)
+    const LIFT=0.12;
+    const mkFat=(ax,ay,az2,bx,by,bz2,hex,wpx)=>{
+      const geo=new LineGeometry(); geo.setPositions([ax,ay+LIFT,az2, bx,by+LIFT,bz2]);
+      const mat=new LineMaterial({ color:hex, linewidth:wpx, transparent:true, depthTest:true, dashed:false });
+      mat.resolution.set(resW,resH); measLineMats.push(mat);
+      const ln=new Line2(geo,mat); ln.computeLineDistances(); ln.renderOrder=3; return ln;
+    };
+    let nEdge=0; const typeCount={ridge:0,hip:0,valley:0,eave:0,rake:0};
+    for(const e of model.edges){
+      const A=M2S(e.a[0],e.a[1],(typeof e.az==="number"&&isFinite(e.az))?e.az:baseY);
+      const B=M2S(e.b[0],e.b[1],(typeof e.bz==="number"&&isFinite(e.bz))?e.bz:baseY);
+      const hex=EDGE_HEX[e.type]||0x22d3ee;
+      // white casing first (slightly wider) so the colour reads against any roof tone, then the colour line
+      g.add(mkFat(A.x,A.y,A.z,B.x,B.y,B.z,0xffffff,5.0));
+      g.add(mkFat(A.x,A.y,A.z,B.x,B.y,B.z,hex,3.0));
+      nEdge++; if(typeCount[e.type]!=null) typeCount[e.type]++;
+    }
+    // per-edge LF labels — longest-first, spaced out (mirror buildRoofMeasure's dedup/placement)
+    const placed=[]; const mScaleE=(QUOTE&&QUOTE.roofSqft)?1:1;
+    for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<10) continue;
+      const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
+      if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<3.0)) continue; placed.push([mx,my]);
+      const mz=(((typeof e.az==="number")?e.az:baseY)+((typeof e.bz==="number")?e.bz:baseY))/2;
+      const S=M2S(mx,my,mz); const lb=makeLabel(Math.round(e.lengthFt)+"′");
+      lb.position.set(S.x, S.y+0.5, S.z); g.add(lb);
+    }
+    // per-facet area+pitch chips (scaled to the quote total like the 2D/3D-tile views), top few facets
+    const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
+    const mScale=(QUOTE&&QUOTE.roofSqft&&mPlaneSum>0)?(QUOTE.roofSqft/mPlaneSum):1;
+    const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
+    const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
+    for(const p of mSorted){ if(p===mSorted[0]?false:((p.areaSqFt||0)<mMax*0.18)) continue;
+      if(!Array.isArray(p.ring3)||p.ring3.length<3) continue;
+      let cx=0,cy=0,cz=0; for(const v of p.ring3){ const s=M2S(v[0],v[1],v[2]); cx+=s.x; cy+=s.y; cz+=s.z; } cx/=p.ring3.length; cy/=p.ring3.length; cz/=p.ring3.length;
+      const lb=makeLabel(Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12");
+      lb.position.set(cx, cy+1.0, cz); g.add(lb);
+    }
+    scene.add(g); measGroup3D=g;
+    window.__measScene3D={ edges:nEdge, typeCount, labels:placed.length };
+  }catch(e){ errors.push("meas3d:"+((e&&e.message)||e)); }
 
   // ── WALLS: ONE coherent band. Top follows the building outline at its true (eave) height;
   //    bottom sits on the ground baseline. Outline = the analytic footprint if present, else the
@@ -2569,7 +2637,7 @@ async function run(addr){
     HOURLY_SHADE_URLS = (dl && Array.isArray(dl.hourlyShadeUrls) && dl.hourlyShadeUrls.length===12) ? dl.hourlyShadeUrls : null;
     LASTSHADE=null; SHADECACHE.clear(); window.__shadeMonth=null;
     window.__hasHourlyShade = !!HOURLY_SHADE_URLS;   // expose for verify
-    window.LASTB=LASTB; window.LASTDSM=LASTDSM; window.LASTMASK=LASTMASK;   // expose for headless verify diagnostics
+    window.LASTB=LASTB; window.LASTDSM=LASTDSM; window.LASTMASK=LASTMASK; window.LASTRGB=LASTRGB; window.LASTFLUX=LASTFLUX;   // expose for headless verify diagnostics
     // Confidence gate: if the loaded rasters don't cover the roof the Solar segments
     // describe (tree canopy / off-building geocode), suppress the drift-prone overlays
     // and show the inline note — the numeric quote below still renders from Solar data.
@@ -2828,15 +2896,24 @@ function dpSimplify(pts,eps){ if(pts.length<3) return pts; let dmax=0,idx=0; con
    line up (no slivers). Each edge angle is snapped to the nearest of the roof's two
    orthogonal axes (0°/90°) — and to 45° for genuine hip/clipped runs — then near-collinear
    segments are merged. Tolerances are in the trace's [x,y] units (≈ cell size). */
-function polyOrientation(pts){
+function polyOrientation(pts,minLen){
   // dominant edge direction via PCA-free length-weighted angle histogram folded into [0,90).
   // returns radians of the roof's primary axis (0 = +x).
-  let sx=0,sy=0,tot=0;
-  for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length];
-    let ang=Math.atan2(b[1]-a[1],b[0]-a[0]); const len=Math.hypot(b[0]-a[0],b[1]-a[1]); if(len<1e-6) continue;
-    let d=((ang%(Math.PI/2))+Math.PI/2)%(Math.PI/2);   // fold to [0,90°) — orthogonal edges reinforce the same axis
-    sx+=Math.cos(4*d)*len; sy+=Math.sin(4*d)*len; tot+=len; }   // 4× → period maps 0..90° to a full circle for a stable circular mean
-  if(tot<1e-6) return 0; return Math.atan2(sy,sx)/4;
+  // (BUG 3) Optional minLen: ignore edges shorter than minLen so a short noisy Moore-trace jog
+  // can't bias the axis a few degrees (which then rotated the whole rectilinear outline). When the
+  // filter would drop EVERY edge (tiny ring) we fall back to using all edges.
+  const useMin=(typeof minLen==="number"&&minLen>0);
+  for(let pass=0;pass<2;pass++){
+    let sx=0,sy=0,tot=0;
+    for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length];
+      let ang=Math.atan2(b[1]-a[1],b[0]-a[0]); const len=Math.hypot(b[0]-a[0],b[1]-a[1]); if(len<1e-6) continue;
+      if(pass===0 && useMin && len<minLen) continue;   // pass 0: longest edges only; pass 1: all (fallback)
+      let d=((ang%(Math.PI/2))+Math.PI/2)%(Math.PI/2);   // fold to [0,90°) — orthogonal edges reinforce the same axis
+      sx+=Math.cos(4*d)*len; sy+=Math.sin(4*d)*len; tot+=len; }   // 4× → period maps 0..90° to a full circle for a stable circular mean
+    if(tot>1e-6) return Math.atan2(sy,sx)/4;
+    if(!useMin) break;   // pass 0 already used all edges
+  }
+  return 0;
 }
 function regularizePoly(pts,axisRad,tol,allow45){
   if(pts.length<3) return pts;
@@ -2869,6 +2946,62 @@ function regularizePoly(pts,axisRad,tol,allow45){
 }
 function lineIntersect(p1,d1,p2,d2){ const den=d1[0]*d2[1]-d1[1]*d2[0]; if(Math.abs(den)<1e-9) return null;
   const t=((p2[0]-p1[0])*d2[1]-(p2[1]-p1[1])*d2[0])/den; return [p1[0]+t*d1[0], p1[1]+t*d1[1]]; }
+/* (BUG 3) OUTER-FOOTPRINT CLEANUP — kill the spurious notch / kink on a simple roof.
+   Operates in the SAME planar [x,y] cell space as regularizePoly (so `minLen` is in CELLS).
+   Steps, in order:
+     (a) NOTCH-MERGE: drop edges shorter than `minLen` by extending the two neighbouring edges to
+         their intersection — this absorbs a 1-2 cell mask jog that survived DP-simplify into a
+         clean corner instead of a stair-step.
+     (b) COLLINEAR-MERGE: drop a vertex whose incoming+outgoing edges deflect by < `mergeDeg`
+         (near-collinear run) so a straight wall isn't split by a sub-degree wobble.
+     (c) RECTANGLE-SNAP (guarded): if the ring is ≤ maxVerts vertices AND its area is within
+         `rectTol` of its own axis-aligned (in the roof's axis frame) bounding rectangle, replace it
+         with that perfect rectangle — the "a simple roof MUST come out crisp" guarantee. The area
+         gate keeps genuine L/T-shaped roofs on the general regularizer (they fail the ratio test). */
+function cleanFootprintRing(pts, axisRad, opts){
+  opts=opts||{}; const minLen=opts.minLen||5.5, mergeDeg=opts.mergeDeg||8, rectTol=opts.rectTol||0.06, maxVerts=opts.maxVerts||6;
+  const ringArea=(r)=>{ let s=0; for(let i=0;i<r.length;i++){ const a=r[i],b=r[(i+1)%r.length]; s+=a[0]*b[1]-b[0]*a[1]; } return Math.abs(s)/2; };
+  let R=pts.map(p=>p.slice());
+  // (a) notch-merge: extend neighbours across any too-short edge to their intersection
+  let guard=0;
+  while(R.length>4 && guard++<R.length*3){
+    let removed=false;
+    for(let i=0;i<R.length;i++){
+      const a=R[i], b=R[(i+1)%R.length];
+      if(Math.hypot(b[0]-a[0],b[1]-a[1])>=minLen) continue;
+      const p0=R[(i-1+R.length)%R.length], p3=R[(i+2)%R.length];
+      const d1=[a[0]-p0[0],a[1]-p0[1]], d2=[b[0]-p3[0],b[1]-p3[1]];
+      const X=lineIntersect(p0,d1,p3,d2);
+      if(X){ // replace a,b with their neighbours' intersection
+        const ni=(i+1)%R.length;
+        if(ni>i){ R.splice(i,2,X); } else { R.splice(i,1); R.splice(0,1,X); }
+        removed=true; break;
+      }
+    }
+    if(!removed) break;
+  }
+  // (b) collinear-merge: drop vertices that barely deflect the path
+  const cosThr=Math.cos((180-mergeDeg)*Math.PI/180);   // deflection angle = π − interior angle
+  let cleaned=[]; for(let i=0;i<R.length;i++){ const p0=R[(i-1+R.length)%R.length], p1=R[i], p2=R[(i+1)%R.length];
+    const u=[p1[0]-p0[0],p1[1]-p0[1]], v=[p2[0]-p1[0],p2[1]-p1[1]]; const lu=Math.hypot(u[0],u[1]),lv=Math.hypot(v[0],v[1]);
+    if(lu<1e-6||lv<1e-6) continue; const dot=(u[0]*v[0]+u[1]*v[1])/(lu*lv);
+    if(dot<cosThr) cleaned.push(p1);   // deflects more than mergeDeg → real corner, keep
+  }
+  if(cleaned.length>=3) R=cleaned;
+  // (c) guarded rectangle-snap
+  if(R.length<=maxVerts){
+    const ca=Math.cos(-axisRad), sa=Math.sin(-axisRad);
+    const Rr=R.map(([x,y])=>[x*ca-y*sa, x*sa+y*ca]);
+    let minx=1e18,maxx=-1e18,miny=1e18,maxy=-1e18; for(const[x,y]of Rr){ if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; }
+    const rectA=Math.abs((maxx-minx)*(maxy-miny)), polyA=ringArea(R);
+    if(rectA>1e-6 && Math.abs(rectA-polyA)/rectA<=rectTol){
+      const rect=[[minx,miny],[maxx,miny],[maxx,maxy],[minx,maxy]];
+      const cb=Math.cos(axisRad), sb=Math.sin(axisRad);
+      return rect.map(([x,y])=>[x*cb-y*sb, x*sb+y*cb]);
+    }
+  }
+  return R;
+}
 /* Moore-neighbor boundary trace of a binary predicate grid, clockwise from (sr,sc) */
 function mooreTrace(isF,sr,sc,rows,cols){
   const N=[[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]];
@@ -3032,11 +3165,17 @@ function extractFacetPolysAnalytic(margin){
     if(sr<0) throw new Error("footprint component empty");
     let cont=dpSimplify(mooreTrace(isFP,sr,sc,rows,cols),2.0);
     if(cont.length<3) throw new Error("footprint trace degenerate");
-    // light orthogonal regularize (allow 45° for clipped corners) in cell space
+    // (BUG 3) OUTER outline = rectilinear ONLY (allow45=false): a 45° snap on a near-horizontal/vertical
+    // outer wall is what kinked simple roofs. (45° stays allowed for INTERIOR facet creases — those are
+    // clipped analytically by the half-plane solve, not by this regularizer.) Axis is stabilised on the
+    // longest edges (minLen≈1 m in cells) so a short noisy jog can't rotate the whole outline. Then
+    // cleanFootprintRing merges the residual notch + (for a genuinely simple footprint) snaps to a crisp rect.
     let fpxy=cont.map(([r,c])=>[c,r]);
-    const fpAxis=polyOrientation(fpxy);
-    let reg=regularizePoly(fpxy, fpAxis, 1.4, true);
+    const cellsPerM=1/step;                       // step is the grid cell size in metres
+    const fpAxis=polyOrientation(fpxy, 1.0*cellsPerM);
+    let reg=regularizePoly(fpxy, fpAxis, 1.4, /*allow45=*/false);
     if(reg.length>=3) fpxy=reg;
+    fpxy=cleanFootprintRing(fpxy, fpAxis, { minLen:0.8*cellsPerM, mergeDeg:8, rectTol:0.06, maxVerts:6 });
     footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
     if(polyArea2(footprint)<3) throw new Error("footprint too small");
   }
@@ -3177,6 +3316,12 @@ function extractFacetPolysAnalytic(margin){
   // expose the single clean footprint ring (lng/lat) so the 3D massing can build ONE
   // coherent wall envelope (eave-height top → ground bottom) instead of per-facet phantom walls.
   try{ facets.__footprintLL = footprint.map(([E,N])=>utmToLL(E,N,zone)); }catch(_){}
+  // (BUG 1) Expose the PRECISE building footprint ring in UTM (E,N) + its zone so the 2D solar/material
+  // overlays clip to the real outline (the largest connected mask component) instead of an inflated bbox
+  // that reaches neighbours. The analytic builder already kept only the largest connected component for
+  // `footprint`, so an adjacent house inside Google's 40 m mask is geometrically excluded by point-in-poly.
+  try{ facets.__footprintEN = footprint.map(([E,N])=>[E,N]); facets.__footprintZone = zone;
+    window.__footprintEN = facets.__footprintEN; window.__footprintZone = zone; }catch(_){}
   return facets;
 }
 
@@ -3362,67 +3507,13 @@ async function buildRoofMeasure(){
   }catch(_){}
   if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → DSM-derived measure would drift; suppress (quote still shows measured ft² from Solar)
   const model=facetsToRoofModel(); if(!model){ await buildPhotoLabels(); return; }   // graceful fallback to legacy outline
-  const toWgs=model.__toWgs;
-  const { Marker3DElement, AltitudeMode, Polyline3DElement }=await google.maps.importLibrary("maps3d");
-  let PinElement=null; try{ ({PinElement}=await google.maps.importLibrary("marker")); }catch(_){}
-  const mk=(pos,text,big,color)=>{ const m=new Marker3DElement({ position:pos, altitudeMode:AltitudeMode.RELATIVE_TO_MESH, sizePreserved:true, label:text });
-    if(PinElement){ try{ m.append(new PinElement({ background:"#0b1220", borderColor:color||"#22d3ee", glyph:"", scale:big?0.4:0.24 })); }catch(_){} }   // smaller pins → less cluttered
-    gmap.append(m); roofMeas.push(m); };
-  // colour-coded dimension lines per edge type, riding the TRUE sloped roof, drawn with
-  // RELATIVE_TO_MESH so each endpoint sits at its own HEIGHT-ABOVE-GROUND on top of Google's
-  // photoreal mesh — a ridge/hip rides the crest along the slope, an eave sits low.
-  //
-  // WHY NOT ABSOLUTE (audit-8 P1 regression): a prior rework switched these to
-  // AltitudeMode.ABSOLUTE using the endpoint's raw DSM elevation (e.az/e.bz, metres above
-  // sea level). That is mathematically self-consistent with the Solar DSM datum, BUT the
-  // photoreal Map3D mesh the camera actually renders does NOT share that exact datum —
-  // Google's Solar DSM and the 3D-Tiles mesh routinely differ by several metres of vertical
-  // offset (and the mesh is what the user sees). Pinning the lines to ABSOLUTE DSM altitude
-  // therefore parks them metres under/over the visible roof → the 3D measure view rendered
-  // EMPTY (no rooflines). RELATIVE_TO_MESH re-anchors every line to the mesh the user sees,
-  // so a small datum offset can't sink them; the per-endpoint height-above-ground (e.az −
-  // siteAlt) preserves the true slope so lines still ride the crest, not drape flat.
-  const EDGE_LIFT=0.25;   // small constant lift off the mesh so the line isn't z-fighting the surface
-  // height-above-ground per endpoint = absolute lifted z minus the ground datum (siteAlt, the
-  // 5th-percentile of the same z field). Sanity-gate: if elevations are missing/all-zero, draw
-  // every endpoint flat on the mesh (relH=0) rather than at a garbage height.
-  const haveElev=model.edges.some(e=>typeof e.az==="number"&&isFinite(e.az)&&Math.abs(e.az)>0.5);
-  const relH=(z)=>{ if(!haveElev) return 0; const v=(typeof z==="number"&&isFinite(z))?(z-siteAlt):0; return (isFinite(v)&&v>-2&&v<120)?Math.max(0,v):0; };
-  const __dbgAlts=[];
-  for(const e of model.edges){
-    const A=toWgs(e.a[0],e.a[1]), B=toWgs(e.b[0],e.b[1]); const col=EDGE_COLORS[e.type]||"#22d3ee";
-    const altA=relH(e.az)+EDGE_LIFT, altB=relH(e.bz)+EDGE_LIFT;
-    __dbgAlts.push(+altA.toFixed(2),+altB.toFixed(2));
-    const coords=[{lat:A[1],lng:A[0],altitude:altA},{lat:B[1],lng:B[0],altitude:altB}];
-    try{ // white casing (slightly wider, drawn first so the colour sits on top)
-      const cas=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:"rgba(255,255,255,0.85)", strokeWidth:3, drawsOccludedSegments:true, coordinates:coords });
-      gmap.append(cas); roofMeas.push(cas);
-      const pl=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:col, strokeWidth:2, drawsOccludedSegments:true, coordinates:coords });
-      gmap.append(pl); roofMeas.push(pl);
-    }catch(err){ errors.push("polyline:"+err.message); }
-  }
-  window.__measAltDbg={ mode:"RELATIVE_TO_MESH", siteAlt:+siteAlt.toFixed(2), haveElev,
-    relMin:__dbgAlts.length?+Math.min(...__dbgAlts).toFixed(2):null,
-    relMax:__dbgAlts.length?+Math.max(...__dbgAlts).toFixed(2):null,
-    samples:__dbgAlts.slice(0,20), edges:model.edges.length };
-  // per-edge LF labels — only the significant edges, longest-first, well spread (wider min-gap → no hectic clustering)
-  const placed=[];
-  for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<14) continue; const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
-    if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<5.0)) continue; placed.push([mx,my]);
-    const M=toWgs(mx,my); mk({lat:M[1],lng:M[0],altitude:0.25}, Math.round(e.lengthFt)+"′", false, EDGE_COLORS[e.type]); }
-  // per-plane area + pitch label, anchored just above the roof surface (not floating high → stays inside the plane)
-  // Scale each plane's area to the quote's whole-roof total so the 3D labels add up to the quote (same reconcile
-  // as the 2D measure + card) — otherwise the 3D lens reads ~half the billed area.
-  const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
-  const mScale=(QUOTE&&QUOTE.roofSqft&&mPlaneSum>0)?(QUOTE.roofSqft/mPlaneSum):1;
-  // Same restraint as the 2D diagram: a pin on EVERY plane buried the model. Pin only the few
-  // largest facets (top-N, ≥ a fraction of the biggest) so the roof + edge lines stay readable;
-  // smaller facets carry no pin (their area still totals into the quote/report). (polish.)
-  const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
-  const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
-  const mLabel=mSorted.filter((p,idx)=> idx<4 && (idx===0 || (p.areaSqFt||0)>=mMax*0.18));
-  for(const p of mLabel){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
-    const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12", true); }
+  // (BUG 2) The 3D measurement lines are NO LONGER drawn on Google's photoreal tiles (they floated
+  // off the mesh due to the DSM↔3D-Tiles datum mismatch and were blank/unverifiable headless). They
+  // are now built ON our own Three.js scene (measGroup3D, in buildSceneAnalytic) via the SAME M2S()
+  // as the facet meshes → guaranteed on-surface. The 2D top-down (renderRoofDiagram on #matCanvas)
+  // remains the default Measure lens; the "3D" toggle mounts #scene + measGroup3D. Here we just need
+  // the model totals for the report + to arm the toggle.
+  window.__measEdges={ edges:model.edges.length, types:model.edges.reduce((m,e)=>{m[e.type]=(m[e.type]||0)+1;return m;},{}) };
   showRoofReport(model.totals);
   $("measToggle").style.display="flex"; showMeasDiagram(true);   // Scanifly-style top-down is the default lens; 3D is a toggle
   window.__roofMeas={ planes:model.planes.length, edges:model.edges.length, totals:model.totals };
@@ -3581,11 +3672,24 @@ function renderMeasMini(src,W,H,minx,miny,cw,ch){
   x.strokeStyle="rgba(255,255,255,0.5)"; x.lineWidth=1; x.strokeRect(rx-1,ry-1,rw+2,rh+2);
 }
 function showMeasDiagram(on){
-  if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block"; }
-  else { $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="block";
-    // entering the 3D lens: tighten the camera onto the roof so the measurement overlay fills the frame
-    // (the default 78m range left the roof small + the labels reading like they sat up the street).
-    try{ if(gmap && gmap.flyCameraTo){ const mr=Math.max(46, Math.round(roofFitRange(46)*0.75)); gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:mr, tilt:52, heading:(+gmap.heading||15) }, durationMillis:700 }); } }catch(_){}   // tight for a house, expands so a large/commercial footprint fits
+  if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
+    setMeas3DVisible(false); }
+  else {
+    // (BUG 2) 3D MEASURE = OUR Three.js scene, NOT Google's photoreal tiles. The old path mounted
+    // #gmapWrap and drew Polyline3DElements with RELATIVE_TO_MESH onto Google's mesh, whose datum ≠
+    // the Solar DSM altitudes → lines floated off the roof / were invisible (and blank/unverifiable
+    // headless). We mount #scene, apply the clean grey skin, and show the on-model colour-coded edges
+    // (measGroup3D) built in buildSceneAnalytic via the SAME M2S() as the facet meshes.
+    $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="none"; $("scene").style.display="block";
+    // tear down any stray Google-tile measure overlays WITHOUT hiding #measToggle (clearRoofMeas hides it).
+    for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[];
+    if(mode!=="schematic"){ setMode("schematic"); }   // schematic mounts the Three.js scene (async; visibility already set)
+    try{ applyModelSkin(true); }catch(_){}  // grey clay so the coloured edge lines read clearly
+    setSchemLabels(false);                  // hide the schematic per-facet sprites; the measure overlay carries its own labels
+    if(measGroup3D){ setMeas3DVisible(true); }
+    else { showAnalysis(null); $("scene").style.display="block"; }   // analytic model absent → show plain massing (legacy fallback, no typed edges)
+    // frame the roof
+    try{ if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.42,span*0.66,span*0.62); controls.target.set(0,4,0); controls.update(); } }catch(_){}
   }
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
 }
@@ -3656,9 +3760,11 @@ async function buildPhotoHeatmap(){
   // step 0.55 + half-size 0.38 (cells overlap → smooths the grid look); erode only 0.5m so coverage reaches the roofline
   const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.55, dLat=step/mLat, dLng=step/mLng, hLat=0.38/mLat, hLng=0.38/mLng;
   let fmin=Infinity,fmax=-Infinity; const pts=[];
+  const clip=roofFootprintClip();   // (BUG 1) precise footprint clip — excludes a neighbour inside Google's 40 m mask
   for(let lat=s; lat<=nn; lat+=dLat) for(let lng=w; lng<=e; lng+=dLng){
     const [E,N]=wgs84ToUTM(lat,lng,zone);
-    if(mg && !roofInterior(mg,E,N,0.5)) continue;   // small erode: keep cells off the wall but still reach the roofline
+    if(clip){ if(!inRoofFootprint(clip,mg,E,N,0.5)) continue; }
+    else if(mg && !roofInterior(mg,E,N,0.5)) continue;   // small erode: keep cells off the wall but still reach the roofline
     const v=sampleGrid(fg,E,N); if(!(v>0)||!isFinite(v)) continue;
     if(v<fmin)fmin=v; if(v>fmax)fmax=v; pts.push([lat,lng,v]);
   }
@@ -3910,7 +4016,14 @@ async function setMode(mo){
   mode=mo; const photo=mo==="photoreal";
   $("gmapWrap").style.display=photo?"block":"none";
   $("scene").style.display=photo?"none":"block";
-  $("sunbar").style.display=(!photo&&window.__roofReady)?"flex":"none";
+  // (BUG 4) Sun and Materials are MUTUALLY-EXCLUSIVE lenses sharing the same bottom-centre slot.
+  // setMode used to force #sunbar visible on EVERY non-photoreal mode — so entering Materials (which
+  // switches the base to schematic) flashed BOTH #sunbar and #matbar in the same spot (549×61 overlap).
+  // Only show the sunbar when the Sun lens (or the grey Model shadow-study, which owns it) is actually
+  // active — never while Materials/Measure is the current lens.
+  const sunbarOwns=(typeof sunMode!=="undefined"&&sunMode)||(typeof greyMode!=="undefined"&&greyMode);
+  const matOrMeasure=(typeof matMode!=="undefined"&&matMode)||(typeof labelsVisible!=="undefined"&&labelsVisible)||window.__analysis==="material";
+  $("sunbar").style.display=(!photo&&window.__roofReady&&sunbarOwns&&!matOrMeasure)?"flex":"none";
   if(photo){
     showLoad("Loading photoreal 3D…");
     try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+((e&&e.message)||e)); try{ console.warn("photoreal degrade:",(e&&e.message)||e); }catch(_){} setStatus("3D view unavailable — your quote is shown on the card."); }   // enhancement-only failure: never leak a raw exception string; the price card already rendered
@@ -4604,10 +4717,42 @@ $("bPanels").onclick=async()=>{
   if(panelsVisible){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else clearPanels();
   renderQuoteCard();
 };
+/* (BUG 4) SILHOUETTE material preview — used when there is NO RGB ortho layer (e.g. 30 Angus Rd:
+   DSM+mask only). The old code early-returned on !LASTRGB → a BLANK preview. Instead, paint the
+   shingle texture INSIDE the precise footprint/mask silhouette over a neutral base, so the buyer
+   always sees an approximate "new roof in <colour>" tile. Coordinate frame = the MASK bbox (UTM).
+   Returns true if it painted, false if no mask either (caller keeps whatever was on screen). */
+function renderMaterialSilhouette(base,type){
+  const mk=LASTMASK; if(!mk||!mk.rasters) return false;
+  const W=mk.width, H=mk.height, vals=mk.rasters[0];
+  const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
+  let sid=null; try{ sid=makeShingleCanvas(base,type).getContext("2d").getImageData(0,0,512,512).data; }catch(_){ sid=null; }
+  // solid-colour fallback when the shingle texture can't be built — parse base "rgb(r,g,b)"
+  let solid=[110,110,110]; { const m=/(\d+)\D+(\d+)\D+(\d+)/.exec(base||""); if(m) solid=[+m[1],+m[2],+m[3]]; }
+  const out=ctx.createImageData(W,H), d=out.data;
+  const mg={vals,w:W,h:H,bbox:mk.bbox};
+  const bb=mk.bbox, eW=bb[2]-bb[0], eN=bb[3]-bb[1], tile=72, base0=[238,241,246];   // neutral paper base outside the roof
+  const clip=roofFootprintClip();
+  let roofPx=0;
+  for(let row=0;row<H;row++){ const N=bb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
+    for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; const E=bb[0]+(col+0.5)/W*eW;
+      let on = clip ? inRoofFootprint(clip,mg,E,N,0.4) : roofInterior(mg,E,N,0.4);
+      if(on){ roofPx++;
+        if(sid){ const si=(ty*512+Math.floor((col%tile)/tile*512))*4; d[k]=sid[si]; d[k+1]=sid[si+1]; d[k+2]=sid[si+2]; }
+        else { d[k]=solid[0]; d[k+1]=solid[1]; d[k+2]=solid[2]; }
+        d[k+3]=255;
+      } else { d[k]=base0[0]; d[k+1]=base0[1]; d[k+2]=base0[2]; d[k+3]=255; }
+    } }
+  ctx.putImageData(out,0,0); window.__matRoofPx=roofPx; window.__matSilhouette=true;
+  return roofPx>0;
+}
 /* 2D material visualizer: composite real shingle texture onto the top-down roof photo,
    clipped to the roof mask. Obstructions (mask holes: chimneys/vents) + off-roof keep the original photo. */
 function renderMaterialPreview(){
-  if(!LASTRGB) return;
+  if(!LASTRGB){ // (BUG 4) no RGB ortho → silhouette fallback instead of a blank early-return
+    const cm=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cc=(cm&&cm.colors&&(cm.colors[selCol]||cm.colors[0]));
+    renderMaterialSilhouette((cc&&cc.base)||"rgb(110,110,110)", cm&&cm.type); return;
+  }
   const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0], G=rgb.rasters[1]||R, B=rgb.rasters[2]||R;
   const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
   const out=ctx.createImageData(W,H), d=out.data;
@@ -4619,11 +4764,12 @@ function renderMaterialPreview(){
   const sid=makeShingleCanvas(mt.base,mt.type).getContext("2d").getImageData(0,0,512,512).data;
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], tile=72, a=0.6;
-  let roofPx=0; const bb=buildingBox(2.5);
+  let roofPx=0; const clip=roofFootprintClip(), bb=clip?null:buildingBox(2.5);   // (BUG 1) precise footprint clip
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
     for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
       // require an eroded-interior mask hit (no mask ⇒ bare photo) so the shingle tint never bleeds onto lawn/driveway
-      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5);
+      const onRoof=clip ? inRoofFootprint(clip,mg,E,N,0.5)
+        : ((!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5));
       if(onRoof){ roofPx++; const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
         r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
       d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
@@ -4636,18 +4782,19 @@ function renderMaterialPreview(){
    photoreal AI image loads behind it (kills the dead ~30s). base/type come from ROOF_CATALOG[].colors[].
    Returns true on success (canvas painted), false if the ortho/mask aren't ready (caller keeps spinner only). */
 function renderInstantTint(base,type){
-  if(!LASTRGB) return false;
+  if(!LASTRGB) return renderMaterialSilhouette(base,type);   // (BUG 4) no RGB ortho → silhouette fallback (never blank)
   const rgb=LASTRGB, W=rgb.width, H=rgb.height, R=rgb.rasters[0], G=rgb.rasters[1]||R, B=rgb.rasters[2]||R;
   const cv=$("matCanvas"); cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
   const out=ctx.createImageData(W,H), d=out.data;
   let sid; try{ sid=makeShingleCanvas(base,type).getContext("2d").getImageData(0,0,512,512).data; }catch(_){ return false; }
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], tile=72, a=0.62;
-  const bb=buildingBox(2.5);
+  const clip=roofFootprintClip(), bb=clip?null:buildingBox(2.5);   // (BUG 1) precise footprint clip
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
     for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
       // require an eroded-interior mask hit (no mask ⇒ bare photo) so the instant tint never bleeds onto lawn/driveway
-      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5);
+      const onRoof=clip ? inRoofFootprint(clip,mg,E,N,0.5)
+        : ((!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5));
       if(onRoof){ const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
         r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
       d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
@@ -4672,6 +4819,32 @@ function buildingBox(margin){
       if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; } }
   if(!any) return null; const m=margin||3; return {minE:minE-m,maxE:maxE+m,minN:minN-m,maxN:maxN+m};
 }
+/* (BUG 1) PRECISE building-footprint clip for the 2D overlays. The analytic facet extractor
+   builds ONE clean footprint ring (largest connected mask component containing this site) and
+   stashes it on window.__footprintEN ([E,N] UTM) + window.__footprintZone. We cache it per
+   address load. Clipping the heatmap/material tint to point-in-THIS-ring (AND the eroded mask as a
+   secondary gate) excludes a neighbouring house that happens to sit inside Google's 40 m mask —
+   the inflated buildingBox(2.5) could not. Falls back to null (→ legacy bbox path) when the
+   analytic footprint is absent (analytic failed → legacy raster facets). */
+let __fpClipCache=null, __fpClipKey=null;
+function roofFootprintClip(){
+  const key=(LASTB&&LASTB.name)||(SITE.lat+","+SITE.lng);
+  if(__fpClipKey===key && __fpClipCache!==undefined) return __fpClipCache;
+  let ring=Array.isArray(window.__footprintEN)?window.__footprintEN:null, zone=window.__footprintZone;
+  if(!ring){
+    // not yet computed (overlay opened before Measure) → extract once; sets window.__footprintEN as a side effect
+    try{ extractFacetPolys(0.5); ring=Array.isArray(window.__footprintEN)?window.__footprintEN:null; zone=window.__footprintZone; }catch(_){ ring=null; }
+  }
+  __fpClipKey=key; __fpClipCache=(ring&&ring.length>=3)?{ring,zone}:null;
+  return __fpClipCache;
+}
+/* True when (E,N) is inside the precise footprint ring AND the eroded mask (no-mask ⇒ ring only). */
+function inRoofFootprint(clip,mg,E,N,margin){
+  if(!clip) return null;   // no footprint → caller uses the legacy bbox+mask path
+  if(!pointInPoly2([E,N],clip.ring)) return false;
+  if(mg) return roofInterior(mg,E,N,margin);   // secondary AND-gate keeps the tint off walls/eaves
+  return true;
+}
 /* smooth flux color ramp -> [r,g,b] */
 function fluxColorSmooth(t){ t=Math.max(0,Math.min(1,t)); const st=[[44,62,150],[34,150,205],[86,196,120],[248,206,64],[232,86,48]];
   const seg=Math.min(st.length-2,Math.floor(t*(st.length-1))), f=t*(st.length-1)-seg, a=st[seg],b=st[seg+1];
@@ -4686,17 +4859,37 @@ function renderSunPreview(){
   const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   const rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1];
   let fmin=Infinity,fmax=-Infinity; for(let i=0;i<fg.vals.length;i++){ const v=fg.vals[i]; if(v>0&&isFinite(v)){ if(v<fmin)fmin=v; if(v>fmax)fmax=v; } }
-  const range=(fmax-fmin)||1, a=0.72, bb=buildingBox(2.5);
+  const range=(fmax-fmin)||1, a=0.72;
+  // (BUG 1) Clip to the PRECISE building footprint (largest connected mask component containing the site)
+  // — not the inflated buildingBox(2.5) which reached a neighbour on a tight lot. Fall back to bbox+mask
+  // only when the analytic footprint is unavailable (legacy facets).
+  const clip=roofFootprintClip(), bb=clip?null:buildingBox(2.5);
+  // Pass 1: build the flux TINT in a float buffer over roof pixels only. sampleGrid is BILINEAR on the
+  // continuous flux raster → smooth gradient (no nearest-neighbour blockiness). roofMask[i]=1 where painted.
+  const tintR=new Float32Array(W*H), tintG=new Float32Array(W*H), tintB=new Float32Array(W*H), roofMask=new Uint8Array(W*H);
+  let roofPx=0, bleedSkipped=0;
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN;
-    for(let col=0;col<W;col++){ const i=row*W+col,k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
-      const inB=!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN);
-      // REQUIRE an eroded-interior mask hit (same 0.5m erosion the 3D overlays use) — no mask ⇒ leave the
-      // bare photo. Loose `!mg||sampleGrid>0.5` flooded the whole bbox (lawn/driveway) when the mask was null
-      // or just outside the un-eroded edge; roofInterior() keeps flux strictly inside the roofline.
-      if(inB && mg && roofInterior(mg,E,N,0.5)){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); r=r*(1-a)+c[0]*a; g=g*(1-a)+c[1]*a; b=b*(1-a)+c[2]*a; } }
-      d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
+    for(let col=0;col<W;col++){ const i=row*W+col; const E=rb[0]+(col+0.5)/W*eW;
+      let on;
+      if(clip){ on=inRoofFootprint(clip,mg,E,N,0.5); }
+      else { on=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5); }
+      if(on){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); tintR[i]=c[0]; tintG[i]=c[1]; tintB[i]=c[2]; roofMask[i]=1; roofPx++; } }
     } }
-  ctx.putImageData(out,0,0); window.__sunDone=true;
+  // Pass 2: light separable 3-tap blur of the tint, CONFINED to roof pixels (so it never smears the
+  // colour off the roofline). This removes the residual flux-cell stair-stepping for a clean ramp.
+  const blur=(src)=>{ const t1=new Float32Array(W*H), t2=new Float32Array(W*H);
+    for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){t1[i]=src[i];continue;}
+      let s=src[i],n=1; if(col>0&&roofMask[i-1]){s+=src[i-1];n++;} if(col<W-1&&roofMask[i+1]){s+=src[i+1];n++;} t1[i]=s/n; }
+    for(let row=0;row<H;row++)for(let col=0;col<W;col++){ const i=row*W+col; if(!roofMask[i]){t2[i]=t1[i];continue;}
+      let s=t1[i],n=1; if(row>0&&roofMask[i-W]){s+=t1[i-W];n++;} if(row<H-1&&roofMask[i+W]){s+=t1[i+W];n++;} t2[i]=s/n; }
+    return t2; };
+  const bR=blur(tintR), bG=blur(tintG), bB=blur(tintB);
+  // Composite the smoothed tint over the aerial photo.
+  for(let i=0;i<W*H;i++){ const k=i*4; let r=R[i],g=G[i],b=B[i];
+    if(roofMask[i]){ r=r*(1-a)+bR[i]*a; g=g*(1-a)+bG[i]*a; b=b*(1-a)+bB[i]*a; }
+    d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
+  }
+  ctx.putImageData(out,0,0); window.__sunDone=true; window.__sunRoofPx=roofPx; window.__sunClip=clip?"footprint":"bbox";
 }
 /* ═══════════════════════════════════════════════════════════════════════════════
    GOOGLE REAL HOURLY SHADE — "Play day & shadows" sourced from Google's hourlyShade
@@ -4839,7 +5032,7 @@ function showAnalysis(kind){
   window.__analysis=kind||null;
   document.body.classList.toggle("analyzing", kind==="material");  // mobile: swatch bar takes the card's bottom-sheet slot
   if(kind){ $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matbar").style.display="none";
-    if(kind==="material"){ renderMaterialPreview(); $("matbar").style.display="flex"; $("matHint").textContent="Top-down preview · tap “See it on my house” for a photo"; $("aiBtn").style.display="block"; }
+    if(kind==="material"){ $("sunbar").style.display="none"; renderMaterialPreview(); $("matbar").style.display="flex"; $("matHint").textContent="Top-down preview · tap “See it on my house” for a photo"; $("aiBtn").style.display="block"; }   // (BUG 4) Materials hides the Sun bar (shared slot)
     else if(kind==="sun"){ renderSunPreview(); $("matHint").textContent="Annual sun & shade · warm = most sun, cool = shaded"; }
     else { renderMeasurePreview(); $("matHint").textContent="Roof measurements · per-facet area + line lengths"; }
     $("matCanvas").style.display="block"; $("matHint").style.display=(kind==="material")?"none":"block"; }
@@ -4924,6 +5117,8 @@ async function warmMats(){ if(window.__matWarming||!window.__roofReady) return; 
 async function enterMatCatalogue(){
   // "See it on my house" is the headline feature — keep it visible in the materials view (was hidden here
   // and never re-shown, so it never appeared). Persistent across the browse flow.
+  $("sunbar").style.display="none";   // (BUG 4) Sun & Materials share the bottom-centre slot — Materials hides the Sun bar
+  const _sht=$("sunHeatToggle"); if(_sht) _sht.style.display="none";
   $("matbar").style.display="flex"; $("matHint").style.display="none"; showAiBtn();
   if(!$("matCats")) buildMatbar(); else renderCols();
   await renderColor(true); warmMats(); }
@@ -5008,7 +5203,11 @@ $("aiBtn").onclick=async()=>{
   }
   btn.disabled=false; btn.textContent=window.__aiDown?"Preview this material":"See it on my house";
 };
-$("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block"; };
+$("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block";
+  // (BUG 4) "Top-down" must land on the painted 2D preview, not a blank/photoreal base. showAnalysis
+  // ("material") repaints #matCanvas — the shingle tint on RGB roofs, or the footprint silhouette when
+  // there's no RGB ortho (30 Angus Rd) — so the preview is NEVER blank.
+  if(matMode){ showAnalysis("material"); } };
 // orbit the camera around the house (desktop has no 2-finger gesture — these buttons give the same control)
 function rotateCam(delta){
   if(mode==="photoreal"&&gmap){ const h=(((+gmap.heading||0)+delta)%360+360)%360;
