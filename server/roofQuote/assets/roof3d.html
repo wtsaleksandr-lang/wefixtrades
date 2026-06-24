@@ -1997,7 +1997,265 @@ function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.g
 /* build the textured DSM mesh + panels */
 let panelMesh=null;
 let modelSkin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
+/* ── Inline ear-clipping triangulator (no deps) ────────────────────────────────
+   Triangulates a simple polygon given as 2D vertices [[x,y],...] (any winding,
+   convex OR concave — L-shaped facets occur). Returns a flat list of vertex-index
+   triples [i0,i1,i2,...]. Robust to collinear/degenerate input (returns [] then). */
+function earClip(pts){
+  const n=pts.length; if(n<3) return [];
+  const area2=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0])*(b[1]-a[1]);
+  // signed area → ensure CCW working order (ear test assumes CCW)
+  let sa=0; for(let i=0;i<n;i++){ const p=pts[i],q=pts[(i+1)%n]; sa+=p[0]*q[1]-q[0]*p[1]; }
+  const idx=[]; for(let i=0;i<n;i++) idx.push(i);
+  if(sa<0) idx.reverse();   // make CCW
+  const inTri=(p,a,b,c)=>{ const d1=area2(p,a,b),d2=area2(p,b,c),d3=area2(p,c,a);
+    const neg=(d1<0)||(d2<0)||(d3<0), pos=(d1>0)||(d2>0)||(d3>0); return !(neg&&pos); };
+  const tris=[]; const V=idx.slice(); let guard=0;
+  while(V.length>3 && guard++<n*n+10){
+    let clipped=false;
+    for(let i=0;i<V.length;i++){
+      const i0=V[(i-1+V.length)%V.length], i1=V[i], i2=V[(i+1)%V.length];
+      const a=pts[i0], b=pts[i1], c=pts[i2];
+      if(area2(a,b,c)<=1e-9) continue;   // reflex or collinear → not an ear
+      let ear=true;
+      for(let j=0;j<V.length;j++){ const vj=V[j]; if(vj===i0||vj===i1||vj===i2) continue;
+        if(inTri(pts[vj],a,b,c)){ ear=false; break; } }
+      if(ear){ tris.push(i0,i1,i2); V.splice(i,1); clipped=true; break; }
+    }
+    if(!clipped) break;   // degenerate (self-intersecting) — bail with what we have
+  }
+  if(V.length===3) tris.push(V[0],V[1],V[2]);
+  return tris;
+}
+
+/* NEW massing — a COHERENT building envelope from the analytic roof model (facetsToRoofModel):
+   true facet polygons triangulated at their real elevations (adjacent facets meet exactly at
+   shared ridges/hips/valleys) + ONE wall band extruded from the building footprint/eave edges
+   down to the DSM ground baseline. Replaces the legacy pile of overlapping bbox cardboard boxes.
+   Falls back to buildSceneLegacy whenever the analytic model is unavailable or degenerate, and
+   ?massing=legacy forces the legacy path for A/B. */
 function buildScene(b, dsm, rgb, rgbTex){
+  const forceLegacy=(typeof location!=="undefined") && new URLSearchParams(location.search).get("massing")==="legacy";
+  if(forceLegacy){ window.__massingMode="legacy"; return buildSceneLegacy(b, dsm, rgb, rgbTex); }
+  try{
+    const ok=buildSceneAnalytic(b, dsm, rgb, rgbTex);
+    if(ok){ window.__massingMode="analytic"; return; }
+    if(typeof errors!=="undefined") errors.push("massing:analytic-degenerate→legacy");
+  }catch(e){ if(typeof errors!=="undefined") errors.push("massing-analytic:"+((e&&e.message)||e)); }
+  window.__massingMode="legacy";
+  return buildSceneLegacy(b, dsm, rgb, rgbTex);
+}
+
+/* Build the analytic envelope. Returns true on success, false if the result is degenerate
+   (caller then falls back to buildSceneLegacy). Throws are also caught by the caller. */
+function buildSceneAnalytic(b, dsm, rgb, rgbTex){
+  const model=(typeof facetsToRoofModel==="function")?facetsToRoofModel():null;
+  if(!model || !model.planes || !model.planes.length) return false;
+  // need lifted rings to build true-elevation roof meshes
+  const usable=model.planes.filter(p=>Array.isArray(p.ring3) && p.ring3.length>=3);
+  if(!usable.length) return false;
+
+  clearWorld(); schemLabels=[];
+  const skin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
+  const {bbox}=dsm, zone=dsm.zone;
+  const E0=(bbox[0]+bbox[2])/2, N0=(bbox[1]+bbox[3])/2;
+  const extE=bbox[2]-bbox[0], extN=bbox[3]-bbox[1];
+  const valid=[]; for(let i=0;i<dsm.rasters[0].length;i+=7){ const v=dsm.rasters[0][i]; if(isFinite(v)&&v>NODATA) valid.push(v); }
+  valid.sort((a,b)=>a-b); const baseY=valid[Math.floor(valid.length*0.05)]||0; siteAlt=baseY;
+  const bc=(b.center)?wgs84ToUTM(b.center.latitude,b.center.longitude,zone):[E0,N0];
+  const CE=bc[0], CN=bc[1];
+  const CROP=Math.min(30, extE/2-2, extN/2-2);
+  window.__roofDebug={dsmW:dsm.width,dsmH:dsm.height,extE:+extE.toFixed(1),extN:+extN.toFixed(1),baseY:+baseY.toFixed(1),zone,crop:+CROP.toFixed(1)};
+
+  rgbTex.colorSpace=THREE.SRGBColorSpace; rgbTex.flipY=false; rgbTex.anisotropy=8;
+  const rb=rgb.bbox;
+  const uvOf=(E,N)=>[ (E-rb[0])/(rb[2]-rb[0]), (rb[3]-N)/(rb[3]-rb[1]) ];
+  const toLocal=(lat,lng)=>{ const [E,N]=wgs84ToUTM(lat,lng,zone); return {x:E-CE,z:-(N-CN),E,N}; };
+  const toWgs=model.__toWgs;
+  // model-local (x_m,y_m,zAbs) → buildScene local frame {x,y,z}
+  const M2S=(x_m,y_m,zAbs)=>{ const [lng,lat]=toWgs(x_m,y_m); const L=toLocal(lat,lng); return {x:L.x, y:zAbs-baseY, z:L.z, E:L.E, N:L.N}; };
+
+  // ground plane — same razor-sharp flat aerial photo / studio floor as legacy.
+  {
+    const g=new THREE.PlaneGeometry(CROP*2,CROP*2,1,1); g.rotateX(-Math.PI/2);
+    const gp=g.attributes.position, gu=g.attributes.uv;
+    for(let i=0;i<gp.count;i++){ const E=CE+gp.getX(i), N=CN-gp.getZ(i); const [u,v]=uvOf(E,N); gu.setXY(i,u,v); }
+    gu.needsUpdate=true; g.computeVertexNormals();
+    const photoGroundMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:1,metalness:0});
+    const gm=new THREE.Mesh(g,photoGroundMat); gm.receiveShadow=true; worldGroup.add(gm);
+    skin.ground=gm; skin.groundPhotoMat=photoGroundMat;
+  }
+  // baked soft contact shadow under the building (grey-lens only).
+  {
+    const cc=document.createElement("canvas"); cc.width=cc.height=256;
+    const cx=cc.getContext("2d"), gr=cx.createRadialGradient(128,128,8,128,128,124);
+    gr.addColorStop(0,"rgba(20,26,34,0.42)"); gr.addColorStop(0.55,"rgba(20,26,34,0.18)"); gr.addColorStop(1,"rgba(20,26,34,0)");
+    cx.fillStyle=gr; cx.fillRect(0,0,256,256);
+    const ctex=new THREE.CanvasTexture(cc);
+    const csz=CROP*1.5, cg=new THREE.PlaneGeometry(csz,csz); cg.rotateX(-Math.PI/2);
+    const cm=new THREE.Mesh(cg,new THREE.MeshBasicMaterial({map:ctex,transparent:true,depthWrite:false}));
+    cm.position.set(0,0.04,0); cm.renderOrder=1; cm.visible=false; worldGroup.add(cm); skin.contact=cm;
+  }
+
+  const sp=b.solarPotential||{};
+  const segs=sp.roofSegmentStats||[];
+  const roofMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:0.9,metalness:0,side:THREE.DoubleSide});
+  const wallMat=new THREE.MeshStandardMaterial({color:0xcabfae,roughness:1,metalness:0,side:THREE.DoubleSide});
+  skin.roofPhotoMat=roofMat;
+
+  // ── ROOF: triangulate each TRUE facet polygon at its real elevation ──────────
+  // Project each lifted ring to its own best-fit plane's 2D basis for a clean ear-clip,
+  // then map triangle indices back to the lifted 3D vertices so facets meet exactly.
+  let roofMinY=1e9, roofMaxY=-1e9, builtRoofArea=0;
+  for(const p of usable){
+    // convert ring3 (model-local) into buildScene-local 3D vertices
+    const V3=p.ring3.map(v=>{ const s=M2S(v[0],v[1],v[2]); return new THREE.Vector3(s.x,s.y,s.z); });
+    if(V3.length<3) continue;
+    // 2D basis on the facet plane (normal from model, fall back to up): u,w span the plane
+    let nrm=Array.isArray(p.normal)?new THREE.Vector3(p.normal[0],p.normal[2],-p.normal[1]):null;   // model normal is ENU [e,n,up]; our frame x=E,z=-N,y=up
+    if(!nrm || nrm.lengthSq()<1e-9){ // derive from first non-degenerate triangle
+      for(let i=1;i<V3.length-1 && (!nrm||nrm.lengthSq()<1e-9);i++){ nrm=new THREE.Vector3().subVectors(V3[i],V3[0]).cross(new THREE.Vector3().subVectors(V3[i+1],V3[0])); }
+    }
+    if(!nrm || nrm.lengthSq()<1e-9) continue; nrm.normalize();
+    let uAxis=new THREE.Vector3(1,0,0).cross(nrm); if(uAxis.lengthSq()<1e-6) uAxis=new THREE.Vector3(0,0,1).cross(nrm); uAxis.normalize();
+    const wAxis=new THREE.Vector3().crossVectors(nrm,uAxis).normalize();
+    const o=V3[0];
+    const P2=V3.map(v=>{ const d=new THREE.Vector3().subVectors(v,o); return [d.dot(uAxis), d.dot(wAxis)]; });
+    const tris=earClip(P2);
+    if(tris.length<3) continue;
+    const posArr=[], uvArr=[];
+    for(let t=0;t<tris.length;t++){ const vi=tris[t]; const v=V3[vi]; posArr.push(v.x,v.y,v.z);
+      const E=CE+v.x, N=CN-v.z; const [u,uv]=uvOf(E,N); uvArr.push(u,uv); }
+    const fg=new THREE.BufferGeometry();
+    fg.setAttribute("position",new THREE.Float32BufferAttribute(posArr,3));
+    fg.setAttribute("uv",new THREE.Float32BufferAttribute(uvArr,2));
+    fg.computeVertexNormals();
+    const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm); skin.roofMeshes.push(fm);
+    for(const v of V3){ roofMinY=Math.min(roofMinY,v.y); roofMaxY=Math.max(roofMaxY,v.y); }
+    builtRoofArea += (p.areaSqFt||0);
+    // crisp facet outline (matches legacy look)
+    const ringPts=V3.map(v=>v.clone()); ringPts.push(V3[0].clone());
+    const eg=new THREE.BufferGeometry().setFromPoints(ringPts);
+    const edgeLine=new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5}));
+    edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
+    // per-facet ft²/pitch chip
+    let cx=0,cy=0,cz=0; for(const v of V3){cx+=v.x;cy+=v.y;cz+=v.z;} cx/=V3.length;cy/=V3.length;cz/=V3.length;
+    const fsqft=Math.round(p.areaSqFt||0); const x12=facetX12(p.pitchX12,{fromX12:true});
+    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(cx, cy+1.6, cz); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
+  }
+  if(!skin.roofMeshes.length){ clearWorld(); return false; }   // nothing valid built → fall back
+
+  // degeneracy guard: built roof area must track Google's segment total (else fall back)
+  const gTot=segs.reduce((t,s)=>t+(((s.stats&&s.stats.areaMeters2)||0)*M2_SQFT),0);
+  if(gTot>0 && (builtRoofArea < gTot*0.4 || builtRoofArea > gTot*2.2)){ clearWorld(); return false; }
+
+  // ── WALLS: ONE coherent band. Top follows the building outline at its true (eave) height;
+  //    bottom sits on the ground baseline. Outline = the analytic footprint if present, else the
+  //    boundary loop of the facet union (outer/unshared facet edges). Either way it's a SINGLE
+  //    closed loop → no interior phantom walls. Top elevation per outline vertex = nearest roof
+  //    vertex's true height (so eaves sit at eave height, gable rakes follow the slope). ──────────
+  const wallTopY=Math.max(roofMinY, 0.2);   // safety floor in case the outline lookup misses
+  let outline=null;   // [{x,z,y}]
+  if(Array.isArray(model.__footprint) && model.__footprint.length>=3){
+    // footprint is model-local [x_m,y_m]; lift each vertex to the nearest roof-vertex height
+    outline=model.__footprint.map(([xm,ym])=>{ const s=M2S(xm,ym,baseY); return {x:s.x, z:s.z}; });
+  } else {
+    // fall back to the facet-union boundary: collect unshared (eave/rake) edges from the model
+    const segsE=model.edges.filter(e=>e.type==="eave"||e.type==="rake");
+    if(segsE.length>=3){
+      // chain boundary segments into a loop by endpoint proximity
+      const segPts=segsE.map(e=>{ const A=M2S(...modelXY(e.a),baseY), B=M2S(...modelXY(e.b),baseY); return [{x:A.x,z:A.z},{x:B.x,z:B.z}]; });
+      outline=chainLoop(segPts);
+    }
+  }
+  if(outline && outline.length>=3){
+    // assign each outline vertex its TRUE top height = nearest roof-mesh vertex height
+    const roofVerts=[]; for(const m of skin.roofMeshes){ const pa=m.geometry.attributes.position; for(let i=0;i<pa.count;i++) roofVerts.push([pa.getX(i),pa.getY(i),pa.getZ(i)]); }
+    for(const o of outline){ let best=wallTopY, bd=1e9; for(const rv of roofVerts){ const d=(rv[0]-o.x)**2+(rv[2]-o.z)**2; if(d<bd){ bd=d; best=rv[1]; } } o.y=Math.max(best, 0.2); }
+    // Wall BOTTOM: ground baseline (y=0 = baseY). On steep/hillside lots the DSM 5th-pct ground
+    // sits far below the eave, which would extrude an unrealistic tower. Cap the wall HEIGHT to a
+    // plausible building max (~3 storeys) measured from the LOWEST eave, raising the floor when the
+    // drop is excessive so the massing reads as a house, not a tower. Flat lots keep floor=0.
+    const WALL_CAP_M=11;
+    const eaveY=Math.min(...outline.map(o=>o.y));
+    const floorY=Math.max(0, eaveY-WALL_CAP_M);
+    const wp=[];
+    for(let k=0;k<outline.length;k++){ const a=outline[k], c=outline[(k+1)%outline.length];
+      const aT=new THREE.Vector3(a.x,a.y,a.z), aB=new THREE.Vector3(a.x,floorY,a.z);
+      const cT=new THREE.Vector3(c.x,c.y,c.z), cB=new THREE.Vector3(c.x,floorY,c.z);
+      wp.push(aB,cB,cT, aB.clone(),cT.clone(),aT);   // two tris per wall quad (outward+inward via DoubleSide)
+    }
+    const wg=new THREE.BufferGeometry().setFromPoints(wp); wg.computeVertexNormals();
+    const wm=new THREE.Mesh(wg,wallMat); wm.castShadow=true; wm.receiveShadow=true; worldGroup.add(wm); skin.wallMeshes.push(wm);
+  }
+
+  // ── PANELS — same Solar-data placement as legacy (independent of roof geometry) ──
+  const facetInfo=[];
+  for(let si=0;si<segs.length;si++){ const seg=segs[si], bb=seg.boundingBox;
+    if(!bb||!bb.sw||!bb.ne){ facetInfo.push(null); continue; }
+    const Az=(seg.azimuthDegrees||0)*Math.PI/180, P=(seg.pitchDegrees||0)*Math.PI/180;
+    const ctr=seg.center||{latitude:(bb.sw.latitude+bb.ne.latitude)/2,longitude:(bb.sw.longitude+bb.ne.longitude)/2};
+    const c=toLocal(ctr.latitude,ctr.longitude);
+    const y0=((seg.planeHeightAtCenterMeters!=null)?seg.planeHeightAtCenterMeters:baseY+4)-baseY;
+    facetInfo[si]={cx:c.x,cz:c.z,y0,sinAz:Math.sin(Az),cosAz:Math.cos(Az),tanP:Math.tan(P),P}; }
+  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
+  const panels=(sp.solarPanels||[]).slice(0,n);
+  const box=new THREE.BoxGeometry(1,0.06,1);
+  const pmat=new THREE.MeshStandardMaterial({color:0x16335f,roughness:0.3,metalness:0.5,emissive:0x0a1830,emissiveIntensity:0.25});
+  panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=true;
+  const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(), pVec=new THREE.Vector3(), sVec=new THREE.Vector3(), nrmV=new THREE.Vector3();
+  let placed=0;
+  for(const pn of panels){ if(!pn.center) continue; const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
+    const L=toLocal(pn.center.latitude,pn.center.longitude);
+    const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
+    const y=fi.y0 - d*fi.tanP + 0.16;
+    nrmV.set(Math.sin(fi.P)*fi.sinAz, Math.cos(fi.P), -Math.sin(fi.P)*fi.cosAz).normalize();
+    q.setFromUnitVectors(up,nrmV); pVec.set(L.x,y,L.z);
+    const land=pn.orientation==="LANDSCAPE"; sVec.set(land?ph:pw,1,land?pw:ph);
+    m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m); }
+  panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; worldGroup.add(panelMesh);
+  window.__panelsPlaced=placed;
+
+  // ── Model-lens quality gate: coherence now comes from the analytic model, so the lens
+  //    is available whenever we got valid facets. Keep only a true-degenerate guard. ──
+  window.__modelQuality = (skin.roofMeshes.length>=1);
+  window.__modelGateReason = window.__modelQuality?"":"no analytic facets";
+  window.__modelDebug={mode:"analytic",facets:usable.length,roofMeshes:skin.roofMeshes.length,wallMeshes:skin.wallMeshes.length,builtSqFt:Math.round(builtRoofArea),googleSqFt:Math.round(gTot)};
+  if(typeof applyModelGate==="function") applyModelGate();
+
+  // ── camera + shadow frustum (same framing as legacy) ──
+  const span=CROP*2;
+  controls.target.set(0,5,0);
+  camera.position.set(span*0.48, span*0.62, span*0.72);
+  controls.minDistance=10; controls.maxDistance=span*2.0;
+  SCENE_R=span; const sc=sun.shadow.camera; sc.near=0.5; sc.far=span*6; sc.left=sc.bottom=-span; sc.right=sc.top=span; sc.updateProjectionMatrix();
+  modelSkin=skin;
+  applyModelSkin(greyMode);
+  updateSun();
+  controls.update();
+  return true;
+}
+/* model-local edge endpoint [x,y] passthrough helper (kept tiny for readability) */
+function modelXY(pt){ return [pt[0], pt[1]]; }
+/* Chain a set of 2D segments [[{x,z},{x,z}],...] into a single ordered loop by endpoint
+   proximity. Returns [{x,z}] (open ring) or null if it can't form a usable loop. */
+function chainLoop(segPts){
+  if(!segPts.length) return null;
+  const TOL=0.8, used=new Array(segPts.length).fill(false);
+  const near=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z)<TOL;
+  const loop=[segPts[0][0],segPts[0][1]]; used[0]=true; let advanced=true;
+  while(advanced){ advanced=false; const tail=loop[loop.length-1];
+    for(let i=0;i<segPts.length;i++){ if(used[i]) continue; const [A,B]=segPts[i];
+      if(near(tail,A)){ loop.push(B); used[i]=true; advanced=true; break; }
+      if(near(tail,B)){ loop.push(A); used[i]=true; advanced=true; break; } } }
+  // drop the duplicate closing vertex if we came back around
+  if(loop.length>3 && near(loop[0],loop[loop.length-1])) loop.pop();
+  return loop.length>=3?loop:null;
+}
+
+function buildSceneLegacy(b, dsm, rgb, rgbTex){
   clearWorld(); schemLabels=[];
   // collects refs so the grey "Model" lens can re-skin meshes WITHOUT rebuilding geometry
   const skin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
@@ -2839,6 +3097,9 @@ function extractFacetPolysAnalytic(margin){
   const gTot=segs.reduce((t,g)=>t+((g.stats&&g.stats.areaMeters2)||0),0);
   const bTot=facets.reduce((t,f)=>t+(f.slopeArea||0),0);
   if(gTot>0 && (bTot<gTot*0.45 || bTot>gTot*1.9)) throw new Error("facet area off vs Google ("+bTot.toFixed(0)+" vs "+gTot.toFixed(0)+")");
+  // expose the single clean footprint ring (lng/lat) so the 3D massing can build ONE
+  // coherent wall envelope (eave-height top → ground bottom) instead of per-facet phantom walls.
+  try{ facets.__footprintLL = footprint.map(([E,N])=>utmToLL(E,N,zone)); }catch(_){}
   return facets;
 }
 
@@ -2884,7 +3145,7 @@ function extractFacetPolys(margin){
   if(_fp!=="legacy"){
     try{
       const f=extractFacetPolysAnalytic(margin);
-      if(f&&f.length){ f.__analytic=true; return f; }
+      if(f&&f.length){ f.__analytic=true; return f; }   // f.__footprintLL carried for the wall envelope
     }catch(e){ if(typeof errors!=="undefined") errors.push("analytic-facets:"+(e&&e.message||e)); }
   }
   try{
@@ -3002,7 +3263,10 @@ function facetsToRoofModel(){
   // fallback keeps the historical 1m fuzzy match for its independently-regularized rings.
   const shareTolM=(facets.__analytic===false)?1.0:0.6;
   let model; try{ model=window.__buildRoofModel(planes, sampleHeight, {shareTolM}); }catch(e){ errors.push("roofgeo:"+e.message); return null; }
-  model.__toWgs=toWgs; return model;
+  model.__toWgs=toWgs;
+  // Forward the single analytic footprint ring (in model-local metres) for the 3D wall envelope.
+  if(Array.isArray(facets.__footprintLL)) model.__footprint=facets.__footprintLL.map(([lng,lat])=>toLocal(lng,lat));
+  return model;
 }
 async function buildRoofMeasure(){
   if(!gmap) return; clearRoofMeas();

@@ -307,9 +307,14 @@ export function buildRoofModel(planes, sampleHeight, opts) {
   totals.predominantPitchX12 = biggest ? biggest.pitchX12 : 0;
 
   // Public per-plane shape (strip internal scratch fields).
+  // ring3 (the lifted [x,y,zAbs] polygon ring) is exposed so the 3D massing
+  // can triangulate each TRUE facet polygon at its real elevation — adjacent
+  // facets share the same lifted crease vertices, so they meet exactly.
   const outPlanes = facets.map((f) => ({
     id: f.id,
     ring: f.ring,
+    ring3: f.ring3,
+    normal: f.normal,
     areaSqFt: f.areaSqFt,
     pitchX12: f.pitchX12,
     pitchDeg: f.pitchDeg,
