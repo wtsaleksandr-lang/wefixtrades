@@ -1605,7 +1605,11 @@ function renderQuoteCard(){
   // roof…" spinner over a Google POI map (the Getty case).
   const conf=roofDataConfidence(); window.__roofDataConf=conf;
   const lowConf=conf.low;
-  if(lowConf){ body=lowConfidenceCardBody(conf); }
+  // A LARGE/commercial roof (skyscraper, big-box) is not a "shaded house" — its degrade copy must be the
+  // commercial message, never "heavy tree cover" (audit-3: Empire State read canopy-heavy because the DSM
+  // sees neighbouring towers ABOVE the plane). largeRoof wins over the low-confidence canopy copy.
+  if(lowConf && largeRoof){ body=measureCardBody(true); }
+  else if(lowConf){ body=lowConfidenceCardBody(conf); }
   else if(view==="sun" && tradeMode==="solar"){ body=sunCardBody(); }
   // Measure/Roofing lens must obey the SAME single verdict the Solar card uses. On a large/commercial
   // roof (or any low-confidence read) the takeoff would be a misleading "confident" survey — degrade
