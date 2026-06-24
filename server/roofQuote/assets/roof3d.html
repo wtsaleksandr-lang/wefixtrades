@@ -1,8 +1,11 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>3D Roof &amp; Solar — true model</title>
-<link rel="preconnect" href="https://api.fontshare.com"><link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet">
-<style>/* native-to-QuickQuote: when embedded in the app, load the SAME local Satoshi files (all weights) the host serves; the fontshare link above is the standalone/spike fallback */
+<!-- Satoshi is self-hosted via the @font-face block below (served at /fonts/*.woff2 by both the spike
+     serve.mjs and the embedded wefixtrades app). The old fontshare <link> was removed: it was
+     CORS-blocked in the embedded/third-party load context and logged a console error every load
+     (same reason the app dropped it — see client/src/index.css). -->
+<style>/* native-to-QuickQuote: load the SAME local Satoshi files (all weights) the host serves at /fonts/, also served by the spike serve.mjs */
 @font-face{font-family:"Satoshi";font-weight:300;font-display:swap;src:url("/fonts/satoshi-300.woff2") format("woff2")}
 @font-face{font-family:"Satoshi";font-weight:400;font-display:swap;src:url("/fonts/satoshi-400.woff2") format("woff2")}
 @font-face{font-family:"Satoshi";font-weight:500;font-display:swap;src:url("/fonts/satoshi-500.woff2") format("woff2")}
@@ -2556,6 +2559,18 @@ function facetsToRoofModel(){
 }
 async function buildRoofMeasure(){
   if(!gmap) return; clearRoofMeas();
+  // COMMERCIAL/LOW-CONFIDENCE GATE — compute the verdict UP FRONT, before any takeoff
+  // polygons or facet badges paint. On a high-rise (e.g. 20 W 34th St) the confident facet
+  // badges used to flash across neighbouring buildings for a few seconds, then get replaced
+  // by the commercial card. Short-circuit here so they never paint even for a moment — the
+  // quote card (renderQuoteCard) already routes large/low-conf roofs to the commercial copy
+  // via measureCardBody(true). (audit-4 P2: high-rise transient confident takeoff.)
+  try{
+    const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
+    const largeRoof = solarTiers.length>0 && bestKw>30; window.__largeRoof=largeRoof;
+    const conf=(typeof roofDataConfidence==="function")?roofDataConfidence():null;
+    if(largeRoof || (conf&&conf.low)) return;   // commercial / low-confidence → no on-map takeoff; the card shows the commercial verdict
+  }catch(_){}
   if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → DSM-derived measure would drift; suppress (quote still shows measured ft² from Solar)
   const model=facetsToRoofModel(); if(!model){ await buildPhotoLabels(); return; }   // graceful fallback to legacy outline
   const toWgs=model.__toWgs;
@@ -2605,6 +2620,10 @@ function rrRound(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x
 const MEAS_RED="#ff453a";
 function renderRoofDiagram(){
   if(!LASTRGB||!window.__buildRoofModel) return false;
+  // Same commercial/low-confidence gate as buildRoofMeasure — never paint a confident top-down
+  // takeoff diagram for a large/commercial roof (the card routes it to the commercial verdict).
+  try{ const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
+    if((solarTiers.length>0 && bestKw>30) || (typeof roofDataConfidence==="function" && roofDataConfidence().low)) return false; }catch(_){}
   const model=facetsToRoofModel(); if(!model||!model.planes.length) return false;
   const toWgs=model.__toWgs, rgb=LASTRGB, zone=(LASTFLUX||LASTDSM).zone, rb=rgb.bbox, eW=rb[2]-rb[0], eN=rb[3]-rb[1], W=rgb.width, H=rgb.height;
   const toPx=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); return [ (E-rb[0])/eW*W, (rb[3]-N)/eN*H ]; };
@@ -2684,13 +2703,32 @@ function renderRoofDiagram(){
   // 1,563 ft² (DSM under-capture). Scale by Google-total ÷ sum-of-model-planes.
   const dPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
   const dScale=(QUOTE&&QUOTE.roofSqft&&dPlaneSum>0)?(QUOTE.roofSqft/dPlaneSum):1;
+  // Collision avoidance: a label is centred on its facet, but adjacent facets (LA / Asheville)
+  // pushed pills nearly touching. GAP = required clear space between any two pills. When the
+  // centroid spot collides, nudge the pill outward along a small ring of candidate offsets and
+  // keep the first clear one; only if nothing within reach is clear do we drop the label
+  // (cluttered/commercial roofs stay legible rather than overlapping). (audit-4 P2.)
+  const GAP=4;
+  const hits=(box)=> lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2)) < (b.w+box.w)/2+GAP && Math.abs(b.y+b.h/2-(box.y+box.h/2)) < (b.h+box.h)/2+GAP);
   for(const f of fp.slice().sort((a,b)=>b.p.areaSqFt-a.p.areaSqFt)){
     const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
     ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
     ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
-    const pw=Math.max(w1,w2)+fs*0.9, ph=fs*2.5, cx=f.cx, cy=f.cy;
-    const box={x:cx-pw/2,y:cy-ph/2,w:pw,h:ph};
-    if(lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2))<(b.w+box.w)/2-2 && Math.abs(b.y+b.h/2-(box.y+box.h/2))<(b.h+box.h)/2-2)) continue;   // overlap → skip
+    const pw=Math.max(w1,w2)+fs*0.9, ph=fs*2.5;
+    let cx=f.cx, cy=f.cy, box={x:cx-pw/2,y:cy-ph/2,w:pw,h:ph};
+    if(hits(box)){
+      // search outward rings of candidate offsets (keep the pill near its facet) for a clear slot
+      let placed=false; const step=Math.max(ph*0.62,fs*1.5);
+      outer: for(let ring=1;ring<=3 && !placed;ring++){
+        for(const [dx,dy] of [[0,-1],[0,1],[1,0],[-1,0],[1,-1],[-1,-1],[1,1],[-1,1]]){
+          const nx=f.cx+dx*step*ring, ny=f.cy+dy*step*ring, nb={x:nx-pw/2,y:ny-ph/2,w:pw,h:ph};
+          // keep the nudged pill inside the canvas crop
+          if(nb.x<2||nb.y<2||nb.x+pw>cw-2||nb.y+ph>ch-2) continue;
+          if(!hits(nb)){ cx=nx; cy=ny; box=nb; placed=true; break outer; }
+        }
+      }
+      if(!placed) continue;   // nowhere clear within reach → drop (last resort)
+    }
     lblBoxes.push(box);
     ctx.fillStyle="rgba(11,18,32,0.82)"; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.fill();
     ctx.strokeStyle="rgba(255,69,58,0.55)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.stroke();
@@ -3898,6 +3936,12 @@ $("aiBtn").onclick=async()=>{
     if(j&&j.url){
       window.__aiDown=false;
       const img=$("aiPhoto"); img.src=j.url; img.style.display="block";
+      // audit-4 P1 diagnostic: the before/after preview was reported 0×0/black. The img fills #app
+      // (position:fixed;inset:0), so log the container + img rect at the moment the view opens to
+      // prove non-zero sizing. img.onload also re-logs naturalWidth once the bytes decode.
+      try{ const aR=$("app").getBoundingClientRect(), pR=img.getBoundingClientRect();
+        console.debug("[ai-preview] app",Math.round(aR.width)+"x"+Math.round(aR.height),"aiPhoto",Math.round(pR.width)+"x"+Math.round(pR.height),"display",getComputedStyle(img).display);
+        img.addEventListener("load",()=>{ const r=img.getBoundingClientRect(); console.debug("[ai-preview] loaded",img.naturalWidth+"x"+img.naturalHeight,"rect",Math.round(r.width)+"x"+Math.round(r.height)); },{once:true}); }catch(_){}
       $("aiMat").textContent=label+" — your home";
       activateBA();   // before/after slider supersedes the old toggle
       $("aiBar").style.display="flex"; clearInstantTint(); btn.style.display="none";
