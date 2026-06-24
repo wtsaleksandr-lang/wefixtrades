@@ -389,6 +389,9 @@
   #measToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
+  /* Sun-heatmap Top-down/3D toggle lives INSIDE the sunbar (only shown in the map sub-view) — same pill look as #measToggle */
+  #sunHeatToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+  #sunHeatToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
   /* MOBILE: clear the stacked search bar — sit the Top-down/3D toggle below it (top:128px), left-aligned;
      the minimap now lives top-right so the two no longer collide (audit-7 P1). */
   @media (max-width:560px){ #measToggle{left:8px;transform:none;top:128px} #measToggle button{padding:6px 12px} }
@@ -546,11 +549,15 @@
   </div>
   <div id="matbar"></div>
   <div id="sunbar">
+    <!-- #sPlay sits at the sunbar root (NOT inside #sunShadowCtl) so it stays clickable in BOTH the heatmap
+         and shadows sub-views — its onclick auto-enters shadows first when pressed from the heatmap. The
+         time/season sliders are shadow-only and live in #sunShadowCtl. -->
+    <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
     <div id="sunShadowCtl" style="display:flex;gap:16px;align-items:center">
-      <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
       <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
       <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
     </div>
+    <div id="sunHeatToggle" style="display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px"><button data-v="2d" class="on">Top-down</button><button data-v="3d">3D</button></div>
     <button id="sMap" class="sunbtn" title="Switch between the moving-shadow day play and the annual sun-exposure heatmap">☀ Sun map</button>
   </div>
   <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
@@ -1134,7 +1141,7 @@ function sunCardBody(){
   const sa=roofSolarAccess();
   const saLine=sa?'<div class="qfin" style="margin-top:6px;line-height:1.5">☀ Solar access <b>'+sa.access+'%</b> · TSRF <b>'+sa.tsrf+'%</b> — '+sa.rating+(sa.tsrf>=75?' <span style="color:#16a34a;font-weight:700">✓ incentive-grade</span>':'')+HCUE("tsrf")+'<br><span class="muted" style="font-size:10.5px">Best face: '+sa.perFace[0].dir+' '+sa.perFace[0].x12+'/12 · '+sa.perFace[0].tsrf+'% TSRF. Planning estimate from satellite — confirm on site.</span></div>':'';
   return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span>'+HCUE("sun")+'</div>'+
-    '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power.</div>'+
+    '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power. <span class="muted" style="font-size:10.5px">Colours are relative to this roof.</span></div>'+
     saLine+
     '<div class="grid"><div class="stat"><div class="v">'+panels+'</div><div class="l">panels fit</div></div>'+
     '<div class="stat"><div class="v">'+area.toLocaleString()+'</div><div class="l">usable ft²</div></div>'+
@@ -1963,6 +1970,22 @@ function updateSun(){
   sun.target.position.copy(controls.target); sun.target.updateMatrixWorld();
   window.__sun={az:+sp.azimuth.toFixed(1),alt:+sp.altitude.toFixed(1)};
 }
+/* Daylight band [sunrise,sunset] in LOCAL hours for the current site + season (sunMonth),
+   computed by scanning sunPosition() altitude across the day. Used to clamp "Play day" to the
+   hours the sun is actually up (no night frames, no jarring 20→5.5 wrap). minAlt≈3° trims the
+   horizon haze where shadows degenerate. Returns {rise,set} or null if the sun never clears it. */
+function daylightBand(minAlt){
+  minAlt=(minAlt==null)?3:minAlt;
+  const std=Math.round(SITE.lng/15), dst=(sunMonth>=3&&sunMonth<=10)?1:0, tz=std+dst;
+  let rise=null, set=null;
+  for(let h=3; h<=21; h+=0.1){
+    const d=new Date(Date.UTC(2026, sunMonth-1, 21, h-tz, 0, 0));
+    const alt=sunPosition(d, SITE.lat, SITE.lng).altitude;
+    if(alt>minAlt){ if(rise===null) rise=h; set=h; }
+  }
+  if(rise===null) return null;
+  return { rise:Math.max(4,rise), set:Math.min(20,set) };
+}
 
 function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); }
 addEventListener("resize",resize); resize();
@@ -2479,6 +2502,32 @@ async function buildRoofMaterial(){
     poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.4})); gmap.append(poly); matPolys.push(poly);
   }
   window.__matPolys=matPolys.length;
+}
+// ── 3D SUN-EXPOSURE HEATMAP ─────────────────────────────────────────────────
+// Per-facet sun colouring on the 3D photoreal model — the 3D counterpart of the 2D top-down
+// renderSunPreview heatmap. Modeled EXACTLY on buildRoofMaterial(): same extractFacetPolys hulls,
+// same Polygon3DElement append, same overlaySuppressed guard (so it never drifts onto canopy ground).
+// Each facet's sun value = its Solar segment's MEDIAN annual sunshine (sunshineQuantiles[5], the same
+// figure roofSolarAccess() uses); normalized across this roof's facets; coloured by the unified
+// fluxColorSmooth ramp so it MATCHES the 2D heatmap + the card legend.
+let sunHeat3D=[];
+function clearSunHeat3D(){ for(const p of sunHeat3D){ try{ p.remove&&p.remove(); }catch(_){} } sunHeat3D=[]; window.__sunHeat3D=0; }
+async function buildSunHeatmap3D(){
+  if(!gmap) return; clearSunHeat3D();
+  if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → facet polys would drift onto the ground; suppress
+  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  const facets=extractFacetPolys(0.4);   // same near-full-coverage erosion as the material overlay
+  const sunOf=f=>{ const q=f.seg&&f.seg.stats&&f.seg.stats.sunshineQuantiles; return (q&&q.length>=11)?(q[5]||q[Math.floor(q.length/2)]||0):null; };
+  const vals=facets.map(sunOf).filter(v=>v!=null&&isFinite(v));
+  if(!vals.length){ window.__sunHeat3D=0; return; }
+  const fmin=Math.min(...vals), fmax=Math.max(...vals), range=(fmax-fmin)||1;
+  for(const f of facets){ const v=sunOf(f); if(v==null||!isFinite(v)) continue;
+    const c=fluxColorSmooth((v-fmin)/range);   // SAME ramp as the 2D heatmap + legend
+    const fill=`rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},0.82)`;
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(0,0,0,0.32)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.4})); gmap.append(poly); sunHeat3D.push(poly);
+  }
+  window.__sunHeat3D=sunHeat3D.length;
 }
 function energyColor(t){ // 0=low sun (blue) -> high sun (red)
   t=Math.max(0,Math.min(1,t)); const st=[[59,130,246],[34,211,238],[250,204,21],[239,68,68]];
@@ -3218,7 +3267,7 @@ async function buildPhotoLabels(){
 }
 /* full roof sun/shade heat-map: flux raster drawn as roof-clamped colored cells */
 let heatCells=[];
-function clearHeat(){ for(const c of heatCells){ try{ c.remove&&c.remove(); }catch(_){} } heatCells=[]; window.__heatCells=0; }
+function clearHeat(){ for(const c of heatCells){ try{ c.remove&&c.remove(); }catch(_){} } heatCells=[]; window.__heatCells=0; if(typeof clearSunHeat3D==="function") clearSunHeat3D(); }   // also drop the 3D per-facet sun overlay wherever heat is cleared
 async function buildPhotoHeatmap(){
   if(!gmap||!LASTFLUX||!LASTB){ window.__heatCells=0; return; }
   clearHeat();
@@ -3242,7 +3291,8 @@ async function buildPhotoHeatmap(){
   }
   if(!pts.length) return; const range=(fmax-fmin)||1;
   for(let i=0;i<Math.min(pts.length,1100);i++){ const [lat,lng,v]=pts[i];
-    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:energyColor((v-fmin)/range), strokeWidth:0, extruded:false, drawsOccludedSegments:false });
+    const c=fluxColorSmooth((v-fmin)/range); const fill=`rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},0.92)`;   // UNIFIED ramp — matches 2D heatmap + card legend (was energyColor: no green)
+    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeWidth:0, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=[ {lat:lat-hLat,lng:lng-hLng,altitude:0.12},{lat:lat-hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng-hLng,altitude:0.12} ];
     gmap.append(poly); heatCells.push(poly);
   }
@@ -3989,13 +4039,18 @@ function setSunbarMode(view){
   bar.style.display = sunMode ? "flex" : "none";
   const ctl=$("sunShadowCtl"); if(ctl) ctl.style.display = (view==="shadows") ? "flex" : "none";
   const sm=$("sMap"); if(sm) sm.textContent = (view==="shadows") ? "☀ Sun map" : "▶ Play day & shadows";
+  // the Top-down/3D heatmap toggle is only meaningful in the "map" sub-view (the heatmap); hide it in shadows
+  const ht=$("sunHeatToggle"); if(ht){ ht.style.display = (view==="map") ? "flex" : "none";
+    const set=v=>{ ht.querySelector('[data-v="2d"]').classList.toggle("on",v!=="3d"); ht.querySelector('[data-v="3d"]').classList.toggle("on",v==="3d"); };
+    set(window.__sunMapDim||"2d"); }
 }
 async function applySunView(){
   // SHADOW PLAY sub-view: when the grey "Model" lens is mounted, keep the Three.js scene and
   // let the directional sun cast real moving shadows on the clay model (sunbar visible). This
   // is the Scanifly-style intuition view. Otherwise fall through to the annual flux heatmap.
   if(SUN_SHADOWS && greyMode && window.__sunView==="shadows"){
-    stopSunPlay(); setSchemLabels(false); showAnalysis(null);
+    showLoad("Building shadow model…");   // flipping to shadows mounts the schematic scene — don't show a blank beat
+    stopSunPlay(); setSchemLabels(false); showAnalysis(null); clearSunHeat3D();
     if(mode!=="schematic") await setMode("schematic");
     // force the Three.js scene to the front: the photoreal map div + any 2D analysis
     // overlay must be hidden so the grey model's cast shadows are what's visible.
@@ -4006,15 +4061,29 @@ async function applySunView(){
     showLoad(false); return;
   }
   showLoad("Mapping sun…"); stopSunPlay(); setSchemLabels(false);
-  window.__sunView="map";
-  // Smooth, Sunroof/Aurora-style sun-exposure heatmap: per-pixel flux colour ramp composited on the top-down
-  // aerial photo, clipped to the roof mask (renderSunPreview) — no chunky 3D cells, no blocky corners.
-  if(LASTFLUX){ showAnalysis("sun"); }
-  else { if(mode!=="photoreal") await setMode("photoreal"); clearPanels(); clearHeat(); await buildPhotoHeatmap(); }   // fallback if Google has no annual-flux layer for this address
+  window.__sunView="map"; if(!window.__sunMapDim) window.__sunMapDim="2d";
+  if(window.__sunMapDim==="3d"){
+    // 3D SUN-EXPOSURE HEATMAP: per-facet sun colours painted on the photoreal 3D model (the 3D option
+    // the product owner asked for). Keep the map div + scene visible; clear the 2D overlay + flux cells.
+    showAnalysis(null); clearPanels(); clearHeat();
+    if(mode!=="photoreal") await setMode("photoreal");
+    $("gmapWrap").style.display="block"; $("scene").style.display="block";
+    await buildSunHeatmap3D();
+  } else {
+    // Smooth, Sunroof/Aurora-style sun-exposure heatmap: per-pixel flux colour ramp composited on the top-down
+    // aerial photo, clipped to the roof mask (renderSunPreview) — no chunky 3D cells, no blocky corners.
+    clearSunHeat3D();
+    if(LASTFLUX){ showAnalysis("sun"); }
+    else { if(mode!=="photoreal") await setMode("photoreal"); clearPanels(); clearHeat(); await buildPhotoHeatmap(); }   // fallback if Google has no annual-flux layer for this address
+  }
   // Keep the bar visible (toggle only) so the user can switch INTO the shadow-play day animation.
   setSunbarMode("map");
   showLoad(false);
 }
+// Top-down ↔ 3D heatmap toggle (only in the Sun "map" sub-view). Mirrors the Measure lens's #measToggle.
+function setSunMapDim(dim){ window.__sunMapDim=(dim==="3d")?"3d":"2d"; if(sunMode && window.__sunView==="map"){ applySunView(); } else { setSunbarMode("map"); } }
+$("sunHeatToggle").querySelector('[data-v="3d"]').onclick=()=>setSunMapDim("3d");
+$("sunHeatToggle").querySelector('[data-v="2d"]').onclick=()=>setSunMapDim("2d");
 // Toggle the Sun sub-view. Switching map → shadows needs the grey "Model" 3D base (the shadow
 // play renders on the clay massing); enter it so "Play day" actually works from the heatmap.
 $("sMap").onclick=async()=>{
@@ -4026,9 +4095,30 @@ $("sMap").onclick=async()=>{
   }
   await applySunView();
 };
-$("sPlay").onclick=()=>{ if(sunAnim){ stopSunPlay(); return; } const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
+$("sPlay").onclick=async()=>{
+  if(sunAnim){ stopSunPlay(); return; }
+  // REACHABLE FROM THE HEATMAP: if the user hits "Play day" while in the 2D sun-map (or 3D heatmap)
+  // sub-view, first enter the shadows sub-view (same path #sMap uses) so real shadows actually cast on
+  // the grey Model massing. applySunView() mounts the schematic scene + applyModelSkin(true) for us.
+  if(window.__sunView!=="shadows"){
+    showLoad("Building shadow model…");
+    window.__sunView="shadows";
+    if(!greyMode){ greyMode=true; $("bModel").classList.add("on"); }
+    await applySunView();   // → schematic scene front, applyModelSkin(true), shadow casters/receivers live
+    showLoad(false);
+  }
+  if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic") return;   // guard: applySunView couldn't mount shadows
+  // DAYLIGHT-CLAMPED sweep: loop only within [sunrise+0.3, sunset-0.3] for this site/season so there are
+  // NO frozen black night frames and no jarring wrap. updateSun() early-returns below ~1° altitude, so
+  // staying inside the band keeps shadows moving the whole loop.
+  const band=daylightBand(3); const lo=band?Math.min(19.5,band.rise+0.3):6, hi=band?Math.max(lo+1,band.set-0.3):19;
+  const b=$("sPlay"); b.textContent="⏸ Pause"; b.classList.add("on");
+  if(sunHourLocal<lo||sunHourLocal>hi) sunHourLocal=lo;   // start at dawn if currently parked at night
+  // ~1.5 sim-hours/sec: 0.22h per 150ms ≈ 1.47 h/s — a smooth dawn→dusk sweep (was a jittery ~6s whole-day blur)
   sunAnim=setInterval(()=>{ if(!sunMode||window.__sunView!=="shadows"||mode!=="schematic"){ stopSunPlay(); return; }   // self-stop if the user navigates away
-    let v=sunHourLocal+0.2; if(v>=20) v=5.5; sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 80); };
+    let v=sunHourLocal+0.22; if(v>hi) v=lo;   // wrap dusk→dawn, both inside daylight ⇒ no black frame, no horizon jump
+    sunHourLocal=v; const sl=$("sTime"); if(sl) sl.value=v; updateSun(); }, 150);
+};
 $("bSun").onclick=async()=>{
   sunMode=!sunMode; $("bSun").classList.toggle("on",sunMode);
   matMode=false; $("bRoof").classList.remove("on"); labelsVisible=false; $("bLabels").classList.remove("on");
@@ -4115,7 +4205,8 @@ function renderMaterialPreview(){
   let roofPx=0; const bb=buildingBox(2.5);
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
     for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
-      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && (!mg||sampleGrid(mg,E,N)>0.5);
+      // require an eroded-interior mask hit (no mask ⇒ bare photo) so the shingle tint never bleeds onto lawn/driveway
+      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5);
       if(onRoof){ roofPx++; const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
         r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
       d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
@@ -4138,7 +4229,8 @@ function renderInstantTint(base,type){
   const bb=buildingBox(2.5);
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN, ty=Math.floor((row%tile)/tile*512);
     for(let col=0;col<W;col++){ const i=row*W+col, k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
-      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && (!mg||sampleGrid(mg,E,N)>0.5);
+      // require an eroded-interior mask hit (no mask ⇒ bare photo) so the instant tint never bleeds onto lawn/driveway
+      const onRoof=(!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN)) && mg && roofInterior(mg,E,N,0.5);
       if(onRoof){ const si=(ty*512+Math.floor((col%tile)/tile*512))*4;
         r=r*(1-a)+sid[si]*a; g=g*(1-a)+sid[si+1]*a; b=b*(1-a)+sid[si+2]*a; }
       d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=255;
@@ -4181,7 +4273,10 @@ function renderSunPreview(){
   for(let row=0;row<H;row++){ const N=rb[3]-(row+0.5)/H*eN;
     for(let col=0;col<W;col++){ const i=row*W+col,k=i*4; let r=R[i],g=G[i],b=B[i]; const E=rb[0]+(col+0.5)/W*eW;
       const inB=!bb||(E>=bb.minE&&E<=bb.maxE&&N>=bb.minN&&N<=bb.maxN);
-      if(inB&&(!mg||sampleGrid(mg,E,N)>0.5)){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); r=r*(1-a)+c[0]*a; g=g*(1-a)+c[1]*a; b=b*(1-a)+c[2]*a; } }
+      // REQUIRE an eroded-interior mask hit (same 0.5m erosion the 3D overlays use) — no mask ⇒ leave the
+      // bare photo. Loose `!mg||sampleGrid>0.5` flooded the whole bbox (lawn/driveway) when the mask was null
+      // or just outside the un-eroded edge; roofInterior() keeps flux strictly inside the roofline.
+      if(inB && mg && roofInterior(mg,E,N,0.5)){ const v=sampleGrid(fg,E,N); if(v>0&&isFinite(v)){ const c=fluxColorSmooth((v-fmin)/range); r=r*(1-a)+c[0]*a; g=g*(1-a)+c[1]*a; b=b*(1-a)+c[2]*a; } }
       d[k]=r;d[k+1]=g;d[k+2]=b;d[k+3]=255;
     } }
   ctx.putImageData(out,0,0); window.__sunDone=true;
