@@ -539,7 +539,7 @@
   <button id="cardFold" type="button" aria-label="Show quote"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span>Show quote</span></button>
   <div id="ctrls">
     <button id="bPanels" class="on" title="Solar panels"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="11" rx="1"/><path d="M3 9.2h18M3 12.8h18M9 5.5v11M15 5.5v11"/></svg><span>Panels</span></button>
-    <button id="bModel" title="Clean 3D model"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Model</span></button>
+    <button id="bModel" title="3D structure model — the clean massing used for shadow & sun studies"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Model</span></button>
     <button id="bSun" title="Sun &amp; shade"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></svg><span>Sun</span></button>
     <button id="bLabels" title="Measurements"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l4-4 13 13-4 4z"/><path d="M7.5 7.5l1.8 1.8M10.5 10.5l1.8 1.8M13.5 13.5l1.8 1.8"/></svg><span>Measure</span></button>
     <button id="bRoof" title="Roof materials &amp; colors" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>Materials</span></button>
@@ -3061,7 +3061,13 @@ async function buildRoofMeasure(){
   // as the 2D measure + card) — otherwise the 3D lens reads ~half the billed area.
   const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
   const mScale=(QUOTE&&QUOTE.roofSqft&&mPlaneSum>0)?(QUOTE.roofSqft/mPlaneSum):1;
-  for(const p of model.planes){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
+  // Same restraint as the 2D diagram: a pin on EVERY plane buried the model. Pin only the few
+  // largest facets (top-N, ≥ a fraction of the biggest) so the roof + edge lines stay readable;
+  // smaller facets carry no pin (their area still totals into the quote/report). (polish.)
+  const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
+  const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
+  const mLabel=mSorted.filter((p,idx)=> idx<4 && (idx===0 || (p.areaSqFt||0)>=mMax*0.18));
+  for(const p of mLabel){ let cx=0,cy=0; for(const v of p.ring){cx+=v[0];cy+=v[1];} cx/=p.ring.length; cy/=p.ring.length;
     const C=toWgs(cx,cy); mk({lat:C[1],lng:C[0],altitude:0.4}, Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12", true); }
   showRoofReport(model.totals);
   $("measToggle").style.display="flex"; showMeasDiagram(true);   // Scanifly-style top-down is the default lens; 3D is a toggle
@@ -3150,28 +3156,39 @@ function renderRoofDiagram(){
   const seen=[]; const node=(px,py)=>{ if(seen.some(s=>Math.hypot(s[0]-px,s[1]-py)<3)) return; seen.push([px,py]);
     ctx.beginPath(); ctx.arc(px,py,2.2,0,7); ctx.fillStyle="#fff"; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=MEAS_RED; ctx.stroke(); };
   for(const f of fp) for(const [px,py] of f.ring){ node(px,py); }
-  // 3) per-facet label — area (bold) + pitch, dark pill for guaranteed contrast.
-  // Drawn largest-facet-first; a label is skipped if its pill would collide with one already
-  // placed (keeps cluttered/commercial roofs legible) or won't fit the facet's bbox at all.
-  const fs=Math.max(12,cw/40); ctx.textAlign="center"; ctx.textBaseline="middle";
+  // 3) per-facet area callouts — EagleView-style restraint. The crisp red rooflines are the
+  //    hero; pills must INFORM without burying the roof. So we (a) label only the FEW largest
+  //    facets — never every sliver — and (b) draw small, light, translucent pills (smaller font,
+  //    tight padding, more transparent fill) so the aerial + red edges stay visible underneath.
+  //    Tiny facets get NO on-canvas pill (their area still counts in every total + the report
+  //    card — only the in-diagram callout is suppressed). (polish: facet-label clutter.)
+  const fs=Math.max(10,cw/52); ctx.textAlign="center"; ctx.textBaseline="middle";
   const lblBoxes=[];
   // Reconcile per-facet areas to the quote's whole-roof total (QUOTE.roofSqft) so the diagram numbers add up
   // to the same roof the quote bills — without this the diagram showed ~652 ft² total while the quote charged
   // 1,563 ft² (DSM under-capture). Scale by Google-total ÷ sum-of-model-planes.
   const dPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
   const dScale=(QUOTE&&QUOTE.roofSqft&&dPlaneSum>0)?(QUOTE.roofSqft/dPlaneSum):1;
-  // Collision avoidance: a label is centred on its facet, but adjacent facets (LA / Asheville)
+  // ── Which facets earn a pill? Sort largest-first, then keep only the headline facets:
+  //    at most TOP_N, and only those ≥ MIN_FRAC of the LARGEST facet's area (so a roof of many
+  //    similar facets still shows just the dominant handful, and a sliver next to a big plane is
+  //    dropped). A single-facet roof always gets its one pill.
+  const sortedFp=fp.slice().sort((a,b)=>(b.p.areaSqFt||0)-(a.p.areaSqFt||0));
+  const TOP_N=4, MIN_FRAC=0.18;
+  const maxArea=(sortedFp[0]&&sortedFp[0].p.areaSqFt)||0;
+  const labelFp=sortedFp.filter((f,idx)=> idx<TOP_N && (idx===0 || (f.p.areaSqFt||0)>=maxArea*MIN_FRAC));
+  // Collision avoidance: a pill is centred on its facet, but adjacent facets (LA / Asheville)
   // pushed pills nearly touching. GAP = required clear space between any two pills. When the
   // centroid spot collides, nudge the pill outward along a small ring of candidate offsets and
-  // keep the first clear one; only if nothing within reach is clear do we drop the label
-  // (cluttered/commercial roofs stay legible rather than overlapping). (audit-4 P2.)
+  // keep the first clear one; only if nothing within reach is clear do we drop the pill. (audit-4 P2.)
   const GAP=4;
   const hits=(box)=> lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2)) < (b.w+box.w)/2+GAP && Math.abs(b.y+b.h/2-(box.y+box.h/2)) < (b.h+box.h)/2+GAP);
-  for(const f of fp.slice().sort((a,b)=>b.p.areaSqFt-a.p.areaSqFt)){
+  for(const f of labelFp){
     const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
-    ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
-    ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
-    const pw=Math.max(w1,w2)+fs*0.9, ph=fs*2.5;
+    // area is the headline (secondary-bold, smaller than before); pitch is a faint sub-line
+    ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
+    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
+    const pw=Math.max(w1,w2)+fs*0.6, ph=fs*2.05;   // tighter padding → smaller pill
     let cx=f.cx, cy=f.cy, box={x:cx-pw/2,y:cy-ph/2,w:pw,h:ph};
     if(hits(box)){
       // search outward rings of candidate offsets (keep the pill near its facet) for a clear slot
@@ -3187,10 +3204,11 @@ function renderRoofDiagram(){
       if(!placed) continue;   // nowhere clear within reach → drop (last resort)
     }
     lblBoxes.push(box);
-    ctx.fillStyle="rgba(11,18,32,0.82)"; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.fill();
-    ctx.strokeStyle="rgba(255,69,58,0.55)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,6); ctx.stroke();
-    ctx.font="800 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.52);
-    ctx.font="700 "+(fs*0.82)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#ffd0cc"; ctx.fillText(pit,cx,cy+fs*0.58); }
+    // light, translucent pill — lets the aerial + red edges read through (was a near-opaque black box)
+    ctx.fillStyle="rgba(11,18,32,0.55)"; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.fill();
+    ctx.strokeStyle="rgba(255,69,58,0.4)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.stroke();
+    ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.46);
+    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(255,208,204,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
   renderMeasMini(src,W,H,minx,miny,cw,ch);
   return true;
 }
@@ -4152,7 +4170,9 @@ $("bModel").onclick=async()=>{
     applyModelSkin(true);
     if(panelMesh) panelMesh.visible=false;   // grey lens = clean geometry + shade, panels off
     window.__sunView="shadows"; updateSun();
-    $("matHint").textContent="Clean 3D model · drag to orbit · open Sun to see shadows move";
+    // Caption states the lens's PURPOSE (PO asked "what's the 3D Model for?"): it's the clean
+    // structure massing AND the surface the Sun shadow-play animates on.
+    $("matHint").textContent="3D structure model · used for shadow & sun studies · drag to orbit";
     $("matHint").style.display="block"; $("sunbar").style.display="none";
   } else {
     applyModelSkin(false); setSchemLabels(true);
