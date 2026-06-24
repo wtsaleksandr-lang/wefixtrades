@@ -227,6 +227,8 @@ export function buildRoofModel(planes, sampleHeight) {
       lengthFt,
       a: [a[0], a[1]],
       b: [b[0], b[1]],
+      az: a[2],   // real lifted elevation (m) of endpoint A — lets the 3D overlay draw a TRUE
+      bz: b[2],   // sloped roof edge (ABSOLUTE altitude) instead of a flat mesh-draped line.
       planeIds,
     });
   }
