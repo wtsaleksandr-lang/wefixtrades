@@ -16,7 +16,15 @@
 
 const FT_PER_M = 3.28084;          // meters -> feet (linear)
 const SQFT_PER_SQM = 10.7639;      // square meters -> square feet
-const SHARE_TOL_M = 1.0;           // endpoints within ~1.0 m are "the same point"
+// Default endpoint-merge tolerance for direct callers. The real value is passed
+// per-call via opts.shareTolM from facetsToRoofModel (roof3d.html): ~0.6 m for the
+// analytic plane-intersection path (its adjacent facets snap each shared crease to
+// the SAME exact intersection LINE, so perpendicular separation is ~0 — 0.6 m pairs
+// the two on-line copies whose endpoints differ ALONG the line, without the old
+// fuzzy ~1 m snap that collapsed distinct-but-near edges), and 1.0 m for the legacy
+// raster fallback's independently-regularized rings. This constant only applies if a
+// caller omits opts.shareTolM.
+const SHARE_TOL_M = 0.6;            // default endpoint-merge distance (m); overridden per-call
 
 // --- small vector helpers ---------------------------------------------------
 
@@ -119,7 +127,12 @@ function pitchAndAzimuth(normal) {
 
 // --- main builder -----------------------------------------------------------
 
-export function buildRoofModel(planes, sampleHeight) {
+export function buildRoofModel(planes, sampleHeight, opts) {
+  opts = opts || {};
+  // Endpoint-merge tolerance: the analytic extractor passes IDENTICAL shared
+  // intersection coords → use a tight 0.05 m. The legacy raster fallback passes
+  // independently-regularized rings → keep the original ~1 m fuzzy match.
+  const shareTol = (typeof opts.shareTolM === "number") ? opts.shareTolM : SHARE_TOL_M;
   // 1) Per-plane geometry --------------------------------------------------
   const facets = planes.map((p) => {
     const ring2 = openRing(p.ring);
@@ -157,8 +170,8 @@ export function buildRoofModel(planes, sampleHeight) {
   // Two edges are "the same physical edge" if their endpoints coincide
   // within SHARE_TOL_M in either orientation.
   function sameEdge(e1, e2) {
-    const fwd = dist2(e1.a, e2.a) < SHARE_TOL_M && dist2(e1.b, e2.b) < SHARE_TOL_M;
-    const rev = dist2(e1.a, e2.b) < SHARE_TOL_M && dist2(e1.b, e2.a) < SHARE_TOL_M;
+    const fwd = dist2(e1.a, e2.a) < shareTol && dist2(e1.b, e2.b) < shareTol;
+    const rev = dist2(e1.a, e2.b) < shareTol && dist2(e1.b, e2.a) < shareTol;
     return fwd || rev;
   }
 
