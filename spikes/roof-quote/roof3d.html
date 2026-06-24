@@ -3073,6 +3073,113 @@ function ringSelfIntersects(ring){
   return false;
 }
 
+/* ===========================================================================
+   SHARED-BUILDING SPLIT — isolate the QUERIED unit of a semi-detached / townhouse
+   ---------------------------------------------------------------------------
+   Google Solar returns ONE building for an attached row (semi-detached duplex,
+   townhouse block). The mask's largest connected component is the WHOLE block,
+   and the roof segments often span every unit (a continuous gable whose two
+   slopes each run the full length of the row — confirmed on 30 Angus Rd, a
+   semi-detached: 2 segments, one N-facing + one S-facing, both spanning both
+   halves; the geocoded address point lands on the OWNER's half). Downstream
+   area / measurements / panels must cover ONLY the owner's unit.
+
+   Units repeat along the building's LONG axis (row direction = ridge direction
+   for a side-by-side semi; street-frontage direction for a townhouse row). We:
+     1. PCA the footprint → long axis + length/width.
+     2. nUnits = round(longM / UNIT_W) (≈7.5 m typical attached-unit frontage).
+     3. SPLIT only when nUnits ≥ 2 AND there is positive evidence the building is
+        attached — the geocode is clearly OFF-CENTRE along the long axis
+        (|t−0.5| large; a detached home's address pin sits near centre), OR the
+        block is elongated (aspect high), OR it is large. This guard is what
+        keeps a normal single-family roof WHOLE (no false split).
+     4. Project the geocode onto the long axis, snap to the nearest unit slab,
+        clip the footprint to that slab with two perpendicular half-planes.
+   Returns { ring:[[E,N]], diag } (ring unchanged + diag.split=false when detached).
+   Pure geometry — no network. */
+function _ringCentroidArea(ring){
+  let cx=0,cy=0; for(const[E,N]of ring){cx+=E;cy+=N;} cx/=ring.length; cy/=ring.length;
+  let s2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; s2+=A[0]*B[1]-B[0]*A[1]; }
+  return { cx, cy, area:Math.abs(s2)/2 };
+}
+function _footprintLongAxis(ring,cx,cy){
+  let sxx=0,syy=0,sxy=0; const n=ring.length;
+  for(const[E,N]of ring){ const dx=E-cx,dy=N-cy; sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy; }
+  sxx/=n; syy/=n; sxy/=n;
+  const tr=sxx+syy, l1=tr/2+Math.sqrt(Math.max(0,tr*tr/4-(sxx*syy-sxy*sxy)));
+  let ax,ay; if(Math.abs(sxy)>1e-9){ ax=l1-syy; ay=sxy; } else { if(sxx>=syy){ax=1;ay=0;}else{ax=0;ay=1;} }
+  const L=Math.hypot(ax,ay)||1; return [ax/L, ay/L];
+}
+// Clip ring [[E,N]] by the half-plane keeping the side of perpendicular-line (through `at` along axis)
+// that contains keepSign. axis=[ax,ay] unit; we cut perpendicular to it at offset `cut` (axis-projection).
+function _clipAtAxis(ring,cx,cy,axis,cut,keepLeq){
+  const out=[]; const proj=(E,N)=>((E-cx)*axis[0]+(N-cy)*axis[1]);
+  const inside=(E,N)=>keepLeq?(proj(E,N)<=cut+1e-6):(proj(E,N)>=cut-1e-6);
+  for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length];
+    const ain=inside(A[0],A[1]), bin=inside(B[0],B[1]);
+    if(ain) out.push(A);
+    if(ain!==bin){ const pa=proj(A[0],A[1]), pb=proj(B[0],B[1]); const t=(cut-pa)/((pb-pa)||1e-9);
+      out.push([A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t]); }
+  }
+  return out;
+}
+const UNIT_W_M=7.5;        // typical attached-unit frontage along the row
+function isolateUnitFootprint(ring, zone, geoLL){
+  const diag={ split:false, reason:"", nUnits:1 };
+  if(!ring || ring.length<3 || !geoLL) { diag.reason="no-ring-or-geo"; return { ring, diag }; }
+  const { cx, cy, area } = _ringCentroidArea(ring);
+  const axis=_footprintLongAxis(ring,cx,cy); const perp=[-axis[1],axis[0]];
+  // axis & perp extents
+  let pmin=1e12,pmax=-1e12,qmin=1e12,qmax=-1e12;
+  for(const[E,N]of ring){ const pr=(E-cx)*axis[0]+(N-cy)*axis[1], qr=(E-cx)*perp[0]+(N-cy)*perp[1];
+    if(pr<pmin)pmin=pr; if(pr>pmax)pmax=pr; if(qr<qmin)qmin=qr; if(qr>qmax)qmax=qr; }
+  const longM=pmax-pmin, shortM=Math.max(0.1,qmax-qmin), aspect=longM/shortM;
+  const nUnits=Math.max(1,Math.min(8,Math.round(longM/UNIT_W_M)));
+  diag.longM=+longM.toFixed(1); diag.shortM=+shortM.toFixed(1); diag.aspect=+aspect.toFixed(2); diag.area=Math.round(area); diag.nUnits=nUnits;
+  // geocode → UTM, projected onto the long axis (normalised 0..1)
+  let gE,gN; try{ [gE,gN]=wgs84ToUTM(geoLL.lat,geoLL.lng,zone); }catch(_){ diag.reason="geo-utm-fail"; return { ring, diag }; }
+  const gp=(gE-cx)*axis[0]+(gN-cy)*axis[1];
+  const t=(gp-pmin)/Math.max(1e-6,longM); diag.geoNorm=+t.toFixed(2);
+  // is the geocode pin actually ON this building's roof? (ray-cast point-in-poly)
+  const pinOnRoof=(function(){ let ins=false; for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>gN)!==(yj>gN)) && gE<(xj-xi)*(gN-yi)/((yj-yi)||1e-12)+xi) ins=!ins; } return ins; })();
+  diag.pinOnRoof=pinOnRoof;
+  // DETECTION GUARD — only split a genuinely-attached building; a detached single-family home
+  // stays WHOLE. Three signals must ALL hold:
+  //   (a) nUnits ≥ 2            — the block is wide enough to hold ≥2 ~7.5 m units along its row axis.
+  //   (b) pinOnRoof            — the address geocode lands ON this roof (not a yard/tree/off-building
+  //                              point). A pin off the footprint can't anchor a specific unit, and is
+  //                              the tell of a low-precision geocode → never carve the roof from it.
+  //                              (Caught the false split on 4521 T St, where the pin sat in the yard.)
+  //   (c) attached-evidence  — EITHER an unambiguous attached ROW (long & thin: aspect ≥ 1.9 with
+  //                            ≥3 estimated units — a townhouse terrace; the geocode often lands near
+  //                            the block centre on a row, so we do NOT require off-centre there and just
+  //                            keep whichever unit the pin sits in), OR a COMPACT semi-detached where the
+  //                            on-roof pin is clearly OFF-CENTRE (|t−0.5| large; a detached home's rooftop
+  //                            geocode resolves near the CENTRE, so off-centre is the semi's signature).
+  const offCentre=Math.abs(t-0.5)>=0.18;
+  const attachedRow=(aspect>=1.9 && nUnits>=3);
+  if(nUnits<2 || !pinOnRoof || !(attachedRow||offCentre)){
+    diag.reason = nUnits<2 ? "single-unit-width" : (!pinOnRoof ? "pin-off-roof" : "pin-near-centre");
+    return { ring, diag };
+  }
+  diag.trigger = attachedRow ? "attached-row" : "offcentre-semi";
+  // snap the geocode to its unit slab: unit index = floor(t*nUnits), slab = [lo,hi] along axis
+  const ui=Math.max(0,Math.min(nUnits-1,Math.floor(t*nUnits)));
+  const loN=ui/nUnits, hiN=(ui+1)/nUnits;               // normalised slab bounds
+  const loCut=pmin+loN*longM, hiCut=pmin+hiN*longM;
+  // a small overlap into neighbours keeps the cut off the exact party wall (shared rafter), avoiding a sliver
+  const PAD=0.0;
+  let clipped=ring.map(v=>[v[0],v[1]]);
+  if(ui>0)        clipped=_clipAtAxis(clipped,cx,cy,axis,loCut-PAD,false);   // keep ≥ loCut
+  if(ui<nUnits-1) clipped=_clipAtAxis(clipped,cx,cy,axis,hiCut+PAD,true);    // keep ≤ hiCut
+  if(clipped.length<3){ diag.reason="clip-degenerate"; return { ring, diag }; }
+  const ca=_ringCentroidArea(clipped).area;
+  diag.split=true; diag.reason="split"; diag.unitIndex=ui; diag.keptAreaM2=Math.round(ca); diag.wholeAreaM2=Math.round(area);
+  return { ring:clipped, diag };
+}
+
 /* ---- ANALYTIC extractFacetPolys (HALF-PLANE CLIP) ------------------------------
    Pure footprint + crease reconstruction — no ring stitching, no per-plane raster
    tracing of facet outlines. Insight: facet_i = the building FOOTPRINT restricted to
@@ -3138,7 +3245,7 @@ function extractFacetPolysAnalytic(margin){
   // ── (1) ONE clean FOOTPRINT ring (UTM E,N) — Moore-trace the single largest mask
   //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
   //    every facet is clipped FROM (already ordered; no stitching).
-  let footprint=null;
+  let footprint=null, footprintFull=null;   // footprintFull = whole-block ring when a shared-building split trims `footprint` to one unit
   {
     // binary in-roof grid (mask interior, eroded a touch off the walls) over the SAME grid
     const inGrid=new Uint8Array(rows*cols);
@@ -3178,6 +3285,22 @@ function extractFacetPolysAnalytic(margin){
     fpxy=cleanFootprintRing(fpxy, fpAxis, { minLen:0.8*cellsPerM, mergeDeg:8, rectTol:0.06, maxVerts:6 });
     footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
     if(polyArea2(footprint)<3) throw new Error("footprint too small");
+    // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
+    //    The geocoded address point (window.__ll) lands on the owner's unit; clip the footprint
+    //    to that unit's slab BEFORE facets are reconstructed, so every downstream facet inherits
+    //    the unit-only outline (a neighbour-unit Solar segment whose centre falls outside the
+    //    clipped footprint is then naturally dropped by the pointInPoly2 gate below). No-op on a
+    //    detached home (the guard inside requires positive attached-evidence). See isolateUnitFootprint.
+    try{
+      const geoLL = (window.__ll && isFinite(window.__ll.lat)) ? window.__ll
+                  : (LASTB && LASTB.center && isFinite(LASTB.center.latitude) ? {lat:LASTB.center.latitude,lng:LASTB.center.longitude} : null);
+      const sp = isolateUnitFootprint(footprint, zone, geoLL);
+      window.__splitDiag = sp.diag;
+      if(sp.diag && sp.diag.split && sp.ring && sp.ring.length>=3 && polyArea2(sp.ring)>=3){
+        footprintFull = footprint;   // keep the whole-block ring for the facet centre-coverage gate
+        footprint = sp.ring;          // clip facets FROM the owner's-unit slab
+      }
+    }catch(e){ try{ window.__splitDiag={split:false,reason:"err:"+(e&&e.message||e)}; }catch(_){} }
   }
 
   // ── (3) ADJACENCY: which plane PAIRS border (≥6 shared 4-neighbour cells). Built from
@@ -3264,10 +3387,15 @@ function extractFacetPolysAnalytic(margin){
   const facets=[];
   for(const p of viable){ const i=p.i;
     const centre=[p.cE,p.cN];
-    // coverage gap: the segment's own centre must lie inside the footprint we built. If
+    // coverage gap: the segment's own centre must lie inside the building we built. If
     // not (mask coverage hole), this facet can't be reconstructed cleanly → skip it
     // (the area-sanity gate below + the legacy fallback handle a roof that loses too much).
-    if(!pointInPoly2(centre,footprint)) continue;
+    // On a shared-building split, gate against the WHOLE-block ring (footprintFull): a duplex's
+    // gable segment has its centre at the block middle (outside the owner's slab), but its slope
+    // genuinely covers the owner's unit — clipping it to `footprint` (the slab) keeps the right
+    // portion. Without footprintFull the slab-only gate would wrongly drop both shared facets.
+    const coverRing = footprintFull || footprint;
+    if(!pointInPoly2(centre,coverRing)) continue;
     let poly=footprint.map(v=>[v[0],v[1]]);
     for(const nb of (neighbours.get(i)||[])){
       poly=clipHalfPlane(poly,nb.line,centre);
@@ -5234,6 +5362,23 @@ $("sMonth").addEventListener("input",async e=>{ sunMonth=+e.target.value; if(win
   // default the landing HERO stays up until the buyer enters their address — never run("").
   const _addr0=$("addr").value.trim();
   if(!_qp.get("noauto") && _addr0) run(_addr0); }
+// ── headless geometry-verification hook (test-support only; no UI/runtime effect) ──
+// The widget's geometry helpers are module-scoped; expose a thin read-only surface so the
+// Playwright verify harness can build the model, paint the top-down/3D, and dump diagnostics.
+try{
+  window.__geoVerify={
+    facetsToRoofModel:()=>facetsToRoofModel(),
+    renderRoofDiagram:()=>renderRoofDiagram(),
+    extractFacetPolys:(m)=>extractFacetPolys(m),
+    setMode:(mo)=>setMode(mo),
+    applyModelSkin:(g)=>applyModelSkin(g),
+    estUnits:(spv)=>estUnits(spv),
+    wgs84ToUTM:(lat,lng,z)=>wgs84ToUTM(lat,lng,z),
+    isolateUnitFootprint:(ring,zone,geoLL)=>isolateUnitFootprint(ring,zone,geoLL),
+    frame3D:()=>{ try{ const d=window.__roofDebug||{}; const span=(d.crop||30)*2;
+      camera.position.set(span*0.30,span*0.95,span*0.45); controls.target.set(0,3,0); controls.update(); }catch(_){} },
+  };
+}catch(_){}
 </script>
 <script type="module">
   try{ const m=await import("/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
