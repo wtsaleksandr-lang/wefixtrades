@@ -506,28 +506,62 @@ async function footprintForPoint(lat,lng){
   return { source:"none" };
 }
 
+// (fix6 latency) Time-box the Microsoft fetch so a slow cold tile NEVER blocks the response.
+// MS_FOOTPRINT_BUDGET_MS is how long the route is willing to WAIT for MS before responding with
+// whatever it has (OSM). The msftFootprint() promise we kicked off is NOT aborted — Node keeps it
+// running, so its downloadMsftTile() finishes and writes the .gz to the disk tile cache in the
+// BACKGROUND. The NEXT request for that metro then finds the cached tile and returns MS instantly.
+// Dense-metro z9 tiles (Phoenix/Denver ~100-130 MB) cost 15-25 s cold; that no longer stalls the
+// caller. timeboxResolve's reject arm handles any eventual rejection so it never becomes unhandled.
+const MS_FOOTPRINT_BUDGET_MS=6500;
+const OSM_FOOTPRINT_BUDGET_MS=8000;   // overall route ceiling: even if Overpass stalls (its own [timeout:25] is too long), bail at 8s → route ≤~8s
+// Resolve `live` to its value if it settles within `ms`, else `fallback`. Does NOT abort `live` — it
+// keeps running so any in-flight download finishes + caches in the background; we just stop waiting.
+function timeboxResolve(live,ms,fallback){
+  // `live` keeps running past `ms` (handlers attached, never aborted), so an in-flight tile download
+  // finishes + caches in the background. The `.then` reject arm below is a real handler, so a late
+  // rejection can never become an unhandled rejection.
+  return new Promise((resolve)=>{
+    let settled=false;
+    const t=setTimeout(()=>{ if(!settled){ settled=true; resolve(fallback); } },ms);
+    live.then(v=>{ if(!settled){ settled=true; clearTimeout(t); resolve(v); } },()=>{ if(!settled){ settled=true; clearTimeout(t); resolve(fallback); } });
+  });
+}
+function timeboxMsft(lat,lng){
+  // Resolves to the MS ring if it arrives within the budget, else null. The underlying msftFootprint
+  // promise keeps running past the budget to finish + cache the tile for the next request.
+  return timeboxResolve(msftFootprint(lat,lng),MS_FOOTPRINT_BUDGET_MS,null);
+}
+
 // (fix4 #1) Return EVERY available footprint candidate (OSM + Microsoft + cache), fetched in PARALLEL,
 // so the CLIENT can register EACH to Google's roof reference and pick the one that lands BEST (smallest
 // post-registration shift / best mask-overlap) — instead of the old "first source wins" cascade, which
 // on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m-perfect OSM ring. The cascade order
 // is preserved in `primary` for any consumer that wants a single best-guess, but the multi-candidate
 // `candidates[]` is the real payload the registration step consumes. OSM and MS are independent network
-// fetches → run concurrently; each already has its own internal timeout.
+// fetches → run concurrently. (fix6) MS is TIME-BOXED so a slow cold tile can't block: if it returns in
+// time it's included as a candidate (best-aligned selection still works); if it's slow we respond with
+// OSM now and let MS finish + cache in the background for the next request.
 async function footprintCandidates(lat,lng){
   const [osm,msft]=await Promise.all([
-    overpassFootprint(lat,lng).catch(()=>null),
-    msftFootprint(lat,lng).catch(()=>null),
+    timeboxResolve(overpassFootprint(lat,lng).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
+    timeboxMsft(lat,lng),
   ]);
   const candidates=[];
   if(osm && osm.length>=3) candidates.push({ ring:osm, source:"osm", attribution:"© OpenStreetMap contributors" });
   if(msft && msft.length>=3) candidates.push({ ring:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" });
   if(!candidates.length){ const cached=cacheFootprint(lat,lng);
     if(cached && cached.length>=3) candidates.push({ ring:cached, source:"cache", attribution:"© Microsoft / national building footprints" }); }
-  if(!candidates.length) return { source:"none", candidates:[] };
+  // `msPending` = MS was still downloading/caching when the budget expired, so this candidate set is
+  // INCOMPLETE (missing MS). The route uses this to AVOID persisting an OSM-only set to disk — otherwise
+  // the cache HIT would forever shadow the MS tile that's warming in the background. With msPending the
+  // next request re-runs footprintCandidates and finds the now-cached MS tile fast.
+  const msPending = !msft;
+  if(!candidates.length) return { source:"none", candidates:[], msPending };
   // `primary` = the legacy cascade pick (OSM>MS>cache) so older single-source consumers still work;
   // `ring`/`source`/`attribution` mirror it at top level for the same reason.
   const primary=candidates[0];
-  return { ring:primary.ring, source:primary.source, attribution:primary.attribution, candidates };
+  return { ring:primary.ring, source:primary.source, attribution:primary.attribution, candidates, msPending };
 }
 
 const html=readFileSync(path.join(import.meta.dirname,"index.html"),"utf8").replaceAll("__TILES__",TILES);
@@ -683,10 +717,16 @@ http.createServer(async (req,res)=>{
         out = (m&&m.length>=3) ? { ring:m, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)", candidates:(m&&m.length>=3)?[{ring:m,source:"msft",attribution:"© Microsoft Building Footprints (ODbL/CDLA)"}]:[] } : { source:"none", candidates:[] };
       } else out=await footprintCandidates(lat,lng);   // (fix4 #1) returns ALL sources so the client registers each + picks the best-aligned
       // Cache the WHOLE candidate set (so a repeat still has OSM+MS to choose from), as long as at least one real source hit.
-      if(out && Array.isArray(out.candidates) && out.candidates.some(c=>c.ring&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"))){
+      // (fix6) BUT do NOT persist when MS is still warming in the background (out.msPending): an OSM-only HIT would
+      // permanently shadow the MS tile that's caching right now. Skipping the write lets the NEXT request re-run,
+      // find the now-cached MS tile, and persist the complete OSM+MS set then.
+      const hasReal = out && Array.isArray(out.candidates) && out.candidates.some(c=>c.ring&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"));
+      if(hasReal && !out.msPending){
         diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });
       }
-      res.end(JSON.stringify(out));
+      // strip the internal flag from the wire payload (clients don't consume it)
+      if(out && typeof out==="object"){ const { msPending, ...wire }=out; res.end(JSON.stringify(wire)); }
+      else res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }
     return;
   }

@@ -907,6 +907,37 @@ async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null>
 
 export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "cache"; attribution: string; }
 export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; }
+
+// (fix6 latency) How long the route will WAIT for the Microsoft tile before responding with whatever
+// it has (OSM). The msftFootprint promise is NOT aborted past this budget — Node keeps it running so
+// its downloadMsftTile() finishes and writes the .gz to the disk tile cache in the BACKGROUND, making
+// the NEXT request for that dense-metro tile instant. Dense z9 tiles (Phoenix/Denver ~100-130 MB)
+// cost 15-25 s cold; that no longer stalls the caller.
+const MS_FOOTPRINT_BUDGET_MS = 6500;
+const OSM_FOOTPRINT_BUDGET_MS = 8000;   // overall route ceiling: even if Overpass stalls (its [timeout:25] is too long), bail at 8s → route ≤~8s
+// Resolve `live` to its value if it settles within `ms`, else `fallback`. Does NOT abort `live` — it
+// keeps running so any in-flight download finishes + caches in the background; we just stop waiting.
+function timeboxResolve<T>(live: Promise<T>, ms: number, fallback: T): Promise<T> {
+  // `live` keeps running past `ms` (we attach handlers but never abort it), so an in-flight tile
+  // download finishes + caches in the background. A late rejection lands in the `.then` reject arm
+  // below, which is a real handler — so it can never become an unhandled rejection.
+  return new Promise((resolve) => {
+    let settled = false;
+    const t = setTimeout(() => { if (!settled) { settled = true; resolve(fallback); } }, ms);
+    live.then(
+      (v) => { if (!settled) { settled = true; clearTimeout(t); resolve(v); } },
+      () => { if (!settled) { settled = true; clearTimeout(t); resolve(fallback); } },
+    );
+  });
+}
+function timeboxMsft(lat: number, lng: number): Promise<LngLat[] | null> {
+  // Resolves to the MS ring if it arrives within the budget, else null. The underlying msftFootprint
+  // promise keeps running past the budget to finish + cache the tile for the next request. msftFootprint
+  // already swallows its own network/parse errors (returns null); timeboxResolve's reject arm is the
+  // backstop, so no inline .catch is needed.
+  return timeboxResolve<LngLat[] | null>(msftFootprint(lat, lng), MS_FOOTPRINT_BUDGET_MS, null);
+}
+
 export async function buildingFootprint(lat: string, lng: string): Promise<FootprintResult> {
   const la = +lat, ln = +lng;
   if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords", candidates: [] };
@@ -918,7 +949,12 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
   // on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m OSM ring. overpassFootprint /
   // msftFootprint each swallow their own network/parse errors (return null), so no outer .catch() is
   // needed (no-silent-catch guard). Cascade order (OSM>MS>cache) is preserved in the top-level fields.
-  const [osm, msft] = await Promise.all([overpassFootprint(la, ln), msftFootprint(la, ln)]);
+  // (fix6) MS is TIME-BOXED via timeboxMsft so a slow cold tile can't block the response: in time → it's
+  // a candidate (best-aligned selection intact); slow → respond with OSM now, MS finishes + caches in bg.
+  const [osm, msft] = await Promise.all([
+    timeboxResolve<LngLat[] | null>(overpassFootprint(la, ln), OSM_FOOTPRINT_BUDGET_MS, null),
+    timeboxMsft(la, ln),
+  ]);
   const candidates: FootprintCandidate[] = [];
   if (osm && osm.length >= 3) candidates.push({ ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" });
   if (msft && msft.length >= 3) candidates.push({ ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" });
@@ -926,11 +962,15 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
     const c = cacheFootprint(la, ln);
     if (c && c.length >= 3) candidates.push({ ring: c, source: "cache", attribution: "© Microsoft / national building footprints" });
   }
+  // msPending: MS was still warming when the budget expired, so this set is INCOMPLETE (missing MS).
+  // We DON'T persist an OSM-only set in that case — a cache hit would permanently shadow the MS tile
+  // caching in the background; instead the next request re-runs, finds the warm tile, and caches then.
+  const msPending = !msft;
   if (!candidates.length) return { source: "none", candidates: [] };
   const primary = candidates[0];
   const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates };
-  // Only cache when a real source (OSM/MS) hit — the legacy cache backstop was never persisted here.
-  if (candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+  // Only cache when a real source (OSM/MS) hit AND the candidate set is COMPLETE (MS not still pending).
+  if (!msPending && candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now() });
   return out;
 }
 
