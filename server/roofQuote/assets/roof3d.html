@@ -5636,9 +5636,13 @@ async function buildRoofMeasure(){
   // quote card (renderQuoteCard) already routes large/low-conf roofs to the commercial copy
   // via measureCardBody(true). (audit-4 P2: high-rise transient confident takeoff.)
   try{
+    const inHouseLoop=!!window.__houseLoopActive;   // (house2-framing) buyer explicitly picked this building → edit it
     const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
     const bH=(typeof buildingHeightAboveGrade==="function")?buildingHeightAboveGrade():null;   // audit-5: tall tower w/ small footprint
-    const largeRoof = (solarTiers.length>0 && bestKw>30) || (bH!=null && bH>=TALL_BUILDING_M); window.__largeRoof=largeRoof;
+    // In the per-house loop, don't let the kW "large solar array" heuristic suppress a confident
+    // residential takeoff (house 2 of N is often a big detached roof >30 kW). Keep the genuine
+    // high-rise guard (bH) so a true commercial tower still routes to the commercial verdict.
+    const largeRoof = (!inHouseLoop && solarTiers.length>0 && bestKw>30) || (bH!=null && bH>=TALL_BUILDING_M); window.__largeRoof=largeRoof;
     const conf=(typeof roofDataConfidence==="function")?roofDataConfidence():null;
     if(largeRoof || (conf&&conf.low)) return;   // commercial / low-confidence → no on-map takeoff; the card shows the commercial verdict
   }catch(_){}
@@ -5666,9 +5670,16 @@ function renderRoofDiagram(){
   if(!LASTRGB||!window.__buildRoofModel) return false;
   // Same commercial/low-confidence gate as buildRoofMeasure — never paint a confident top-down
   // takeoff diagram for a large/commercial roof (the card routes it to the commercial verdict).
-  try{ const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
+  // EXCEPTION: while the per-house edit loop is active the buyer has EXPLICITLY picked this building
+  // and the outline editor is mounting for it, so the kW-based "large solar array" heuristic must NOT
+  // blank its diagram (a 40 kW large *residential* roof in a dense block is exactly house 2 of N). We
+  // still honour the GENUINE suppressors — a true high-rise (bH≥TALL_BUILDING_M) or low-confidence
+  // geometry — because those mean the takeoff itself would be unreliable. See [house2-framing fix].
+  try{ const inHouseLoop=!!window.__houseLoopActive;
+    const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
     const bH=(typeof buildingHeightAboveGrade==="function")?buildingHeightAboveGrade():null;   // audit-5: tall tower w/ small footprint
-    if((solarTiers.length>0 && bestKw>30) || (bH!=null && bH>=TALL_BUILDING_M) || (typeof roofDataConfidence==="function" && roofDataConfidence().low)) return false; }catch(_){}
+    const kwGate=(!inHouseLoop && solarTiers.length>0 && bestKw>30);
+    if(kwGate || (bH!=null && bH>=TALL_BUILDING_M) || (typeof roofDataConfidence==="function" && roofDataConfidence().low)) return false; }catch(_){}
   const model=facetsToRoofModel(); if(!model||!model.planes.length) return false;
   // ── (dots) If the homeowner has dragged the outline, that EDITED ring (model-local metres) is now
   //    authoritative: it drives the clip boundary below and the live area/length numbers. The auto-map
@@ -8680,14 +8691,23 @@ async function openHouseEditor(i){
   const q=window.__houseQueue||[]; const n=q.length;
   // Switch the quote into the Measure context + launch the draggable-dot editor (reuses the existing path).
   try{ if(tradeMode!=="solar"){ tradeMode="solar"; } }catch(_){}
-  // Enter the Measure lens (bLabels is a toggle — only click it when not already active). It's async
-  // (awaits buildRoofMeasure), so await it before mounting the dots so #matCanvas/__diagXform exist.
-  try{ if(typeof labelsVisible==="undefined" || !labelsVisible){ await $("bLabels").onclick(); } }catch(_){}
-  // mount the 2D diagram then the dots (mirrors the #measToggle "edit" handler)
-  try{ const mc=$("matCanvas"); if(!mc || mc.style.display==="none"){ showMeasDiagram(true); } }catch(_){}
-  // RoofDots.show() returns false until the facet model + 2D diagram have settled (initFromModel needs a
-  // footprint). On a freshly (re)analysed house the model can still be settling one frame after __roofReady,
-  // so retry a few frames until it mounts — then paint the per-house banner. Single-shot raced on house 1.
+  // Enter the Measure lens AND re-measure THIS house. House 2+ is the bug: bLabels.onclick only re-runs
+  // buildRoofMeasure() when ENTERING Measure (labelsVisible false→true). After house 1 the lens is already
+  // open (labelsVisible===true), so the old `if(!labelsVisible) click()` skipped the re-measure entirely —
+  // #matCanvas + window.__diagXform stayed framed on HOUSE 1's raster/SITE while run() had re-anchored the
+  // model to house 2's far centroid, so house 2's roof rendered tiny/off-centre (sparse). The areas were
+  // fine (they come from Solar/facetsToRoofModel), only the diagram FRAMING was stale. Fix: always rebuild
+  // the takeoff for the CURRENT house. buildRoofMeasure() (which renderRoofDiagram()s + sets __diagXform)
+  // must run whether or not the lens was already open. It's async, so await it before mounting the dots.
+  try{
+    if(typeof labelsVisible==="undefined" || !labelsVisible){
+      await $("bLabels").onclick();   // first house: toggle into Measure (this also runs buildRoofMeasure)
+    } else {
+      // already in Measure (house 2+): the lens click would TOGGLE OFF, so re-measure this house directly.
+      if(typeof setMode==="function" && mode!=="schematic"){ try{ await setMode("schematic"); }catch(_){} }
+      try{ await buildRoofMeasure(); }catch(_){}
+    }
+  }catch(_){}
   const paintBanner=()=>{
     const last=(i>=n-1);
     const hb=$("dotHouse"); if(hb) hb.style.display = (n>=1 && window.__houseLoopActive) ? "flex" : "none";
@@ -8698,12 +8718,25 @@ async function openHouseEditor(i){
     const pr=hb&&hb.parentNode?hb.parentNode.querySelector(".dh-prompt"):null;
     if(pr) pr.textContent = last ? "Drag the dots to perfect this roof, then continue." : "Drag the dots to perfect this roof, then go to the next.";
   };
+  // ── Per-house FRAME + dots, retried until the takeoff actually paints ──────────────────────────────────
+  // House 2+ root cause was TWO-fold: (1) the lens was already open so buildRoofMeasure never re-ran for the
+  // re-anchored house (handled above), and (2) a freshly (re)analysed building's facet model can still be
+  // SETTLING for several frames after __roofReady — during which facetsToRoofModel() returns null, so
+  // renderRoofDiagram() returns false and #matCanvas stays display:none (the blank/sparse frame), while a
+  // late async from run() can re-stamp window.__diagXform with the prior house's bbox. So every attempt we
+  // RE-RENDER the diagram for THIS house (recomputes bbox/scale/__diagXform from the current model+raster)
+  // AND force #matCanvas visible the moment it succeeds, THEN mount the dots. We keep retrying until the
+  // diagram is on screen with a fresh transform and the dots mount — never reusing the prior house's frame.
   (function tryShow(tries){
+    let painted=false;
+    try{ painted = (typeof renderRoofDiagram==="function") ? !!renderRoofDiagram() : false; }catch(_){ painted=false; }
+    if(painted){ try{ showMeasDiagram(true); }catch(_){} }   // sets #matCanvas display:block once the model is ready
     let ok=false; try{ ok=RoofDots.show(); }catch(_){}
-    if(ok){ paintBanner(); return; }
-    if(tries<=0){ paintBanner(); return; }   // give up mounting dots but still show the banner so the loop can advance
+    const mc=$("matCanvas"); const shown=!!(mc && mc.style.display!=="none");
+    if(ok && shown){ paintBanner(); return; }               // diagram on screen + dots mounted → done
+    if(tries<=0){ try{ if(mc && mc.style.display==="none") showMeasDiagram(true); }catch(_){} paintBanner(); return; }
     requestAnimationFrame(()=>tryShow(tries-1));
-  })(40);
+  })(90);
 }
 
 // Persist the just-edited roof for the current house, keyed by building id.
