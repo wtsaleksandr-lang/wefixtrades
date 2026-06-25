@@ -909,7 +909,13 @@ function panelOcclReason(pn,seg,zone,ctx){
     if(ctx.dg && ctx.dsmOk.has(pn.segmentIndex) && ph!=null && isFinite(ph)){ const z=sampleGrid(ctx.dg,E,N); if(z!=null&&isFinite(z)&&(z-ph)>DSM_CANOPY_M) dsmHi++; }
     if(isVegAt(ctx.rgb,E,N)) veg++;                                                  // green foliage colour
   }
-  if(ctx.mg && maskOut>=MASK_OUT_MIN) return "offroof";
+  // ENGINEERED panels (pn.__eng) are already geometrically clipped INSIDE the clean analytic facet polygon
+  // (derived from the OSM/cache VECTOR footprint) — that polygon, not Google's fuzzy roof-pixel mask, is now
+  // the authoritative roof boundary. Skipping the mask "offroof" test for them stops the smaller/jagged
+  // Google mask from false-cropping perfectly-on-roof engineered panels near the clean roofline (the cause
+  // of kept:0 on 26 Plymouth Rd). Genuine obstructions ON the roof (shade flux, DSM canopy, green foliage)
+  // are still enforced below, so a real tree/chimney on the roof still clears its panels.
+  if(ctx.mg && maskOut>=MASK_OUT_MIN && !pn.__eng) return "offroof";
   if(dsmHi>0) return "dsm";
   if(veg>0) return "veg";
   return null;
@@ -2474,10 +2480,21 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   let placed=0;
   for(const pn of panels){ if(!pn.center) continue; const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
     const L=toLocal(pn.center.latitude,pn.center.longitude);
-    const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
-    const yPlane=fi.y0 - d*fi.tanP;
+    // PREFER the engineered panel's OWN analytic facet plane (carried from engineeredFacetPanels) so the
+    // module seats on the EXACT plane the roof mesh was built from — eliminates the float/overhang where
+    // Google's segment height disagreed with our reconstructed facet. tilt/azimuth from the same facet.
+    let yPlane, P=fi.P, sinAz=fi.sinAz, cosAz=fi.cosAz;
+    if(pn.__plane && isFinite(pn.__plane.a)){
+      const zAbs=pn.__plane.a*L.E + pn.__plane.b*L.N + pn.__plane.c;   // absolute facet height at the panel centre (UTM)
+      yPlane=zAbs-baseY;
+      const Az2=(pn.__az||0)*Math.PI/180, P2=(pn.__pitch||0)*Math.PI/180;
+      sinAz=Math.sin(Az2); cosAz=Math.cos(Az2); P=P2;
+    } else {
+      const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
+      yPlane=fi.y0 - d*fi.tanP;
+    }
     // facet normal in scene frame (down-slope tilt) — lift the panel proud along it
-    nrmV.set(Math.sin(fi.P)*fi.sinAz, Math.cos(fi.P), -Math.sin(fi.P)*fi.cosAz).normalize();
+    nrmV.set(Math.sin(P)*sinAz, Math.cos(P), -Math.sin(P)*cosAz).normalize();
     q.setFromUnitVectors(up,nrmV);
     pVec.set(L.x + nrmV.x*PANEL_PROUD, yPlane + nrmV.y*PANEL_PROUD, L.z + nrmV.z*PANEL_PROUD);
     const land=pn.orientation==="LANDSCAPE"; const w=land?ph:pw, h=land?pw:ph;
@@ -4491,30 +4508,50 @@ function classifyPanelPlane(pn,segs,zone,dg){
    so the existing render + occlusion + corners code consumes them unchanged.
    Returns null if facet geometry isn't available (no DSM) → caller falls back to
    Google's array. */
-const PANEL_SETBACK_M = 0.12;   // uniform clearance from every facet edge (eave/ridge/valley/hip/rake) — installer "fire setback" look (kept tight so shallow facets still fit 2+ rows like Google)
+const PANEL_SETBACK_M = 0.30;   // uniform fire-code-style clearance (~1 ft) inset from EVERY facet edge (eave/ridge/valley/hip/rake) — every panel corner must clear the facet boundary by this much, so the array never reaches the roofline or overhangs the footprint. 0.30 reads as a clear visible setback while still letting a shallow (~2.3 m) facet keep its single landscape row (0.40 ate the whole band on thin analytic facets)
 const PANEL_GAP_M     = 0.03;   // inter-panel gap (rail spacing); keeps rows visually distinct, still dense
+/* ── TRUE PER-FACET ENGINEERED LAYOUT (installer-grade, no slab / no overhang) ──
+   ROOT-CAUSE REWRITE: the prior version started `out` from Google's solarPanels[]
+   VERBATIM and only ADDED generated cells where Google had none. Google's panels are
+   in Google's own bounding-box frame, NOT clipped to our clean analytic footprint
+   facets — so they rendered as one tilted slab that overhangs the roofline (the
+   26 Plymouth Rd audit). Worse, with the seeds passed through, the generated grid
+   was blocked everywhere by nearSeed and emitted 0 (kept:0 on every facet).
+   NEW MODEL: we DISCARD Google's panel geometry and lay a fresh uniform grid INSIDE
+   each analytic facet polygon, insetting PANEL_SETBACK_M off every edge. Every panel
+   (all four corners) must sit inside the facet minus the setback band, else it is
+   dropped. Seeds are used ONLY for (a) per-facet orientation, (b) grid phase, and
+   (c) the occlusion/energy context — never rendered as-is. Result: aligned rows,
+   visible setbacks on every edge, nothing past the roofline, conformal per facet. */
 function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
   let facets=null;
   try{ facets=extractFacetPolys(0.0); }catch(_){ return null; }   // need analytic facets (DSM); else bail to Google array
   if(!facets||!facets.length) return null;
-  const _dbg={facets:facets.length, perFacet:[]}; try{ window.__engDbg=_dbg; }catch(_){}
+  const _dbg={facets:facets.length, setback:PANEL_SETBACK_M, perFacet:[]}; try{ window.__engDbg=_dbg; }catch(_){}
   // index seed panels by segment so we can (a) inherit orientation and (b) phase the grid onto Google's
   const segIndexOf=(seg)=>{ const i=segs.indexOf(seg); return i>=0?i:(seg&&typeof seg.__idx==="number"?seg.__idx:-1); };
   const seedBySeg=new Map();
   for(const pn of (seedPanels||[])){ if(!pn.center) continue; const k=pn.segmentIndex; if(!seedBySeg.has(k)) seedBySeg.set(k,[]); seedBySeg.get(k).push(pn); }
-  // BASE = all of Google's placeable panels (already engineered + validated). We start from these so the
-  // layout is NEVER sparser than Google's, then ADD generated panels only into genuinely-empty grid cells.
-  // This fixes both the under-fill (Google's count is the floor) and the empty-clear-roof (we fill the gaps).
-  const out=(seedPanels||[]).filter(p=>p.center).map(p=>({center:p.center,orientation:p.orientation,segmentIndex:p.segmentIndex,yearlyEnergyDcKwh:p.yearlyEnergyDcKwh||0}));
+  const occlCtx=buildOcclCtx(seedPanels&&seedPanels.length?seedPanels:(sp.solarPanels||[]),segs,zone);
+  const out=[];   // PURELY engineered panels — every one is grid-aligned + setback-clipped to its facet polygon
   for(const f of facets){
     const seg=f.seg; const si=segIndexOf(seg); if(si<0) continue;
-    let _kept=0, _tried=0, _occl=0;
-    const Az=(seg.azimuthDegrees||0)*Math.PI/180;
-    const ax=Math.cos(Az), an=-Math.sin(Az), fx=Math.sin(Az), fn=Math.cos(Az);   // across / down-slope axes in (E,N)
+    let _kept=0, _tried=0, _occl=0, _setb=0; const _occlBy={};
     // facet ring → UTM (E,N)
     const ringEN=(f.hull||[]).map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
     if(ringEN.length<3) continue;
-    // centroid + project ring to facet frame (u=across, v=down-slope)
+    // ── GRID FRAME = the FACET POLYGON's own dominant (eave) edge, NOT Google's segment azimuth ──
+    // On complex roofs Google's per-segment azimuth often disagrees with where the analytic facet polygon
+    // actually sits (mis-segmentation), so an az-aligned grid cut diagonally across the facet and every
+    // panel fell off the setback band (kept:0). Installers lay rows PARALLEL to the eave; we mirror that by
+    // taking the polygon's LONGEST edge as the "across"/row axis (u) and its perpendicular as down-slope (v).
+    // The render tilt below still uses the segment plane (__plane/__az/__pitch) for true coplanarity.
+    let _gax, _gan;   // unit across-axis (E,N) = direction of the longest polygon edge
+    { let bestL=-1; for(let i=0;i<ringEN.length;i++){ const A=ringEN[i],B=ringEN[(i+1)%ringEN.length];
+        const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bestL){ bestL=L; const n=Math.sqrt(L)||1; _gax=dx/n; _gan=dy/n; } } }
+    if(_gax==null){ const Az=(seg.azimuthDegrees||0)*Math.PI/180; _gax=Math.cos(Az); _gan=-Math.sin(Az); }
+    const ax=_gax, an=_gan, fx=-_gan, fn=_gax;   // across (u, along eave) / perpendicular (v) axes in (E,N)
+    // centroid + project ring to facet frame (u=across/eave-parallel, v=perpendicular)
     let cE=0,cN=0; for(const [E,N] of ringEN){ cE+=E; cN+=N; } cE/=ringEN.length; cN/=ringEN.length;
     const toUV=([E,N])=>[ (E-cE)*ax+(N-cN)*an, (E-cE)*fx+(N-cN)*fn ];
     const fromUV=(u,v)=>[ cE+u*ax+v*fx, cN+u*an+v*fn ];
@@ -4525,62 +4562,75 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
         const dx=bx-ax2,dy=by-ay2, L2=dx*dx+dy*dy; let t=L2?((px-ax2)*dx+(py-ay2)*dy)/L2:0; t=Math.max(0,Math.min(1,t));
         const qx=ax2+t*dx, qy=ay2+t*dy; const d=Math.hypot(px-qx,py-qy); if(d<best) best=d; }
       return best; };
-    // orientation from the segment's seed panels (majority), default PORTRAIT
+    // grid extents in (u,v) over the facet bbox (orientation-independent → compute first so we can
+    // AUTO-PICK the orientation that actually fits the facet's perpendicular depth).
+    let uMin=Infinity,uMax=-Infinity,vMin=Infinity,vMax=-Infinity;
+    for(const [u,v] of ringUV){ if(u<uMin)uMin=u; if(u>uMax)uMax=u; if(v<vMin)vMin=v; if(v>vMax)vMax=v; }
+    const cosP=Math.max(0.2,Math.cos((seg.pitchDegrees||0)*Math.PI/180));
+    // FORESHORTEN the down-slope axis by cos(pitch): the facet hull is in the GROUND (plan) frame, so a
+    // panel that is `ah` long up the slope occupies only ah·cos(pitch) in plan. Across (u, eave-parallel) is
+    // not foreshortened. rowsFor(ah) = whole rows of a panel of down-slope dim `ah` that fit the inset depth.
+    const dvBand=(vMax-vMin);
+    const rowsFor=(ahS)=>{ const ahPP=ahS*cosP; const band=Math.max(0,dvBand-2*(ahPP/2+PANEL_SETBACK_M)); return Math.floor(band/(ahPP+PANEL_GAP_M))+1; };
+    // orientation from the segment's seed panels (majority), default PORTRAIT — but on a SHALLOW facet where
+    // the seed orientation can't fit a single row (e.g. a 2.5 m-deep strip vs a 1.88 m portrait panel),
+    // flip to the orientation whose down-slope dimension DOES fit, so the strip still gets its row of panels.
     const seedHere=seedBySeg.get(si)||[];
     let land=false; if(seedHere.length){ let l=0; for(const p of seedHere) if(p.orientation==="LANDSCAPE") l++; land=l*2>=seedHere.length; }
+    const seedDown=land?pw:ph, altDown=land?ph:pw;       // down-slope panel dim for seed vs flipped orientation
+    // Flip to the orientation that fits MORE rows in this facet's depth (ties keep the seed orientation), so a
+    // shallow strip packs landscape rows instead of losing them to a too-tall portrait panel.
+    if(rowsFor(altDown)>rowsFor(seedDown)) land=!land;
     const aw=(land?ph:pw), ah=(land?pw:ph);      // across-width, down-slope-height of one panel (slope metres)
-    // FORESHORTEN the down-slope axis by cos(pitch): the facet hull is in the GROUND (plan) frame, so a
-    // panel that is `ah` long up the slope occupies only ah·cos(pitch) in plan. Google spaces its panel
-    // centres exactly this way (verified: pitch-42° roof → down-slope centre step = ph·cos42° = 1.41 m;
-    // across step = pw, un-foreshortened). Using the full `ah` (the earlier bug) fit ~1/cos(pitch) too few
-    // rows and left clear roof empty on every pitched facet. Across (u) is parallel to the ridge → no
-    // foreshortening.
-    const cosP=Math.max(0.2,Math.cos((seg.pitchDegrees||0)*Math.PI/180));
     const ahP=ah*cosP;                            // down-slope panel length projected into the plan frame
     const cw=aw+PANEL_GAP_M, ch=ahP+PANEL_GAP_M;  // cell pitch (across, plan-down-slope)
     const hw=aw/2, hh=ahP/2;                      // plan half-dimensions in (u,v)
-    // grid extents in (u,v) over the facet bbox
-    let uMin=Infinity,uMax=-Infinity,vMin=Infinity,vMax=-Infinity;
-    for(const [u,v] of ringUV){ if(u<uMin)uMin=u; if(u>uMax)uMax=u; if(v<vMin)vMin=v; if(v>vMax)vMax=v; }
-    // PHASE the grid:
-    //  • ACROSS (u): lock to a Google seed column so our columns coincide with Google's array where it
-    //    placed panels (engineered continuity), else centre in the bbox.
-    //  • DOWN-SLOPE (v): CENTRE the rows in the usable band (after setback) so the maximum whole number
-    //    of rows fits symmetrically — shallow facets (≈2.5 m plan depth) reliably get both rows instead
-    //    of losing one to an arbitrary seed phase.
-    let u0=(uMin+uMax)/2;
-    if(seedHere.length){ const s0=seedHere[0]; const [sE,sN]=wgs84ToUTM(s0.center.latitude,s0.center.longitude,zone);
-      u0=(sE-cE)*ax+(sN-cN)*an; }
+    // PHASE the grid so the rows/cols pack the usable (inset) band symmetrically:
+    //  • ACROSS (u): lock to a Google seed column where one exists (so our columns line up with where
+    //    the real array sits), else CENTRE the maximum whole number of columns in the inset band.
+    //  • DOWN-SLOPE (v): CENTRE the rows in the inset band so the max whole number of rows fits
+    //    symmetrically — shallow facets reliably get every row that fits inside the setback.
+    const uUse=Math.max(0,(uMax-uMin)-2*(hw+PANEL_SETBACK_M));
+    const cols=Math.max(1,Math.floor(uUse/cw)+1);
+    let u0=(uMin+uMax)/2 - ((cols-1)/2)*cw;        // centre `cols` columns about the facet's u-midline (eave-parallel)
     // v-band usable after the per-corner setback (panel half-height hh + setback off each edge)
     const vUse=Math.max(0,(vMax-vMin)-2*(hh+PANEL_SETBACK_M));
     const rows=Math.max(1,Math.floor(vUse/ch)+1);
     let v0=(vMin+vMax)/2 - ((rows-1)/2)*ch;   // centre `rows` rows about the facet's v-midline
     const nU=Math.ceil((uMax-uMin)/cw)+2, nV=Math.ceil((vMax-vMin)/ch)+2;
     if(nU*nV>1500) continue;   // pathological huge facet → skip (commercial; quote handles it)
-    const occlCtx=buildOcclCtx(seedPanels&&seedPanels.length?seedPanels:(sp.solarPanels||[]),segs,zone);
-    // project this facet's Google seeds into (u,v) so we don't double-place a generated panel where Google
-    // already has one (the base `out` already holds the seeds verbatim).
-    const seedUV=seedHere.map(p=>{ const [sE,sN]=wgs84ToUTM(p.center.latitude,p.center.longitude,zone); return [ (sE-cE)*ax+(sN-cN)*an, (sE-cE)*fx+(sN-cN)*fn ]; });
-    const nearSeed=(u,v)=>{ for(const [su,sv] of seedUV){ if(Math.abs(u-su)<cw*0.6 && Math.abs(v-sv)<ch*0.6) return true; } return false; };
     const kStartU=Math.round((uMin-u0)/cw)-1, kEndU=Math.round((uMax-u0)/cw)+1;
     const kStartV=Math.round((vMin-v0)/ch)-1, kEndV=Math.round((vMax-v0)/ch)+1;
+    // Project this facet's Google SEED panels (already flux/shade-vetted by Google) into (u,v). A grid cell
+    // that lands on a seed is TRUSTED as clear — we emit it on the clean grid (proper alignment + setback)
+    // WITHOUT re-running our occlusion test. Our DSM/flux crop is noisy on complex roofs (ridge caps / DSM
+    // spikes read as "tree" and nuked every cell → kept:0 + the Google slab fallback on 26 Plymouth Rd);
+    // Google's own placement is the better "is-clear" oracle where it exists. Empty (non-seed) cells still
+    // run the occlusion test so we only FILL genuinely-clear roof and never invent a panel onto a tree.
+    const seedUV=seedHere.map(p=>{ const [sE,sN]=wgs84ToUTM(p.center.latitude,p.center.longitude,zone); return [ (sE-cE)*ax+(sN-cN)*an, (sE-cE)*fx+(sN-cN)*fn ]; });
+    const onSeed=(u,v)=>{ for(const [su,sv] of seedUV){ if(Math.abs(u-su)<cw*0.7 && Math.abs(v-sv)<ch*0.7) return true; } return false; };
     const facetPanels=[];
-    for(let ku=kStartU;ku<=kEndU;ku++){ for(let kv=kStartV;kv<=kEndV;kv++){
+    for(let kv=kStartV;kv<=kEndV;kv++){ for(let ku=kStartU;ku<=kEndU;ku++){
       const u=u0+ku*cw, v=v0+kv*ch;
-      if(nearSeed(u,v)) continue;   // Google already placed a panel in this cell → keep its (it's in `out`)
       _tried++;
-      // FILL placeable = the whole panel sits on clear facet with a uniform setback band. Centre inside the
-      // facet and every corner clears the boundary by >= PANEL_SETBACK_M → a clean fire-setback look on all
-      // edges (ridge/valley/hip/eave/rake) while packing as densely as the geometry allows.
+      // SETBACK GATE = the whole panel sits on clear facet with the uniform setback band. Centre inside the
+      // facet AND every corner clears the boundary by >= PANEL_SETBACK_M → a clean fire-setback look on all
+      // edges (ridge/valley/hip/eave/rake); a panel that doesn't fully fit inside the inset facet is dropped.
+      // This gate runs for EVERY cell (seed-covered or not) so nothing ever reaches past the roofline.
       if(!pointInPoly2([u,v],ringUV)){ continue; }
       let ok=true;
       for(const [su,sv] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const px=u+su*hw, py=v+sv*hh;
         if(!pointInPoly2([px,py],ringUV) || edgeDist(px,py) < PANEL_SETBACK_M){ ok=false; break; } }
-      if(!ok){ continue; }
+      if(!ok){ _setb++; continue; }
       const [E,N]=fromUV(u,v); const [lng,lat]=utmToLL(E,N,zone);
-      const pn={ center:{latitude:lat,longitude:lng}, orientation:land?"LANDSCAPE":"PORTRAIT", segmentIndex:si, yearlyEnergyDcKwh:0, __eng:true };
-      // real-obstruction test — identical to the crop the visual already applies (chimney/skylight/vent/shade)
-      if(!window.__noCrop && panelOccluded(pn,seg,zone,occlCtx)){ _occl++; continue; }
+      // Carry the EXACT analytic facet plane (a·E+b·N+c = absolute height, UTM) + this facet's az/pitch so
+      // the 3D model render seats each panel on the SAME plane the roof mesh was built from (model.planes),
+      // not on Google's segment height — that mismatch is what let panels float over the rendered roof.
+      const pn={ center:{latitude:lat,longitude:lng}, orientation:land?"LANDSCAPE":"PORTRAIT", segmentIndex:si, yearlyEnergyDcKwh:0, __eng:true,
+                 __plane:(f.__plane?{a:f.__plane.a,b:f.__plane.b,c:f.__plane.c}:null), __zone:zone, __az:(seg.azimuthDegrees||0), __pitch:(seg.pitchDegrees||0) };
+      // real-obstruction test (chimney/skylight/vent/shade) — SKIPPED on a Google-seeded cell (Google vetted
+      // it clear); RUN on a fill cell so we never invent a panel onto a tree/patio.
+      if(!window.__noCrop && !onSeed(u,v)){ const _r=panelOcclReason(pn,seg,zone,occlCtx); if(_r){ _occl++; _occlBy[_r]=(_occlBy[_r]||0)+1; continue; } }
       facetPanels.push(pn);
     } }
     // CLEANLINESS GATE: a lone panel on a tiny facet reads as a random "stamp", not an engineered array.
@@ -4588,7 +4638,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     // a usable face). Facets with >=2 panels always pass (a real row).
     if(facetPanels.length===1 && seedHere.length===0){ /* drop the lone stamp */ }
     else { for(const pn of facetPanels){ out.push(pn); _kept++; } }
-    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl});
+    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb});
   }
   if(!out.length) return null;
   // estimate per-panel yearly energy from the facet's seed panels (or roof mean) so colour/quote scaling stays sane
