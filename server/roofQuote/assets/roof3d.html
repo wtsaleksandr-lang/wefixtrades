@@ -3019,6 +3019,26 @@ function applyModelSkin(grey){
 function setModelPanelsVisible(on){
   if(modelPanelGroup) modelPanelGroup.visible=!!on;
   else if(panelMesh) panelMesh.visible=!!on;
+  // (fix8 P1) The engineered panels carry the cached premium PV material; toggling back from
+  // photoreal must guarantee they read as real blue modules, never a black box. Re-assert the
+  // material on the InstancedMesh so a restored model can never render flat/untextured.
+  if(on){ try{ const pm=panelMatPremium(); modelPanelGroup&&modelPanelGroup.traverse(o=>{ if(o.isInstancedMesh) o.material=pm; }); if(panelMesh&&!modelPanelGroup) panelMesh.material=pm; }catch(_){} }
+}
+// (fix8 P0) ONE consistent recommended panel count that never lurches on a Satellite⇄3D-model
+// toggle. `window.__renderedPanels` is a single shared global the quote headline rebases to
+// (renderQuoteCard), but it FLIP-FLOPS: buildScene publishes the engineered max-fit array
+// (window.__panelsPlaced, e.g. 40) while buildPhotoPanels publishes the photoreal/Google array
+// (e.g. 7, heavily cropped around tree canopy). Toggling Satellite→back used to leave the stale
+// photoreal 7 in __renderedPanels while the model re-shows all 40 engineered panels — so the quote
+// collapsed 6× below the panels actually drawn. The engineered model array IS the canonical
+// recommendation (it's the true max-fit layout for the roof, not a canopy-occluded subset), so
+// whenever the 3D-model lens owns the view we restore __renderedPanels to that engineered count
+// and re-derive the quote — guaranteeing quote == panels-drawn at all times. Split-aware: on an
+// attached owner's-section the per-section render owns the count, so we leave it alone.
+function syncModelRenderedPanels(){
+  if(window.__attached) return;
+  const placed=window.__panelsPlaced||0;
+  if(placed>0 && window.__renderedPanels!==placed){ window.__renderedPanels=placed; }
 }
 // Leave the grey "Model" lens (called when another exclusive lens is entered). Restores the
 // aerial-photo schematic skin + clears the Model button + hint. Does NOT itself switch mode.
@@ -3058,7 +3078,13 @@ function applyModelGate(){
    This mirrors the Model-lens ON branch ($("bModel").onclick) but is a standalone entry used as the load
    default and by the #viewToggle. On roofs whose massing is fragmented (shards) the premium model isn't
    trustworthy → we gracefully fall back to photoreal so the buyer still sees their house.            */
-async function enterModelDefault(){
+async function enterModelDefault(isInitial){
+  // (fix8 P1) `isInitial` is passed by the FIRST-LOAD call (run()) which now sets window.__roofReady=true
+  // only AFTER this resolves — so the premium skin/lighting/hero camera + engineered panels are applied
+  // BEFORE "ready" is signalled and no share/screenshot can capture the flat intermediate box. During
+  // that first call window.__roofReady is still false, so the internal __roofReady-gated steps read this
+  // flag instead. On every later toggle isInitial is undefined → the live window.__roofReady gates apply.
+  const ready = isInitial || window.__roofReady;
   // Fragmented massing → no clean own-model; show the real aerial instead (honest, not a shard pile).
   if(window.__modelQuality===false){ await setMode("photoreal"); syncViewToggle(); return; }
   greyMode=true; $("bModel").classList.add("on");
@@ -3069,9 +3095,12 @@ async function enterModelDefault(){
   clearLabels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas();
   panelsVisible=false; $("bPanels").classList.remove("on");
   if(mode!=="schematic") await setMode("schematic");   // mount the Three.js #scene (premium grey base)
-  applyModelSkin(true);
-  setModelPanelsVisible(true);                          // STEP 4/5: show the engineered 3D solar array
-  window.__sunView="shadows"; if(typeof updateSun==="function") updateSun();
+  applyModelSkin(true);                                 // (fix8 P1) re-skins roof (greyRoofMatFor) + lighting (sun/hemi/ambient) — restores the textured hero look on toggle-back
+  setModelPanelsVisible(true);                          // STEP 4/5: show the engineered 3D solar array (+ re-asserts the premium PV material)
+  syncModelRenderedPanels();                            // (fix8 P0) restore the engineered count as the canonical rendered count so the quote can't stay on the stale photoreal value
+  window.__sunView="shadows"; if(typeof updateSun==="function") updateSun();   // (fix8 P1) re-applies directional sun + ambient/hemi for the Model lens so the restored model isn't a dark blob
+  // (fix8 P0) re-derive the quote from the now-current engineered array so quote == panels drawn.
+  if(typeof renderQuoteCard==="function" && ready){ try{ renderQuoteCard(); }catch(_){} }
   // Reset to the STEP-5 hero camera so the first frame is the flattering 3/4 product shot.
   try{ const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); } }catch(_){}
   $("matHint").style.display="none"; $("sunbar").style.display="none";
@@ -3242,10 +3271,16 @@ async function run(addr){
     // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
     try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun(); }
     catch(e){ errors.push("scene:"+((e&&e.message)||e)); }
-    window.__roofReady=true;
     // STEP 6: DEFAULT to our premium own 3D model (engineered panels + hero camera), NOT Google's
     // tree-blocked photoreal tiles. Photoreal is now an explicit opt-in via #viewToggle ("Satellite").
-    try{ await enterModelDefault(); }catch(e){ errors.push("defaultModel:"+e.message); try{ await setMode("photoreal"); syncViewToggle(); }catch(_){} }
+    // (fix8 P1) Apply the premium model (skin + lighting + engineered panels + hero camera) BEFORE we
+    // signal __roofReady, so the model the buyer/screenshot sees the instant "ready" is true is the
+    // finished premium hero — never the flat untextured intermediate that __roofReady used to expose
+    // ~16 s early. enterModelDefault(true) runs its __roofReady-gated steps via the isInitial flag.
+    try{ await enterModelDefault(true); }catch(e){ errors.push("defaultModel:"+e.message); try{ await setMode("photoreal"); }catch(_){} }
+    window.__roofReady=true;
+    try{ syncViewToggle(); }catch(_){}   // pill visibility is gated on __roofReady → resync now that it's true
+    try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}   // ensure the quote headline reflects the engineered render now that ready-gated rebasing is live
     setTimeout(()=>{ if(window.__roofReady){ fetch(RQ_BASE+"/capture?address="+encodeURIComponent($("addr").value.trim())).catch(()=>{}); fetchFeatures(); } }, 2500);   // pre-warm capture (free) + detect roof penetrations so they show in the quote
     applySharedSelection();   // if arrived via a shared link with &m/&c, land on that exact material quote
   }catch(e){ showLoad(false); errors.push("run:"+((e&&e.message)||e)); window.__roofReady=false;
@@ -5407,6 +5442,10 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
 }
 async function buildPhotoPanels(){
   if(!LASTB||!gmap) return;
+  // (fix8 P0 RACE) snapshot the base-view generation at entry; if it changes before we publish, the
+  // buyer has toggled away from Satellite and this build's photoreal count must not touch the quote.
+  const _vg=window.__viewGen||0;
+  const _stale=()=>((window.__viewGen||0)!==_vg || mode!=="photoreal");
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
   if(overlaySuppressed){ window.__photoPanels=0; setOverlayNote(true); return; }   // canopy/off-roof → don't drape panels onto the lawn
@@ -5486,7 +5525,7 @@ async function buildPhotoPanels(){
     window.__floatingDegrade=true; window.__photoPanels=0;
     for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
     setOverlayNote(false);
-    try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}   // confidence gate now reads __floatingDegrade → low-confidence card
+    if(!_stale()){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }   // confidence gate now reads __floatingDegrade → low-confidence card (skip if the buyer toggled away)
     return;
   }
   // COUNT-ONLY FALLBACK (degenerate only): almost the whole roof is obstructed, so there's
@@ -5511,7 +5550,7 @@ async function buildPhotoPanels(){
     window.__photoPanels=0;
     for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
     setOverlayNote(false);
-    try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
+    if(!_stale()){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }
     return;
   }
   setOverlayNote(false);
@@ -5548,7 +5587,13 @@ async function buildPhotoPanels(){
   // max-fit, else the cropped placeable array) is what they see — publish it as the canonical rendered
   // count so the quote headline matches THIS lens too (not just the default 3D-model lens). Only when
   // not an attached owner's-section split (whose array is intentionally a section-clipped subset).
-  if(!window.__attached){ const drawn=photoPanels.length; if(drawn>0) window.__renderedPanels=drawn; }
+  // (fix8 P0 RACE) buildPhotoPanels is async and slow on mobile: a user can toggle Satellite→3D-model
+  // BEFORE it resolves, so this late publish would clobber the model's restored engineered count (40)
+  // with the photoreal/cropped count (7) AFTER we already returned to the model lens — the exact 6×
+  // desync. Guard EVERY late __renderedPanels publish: only adopt the photoreal count while photoreal
+  // is STILL the live base. If the view changed out from under this in-flight build, leave the current
+  // (model) rendered count + quote untouched.
+  if(!_stale() && !window.__attached){ const drawn=photoPanels.length; if(drawn>0) window.__renderedPanels=drawn; }
   // ── QUOTE↔OVERLAY RECONCILE (audit-3): when SOME panels were cropped (but not enough to degrade),
   // the displayed count/kW/$ must reflect the PLACEABLE panels, not Google's full array — otherwise the
   // card promises 75 panels while the roof shows 50. Record the survivor fraction; renderQuoteCard
@@ -5556,7 +5601,10 @@ async function buildPhotoPanels(){
   window.__panelKeepFrac = considered ? +(keep.length/considered).toFixed(2) : 1;
   if(window.__lastKeepFrac==null || Math.abs(window.__lastKeepFrac-window.__panelKeepFrac)>0.01){
     window.__lastKeepFrac=window.__panelKeepFrac;
-    if(window.__panelKeepFrac<0.985){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }
+    // (fix8 P0 RACE) only re-render from this late photoreal callback if photoreal is STILL the live base;
+    // otherwise a Satellite build that resolved after a toggle-back to the model would re-derive the quote
+    // against the photoreal crop and re-introduce the desync.
+    if(!_stale() && window.__panelKeepFrac<0.985){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }
   }
 }
 // (fix4 #3) Explicitly tear down the Google photoreal Map3D surface when we leave Satellite, so toggling
@@ -5576,6 +5624,11 @@ function teardownPhotoreal(){
 }
 async function setMode(mo){
   const wasPhoto=(mode==="photoreal");
+  // (fix8 P0 RACE) monotonic base-view generation. Every base switch bumps it; an async builder
+  // (buildPhotoPanels) captures it on entry and refuses to publish its results if the generation has
+  // moved on by the time it resolves — bulletproof against a slow Satellite build clobbering the model
+  // quote after a toggle-back, independent of how `mode` happens to read at the await boundary.
+  window.__viewGen=(window.__viewGen||0)+1;
   mode=mo; const photo=mo==="photoreal";
   if(!photo && wasPhoto){ teardownPhotoreal(); }   // leaving Satellite → kill the photoreal surface cleanly
   $("gmapWrap").style.display=photo?"block":"none";
@@ -6270,7 +6323,7 @@ $("bSun").onclick=async()=>{
     stopSunPlay(); exitRealShade(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none";
     const _ctl=$("sunShadowCtl"); if(_ctl) _ctl.style.display="flex";   // restore time/season controls for the grey Model lens
     showAnalysis(null);
-    if(greyMode){ setModelPanelsVisible(true); }   // back to the static Model lens → show the engineered array
+    if(greyMode){ setModelPanelsVisible(true); syncModelRenderedPanels(); }   // back to the static Model lens → show the engineered array (+ headline tracks it)
     else { panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
   }
   if(typeof syncViewToggle==="function") syncViewToggle();
@@ -6287,6 +6340,7 @@ $("bModel").onclick=async()=>{
     if(mode!=="schematic") await setMode("schematic");
     applyModelSkin(true);
     setModelPanelsVisible(true);   // STEP 5: Model lens shows the engineered 3D solar array on the roof
+    syncModelRenderedPanels();     // (fix8 P0) headline tracks the engineered array now on screen
     window.__sunView="shadows"; updateSun();
     // Caption states the lens's PURPOSE (PO asked "what's the 3D Model for?"): it's the clean
     // structure massing AND the surface the Sun shadow-play animates on.
