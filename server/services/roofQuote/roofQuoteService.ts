@@ -674,6 +674,117 @@ export async function sunHours(lat: string, lng: string): Promise<SunResult> {
   return { error: "no_sun" };
 }
 
+/* ─── Clean VECTOR building footprint (the EVEN/straight outer-roofline source) ───
+   Replaces the fuzzy Solar-mask Moore-trace as the primary outer-outline source.
+   Coverage cascade: OpenStreetMap via Overpass (free, hosted, no dep) → on-disk
+   pre-cached footprints (assets/footprints.geojson) for addresses OSM misses →
+   {source:"none"} so the widget keeps its mask-trace fallback (low-confidence).
+   Returns a clean building-footprint ring as GeoJSON [lng,lat][] (open). ─── */
+type LngLat = [number, number];
+const fpMetres = (lat: number) => ({ mLat: 111320, mLng: 111320 * Math.cos((lat * Math.PI) / 180) });
+function fpOpenRing(ring: LngLat[]): LngLat[] {
+  const r = ring.slice();
+  if (r.length > 1) { const f = r[0], l = r[r.length - 1];
+    if (Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) r.pop(); }
+  return r;
+}
+function fpRingArea(ring: LngLat[], lat0: number): number {
+  const { mLat, mLng } = fpMetres(lat0); let s = 0;
+  for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length];
+    s += (a[0] * mLng) * (b[1] * mLat) - (b[0] * mLng) * (a[1] * mLat); }
+  return Math.abs(s) / 2;
+}
+function fpCentroid(ring: LngLat[]): LngLat {
+  let x = 0, y = 0; for (const [lng, lat] of ring) { x += lng; y += lat; }
+  return [x / ring.length, y / ring.length];
+}
+function fpPointInRing(pt: LngLat, ring: LngLat[]): boolean {
+  let inside = false; const x = pt[0], y = pt[1];
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+  }
+  return inside;
+}
+function fpPickBuilding(elements: any[], lat: number, lng: number): LngLat[] | null {
+  const cands: LngLat[][] = [];
+  for (const el of elements || []) {
+    const geom = el.geometry; if (!Array.isArray(geom) || geom.length < 4) continue;
+    const ring = fpOpenRing(geom.map((g: any) => [g.lon, g.lat] as LngLat));
+    if (ring.length < 3) continue;
+    if (fpRingArea(ring, lat) < 8) continue;
+    cands.push(ring);
+  }
+  if (!cands.length) return null;
+  for (const ring of cands) if (fpPointInRing([lng, lat], ring)) return ring;
+  let best: LngLat[] | null = null, bestD = Infinity; const { mLat, mLng } = fpMetres(lat);
+  for (const ring of cands) { const c = fpCentroid(ring);
+    const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = ring; } }
+  return best && bestD <= 40 ? best : null;
+}
+async function overpassFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
+  const body = "data=" + encodeURIComponent('[out:json][timeout:25];way["building"](around:30,' + lat + "," + lng + ");out geom;");
+  const headers = { "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  for (const ep of endpoints) {
+    try {
+      const r = await fetch(ep, { method: "POST", headers, body });
+      if (!r.ok) continue;
+      const j = (await r.json()) as any;
+      const ring = fpPickBuilding(j.elements, lat, lng);
+      if (ring) return ring;
+      return null;
+    } catch { /* try next endpoint */ }
+  }
+  return null;
+}
+let _fpCache: LngLat[][] | null = null, _fpCacheLoaded = false;
+function loadFpCache(): LngLat[][] | null {
+  if (_fpCacheLoaded) return _fpCache;
+  _fpCacheLoaded = true;
+  try {
+    const f = path.join(__dirname, "..", "..", "roofQuote", "assets", "footprints.geojson");
+    if (existsSync(f)) {
+      const j = JSON.parse(readFileSync(f, "utf8"));
+      _fpCache = ((j.features || []) as any[]).map((ft) => {
+        const g = ft.geometry; if (!g) return null;
+        const coords = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+        if (!coords) return null;
+        return fpOpenRing(coords.map((c: number[]) => [c[0], c[1]] as LngLat));
+      }).filter((r): r is LngLat[] => !!r && r.length >= 3);
+    }
+  } catch { _fpCache = null; }
+  return _fpCache;
+}
+function cacheFootprint(lat: number, lng: number): LngLat[] | null {
+  const rings = loadFpCache(); if (!rings || !rings.length) return null;
+  for (const ring of rings) if (fpPointInRing([lng, lat], ring)) return ring;
+  let best: LngLat[] | null = null, bestD = Infinity; const { mLat, mLng } = fpMetres(lat);
+  for (const ring of rings) { const c = fpCentroid(ring);
+    const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = ring; } }
+  return best && bestD <= 40 ? best : null;
+}
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "cache" | "none"; attribution?: string; error?: string; }
+export async function buildingFootprint(lat: string, lng: string): Promise<FootprintResult> {
+  const la = +lat, ln = +lng;
+  if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords" };
+  const key = la.toFixed(5) + "," + ln.toFixed(5);
+  const cached = diskGetJSON<{ body: FootprintResult; _t: number }>("footprint", key);
+  if (cached && cached._t && Date.now() - cached._t < 30 * 864e5) return cached.body;
+  // overpassFootprint already swallows network/parse errors internally (returns null), so no
+  // outer .catch() is needed here — keeping one would trip the no-silent-catch guard.
+  const osm = await overpassFootprint(la, ln);
+  if (osm && osm.length >= 3) {
+    const out: FootprintResult = { ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
+    diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+    return out;
+  }
+  const c = cacheFootprint(la, ln);
+  if (c && c.length >= 3) return { ring: c, source: "cache", attribution: "© Microsoft / national building footprints" };
+  return { source: "none" };
+}
+
 /* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,
    api.data.gov key). Returns expected annual AC kWh for a typical system. Cached. ─── */
 const nrelKey = (): string => process.env.NREL_API_KEY || "";

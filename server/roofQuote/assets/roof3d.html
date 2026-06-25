@@ -688,6 +688,14 @@ function sunPosition(date, lat, lng){
 // throw a CLEAN tagged Error (e.g. "geocode unavailable") — the caller's catch renders the
 // graceful "request an on-site quote" card, never the raw exception.
 async function fetchJSON(url, tag){
+  // In the embedded wefixtrades app the backend routes live under /api/roofquote (window.RQ_BASE,
+  // injected by sync-from-spike.sh). fetchJSON callers pass a BARE absolute path ("/geocode?…",
+  // "/footprint?…"); prefix it with RQ_BASE so it resolves to the mounted route. Standalone spike:
+  // RQ_BASE is undefined → bare path hits the spike server directly (no-op). Only rewrites our own
+  // backend paths (leading "/", not "//" protocol-relative or "http").
+  if(typeof window!=="undefined" && window.RQ_BASE && typeof url==="string" && url.charCodeAt(0)===47 && url.charCodeAt(1)!==47){
+    url=window.RQ_BASE+url;
+  }
   let lastErr=null;
   for(let attempt=0; attempt<2; attempt++){
     try{
@@ -2840,6 +2848,25 @@ async function run(addr){
     // edit clears the match) so a stale id never geocodes the wrong house.
     const picked=window.__pickedPlace; const placeId=(picked&&picked.addr===addr)?picked.id:"";
     const g=await geocode(addr,placeId); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
+    // ── Clean VECTOR building footprint (the EVEN outer-roofline source) ──
+    // Fetch the real vector building footprint (OSM/Overpass → on-disk cache) for this point.
+    // It REPLACES the fuzzy Solar-mask Moore-trace as the primary outer outline in the analytic
+    // builder, so the outer roofline comes out STRAIGHT & on the true roof edges. A ?fp=mask
+    // debug flag forces the legacy mask trace (for before/after comparison). Non-blocking: a miss
+    // (source:"none") just leaves the builder on its mask-trace fallback. window.__footprintSource
+    // / __footprintWGS are read by extractFacetPolysAnalytic + the credits line.
+    window.__footprintWGS=null; window.__footprintSource="mask";
+    try{
+      const _fpMode=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("fp");
+      if(_fpMode!=="mask"){
+        const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
+        if(fp && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="cache")){
+          window.__footprintWGS=fp.ring;            // [[lng,lat],...] open ring
+          window.__footprintSource=fp.source;       // "osm" | "cache"
+          window.__footprintAttribution=fp.attribution||"";
+        }
+      }
+    }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
     showLoad("Analysing roof (Solar)…");
     const b=await solar(g.lat,g.lng); LASTB=b;
     if(!b.solarPotential) throw new Error("no solar potential for this building");
@@ -3513,7 +3540,21 @@ function extractFacetPolysAnalytic(margin){
   //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
   //    every facet is clipped FROM (already ordered; no stitching).
   let footprint=null, footprintFull=null;   // footprintFull = whole-block ring when a shared-building split trims `footprint` to one unit
-  {
+  let footprintSource="mask";                // "osm" | "cache" | "mask" — exposed via window.__footprintSource
+  // ── PRIMARY: clean VECTOR building footprint (OSM/cache), fetched in run() into window.__footprintWGS.
+  //    Convert to UTM (E,N), regularize to straight architectural edges + overhang offset, and use THAT
+  //    as the outer ring every facet is clipped from. This is the EVEN-roofline fix — straight eaves on
+  //    the real roof edges instead of the jagged mask trace. Falls through to the mask trace on any failure.
+  if(Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="cache")){
+    try{
+      const ringEN=window.__footprintWGS.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
+      const reg=regularizeVectorFootprint(ringEN, 0.45);
+      if(reg && reg.length>=3 && polyArea2(reg)>=8){
+        footprint=reg; footprintSource=window.__footprintSource;
+      }
+    }catch(e){ if(typeof errors!=="undefined") errors.push("vector-fp:"+(e&&e.message||e)); }
+  }
+  if(!footprint){
     // binary in-roof grid (mask interior, eroded a touch off the walls) over the SAME grid
     const inGrid=new Uint8Array(rows*cols);
     let fpStart=-1;
@@ -3552,36 +3593,40 @@ function extractFacetPolysAnalytic(margin){
     fpxy=cleanFootprintRing(fpxy, fpAxis, { minLen:0.8*cellsPerM, mergeDeg:8, rectTol:0.06, maxVerts:6 });
     footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
     if(polyArea2(footprint)<3) throw new Error("footprint too small");
-    // (P0 anti-spike) FOOTPRINT-SPIKE GUARD. On a bad geocode (e.g. the address resolves to a STREET
-    // centroid, not a parcel) the mask blob + Moore-trace can yield a footprint with a single runaway
-    // vertex hundreds of metres from the building — a flat horizontal NEEDLE that poisons every facet
-    // mesh AND the wall envelope built from this ring (the 7 Painter Ave artifact). A residential
-    // footprint is compact: its farthest vertex sits at most a few × the median vertex-distance from
-    // centre, and never >70 m out. Either breach ⇒ the parcel geometry is untrustworthy → THROW so the
-    // analytic build falls back to legacy/photoreal rather than render a spike.
-    { const F=footprint, n=F.length;
-      let mE=0,mN=0; for(const[E,N]of F){mE+=E;mN+=N;} mE/=n; mN/=n;
-      const ds=F.map(([E,N])=>Math.hypot(E-mE,N-mN)).sort((a,b)=>a-b);
-      const medD=ds[(n-1)>>1]||0, maxD=ds[ds.length-1];
-      if(maxD>70 || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
-    }
-    // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
-    //    The geocoded address point (window.__ll) lands on the owner's unit; clip the footprint
-    //    to that unit's slab BEFORE facets are reconstructed, so every downstream facet inherits
-    //    the unit-only outline (a neighbour-unit Solar segment whose centre falls outside the
-    //    clipped footprint is then naturally dropped by the pointInPoly2 gate below). No-op on a
-    //    detached home (the guard inside requires positive attached-evidence). See isolateUnitFootprint.
-    try{
-      const geoLL = (window.__ll && isFinite(window.__ll.lat)) ? window.__ll
-                  : (LASTB && LASTB.center && isFinite(LASTB.center.latitude) ? {lat:LASTB.center.latitude,lng:LASTB.center.longitude} : null);
-      const sp = isolateUnitFootprint(footprint, zone, geoLL);
-      window.__splitDiag = sp.diag;
-      if(sp.diag && sp.diag.split && sp.ring && sp.ring.length>=3 && polyArea2(sp.ring)>=3){
-        footprintFull = footprint;   // keep the whole-block ring for the facet centre-coverage gate
-        footprint = sp.ring;          // clip facets FROM the owner's-unit slab
-      }
-    }catch(e){ try{ window.__splitDiag={split:false,reason:"err:"+(e&&e.message||e)}; }catch(_){} }
   }
+  // ── expose which footprint source won (osm/cache/mask) for verification + credits ──
+  try{ window.__footprintSourceUsed=footprintSource; }catch(_){}
+  // (P0 anti-spike) FOOTPRINT-SPIKE GUARD — applies to BOTH the vector and mask footprints.
+  // On a bad geocode (e.g. the address resolves to a STREET centroid, not a parcel) the mask blob +
+  // Moore-trace can yield a footprint with a single runaway vertex hundreds of metres from the
+  // building — a flat horizontal NEEDLE that poisons every facet mesh AND the wall envelope built
+  // from this ring (the 7 Painter Ave artifact). The vector path can't normally do this (a real OSM
+  // building ring is compact), but the guard is cheap insurance. A residential footprint is compact:
+  // its farthest vertex sits at most a few × the median vertex-distance from centre, and never >70 m
+  // out. Either breach ⇒ untrustworthy → THROW so the analytic build falls back to legacy/photoreal.
+  { const F=footprint, n=F.length;
+    let mE=0,mN=0; for(const[E,N]of F){mE+=E;mN+=N;} mE/=n; mN/=n;
+    const ds=F.map(([E,N])=>Math.hypot(E-mE,N-mN)).sort((a,b)=>a-b);
+    const medD=ds[(n-1)>>1]||0, maxD=ds[ds.length-1];
+    if(maxD>70 || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
+  }
+  // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
+  //    Applies to BOTH the vector and mask footprints: for a duplex (e.g. 30 Angus Rd), the OSM/mask
+  //    ring is the WHOLE structure; the geocoded address point (window.__ll) lands on the owner's unit;
+  //    clip the footprint to that unit's slab BEFORE facets are reconstructed, so every downstream facet
+  //    inherits the unit-only outline (a neighbour-unit Solar segment whose centre falls outside the
+  //    clipped footprint is then naturally dropped by the pointInPoly2 gate below). No-op on a detached
+  //    home (the guard inside requires positive attached-evidence). See isolateUnitFootprint.
+  try{
+    const geoLL = (window.__ll && isFinite(window.__ll.lat)) ? window.__ll
+                : (LASTB && LASTB.center && isFinite(LASTB.center.latitude) ? {lat:LASTB.center.latitude,lng:LASTB.center.longitude} : null);
+    const sp = isolateUnitFootprint(footprint, zone, geoLL);
+    window.__splitDiag = sp.diag;
+    if(sp.diag && sp.diag.split && sp.ring && sp.ring.length>=3 && polyArea2(sp.ring)>=3){
+      footprintFull = footprint;   // keep the whole-block ring for the facet centre-coverage gate
+      footprint = sp.ring;          // clip facets FROM the owner's-unit slab
+    }
+  }catch(e){ try{ window.__splitDiag={split:false,reason:"err:"+(e&&e.message||e)}; }catch(_){} }
 
   // ── (3) ADJACENCY: which plane PAIRS border (≥6 shared 4-neighbour cells). Built from
   //    the classifier labels — its only job. Also flags parallel pairs (no crease → merge).
@@ -3730,9 +3775,68 @@ function extractFacetPolysAnalytic(margin){
   // `footprint`, so an adjacent house inside Google's 40 m mask is geometrically excluded by point-in-poly.
   try{ facets.__footprintEN = footprint.map(([E,N])=>[E,N]); facets.__footprintZone = zone;
     window.__footprintEN = facets.__footprintEN; window.__footprintZone = zone; }catch(_){}
+  // Reconcile the reported source to what was ACTUALLY used to build the outline (vector won, or it
+  // fell back to the mask trace). The credits line + verification read window.__footprintSource.
+  try{ window.__footprintSource=footprintSource; facets.__footprintSource=footprintSource; }catch(_){}
   return facets;
 }
 
+/* ===========================================================================
+   VECTOR FOOTPRINT REGULARIZER — turn a real OSM/cache building outline (UTM E,N)
+   into clean, STRAIGHT eave edges with true corners, then offset outward for eaves.
+   This is the EVEN-roofline fix: instead of tracing Google's fuzzy roof mask (jagged,
+   staircased), we start from a true vector footprint and snap it to architectural axes.
+   Steps:
+     1. dpSimplify — drop vertices that don't deflect the wall (OSM rings carry redundant pts).
+     2. dominant-angle snap (regularizePoly) — rotate to the longest-edge bearing, snap each
+        edge to 0/90 of that axis (true right angles), reconstruct corners as line∩line.
+        allow45=true so a deliberate long diagonal wall survives; short jitter snaps to ortho.
+     3. cleanFootprintRing — merge residual notches + (for a simple footprint) snap to a crisp rect.
+     4. overhang offset — push every edge outward ~`overhangM` along its outward normal (miter
+        join) so the outline sits at the EAVE (roof edge), not the wall line.
+   Returns a clean [[E,N],...] ring, or null if degenerate.
+   =========================================================================== */
+function regularizeVectorFootprint(ringEN, overhangM){
+  if(!Array.isArray(ringEN) || ringEN.length<3) return null;
+  overhangM=(overhangM==null)?0.45:overhangM;
+  // open the ring (drop a duplicate closing vertex)
+  let R=ringEN.map(p=>[p[0],p[1]]);
+  if(R.length>1){ const f=R[0],l=R[R.length-1]; if(Math.hypot(f[0]-l[0],f[1]-l[1])<1e-6) R.pop(); }
+  if(R.length<3) return null;
+  // recentre to a local frame for numerical stability of the snap math (UTM E,N are ~6-7 digits)
+  let oE=0,oN=0; for(const[E,N]of R){oE+=E;oN+=N;} oE/=R.length; oN/=R.length;
+  let xy=R.map(([E,N])=>[E-oE,N-oN]);
+  // 1) DP-simplify in metres (0.35 m) — OSM rings carry many collinear/near-collinear vertices
+  xy=dpSimplify(xy,0.35); if(xy.length<3) xy=R.map(([E,N])=>[E-oE,N-oN]);
+  // 2) dominant-angle snap. Axis from the longest edges (minLen 2 m) so a short jog can't rotate the outline.
+  const axis=polyOrientation(xy,2.0);
+  let reg=regularizePoly(xy,axis,0.6,/*allow45=*/true);
+  if(reg.length>=3) xy=reg;
+  // 3) notch-merge + collinear-merge + guarded rect-snap (tolerances in METRES here)
+  xy=cleanFootprintRing(xy,axis,{ minLen:0.8, mergeDeg:7, rectTol:0.05, maxVerts:10 });
+  if(xy.length<3) return null;
+  // 4) outward miter offset → eave outline. Ensure CCW so "outward" = right of each directed edge's outward normal.
+  let a2=0; for(let i=0;i<xy.length;i++){ const A=xy[i],B=xy[(i+1)%xy.length]; a2+=A[0]*B[1]-B[0]*A[1]; }
+  const ccw=(a2>0); const ring=ccw?xy:xy.slice().reverse();
+  const n=ring.length;
+  const offset=[];
+  for(let i=0;i<n;i++){
+    const prev=ring[(i-1+n)%n], cur=ring[i], nxt=ring[(i+1)%n];
+    // outward normals of the two edges meeting at cur (CCW ring → outward normal = (dy,-dx) of the directed edge)
+    const e1=[cur[0]-prev[0],cur[1]-prev[1]], e2=[nxt[0]-cur[0],nxt[1]-cur[1]];
+    const l1=Math.hypot(e1[0],e1[1])||1, l2=Math.hypot(e2[0],e2[1])||1;
+    const n1=[e1[1]/l1,-e1[0]/l1], n2=[e2[1]/l2,-e2[0]/l2];
+    let mx=n1[0]+n2[0], my=n1[1]+n2[1]; const ml=Math.hypot(mx,my);
+    if(ml<1e-6){ offset.push([cur[0]+n1[0]*overhangM, cur[1]+n1[1]*overhangM]); continue; }
+    mx/=ml; my/=ml;
+    // miter length = overhang / cos(half-angle between the two normals); cap to avoid spikes at sharp corners
+    const cosHalf=Math.max(0.35, mx*n1[0]+my*n1[1]);
+    const scale=Math.min(overhangM/cosHalf, overhangM*3);
+    offset.push([cur[0]+mx*scale, cur[1]+my*scale]);
+  }
+  // back to world UTM, preserve original winding (return CCW — downstream area uses abs())
+  return offset.map(([x,y])=>[x+oE,y+oN]);
+}
 /* signed-area magnitude of a ring [[E,N],...] (m²) */
 function polyArea2(ring){ let s2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; s2+=A[0]*B[1]-B[0]*A[1]; } return Math.abs(s2)/2; }
 /* point-in-polygon (ray cast) for [E,N] */
@@ -4703,7 +4807,18 @@ function measurementReport(t, sqs){
       '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+(t.squares||0).toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
     '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
     '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
-    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div></div>';
+    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div>'+
+    footprintCreditLine()+'</div>';
+}
+// Data-source attribution for the outer building footprint (the EVEN-roofline source).
+// OSM requires "© OpenStreetMap contributors"; the cache backstop credits its national source.
+function footprintCreditLine(){
+  const src=(typeof window!=="undefined")&&window.__footprintSource;
+  let txt="";
+  if(src==="osm") txt="Building outline © OpenStreetMap contributors.";
+  else if(src==="cache") txt=(window.__footprintAttribution||"© national building footprints")+" (building outline).";
+  else return "";
+  return '<div class="muted" style="font-size:10px;margin-top:4px;opacity:.8">'+txt+'</div>';
 }
 function proposalSections(){ const tr=TENANT.trade||{};
   // Every block is tenant-driven and HIDES when its field is unset — a homeowner must never see a "[placeholder]".

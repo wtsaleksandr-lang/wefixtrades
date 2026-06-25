@@ -256,6 +256,97 @@ async function captureOblique(address){
     return buf;
   } finally { await ctx.close(); }
 }
+// ─── Clean building-footprint resolver (OSM/Overpass primary → on-disk cache backstop) ───
+// Pure geometry helpers (plan-metric via a local equirectangular projection about the query point).
+const _m=(lat)=>({ mLat:111320, mLng:111320*Math.cos(lat*Math.PI/180) });
+function ringAreaLL(ring,lat0){ const {mLat,mLng}=_m(lat0); let s=0;
+  for(let i=0;i<ring.length;i++){ const a=ring[i],b=ring[(i+1)%ring.length];
+    s+=(a[0]*mLng)*(b[1]*mLat)-(b[0]*mLng)*(a[1]*mLat); } return Math.abs(s)/2; }
+function ringCentroidLL(ring){ let x=0,y=0; for(const[lng,lat]of ring){x+=lng;y+=lat;} return [x/ring.length,y/ring.length]; }
+function pointInRingLL(pt,ring){ let inside=false; const x=pt[0],y=pt[1];
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) inside=!inside; } return inside; }
+// drop a duplicate closing vertex; return an OPEN ring [[lng,lat],...]
+function openRingLL(ring){ const r=ring.slice(); if(r.length>1){ const f=r[0],l=r[r.length-1];
+  if(Math.abs(f[0]-l[0])<1e-9 && Math.abs(f[1]-l[1])<1e-9) r.pop(); } return r; }
+
+// Choose the best building among Overpass elements: the ring that CONTAINS the point; else the
+// nearest by centroid within ~40 m. Returns an open [[lng,lat]] ring or null.
+function pickBuilding(elements,lat,lng){
+  const cands=[];
+  for(const el of (elements||[])){
+    const geom=el.geometry; if(!Array.isArray(geom)||geom.length<4) continue;
+    let ring=openRingLL(geom.map(g=>[g.lon,g.lat]));
+    if(ring.length<3) continue;
+    if(ringAreaLL(ring,lat)<8) continue;                 // skip tiny (<8 m²) noise blobs
+    cands.push(ring);
+  }
+  if(!cands.length) return null;
+  for(const ring of cands){ if(pointInRingLL([lng,lat],ring)) return ring; }   // containing building wins
+  // else nearest centroid within ~40 m
+  let best=null,bestD=Infinity; const {mLat,mLng}=_m(lat);
+  for(const ring of cands){ const c=ringCentroidLL(ring);
+    const d=Math.hypot((c[0]-lng)*mLng,(c[1]-lat)*mLat); if(d<bestD){bestD=d;best=ring;} }
+  return (best && bestD<=40)?best:null;
+}
+
+async function overpassFootprint(lat,lng){
+  const body="data="+encodeURIComponent('[out:json][timeout:25];way["building"](around:30,'+lat+','+lng+');out geom;');
+  const headers={ "Content-Type":"application/x-www-form-urlencoded",
+    // a descriptive UA is required — generic agents get 429'd by Overpass
+    "User-Agent":"WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+  for(const ep of endpoints){
+    try{
+      const r=await fetch(ep,{ method:"POST", headers, body });
+      if(!r.ok) continue;                                 // 429 / 5xx → try the fallback instance
+      const j=await r.json();
+      const ring=pickBuilding(j.elements,lat,lng);
+      if(ring) return ring;
+      return null;                                        // valid empty answer (no OSM building here) → let the cache backstop handle it
+    }catch(_){ /* network/parse → try next endpoint */ }
+  }
+  return null;
+}
+
+// On-disk pre-cached footprints (free national buildings data, fetched by a throwaway script).
+// File: spikes/roof-quote/cache/footprints.geojson — a FeatureCollection of Polygon buildings.
+let _fpCacheData=null, _fpCacheLoaded=false;
+function loadFootprintCache(){
+  if(_fpCacheLoaded) return _fpCacheData;
+  _fpCacheLoaded=true;
+  // Prefer the runtime cache dir; fall back to the COMMITTED backstop in the app assets dir
+  // (server/roofQuote/assets/footprints.geojson) so a fresh spike checkout still has the
+  // pre-cached footprints (the cache dir is gitignored).
+  try{ let f=path.join(CACHE_DIR,"footprints.geojson");
+    if(!existsSync(f)){ const alt=path.join(import.meta.dirname,"..","..","server","roofQuote","assets","footprints.geojson"); if(existsSync(alt)) f=alt; }
+    if(existsSync(f)){ const j=JSON.parse(readFileSync(f,"utf8"));
+      _fpCacheData=(j.features||[]).map(ft=>{
+        const g=ft.geometry; if(!g) return null;
+        const coords=(g.type==="Polygon")?g.coordinates[0]:(g.type==="MultiPolygon"?g.coordinates[0][0]:null);
+        if(!coords) return null; return openRingLL(coords.map(c=>[c[0],c[1]]));
+      }).filter(r=>r&&r.length>=3);
+    }
+  }catch(_){ _fpCacheData=null; }
+  return _fpCacheData;
+}
+function cacheFootprint(lat,lng){
+  const rings=loadFootprintCache(); if(!rings||!rings.length) return null;
+  for(const ring of rings){ if(pointInRingLL([lng,lat],ring)) return ring; }   // containing building
+  let best=null,bestD=Infinity; const {mLat,mLng}=_m(lat);
+  for(const ring of rings){ const c=ringCentroidLL(ring);
+    const d=Math.hypot((c[0]-lng)*mLng,(c[1]-lat)*mLat); if(d<bestD){bestD=d;best=ring;} }
+  return (best && bestD<=40)?best:null;
+}
+
+async function footprintForPoint(lat,lng){
+  const osm=await overpassFootprint(lat,lng).catch(()=>null);
+  if(osm && osm.length>=3) return { ring:osm, source:"osm", attribution:"© OpenStreetMap contributors" };
+  const cached=cacheFootprint(lat,lng);
+  if(cached && cached.length>=3) return { ring:cached, source:"cache", attribution:"© Microsoft / national building footprints" };
+  return { source:"none" };
+}
+
 const html=readFileSync(path.join(import.meta.dirname,"index.html"),"utf8").replaceAll("__TILES__",TILES);
 const map3dHtml=readFileSync(path.join(import.meta.dirname,"map3d.html"),"utf8").replaceAll("__TILES__",TILES);
 let roof3dHtml=""; try{ roof3dHtml=readFileSync(path.join(import.meta.dirname,"roof3d.html"),"utf8").replaceAll("__TILES__",TILES); }catch(_){}
@@ -379,6 +470,32 @@ http.createServer(async (req,res)=>{
       if(ann){ const out={sunHours:+(+ann).toFixed(1),source:"NASA POWER"}; diskSetJSON("sun",ckeyStr,out); return res.end(JSON.stringify(out)); }
       return res.end(JSON.stringify({error:"no_sun"}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
+    return;
+  }
+  // ---- Clean VECTOR building footprint (eave outline source) ----
+  // Returns ONE clean building-footprint ring as GeoJSON [lng,lat][] — the EVEN/straight
+  // outer roofline source that replaces the fuzzy Solar-mask Moore-trace. Coverage cascade:
+  //   1. OpenStreetMap via Overpass (free, hosted, no dep) — the ring CONTAINING the point,
+  //      else the nearest building centroid within ~40 m.
+  //   2. On-disk pre-cached footprints (spikes/roof-quote/cache/footprints.geojson) for
+  //      addresses OSM misses (e.g. 30 Angus Rd, Hamilton) — sourced from a free national
+  //      buildings dataset by a throwaway pre-cache script (no runtime dep).
+  //   3. {source:"none"} → the widget keeps its mask-trace fallback (flagged low-confidence).
+  // Disk-cached by rounded lat/lng like the other endpoints.
+  if(u.pathname==="/footprint"){
+    res.setHeader("Content-Type","application/json");
+    const lat=+(u.searchParams.get("lat")), lng=+(u.searchParams.get("lng"));
+    if(!isFinite(lat)||!isFinite(lng)){ res.end(JSON.stringify({error:"bad_coords"})); return; }
+    const gk=lat.toFixed(5)+","+lng.toFixed(5);
+    { const c=diskGetJSON("footprint",gk); if(c&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(JSON.stringify(c.body)); return; } }
+    res.setHeader("X-Cache","MISS");
+    try{
+      const out=await footprintForPoint(lat,lng);
+      if(out && out.ring && out.ring.length>=4 && (out.source==="osm")){
+        diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });   // cache only confident OSM hits
+      }
+      res.end(JSON.stringify(out));
+    }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }
     return;
   }
   if(u.pathname==="/solar"){

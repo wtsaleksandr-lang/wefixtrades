@@ -36,6 +36,7 @@ import {
 } from "../services/rateLimiter";
 import {
   aiRender,
+  buildingFootprint,
   captureOblique,
   CaptureUnavailableError,
   dataLayers,
@@ -318,6 +319,17 @@ export function registerRoofQuoteRoutes(app: Express) {
     } catch (err) {
       log.error("sun failed", { err: (err as Error).message });
       return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── Clean vector building footprint (OSM/Overpass → on-disk cache backstop) ───
+     The EVEN/straight outer-roofline source that replaces the fuzzy Solar-mask trace. */
+  app.get("/api/roofquote/footprint", async (req: Request, res: Response) => {
+    try {
+      return res.json(await buildingFootprint(String(req.query.lat || ""), String(req.query.lng || "")));
+    } catch (err) {
+      log.error("footprint failed", { err: (err as Error).message });
+      return res.json({ source: "none", error: String((err as Error).message || err) });
     }
   });
 
