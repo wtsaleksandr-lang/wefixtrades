@@ -552,6 +552,70 @@
     #matCats::-webkit-scrollbar{display:none}
     #matbar .sw,#matCats .matcat{flex:0 0 auto}
   }
+  /* ===== INTERACTIVE SOLAR PANEL GRID (Sky-Quote-style: tap squares to add/remove panels) =====
+     A top-down panel grid drawn over the annual-flux sun heatmap. Selected = a real panel (premium),
+     unselected = an empty slot, low-sun panels flagged. Live metrics + bill before/after update on every tap. */
+  #solarGrid{position:absolute;inset:0;z-index:34;display:none;flex-direction:column;background:#0b1220}
+  #solarGrid .sg-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,.55) 70%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+  #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
+  #solarGrid .sg-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0}
+  #sgCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
+  #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:99px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
+  #solarGrid .sg-hint b{color:#fff}
+  #solarGrid .sg-leg{display:inline-flex;align-items:center;gap:5px}
+  #solarGrid .sg-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  /* live-metrics + bill panel — sits over the bottom of the heatmap, premium glass card */
+  #solarGrid .sg-panel{position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -12px 40px rgba(15,23,42,.18);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:11px}
+  #solarGrid .sg-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  #solarGrid .sg-m{background:#f7f9fc;border:1px solid var(--line);border-radius:11px;padding:8px 6px;text-align:center;min-width:0}
+  #solarGrid .sg-m .v{font-size:17px;font-weight:900;color:var(--ink);line-height:1.05;letter-spacing:-.01em}
+  #solarGrid .sg-m .v small{font-size:11px;font-weight:700;color:var(--muted)}
+  #solarGrid .sg-m .l{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.02em}
+  #solarGrid .sg-price{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  #solarGrid .sg-price .pv{font-size:24px;font-weight:900;color:var(--ink);letter-spacing:-.02em;line-height:1}
+  #solarGrid .sg-price .pmo{font-size:12.5px;font-weight:700;color:var(--blue)}
+  #solarGrid .sg-price .psub{flex-basis:100%;font-size:11px;font-weight:600;color:var(--muted);margin-top:-2px}
+  /* bill input — title-in-field + help-cue top-left per the house input rules */
+  #solarGrid .sg-bill{position:relative;border:1px solid var(--line);border-radius:12px;background:#fff;padding:18px 12px 9px}
+  #solarGrid .sg-bill .sgb-cue{position:absolute;top:6px;left:11px;font-size:10px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+  #solarGrid .sg-bill .sgb-cue .hq{width:13px;height:13px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;cursor:help}
+  #solarGrid .sg-bill .sgb-wrap{display:flex;align-items:center;gap:4px}
+  #solarGrid .sg-bill .sgb-dollar{font-size:18px;font-weight:800;color:var(--ink)}
+  #solarGrid #sgBill{flex:1;border:0;outline:0;background:transparent;font:800 18px/1 "Satoshi",system-ui,sans-serif;color:var(--ink);width:100%;min-width:0;-moz-appearance:textfield}
+  #solarGrid #sgBill::-webkit-outer-spin-button,#solarGrid #sgBill::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  #solarGrid #sgBill::placeholder{color:var(--faint);font-weight:700}
+  #solarGrid .sg-bill .sgb-per{font-size:11px;font-weight:700;color:var(--muted)}
+  /* before/after bill bars */
+  #solarGrid .sg-ba{display:flex;flex-direction:column;gap:7px;background:rgba(13,60,252,.05);border:1px solid rgba(13,60,252,.16);border-radius:12px;padding:10px 12px}
+  #solarGrid .sg-ba .ba-row{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;color:var(--ink)}
+  #solarGrid .sg-ba .ba-lab{flex:0 0 64px;color:var(--muted);font-weight:700}
+  #solarGrid .sg-ba .ba-bar{flex:1;height:14px;border-radius:7px;background:#e8edf6;overflow:hidden;position:relative;min-width:0}
+  #solarGrid .sg-ba .ba-fill{position:absolute;inset:0;border-radius:7px;transition:width .25s ease}
+  #solarGrid .sg-ba .ba-fill.before{background:linear-gradient(90deg,#94a3b8,#5b6573)}
+  #solarGrid .sg-ba .ba-fill.after{background:linear-gradient(90deg,#0d3cfc,#16b6cf)}
+  #solarGrid .sg-ba .ba-amt{flex:0 0 auto;font-weight:900;min-width:54px;text-align:right}
+  #solarGrid .sg-ba .ba-save{font-size:11.5px;font-weight:700;color:#16a34a;text-align:center}
+  #solarGrid .sg-cta{display:flex;gap:8px}
+  #solarGrid .sg-cta button{flex:1;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+  #solarGrid .sg-done{background:#0d3cfc;border:0;color:#fff;box-shadow:var(--btn-shadow)}
+  #solarGrid .sg-reset{flex:0 0 auto;background:#fff;border:1px solid var(--line);color:var(--muted);padding:13px 16px}
+  /* open-grid button injected into the Solar quote card */
+  .sg-open{display:flex;align-items:center;gap:9px;width:100%;margin-top:9px;background:linear-gradient(120deg,rgba(13,60,252,.08),rgba(22,182,207,.10));border:1px solid rgba(13,60,252,.22);border-radius:12px;padding:11px 13px;cursor:pointer;font-family:inherit;text-align:left}
+  .sg-open .sgo-ic{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:#0d3cfc;color:#fff;display:flex;align-items:center;justify-content:center}
+  .sg-open .sgo-ic svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .sg-open .sgo-t{font-size:13px;font-weight:800;color:var(--ink);line-height:1.2}
+  .sg-open .sgo-t small{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:1px}
+  .sg-open .sgo-arr{margin-left:auto;color:var(--blue);font-weight:900;font-size:16px}
+  @media (max-width:430px){
+    #solarGrid .sg-metrics{gap:6px}
+    #solarGrid .sg-m{padding:7px 3px}
+    #solarGrid .sg-m .v{font-size:15px}
+    #solarGrid .sg-m .l{font-size:9px}
+    #solarGrid .sg-price .pv{font-size:21px}
+    #solarGrid .sg-hint{font-size:10.5px;padding:5px 11px;gap:6px;bottom:calc(env(safe-area-inset-bottom) + 6px)}
+  }
 </style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
@@ -728,6 +792,38 @@
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
   <div id="infoModal"><div class="im-card"><button class="im-x" onclick="window.__closeInfo()" aria-label="Close">&times;</button><div id="imBody"></div></div></div>
+  <!-- INTERACTIVE SOLAR PANEL GRID overlay — tap squares over the sun heatmap to add/remove panels; live metrics + bill before/after -->
+  <div id="solarGrid">
+    <div class="sg-head">
+      <div><div class="sg-title">Design your solar system<small id="sgSubtitle">Tap the squares to add or remove panels</small></div></div>
+      <button class="sg-x" id="sgClose" type="button" aria-label="Close panel designer">&times;</button>
+    </div>
+    <div class="sg-stage"><canvas id="sgCanvas"></canvas>
+      <div class="sg-hint" id="sgHint"><span class="sg-leg"><i style="background:#0d3cfc"></i>panel</span><span class="sg-leg"><i style="background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)"></i>empty</span><span class="sg-leg"><i style="background:#f59e0b"></i>low sun</span></div>
+    </div>
+    <div class="sg-panel">
+      <div class="sg-metrics">
+        <div class="sg-m"><div class="v" id="sgPanels">0</div><div class="l">Panels</div></div>
+        <div class="sg-m"><div class="v" id="sgKw">0<small> kW</small></div><div class="l">System</div></div>
+        <div class="sg-m"><div class="v" id="sgKwh">0</div><div class="l">kWh/yr</div></div>
+        <div class="sg-m"><div class="v" id="sgOffset">—</div><div class="l">Bill offset</div></div>
+      </div>
+      <div class="sg-price"><span class="pv" id="sgPrice">$0</span><span class="pmo" id="sgMonthly"></span><span class="psub" id="sgPriceSub">est. installed after incentives</span></div>
+      <div class="sg-bill">
+        <div class="sgb-cue">Average monthly electric bill <span class="hq" id="sgBillHelp" title="Used to show your bill before vs after solar and size the savings. Optional.">i</span></div>
+        <div class="sgb-wrap"><span class="sgb-dollar">$</span><input id="sgBill" type="number" inputmode="numeric" min="0" max="2000" step="10" placeholder="e.g. 220"><span class="sgb-per">/ month</span></div>
+      </div>
+      <div class="sg-ba" id="sgBeforeAfter" style="display:none">
+        <div class="ba-row"><span class="ba-lab">Before</span><span class="ba-bar"><span class="ba-fill before" id="sgBarBefore"></span></span><span class="ba-amt" id="sgBillBefore">$0</span></div>
+        <div class="ba-row"><span class="ba-lab">With solar</span><span class="ba-bar"><span class="ba-fill after" id="sgBarAfter"></span></span><span class="ba-amt" id="sgBillAfter">$0</span></div>
+        <div class="ba-save" id="sgBillSave"></div>
+      </div>
+      <div class="sg-cta">
+        <button class="sg-reset" id="sgResetBtn" type="button">Reset</button>
+        <button class="sg-done" id="sgDoneBtn" type="button">Use this system</button>
+      </div>
+    </div>
+  </div>
 </div>
 <script type="module">
 import * as THREE from "three";
@@ -2173,6 +2269,17 @@ function renderQuoteCard(){
         window.__quoteScaledByCrop=+g.toFixed(2);
       } else { window.__quoteScaledByCrop=1; }
     }
+    // ── INTERACTIVE GRID OVERRIDE ───────────────────────────────────────────
+    // When the buyer designed a custom system in the tappable solar grid (__selPanels), THAT selection
+    // is authoritative — its panel count + flux-scaled energy drive the headline, and lo/hi are recomputed
+    // from kW × the SAME $/W band so the card price matches the grid's live price exactly (no fork).
+    const grid=window.__selPanels;
+    if(grid && grid.panels>0 && !window.__attached){
+      panels=grid.panels; sysKw=grid.kw; sysKwh=grid.kwhAc;
+      sysMonthly=Math.round((sysKwh||0)*REGION.rate/12);
+      lo=Math.round(sysKw*1000*2.5/100)*100; hi=Math.round(sysKw*1000*3.1/100)*100;
+      window.__quoteFromGrid=true;
+    } else { window.__quoteFromGrid=false; }
     window.__quotePanels=panels;   // the headline count the customer sees — asserted == __renderedPanels in verify
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
@@ -2248,9 +2355,17 @@ function renderQuoteCard(){
       addonsSec+'</div>':'';
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
     const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Customize.</div>':'';
+    // ── INTERACTIVE PANEL-GRID launcher ──────────────────────────────────────
+    // Offer the tappable "design your system" grid whenever we have a real solar read (panels/configs)
+    // and the roof isn't an attached owner's section (the grid renders the whole-building array). The
+    // overlay itself degrades gracefully if rasters are missing.
+    const haveGrid=((LASTB&&LASTB.solarPotential&&((LASTB.solarPotential.solarPanels||[]).length||(LASTB.solarPotential.solarPanelConfigs||[]).length))&&!window.__attached);
+    const gridActive=!!(window.__selPanels&&window.__selPanels.panels>0);
+    const gridOpenBtn=haveGrid?('<button class="sg-open" data-opengrid type="button"><span class="sgo-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9.7h18M3 14.3h18M9 5v14M15 5v14"/></svg></span><span class="sgo-t">'+(gridActive?'Your custom system · '+window.__selPanels.panels+' panels':'Design your system on the roof')+'<small>'+(gridActive?'Tap to keep editing the panel layout':'Tap squares over the sun map to add / remove panels')+'</small></span><span class="sgo-arr">›</span></button>'):'';
     body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
       itcLine+finDisplay+payRow+
       moneyStory+kpiStrip+srecLine+
+      gridOpenBtn+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Recommended panels</div></div>'+
       '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW'+TCUE("kw")+'</div></div>'+
@@ -2342,7 +2457,7 @@ function renderQuoteCard(){
   wireSheetGrab(card);   // (mobile) re-bind the peek/expand drag handle after the innerHTML re-render
   applyCardFold();   // re-assert fold state after the re-render
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
-  card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
+  card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; window.__selPanels=null; renderQuoteCard();   // picking a preset tier overrides any custom grid design
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
   card.querySelectorAll(".bb").forEach(b=>b.onclick=async()=>{ solarBill=+b.dataset.bill; const usage=solarBill*12/REGION.rate; let best=0; for(let i=0;i<solarTiers.length;i++){ best=i; if((solarTiers[i].kwhAc||0)>=usage) break; } selTier=best; renderQuoteCard();
@@ -2350,6 +2465,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
+  card.querySelectorAll("[data-opengrid]").forEach(b=>b.onclick=()=>{ if(typeof openSolarGrid==="function") openSolarGrid(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
   card.querySelectorAll("[data-compinfo]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openInfoModal(componentModal(b.dataset.compinfo)); });
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
@@ -2366,8 +2482,8 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
-  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });
-  const reSection=async()=>{ window.__sizePct=1; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } };
+  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; window.__selPanels=null; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });   // the size slider overrides a custom grid design
+  const reSection=async()=>{ window.__sizePct=1; window.__selPanels=null; SG_STATE=null; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } };
   card.querySelectorAll("[data-sect]").forEach(b=>b.onclick=()=>{ window.__sectionMode=b.dataset.sect; reSection(); });
   card.querySelectorAll("[data-sectshare]").forEach(s=>{ s.onchange=()=>{ window.__sectionShare=(+s.value)/100; reSection(); }; });
   card.querySelectorAll("[data-prod]").forEach(b=>b.onclick=async()=>{ window.__prodMode=!window.__prodMode; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } });
@@ -3393,6 +3509,7 @@ async function run(addr){
     QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
     setRegion();
     window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached → default to the owner's section
+    window.__selPanels=null; SG_STATE=null;   // a NEW roof invalidates any custom panel-grid design from a prior address
     if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="mine"; if(!window.__sectionShare) window.__sectionShare=+(1/estUnits(spv)).toFixed(2); }
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
@@ -6334,6 +6451,278 @@ function classifyPanelPlane(pn,segs,zone,dg){
   }
   return { ownRes, bestRes, bestIdx };
 }
+/* ═══════════════════════════════════════════════════════════════════════════════
+   INTERACTIVE SOLAR PANEL GRID (Sky-Quote-style)
+   A top-down, tappable grid of candidate panels drawn over the annual-flux sun
+   heatmap. The homeowner taps squares to ADD/REMOVE panels; #/kW/kWh/$ + the
+   bill before/after update live. It REUSES the existing solar pipeline end-to-end:
+     • candidate panels  = engineeredFacetPanels()/Google solarPanels[] (same array
+       the 3D model + photoreal lens draw — counts stay consistent)
+     • per-panel energy  = Google yearlyEnergyDcKwh, scaled by each panel's annual
+       flux so a shaded square adds LESS kWh (low-ROI flag); install cost ~flat/panel
+     • cost / financing  = the SAME $/W band, ITC, monthly() and bill-offset math the
+       Solar quote card uses (gridSelectionMetrics → renderQuoteCard via __selPanels)
+   It degrades gracefully: no flux raster → energy from yearlyEnergyDcKwh only (no
+   low-sun tint); no panels at all → the open button never appears.
+   ─────────────────────────────────────────────────────────────────────────────── */
+let SG_STATE=null;   // { panels:[{id,pn,seg,flux,fluxT,kwh,corners,px:[{x,y}]}], sel:Set, w, h, bbox:[E0,N0,E1,N1] in UTM, zone, sysW, fmin, fmax }
+const SG_LOWSUN_FRAC=0.45;   // a panel whose normalized flux < this of the roof's best square is flagged "low sun" (shaded / poor ROI)
+// Build the candidate-panel set for the grid: the engineered max-fit array (preferred), else Google's
+// solarPanels[]. Each candidate carries its lat/lng corners, a sampled annual-flux value, a normalized
+// flux 0..1 (for colour + low-sun flag) and a flux-scaled per-panel yearly kWh.
+function buildGridCandidates(){
+  if(!LASTB||!LASTB.solarPotential) return null;
+  const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
+  if(!segs.length) return null;
+  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
+  if(zone==null) return null;
+  const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
+  const n=(cfg?cfg.panelsCount:sp.maxArrayPanelsCount)||0;
+  // Seed = owner's-section when attached (split-aware), else whole array — mirrors buildScene/buildPhotoPanels.
+  let seed=(window.__attached&&window.__sectionMode==="mine")
+    ? sectionPanels(sp, window.__ll, window.__sectionShare||0.5).slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0))
+    : (sp.solarPanels||[]);
+  if(!seed.length) seed=(sp.solarPanels||[]);
+  if(n>0) seed=seed.slice(0,n);
+  // ENGINEERED max-fit layout (same as the model). Fall back to Google's raw array if unavailable.
+  let list=seed, eng=false;
+  try{ const e=engineeredFacetPanels(sp,segs,zone,pw,ph,seed); if(e&&e.length){ list=e; eng=true; } }catch(_){}
+  list=list.filter(p=>p.center && segs[p.segmentIndex]);
+  if(!list.length) return null;
+  // Flux raster (annualFlux) for per-panel sun. Absent → no low-sun tint; energy from yearlyEnergyDcKwh.
+  const fg=(LASTFLUX&&LASTFLUX.rasters)?{vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox}:null;
+  const wattsPerPanel=sp.panelCapacityWatts||400;
+  // First pass: sample flux + corners, gather extents (UTM) and a robust flux ramp.
+  const cand=[]; let minE=Infinity,minN=Infinity,maxE=-Infinity,maxN=-Infinity; const fluxVals=[];
+  for(let i=0;i<list.length;i++){ const pn=list[i], seg=segs[pn.segmentIndex];
+    const corners=panelCornersLL(pn,seg,zone,pw,ph);                       // lat/lng quad (same as the rendered panel)
+    const cu=corners.map(c=>{ const [E,N]=wgs84ToUTM(c.lat,c.lng,zone); if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; return [E,N]; });
+    const [cE,cN]=wgs84ToUTM(pn.center.latitude,pn.center.longitude,zone);
+    let flux=null; if(fg){ const v=sampleGrid(fg,cE,cN); if(v!=null&&isFinite(v)&&v>0){ flux=v; fluxVals.push(v); } }
+    cand.push({ id:i, pn, seg, corners, cu, flux, baseKwh:(pn.yearlyEnergyDcKwh||0) });
+  }
+  if(!isFinite(minE)) return null;
+  // robust flux ramp: 5th–95th percentile so a hot/cold outlier doesn't flatten the colours (matches the heatmap intent)
+  let fmin=0, fmax=1;
+  if(fluxVals.length>=4){ fluxVals.sort((a,b)=>a-b); fmin=fluxVals[Math.floor(fluxVals.length*0.05)]; fmax=fluxVals[Math.floor(fluxVals.length*0.95)]; if(fmax<=fmin) fmax=fmin+1; }
+  const fluxBest=fluxVals.length?fluxVals[fluxVals.length-1]:0;
+  // per-panel yearly kWh, flux-scaled so a shaded square contributes less.
+  //   • Google panels carry a real per-panel yearlyEnergyDcKwh → use it directly (already flux-aware).
+  //   • Engineered panels carry only a seeded/mean energy → scale it by (panel flux / best flux) so
+  //     shaded squares add proportionally less, while install cost stays ~flat per panel.
+  const meanBase=cand.reduce((a,c)=>a+(c.baseKwh||0),0)/Math.max(1,cand.length);
+  for(const c of cand){
+    c.fluxT = (c.flux!=null) ? Math.max(0,Math.min(1,(c.flux-fmin)/(fmax-fmin))) : null;
+    let kwh=c.baseKwh||meanBase;
+    if(eng && c.flux!=null && fluxBest>0){ const fScale=Math.max(0.25,Math.min(1.05,c.flux/fluxBest)); kwh=(c.baseKwh||meanBase)*fScale; }
+    c.kwh=kwh;
+    c.lowSun = (c.fluxT!=null) ? (c.fluxT < SG_LOWSUN_FRAC) : false;   // shaded / poor-ROI square
+  }
+  return { panels:cand, bbox:[minE,minN,maxE,maxN], zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
+}
+// Default selection = Google's recommended config count (best squares first), so the user opens onto a
+// sensible system and tweaks from there. Falls back to all non-shaded squares, then all squares.
+function gridDefaultSelection(cand){
+  const sp=LASTB.solarPotential;
+  let recN=window.__renderedPanels||0;
+  if(!recN){ const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0]; recN=(cfg?cfg.panelsCount:sp.maxArrayPanelsCount)||cand.length; }
+  recN=Math.max(1,Math.min(cand.length,recN));
+  // rank by kWh (best ROI first); take the top recN, but never auto-select a clearly low-sun square
+  // unless we'd otherwise have nothing.
+  const ranked=cand.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0));
+  const good=ranked.filter(c=>!c.lowSun);
+  const pool=(good.length>=Math.min(recN,4))?good:ranked;
+  const sel=new Set(); for(const c of pool){ if(sel.size>=recN) break; sel.add(c.id); }
+  if(!sel.size){ for(const c of ranked){ sel.add(c.id); if(sel.size>=recN) break; } }
+  return sel;
+}
+// ── Project the grid's UTM bbox onto the canvas (contain-fit, north-up) and cache px corners.
+function sgLayout(){
+  if(!SG_STATE) return;
+  const cv=$("sgCanvas"); if(!cv) return;
+  const stage=cv.parentElement, dpr=Math.min(devicePixelRatio||1,2);
+  const cw=stage.clientWidth||1, chh=stage.clientHeight||1;
+  cv.width=Math.round(cw*dpr); cv.height=Math.round(chh*dpr);
+  cv.style.width=cw+"px"; cv.style.height=chh+"px";
+  const [E0,N0,E1,N1]=SG_STATE.bbox;
+  const padPx=34*dpr;                                   // breathing room so edge panels aren't clipped
+  const spanE=Math.max(1,E1-E0), spanN=Math.max(1,N1-N0);
+  const availW=cv.width-padPx*2, availH=cv.height-padPx*2;
+  const scale=Math.min(availW/spanE, availH/spanN);     // metres → device px (uniform, contain-fit)
+  const drawW=spanE*scale, drawH=spanN*scale;
+  const offX=(cv.width-drawW)/2, offY=(cv.height-drawH)/2;
+  SG_STATE.proj={ scale, offX, offY, E0, N1, dpr, cw, chh };
+  // N up: canvas y grows downward, so larger N → smaller y.
+  const toPx=(E,N)=>({ x:offX+(E-E0)*scale, y:offY+(N1-N)*scale });
+  for(const c of SG_STATE.panels){ c.px=c.cu.map(([E,N])=>toPx(E,N)); }
+}
+// ── Draw the flux heatmap background (from the flux raster, clipped to the roof) + every panel quad.
+function sgDraw(){
+  if(!SG_STATE) return;
+  const cv=$("sgCanvas"), ctx=cv.getContext("2d"); if(!ctx) return;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle="#0b1220"; ctx.fillRect(0,0,cv.width,cv.height);
+  const pr=SG_STATE.proj; if(!pr) return;
+  // 1) flux heatmap: sample the annual-flux raster across the drawn area; only paint roof pixels (mask).
+  const fg=(LASTFLUX&&LASTFLUX.rasters)?{vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox}:null;
+  const mg=(LASTMASK&&LASTMASK.rasters)?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+  if(fg){
+    const STEP=Math.max(2,Math.round(2*pr.dpr));        // sample every ~2 device px (fast, smooth enough)
+    const W=cv.width, H=cv.height, img=ctx.getImageData(0,0,W,H), d=img.data;
+    const range=(SG_STATE.fmax-SG_STATE.fmin)||1;
+    for(let y=0;y<H;y+=STEP){ const N=pr.N1-(y-pr.offY)/pr.scale;
+      for(let x=0;x<W;x+=STEP){ const E=pr.E0+(x-pr.offX)/pr.scale;
+        if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }   // off-roof → leave dark
+        const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
+        const t=(v-SG_STATE.fmin)/range, c=fluxColorSmooth(t);
+        const r=Math.round(c[0]),g=Math.round(c[1]),b=Math.round(c[2]);
+        for(let yy=y;yy<y+STEP&&yy<H;yy++){ for(let xx=x;xx<x+STEP&&xx<W;xx++){ const k=(yy*W+xx)*4; d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=235; } }
+      } }
+    ctx.putImageData(img,0,0);
+  }
+  // 2) panels — selected = premium blue module; unselected = empty dashed slot; low-sun = amber accent.
+  const sel=SG_STATE.sel;
+  for(const c of SG_STATE.panels){
+    if(!c.px) continue;
+    const on=sel.has(c.id);
+    ctx.beginPath(); ctx.moveTo(c.px[0].x,c.px[0].y);
+    for(let k=1;k<c.px.length;k++) ctx.lineTo(c.px[k].x,c.px[k].y);
+    ctx.closePath();
+    if(on){
+      ctx.fillStyle = c.lowSun ? "rgba(245,158,11,0.30)" : "rgba(13,60,252,0.30)";
+      ctx.fill();
+      // premium module: deep panel fill + bright rim
+      ctx.fillStyle = c.lowSun ? "rgba(180,120,16,0.78)" : "rgba(18,40,120,0.80)";
+      ctx.fill();
+      ctx.lineWidth=Math.max(1.2,1.4*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : "rgba(150,196,255,0.95)";
+      ctx.stroke();
+      // crossbar so a selected square reads as a real solar module, not a flat tile
+      const mx=(c.px[0].x+c.px[2].x)/2, my=(c.px[0].y+c.px[2].y)/2;
+      ctx.lineWidth=Math.max(0.8,0.8*pr.dpr); ctx.strokeStyle="rgba(220,235,255,0.4)";
+      ctx.beginPath(); ctx.moveTo((c.px[0].x+c.px[1].x)/2,(c.px[0].y+c.px[1].y)/2); ctx.lineTo((c.px[2].x+c.px[3].x)/2,(c.px[2].y+c.px[3].y)/2); ctx.stroke();
+    } else {
+      // empty slot — faint glass outline so the user sees a placeable spot
+      ctx.fillStyle="rgba(255,255,255,0.10)"; ctx.fill();
+      ctx.setLineDash([4*pr.dpr,3*pr.dpr]); ctx.lineWidth=Math.max(1,1*pr.dpr);
+      ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.7)" : "rgba(255,255,255,0.6)";
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  window.__sgDrawn=SG_STATE.panels.length;
+}
+// ── Live metrics for the current selection. Mirrors the Solar quote-card math EXACTLY (same $/W band
+// 2.5–3.1, panel-quality multiplier, ITC, monthly() financing) so the grid never forks the cost model.
+function gridSelectionMetrics(){
+  if(!SG_STATE) return null;
+  const sel=SG_STATE.sel, w=SG_STATE.wattsPerPanel;
+  let panels=0, kwhDc=0;
+  for(const c of SG_STATE.panels){ if(sel.has(c.id)){ panels++; kwhDc+=(c.kwh||0); } }
+  const kw=+(panels*w/1000).toFixed(2);
+  const kwhAc=Math.round(kwhDc*0.85);                                   // DC→AC derate, same factor as solarTiersFrom
+  const pTier=PANEL_TIERS[selPanel]||PANEL_TIERS[0];
+  let lo=Math.round(kw*1000*2.5/100)*100*pTier.mult, hi=Math.round(kw*1000*3.1/100)*100*pTier.mult;   // same $/W band + quality multiplier as the card
+  const sMid=(lo+hi)/2;
+  const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));    // post-ITC, same as the card
+  const fin=TENANT.financing, mo=Math.round(monthly(netCost, fin.solarApr, fin.solarYears));
+  const monthlySave=Math.round(kwhAc*REGION.rate/12);                  // bill savings at the live rate (same as solarTiersFrom.monthly)
+  return { panels, kw, kwhAc, lo:Math.round(lo), hi:Math.round(hi), sMid:Math.round(sMid), netCost, itcAmt, mo, monthlySave, total:SG_STATE.panels.length };
+}
+// ── Update the metric readout, price, bill before/after, and offset gauge. Called on open + every tap.
+function sgUpdateMetrics(){
+  const m=gridSelectionMetrics(); if(!m) return;
+  $("sgPanels").textContent=m.panels;
+  $("sgKw").innerHTML=m.kw+'<small> kW</small>';
+  $("sgKwh").textContent=m.kwhAc?m.kwhAc.toLocaleString():'0';
+  $("sgPrice").textContent=fmtMoney(m.sMid);
+  $("sgMonthly").textContent=m.mo>0?('or '+fmtMoney(m.mo)+'/mo'):'';
+  $("sgPriceSub").textContent='est. installed'+(m.itcAmt>0?(' · incl. −'+fmtMoney(m.itcAmt)+' tax credit'):'');
+  // bill before / after
+  const bill=+(($("sgBill").value)||0);
+  const ba=$("sgBeforeAfter");
+  if(bill>0 && REGION.rate>0){
+    const usageKwh=bill*12/REGION.rate;                                 // implied annual usage from the bill
+    const offsetKwh=Math.min(m.kwhAc, usageKwh);                        // solar can only offset what they use
+    const gridKwh=Math.max(0,usageKwh-m.kwhAc);
+    const newBill=Math.round(gridKwh*REGION.rate/12);
+    const save=Math.max(0,bill-newBill);
+    const offsetPct=Math.min(140,Math.round(m.kwhAc/Math.max(1,usageKwh)*100));
+    $("sgOffset").textContent=offsetPct+'%';
+    ba.style.display="flex";
+    $("sgBillBefore").textContent='$'+bill;
+    $("sgBillAfter").textContent='$'+newBill;
+    const maxB=Math.max(bill,1);
+    $("sgBarBefore").style.width='100%';
+    $("sgBarAfter").style.width=Math.round(newBill/maxB*100)+'%';
+    $("sgBillSave").textContent=save>0?('You save ~$'+save+'/mo · ~$'+Math.round(save*12).toLocaleString()+'/yr'):'Add more panels to cut your bill';
+  } else {
+    $("sgOffset").textContent='—';
+    ba.style.display="none";
+  }
+  // keep the subtitle honest about ROI flagging when shaded squares exist
+  const anyLow=SG_STATE.panels.some(c=>c.lowSun);
+  $("sgSubtitle").textContent = anyLow ? 'Amber squares get little sun — lower payoff' : 'Tap the squares to add or remove panels';
+}
+// ── Hit-test a tap (canvas px) against the panel quads; toggle the nearest hit.
+function sgHitTest(px,py){
+  if(!SG_STATE) return;
+  const inPoly=(pt,poly)=>{ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y; if(((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/((yj-yi)||1e-9)+xi)) inside=!inside; } return inside; };
+  const pt={x:px,y:py};
+  // exact polygon hit first; fall back to nearest-centroid within a tolerance so small panels are tappable
+  let hit=null;
+  for(const c of SG_STATE.panels){ if(c.px && inPoly(pt,c.px)){ hit=c; break; } }
+  if(!hit){ let best=Infinity; const tol=22*(SG_STATE.proj?SG_STATE.proj.dpr:1);
+    for(const c of SG_STATE.panels){ if(!c.px) continue; const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2; const d=Math.hypot(cx-px,cy-py); if(d<best && d<=tol){ best=d; hit=c; } } }
+  if(!hit) return;
+  if(SG_STATE.sel.has(hit.id)) SG_STATE.sel.delete(hit.id); else SG_STATE.sel.add(hit.id);
+  sgDraw(); sgUpdateMetrics();
+}
+// ── Open / close the interactive grid overlay.
+function openSolarGrid(){
+  const cand=buildGridCandidates(); if(!cand){ return; }
+  SG_STATE={ panels:cand.panels, bbox:cand.bbox, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels) };
+  // seed the bill input from any earlier card selection so the two surfaces stay in sync
+  if(solarBill>0 && !$("sgBill").value) $("sgBill").value=solarBill;
+  $("solarGrid").style.display="flex";
+  // hide funnel/search chrome so the immersive designer owns the screen; restored on close
+  const fb=$("funnelBar"); if(fb) fb.dataset.sgPrev=fb.style.display; if(fb) fb.style.display="none";
+  requestAnimationFrame(()=>{ sgLayout(); sgDraw(); sgUpdateMetrics(); });
+  window.__sgOpen=true;
+}
+function closeSolarGrid(commit){
+  $("solarGrid").style.display="none";
+  const fb=$("funnelBar"); if(fb && fb.dataset.sgPrev!=null) fb.style.display=fb.dataset.sgPrev;
+  window.__sgOpen=false;
+  if(commit && SG_STATE){
+    // push the designed system back into the quote card: count + energy override the tier headline.
+    const m=gridSelectionMetrics();
+    if(m && m.panels>0){
+      window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw };
+      const bill=+(($("sgBill").value)||0); if(bill>0){ solarBill=bill; }
+    }
+  }
+  if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+}
+window.__openSolarGrid=openSolarGrid;
+window.__gridSelectionMetrics=gridSelectionMetrics;
+// headless-verify helpers: toggle N selected panels off / on by id, deterministically (real selection mutation).
+window.__sgToggleN=(n,turnOn)=>{ if(!SG_STATE) return 0; let c=0; const ids=SG_STATE.panels.map(p=>p.id);
+  for(const id of ids){ const has=SG_STATE.sel.has(id); if(turnOn && !has){ SG_STATE.sel.add(id); c++; } else if(!turnOn && has){ SG_STATE.sel.delete(id); c++; } if(c>=n) break; }
+  sgDraw(); sgUpdateMetrics(); return c; };
+// CSS-px centroid of the first SELECTED panel (for a real-pointer-tap verification).
+window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; const dpr=SG_STATE.proj.dpr;
+  for(const c of SG_STATE.panels){ if(SG_STATE.sel.has(c.id)&&c.px){ const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2; return { x:cx/dpr, y:cy/dpr, id:c.id }; } } return null; };
+// wire the overlay controls once the DOM is ready
+(function wireSolarGrid(){
+  const cv=$("sgCanvas"); if(!cv) return;
+  cv.addEventListener("click",e=>{ const r=cv.getBoundingClientRect(), dpr=SG_STATE&&SG_STATE.proj?SG_STATE.proj.dpr:1; sgHitTest((e.clientX-r.left)*dpr,(e.clientY-r.top)*dpr); });
+  const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
+  const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); sgDraw(); sgUpdateMetrics(); } };
+  const done=$("sgDoneBtn"); if(done) done.onclick=()=>closeSolarGrid(true);
+  const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
+  const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
+  window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
+})();
 /* ── ENGINEERED PANEL LAYOUT (max-fit, installer-style) ───────────────────────
    ROOT CAUSE this fixes: Google's solarPanels[] under-fills the roof — on a big
    multi-facet house it returns a single tight cluster (e.g. 34 panels on the
