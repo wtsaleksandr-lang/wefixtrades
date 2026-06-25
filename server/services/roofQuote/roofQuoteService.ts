@@ -905,32 +905,33 @@ async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null>
   return null;
 }
 
-export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; }
+export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "cache"; attribution: string; }
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; }
 export async function buildingFootprint(lat: string, lng: string): Promise<FootprintResult> {
   const la = +lat, ln = +lng;
-  if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords" };
+  if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords", candidates: [] };
   const key = la.toFixed(5) + "," + ln.toFixed(5);
   const cached = diskGetJSON<{ body: FootprintResult; _t: number }>("footprint", key);
   if (cached && cached._t && Date.now() - cached._t < 30 * 864e5) return cached.body;
-  // overpassFootprint already swallows network/parse errors internally (returns null), so no
-  // outer .catch() is needed here — keeping one would trip the no-silent-catch guard.
-  const osm = await overpassFootprint(la, ln);
-  if (osm && osm.length >= 3) {
-    const out: FootprintResult = { ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
-    diskSetJSON("footprint", key, { body: out, _t: Date.now() });
-    return out;
+  // (fix4 #1) Fetch OSM AND Microsoft in PARALLEL and return EVERY candidate, so the CLIENT can register
+  // each to Google's roof reference and keep the best-aligned one — instead of "first source wins", which
+  // on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m OSM ring. overpassFootprint /
+  // msftFootprint each swallow their own network/parse errors (return null), so no outer .catch() is
+  // needed (no-silent-catch guard). Cascade order (OSM>MS>cache) is preserved in the top-level fields.
+  const [osm, msft] = await Promise.all([overpassFootprint(la, ln), msftFootprint(la, ln)]);
+  const candidates: FootprintCandidate[] = [];
+  if (osm && osm.length >= 3) candidates.push({ ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" });
+  if (msft && msft.length >= 3) candidates.push({ ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" });
+  if (!candidates.length) {
+    const c = cacheFootprint(la, ln);
+    if (c && c.length >= 3) candidates.push({ ring: c, source: "cache", attribution: "© Microsoft / national building footprints" });
   }
-  // Microsoft on-demand per-quadkey — the universal US+Canada backstop. msftFootprint swallows its
-  // own network/parse errors (returns null), so no outer .catch() is needed (no-silent-catch guard).
-  const msft = await msftFootprint(la, ln);
-  if (msft && msft.length >= 3) {
-    const out: FootprintResult = { ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" };
-    diskSetJSON("footprint", key, { body: out, _t: Date.now() });
-    return out;
-  }
-  const c = cacheFootprint(la, ln);
-  if (c && c.length >= 3) return { ring: c, source: "cache", attribution: "© Microsoft / national building footprints" };
-  return { source: "none" };
+  if (!candidates.length) return { source: "none", candidates: [] };
+  const primary = candidates[0];
+  const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates };
+  // Only cache when a real source (OSM/MS) hit — the legacy cache backstop was never persisted here.
+  if (candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+  return out;
 }
 
 /* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,

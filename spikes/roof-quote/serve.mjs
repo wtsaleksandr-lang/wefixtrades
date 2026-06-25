@@ -506,6 +506,30 @@ async function footprintForPoint(lat,lng){
   return { source:"none" };
 }
 
+// (fix4 #1) Return EVERY available footprint candidate (OSM + Microsoft + cache), fetched in PARALLEL,
+// so the CLIENT can register EACH to Google's roof reference and pick the one that lands BEST (smallest
+// post-registration shift / best mask-overlap) — instead of the old "first source wins" cascade, which
+// on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m-perfect OSM ring. The cascade order
+// is preserved in `primary` for any consumer that wants a single best-guess, but the multi-candidate
+// `candidates[]` is the real payload the registration step consumes. OSM and MS are independent network
+// fetches → run concurrently; each already has its own internal timeout.
+async function footprintCandidates(lat,lng){
+  const [osm,msft]=await Promise.all([
+    overpassFootprint(lat,lng).catch(()=>null),
+    msftFootprint(lat,lng).catch(()=>null),
+  ]);
+  const candidates=[];
+  if(osm && osm.length>=3) candidates.push({ ring:osm, source:"osm", attribution:"© OpenStreetMap contributors" });
+  if(msft && msft.length>=3) candidates.push({ ring:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" });
+  if(!candidates.length){ const cached=cacheFootprint(lat,lng);
+    if(cached && cached.length>=3) candidates.push({ ring:cached, source:"cache", attribution:"© Microsoft / national building footprints" }); }
+  if(!candidates.length) return { source:"none", candidates:[] };
+  // `primary` = the legacy cascade pick (OSM>MS>cache) so older single-source consumers still work;
+  // `ring`/`source`/`attribution` mirror it at top level for the same reason.
+  const primary=candidates[0];
+  return { ring:primary.ring, source:primary.source, attribution:primary.attribution, candidates };
+}
+
 const html=readFileSync(path.join(import.meta.dirname,"index.html"),"utf8").replaceAll("__TILES__",TILES);
 const map3dHtml=readFileSync(path.join(import.meta.dirname,"map3d.html"),"utf8").replaceAll("__TILES__",TILES);
 let roof3dHtml=""; try{ roof3dHtml=readFileSync(path.join(import.meta.dirname,"roof3d.html"),"utf8").replaceAll("__TILES__",TILES); }catch(_){}
@@ -656,10 +680,11 @@ http.createServer(async (req,res)=>{
     try{
       let out;
       if(forceSrc==="msft"){ const m=await msftFootprint(lat,lng).catch(()=>null);
-        out = (m&&m.length>=3) ? { ring:m, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" } : { source:"none" };
-      } else out=await footprintForPoint(lat,lng);
-      if(out && out.ring && out.ring.length>=4 && (out.source==="osm"||out.source==="msft")){
-        diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });   // cache confident OSM + Microsoft hits (per rounded lat/lng → instant repeats)
+        out = (m&&m.length>=3) ? { ring:m, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)", candidates:(m&&m.length>=3)?[{ring:m,source:"msft",attribution:"© Microsoft Building Footprints (ODbL/CDLA)"}]:[] } : { source:"none", candidates:[] };
+      } else out=await footprintCandidates(lat,lng);   // (fix4 #1) returns ALL sources so the client registers each + picks the best-aligned
+      // Cache the WHOLE candidate set (so a repeat still has OSM+MS to choose from), as long as at least one real source hit.
+      if(out && Array.isArray(out.candidates) && out.candidates.some(c=>c.ring&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"))){
+        diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });
       }
       res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }

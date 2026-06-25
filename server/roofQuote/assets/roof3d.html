@@ -1707,19 +1707,20 @@ function roofDataConfidence(){
   // small rooftop box latched inside a vast gap between towers.
   const segRatio=segmentVsFootprintRatio(spv); window.__segFootprintRatio=segRatio!=null?+segRatio.toFixed(3):null;
   if(segRatio!=null && segRatio<MIN_SEG_FOOTPRINT_RATIO) reasons.push("small-segment");
-  // ── FOOTPRINT-REGISTRATION-REJECT signal (fix2 P0 #3) ───────────────────────
-  // The vector building footprint was rejected because it sat a LONG way off Google's roof (the wrong /
-  // neighbour building). The mask-trace fallback keeps the outline roof-aligned, but when the offset is
-  // this large the reconstruction is the most likely to come out as the featureless misaligned slab the
-  // audit flagged. Rather than present a confident price over a slab, degrade to the honest "approximate
-  // — based on aerial imagery" card. Threshold well above the 6 m registration gate so a normal
-  // borderline offset (which registration now captures) never trips it.
-  const FP_REJECT_DEGRADE_M = 9.0;
-  if(window.__fpRejectShiftM!=null && isFinite(window.__fpRejectShiftM) && window.__fpRejectShiftM>=FP_REJECT_DEGRADE_M) reasons.push("fp-misaligned");
+  // ── FOOTPRINT-REGISTRATION-REJECT — DECOUPLED from confidence (fix4 #2) ─────────────────────
+  // A mis-registered VECTOR building footprint (OSM/Microsoft ring sitting off Google's roof through a
+  // tree-canopy gap, e.g. 4521 T St) is NO LONGER a confidence signal. It does NOT mean Google's own roof
+  // data is bad — Google's segments/imagery can be perfectly healthy. When no vector footprint aligns we
+  // simply fall back to the GOOGLE-DATA geometry (mask-trace reconstruction), which is on-roof and renders
+  // a coherent model + a normal residential quote. So `fp-misaligned` is gone from the degrade logic
+  // entirely: the "couldn't get a confident read" card is reserved for genuinely-bad GOOGLE data (no
+  // segments, bad imagery, implausible area, floating array, canopy-occluded). extractFacetPolysAnalytic
+  // now keeps window.__fpRejectShiftM=null on a footprint reject (see the candidate-registration block);
+  // this is the matching half of the decoupling so the signal can never re-enter through here.
   // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
   // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery, or floating + small-segment).
   // A confirmed floating array is itself disqualifying (panels literally in the air) → treat as hard.
-  const HARD_REASONS=["tiny-roof","huge-roof","no-segments","floating","canopy-heavy","fp-misaligned"];
+  const HARD_REASONS=["tiny-roof","huge-roof","no-segments","floating","canopy-heavy"];
   const hard = reasons.some(r=>HARD_REASONS.includes(r));
   const soft = reasons.filter(r=>!HARD_REASONS.includes(r)).length;
   const low = hard || soft>=2;
@@ -3023,7 +3024,7 @@ async function run(addr){
     // debug flag forces the legacy mask trace (for before/after comparison). Non-blocking: a miss
     // (source:"none") just leaves the builder on its mask-trace fallback. window.__footprintSource
     // / __footprintWGS are read by extractFacetPolysAnalytic + the credits line.
-    window.__footprintWGS=null; window.__footprintSource="mask";
+    window.__footprintWGS=null; window.__footprintSource="mask"; window.__footprintCandidates=null;
     // (fix3 P1 #3) DON'T block the whole quote on the building-footprint fetch. On a COLD address whose
     // Microsoft GlobalML tile isn't cached yet, /footprint streams a ~40 MB z9 tile server-side and can
     // take 8–15 s — and it used to be AWAITED right here, BEFORE solar()/datalayers()/buildScene(), so a
@@ -3128,10 +3129,25 @@ async function run(addr){
     // throws (its .catch maps to null) so this can't break the build.
     try{
       const fp=await Promise.race([ fpPromise, new Promise(r=>setTimeout(()=>r("__fp_timeout__"),5500)) ]);
-      if(fp && fp!=="__fp_timeout__" && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
-        window.__footprintWGS=fp.ring;            // [[lng,lat],...] open ring
-        window.__footprintSource=fp.source;       // "osm" | "msft" | "cache"
-        window.__footprintAttribution=fp.attribution||"";
+      if(fp && fp!=="__fp_timeout__"){
+        // (fix4 #1) Stash ALL candidate footprints (OSM + Microsoft + cache) so extractFacetPolysAnalytic
+        // can register EACH to Google's roof and KEEP THE BEST-ALIGNED one. Server now returns
+        // {candidates:[{ring,source,attribution}...]}; old/cached responses may only carry a single
+        // top-level {ring,source} — normalise both shapes into __footprintCandidates.
+        let cands=Array.isArray(fp.candidates)?fp.candidates.slice():[];
+        if(!cands.length && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
+          cands=[{ ring:fp.ring, source:fp.source, attribution:fp.attribution||"" }];
+        }
+        cands=cands.filter(c=>c&&Array.isArray(c.ring)&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"||c.source==="cache"));
+        if(cands.length){
+          window.__footprintCandidates=cands;
+          // Seed the legacy single-source globals with the primary (cascade) pick; the registration step
+          // in extractFacetPolysAnalytic re-selects the best-aligned candidate and overwrites these.
+          const primary=cands[0];
+          window.__footprintWGS=primary.ring;       // [[lng,lat],...] open ring
+          window.__footprintSource=primary.source;  // "osm" | "msft" | "cache"
+          window.__footprintAttribution=primary.attribution||"";
+        }
       }
     }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
     // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
@@ -3724,50 +3740,83 @@ function extractFacetPolysAnalytic(margin){
   //    every facet is clipped FROM (already ordered; no stitching).
   let footprint=null, footprintFull=null;   // footprintFull = whole-block ring when a shared-building split trims `footprint` to one unit
   let footprintSource="mask";                // "osm" | "msft" | "cache" | "mask" — exposed via window.__footprintSource
-  // ── PRIMARY: clean VECTOR building footprint (OSM/cache), fetched in run() into window.__footprintWGS.
-  //    Convert to UTM (E,N), regularize to straight architectural edges + overhang offset, and use THAT
-  //    as the outer ring every facet is clipped from. This is the EVEN-roofline fix — straight eaves on
-  //    the real roof edges instead of the jagged mask trace. Falls through to the mask trace on any failure.
-  if(Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="msft"||window.__footprintSource==="cache")){
-    try{
-      const ringEN=window.__footprintWGS.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
-      // Regularize to clean straight eaves (overhang baked in below), THEN RIGID-REGISTER the whole
-      // clean polygon onto Google's roof (mask/segments — aligned to the displayed aerial) so the
-      // straight outline sits ON the real roof edges instead of floating off (source-imagery offset).
-      // The overhang offset must come AFTER registration: register to the roof reference (mask is
-      // roof-level), then push the eave outward so the line lands on the visible roof edge, not inside.
-      const reg0=regularizeVectorFootprint(ringEN, 0.0);   // straight wall outline, no overhang yet
-      let regBase=reg0, useVector=true;
-      let alignOff=false; try{ alignOff=(typeof location!=="undefined") && new URLSearchParams(location.search).get("align")==="off"; }catch(_){}
-      if(reg0 && reg0.length>=3 && !alignOff){
+  // ── PRIMARY: clean VECTOR building footprint, fetched in run() into window.__footprintCandidates.
+  //    (fix4 #1) Multiple sources can be available (OSM AND Microsoft). We register EVERY candidate to
+  //    Google's roof reference and KEEP THE ONE THAT LANDS BEST (smallest post-registration shift, with a
+  //    tie-break on mask-overlap) — instead of trusting whatever the server's cascade happened to put
+  //    first. On 4521 T St the OSM ring registers at ~0.19 m while the Microsoft ring sits ~16.9 m off; the
+  //    old "first source wins" logic was taking the WORSE one. Convert each to UTM, regularize to straight
+  //    architectural edges, register, score; the winner's outline (then + overhang) is what every facet is
+  //    clipped from. This is the EVEN-roofline fix. Falls through to the mask trace if NO candidate aligns.
+  let cands=Array.isArray(window.__footprintCandidates)?window.__footprintCandidates:null;
+  if(!cands && Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="msft"||window.__footprintSource==="cache")){
+    cands=[{ ring:window.__footprintWGS, source:window.__footprintSource, attribution:window.__footprintAttribution||"" }];
+  }
+  if(cands && cands.length){
+    let alignOff=false; try{ alignOff=(typeof location!=="undefined") && new URLSearchParams(location.search).get("align")==="off"; }catch(_){}
+    let best=null;       // { regBase, source, attribution, shiftM, overlap, applied, diag } — chosen candidate
+    let bestRejected=null;   // closest-but-still-rejected candidate (for diagnostics only — NOT a confidence killer)
+    const evals=[];          // per-candidate diagnostics → window.__fpCandidateEvals
+    for(const cand of cands){
+      try{
+        const ringEN=cand.ring.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
+        const reg0=regularizeVectorFootprint(ringEN, 0.0);   // straight wall outline, no overhang yet
+        if(!reg0 || reg0.length<3) continue;
+        if(alignOff){
+          // debug bypass: take the first candidate as-is, no registration
+          best={ regBase:reg0, source:cand.source, attribution:cand.attribution||"", shiftM:0, overlap:null, applied:false, diag:{applied:false,reason:"align=off-debug"} };
+          break;
+        }
         const rr=registerFootprintToGoogle(reg0, zone);
-        try{ window.__alignDiag=rr.diag; }catch(_){}
-        if(rr.diag && rr.diag.applied && rr.ring && rr.ring.length>=3){ regBase=rr.ring; }
-        // ROBUSTNESS — an implausibly large required shift means the OSM/cache ring is the WRONG
-        // building (a misplaced/neighbour footprint, e.g. 4521 T St where the vector ring sits ~16 m
-        // off Google's roof). In that case DON'T float the clean polygon on the wrong spot — REJECT it
-        // and fall through to the mask-trace below (Google's own roof outline, guaranteed roof-aligned).
-        else if(rr.diag && /shift-too-large|overlap-regressed/.test(rr.diag.reason||"")){
-          useVector=false;
-          try{ window.__alignDiag.rejectedVector=true;
-            // (fix2 P0 #3) Record HOW far off the vector ring was. A large measured shift means the only
-            // building footprint we could find sits well off Google's roof — the mask-trace fallback still
-            // gives a roof-aligned outline, but on these the reconstruction is the most likely to come out
-            // as the featureless misaligned slab. Expose the shift so roofDataConfidence() degrades to the
-            // honest "approximate — based on aerial imagery" card (option b) instead of a confident slab.
-            window.__fpRejectShiftM = (rr.diag.measShiftM!=null) ? rr.diag.measShiftM : null;
-          }catch(_){}
+        const accepted=!!(rr.diag && rr.diag.applied && rr.ring && rr.ring.length>=3);
+        // Effective shift = the shift registration actually trusts (measShiftM when accepted), else the
+        // measured shift it rejected on. overlapAfter (boundary-on-roof) is the alignment-quality score.
+        const shiftM=(rr.diag && rr.diag.measShiftM!=null)?rr.diag.measShiftM:Infinity;
+        const overlap=(rr.diag && rr.diag.overlapAfter!=null)?rr.diag.overlapAfter
+                     :((rr.diag && rr.diag.overlapBefore!=null)?rr.diag.overlapBefore:null);
+        evals.push({ source:cand.source, accepted, shiftM:isFinite(shiftM)?+shiftM.toFixed(2):null, overlap, reason:rr.diag&&rr.diag.reason });
+        const entry={ regBase:accepted?rr.ring:reg0, source:cand.source, attribution:cand.attribution||"", shiftM, overlap, applied:accepted, diag:rr.diag };
+        if(accepted){
+          // Choose the best ACCEPTED candidate: smaller shift wins; on a near-tie (<1 m) higher overlap wins.
+          if(!best || !best.applied
+             || entry.shiftM < best.shiftM-1.0
+             || (Math.abs(entry.shiftM-best.shiftM)<=1.0 && (entry.overlap||0) > (best.overlap||0))){
+            best=entry;
+          }
+        } else if(!best){
+          // track the least-bad rejected candidate so __alignDiag still reports something useful
+          if(!bestRejected || entry.shiftM < bestRejected.shiftM) bestRejected=entry;
         }
-        // else (no-google-ref / small offset that didn't trip the gate): keep the regularized vector as-is.
-      } else if(alignOff){ try{ window.__alignDiag={applied:false,reason:"align=off-debug"}; }catch(_){} }
-      if(useVector){
-        // overhang: push the registered wall outline outward ~0.4 m to the eave (roof) edge
-        const reg=_overhangRing(regBase, 0.4);
-        if(reg && reg.length>=3 && polyArea2(reg)>=8){
-          footprint=reg; footprintSource=window.__footprintSource;
-        }
+      }catch(e){ if(typeof errors!=="undefined") errors.push("vector-fp:"+(e&&e.message||e)); }
+    }
+    try{ window.__fpCandidateEvals=evals; }catch(_){}
+    if(best && best.applied){
+      // A candidate registered ON Google's roof → use its clean straight outline + eave overhang.
+      try{ window.__alignDiag=best.diag; }catch(_){}
+      const reg=_overhangRing(best.regBase, 0.4);
+      if(reg && reg.length>=3 && polyArea2(reg)>=8){
+        footprint=reg; footprintSource=best.source;
+        window.__footprintSource=best.source; window.__footprintAttribution=best.attribution;
       }
-    }catch(e){ if(typeof errors!=="undefined") errors.push("vector-fp:"+(e&&e.message||e)); }
+      window.__fpRejectShiftM=null;   // healthy alignment → never a confidence signal
+    } else if(best && best.diag && best.diag.reason==="align=off-debug"){
+      const reg=_overhangRing(best.regBase, 0.4);
+      if(reg && reg.length>=3 && polyArea2(reg)>=8){ footprint=reg; footprintSource=best.source; }
+      try{ window.__alignDiag=best.diag; }catch(_){}
+      window.__fpRejectShiftM=null;
+    } else {
+      // (fix4 #2 — THE BIG ONE) NO candidate registered on Google's roof. The vector footprints we could
+      // find all sit off the real roof (wrong/neighbour building through a tree-canopy gap). DO NOT float a
+      // mis-registered polygon, and — critically — DO NOT degrade the whole quote. Fall through to the
+      // GOOGLE-DATA geometry below (the mask-trace / analytic reconstruction from Google's own roof
+      // segments), which is on-roof and renders a COHERENT model + a NORMAL residential quote (the
+      // behaviour before the footprint feature existed). A mis-registered VECTOR footprint is NOT a
+      // signal that Google's data is bad, so it must NOT set window.__fpRejectShiftM (which used to push
+      // roofDataConfidence() to the "couldn't get a confident read" card). It stays null → the honest
+      // degrade is reserved for genuinely-bad Google data (no segments, bad imagery, implausible area).
+      try{ window.__alignDiag=(bestRejected&&bestRejected.diag)||{applied:false,reason:"no-vector-candidate-aligned",rejectedVector:true}; }catch(_){}
+      window.__fpRejectShiftM=null;   // DECOUPLED: footprint mis-alignment ≠ low Google-data confidence
+    }
   }
   if(!footprint){
     // binary in-roof grid (mask interior, eroded a touch off the walls) over the SAME grid
@@ -5278,8 +5327,25 @@ async function buildPhotoPanels(){
     if(window.__panelKeepFrac<0.985){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} }
   }
 }
+// (fix4 #3) Explicitly tear down the Google photoreal Map3D surface when we leave Satellite, so toggling
+// back to "3D model" reliably restores OUR Three.js scene instead of leaving the photoreal tiles on screen.
+// #gmapWrap sits AFTER #scene in the DOM with no z-index, so if it stays display:block it composites OVER
+// the WebGL canvas — the buyer sees the photoreal tiles even though mode==="schematic". Hiding the wrapper
+// (and clearing the photoreal-only overlays the Map3D streams) guarantees a clean handoff.
+function teardownPhotoreal(){
+  try{ $("gmapWrap").style.display="none"; }catch(_){}
+  // drop the photoreal-mesh overlays (panels/labels/heat/material polys) so a re-entry rebuilds them fresh
+  try{ if(typeof clearPanels==="function") clearPanels(); }catch(_){}
+  try{ if(typeof clearLabels==="function") clearLabels(); }catch(_){}
+  try{ if(typeof clearHeat==="function") clearHeat(); }catch(_){}
+  try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
+  // stop any in-flight camera fly so the hidden Map3D isn't still animating/streaming tiles behind the scene
+  try{ if(gmap && gmap.stopCameraAnimation) gmap.stopCameraAnimation(); }catch(_){}
+}
 async function setMode(mo){
+  const wasPhoto=(mode==="photoreal");
   mode=mo; const photo=mo==="photoreal";
+  if(!photo && wasPhoto){ teardownPhotoreal(); }   // leaving Satellite → kill the photoreal surface cleanly
   $("gmapWrap").style.display=photo?"block":"none";
   $("scene").style.display=photo?"none":"block";
   // (BUG 4) Sun and Materials are MUTUALLY-EXCLUSIVE lenses sharing the same bottom-centre slot.
