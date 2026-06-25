@@ -2754,13 +2754,22 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // need the aggressive 38vh-era pull-back + high lift that shrank the model to clear a tall sheet. A
   // tighter distMul makes the model fill the now-larger visible band, and a gentler lift keeps the whole
   // roof comfortably above the peek sheet without floating it high/small. (polish: mobile first-load hero.)
-  const distMul=isMobileVp?2.95:3.0;
+  // FLAT/LOW-PROFILE detection (P2): a flat-roof box has almost no roof-height spread relative to its
+  // footprint. At the normal distMul=3.0 + 0.66 elevation it renders small + pushed to the upper-right with
+  // a big empty ground plane (the Phoenix flat-roof first-load complaint). For a flat box, pull the camera
+  // IN (smaller distMul) and bias it MORE top-down so the roof plane fills the frame.
+  const roofSpread=(roofMaxY-roofMinY);
+  const isFlatRoof=(roofSpread < Math.max(1.2, footR*0.18));   // <~18% of footprint half-diagonal ⇒ flat/low slope
+  let distMul=isMobileVp?2.95:3.0;
+  let elevK=0.66, inK=0.62, fwdK=0.74;                          // 3/4-oblique camera offset multipliers
+  if(isFlatRoof){ distMul=isMobileVp?2.15:2.05;                 // closer so the flat roof fills the view
+    elevK=0.92; inK=0.42; fwdK=0.50; }                          // more top-down, gentler horizontal offset
   const tgtBias=isMobileVp?footR*0.20:0;
   const tgtY=Math.max(2,bMidY*0.7)+tgtBias;
   controls.target.set(bcx, tgtY, bcz);
   // 3/4 oblique: ~35° elevation, ~35° off-axis in plan; dist scaled to the building + ~1.7× padding.
   const dist=footR*distMul;
-  const heroPos={x:bcx + dist*0.62, y:bMidY + dist*0.66, z:bcz + dist*0.74};
+  const heroPos={x:bcx + dist*inK, y:bMidY + dist*elevK, z:bcz + dist*fwdK};
   const heroTgt={x:bcx, y:tgtY, z:bcz};
   window.__heroCam={pos:heroPos, tgt:heroTgt};   // Reset (bReset) recalls this exact hero framing
   camera.position.set(heroPos.x, heroPos.y, heroPos.z);
@@ -5303,11 +5312,49 @@ const PANEL_GAP_M     = 0.03;   // inter-panel gap (rail spacing); keeps rows vi
    dropped. Seeds are used ONLY for (a) per-facet orientation, (b) grid phase, and
    (c) the occlusion/energy context — never rendered as-is. Result: aligned rows,
    visible setbacks on every edge, nothing past the roofline, conformal per facet. */
+/* FALLBACK facet polygons from each Solar segment's own boundingBox (lng/lat rectangle),
+   carrying its analytic plane (a·E+b·N+c). Used ONLY when extractFacetPolys yields nothing
+   — the analytic plane-intersection path throws (e.g. a footprint-spike artifact on a big
+   flat-roof parcel) AND the legacy raster trace returns empty, so engineeredFacetPanels had
+   no polygon to tile and the model fell back to Google's raw clustered solarPanels[] (the
+   "57 on the card / ~7 in one corner on a flat roof" bug). A segment bbox is a clean convex
+   rectangle the uniform setback grid tiles perfectly — flat roofs then fill edge-to-edge and
+   the rendered count matches the quote. Steep roofs are untouched: analytic facets win there,
+   so this fallback never runs for them. */
+function fallbackFacetPolysFromSegBBox(zone){
+  const segs=(LASTB&&LASTB.solarPotential&&LASTB.solarPotential.roofSegmentStats)||[];
+  if(!segs.length) return [];
+  const planes=buildSegmentPlanes(zone);             // analytic a/b/c per segment (same plane the mesh uses)
+  const planeBySeg=new Map(); for(const p of planes) planeBySeg.set(p.i, p);
+  const out=[];
+  for(let i=0;i<segs.length;i++){ const sg=segs[i]; const b=sg&&sg.boundingBox;
+    if(!b||!b.sw||!b.ne) continue;
+    const s=Math.min(b.sw.latitude,b.ne.latitude), n=Math.max(b.sw.latitude,b.ne.latitude);
+    const w=Math.min(b.sw.longitude,b.ne.longitude), e=Math.max(b.sw.longitude,b.ne.longitude);
+    // guard against a pathological (parcel-sized) bbox: a residential roof segment bbox is < ~60 m a side.
+    const cLat=(s+n)/2, dN=(n-s)*111320, dE=(e-w)*111320*Math.cos(cLat*Math.PI/180);
+    if(!(dN>0.5&&dE>0.5) || dN>80 || dE>80) continue;
+    const hull=[[w,s],[e,s],[e,n],[w,n]];            // [lng,lat] rectangle ring (same shape as analytic f.hull)
+    const pl=planeBySeg.get(i);
+    out.push({ hull, slopeArea:((sg.stats&&sg.stats.areaMeters2)||dN*dE), seg:sg,
+               __plane: pl?{a:pl.a,b:pl.b,c:pl.c}:null, __zone:zone, __bboxFallback:true });
+  }
+  return out;
+}
 function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
   let facets=null;
-  try{ facets=extractFacetPolys(0.0); }catch(_){ return null; }   // need analytic facets (DSM); else bail to Google array
+  try{ facets=extractFacetPolys(0.0); }catch(_){ facets=null; }   // analytic facets (DSM) preferred
+  // FALLBACK: extractFacetPolys gave us nothing (analytic threw on a footprint spike AND legacy traced
+  // empty — the flat-roof corner-cluster bug). Tile each Google segment's bbox rectangle instead so the
+  // engineered grid still fills the roof and matches the quote count. Steep roofs never reach here.
+  if(!facets||!facets.length){ try{ facets=fallbackFacetPolysFromSegBBox(zone); }catch(_){ facets=null; } }
   if(!facets||!facets.length) return null;
-  const _dbg={facets:facets.length, setback:PANEL_SETBACK_M, perFacet:[]}; try{ window.__engDbg=_dbg; }catch(_){}
+  // BBOX-FALLBACK MODE: facets are segment-bbox rectangles, not true clipped polygons, so a sliver
+  // segment can carry an oversized bbox that would over-tile (and sibling flat-roof bboxes overlap).
+  // In this mode ONLY we (a) cap each facet's panels to its real-area capacity and (b) dedupe overlapping
+  // panels + cap the total to the quote count so render==quote holds. Analytic facets skip all of this.
+  const _bboxMode=!!(facets[0] && facets[0].__bboxFallback);
+  const _dbg={facets:facets.length, setback:PANEL_SETBACK_M, bboxMode:_bboxMode, perFacet:[]}; try{ window.__engDbg=_dbg; }catch(_){}
   // index seed panels by segment so we can (a) inherit orientation and (b) phase the grid onto Google's
   const segIndexOf=(seg)=>{ const i=segs.indexOf(seg); return i>=0?i:(seg&&typeof seg.__idx==="number"?seg.__idx:-1); };
   const seedBySeg=new Map();
@@ -5424,6 +5471,21 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
       if(!window.__noCrop && !onSeed(u,v)){ const _r=panelOcclReason(pn,seg,zone,occlCtx); if(_r){ _occl++; _occlBy[_r]=(_occlBy[_r]||0)+1; continue; } }
       facetPanels.push(pn);
     } }
+    // BBOX-FALLBACK area cap: the rectangle can be larger than the segment's real roof area (a sliver
+    // facet whose Google bbox spans the whole roof). Cap the panels to what the REAL facet area holds so
+    // we don't over-fill an oversized bbox. Keep seeded cells first (Google vetted them), then the rest.
+    if(_bboxMode){
+      const segArea=(seg.stats&&seg.stats.areaMeters2)||0;
+      const cellArea=Math.max(0.5,(aw)*(ahP));   // one panel's plan footprint (m²)
+      const cap=segArea>0?Math.max(1,Math.round(segArea/cellArea)):facetPanels.length;
+      if(facetPanels.length>cap){
+        // rank seeded cells first (Google-vetted), then keep the cap-best
+        const seedRank=(pn)=>{ const [E,N]=wgs84ToUTM(pn.center.latitude,pn.center.longitude,zone);
+          const u=(E-cE)*ax+(N-cN)*an, v=(E-cE)*fx+(N-cN)*fn; return onSeed(u,v)?0:1; };
+        facetPanels.sort((a,b)=>seedRank(a)-seedRank(b));
+        facetPanels.length=cap;
+      }
+    }
     // CLEANLINESS GATE: a lone panel on a tiny facet reads as a random "stamp", not an engineered array.
     // Drop a facet that yields a single panel UNLESS Google itself put panels there (then it's legitimately
     // a usable face). Facets with >=2 panels always pass (a real row).
@@ -5431,6 +5493,21 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     else { for(const pn of facetPanels){ out.push(pn); _kept++; } }
     _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), sb:+sb.toFixed(2), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb});
   }
+  // BBOX-FALLBACK dedupe + quote-cap: sibling flat-roof bboxes overlap, so two facets can stamp a panel
+  // at the ~same spot. Drop panels closer than ~half a panel to an already-kept one, then cap the total to
+  // the seed/quote count (n) so the rendered array equals the number the card promises (render==quote).
+  if(_bboxMode && out.length){
+    const half=Math.min(pw,ph)*0.5;
+    const kept=[]; const keptEN=[];
+    for(const pn of out){ const [E,N]=wgs84ToUTM(pn.center.latitude,pn.center.longitude,zone);
+      let dup=false; for(const [kE,kN] of keptEN){ if(Math.abs(E-kE)<half && Math.abs(N-kN)<half){ dup=true; break; } }
+      if(dup) continue; kept.push(pn); keptEN.push([E,N]); }
+    const target=(seedPanels&&seedPanels.length)?seedPanels.length:kept.length;
+    if(kept.length>target) kept.length=target;            // never render MORE than the quote count
+    out.length=0; for(const pn of kept) out.push(pn);
+    _dbg.dedupTo=out.length; _dbg.target=target;
+  }
+  try{ _dbg.total=out.length; window.__engDbg=_dbg; }catch(_){}
   if(!out.length) return null;
   // estimate per-panel yearly energy from the facet's seed panels (or roof mean) so colour/quote scaling stays sane
   const seedE=(seedPanels||[]).filter(p=>p.yearlyEnergyDcKwh>0).map(p=>p.yearlyEnergyDcKwh);
