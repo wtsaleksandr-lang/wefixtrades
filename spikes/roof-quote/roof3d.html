@@ -1118,25 +1118,38 @@ function greyRoofMatFor(azDeg){
 let _panelTex=null;
 function panelFaceTex(){
   if(_panelTex) return _panelTex;
-  const N=128, c=document.createElement("canvas"); c.width=c.height=N; const x=c.getContext("2d");
-  // deep mono-silicon blue with a subtle vertical sheen
+  // Higher-res bake so the frame + cell grid stay crisp at the zoom levels users see (near top-down
+  // on a flat roof the module is only a few px tall otherwise).
+  const N=256, c=document.createElement("canvas"); c.width=c.height=N; const x=c.getContext("2d");
+  // Saturated mono-silicon blue with a vertical sheen — pushed brighter/bluer so each module pops
+  // against the charcoal roof instead of washing into it when flush + lit from the same angle.
   const g=x.createLinearGradient(0,0,N,N);
-  g.addColorStop(0,"#16335f"); g.addColorStop(0.5,"#1b3c6e"); g.addColorStop(1,"#122a52");
+  g.addColorStop(0,"#1e478f"); g.addColorStop(0.5,"#2a5aa8"); g.addColorStop(1,"#173a78");
   x.fillStyle=g; x.fillRect(0,0,N,N);
-  // 6×10 cell grid (busbars) — thin darker lines
-  x.strokeStyle="rgba(8,16,34,0.55)"; x.lineWidth=2;
+  // 6×10 cell grid (busbars) — crisp dark lines so the cell pattern reads as a real module
+  x.strokeStyle="rgba(6,12,28,0.7)"; x.lineWidth=3;
   const cols=6, rows=10;
-  for(let i=1;i<cols;i++){ const px=Math.round(i*N/cols)+0.5; x.beginPath(); x.moveTo(px,4); x.lineTo(px,N-4); x.stroke(); }
-  for(let j=1;j<rows;j++){ const py=Math.round(j*N/rows)+0.5; x.beginPath(); x.moveTo(4,py); x.lineTo(N-4,py); x.stroke(); }
-  // silver frame
-  x.strokeStyle="#c7ced8"; x.lineWidth=6; x.strokeRect(3,3,N-6,N-6);
+  for(let i=1;i<cols;i++){ const px=Math.round(i*N/cols)+0.5; x.beginPath(); x.moveTo(px,8); x.lineTo(px,N-8); x.stroke(); }
+  for(let j=1;j<rows;j++){ const py=Math.round(j*N/rows)+0.5; x.beginPath(); x.moveTo(8,py); x.lineTo(N-8,py); x.stroke(); }
+  // bright silver frame — a wide light rim is the single biggest visibility cue at top-down
+  x.strokeStyle="#e7ecf3"; x.lineWidth=14; x.strokeRect(7,7,N-14,N-14);
+  // thin dark inner shadow just inside the frame so the silver edge has crisp definition
+  x.strokeStyle="rgba(4,10,24,0.55)"; x.lineWidth=2; x.strokeRect(15,15,N-30,N-30);
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8;
   _panelTex=t; return t;
 }
 let _panelMat=null;
 function panelMatPremium(){
   if(_panelMat) return _panelMat;
-  _panelMat=new THREE.MeshStandardMaterial({map:panelFaceTex(),color:0xffffff,roughness:0.32,metalness:0.45,emissive:0x0a1830,emissiveIntensity:0.16,side:THREE.DoubleSide});
+  // Lower metalness + slightly higher roughness than before so the module doesn't catch the SAME
+  // hard specular highlight as the charcoal roof (which made the array read as one uniform wash).
+  // A saturated blue tint + stronger blue emissive keep the modules reading as distinct blue even
+  // near top-down where direct key light is glancing. The bright baked frame supplies the contrast.
+  // Flat (un-mapped) emissive blue floor so EVERY module glows blue uniformly regardless of which
+  // way it faces the sun — on a flat roof the lee-side modules were dropping to ambient-only and
+  // washing into the charcoal roof. The diffuse `map` still supplies the silver frame + cell grid
+  // detail on top. metalness↓/roughness↓ a touch so the lit side stays crisp, not chalky.
+  _panelMat=new THREE.MeshStandardMaterial({map:panelFaceTex(),color:0xdfe9ff,roughness:0.38,metalness:0.22,emissive:0x1d4fa0,emissiveIntensity:0.55,side:THREE.DoubleSide});
   return _panelMat;
 }
 // 3D engineered-panel group for the Model lens — built per scene, lives in worldGroup,
@@ -1144,7 +1157,7 @@ function panelMatPremium(){
 // panel boxes sitting coplanar on the roof, plus a thin top-edge line set for crisp rows.
 let modelPanelGroup=null;
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
-try{ if(new URLSearchParams(location.search).get("dbg")==="1") window.__scene=scene; }catch(_){}
+try{ if(new URLSearchParams(location.search).get("dbg")==="1"){ window.__scene=scene; window.__cam=camera; window.__controls=controls; } }catch(_){}
 // (BUG 2) On-model 3D measurement overlay (colour-coded typed edges + LF/area labels) drawn on OUR
 // Three.js scene — guaranteed on-surface (same M2S as the facet meshes), unlike the old Google-tile
 // Polyline3DElements that floated off the photoreal mesh. Built once per scene build, shown only in
@@ -2273,7 +2286,7 @@ function updateSun(){
     const ap=h>=12?"PM":"AM", h12=((h+11)%12)+1; lbl.textContent=h12+":"+String(m).padStart(2,"0")+" "+ap; }
   const mv=$("sMonthV"); if(mv) mv.textContent=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][sunMonth-1];
   if(sp.altitude<=1){ sun.intensity=0.15; ambient.intensity=0.55; if(!greyMode) scene.background.setHex(0x0a0e16); else scene.background.setHex(GREY_SURFACE); return; }
-  sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=greyMode?0.34:0.42;   // (STEP 5) keep the Model lens contrasty so the charcoal roof reads with depth
+  sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=greyMode?0.46:0.42;   // (fix10) lift Model-lens ambient so lee-side flat panels still read blue (not washed to roof grey)
   // dusk tint when low — but the grey "Model" lens stays a calm light studio surface
   // (Scanifly-style); only the sun INTENSITY drops so shadows still lengthen at dusk.
   if(!greyMode) scene.background.setHex(sp.altitude<8?0x10131c:0x0b1017);
@@ -2672,10 +2685,23 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // PROUD panel box: a thin module, its face textured, lifted a few cm along the facet normal
   // so it floats just over the roof skin (no z-fight) and reads as a mounted module.
   modelPanelGroup=new THREE.Group(); modelPanelGroup.renderOrder=2;
-  const PANEL_THICK=0.05, PANEL_PROUD=0.10;   // metres
+  // Thicker module + a clearly-proud lift so the whole array sits visibly ABOVE the roof skin and
+  // each row casts a real edge shadow (reads as 3D mounted modules, not a flush decal washing into
+  // the charcoal roof). ~28cm proud / 9cm thick — enough separation to read at the hero camera,
+  // still a believable low-tilt rack height, not a float.
+  const PANEL_THICK=0.09, PANEL_PROUD=0.28;   // metres
+  // Small inter-panel gap so the charcoal roof shows through between modules → the array reads as a
+  // crisp grid of distinct tiles, not a continuous bluish sheet. ~6% per side.
+  const PANEL_GAP=0.94;
   const box=new THREE.BoxGeometry(1,PANEL_THICK,1);
   const pmat=panelMatPremium();
-  panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=true;
+  // InstancedMesh takes a single material; the dark side/bevel comes from the baked texture's wide
+  // silver frame + dark inner shadow on the top face, and the proud lift + inter-panel gap let each
+  // module drop a thin edge shadow on the roof so the array reads as distinct mounted tiles.
+  // castShadow ON so the array drops a soft shadow on the roof (depth); receiveShadow OFF so the
+  // proud modules don't shadow each OTHER (that washed the lee rows to a flat outline-only grey —
+  // the "half the strip reads as blank rectangles" bug). Every module now lights uniformly.
+  panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=false;
   const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(), pVec=new THREE.Vector3(), sVec=new THREE.Vector3(), nrmV=new THREE.Vector3();
   // thin top-edge frame lines per panel (the bright module rim) — one merged line set, cheap
   const frameSegs=[]; const corner=new THREE.Vector3();
@@ -2700,11 +2726,13 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     q.setFromUnitVectors(up,nrmV);
     pVec.set(L.x + nrmV.x*PANEL_PROUD, yPlane + nrmV.y*PANEL_PROUD, L.z + nrmV.z*PANEL_PROUD);
     const land=pn.orientation==="LANDSCAPE"; const w=land?ph:pw, h=land?pw:ph;
-    sVec.set(w,1,h);
+    // shrink each module by PANEL_GAP so the dark roof shows through between tiles (visible grid).
+    sVec.set(w*PANEL_GAP,1,h*PANEL_GAP);
     m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m);
-    // top-rim outline: 4 corners of the module, lifted a hair more so the rim reads
-    const rim=PANEL_PROUD+PANEL_THICK*0.6;
-    const cs=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([cx,cz])=>{
+    // top-rim outline: 4 corners of the (gapped) module, lifted above the box top so the rim reads
+    const rim=PANEL_PROUD+PANEL_THICK+0.015;
+    const gw=w*PANEL_GAP, gh=h*PANEL_GAP;
+    const cs=[[-gw/2,-gh/2],[gw/2,-gh/2],[gw/2,gh/2],[-gw/2,gh/2]].map(([cx,cz])=>{
       // rotate the local (across,downslope) offset by the panel quaternion
       corner.set(cx,0,cz).applyQuaternion(q);
       return new THREE.Vector3(L.x+nrmV.x*rim+corner.x, yPlane+nrmV.y*rim+corner.y, L.z+nrmV.z*rim+corner.z);
@@ -2714,7 +2742,7 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; modelPanelGroup.add(panelMesh);
   if(frameSegs.length){
     const fg=new THREE.BufferGeometry().setFromPoints(frameSegs);
-    const fl=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0xbcd4f0,transparent:true,opacity:0.5}));
+    const fl=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0xdfeaf8,transparent:true,opacity:0.75}));
     fl.renderOrder=2; modelPanelGroup.add(fl);
   }
   worldGroup.add(modelPanelGroup);
@@ -2984,7 +3012,7 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
     nrm.set(Math.sin(fi.P)*fi.sinAz, Math.cos(fi.P), -Math.sin(fi.P)*fi.cosAz).normalize();
     q.setFromUnitVectors(up,nrm);
     p.set(L.x, y, L.z);
-    const land=pn.orientation==="LANDSCAPE"; s.set(land?ph:pw,1,land?pw:ph);
+    const land=pn.orientation==="LANDSCAPE"; s.set((land?ph:pw)*0.94,1,(land?pw:ph)*0.94);   // gapped tiles match analytic path
     m.compose(p,q,s); panelMesh.setMatrixAt(placed++,m);
   }
   panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; worldGroup.add(panelMesh);
