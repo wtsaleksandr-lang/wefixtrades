@@ -5637,9 +5637,13 @@ function renderRoofDiagram(){
   //    lines (ridge/hip/valley) are a touch heavier than the perimeter (eave/rake). Half-pixel
   //    snap keeps every line razor-crisp regardless of crop size. (EagleView/Roofr takeoff look.)
   const half=(v)=>Math.round(v)+0.5;
+  // Brand-blue default measurement lines (matches the funnel Continue button — var(--blue) #0d3cfc).
+  // The reference take-off uses uniform on-brand blue rather than a 5-colour survey legend; weight
+  // hierarchy (primary creases heavier than the perimeter) still carries the structure. Thin + subtle.
+  const MEAS_BLUE="#0d3cfc";
   const EW={ ridge:2.0, hip:1.8, valley:1.8, eave:1.5, rake:1.5 };   // per-type line weight (primary > perimeter)
   const drawEdge=(e,extraCase)=>{ const a=P(e.a[0],e.a[1]), b=P(e.b[0],e.b[1]);
-    const col=EDGE_COLORS[e.type]||MEAS_RED, lw=EW[e.type]||1.7;
+    const col=MEAS_BLUE, lw=EW[e.type]||1.7;
     // (measure-iter) clip each edge to the roof outline so no line spills past the roof edge. Perimeter
     // edges (eave/rake) ARE the outline, so a tiny outside flush from rounding is nudged back by clip;
     // interior creases that overshoot a facet are trimmed to the roof.
@@ -5722,7 +5726,7 @@ function renderRoofDiagram(){
   const GAP=Math.max(6,fs*0.6);   // scale the clear-gap with the pill size so dense roofs don't crowd
   const hits=(box)=> lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2)) < (b.w+box.w)/2+GAP && Math.abs(b.y+b.h/2-(box.y+box.h/2)) < (b.h+box.h)/2+GAP);
   for(const f of labelFp){
-    const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
+    const a=Math.round((f.p.areaSqFt||0)*dScale).toLocaleString()+" SQFT", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
     // area is the headline (secondary-bold, smaller than before); pitch is a faint sub-line
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
     ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
@@ -5764,7 +5768,7 @@ function renderRoofDiagram(){
       ctx.strokeStyle="rgba(255,255,255,0.16)"; ctx.lineWidth=1; rrRound(ctx,lx0,ly0,lw2,lh,6); ctx.stroke();
       present.forEach((t,i)=>{ const ry=ly0+pad+row*i+row/2;
         ctx.strokeStyle="rgba(255,255,255,0.55)"; ctx.lineWidth=(EW[t]||1.7)+1.1; ctx.beginPath(); ctx.moveTo(lx0+pad,ry); ctx.lineTo(lx0+pad+sw,ry); ctx.stroke();
-        ctx.strokeStyle=EDGE_COLORS[t]; ctx.lineWidth=EW[t]||1.7; ctx.beginPath(); ctx.moveTo(lx0+pad,ry); ctx.lineTo(lx0+pad+sw,ry); ctx.stroke();
+        ctx.strokeStyle=MEAS_BLUE; ctx.lineWidth=EW[t]||1.7; ctx.beginPath(); ctx.moveTo(lx0+pad,ry); ctx.lineTo(lx0+pad+sw,ry); ctx.stroke();   // uniform brand-blue swatch (lines are all blue now)
         ctx.fillStyle="rgba(232,239,250,0.95)"; ctx.fillText(t[0].toUpperCase()+t.slice(1), lx0+pad+sw+lfs*0.5, ry+0.5); });
     }
   }catch(_){}
@@ -5809,6 +5813,10 @@ const RoofDots=(function(){
   // owner's-unit total (baseArea0 = roofUnitSqFt) so the breakdown sums to the same roof the
   // quote bills — then the edited plan-area ratio scales every facet, preserving the pitch mix.
   let facets0=[];          // [{planFt2, slopedFt2, pitchDeg, cosP}]  (cosP guards a flat facet's ÷0)
+  // facetRings0[]: the per-facet pixel-mappable rings (model-local metres), captured once per roof from
+  // facetsToRoofModel().planes — SAME order + count as facets0, so facetRings0[i] is the polygon for
+  // facets0[i] / measure().facets[i]. Used to draw a small "### SQFT" label centred inside each section.
+  let facetRings0=[];      // [[[xMetres,yMetres],...], ...]
   let autoPlanFt2=0;       // the auto outline's plan (footprint) area at capture — the scale denominator
   // pitch-class override: null = use the auto-detected per-facet pitch mix; otherwise force every
   // facet to this class's slope multiplier (sloped = plan × classMult) for the simple-tier estimate.
@@ -5910,14 +5918,40 @@ const RoofDots=(function(){
     // ring → local overlay px (relative to the canvas element top-left)
     const pts=ringM.map(([xm,ym])=>{ const s=modelToScreen(xm,ym); return s?[s[0]-r.left,s[1]-r.top]:null; });
     if(pts.some(p=>!p)) return;
+    // brand blue (matches the funnel Continue button — var(--blue) #0d3cfc). Reused for every
+    // measurement line + label so the editor reads on-brand. Keep lines THIN, dots/labels SMALL.
+    const BRAND_BLUE="#0d3cfc";
+    const m=measure();
     // 1) translucent fill + outline
     ctx.beginPath(); pts.forEach((p,i)=>{ i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.closePath();
-    ctx.fillStyle="rgba(56,128,255,0.16)"; ctx.fill();
+    ctx.fillStyle="rgba(13,60,252,0.10)"; ctx.fill();
     ctx.lineJoin="round"; ctx.lineCap="round";
-    ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=4; ctx.stroke();
-    ctx.strokeStyle="#3880ff"; ctx.lineWidth=2.4; ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=3; ctx.stroke();   // thin white casing lifts the blue off the aerial
+    ctx.strokeStyle=BRAND_BLUE; ctx.lineWidth=2; ctx.stroke();                 // thin brand-blue outer outline
+    // 1b) INTERNAL facet lines + per-section SQFT — each detected roof plane gets a thin blue outline and
+    //     a small subtle area number centred in it. The number is LIVE: measure().facets[i].slopedFt2 is
+    //     facets0[i] scaled by the current edit ratio, so dragging any corner re-scales every section's
+    //     SQFT and this redraws (afterEdit → draw). facetRings0[i] pairs 1:1 with m.facets[i].
+    if(facetRings0&&facetRings0.length&&m&&m.facets){
+      const ffs=10;   // small, subtle section-area font (NOT a big bold pill)
+      for(let i=0;i<facetRings0.length;i++){
+        const ringMfacet=facetRings0[i]; const fa=m.facets[i]; if(!ringMfacet||ringMfacet.length<3||!fa) continue;
+        const fp=ringMfacet.map(([xm,ym])=>{ const s=modelToScreen(xm,ym); return s?[s[0]-r.left,s[1]-r.top]:null; });
+        if(fp.some(p=>!p)) continue;
+        // thin internal facet outline (subtle — the outer outline + corners are the hero)
+        ctx.beginPath(); fp.forEach((p,k)=>{ k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.closePath();
+        ctx.strokeStyle="rgba(13,60,252,0.55)"; ctx.lineWidth=1; ctx.stroke();
+        // centroid → small "### SQFT" label inside the section. WHITE text with a subtle dark halo so it
+        // stays legible on a dark roof while remaining small + understated (not a big bold pill).
+        let cx=0,cy=0; for(const p of fp){ cx+=p[0]; cy+=p[1]; } cx/=fp.length; cy/=fp.length;
+        const txt=fa.slopedFt2.toLocaleString()+" SQFT";
+        ctx.font="600 "+ffs+"px system-ui,Segoe UI,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.lineWidth=2.6; ctx.strokeStyle="rgba(13,20,34,0.78)"; ctx.lineJoin="round"; ctx.strokeText(txt,cx,cy);
+        ctx.fillStyle="rgba(255,255,255,0.96)"; ctx.fillText(txt,cx,cy);
+      }
+    }
     // 2) edge-length labels (live)
-    const m=measure(); const efs=12.5;
+    const efs=12.5;
     ctx.font="700 "+efs+"px system-ui,Segoe UI,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
     for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; const lenFt=m&&m.edges[i]?m.edges[i].lenFt:0;
       if(lenFt<2) continue; const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2; let dx=b[0]-a[0], dy=b[1]-a[1]; const L=Math.hypot(dx,dy)||1; dx/=L; dy/=L;
@@ -5928,19 +5962,18 @@ const RoofDots=(function(){
       const off=14, lx=mx+nx*off, ly=my+ny*off; const txt=Math.round(lenFt)+"'";
       ctx.save(); ctx.translate(lx,ly); ctx.rotate(ang);
       ctx.lineWidth=3.2; ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.lineJoin="round"; ctx.strokeText(txt,0,0);
-      ctx.fillStyle="#0d2a66"; ctx.fillText(txt,0,0); ctx.restore();
+      ctx.fillStyle=BRAND_BLUE; ctx.fillText(txt,0,0); ctx.restore();
     }
     // 3) mid-edge "add" dots (lighter) — drag one to insert a new corner
     for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
-      ctx.beginPath(); ctx.arc(mx,my,5,0,7); ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
-      ctx.lineWidth=1.6; ctx.strokeStyle="#3880ff"; ctx.stroke();
-      ctx.beginPath(); ctx.arc(mx,my,1.6,0,7); ctx.fillStyle="#3880ff"; ctx.fill(); }
-    // 4) draggable CORNER dots (filled blue, white casing) — big enough for touch
+      ctx.beginPath(); ctx.arc(mx,my,4,0,7); ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
+      ctx.lineWidth=1.4; ctx.strokeStyle=BRAND_BLUE; ctx.stroke();
+      ctx.beginPath(); ctx.arc(mx,my,1.4,0,7); ctx.fillStyle=BRAND_BLUE; ctx.fill(); }
+    // 4) draggable CORNER dots — small WHITE circles with a thin blue ring (per spec). Subtle, not huge.
     for(let i=0;i<pts.length;i++){ const [px,py]=pts[i]; const grabbed=(dragKind==="corner"&&dragIdx===i);
-      const R=grabbed?11:9;
-      ctx.beginPath(); ctx.arc(px,py,R+2.5,0,7); ctx.fillStyle="rgba(255,255,255,0.95)"; ctx.fill();
-      ctx.beginPath(); ctx.arc(px,py,R,0,7); ctx.fillStyle=grabbed?"#1e63e0":"#3880ff"; ctx.fill();
-      ctx.lineWidth=2; ctx.strokeStyle="#ffffff"; ctx.stroke(); }
+      const R=grabbed?6.5:5;
+      ctx.beginPath(); ctx.arc(px,py,R,0,7); ctx.fillStyle="#ffffff"; ctx.fill();
+      ctx.lineWidth=1.6; ctx.strokeStyle=BRAND_BLUE; ctx.stroke(); }
   }
 
   // ---- recompute numbers + repaint after any edit --------------------------
@@ -6063,7 +6096,7 @@ const RoofDots=(function(){
     // ── per-facet model: take each model plane's sloped area + pitch, RECONCILE the sum to baseArea0 ──
     // (facetsToRoofModel's raw plane areas can under-/over-capture; the diagram already scales them by
     //  baseArea0 ÷ Σplanes — we do the same so the editor's facet breakdown matches the diagram + card).
-    facets0=[];
+    facets0=[]; facetRings0=[];
     try{
       const planes=(model.planes||[]).filter(p=>isFinite(p.areaSqFt)&&p.areaSqFt>0);
       const planeSum=planes.reduce((s,p)=>s+p.areaSqFt,0);
@@ -6074,8 +6107,10 @@ const RoofDots=(function(){
         const slopedFt2=p.areaSqFt*k;                                 // reconciled sloped area
         const planFt2=slopedFt2*cosP;                                 // back out this facet's plan-area share
         facets0.push({ planFt2, slopedFt2, pitchDeg, cosP });
+        // capture this plane's outline (model-local metres) so draw() can place the SQFT label inside it.
+        facetRings0.push(Array.isArray(p.ring)?p.ring.map(v=>[v[0],v[1]]):null);
       }
-    }catch(e){ try{ errors.push("dots-facets:"+(e&&e.message||e)); }catch(_){} facets0=[]; }
+    }catch(e){ try{ errors.push("dots-facets:"+(e&&e.message||e)); }catch(_){} facets0=[]; facetRings0=[]; }
     // if reconstruction yielded facets, normalise their planFt2 so they sum to the edited-ring plan area
     // at ratio 1 (keeps the ÷cos identity exact against autoPlanFt2 even after the cosP floor clamp).
     const planSum0=facets0.reduce((s,f)=>s+f.planFt2,0);
