@@ -90,6 +90,35 @@
   #selectRoof .sr-continue{flex:1 1 auto;max-width:360px;background:var(--blue);border:0;border-radius:12px;height:52px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;box-shadow:var(--btn-shadow);display:inline-flex;align-items:center;justify-content:center;gap:9px}
   #selectRoof .sr-continue svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-continue:disabled{opacity:.6;cursor:default}
+  /* ── PER-HOUSE banner inside the Edit-outline HUD (only shown while iterating selected buildings) ── */
+  #dotHouse{display:none;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 9px;padding:7px 10px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:10px}
+  #dotHouse .dhb-of{font-size:12.5px;font-weight:800;color:var(--blue);white-space:nowrap}
+  #dotHouse .dhb-prev{background:#fff;border:1px solid var(--line);border-radius:8px;height:28px;padding:0 9px;font-size:11.5px;font-weight:700;color:var(--ink);font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  #dotHouse .dhb-prev svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  #dotHouse .dhb-prev:disabled{opacity:.4;cursor:default}
+  /* ── BRANCH choice: Solar panels vs Roofing remodel ── */
+  #branchChoice{position:absolute;inset:0;z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);padding:48px clamp(16px,5vw,40px) 32px}
+  #branchChoice .bc-head{text-align:center;max-width:560px;margin-bottom:clamp(20px,4vh,34px)}
+  #branchChoice .bc-eyebrow{display:inline-block;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--blue)}
+  #branchChoice .bc-title{margin:8px 0 6px;font-size:clamp(24px,3.6vw,34px);line-height:1.1;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
+  #branchChoice .bc-sub{margin:0;font-size:15px;font-weight:600;color:var(--muted)}
+  #branchChoice .bc-cards{display:flex;gap:18px;width:100%;max-width:720px;justify-content:center}
+  #branchChoice .bc-card{flex:1 1 0;max-width:330px;background:var(--panel);border:1.5px solid var(--line);border-radius:18px;padding:26px 22px;cursor:pointer;text-align:left;box-shadow:var(--card-shadow);transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;font-family:inherit}
+  #branchChoice .bc-card:hover{border-color:var(--blue);transform:translateY(-3px);box-shadow:0 18px 50px rgba(13,60,252,.16)}
+  #branchChoice .bc-card .bc-ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accent-tint);margin-bottom:16px}
+  #branchChoice .bc-card .bc-ic svg{width:28px;height:28px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #branchChoice .bc-card h3{margin:0 0 6px;font-size:19px;font-weight:900;letter-spacing:-.01em;color:var(--ink)}
+  #branchChoice .bc-card p{margin:0;font-size:13.5px;font-weight:600;line-height:1.4;color:var(--muted)}
+  #branchChoice .bc-card .bc-go{margin-top:16px;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--blue)}
+  #branchChoice .bc-card .bc-go svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  #branchChoice .bc-back{margin-top:clamp(20px,4vh,30px);background:#fff;border:1px solid var(--line);border-radius:12px;height:46px;padding:0 20px;font-weight:700;color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
+  #branchChoice .bc-back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  @media (max-width:560px){
+    #branchChoice{padding:36px 16px 24px}
+    #branchChoice .bc-cards{flex-direction:column;align-items:stretch}
+    #branchChoice .bc-card{max-width:none}
+    #branchChoice .bc-card{padding:20px}
+  }
   @media (max-width:560px){
     #funnelBar .fb-inner{padding:9px 12px;gap:3px}
     #funnelBar .fb-lab{display:none}                 /* mobile: numbered dots + connectors only — labels would wrap/clip at 375px */
@@ -682,6 +711,29 @@
       <button class="sr-back" id="srBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
       <button class="sr-continue" id="srContinue" type="button">Continue<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>
+  </div>
+  <!-- BRANCH choice — after every selected house is edited: Solar panels vs Roofing remodel. -->
+  <div id="branchChoice">
+    <div class="bc-head">
+      <span class="bc-eyebrow">Your roof is measured</span>
+      <h2 class="bc-title">What would you like to do next?</h2>
+      <p class="bc-sub" id="bcSub">Continue to a solar-panel design or a full roofing remodel — your measurements carry over either way.</p>
+    </div>
+    <div class="bc-cards">
+      <button class="bc-card" id="bcSolar" type="button">
+        <span class="bc-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg></span>
+        <h3>Solar panels</h3>
+        <p>Design a panel array on this roof and see your energy savings and instant price.</p>
+        <span class="bc-go">Continue with Solar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
+      <button class="bc-card" id="bcRoof" type="button">
+        <span class="bc-ic"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg></span>
+        <h3>Roofing remodel</h3>
+        <p>Pick materials and colours and get a full roof-replacement quote for this home.</p>
+        <span class="bc-go">Continue with Roofing remodel<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
+    </div>
+    <button class="bc-back" id="bcBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to editing</button>
   </div>
   <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads (renderQuoteCard). Title-left, visual-right per Alex's hero rules. -->
   <div id="hero">
@@ -6238,6 +6290,8 @@ const RoofDots=(function(){
     // HUD: prompt + live stats + undo/redo + done
     hud=document.createElement("div"); hud.id="dotHud";
     hud.innerHTML=
+      // per-house banner — only shown (display:flex via openHouseEditor) while the multi-house loop iterates
+      '<div id="dotHouse"><button class="dhb-prev" id="dotHousePrev" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button><span class="dhb-of" id="dotHouseOf">House 1 of 1</span></div>'+
       '<div class="dh-prompt">Drag the dots to match your roof, or continue.</div>'+
       '<div class="dh-stats">'+
         '<div class="dh-stat"><div class="dh-v" id="dotArea">0</div><div class="dh-l">sq ft</div></div>'+
@@ -6274,7 +6328,11 @@ const RoofDots=(function(){
       else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); }
       pitchClass=null; afterEdit(); };
     $("dotDone").onclick=()=>{ confirmed=true; hide(); try{ renderRoofDiagram(); }catch(_){}
-      try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} };
+      try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
+      // PER-HOUSE loop: "Done" persists this house and advances to the next, or to the branch choice.
+      try{ if(window.__houseLoopActive && typeof window.__houseAdvance==="function"){ window.__houseAdvance(); } }catch(_){} };
+    // per-house "Back" (previous building / back to selection) — only visible while the loop is active
+    $("dotHousePrev").onclick=()=>{ try{ if(typeof window.__housePrev==="function") window.__housePrev(); }catch(_){} };
   }
   let confirmed=false;
 
@@ -8094,13 +8152,169 @@ window.__enterSelectRoof=enterSelectRoof;
 // picked rather than the raw geocode.
 $("srContinue").onclick=()=>{
   const addr=($("addr").value||$("srAddr").textContent||"").trim(); if(!addr) return;
-  // Stash the primary for run() to consume — only override the geocode when it's a non-detected building.
+  startHouseLoop(addr);
+};
+
+// ── PER-HOUSE EDIT LOOP + BRANCH CHOICE ──────────────────────────────────────
+// Orchestration layer over run() + the Edit-outline editor + a per-house results store.
+// On Continue we iterate window.__selectedBuildings: for each selected building we re-anchor
+// run() to THAT building's centroid (the same mechanism __srPrimaryRun already uses), auto-open
+// the draggable-outline editor, and show the "House X of N" nav. The user perfects each roof and
+// clicks "Next house →" (or "Done editing" on the last); each edited result is persisted to
+// window.__houseResults[id]. After the last house we show the Solar-vs-Roofing branch choice,
+// which routes into the existing Solar grid or Roofing tab. Single house = a one-iteration loop
+// that behaves exactly like before, plus the branch choice at the end.
+window.__houseQueue=window.__houseQueue||[];
+window.__houseIdx=0;
+window.__houseResults=window.__houseResults||{};
+
+function __buildHouseQueue(){
+  // Prefer the multi-select set; fall back to the single primary so single-house never regresses.
+  const sel=Array.isArray(window.__selectedBuildings)?window.__selectedBuildings.slice():[];
+  if(sel.length) return sel;
   const p=window.__srPrimary;
-  window.__srPrimaryRun = (p && p.source!=="detected" && p.centroid && !__isDetectedPrimary()) ? { centroid:p.centroid } : null;
+  return [{ id:"primary", ring:p&&p.ring, centroid:p&&p.centroid, source:(p&&p.source)||"detected", detected:!(p&&p.source&&p.source!=="detected") }];
+}
+
+function startHouseLoop(addr){
+  window.__houseQueue=__buildHouseQueue();
+  window.__houseIdx=0;
+  window.__houseResults={};
+  window.__branchAddr=addr;
+  window.__houseLoopActive=true;
   $("selectRoof").style.display="none";
+  $("branchChoice").style.display="none";
   $("bar").style.display="flex";
-  setFunnelStep("options");                     // model/lenses/edit = Roof+Options content; Estimate flips on quote render
-  run(addr);
+  setFunnelStep("options");
+  runHouse(0);
+}
+
+// Re-anchor run() to the i-th selected building and analyse it. Detected home keeps the precise
+// geocode (no override); any other building anchors to its centroid via __srPrimaryRun. When the
+// model is ready, openHouseEditor() mounts the Edit-outline view + the per-house nav.
+function runHouse(i){
+  const q=window.__houseQueue||[]; if(i<0||i>=q.length){ showBranchChoice(); return; }
+  window.__houseIdx=i;
+  const b=q[i];
+  const useCentroid = b && b.centroid && Array.isArray(b.centroid) && (b.detected===false || (b.source && b.source!=="detected"));
+  window.__srPrimaryRun = useCentroid ? { centroid:b.centroid } : null;
+  setFunnelStep("options");
+  // run() resolves when __roofReady flips; poll briefly then open the editor for this house.
+  window.__roofReady=false;
+  run(window.__branchAddr).finally(()=>{ __whenRoofReady(()=>openHouseEditor(i)); });
+}
+
+// Poll for the async run() to finish wiring the model (run() sets window.__roofReady=true at the end).
+function __whenRoofReady(cb,tries){
+  tries=(tries==null)?60:tries;
+  if(window.__roofReady){ cb(); return; }
+  if(tries<=0){ cb(); return; }   // degrade gracefully — still let the user proceed/branch
+  setTimeout(()=>__whenRoofReady(cb,tries-1),250);
+}
+
+// Mount the Edit-outline editor for house i and show the per-house nav.
+async function openHouseEditor(i){
+  const q=window.__houseQueue||[]; const n=q.length;
+  // Switch the quote into the Measure context + launch the draggable-dot editor (reuses the existing path).
+  try{ if(tradeMode!=="solar"){ tradeMode="solar"; } }catch(_){}
+  // Enter the Measure lens (bLabels is a toggle — only click it when not already active). It's async
+  // (awaits buildRoofMeasure), so await it before mounting the dots so #matCanvas/__diagXform exist.
+  try{ if(typeof labelsVisible==="undefined" || !labelsVisible){ await $("bLabels").onclick(); } }catch(_){}
+  // mount the 2D diagram then the dots (mirrors the #measToggle "edit" handler)
+  try{ const mc=$("matCanvas"); if(!mc || mc.style.display==="none"){ showMeasDiagram(true); } }catch(_){}
+  // RoofDots.show() returns false until the facet model + 2D diagram have settled (initFromModel needs a
+  // footprint). On a freshly (re)analysed house the model can still be settling one frame after __roofReady,
+  // so retry a few frames until it mounts — then paint the per-house banner. Single-shot raced on house 1.
+  const paintBanner=()=>{
+    const last=(i>=n-1);
+    const hb=$("dotHouse"); if(hb) hb.style.display = (n>=1 && window.__houseLoopActive) ? "flex" : "none";
+    const ofEl=$("dotHouseOf"); if(ofEl) ofEl.textContent="House "+(i+1)+" of "+n;
+    const pv=$("dotHousePrev"); if(pv) pv.disabled=false;   // house 0 → Back returns to building selection
+    const done=$("dotDone");
+    if(done) done.textContent = last ? "Done editing" : "Next house →";
+    const pr=hb&&hb.parentNode?hb.parentNode.querySelector(".dh-prompt"):null;
+    if(pr) pr.textContent = last ? "Drag the dots to perfect this roof, then continue." : "Drag the dots to perfect this roof, then go to the next.";
+  };
+  (function tryShow(tries){
+    let ok=false; try{ ok=RoofDots.show(); }catch(_){}
+    if(ok){ paintBanner(); return; }
+    if(tries<=0){ paintBanner(); return; }   // give up mounting dots but still show the banner so the loop can advance
+    requestAnimationFrame(()=>tryShow(tries-1));
+  })(40);
+}
+
+// Persist the just-edited roof for the current house, keyed by building id.
+function __persistCurrentHouse(){
+  const q=window.__houseQueue||[]; const b=q[window.__houseIdx]; if(!b) return;
+  const m=(window.__editTotals)|| (window.__roofTotals)||null;
+  window.__houseResults[b.id]={
+    id:b.id,
+    areaSqFt:(m&&(m.areaSqFt||m.roofAreaSqFt))||null,
+    squares:(m&&m.squares)||null,
+    facets:(m&&(m.facets||m.facetCount))||null,
+    perimFt:(m&&m.perimFt)||null,
+    quote:(window.__roofTotals)||null,
+    centroid:b.centroid,
+    detected:!!b.detected
+  };
+}
+
+// "Next house →" / "Done editing" — invoked by the editor's #dotDone when the loop is active. dotDone has
+// already confirmed + hidden the outline; here we persist this house and advance or branch.
+window.__houseAdvance=()=>{
+  __persistCurrentHouse();
+  const i=window.__houseIdx, n=(window.__houseQueue||[]).length;
+  if(i>=n-1){ showBranchChoice(); }
+  else { runHouse(i+1); }
+};
+// Back: previous house (re-analyse + edit it), or back to the building selection from house 0.
+window.__housePrev=()=>{
+  const i=window.__houseIdx;
+  try{ RoofDots.hide(); }catch(_){}
+  if(i>0){ runHouse(i-1); }
+  else {
+    window.__houseLoopActive=false;
+    $("bar").style.display="none"; hideFunnel();
+    $("selectRoof").style.display="flex";
+  }
+};
+
+// ── BRANCH CHOICE screen ──
+function showBranchChoice(){
+  try{ RoofDots.hide(); }catch(_){}
+  const n=(window.__houseQueue||[]).length;
+  $("bcSub").textContent = (n>1)
+    ? ("All "+n+" roofs are measured. Continue to a solar-panel design or a full roofing remodel — your measurements carry over.")
+    : "Continue to a solar-panel design or a full roofing remodel — your measurements carry over either way.";
+  $("branchChoice").style.display="flex";
+  setFunnelStep("options");                    // path-choice point; the quote render flips to "estimate"
+}
+// Solar → existing Solar view + interactive solar grid (primary/first house).
+$("bcSolar").onclick=()=>{
+  $("branchChoice").style.display="none";
+  window.__houseLoopActive=false;
+  $("bar").style.display="flex";
+  try{ tradeMode="solar"; window.__trade="solar"; }catch(_){}
+  try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
+  try{ if(typeof applyTradeMode==="function") applyTradeMode(); }catch(_){}
+  // surface the engineered solar grid: the Panels lens is the default Solar surface.
+  try{ if(typeof enterModelDefault==="function") enterModelDefault(); }catch(_){}
+  try{ if(typeof openSolarGrid==="function") openSolarGrid(); }catch(_){}
+  setFunnelStep("estimate");
+};
+// Roofing remodel → existing Roofing tab/lens.
+$("bcRoof").onclick=()=>{
+  $("branchChoice").style.display="none";
+  window.__houseLoopActive=false;
+  $("bar").style.display="flex";
+  try{ if(typeof window.__openMaterials==="function") window.__openMaterials(); else { tradeMode="roof"; if(typeof renderQuoteCard==="function") renderQuoteCard(); if(typeof applyTradeMode==="function") applyTradeMode(); } }catch(_){}
+  setFunnelStep("estimate");
+};
+// Back to editing the last house.
+$("bcBack").onclick=()=>{
+  $("branchChoice").style.display="none";
+  const i=Math.max(0,(window.__houseQueue||[]).length-1);
+  runHouse(i);
 };
 // True when the primary selected building IS the detected home (then keep the precise geocode, no override).
 function __isDetectedPrimary(){
