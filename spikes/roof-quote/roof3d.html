@@ -445,11 +445,23 @@
   /* (fix2 P1 #5) cap the mobile bottom sheet at 38vh (was 42vh) so the 3D model keeps the upper ~60% of
      the 390px viewport instead of being squeezed into the top third with the lower roof hidden. The sheet
      scrolls internally for any overflow, and the fold pill (#cardFold) still collapses it fully. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
+  /* (polish: mobile-first-load) the EXPANDED sheet caps at 38vh; the DEFAULT (peek) state shows just the
+     headline price + a drag handle (~31vh) so the 3D model — the hero — owns the upper ~2/3 of the phone
+     on first load. Drag the handle UP (or tap it) to expand to the full quote; drag DOWN past peek to fold. */
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;padding-top:20px} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
+    /* peeking default: shorter sheet, headline price visible, body clipped — the model stays the hero */
+    #card.peek{max-height:31vh}
+    /* the grab handle — a centred pill at the top of the sheet; mobile only, drag/tap target */
+    #card .sheet-grab{display:flex}
     /* mobile bottom-sheet fold: collapse the whole sheet, surface a centred handle pill above the toolbar */
     #card.folded{width:auto;left:2px;right:2px;max-height:0;padding:0;border-width:0}
     #cardFold{left:50%;right:auto;bottom:64px;transform:translateX(-50%)}
     #card .card-fold-btn{top:7px;right:8px} }
+  /* grab handle is mobile-only; hidden on desktop (the left panel doesn't peek) */
+  #card .sheet-grab{display:none;position:absolute;top:0;left:0;right:0;height:20px;align-items:center;justify-content:center;cursor:grab;touch-action:none;z-index:3}
+  #card .sheet-grab::before{content:"";width:36px;height:4px;border-radius:99px;background:#cbd5e1}
+  #card.peek .sheet-grab::before{background:#94a3b8}
+  #card .sheet-grab:active{cursor:grabbing}
   /* mobile: material swatches + category pills scroll horizontally in one row instead of wrapping */
   @media (max-width:560px){
     #matCols{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;max-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -674,6 +686,33 @@ function makeLabel(text, opts){
   spr.scale.set(cw/chh*worldH, worldH, 1);
   spr.userData.lblW=cw/chh*worldH; spr.userData.lblH=worldH;   // expose footprint for collision avoidance
   return spr;
+}
+
+// ── Shared facet-label budget (polish: measure-clutter on complex multi-facet roofs) ──────────
+// One source of truth for "which facets earn an area chip", used by every label path (the 3D
+// model schematic chips, the 3D Measure lens, and the 2D top-down diagram). On a dense 9-facet
+// roof the old per-path caps (none / 6 / 4) still piled 6+ pills in the roof centre. The rule:
+//   • MIN_AREA  — never label a facet below this absolute area (tiny dormers/slivers read as noise).
+//   • MIN_FRAC  — and never label a facet smaller than this fraction of the LARGEST facet
+//                 (a small plane next to a big one is context, not a headline).
+//   • MAX_CHIPS — hard ceiling on visible area chips, whatever the facet count.
+// The largest facet is ALWAYS eligible (a single-plane roof keeps its one pill). Edge-length
+// dimension tags are governed separately (they trace the shell and sit along edges, not center).
+const LBL_MIN_AREA=120;     // ft² — absolute floor: below this a chip is clutter, not information
+const LBL_MIN_FRAC=0.28;    // ≥28% of the largest facet to earn a chip (was 0.18 → too permissive)
+const LBL_MAX_CHIPS=5;      // at most this many area chips on screen, largest-first
+// Decide the labelled subset from facets sorted largest-first. `areaOf(f)` reads each facet's ft².
+function pickLabelFacets(sortedDesc, areaOf){
+  const maxA=sortedDesc.length?(areaOf(sortedDesc[0])||0):0;
+  const out=[];
+  for(let i=0;i<sortedDesc.length;i++){ if(out.length>=LBL_MAX_CHIPS) break;
+    const a=areaOf(sortedDesc[i])||0;
+    if(i===0){ out.push(sortedDesc[i]); continue; }   // dominant facet always labelled
+    if(a<LBL_MIN_AREA) continue;                       // absolute floor
+    if(a<maxA*LBL_MIN_FRAC) continue;                  // relative floor vs the hero facet
+    out.push(sortedDesc[i]);
+  }
+  return out;
 }
 
 /* ---------- WGS84 -> UTM (forward, for a given zone) ---------- */
@@ -1836,10 +1875,19 @@ function fetchFeatures(){
    it survives card.innerHTML re-renders; reframes the top-down diagram so the
    roof recenters into the now-fuller view. */
 let cardFolded=false;
+// (polish: mobile-first-load) MOBILE bottom-sheet has THREE states: peek (default — headline price +
+// handle, model is the hero) → expanded (full quote, 38vh, internal scroll) → folded (handle pill only).
+// `cardPeek` only has meaning on the mobile bottom sheet; desktop ignores it (the left panel never peeks).
+const isMobileSheet=()=> (typeof window!=="undefined") && ((window.innerWidth||1024)<=560);
+let cardPeek=false;   // becomes true the first time the sheet is shown on mobile (see renderQuoteCard)
 function applyCardFold(){
   const card=$("card"); if(!card) return;
   card.classList.toggle("folded", cardFolded);
   document.body.classList.toggle("card-folded", cardFolded);
+  // peek only applies on the un-folded mobile sheet; desktop / folded never peek
+  const peeking = cardPeek && !cardFolded && isMobileSheet();
+  card.classList.toggle("peek", peeking);
+  document.body.classList.toggle("card-peek", peeking);
   const fb=card.querySelector(".card-fold-btn"); if(fb) fb.style.display=cardFolded?"none":"flex";
 }
 function setCardFold(folded){
@@ -1848,9 +1896,41 @@ function setCardFold(folded){
   // reframe the top-down measure diagram for the new available area (card width changed)
   try{ if(labelsVisible && $("matCanvas") && $("matCanvas").style.display!=="none") renderRoofDiagram(); }catch(_){}
 }
-(function wireCardFold(){ const p=$("cardFold"); if(p) p.onclick=()=>setCardFold(false); })();
+function setCardPeek(peek){
+  peek=!!peek;
+  if(cardPeek===peek && !cardFolded) return;
+  cardPeek=peek; if(cardFolded) cardFolded=false;   // expanding/peeking always un-folds
+  applyCardFold();
+  const c=$("card"); if(c) c.scrollTop=0;   // expanded → start at the top (headline first)
+  try{ if(labelsVisible && $("matCanvas") && $("matCanvas").style.display!=="none") renderRoofDiagram(); }catch(_){}
+}
+(function wireCardFold(){ const p=$("cardFold"); if(p) p.onclick=()=>{ cardPeek=false; setCardFold(false); }; })();
+// ── Mobile sheet grab handle: drag UP to expand the quote, DOWN to peek, further DOWN to fold.
+//    A simple tap toggles peek↔expanded. Bound (idempotently) after every card re-render.
+function wireSheetGrab(card){
+  const h=card.querySelector(".sheet-grab"); if(!h || h.__wired) return; h.__wired=true;
+  let startY=0, lastY=0, dragging=false, moved=false;
+  const onDown=e=>{ if(!isMobileSheet()) return; dragging=true; moved=false;
+    startY=lastY=(e.touches?e.touches[0].clientY:e.clientY);
+    try{ h.setPointerCapture && e.pointerId!=null && h.setPointerCapture(e.pointerId); }catch(_){}
+  };
+  const onMove=e=>{ if(!dragging) return; lastY=(e.touches?e.touches[0].clientY:e.clientY);
+    if(Math.abs(lastY-startY)>6) moved=true; if(e.cancelable) e.preventDefault(); };
+  const onUp=()=>{ if(!dragging) return; dragging=false;
+    const dy=lastY-startY;   // +down / -up
+    if(!moved){ setCardPeek(!cardPeek); return; }            // tap → toggle peek/expand
+    if(dy<-26){ setCardPeek(false); }                        // dragged UP → expand
+    else if(dy>26){ if(cardPeek) setCardFold(true); else setCardPeek(true); }  // DOWN → peek, then fold
+  };
+  h.addEventListener("pointerdown",onDown); window.addEventListener("pointermove",onMove,{passive:false});
+  window.addEventListener("pointerup",onUp); window.addEventListener("pointercancel",onUp);
+  h.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setCardPeek(!cardPeek); } });
+}
 function renderQuoteCard(){
   if(!QUOTE) return; setRegion(); refreshLiveRate(); refreshSunHours(); const card=$("card"); card.style.display="block";
+  // (polish: mobile-first-load) the FIRST time the quote sheet appears on a phone, default it to PEEK so
+  // the 3D model owns the upper viewport; the buyer drags the handle up for the full quote. One-shot.
+  if(!window.__sheetPeekInit){ window.__sheetPeekInit=true; if(isMobileSheet()){ cardPeek=true; } }
   const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
     '<button class="qtab'+(tradeMode==="roof"?" on":"")+'" data-t="roof">Roofing</button></div>';
   let body="";
@@ -2122,8 +2202,9 @@ function renderQuoteCard(){
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
   const trust=(lowConf||bodyCommercial||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
-  card.innerHTML='<button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
+  card.innerHTML='<div class="sheet-grab" aria-label="Drag to expand or collapse the quote" role="button" tabindex="0"></div><button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
   const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
+  wireSheetGrab(card);   // (mobile) re-bind the peek/expand drag handle after the innerHTML re-render
   applyCardFold();   // re-assert fold state after the re-render
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; renderQuoteCard();
@@ -2362,16 +2443,19 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
       const nx=cx+dx*step*ring, nz=cz+dz*step*ring; if(!clash(nx,nz)){ schemPlaced.push({x:nx,z:nz,hw,hh}); return [nx,nz]; } }
     return null;   // nowhere clear within reach → drop this chip (de-clutter)
   };
+  // largest-facet-first so contested label slots go to the dominant planes
+  const usableSorted=usable.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
+  // (polish: measure-clutter) only the headline facets earn a chip — shared budget so a dense
+  // multi-facet roof shows the dominant handful, not a pill on every plane. Membership-gated below.
+  const schemLabelSet=new Set(pickLabelFacets(usableSorted, f=>f.areaSqFt));
   // emit a clean two-tier (area headline + pitch sub-line) chip with collision avoidance; sorted
   // largest-first by the caller so the biggest facets win the contested slots.
-  const schemChip=(sqft,x12,cx,cy,cz,yOff)=>{
-    if(!(sqft>40)) return;   // only label facets big enough to read clearly (was >25 → tiny slivers cluttered)
+  const schemChip=(p,sqft,x12,cx,cy,cz,yOff)=>{
+    if(!schemLabelSet.has(p)) return;   // not in the headline budget → no chip (de-clutter dense roofs)
     const lb=makeLabel(sqft+" ft²",{sub:x12+"/12"});
     const slot=schemPlace(cx,cz,lb); if(!slot){ return; }
     lb.position.set(slot[0], cy+yOff, slot[1]); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb);
   };
-  // largest-facet-first so contested label slots go to the dominant planes
-  const usableSorted=usable.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
   for(const p of usableSorted){
     // convert ring3 (model-local) into buildScene-local 3D vertices
     const V3=p.ring3.map(v=>{ const s=M2S(v[0],v[1],v[2]); return new THREE.Vector3(s.x,s.y,s.z); });
@@ -2407,7 +2491,7 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
     // per-facet ft²/pitch chip — collision-avoided, area-headline + pitch sub-line (defect-1)
     let cx=0,cy=0,cz=0; for(const v of V3){cx+=v.x;cy+=v.y;cz+=v.z;} cx/=V3.length;cy/=V3.length;cz/=V3.length;
-    schemChip(Math.round(p.areaSqFt||0), facetX12(p.pitchX12,{fromX12:true}), cx, cy, cz, 1.6);
+    schemChip(p, Math.round(p.areaSqFt||0), facetX12(p.pitchX12,{fromX12:true}), cx, cy, cz, 1.6);
   }
   if(!skin.roofMeshes.length){ clearWorld(); return false; }   // nothing valid built → fall back
 
@@ -2468,18 +2552,18 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     // (half-extents from makeLabel) instead of one fat isotropic radius — labels pack tighter without
     // overlapping. One shared list across area chips + edge tags so the two kinds never collide either.
     const placedXZ=[];   // [{x,z,hw,hh}]
-    const GAPM=0.6;      // breathing gap between any two labels (metres)
+    const GAPM=0.9;      // breathing gap between any two labels (metres) — wider so dense roofs don't kiss
     const clashAt=(x,z,hw,hh)=> placedXZ.some(b=> Math.abs(b.x-x)<(b.hw+hw+GAPM) && Math.abs(b.z-z)<(b.hh+hh+GAPM));
     const claim=(x,z,hw,hh)=>{ placedXZ.push({x,z,hw,hh}); };
-    // AREA CHIPS FIRST (they're the headline numbers) — top few facets only.
+    // AREA CHIPS FIRST (they're the headline numbers) — only the headline facets (shared budget).
     const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
     const mTarget=(typeof roofUnitSqFt==="function")?roofUnitSqFt():((QUOTE&&QUOTE.roofSqft)||0);   // split-aware owner's-unit area
     const mScale=(mTarget>0&&mPlaneSum>0)?(mTarget/mPlaneSum):1;
     const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
-    const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
-    let nChips=0; const CHIP_MAX=6;   // show at most the largest facets' area+pitch chips
-    for(const p of mSorted){ if(nChips>=CHIP_MAX) break;
-      if(p!==mSorted[0] && (p.areaSqFt||0)<mMax*0.18) continue;
+    const mLabelSet=new Set(pickLabelFacets(mSorted, p=>p.areaSqFt));
+    let nChips=0;
+    for(const p of mSorted){
+      if(!mLabelSet.has(p)) continue;   // not a headline facet → no chip (de-clutter dense roofs)
       if(!Array.isArray(p.ring3)||p.ring3.length<3) continue;
       let cx=0,cy=0,cz=0; for(const v of p.ring3){ const s=M2S(v[0],v[1],v[2]); cx+=s.x; cy+=s.y; cz+=s.z; } cx/=p.ring3.length; cy/=p.ring3.length; cz/=p.ring3.length;
       const lb=makeLabel(Math.round((p.areaSqFt||0)*mScale)+" ft²",{sub:facetX12(p.pitchX12,{fromX12:true})+"/12"});
@@ -2666,11 +2750,12 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // bias the framing UPWARD so the whole roof sits in the visible band above the sheet. `tgtBias` raises
   // the orbit target ~1 footR; combined with the pull-back the model centres in the un-occluded area.
   const isMobileVp=(typeof window!=="undefined") && ((window.innerWidth||1024)<=560);
-  // mobile: a small pull-back gives the full roof breathing room above the sheet without shrinking it to a
-  // dot; a gentle target lift biases the framing up so the lower roof clears the 38vh sheet. Tuned on the
-  // 390px viewport so the model fills the upper band — not jammed tiny against the top (over-correction).
-  const distMul=isMobileVp?3.15:3.0;
-  const tgtBias=isMobileVp?footR*0.35:0;
+  // mobile: the sheet now DEFAULTS to a short ~31vh peek (model owns the upper ~69vh), so we no longer
+  // need the aggressive 38vh-era pull-back + high lift that shrank the model to clear a tall sheet. A
+  // tighter distMul makes the model fill the now-larger visible band, and a gentler lift keeps the whole
+  // roof comfortably above the peek sheet without floating it high/small. (polish: mobile first-load hero.)
+  const distMul=isMobileVp?2.95:3.0;
+  const tgtBias=isMobileVp?footR*0.20:0;
   const tgtY=Math.max(2,bMidY*0.7)+tgtBias;
   controls.target.set(bcx, tgtY, bcz);
   // 3/4 oblique: ~35° elevation, ~35° off-axis in plan; dist scaled to the building + ~1.7× padding.
@@ -2766,8 +2851,12 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
   // (defect-1) collision-avoided schematic chips in this fallback path too. Sprites are screen-facing,
   // so dedupe in scene-local XZ using each chip's real footprint + a small gap; nudge outward, else drop.
   const legSchemPlaced=[];
-  const legSchemChip=(sqft,x12,cx,cy,cz)=>{
-    if(!(sqft>40)) return;
+  // (polish: measure-clutter) headline-facet budget for this fallback path too. Rank segments by
+  // area and only label the dominant handful (shared MIN_AREA/MIN_FRAC/MAX_CHIPS rule).
+  const legSegArea=si=>Math.round(((segs[si]&&segs[si].stats&&segs[si].stats.areaMeters2)||0)*M2_SQFT);
+  const legChipSet=new Set(pickLabelFacets(segs.map((_,si)=>si).sort((a,b)=>legSegArea(b)-legSegArea(a)), legSegArea));
+  const legSchemChip=(si,sqft,x12,cx,cy,cz)=>{
+    if(!legChipSet.has(si)) return;
     const lb=makeLabel(sqft+" ft²",{sub:x12+"/12"});
     const hw=(lb.userData.lblW||5)/2+0.5, hh=(lb.userData.lblH||2.6)/2+0.5;
     const clash=(x,z)=> legSchemPlaced.some(b=> Math.abs(b.x-x)<(b.hw+hw) && Math.abs(b.z-z)<(b.hh+hh));
@@ -2812,7 +2901,7 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
     // per-facet sq-ft + pitch label — collision-avoided, two-tier (defect-1)
     const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
     const x12=facetX12(seg.pitchDegrees);
-    legSchemChip(fsqft, x12, c.x, y0+2.4, c.z);
+    legSchemChip(si, fsqft, x12, c.x, y0+2.4, c.z);
   }
 
   // ── Model-lens quality gate ──────────────────────────────────────────────
@@ -4792,14 +4881,14 @@ function renderRoofDiagram(){
   //    similar facets still shows just the dominant handful, and a sliver next to a big plane is
   //    dropped). A single-facet roof always gets its one pill.
   const sortedFp=fp.slice().sort((a,b)=>(b.p.areaSqFt||0)-(a.p.areaSqFt||0));
-  const TOP_N=4, MIN_FRAC=0.18;
-  const maxArea=(sortedFp[0]&&sortedFp[0].p.areaSqFt)||0;
-  const labelFp=sortedFp.filter((f,idx)=> idx<TOP_N && (idx===0 || (f.p.areaSqFt||0)>=maxArea*MIN_FRAC));
+  // shared headline-facet budget (absolute floor + relative-to-largest + hard cap) so a 9-facet
+  // roof shows only the dominant handful, never a pill per plane. (polish: measure-clutter.)
+  const labelFp=pickLabelFacets(sortedFp, f=>f.p.areaSqFt);
   // Collision avoidance: a pill is centred on its facet, but adjacent facets (LA / Asheville)
   // pushed pills nearly touching. GAP = required clear space between any two pills. When the
   // centroid spot collides, nudge the pill outward along a small ring of candidate offsets and
   // keep the first clear one; only if nothing within reach is clear do we drop the pill. (audit-4 P2.)
-  const GAP=4;
+  const GAP=Math.max(6,fs*0.6);   // scale the clear-gap with the pill size so dense roofs don't crowd
   const hits=(box)=> lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2)) < (b.w+box.w)/2+GAP && Math.abs(b.y+b.h/2-(box.y+box.h/2)) < (b.h+box.h)/2+GAP);
   for(const f of labelFp){
     const a=Math.round((f.p.areaSqFt||0)*dScale)+" ft²", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
