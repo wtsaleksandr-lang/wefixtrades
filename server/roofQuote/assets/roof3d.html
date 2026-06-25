@@ -4109,13 +4109,16 @@ function extractFacetPolysAnalytic(margin){
       const ref0=(()=>{ try{ return googleRoofReference(zone); }catch(_){ return null; } })();
       const blob=(ref0 && ref0.blob && ref0.blob.vals)?ref0.blob:null;
       const snapGrid=blob||{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox};
-      // Two passes: each pass slides every edge up to maxShiftM onto the mask edge. A second pass lets an
-      // edge that started >maxShiftM off (e.g. a gable end the rigid register left ~3–4 m out) converge the
-      // rest of the way, while the per-pass clamp keeps each step stable + straight. Stop early if a pass
+      // (iter2) Converge with up to 4 passes of DECREASING clamp: the first passes pull an edge that
+      // started 3–4 m out the bulk of the way; later tight-clamp passes refine the residual onto the eave
+      // without oscillating. NO outward bias — the measured iter-1 signed median was already ~0 to +0.1 m
+      // (centred, never the inward bias the brief anticipated), so a bias would push edges OUTSIDE the eave.
+      // The decreasing clamp alone tightens the residual on the few far-out edges. Stop early when a pass
       // produces no further movement (returns the same array reference).
+      const PASSES=[ {maxShiftM:1.6}, {maxShiftM:0.8}, {maxShiftM:0.45}, {maxShiftM:0.3} ];
       let cur=footprint, moved=false;
-      for(let pass=0; pass<2; pass++){
-        const snapped=snapRingEdgesToMask(cur, snapGrid, { maxShiftM:1.6 });
+      for(const cfg of PASSES){
+        const snapped=snapRingEdgesToMask(cur, snapGrid, cfg);
         if(!Array.isArray(snapped) || snapped.length<3 || polyArea2(snapped)<3) break;
         if(snapped===cur) break;   // self-guard returned input → converged / degenerate
         moved=true; cur=snapped;
@@ -4670,6 +4673,8 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
     const o=opts||{}; const MAXSHIFT=(o.maxShiftM!=null)?o.maxShiftM:1.6;   // clamp per-edge correction
     const REACH=(o.reachM!=null)?o.reachM:Math.min(3.2, MAXSHIFT+1.6);       // how far to cast the ray each way
     const MINHITS=(o.minHits!=null)?o.minHits:0.45;                          // fraction of samples that must find an edge
+    const BIAS=(o.biasM!=null)?o.biasM:0;   // (iter2) constant OUTWARD nudge to cancel the ~0.2–0.3m inward bias of the
+                                            // eroded mask blob (the snap centres on the blob edge, which sits just inside the true eave)
     const isRoof=(E,N)=>{ const c=Math.round((E-bbox[0])/dE), r=Math.round((bbox[3]-N)/dN);
       return r>=0&&c>=0&&r<h&&c<w && vals[r*w+c]>0.5; };
     // ring centroid (for outward sign) + CCW orientation
@@ -4696,6 +4701,7 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
       }
       if(hits.length >= Math.max(2, Math.round((steps-1)*MINHITS))){
         hits.sort((a,b)=>a-b); let med=hits[Math.floor(hits.length/2)];
+        med+=BIAS;   // (iter2) recenter on the true eave (cancel the eroded-mask inward bias)
         med=Math.max(-MAXSHIFT,Math.min(MAXSHIFT,med));
         edgeOff[i]={ off:med, ux, uy, nx, ny, A, B };
       } else edgeOff[i]={ off:0, ux, uy, nx, ny, A, B, weak:true };
@@ -4853,6 +4859,163 @@ function extractFacetPolysLegacy(margin){
 let roofMeas=[];
 const EDGE_COLORS={ ridge:"#ff453a", hip:"#ff9f0a", valley:"#2e90ff", eave:"#32d74b", rake:"#bf5af2" };
 function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
+/* ===========================================================================
+   (measure-iter2) INTERIOR-CREASE refinement: snap every ridge / hip / valley
+   onto the REAL crease in the DSM. The interior creases produced by the analytic
+   plane-intersection are the exact intersection of Google's *Solar planes* — which
+   can sit 0.3–1.5 m off the true ridge/trough visible in the DSM (LASTDSM). A ridge
+   is a HEIGHT CREST (local max along the perpendicular), a valley is a TROUGH (local
+   min); a hip is a sloped crest (local max). For each interior edge we sample the DSM
+   along a perpendicular window at many stations down the line, find the crest/trough
+   offset at each, take the robust median, and slide the WHOLE line by that offset so it
+   stays straight. Endpoints are then re-fitted where the (refined) interior lines meet
+   each other / the outer ring so nothing gapping or overshoots.
+   `dsmAt(x,y)` samples the DSM in MODEL-LOCAL metres (null on void/out-of-raster).
+   =========================================================================== */
+function _creasePerpProfile(edge, dsmAt, opts){
+  // returns { offsets:[signed perp offset of the crest/trough at each station], ux,uy,nx,ny,len }
+  const o=opts||{};
+  const WIN=(o.winM!=null)?o.winM:1.8;       // ± perpendicular search window (m)
+  const DS=(o.stepM!=null)?o.stepM:0.12;     // perpendicular sample pitch (m)
+  const seek=(edge.type==="valley")?"min":"max";   // ridge/hip = crest (max), valley = trough (min)
+  const ax=edge.a[0], ay=edge.a[1], bx=edge.b[0], by=edge.b[1];
+  const ex=bx-ax, ey=by-ay; const L=Math.hypot(ex,ey); if(L<0.8) return null;
+  const ux=ex/L, uy=ey/L; const nx=-uy, ny=ux;   // unit perpendicular
+  // stations along the edge, skipping the very ends (endpoints are governed by where lines meet,
+  // not by the crest — sampling there bleeds onto the adjacent facet/eave and biases the median).
+  const margin=Math.min(0.9, L*0.18);
+  const nSt=Math.max(4, Math.round((L-2*margin)/0.5));
+  const offsets=[];
+  for(let k=0;k<=nSt;k++){
+    const t=margin+(L-2*margin)*(k/nSt); const mx=ax+ux*t, my=ay+uy*t;
+    let bestS=null, bestV=(seek==="max")?-Infinity:Infinity, got=0;
+    for(let s=-WIN; s<=WIN+1e-6; s+=DS){ const z=dsmAt(mx+nx*s, my+ny*s);
+      if(z==null||!isFinite(z)) continue; got++;
+      if(seek==="max"? z>bestV : z<bestV){ bestV=z; bestS=s; } }
+    // require enough valid DSM coverage across the window and a non-edge extremum (a crest pinned at
+    // the window rim is unreliable — the true crest is probably further out / the window missed it)
+    if(bestS!=null && got>=Math.round((2*WIN/DS)*0.5) && Math.abs(bestS)<WIN-DS*1.5) offsets.push(bestS);
+  }
+  if(offsets.length<3) return null;
+  return { offsets, ux, uy, nx, ny, len:L, ax, ay };
+}
+/* Per-interior-edge deviation (signed perpendicular metres) of the DRAWN crease vs the DSM
+   crest/trough. Median≈0 ⇒ the line sits on the real ridge/valley. Used for the before/after
+   metric AND as the residual after snapping. Returns { ok, summary, perEdge }. */
+function measureCreaseDeviation(model, dsmAt){
+  try{
+    if(!model||!Array.isArray(model.edges)||typeof dsmAt!=="function") return { ok:false, reason:"no-model" };
+    const per=[]; const allAbs=[];
+    for(let i=0;i<model.edges.length;i++){ const e=model.edges[i];
+      if(e.type!=="ridge"&&e.type!=="hip"&&e.type!=="valley") continue;
+      const pr=_creasePerpProfile(e, dsmAt, {});
+      if(!pr){ per.push({ i, type:e.type, lenFt:+(e.lengthFt||0).toFixed(1), n:0, medianM:null, weak:true }); continue; }
+      const ofs=pr.offsets.slice().sort((a,b)=>a-b);
+      const med=ofs[Math.floor(ofs.length/2)];
+      const absS=ofs.map(Math.abs).sort((a,b)=>a-b);
+      per.push({ i, type:e.type, lenFt:+(e.lengthFt||0).toFixed(1), n:ofs.length,
+        medianM:+med.toFixed(3), p90M:+absS[Math.floor(absS.length*0.9)].toFixed(3), maxM:+absS[absS.length-1].toFixed(3) });
+      for(const v of ofs) allAbs.push(Math.abs(v));
+    }
+    allAbs.sort((a,b)=>a-b);
+    const summary={ nCreases:per.length, nMeasured:per.filter(p=>!p.weak).length,
+      meanAbsM:+(allAbs.reduce((s,x)=>s+x,0)/Math.max(1,allAbs.length)).toFixed(3),
+      medianAbsM:+(allAbs[Math.floor(allAbs.length/2)]||0).toFixed(3),
+      p90AbsM:+(allAbs[Math.floor(allAbs.length*0.9)]||0).toFixed(3),
+      maxAbsM:+(allAbs[allAbs.length-1]||0).toFixed(3) };
+    return { ok:true, summary, perEdge:per };
+  }catch(e){ return { ok:false, reason:String(e&&e.message||e) }; }
+}
+/* Snap interior creases (ridge/hip/valley) onto the DSM crest/trough, keeping each line straight,
+   then re-terminate shared endpoints where refined lines meet (no gap/overshoot). Mutates model.edges
+   in place. Self-guarding: per-edge slide is clamped, and a snap that doesn't IMPROVE that edge's
+   median |deviation| is rejected (keeps already-good creases, never regresses). */
+function snapModelCreasesToDSM(model, dsmAt, opts){
+  try{
+    if(!model||!Array.isArray(model.edges)||typeof dsmAt!=="function") return false;
+    const o=opts||{}; const MAXSLIDE=(o.maxSlideM!=null)?o.maxSlideM:2.0;   // total budget across the iterations
+    const interior=model.edges.map((e,i)=>({e,i})).filter(x=>x.e.type==="ridge"||x.e.type==="hip"||x.e.type==="valley");
+    if(!interior.length) return false;
+    // snapshot original endpoints so we can re-stitch shared vertices afterwards
+    const orig=interior.map(x=>({ a:[x.e.a[0],x.e.a[1]], b:[x.e.b[0],x.e.b[1]] }));
+    // robust centre of the crest-offset samples: 20%-trimmed mean (median can be coarse with few
+    // stations; trimming kills the off-crease outliers a short hip picks up near its ends).
+    const robustOff=(arr)=>{ const a=arr.slice().sort((x,y)=>x-y); const n=a.length; if(!n) return null;
+      const lo=Math.floor(n*0.2), hi=Math.ceil(n*0.8); const sl=a.slice(lo,Math.max(lo+1,hi));
+      return sl.reduce((s,x)=>s+x,0)/sl.length; };
+    // ── ITERATE: each pass re-profiles every interior line from its CURRENT position, slides it toward
+    //    the crest (clamped per-pass), and stops when movement is tiny. A crease that started >window off
+    //    walks in toward the crest one window-step per pass instead of being rejected for being out of range.
+    const slidTotal=new Array(interior.length).fill(0);
+    let any=false;
+    for(let pass=0; pass<4; pass++){
+      let movedThisPass=0;
+      for(let q=0;q<interior.length;q++){ const e=interior[q].e;
+        // A RIDGE is a clean, unambiguous height CREST → snap it aggressively (the owner's explicit ask).
+        // A HIP/VALLEY perpendicular profile is far noisier: the surface keeps sloping past the crease so
+        // the "max"/"min" can latch onto a neighbouring ridge or the eave shoulder. Treat them
+        // CONSERVATIVELY — narrower window, require a clean low-spread signal + enough samples, smaller
+        // budget, and a strict improvement test — otherwise keep the plane-intersection line (already
+        // geometrically consistent with the facets). This prevents a hip being shoved off a good roof.
+        const isRidge=(e.type==="ridge");
+        const win=isRidge ? ((pass===0)?2.6:(pass===1?2.0:1.4)) : ((pass===0)?1.6:1.2);
+        const pr=_creasePerpProfile(e, dsmAt, { winM:win });
+        if(!pr) continue;
+        let off=robustOff(pr.offsets);
+        const ofsS=pr.offsets.slice().sort((a,b)=>a-b); const spread=ofsS[ofsS.length-1]-ofsS[0];
+        const spreadCap=isRidge?3.4:1.4;          // hips/valleys must have a TIGHT (clean) crest cluster
+        const minN=isRidge?3:6;                    // …and enough supporting stations
+        if(off==null || !isFinite(off) || spread>spreadCap || pr.offsets.length<minN) continue;
+        // per-pass clamp + remaining global budget (hips/valleys get a smaller total budget)
+        const maxTot=isRidge?MAXSLIDE:0.9; const budget=maxTot-Math.abs(slidTotal[q]); if(budget<=0.05) continue;
+        off=Math.max(-Math.min(win, budget), Math.min(Math.min(win, budget), off));
+        if(Math.abs(off)<0.06) continue;   // on the crest
+        const beforeAbs=Math.abs(robustOff(pr.offsets)||0);
+        const na=[e.a[0]+pr.nx*off, e.a[1]+pr.ny*off], nb=[e.b[0]+pr.nx*off, e.b[1]+pr.ny*off];
+        // accept only if the shifted line is genuinely closer to the crest. Ridges: tiny tolerance.
+        // Hips/valleys: require a CLEAR improvement (must beat the current by a real margin) so a noisy
+        // wash never nudges them off a correct line.
+        const improveTol=isRidge?0.04:-0.12;
+        const pr2=_creasePerpProfile({ type:e.type, a:na, b:nb }, dsmAt, { winM:win });
+        if(pr2){ const a2=Math.abs(robustOff(pr2.offsets)||0); if(a2>beforeAbs+improveTol) continue; }
+        else if(!isRidge) continue;   // hip/valley with no post-move signal → don't trust the move
+        e.a[0]=na[0]; e.a[1]=na[1]; e.b[0]=nb[0]; e.b[1]=nb[1];
+        slidTotal[q]+=off; e.__slid=slidTotal[q]; any=true; movedThisPass+=Math.abs(off);
+      }
+      if(movedThisPass<0.08) break;   // converged
+    }
+    if(!any) return false;
+    // ── Re-stitch shared endpoints. Two interior endpoints that COINCIDED before the slide (a ridge
+    //    meeting two hips at an apex) must still coincide after — re-intersect the two refined lines.
+    //    An interior endpoint that did NOT pair with another interior line is a TERMINATION on the outer
+    //    ring: project it back onto where its sibling endpoint moved so the segment keeps its refined
+    //    direction but its tip returns to the (unchanged) outer perimeter — preserving "no gap/overshoot".
+    const TOLapex=0.8;   // m: endpoints this close pre-slide were the same physical apex
+    const lineOf=(e)=>{ const dx=e.b[0]-e.a[0], dy=e.b[1]-e.a[1]; const L=Math.hypot(dx,dy)||1; return { px:e.a[0], py:e.a[1], dx:dx/L, dy:dy/L }; };
+    const intersect=(l1,l2)=>{ const det=l1.dx*(-l2.dy)-(-l2.dx)*l1.dy; if(Math.abs(det)<1e-6) return null;
+      const rx=l2.px-l1.px, ry=l2.py-l1.py; const t=(rx*(-l2.dy)-(-l2.dx)*ry)/det; return [l1.px+l1.dx*t, l1.py+l1.dy*t]; };
+    for(let q=0;q<interior.length;q++){ const eq=interior[q].e; const oq=orig[q];
+      for(const endQ of ["a","b"]){ const opt=(endQ==="a")?oq.a:oq.b;
+        // find another interior edge whose ORIGINAL endpoint coincided with this one → shared apex
+        let partner=null, partnerEnd=null;
+        for(let r=0;r<interior.length;r++){ if(r===q) continue; const orr=orig[r];
+          for(const endR of ["a","b"]){ const opr=(endR==="a")?orr.a:orr.b;
+            if(Math.hypot(opt[0]-opr[0],opt[1]-opr[1])<TOLapex){ partner=interior[r].e; partnerEnd=endR; break; } }
+          if(partner) break; }
+        if(partner){ const ip=intersect(lineOf(eq), lineOf(partner));
+          if(ip && isFinite(ip[0]) && Math.hypot(ip[0]-opt[0],ip[1]-opt[1])<MAXSLIDE+0.8){
+            eq[endQ][0]=ip[0]; eq[endQ][1]=ip[1]; }
+          else { eq[endQ][0]=opt[0]; eq[endQ][1]=opt[1]; }   // bad intersection → snap tip back to the original apex
+        } else {
+          // terminates on the outer perimeter: keep the tip at its ORIGINAL location (the eave/rake the
+          // crease ran to is already snapped in iter-1) so there is no gap/overshoot at the roof edge.
+          eq[endQ][0]=opt[0]; eq[endQ][1]=opt[1];
+        }
+      }
+    }
+    return true;
+  }catch(_){ return false; }
+}
 function facetsToRoofModel(){
   if(!LASTDSM||!LASTB||!window.__buildRoofModel) return null;
   const dsm=LASTDSM, zone=dsm.zone, dg={vals:dsm.rasters[0],w:dsm.width,h:dsm.height,bbox:dsm.bbox};
@@ -4882,6 +5045,32 @@ function facetsToRoofModel(){
   model.__toWgs=toWgs;
   // Forward the single analytic footprint ring (in model-local metres) for the 3D wall envelope.
   if(Array.isArray(facets.__footprintLL)) model.__footprint=facets.__footprintLL.map(([lng,lat])=>toLocal(lng,lat));
+  // ── (measure-iter2) RIDGE/HIP/VALLEY SNAP onto the real DSM crest/trough. dsmAt samples the DSM
+  //    in model-local metres. Capture the interior-crease deviation BEFORE, snap, capture AFTER →
+  //    exposed on window.__creaseDev for the verify harness. Self-guarding: skips analytic-failure
+  //    fallbacks (no exact planes) and never regresses an already-on-crest crease.
+  const dsmAt=(x,y)=>{ const [lng,lat]=toWgs(x,y); const [E,N]=wgs84ToUTM(lat,lng,zone); const z=sampleGrid(dg,E,N);
+    return (z==null||!isFinite(z)||z<=NODATA)?null:z; };
+  model.__dsmAt=dsmAt;
+  try{
+    if(facets.__analytic!==false){   // only refine the analytic (exact-plane) creases; legacy trace is already mask-bound
+      const before=measureCreaseDeviation(model, dsmAt);
+      const did=snapModelCreasesToDSM(model, dsmAt, { maxSlideM:1.4 });
+      // roofgeo computed edge lengths/totals from the pre-snap endpoints; recompute interior-edge
+      // lengths + the ridge/hip/valley totals so the takeoff stays consistent with the snapped lines.
+      if(did){
+        const FT=3.280839895; const tot=model.totals||{};
+        let rF=0,hF=0,vF=0;
+        for(const e of model.edges){ if(e.type==="ridge"||e.type==="hip"||e.type==="valley"){
+          e.lengthFt=Math.hypot(e.b[0]-e.a[0], e.b[1]-e.a[1])*FT; }
+          if(e.type==="ridge") rF+=e.lengthFt; else if(e.type==="hip") hF+=e.lengthFt; else if(e.type==="valley") vF+=e.lengthFt; }
+        if(tot){ tot.ridgeFt=rF; tot.hipFt=hF; tot.valleyFt=vF; }
+      }
+      const after=measureCreaseDeviation(model, dsmAt);
+      window.__creaseDev={ before:before&&before.summary, after:after&&after.summary, snapped:!!did,
+        perEdgeAfter:after&&after.perEdge, perEdgeBefore:before&&before.perEdge };
+    }
+  }catch(e){ try{ errors.push("crease-snap:"+(e&&e.message||e)); }catch(_){} }
   return model;
 }
 async function buildRoofMeasure(){
@@ -7435,6 +7624,9 @@ try{
     maskBoundaryRing:(z)=>{ try{ return maskBoundaryRing(z); }catch(e){ return null; } },
     footprintEN:()=>{ try{ return Array.isArray(window.__footprintEN)?window.__footprintEN.map(p=>[p[0],p[1]]):null; }catch(_){ return null; } },
     edgeDeviation:(z)=>{ try{ return measureEdgeDeviation(z); }catch(e){ return {err:String(e&&e.message||e)}; } },
+    // (measure-iter2) interior crease (ridge/hip/valley) deviation vs the DSM crest/trough, before &
+    // after the snap. Builds a fresh model (which runs the snap + records __creaseDev), then returns it.
+    creaseDeviation:()=>{ try{ facetsToRoofModel(); return window.__creaseDev||null; }catch(e){ return {err:String(e&&e.message||e)}; } },
   };
   // direct aliases for the fixed-frame registration overlay diagnostic (verify-overlay.mjs)
   window.__wgs84ToUTM=(lat,lng,z)=>wgs84ToUTM(lat,lng,z);
