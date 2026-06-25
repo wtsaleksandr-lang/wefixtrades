@@ -4134,7 +4134,13 @@ function googleRoofReference(zone){
       for(let ix=0;ix<w*h;ix++){ if(!seen[ix]) continue; const r=(ix/w)|0,c=ix%w; const E=bbox[0]+c*dE,N=bbox[3]-r*dN; const dx=E-cx,dy=N-cy; sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy; }
       sxx/=nPix; syy/=nPix; sxy/=nPix;
       const ang=0.5*Math.atan2(2*sxy, sxx-syy);
-      return { c:[cx,cy], axis:((ang%Math.PI)+Math.PI)%Math.PI, source:"mask-blob", nPix };
+      // (fix5) Expose the ISOLATED queried-building blob as a sampleable 0/1 grid (same bbox/w/h as the
+      // mask). The overlap metric in registerFootprintToGoogle MUST score against THIS blob, not the
+      // whole-neighbourhood LASTMASK — at dense addresses (4521 T St has 4-5 neighbours in the 40 m mask)
+      // a footprint sitting ~1.5 m off can straddle a NEIGHBOUR's roof pixels and score a deceptively high
+      // "before" overlap against the whole mask, so a correct registration onto the real roof shows a tiny
+      // overlap dip and was wrongly reverted. Scoring against the isolated blob makes the metric honest.
+      return { c:[cx,cy], axis:((ang%Math.PI)+Math.PI)%Math.PI, source:"mask-blob", nPix, blob:{ vals:seen, w, h, bbox } };
     }
   }
   // ── FALLBACK: centroid + PCA of segment centres + boundingBox corners (Google-registered, this building)
@@ -4177,6 +4183,12 @@ const ALIGN_MIN_ROT_DEG=3.0;     // only correct a clear rotation mismatch
 const ALIGN_MAX_ROT_DEG=25.0;    // bigger axis delta ⇒ axes disagree on long side → skip (no 90° flip)
 const ALIGN_ICP_MAX_M=1.2;       // cap the optional fine ICP translation nudge
 const ALIGN_ICP_MAX_ROT_DEG=6.0; // cap the optional fine ICP rotation nudge (overlap-driven, square-safe)
+// (fix5) Acceptance-guard thresholds — measured against the ISOLATED queried-building blob:
+const ALIGN_SMALL_SHIFT_M=3.0;        // ≤ this ⇒ a real source-imagery registration → trust it; only a MATERIAL overlap regress that also leaves overlap poor reverts it
+const ALIGN_OVERLAP_REGRESS_MAT=0.12; // overlap must drop by MORE than this (on the isolated blob) to count as a genuine regression — a tiny boundary-sampling fluctuation never reverts a good shift
+const ALIGN_OVERLAP_FLOOR=0.45;       // post-registration boundary-on-roof floor; below this the polygon isn't really on the building's roof (wrong-building safety on medium shifts)
+const ALIGN_HARD_MAX_SHIFT_M=9.0;     // ABSOLUTE ceiling — beyond this it's a different parcel / bad geocode, never register (no overlap can rescue it)
+const ALIGN_STRONG_OVERLAP=0.72;      // a shift in (ALIGN_MAX_SHIFT_M, ALIGN_HARD_MAX_SHIFT_M] is accepted ONLY if post-reg overlap clears this — proves it's the RIGHT roof, just a larger source-imagery offset (e.g. 1051 Mississippi: 6.5 m @0.80 overlap is clearly on-roof)
 function registerFootprintToGoogle(ringEN, zone){
   const diag={ applied:false, source:null, shiftE:0, shiftN:0, shiftM:0, rotDeg:0, icpE:0, icpN:0, overlapBefore:null, overlapAfter:null, reason:"" };
   try{
@@ -4186,7 +4198,15 @@ function registerFootprintToGoogle(ringEN, zone){
     diag.source=ref.source;
     const fp=_ringCentroidPCA(ringEN);
     const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
-    diag.overlapBefore=mg?+_ringMaskOverlap(ringEN,mg).toFixed(3):null;
+    // (fix5) Score boundary-on-roof overlap against the ISOLATED queried-building blob when we have it
+    // (googleRoofReference flood-fills it from this building's Solar segments). Falls back to the whole
+    // neighbourhood mask only when the blob isn't available. This is the metric that drives BOTH the ICP
+    // nudge and the regression guard — using the whole mask let a footprint score "overlap" on a
+    // neighbour's roof, which is exactly what wrongly reverted the good 1.55 m MS candidate at 4521 T St.
+    const sg=(ref.blob && ref.blob.vals)?ref.blob:mg;   // isolated blob preferred, else whole mask
+    diag.scoreSrc=(sg===mg)?"whole-mask":"isolated-blob";
+    diag.overlapBefore=sg?+_ringMaskOverlap(ringEN,sg).toFixed(3):null;
+    if(mg && sg!==mg) diag.overlapBeforeWholeMask=+_ringMaskOverlap(ringEN,mg).toFixed(3);   // kept for transparency
     // ── TRANSLATION (dominant) — footprint centroid → google centroid
     let shiftE=ref.c[0]-fp.c[0], shiftN=ref.c[1]-fp.c[1];
     const shiftM=Math.hypot(shiftE,shiftN);
@@ -4199,8 +4219,15 @@ function registerFootprintToGoogle(ringEN, zone){
     const rotDeg=rot*180/Math.PI; diag.measRotDeg=+rotDeg.toFixed(2);
     const fpElong=(fp.axisRatio||1)>=1.5, refElong=(ref.axisRatio==null)?true:(ref.axisRatio>=1.4);
     diag.fpAxisRatio=+(fp.axisRatio||1).toFixed(2); if(ref.axisRatio!=null) diag.refAxisRatio=+ref.axisRatio.toFixed(2);
-    // ── ROBUSTNESS GATE: implausibly large shift ⇒ wrong building → DON'T register
-    if(shiftM>ALIGN_MAX_SHIFT_M){ diag.reason="shift-too-large("+shiftM.toFixed(1)+"m)"; return { ring:ringEN, diag }; }
+    // ── ROBUSTNESS GATE: an ABSOLUTELY-implausible shift ⇒ different parcel / bad geocode → DON'T register.
+    //    (fix5) The hard ceiling is ALIGN_HARD_MAX_SHIFT_M (9 m); a shift in the band
+    //    (ALIGN_MAX_SHIFT_M, ALIGN_HARD_MAX_SHIFT_M] is NOT rejected here — it's deferred to the overlap-aware
+    //    acceptance guard below, which accepts it ONLY if the registered polygon lands strongly on the real
+    //    roof (overlap ≥ ALIGN_STRONG_OVERLAP). This rescues a correct building that just carries a larger
+    //    source-imagery offset (1051 Mississippi: 6.5 m shift but 0.80 on-roof overlap), without admitting a
+    //    genuinely-wrong neighbour grab (those land OFF the roof → low overlap → still rejected).
+    if(shiftM>ALIGN_HARD_MAX_SHIFT_M){ diag.reason="shift-too-large("+shiftM.toFixed(1)+"m)"; return { ring:ringEN, diag }; }
+    const largeShift=(shiftM>ALIGN_MAX_SHIFT_M);   // in the 6–9 m band → needs strong overlap to be accepted
     // apply PCA rotation only for a clear, bounded mismatch on an ELONGATED footprint+ref
     const doRot=(fpElong && refElong && Math.abs(rotDeg)>=ALIGN_MIN_ROT_DEG && Math.abs(rotDeg)<=ALIGN_MAX_ROT_DEG);
     const ca=Math.cos(doRot?rot:0), sa=Math.sin(doRot?rot:0);
@@ -4214,9 +4241,9 @@ function registerFootprintToGoogle(ringEN, zone){
     //    The rotation search here is overlap-driven (not PCA) so it's safe even on a square roof:
     //    it only accepts a small angle that demonstrably improves the on-roof overlap.
     let icpE=0,icpN=0,icpRotDeg=0;
-    if(mg){
+    if(sg){
       const gc=[fp.c[0]+shiftE, fp.c[1]+shiftN];   // current centroid (rotate micro-steps about it)
-      let bestScore=_ringMaskOverlap(out,mg), bestRing=out;
+      let bestScore=_ringMaskOverlap(out,sg), bestRing=out;
       const transTries=[[0.4,0],[-0.4,0],[0,0.4],[0,-0.4],[0.3,0.3],[-0.3,0.3],[0.3,-0.3],[-0.3,-0.3]];
       const rotTries=[1.5,-1.5,3,-3];   // degrees
       for(let iter=0; iter<4; iter++){
@@ -4224,13 +4251,13 @@ function registerFootprintToGoogle(ringEN, zone){
         for(const[de,dn]of transTries){
           if(Math.hypot(icpE+de,icpN+dn)>ALIGN_ICP_MAX_M) continue;   // clamp total ICP translation
           const cand=bestRing.map(([E,N])=>[E+de,N+dn]);
-          const sc=_ringMaskOverlap(cand,mg);
+          const sc=_ringMaskOverlap(cand,sg);
           if(sc>bestScore+1e-4){ bestScore=sc; bestRing=cand; icpE+=de; icpN+=dn; improved=true; }
         }
         for(const dd of rotTries){
           if(Math.abs(icpRotDeg+dd)>ALIGN_ICP_MAX_ROT_DEG) continue;   // clamp total ICP rotation
           const cand=rotAbout(bestRing,[gc[0]+icpE,gc[1]+icpN],dd*Math.PI/180);
-          const sc=_ringMaskOverlap(cand,mg);
+          const sc=_ringMaskOverlap(cand,sg);
           if(sc>bestScore+1e-4){ bestScore=sc; bestRing=cand; icpRotDeg+=dd; improved=true; }
         }
         if(!improved) break;
@@ -4238,11 +4265,48 @@ function registerFootprintToGoogle(ringEN, zone){
       out=bestRing; shiftE+=icpE; shiftN+=icpN;
     }
     diag.icpE=+icpE.toFixed(2); diag.icpN=+icpN.toFixed(2); diag.icpRotDeg=+icpRotDeg.toFixed(2);
-    diag.overlapAfter=mg?+_ringMaskOverlap(out,mg).toFixed(3):null;
-    // ── never make it WORSE than the input: if a mask exists and overlap dropped, revert
-    if(mg && diag.overlapBefore!=null && diag.overlapAfter!=null && diag.overlapAfter < diag.overlapBefore-0.02){
-      diag.reason="overlap-regressed("+diag.overlapBefore+"→"+diag.overlapAfter+")"; diag.applied=false;
-      return { ring:ringEN, diag };
+    const totalShiftM=Math.hypot(shiftE,shiftN);
+    diag.overlapAfter=sg?+_ringMaskOverlap(out,sg).toFixed(3):null;
+    if(mg && sg!==mg) diag.overlapAfterWholeMask=+_ringMaskOverlap(out,mg).toFixed(3);   // transparency
+    // ── ACCEPTANCE GUARD (fix5) — accept a registration that lands the clean footprint on the real roof;
+    //    only revert a genuinely-bad grab. The old guard reverted on ANY >0.02 overlap dip measured
+    //    against the whole-neighbourhood mask, which threw out good small-shift registrations (4521 T St:
+    //    a healthy 1.55 m MS shift was reverted on a 0.045 sampling fluctuation). Now:
+    //      • overlap is scored against the ISOLATED blob (sg) → honest "is this on THE building's roof".
+    //      • a SMALL shift (≤ ALIGN_SMALL_SHIFT_M) is trusted as a real registration; we only revert it if
+    //        overlap regresses MATERIALLY (ALIGN_OVERLAP_REGRESS_MAT) — never on a tiny fluctuation — and
+    //        the post-registration overlap is also genuinely poor (no point reverting to an equally-poor
+    //        pre-state). A clear improvement or a tiny dip is accepted.
+    //      • a LARGER shift (still ≤ ALIGN_MAX_SHIFT_M) must not regress overlap materially either, AND must
+    //        clear a minimum on-roof overlap floor — this is the safety that still rejects a wrong-building
+    //        grab whose big translation lands the polygon off the real roof.
+    if(largeShift){
+      // 6–9 m band: accept ONLY with a hard mask check proving the polygon lands strongly on the real roof.
+      // No mask, or weak overlap ⇒ can't prove it's the right building → reject (wrong-building safety).
+      if(!sg || diag.overlapAfter==null || diag.overlapAfter < ALIGN_STRONG_OVERLAP){
+        diag.reason="large-shift-weak-overlap("+totalShiftM.toFixed(1)+"m,ovlp="+(diag.overlapAfter==null?"n/a":diag.overlapAfter)+")";
+        diag.applied=false;
+        return { ring:ringEN, diag };
+      }
+      // strong overlap in the large-shift band → it's the right roof with a bigger source offset; accept.
+    } else if(sg && diag.overlapBefore!=null && diag.overlapAfter!=null){
+      const dOv=diag.overlapAfter-diag.overlapBefore;     // >0 improved, <0 regressed
+      const smallShift=totalShiftM<=ALIGN_SMALL_SHIFT_M;
+      const materialRegress=(dOv < -ALIGN_OVERLAP_REGRESS_MAT);
+      let reject=false, why="";
+      if(smallShift){
+        // trust a small rigid shift; revert ONLY on a material regression that also leaves overlap poor
+        if(materialRegress && diag.overlapAfter < ALIGN_OVERLAP_FLOOR){ reject=true; why="material-regress-small"; }
+      } else {
+        // medium shift (3–6 m): must not regress materially AND must clear the on-roof floor
+        if(materialRegress){ reject=true; why="material-regress"; }
+        else if(diag.overlapAfter < ALIGN_OVERLAP_FLOOR){ reject=true; why="low-overlap"; }
+      }
+      if(reject){
+        diag.reason="overlap-rejected("+why+":"+diag.overlapBefore+"→"+diag.overlapAfter+",shift="+totalShiftM.toFixed(1)+"m)";
+        diag.applied=false;
+        return { ring:ringEN, diag };
+      }
     }
     diag.applied=true; diag.reason="registered";
     diag.shiftE=+shiftE.toFixed(2); diag.shiftN=+shiftN.toFixed(2); diag.shiftM=+Math.hypot(shiftE,shiftN).toFixed(2);
