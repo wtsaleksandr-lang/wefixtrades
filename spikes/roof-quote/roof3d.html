@@ -3564,9 +3564,33 @@ function extractFacetPolysAnalytic(margin){
   if(Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="cache")){
     try{
       const ringEN=window.__footprintWGS.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
-      const reg=regularizeVectorFootprint(ringEN, 0.45);
-      if(reg && reg.length>=3 && polyArea2(reg)>=8){
-        footprint=reg; footprintSource=window.__footprintSource;
+      // Regularize to clean straight eaves (overhang baked in below), THEN RIGID-REGISTER the whole
+      // clean polygon onto Google's roof (mask/segments — aligned to the displayed aerial) so the
+      // straight outline sits ON the real roof edges instead of floating off (source-imagery offset).
+      // The overhang offset must come AFTER registration: register to the roof reference (mask is
+      // roof-level), then push the eave outward so the line lands on the visible roof edge, not inside.
+      const reg0=regularizeVectorFootprint(ringEN, 0.0);   // straight wall outline, no overhang yet
+      let regBase=reg0, useVector=true;
+      let alignOff=false; try{ alignOff=(typeof location!=="undefined") && new URLSearchParams(location.search).get("align")==="off"; }catch(_){}
+      if(reg0 && reg0.length>=3 && !alignOff){
+        const rr=registerFootprintToGoogle(reg0, zone);
+        try{ window.__alignDiag=rr.diag; }catch(_){}
+        if(rr.diag && rr.diag.applied && rr.ring && rr.ring.length>=3){ regBase=rr.ring; }
+        // ROBUSTNESS — an implausibly large required shift means the OSM/cache ring is the WRONG
+        // building (a misplaced/neighbour footprint, e.g. 4521 T St where the vector ring sits ~16 m
+        // off Google's roof). In that case DON'T float the clean polygon on the wrong spot — REJECT it
+        // and fall through to the mask-trace below (Google's own roof outline, guaranteed roof-aligned).
+        else if(rr.diag && /shift-too-large|overlap-regressed/.test(rr.diag.reason||"")){
+          useVector=false; try{ window.__alignDiag.rejectedVector=true; }catch(_){}
+        }
+        // else (no-google-ref / small offset that didn't trip the gate): keep the regularized vector as-is.
+      } else if(alignOff){ try{ window.__alignDiag={applied:false,reason:"align=off-debug"}; }catch(_){} }
+      if(useVector){
+        // overhang: push the registered wall outline outward ~0.4 m to the eave (roof) edge
+        const reg=_overhangRing(regBase, 0.4);
+        if(reg && reg.length>=3 && polyArea2(reg)>=8){
+          footprint=reg; footprintSource=window.__footprintSource;
+        }
       }
     }catch(e){ if(typeof errors!=="undefined") errors.push("vector-fp:"+(e&&e.message||e)); }
   }
@@ -3798,6 +3822,212 @@ function extractFacetPolysAnalytic(margin){
 }
 
 /* ===========================================================================
+   FOOTPRINT → GOOGLE-ROOF REGISTRATION  (the ALIGNMENT fix)
+   ---------------------------------------------------------------------------
+   The clean vector footprint (Microsoft/OSM) is georeferenced to ITS OWN source
+   imagery, which carries a registration offset — and sometimes a small rotation —
+   versus Google's imagery and Google's Solar geometry. The displayed aerial IS
+   Google's, and Google's roof data (the building MASK raster + roofSegmentStats
+   centres/boxes) is registered to that same aerial. So the straight footprint
+   "floats" off the real roof: right SHAPE, wrong POSITION/ROTATION.
+
+   Fix = a RIGID registration of the whole clean polygon onto Google's roof:
+     • TRUTH REFERENCE (Google, aligned to the displayed aerial):
+         - mask centroid (pixel-weighted) + mask principal axis (PCA of roof pixels)
+         - fallback: centroid of roofSegmentStats centres+box corners + their PCA axis
+     • TRANSLATION  = google_centroid − footprint_centroid   (dominant correction).
+     • ROTATION     = footprint principal axis − google principal axis, applied about
+                      the footprint centroid ONLY when the mismatch is a clear >3°
+                      (and ≤25°; a bigger delta means axes disagree on which side is
+                      "long" → skip, don't risk a 90° flip). Conservative by design.
+     • FINE ICP NUDGE (optional): a few iterations sliding the rotated+translated ring
+                      to maximise the fraction of its boundary samples that fall on mask
+                      roof pixels — sub-metre polish only (clamped to ≤1.2 m total).
+   ROBUSTNESS: if there is NO Google reference, or the required shift is implausibly
+   large (>5 m ⇒ probably the wrong building / a bad geocode), we DO NOT register —
+   return the input unchanged and flag fallback, so we never make it worse than the
+   mask-trace (which is at least roof-aligned). Keeps the clean straight shape intact;
+   we only move/rotate it as a rigid body to land on the roof.
+   Returns { ring:[[E,N]], diag } — diag.applied true when a transform was applied.
+   =========================================================================== */
+function _ringCentroidPCA(ring){
+  // area-weighted polygon centroid + PCA principal-axis angle (rad, folded to [0,π))
+  let cx=0,cy=0,a2=0;
+  for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length];
+    const cr=A[0]*B[1]-B[0]*A[1]; a2+=cr; cx+=(A[0]+B[0])*cr; cy+=(A[1]+B[1])*cr; }
+  if(Math.abs(a2)>1e-9){ cx/=(3*a2); cy/=(3*a2); }
+  else { cx=0;cy=0; for(const[E,N]of ring){cx+=E;cy+=N;} cx/=ring.length; cy/=ring.length; }
+  // PCA on vertices (length-weighted via edge midpoints would over-weight long sides;
+  // vertex PCA is stable for a near-rectangular ring and is only used for the dominant axis)
+  let sxx=0,syy=0,sxy=0; const n=ring.length;
+  for(const[E,N]of ring){ const dx=E-cx,dy=N-cy; sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy; }
+  sxx/=n; syy/=n; sxy/=n;
+  const ang=0.5*Math.atan2(2*sxy, sxx-syy);   // principal axis of the larger eigenvalue
+  // eigenvalues → elongation. axisRatio≈1 means a near-square footprint where the PCA axis is
+  // ambiguous (the dominant axis can flip 90°) → callers must NOT trust `axis` for rotation there.
+  const tr=sxx+syy, det=sxx*syy-sxy*sxy, disc=Math.sqrt(Math.max(0,tr*tr/4-det));
+  const l1=tr/2+disc, l2=Math.max(1e-9,tr/2-disc);
+  return { c:[cx,cy], axis:((ang%Math.PI)+Math.PI)%Math.PI, axisRatio:Math.sqrt(l1/l2) };
+}
+/* Google roof reference (centroid + principal axis) for the QUERIED building.
+   CRITICAL: the dataLayers mask covers EVERY roof in the ~40 m window — a whole street of
+   semi-detached units at 30 Angus, 4-5 neighbours at 4521 T St (confirmed on the overlay
+   diagnostic). A raw mask centroid is therefore the centroid of the NEIGHBOURHOOD, not this
+   building — it produced a false 12.8 m / 53° "offset". So we ISOLATE the queried building's
+   mask blob by flood-filling the mask ONLY from this building's Solar segment centres (the
+   segments belong to the queried building), then take the centroid + PCA of that isolated blob.
+   Segments-only (centres + boundingBox corners) is the fallback when the mask is missing or the
+   flood-fill is too small. Returns { c:[E,N], axis, source, nPix|nSeg } or null. */
+function googleRoofReference(zone){
+  const segs=(LASTB&&LASTB.solarPotential&&LASTB.solarPotential.roofSegmentStats)||[];
+  // ── PRIMARY: flood-fill the mask from the queried building's segment centres → THIS building only
+  if(LASTMASK && LASTMASK.rasters && LASTMASK.rasters[0] && segs.length){
+    const vals=LASTMASK.rasters[0], w=LASTMASK.width, h=LASTMASK.height, bbox=LASTMASK.bbox;
+    const dE=(bbox[2]-bbox[0])/(w-1||1), dN=(bbox[3]-bbox[1])/(h-1||1);   // row 0 = north (maxN)
+    const cellOf=(E,N)=>{ const c=Math.round((E-bbox[0])/dE), r=Math.round((bbox[3]-N)/dN);
+      return (r>=0&&c>=0&&r<h&&c<w)?[r,c]:null; };
+    const isRoof=(r,c)=> r>=0&&c>=0&&r<h&&c<w && vals[r*w+c]>0.5;
+    const seen=new Uint8Array(w*h); const stack=[];
+    // seed from every segment centre that lands on a roof pixel (nudge to the nearest roof cell if just off)
+    for(const sg of segs){ if(!sg||!sg.center||!isFinite(sg.center.latitude)) continue;
+      let rc; try{ rc=cellOf(...wgs84ToUTM(sg.center.latitude,sg.center.longitude,zone)); }catch(_){ continue; }
+      if(!rc) continue; let [r,c]=rc;
+      if(!isRoof(r,c)){ // search a small ring for a roof cell (segment centre can sit a px off the mask)
+        let found=false; for(let rad=1;rad<=3&&!found;rad++){ for(let dr=-rad;dr<=rad&&!found;dr++)for(let dc=-rad;dc<=rad;dc++){ if(isRoof(r+dr,c+dc)){ r+=dr;c+=dc;found=true;break; } } } if(!found) continue;
+      }
+      const ix=r*w+c; if(!seen[ix]){ seen[ix]=1; stack.push(ix); }
+    }
+    // 4-neighbour flood fill across roof pixels → the connected blob(s) the segments sit on
+    let sE=0,sN=0,nPix=0;
+    while(stack.length){ const ix=stack.pop(); const r=(ix/w)|0,c=ix%w;
+      sE+=bbox[0]+c*dE; sN+=bbox[3]-r*dN; nPix++;
+      const nb=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+      for(const[nr,nc]of nb){ if(isRoof(nr,nc)){ const nix=nr*w+nc; if(!seen[nix]){ seen[nix]=1; stack.push(nix); } } }
+    }
+    if(nPix>=40){
+      const cx=sE/nPix, cy=sN/nPix;
+      let sxx=0,syy=0,sxy=0;
+      for(let ix=0;ix<w*h;ix++){ if(!seen[ix]) continue; const r=(ix/w)|0,c=ix%w; const E=bbox[0]+c*dE,N=bbox[3]-r*dN; const dx=E-cx,dy=N-cy; sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy; }
+      sxx/=nPix; syy/=nPix; sxy/=nPix;
+      const ang=0.5*Math.atan2(2*sxy, sxx-syy);
+      return { c:[cx,cy], axis:((ang%Math.PI)+Math.PI)%Math.PI, source:"mask-blob", nPix };
+    }
+  }
+  // ── FALLBACK: centroid + PCA of segment centres + boundingBox corners (Google-registered, this building)
+  if(segs.length){
+    const pts=[];
+    for(const sg of segs){ if(!sg) continue;
+      if(sg.center && isFinite(sg.center.latitude)){ try{ pts.push(wgs84ToUTM(sg.center.latitude,sg.center.longitude,zone)); }catch(_){} }
+      const b=sg.boundingBox;
+      if(b&&b.sw&&b.ne){ try{
+        pts.push(wgs84ToUTM(b.sw.latitude,b.sw.longitude,zone));
+        pts.push(wgs84ToUTM(b.ne.latitude,b.ne.longitude,zone));
+        pts.push(wgs84ToUTM(b.sw.latitude,b.ne.longitude,zone));
+        pts.push(wgs84ToUTM(b.ne.latitude,b.sw.longitude,zone));
+      }catch(_){} }
+    }
+    if(pts.length>=3){
+      let cx=0,cy=0; for(const[E,N]of pts){cx+=E;cy+=N;} cx/=pts.length; cy/=pts.length;
+      let sxx=0,syy=0,sxy=0; for(const[E,N]of pts){ const dx=E-cx,dy=N-cy; sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy; }
+      sxx/=pts.length; syy/=pts.length; sxy/=pts.length;
+      const ang=0.5*Math.atan2(2*sxy, sxx-syy);
+      return { c:[cx,cy], axis:((ang%Math.PI)+Math.PI)%Math.PI, source:"segments", nSeg:segs.length };
+    }
+  }
+  return null;
+}
+/* fraction of a ring's boundary sample points that land on mask roof pixels (>0.5).
+   Samples each edge every ~0.5 m so the score tracks edge-on-roof, not just vertices. */
+function _ringMaskOverlap(ring, mg){
+  if(!mg) return 0;
+  let on=0, tot=0;
+  for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length];
+    const L=Math.hypot(B[0]-A[0],B[1]-A[1]), steps=Math.max(1,Math.round(L/0.5));
+    for(let k=0;k<steps;k++){ const t=k/steps, E=A[0]+(B[0]-A[0])*t, Nn=A[1]+(B[1]-A[1])*t;
+      tot++; const v=sampleGrid(mg,E,Nn); if(v!=null&&v>0.5) on++; }
+  }
+  return tot?on/tot:0;
+}
+const ALIGN_MAX_SHIFT_M=5.0;     // >this ⇒ implausible (wrong building/bad geocode) → don't register
+const ALIGN_MIN_ROT_DEG=3.0;     // only correct a clear rotation mismatch
+const ALIGN_MAX_ROT_DEG=25.0;    // bigger axis delta ⇒ axes disagree on long side → skip (no 90° flip)
+const ALIGN_ICP_MAX_M=1.2;       // cap the optional fine ICP translation nudge
+const ALIGN_ICP_MAX_ROT_DEG=6.0; // cap the optional fine ICP rotation nudge (overlap-driven, square-safe)
+function registerFootprintToGoogle(ringEN, zone){
+  const diag={ applied:false, source:null, shiftE:0, shiftN:0, shiftM:0, rotDeg:0, icpE:0, icpN:0, overlapBefore:null, overlapAfter:null, reason:"" };
+  try{
+    if(!Array.isArray(ringEN) || ringEN.length<3){ diag.reason="bad-ring"; return { ring:ringEN, diag }; }
+    const ref=googleRoofReference(zone);
+    if(!ref){ diag.reason="no-google-ref"; return { ring:ringEN, diag }; }   // robustness: no truth → leave as-is (mask-trace fallback owns it)
+    diag.source=ref.source;
+    const fp=_ringCentroidPCA(ringEN);
+    const mg=LASTMASK?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
+    diag.overlapBefore=mg?+_ringMaskOverlap(ringEN,mg).toFixed(3):null;
+    // ── TRANSLATION (dominant) — footprint centroid → google centroid
+    let shiftE=ref.c[0]-fp.c[0], shiftN=ref.c[1]-fp.c[1];
+    const shiftM=Math.hypot(shiftE,shiftN);
+    diag.measShiftE=+shiftE.toFixed(2); diag.measShiftN=+shiftN.toFixed(2); diag.measShiftM=+shiftM.toFixed(2);
+    // ── ROTATION — smallest signed delta between the two principal axes, folded to (−90,90].
+    //    ONLY trustworthy when BOTH the footprint AND the Google reference are clearly elongated;
+    //    on a near-square roof the PCA axis is ambiguous and flips 90° (the false 53°/79° readings).
+    let rot=ref.axis-fp.axis;
+    rot=((rot%Math.PI)+Math.PI)%Math.PI; if(rot>Math.PI/2) rot-=Math.PI;   // → (−90°,90°]
+    const rotDeg=rot*180/Math.PI; diag.measRotDeg=+rotDeg.toFixed(2);
+    const fpElong=(fp.axisRatio||1)>=1.5, refElong=(ref.axisRatio==null)?true:(ref.axisRatio>=1.4);
+    diag.fpAxisRatio=+(fp.axisRatio||1).toFixed(2); if(ref.axisRatio!=null) diag.refAxisRatio=+ref.axisRatio.toFixed(2);
+    // ── ROBUSTNESS GATE: implausibly large shift ⇒ wrong building → DON'T register
+    if(shiftM>ALIGN_MAX_SHIFT_M){ diag.reason="shift-too-large("+shiftM.toFixed(1)+"m)"; return { ring:ringEN, diag }; }
+    // apply PCA rotation only for a clear, bounded mismatch on an ELONGATED footprint+ref
+    const doRot=(fpElong && refElong && Math.abs(rotDeg)>=ALIGN_MIN_ROT_DEG && Math.abs(rotDeg)<=ALIGN_MAX_ROT_DEG);
+    const ca=Math.cos(doRot?rot:0), sa=Math.sin(doRot?rot:0);
+    const rotAbout=(ring,c0,ang)=>{ const cc=Math.cos(ang),ss=Math.sin(ang);
+      return ring.map(([E,N])=>{ const dx=E-c0[0],dy=N-c0[1]; return [c0[0]+dx*cc-dy*ss, c0[1]+dx*ss+dy*cc]; }); };
+    // rigid transform: rotate about the FOOTPRINT centroid, then translate centroid→google centroid
+    let out=ringEN.map(([E,N])=>{ const dx=E-fp.c[0], dy=N-fp.c[1];
+      const rx=dx*ca-dy*sa, ry=dx*sa+dy*ca;
+      return [fp.c[0]+rx+shiftE, fp.c[1]+ry+shiftN]; });
+    // ── OPTIONAL FINE ICP NUDGE — slide (and micro-rotate) to maximise boundary-on-mask overlap.
+    //    The rotation search here is overlap-driven (not PCA) so it's safe even on a square roof:
+    //    it only accepts a small angle that demonstrably improves the on-roof overlap.
+    let icpE=0,icpN=0,icpRotDeg=0;
+    if(mg){
+      const gc=[fp.c[0]+shiftE, fp.c[1]+shiftN];   // current centroid (rotate micro-steps about it)
+      let bestScore=_ringMaskOverlap(out,mg), bestRing=out;
+      const transTries=[[0.4,0],[-0.4,0],[0,0.4],[0,-0.4],[0.3,0.3],[-0.3,0.3],[0.3,-0.3],[-0.3,-0.3]];
+      const rotTries=[1.5,-1.5,3,-3];   // degrees
+      for(let iter=0; iter<4; iter++){
+        let improved=false;
+        for(const[de,dn]of transTries){
+          if(Math.hypot(icpE+de,icpN+dn)>ALIGN_ICP_MAX_M) continue;   // clamp total ICP translation
+          const cand=bestRing.map(([E,N])=>[E+de,N+dn]);
+          const sc=_ringMaskOverlap(cand,mg);
+          if(sc>bestScore+1e-4){ bestScore=sc; bestRing=cand; icpE+=de; icpN+=dn; improved=true; }
+        }
+        for(const dd of rotTries){
+          if(Math.abs(icpRotDeg+dd)>ALIGN_ICP_MAX_ROT_DEG) continue;   // clamp total ICP rotation
+          const cand=rotAbout(bestRing,[gc[0]+icpE,gc[1]+icpN],dd*Math.PI/180);
+          const sc=_ringMaskOverlap(cand,mg);
+          if(sc>bestScore+1e-4){ bestScore=sc; bestRing=cand; icpRotDeg+=dd; improved=true; }
+        }
+        if(!improved) break;
+      }
+      out=bestRing; shiftE+=icpE; shiftN+=icpN;
+    }
+    diag.icpE=+icpE.toFixed(2); diag.icpN=+icpN.toFixed(2); diag.icpRotDeg=+icpRotDeg.toFixed(2);
+    diag.overlapAfter=mg?+_ringMaskOverlap(out,mg).toFixed(3):null;
+    // ── never make it WORSE than the input: if a mask exists and overlap dropped, revert
+    if(mg && diag.overlapBefore!=null && diag.overlapAfter!=null && diag.overlapAfter < diag.overlapBefore-0.02){
+      diag.reason="overlap-regressed("+diag.overlapBefore+"→"+diag.overlapAfter+")"; diag.applied=false;
+      return { ring:ringEN, diag };
+    }
+    diag.applied=true; diag.reason="registered";
+    diag.shiftE=+shiftE.toFixed(2); diag.shiftN=+shiftN.toFixed(2); diag.shiftM=+Math.hypot(shiftE,shiftN).toFixed(2);
+    diag.rotDeg=+((doRot?rotDeg:0)+icpRotDeg).toFixed(2);   // total applied rotation (PCA + ICP)
+    return { ring:out, diag };
+  }catch(e){ diag.reason="err:"+(e&&e.message||e); return { ring:ringEN, diag }; }
+}
+
+/* ===========================================================================
    VECTOR FOOTPRINT REGULARIZER — turn a real OSM/cache building outline (UTM E,N)
    into clean, STRAIGHT eave edges with true corners, then offset outward for eaves.
    This is the EVEN-roofline fix: instead of tracing Google's fuzzy roof mask (jagged,
@@ -3831,27 +4061,34 @@ function regularizeVectorFootprint(ringEN, overhangM){
   // 3) notch-merge + collinear-merge + guarded rect-snap (tolerances in METRES here)
   xy=cleanFootprintRing(xy,axis,{ minLen:0.8, mergeDeg:7, rectTol:0.05, maxVerts:10 });
   if(xy.length<3) return null;
-  // 4) outward miter offset → eave outline. Ensure CCW so "outward" = right of each directed edge's outward normal.
+  // 4) outward miter offset → eave outline (overhangM may be 0 when registration applies the eave later).
+  const offset=_overhangRing(xy, overhangM);
+  if(!offset) return null;
+  // back to world UTM (return CCW — downstream area uses abs())
+  return offset.map(([x,y])=>[x+oE,y+oN]);
+}
+/* Outward miter offset of a ring [[x,y],...] by `overhangM` metres (eave overhang). CCW-normalised
+   so "outward" = right of each directed edge's outward normal; miter capped to avoid sharp-corner
+   spikes. overhangM<=0 is a no-op (returns a copy). Returns null on a degenerate ring. */
+function _overhangRing(xy, overhangM){
+  if(!Array.isArray(xy) || xy.length<3) return null;
+  if(!(overhangM>0)) return xy.map(p=>[p[0],p[1]]);
   let a2=0; for(let i=0;i<xy.length;i++){ const A=xy[i],B=xy[(i+1)%xy.length]; a2+=A[0]*B[1]-B[0]*A[1]; }
   const ccw=(a2>0); const ring=ccw?xy:xy.slice().reverse();
-  const n=ring.length;
-  const offset=[];
+  const n=ring.length, offset=[];
   for(let i=0;i<n;i++){
     const prev=ring[(i-1+n)%n], cur=ring[i], nxt=ring[(i+1)%n];
-    // outward normals of the two edges meeting at cur (CCW ring → outward normal = (dy,-dx) of the directed edge)
     const e1=[cur[0]-prev[0],cur[1]-prev[1]], e2=[nxt[0]-cur[0],nxt[1]-cur[1]];
     const l1=Math.hypot(e1[0],e1[1])||1, l2=Math.hypot(e2[0],e2[1])||1;
     const n1=[e1[1]/l1,-e1[0]/l1], n2=[e2[1]/l2,-e2[0]/l2];
     let mx=n1[0]+n2[0], my=n1[1]+n2[1]; const ml=Math.hypot(mx,my);
     if(ml<1e-6){ offset.push([cur[0]+n1[0]*overhangM, cur[1]+n1[1]*overhangM]); continue; }
     mx/=ml; my/=ml;
-    // miter length = overhang / cos(half-angle between the two normals); cap to avoid spikes at sharp corners
     const cosHalf=Math.max(0.35, mx*n1[0]+my*n1[1]);
     const scale=Math.min(overhangM/cosHalf, overhangM*3);
     offset.push([cur[0]+mx*scale, cur[1]+my*scale]);
   }
-  // back to world UTM, preserve original winding (return CCW — downstream area uses abs())
-  return offset.map(([x,y])=>[x+oE,y+oN]);
+  return offset;
 }
 /* signed-area magnitude of a ring [[E,N],...] (m²) */
 function polyArea2(ring){ let s2=0; for(let i=0;i<ring.length;i++){ const A=ring[i],B=ring[(i+1)%ring.length]; s2+=A[0]*B[1]-B[0]*A[1]; } return Math.abs(s2)/2; }
@@ -6199,9 +6436,16 @@ try{
     estUnits:(spv)=>estUnits(spv),
     wgs84ToUTM:(lat,lng,z)=>wgs84ToUTM(lat,lng,z),
     isolateUnitFootprint:(ring,zone,geoLL)=>isolateUnitFootprint(ring,zone,geoLL),
+    regularizeVectorFootprint:(r,o)=>regularizeVectorFootprint(r,o),
+    registerFootprintToGoogle:(r,z)=>registerFootprintToGoogle(r,z),
+    googleRoofReference:(z)=>googleRoofReference(z),
     frame3D:()=>{ try{ const d=window.__roofDebug||{}; const span=(d.crop||30)*2;
       camera.position.set(span*0.30,span*0.95,span*0.45); controls.target.set(0,3,0); controls.update(); }catch(_){} },
   };
+  // direct aliases for the fixed-frame registration overlay diagnostic (verify-overlay.mjs)
+  window.__wgs84ToUTM=(lat,lng,z)=>wgs84ToUTM(lat,lng,z);
+  window.__regularizeVectorFootprint=(r,o)=>regularizeVectorFootprint(r,o);
+  window.__registerFootprintToGoogle=(r,z)=>registerFootprintToGoogle(r,z);
 }catch(_){}
 </script>
 <script type="module">
