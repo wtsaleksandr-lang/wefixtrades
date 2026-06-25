@@ -442,7 +442,10 @@
   /* mobile: lift the quote card + lens rail clear of the bottom #ctrls rail (bottom:2px, ~54px tall →
      occupies the lowest band). At bottom:58 the matbar sat ~2px off ctrls and read as overlapping; push
      both up to bottom:66 so there's a visible gap and the card footer ("Customize…"/SREC) doesn't collide. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:42vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
+  /* (fix2 P1 #5) cap the mobile bottom sheet at 38vh (was 42vh) so the 3D model keeps the upper ~60% of
+     the 390px viewport instead of being squeezed into the top third with the lower roof hidden. The sheet
+     scrolls internally for any overflow, and the fold pill (#cardFold) still collapses it fully. */
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
     /* mobile bottom-sheet fold: collapse the whole sheet, surface a centred handle pill above the toolbar */
     #card.folded{width:auto;left:2px;right:2px;max-height:0;padding:0;border-width:0}
     #cardFold{left:50%;right:auto;bottom:64px;transform:translateX(-50%)}
@@ -1588,6 +1591,17 @@ const MIN_SEG_FOOTPRINT_RATIO = 0.12;   // dominant roof < 12% of its own bbox e
 // when the DSM / segments / ground samples are unavailable or unreliable, so a good home
 // with missing data is NEVER false-degraded.
 const TALL_BUILDING_M = 14;          // roof plane ≳ 14 m (~46 ft ≈ 4+ stories) above surrounding grade → high-rise/commercial
+// ── COMMERCIAL / LARGE-ROOF thresholds (fix2 P0 #1) ──────────────────────────
+// The old gate (bestKw>30) MISFIRED on big single-family homes: 4760 Marvel Ct, Antelope CA is a
+// detached 3,186 ft² / 7.4 m-tall house whose Best tier is 44.4 kW — it tripped the >30 kW gate and
+// got "too large — request a commercial quote", killing its Measure outline + panel layout + price,
+// even though OUR 3D model placed 65 panels on it. A big residential roof is ~3,500–5,000 ft² (a true
+// estate up to ~8,000 ft² / ~60 kW); genuine commercial (big-box, warehouse, apartment block) starts
+// well ABOVE that. So a roof is only "large/commercial" when it BOTH exceeds the residential kW ceiling
+// AND the residential area ceiling — or it reads as a tall multi-story building (the height signal,
+// which a kW/area threshold can't see). This keeps Marvel residential while a real big-box still degrades.
+const RESIDENTIAL_MAX_KW   = 60;     // > this AND over the area ceiling ⇒ beyond a standard home system
+const RESIDENTIAL_MAX_SQFT = 8000;   // ~8,000 ft² is the top of plausible single-family; commercial starts above
 const TALL_MIN_GROUND_SAMPLES = 6;   // need at least this many valid off-footprint ground samples to trust the verdict
 function buildingHeightAboveGrade(spv){
   try{
@@ -1664,10 +1678,19 @@ function roofDataConfidence(){
   // small rooftop box latched inside a vast gap between towers.
   const segRatio=segmentVsFootprintRatio(spv); window.__segFootprintRatio=segRatio!=null?+segRatio.toFixed(3):null;
   if(segRatio!=null && segRatio<MIN_SEG_FOOTPRINT_RATIO) reasons.push("small-segment");
+  // ── FOOTPRINT-REGISTRATION-REJECT signal (fix2 P0 #3) ───────────────────────
+  // The vector building footprint was rejected because it sat a LONG way off Google's roof (the wrong /
+  // neighbour building). The mask-trace fallback keeps the outline roof-aligned, but when the offset is
+  // this large the reconstruction is the most likely to come out as the featureless misaligned slab the
+  // audit flagged. Rather than present a confident price over a slab, degrade to the honest "approximate
+  // — based on aerial imagery" card. Threshold well above the 6 m registration gate so a normal
+  // borderline offset (which registration now captures) never trips it.
+  const FP_REJECT_DEGRADE_M = 9.0;
+  if(window.__fpRejectShiftM!=null && isFinite(window.__fpRejectShiftM) && window.__fpRejectShiftM>=FP_REJECT_DEGRADE_M) reasons.push("fp-misaligned");
   // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
   // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery, or floating + small-segment).
   // A confirmed floating array is itself disqualifying (panels literally in the air) → treat as hard.
-  const HARD_REASONS=["tiny-roof","huge-roof","no-segments","floating","canopy-heavy"];
+  const HARD_REASONS=["tiny-roof","huge-roof","no-segments","floating","canopy-heavy","fp-misaligned"];
   const hard = reasons.some(r=>HARD_REASONS.includes(r));
   const soft = reasons.filter(r=>!HARD_REASONS.includes(r)).length;
   const low = hard || soft>=2;
@@ -1814,8 +1837,16 @@ function renderQuoteCard(){
   // story home (≤ ~10 m) never false-degrades. OR'd into largeRoof so the whole existing gate reuses it.
   const bH=buildingHeightAboveGrade(); window.__roofHeightAboveGrade=bH;
   const tallBuilding = (bH!=null && bH>=TALL_BUILDING_M);
-  const largeRoof = (solarTiers.length>0 && bestKw>30) || tallBuilding;
+  // (fix2 P0 #1) Only commercial when it BOTH exceeds the residential kW ceiling AND the residential
+  // area ceiling — a big single-family home (e.g. Marvel: 3,186 ft², 44.4 kW) stays residential — OR it
+  // reads as a tall multi-story building. The area term uses the same canonical quoteAreaSqFt() the card
+  // prints, so "sq ft" and the verdict can never contradict.
+  const areaSqFt=quoteAreaSqFt()||0;
+  const oversizeKw = (solarTiers.length>0 && bestKw>RESIDENTIAL_MAX_KW);
+  const oversizeArea = (areaSqFt>RESIDENTIAL_MAX_SQFT);
+  const largeRoof = (oversizeKw && oversizeArea) || tallBuilding;
   window.__largeRoof=largeRoof; window.__tallBuilding=tallBuilding;
+  window.__largeRoofWhy = largeRoof ? (tallBuilding?"tall("+bH+"m)":"oversize(kw="+bestKw+",sqft="+Math.round(areaSqFt)+")") : "";
   const isCommercial=tradeMode==="solar" && largeRoof && view!=="sun" && view!=="measure";
   // ── LOW-CONFIDENCE GATE (SINGLE SOURCE OF TRUTH) ── poor Google data (tree-blob / lower-res
   // tiles / floating array / tiny-box-on-huge-footprint) → never present a confident quote.
@@ -1869,19 +1900,36 @@ function renderQuoteCard(){
     let panels=t.panels, sysKw=t.kw, sysKwh=t.kwhAc||0, sysMonthly=t.monthly||0, lo=t.lo, hi=t.hi;
     if(sizePct!==1){ panels=Math.max(4,Math.round(t.panels*sizePct)); const f=panels/Math.max(1,t.panels);
       sysKw=+(t.kw*f).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*f); sysMonthly=Math.round((t.monthly||0)*f); lo=Math.round(t.lo*f); hi=Math.round(t.hi*f); }
-    // ── PLACEABLE-PANEL RECONCILE (audit-3 Dallas) ──────────────────────────
-    // The 3D overlay crops panels off tree canopy / patio / wrong planes. When a meaningful fraction is
-    // cropped (but not enough to fully degrade), the QUOTE must reflect the panels that actually FIT —
-    // not Google's full array — so the card never promises 75 panels while the roof shows 50. Scale
-    // count/kW/kWh/$/monthly by the survivor fraction. keepFrac≈1 on a clean roof → no change. Only
-    // applied when the user hasn't manually resized (sizePct===1) so the slider stays authoritative.
-    const keepFrac=window.__panelKeepFrac;
-    if(sizePct===1 && view==="panels" && !window.__attached && keepFrac!=null && keepFrac<0.985 && keepFrac>0){
-      const placeable=Math.max(4,Math.round(t.panels*keepFrac)); const g=placeable/Math.max(1,t.panels);
-      panels=placeable; sysKw=+(t.kw*g).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*g);
+    // ── RENDERED-PANEL RECONCILE (fix2 P0 #2) ───────────────────────────────
+    // ONE consistent number: the headline panel count MUST equal the engineered 3D array actually drawn
+    // on the model (window.__renderedPanels = buildScene's `placed`). The old keepFrac heuristic scaled
+    // from Google's full array and could disagree with the render (24 on card / 34 on model / 76 probe).
+    // The engineered array IS the max-fit layout for the BEST tier, so we anchor the Best tier to the
+    // rendered count and scale Good/Better by the same tier ratio — each tier's card count is then exactly
+    // what that tier renders. Only when the user hasn't manually resized (slider stays authoritative) and
+    // not on an attached owner's-section split (whose render is a different, section-clipped array).
+    const bestTier=solarTiers[solarTiers.length-1]||t, bestPanels=bestTier.panels||t.panels;
+    const rendered=window.__renderedPanels;
+    if(sizePct===1 && !window.__attached && rendered>0 && bestPanels>0){
+      // ratio of this tier vs the Best tier, applied to the rendered (Best) array → this tier's count
+      const tierRatio=(t.panels||bestPanels)/bestPanels;
+      const recN=Math.max(4,Math.round(rendered*tierRatio));
+      const g=recN/Math.max(1,t.panels);
+      panels=recN; sysKw=+(t.kw*g).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*g);
       sysMonthly=Math.round((t.monthly||0)*g); lo=Math.round(t.lo*g); hi=Math.round(t.hi*g);
-      window.__quoteScaledByCrop=+g.toFixed(2);
-    } else { window.__quoteScaledByCrop=1; }
+      window.__quoteScaledByRender=+g.toFixed(2); window.__quoteScaledByCrop=1;
+    } else {
+      // No rendered array yet (3D still building / degraded) → fall back to the legacy placeable-crop
+      // reconcile so the count still reflects panels that fit, never Google's full uncropped array.
+      const keepFrac=window.__panelKeepFrac;
+      if(sizePct===1 && view==="panels" && !window.__attached && keepFrac!=null && keepFrac<0.985 && keepFrac>0){
+        const placeable=Math.max(4,Math.round(t.panels*keepFrac)); const g=placeable/Math.max(1,t.panels);
+        panels=placeable; sysKw=+(t.kw*g).toFixed(1); sysKwh=Math.round((t.kwhAc||0)*g);
+        sysMonthly=Math.round((t.monthly||0)*g); lo=Math.round(t.lo*g); hi=Math.round(t.hi*g);
+        window.__quoteScaledByCrop=+g.toFixed(2);
+      } else { window.__quoteScaledByCrop=1; }
+    }
+    window.__quotePanels=panels;   // the headline count the customer sees — asserted == __renderedPanels in verify
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
     const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
@@ -2520,6 +2568,12 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // Polygon3DElement panels, and NOT during the active Sun shadow-play sub-view).
   modelPanelGroup.visible = !!(greyMode && !sunMode);
   window.__panelsPlaced=placed;
+  // (fix2 P0 #2) The engineered 3D array we just DREW is the authoritative panel count the customer
+  // sees on the model. Publish it as the canonical rendered count so renderQuoteCard's headline
+  // "Recommended panels N" matches the N panels on the roof — never 24-on-card / 34-on-model /
+  // 76-on-probe. `placed` is split-aware (owner's-unit only when attached) for free.
+  if(placed>0){ window.__renderedPanels=placed;
+    if(typeof renderQuoteCard==="function" && window.__roofReady){ try{ renderQuoteCard(); }catch(_){} } }
 
   // ── Model-lens quality gate: coherence now comes from the analytic model, so the lens
   //    is available whenever we got valid facets. Keep only a true-degenerate guard. ──
@@ -2537,11 +2591,22 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   const bcx=(bx0+bx1)/2, bcz=(bz0+bz1)/2, bMidY=(roofMinY+roofMaxY)/2;
   const footR=Math.max(8, Math.hypot(bx1-bx0,bz1-bz0)/2);   // half-diagonal of the roof footprint
   const span=CROP*2;
-  controls.target.set(bcx, Math.max(2,bMidY*0.7), bcz);
+  // (fix2 P1 #5) On a narrow (mobile) viewport the bottom quote sheet covers the lower ~38vh+, so a
+  // model framed dead-centre lands half behind the sheet. Pull back a touch (more breathing room) and
+  // bias the framing UPWARD so the whole roof sits in the visible band above the sheet. `tgtBias` raises
+  // the orbit target ~1 footR; combined with the pull-back the model centres in the un-occluded area.
+  const isMobileVp=(typeof window!=="undefined") && ((window.innerWidth||1024)<=560);
+  // mobile: a small pull-back gives the full roof breathing room above the sheet without shrinking it to a
+  // dot; a gentle target lift biases the framing up so the lower roof clears the 38vh sheet. Tuned on the
+  // 390px viewport so the model fills the upper band — not jammed tiny against the top (over-correction).
+  const distMul=isMobileVp?3.15:3.0;
+  const tgtBias=isMobileVp?footR*0.35:0;
+  const tgtY=Math.max(2,bMidY*0.7)+tgtBias;
+  controls.target.set(bcx, tgtY, bcz);
   // 3/4 oblique: ~35° elevation, ~35° off-axis in plan; dist scaled to the building + ~1.7× padding.
-  const dist=footR*3.0;
+  const dist=footR*distMul;
   const heroPos={x:bcx + dist*0.62, y:bMidY + dist*0.66, z:bcz + dist*0.74};
-  const heroTgt={x:bcx, y:Math.max(2,bMidY*0.7), z:bcz};
+  const heroTgt={x:bcx, y:tgtY, z:bcz};
   window.__heroCam={pos:heroPos, tgt:heroTgt};   // Reset (bReset) recalls this exact hero framing
   camera.position.set(heroPos.x, heroPos.y, heroPos.z);
   controls.minDistance=footR*0.9; controls.maxDistance=span*2.2;
@@ -2857,7 +2922,7 @@ function syncViewToggle(){
 async function run(addr){
   if(typeof window.__leaveHero==="function") window.__leaveHero();   // dismiss the landing hero once a quote starts
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false;   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     // If this run was launched by picking an autocomplete suggestion whose text matches what we're
     // geocoding, use that suggestion's place_id for an EXACT-parcel resolve (no street drift). The
@@ -3582,7 +3647,15 @@ function extractFacetPolysAnalytic(margin){
         // off Google's roof). In that case DON'T float the clean polygon on the wrong spot — REJECT it
         // and fall through to the mask-trace below (Google's own roof outline, guaranteed roof-aligned).
         else if(rr.diag && /shift-too-large|overlap-regressed/.test(rr.diag.reason||"")){
-          useVector=false; try{ window.__alignDiag.rejectedVector=true; }catch(_){}
+          useVector=false;
+          try{ window.__alignDiag.rejectedVector=true;
+            // (fix2 P0 #3) Record HOW far off the vector ring was. A large measured shift means the only
+            // building footprint we could find sits well off Google's roof — the mask-trace fallback still
+            // gives a roof-aligned outline, but on these the reconstruction is the most likely to come out
+            // as the featureless misaligned slab. Expose the shift so roofDataConfidence() degrades to the
+            // honest "approximate — based on aerial imagery" card (option b) instead of a confident slab.
+            window.__fpRejectShiftM = (rr.diag.measShiftM!=null) ? rr.diag.measShiftM : null;
+          }catch(_){}
         }
         // else (no-google-ref / small offset that didn't trip the gate): keep the regularized vector as-is.
       } else if(alignOff){ try{ window.__alignDiag={applied:false,reason:"align=off-debug"}; }catch(_){} }
@@ -3949,7 +4022,7 @@ function _ringMaskOverlap(ring, mg){
   }
   return tot?on/tot:0;
 }
-const ALIGN_MAX_SHIFT_M=5.0;     // >this ⇒ implausible (wrong building/bad geocode) → don't register
+const ALIGN_MAX_SHIFT_M=6.0;     // (fix2 P0 #3) >this ⇒ implausible (wrong building/bad geocode) → don't register. Nudged 5.0→6.0 to capture borderline source-imagery offsets (registration SUCCEEDS more, fewer rejects→slabs); the overlap-regression guard below still reverts any shift that makes the on-roof overlap worse, so a genuinely wrong building is still rejected.
 const ALIGN_MIN_ROT_DEG=3.0;     // only correct a clear rotation mismatch
 const ALIGN_MAX_ROT_DEG=25.0;    // bigger axis delta ⇒ axes disagree on long side → skip (no 90° flip)
 const ALIGN_ICP_MAX_M=1.2;       // cap the optional fine ICP translation nudge
@@ -5024,6 +5097,11 @@ async function buildPhotoPanels(){
   window.__photoPanels=photoPanels.length;
   window.__engPanels=engN;   // engineered (max-fit) panel count actually drawn; 0 ⇒ fell back to Google's array
   window.__recPanels=keep.length;   // recommended/Google placeable count (drives the quote figures)
+  // (fix2 P0 #2) When the buyer is on the photoreal/Satellite lens, the count DRAWN here (engineered
+  // max-fit, else the cropped placeable array) is what they see — publish it as the canonical rendered
+  // count so the quote headline matches THIS lens too (not just the default 3D-model lens). Only when
+  // not an attached owner's-section split (whose array is intentionally a section-clipped subset).
+  if(!window.__attached){ const drawn=photoPanels.length; if(drawn>0) window.__renderedPanels=drawn; }
   // ── QUOTE↔OVERLAY RECONCILE (audit-3): when SOME panels were cropped (but not enough to degrade),
   // the displayed count/kW/$ must reflect the PLACEABLE panels, not Google's full array — otherwise the
   // card promises 75 panels while the roof shows 50. Record the survivor fraction; renderQuoteCard
@@ -5050,6 +5128,19 @@ async function setMode(mo){
     showLoad("Loading photoreal 3D…");
     try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+((e&&e.message)||e)); try{ console.warn("photoreal degrade:",(e&&e.message)||e); }catch(_){} setStatus("3D view unavailable — your quote is shown on the card."); }   // enhancement-only failure: never leak a raw exception string; the price card already rendered
     showLoad(false);
+    // (fix2 P1 #4) CENTRAL photoreal fallback — covers EVERY entry point (viewToggle, bPanels, sun, the
+    // default-model catch). ensurePhotoreal()/waitForTiles already TIMES OUT the tile stream (~9 s mobile /
+    // 4.5 s desktop), so __photorealOk===false means Google has no 3D tiles here (e.g. Antelope CA) and the
+    // canvas would sit blank / the spinner would have hung. Never strand the buyer on an empty olive void:
+    // revert to OUR premium 3D model (or, if even that isn't available, leave the 2D card) with an honest
+    // note. The guard flag prevents re-entry (enterModelDefault → setMode("schematic") never loops back here).
+    if(window.__photorealOk===false && !window.__photoFallbackInFlight && window.__modelQuality!==false && typeof enterModelDefault==="function"){
+      window.__photoFallbackInFlight=true;
+      try{ await enterModelDefault(); setStatus("Aerial 3D isn’t available here — showing our 3D model instead."); }
+      catch(_){ setStatus("Aerial 3D isn’t available here — your quote is shown on the card."); }
+      finally{ window.__photoFallbackInFlight=false; }
+      if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+    }
   } else setStatus("");
   window.__mode=mode;
   if(typeof syncViewToggle==="function") syncViewToggle();
@@ -5784,16 +5875,14 @@ $("viewToggle").querySelectorAll("button").forEach(btn=>{
       clearHeat(); clearLabels(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas();
       panelsVisible=true; $("bPanels").classList.add("on");
       showLoad("Loading satellite view…");
-      try{ await setMode("photoreal"); showAnalysis(null); await buildPhotoPanels(); }
+      try{ await setMode("photoreal"); }
       catch(e){ errors.push("toggle-photo:"+((e&&e.message)||e)); }
       showLoad(false);
-      // (P0 #2) Google's photoreal tiles never painted (502 / rate-limit / no coverage → a blank blue
-      // void). Don't strand the buyer on an empty map: revert to OUR premium 3D model and say why.
-      if(window.__photorealOk===false){
-        try{ await enterModelDefault(); }catch(_){}
-        setStatus("Aerial 3D view is temporarily unavailable — showing our 3D model instead.");
-        syncViewToggle(); renderQuoteCard(); return;
-      }
+      // (fix2 P1 #4) setMode() now owns the central no-tiles fallback: if Google has no 3D tiles here
+      // it already reverted to our 3D model + set the honest note. So only finish the photoreal path
+      // (panels/analysis) when we actually LANDED on photoreal; otherwise just sync the toggle and bail.
+      if(mode!=="photoreal" || window.__photorealOk===false){ syncViewToggle(); renderQuoteCard(); return; }
+      try{ showAnalysis(null); await buildPhotoPanels(); }catch(e){ errors.push("toggle-photo2:"+((e&&e.message)||e)); }
     } else {
       if(mode==="schematic" && greyMode){ syncViewToggle(); return; }   // already on our model
       showLoad("Loading 3D model…");
