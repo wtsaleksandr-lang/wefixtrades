@@ -52,6 +52,54 @@
   #hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:22px}
   #hero .hero-tchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--muted)}
   #hero .hero-tchip svg{flex:0 0 auto;width:15px;height:15px;stroke:#16a34a;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== FUNNEL PROGRESS BAR (Sky-Quote/Roofr-style: Address · Roof · Options · Estimate) =====
+     Hidden by default; shown on the Select-Your-Roof step and once the roof view loads. Sits at the
+     very top, above the search bar, so the buyer always sees where they are in the flow. */
+  #funnelBar{position:absolute;top:0;left:0;right:0;z-index:40;display:none;justify-content:center;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(15,23,42,.02)}
+  #funnelBar .fb-inner{width:100%;max-width:760px;display:flex;align-items:center;gap:6px;padding:11px clamp(14px,4vw,28px)}
+  #funnelBar .fb-step{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:9px}
+  #funnelBar .fb-num{flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:#eef1f6;color:var(--faint);border:1.5px solid var(--line);transition:background .2s ease,color .2s ease,border-color .2s ease}
+  #funnelBar .fb-lab{font-size:12.5px;font-weight:700;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s ease}
+  #funnelBar .fb-line{flex:1 1 0;height:2px;border-radius:2px;background:var(--line);min-width:8px;position:relative;overflow:hidden}
+  #funnelBar .fb-line>i{position:absolute;inset:0;width:0;background:var(--blue);border-radius:2px;transition:width .35s ease}
+  #funnelBar .fb-step.done .fb-num{background:var(--blue);color:#fff;border-color:var(--blue)}
+  #funnelBar .fb-step.done .fb-lab{color:var(--ink)}
+  #funnelBar .fb-step.active .fb-num{background:var(--accent-tint);color:var(--blue);border-color:var(--blue)}
+  #funnelBar .fb-step.active .fb-lab{color:var(--blue)}
+  #funnelBar .fb-step.done .fb-num svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== SELECT YOUR ROOF step — aerial satellite + highlighted footprint + Continue ===== */
+  #selectRoof{position:absolute;inset:0;z-index:30;display:none;flex-direction:column;background:var(--bg);padding-top:48px}
+  #selectRoof .sr-head{flex:0 0 auto;text-align:center;padding:22px clamp(16px,5vw,40px) 14px}
+  #selectRoof .sr-eyebrow{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:5px 12px;margin-bottom:12px}
+  #selectRoof .sr-title{margin:0;font-size:clamp(22px,3.4vw,32px);line-height:1.1;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
+  #selectRoof .sr-sub{margin:8px 0 0;font-size:14.5px;font-weight:600;color:var(--muted)}
+  #selectRoof .sr-addr{display:inline-flex;align-items:center;gap:7px;margin-top:6px;font-size:14px;font-weight:700;color:var(--ink)}
+  #selectRoof .sr-addr svg{flex:0 0 auto;width:15px;height:15px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-mapwrap{flex:1 1 auto;position:relative;margin:0 clamp(14px,4vw,40px);border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--card-shadow);background:#dfe5ee;min-height:0}
+  #selectRoof #srMap{position:absolute;inset:0}
+  #selectRoof .sr-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 28px);background:rgba(15,23,42,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:99px;text-align:center}
+  #selectRoof .sr-hint svg{flex:0 0 auto;width:14px;height:14px;stroke:#7fa0ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-load{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13.5px;font-weight:600}
+  #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
+  @keyframes srspin{to{transform:rotate(360deg)}}
+  #selectRoof .sr-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px clamp(14px,4vw,40px) 20px;max-width:760px;width:100%;margin:0 auto}
+  #selectRoof .sr-back{background:#fff;border:1px solid var(--line);border-radius:12px;height:50px;padding:0 20px;font-weight:700;color:var(--ink);font-size:15px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
+  #selectRoof .sr-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-continue{flex:1 1 auto;max-width:360px;background:var(--blue);border:0;border-radius:12px;height:52px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;box-shadow:var(--btn-shadow);display:inline-flex;align-items:center;justify-content:center;gap:9px}
+  #selectRoof .sr-continue svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-continue:disabled{opacity:.6;cursor:default}
+  @media (max-width:560px){
+    #funnelBar .fb-inner{padding:9px 12px;gap:3px}
+    #funnelBar .fb-lab{display:none}                 /* mobile: numbered dots + connectors only — labels would wrap/clip at 375px */
+    #funnelBar .fb-step{flex:0 0 auto}
+    #funnelBar .fb-step.active .fb-lab{display:inline;font-size:12px}  /* show the CURRENT step's label only */
+    #selectRoof{padding-top:42px}
+    #selectRoof .sr-head{padding:16px 16px 12px}
+    #selectRoof .sr-mapwrap{margin:0 12px}
+    #selectRoof .sr-foot{flex-direction:column-reverse;padding:14px 12px 18px}
+    #selectRoof .sr-back{width:100%;justify-content:center}
+    #selectRoof .sr-continue{width:100%;max-width:none}
+  }
   /* below ~900px the two-column split gets cramped → drop the visual, let the panel breathe full-width */
   @media (max-width:900px){ #hero .hero-visual{display:none} #hero .hero-panel{max-width:640px} #hero .hero-inner{justify-content:center} }
   @media (max-width:560px){
@@ -539,6 +587,35 @@
     <button data-v="photo" title="Real aerial / satellite imagery of your home"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg>Satellite</button>
   </div>
   <div id="bar"><input id="addr" placeholder="4521 T St, Sacramento CA" value=""><button id="go">Get Quote</button></div>
+  <!-- FUNNEL PROGRESS BAR — Address · Roof · Options · Estimate. Driven by setFunnelStep(); hidden on the hero. -->
+  <div id="funnelBar"><div class="fb-inner">
+    <div class="fb-step" data-step="address"><span class="fb-num">1</span><span class="fb-lab">Address</span></div>
+    <div class="fb-line"><i></i></div>
+    <div class="fb-step" data-step="roof"><span class="fb-num">2</span><span class="fb-lab">Roof</span></div>
+    <div class="fb-line"><i></i></div>
+    <div class="fb-step" data-step="options"><span class="fb-num">3</span><span class="fb-lab">Options</span></div>
+    <div class="fb-line"><i></i></div>
+    <div class="fb-step" data-step="estimate"><span class="fb-num">4</span><span class="fb-lab">Estimate</span></div>
+  </div></div>
+  <!-- SELECT YOUR ROOF step — inserted AFTER the address is chosen, BEFORE the 3D roof view. Aerial satellite
+       centred on the geocode with the detected building footprint highlighted, + Continue/Back. -->
+  <div id="selectRoof">
+    <div class="sr-head">
+      <span class="sr-eyebrow">What would my roof cost?</span>
+      <h2 class="sr-title">Select your roof</h2>
+      <p class="sr-sub">We found your building from satellite imagery — confirm it's the right roof.</p>
+      <div class="sr-addr"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span id="srAddr"></span></div>
+    </div>
+    <div class="sr-mapwrap">
+      <div id="srMap"></div>
+      <div class="sr-load" id="srLoad"><div class="sr-ring"></div><span id="srLoadT">Locating your building…</span></div>
+      <div class="sr-hint" id="srHint"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="srHintT">This is the roof we detected. Not your building? Tap the correct one.</span></div>
+    </div>
+    <div class="sr-foot">
+      <button class="sr-back" id="srBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+      <button class="sr-continue" id="srContinue" type="button">Continue<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </div>
+  </div>
   <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads (renderQuoteCard). Title-left, visual-right per Alex's hero rules. -->
   <div id="hero">
     <div class="hero-inner">
@@ -3318,6 +3395,7 @@ async function run(addr){
     if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="mine"; if(!window.__sectionShare) window.__sectionShare=+(1/estUnits(spv)).toFixed(2); }
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
+    try{ if(window.__funnelActive && typeof window.__setFunnelStep==="function") window.__setFunnelStep("estimate"); }catch(_){}   // funnel: the live quote is now on screen → advance the progress bar to Estimate
     showLoad(false);
     // (fix3 P1 #3) Resolve the in-flight building footprint with a TIGHT timeout, just before the model
     // is built. It was kicked off in parallel back when geocode returned, so by now (after solar + the
@@ -7120,7 +7198,7 @@ function applySharedSelection(){
 }
 window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(quoteUrl()); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
 window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+quoteUrl()); };
-$("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } run(v); };
+$("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } const picked=window.__pickedPlace; const pid=(picked&&picked.addr===v)?picked.id:""; if(typeof window.__enterSelectRoof==="function"){ window.__enterSelectRoof(v,pid); } else { run(v); } };   // funnel: a new address from the top bar re-enters the Select-Your-Roof gate
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
 // ── LANDING HERO wiring ──────────────────────────────────────────────────
 // The hero owns the empty state: the top search bar (#bar) is hidden behind it until a quote
@@ -7134,7 +7212,129 @@ if(_heroOff){ const _h=$("hero"); if(_h) _h.style.display="none"; }
 else { $("bar").style.display="none"; }   // hero is up first
 function leaveHero(){ const h=$("hero"); if(h) h.style.display="none"; $("bar").style.display="flex"; }
 window.__leaveHero=leaveHero;
-function submitHero(){ const v=($("addrHero").value||"").trim(); if(!v){ const a=$("addrHero"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } $("addr").value=v; leaveHero(); run(v); }
+
+// ── FUNNEL: progress bar + Select-Your-Roof gate ─────────────────────────────
+// The buyer journey is now a Sky-Quote/Roofr-style funnel: Address → Roof → Options → Estimate.
+// The address (hero or top bar) no longer jumps straight into the heavy 3D pipeline; it first lands
+// on the "Select Your Roof" step (aerial satellite + the detected building highlighted) so the buyer
+// confirms the right roof. Continue then runs the EXISTING run() pipeline UNCHANGED — the 3D model,
+// lenses, edit-outline and lead form are the Roof/Options/Estimate content, reached after this gate.
+const FUNNEL_STEPS=["address","roof","options","estimate"];
+// Each step name → how many of the 3 progress-line connectors are filled (0..3) when it's the active step.
+const FUNNEL_FILL={address:0,roof:1,options:2,estimate:3};
+let __funnelOn=false;
+function setFunnelStep(step){
+  const bar=$("funnelBar"); if(!bar) return;
+  __funnelOn=true; window.__funnelActive=true; bar.style.display="flex";
+  const idx=FUNNEL_STEPS.indexOf(step); if(idx<0) return;
+  bar.querySelectorAll(".fb-step").forEach((el,i)=>{
+    el.classList.remove("active","done");
+    const s=el.getAttribute("data-step"); const si=FUNNEL_STEPS.indexOf(s);
+    if(si<idx){ el.classList.add("done"); el.querySelector(".fb-num").innerHTML='<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>'; }
+    else { el.querySelector(".fb-num").textContent=String(si+1); if(si===idx) el.classList.add("active"); }
+  });
+  // Fill the connector lines up to (but not into) the active step.
+  const fill=FUNNEL_FILL[step]||0;
+  bar.querySelectorAll(".fb-line>i").forEach((i,k)=>{ i.style.width=(k<fill)?"100%":"0"; });
+}
+function hideFunnel(){ __funnelOn=false; window.__funnelActive=false; const bar=$("funnelBar"); if(bar) bar.style.display="none"; }
+window.__setFunnelStep=setFunnelStep;
+
+let __srMap=null, __srPoly=null, __srMarkers=[], __srReqSeq=0;
+// Render the Select-Your-Roof aerial: a top-down satellite google.maps.Map centred on the geocode with
+// the detected footprint drawn as a highlighted filled polygon. Robust to a missing footprint (just
+// shows the satellite + a marker) and to a Maps load failure (the step still works — Continue proceeds).
+async function renderSelectRoofMap(g, fp){
+  const el=$("srMap"); if(!el) return;
+  try{
+    const { Map }=await google.maps.importLibrary("maps");
+    const center={lat:g.lat,lng:g.lng};
+    if(!__srMap){
+      __srMap=new Map(el,{ center, zoom:20, mapTypeId:"satellite", tilt:0, disableDefaultUI:true, gestureHandling:"greedy", keyboardShortcuts:false, clickableIcons:false });
+    } else { __srMap.setCenter(center); __srMap.setZoom(20); }
+    // clear any prior overlays (second address)
+    if(__srPoly){ __srPoly.setMap(null); __srPoly=null; }
+    __srMarkers.forEach(m=>m.setMap(null)); __srMarkers=[];
+    // Draw the detected building footprint as a highlighted filled polygon. ring is [[lng,lat],...].
+    const ring=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
+    if(ring){
+      const path=ring.map(([lng,lat])=>({lat,lng}));
+      __srPoly=new google.maps.Polygon({ paths:path, strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.28, clickable:false, map:__srMap });
+      // frame the polygon so the whole roof is visible
+      const b=new google.maps.LatLngBounds(); path.forEach(p=>b.extend(p)); __srMap.fitBounds(b,{top:40,right:40,bottom:40,left:40});
+      $("srHintT").textContent="This is the roof we detected. Not your building? Tap the correct one.";
+    } else {
+      // No footprint — just drop a marker on the geocode so the buyer sees the targeted point.
+      try{ const { Marker }=await google.maps.importLibrary("marker"); __srMarkers.push(new Marker({ position:center, map:__srMap })); }catch(_){}
+      $("srHintT").textContent="Centred on your address. Tap your building if the marker is off.";
+    }
+    // SIMPLE neighbour re-pick: a map click re-centres + re-targets that point (re-fetches its footprint).
+    // Full neighbour-marker selection (Sky-Quote drops pins on every roof) is deferred — see report notes.
+    if(!el.__srClickWired){ el.__srClickWired=true;
+      __srMap.addListener("click",async(ev)=>{ if(!ev||!ev.latLng) return;
+        const nlat=ev.latLng.lat(), nlng=ev.latLng.lng();
+        window.__srGeo={lat:nlat,lng:nlng,formatted:(window.__srGeo&&window.__srGeo.formatted)||""};
+        const nfp=await fetchJSON("/footprint?lat="+nlat+"&lng="+nlng,"footprint").catch(()=>null);
+        const ncand=nfp&&Array.isArray(nfp.candidates)&&nfp.candidates[0]?nfp.candidates[0]:(nfp&&nfp.ring?nfp:null);
+        renderSelectRoofMap({lat:nlat,lng:nlng}, ncand);
+      });
+    }
+  }catch(_){ /* Maps failed to load — leave the load veil; Continue still proceeds into run() */ }
+}
+
+// Enter the Select-Your-Roof step for a typed/picked address. Geocodes (honouring any picked place_id)
+// + fetches the footprint, then paints the aerial. NEVER blocks Continue on these — a geocode/footprint
+// miss just shows the satellite/marker and the buyer proceeds.
+async function enterSelectRoof(addr, placeId){
+  const v=(addr||"").trim(); if(!v) return;
+  const h=$("hero"); if(h) h.style.display="none";
+  $("bar").style.display="none";               // top search bar stays hidden behind this step
+  $("addr").value=v;
+  $("selectRoof").style.display="flex";
+  setFunnelStep("roof");
+  $("srAddr").textContent=v;
+  $("srLoad").style.display="flex"; $("srLoadT").textContent="Locating your building…";
+  const seq=++__srReqSeq;
+  let g=null;
+  try{ g=await geocode(v, placeId||""); }catch(_){ g=null; }
+  if(seq!==__srReqSeq) return;                  // a newer request superseded this one
+  if(g && isFinite(g.lat) && isFinite(g.lng)){
+    window.__srGeo={lat:g.lat,lng:g.lng,formatted:g.formatted||v};
+    if(g.formatted){ $("srAddr").textContent=g.formatted; $("addr").value=g.formatted; }
+    $("srLoadT").textContent="Detecting your roof…";
+    const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
+    if(seq!==__srReqSeq) return;
+    const cand=fp&&Array.isArray(fp.candidates)&&fp.candidates[0]?fp.candidates[0]:(fp&&fp.ring?fp:null);
+    await renderSelectRoofMap(g, cand);
+  } else {
+    // geocode failed — show the step with a notice; Continue will surface the real geocode error via run()
+    window.__srGeo=null;
+    $("srHintT").textContent="We couldn't pinpoint that address — tap Continue to try the full analysis.";
+  }
+  if(seq!==__srReqSeq) return;
+  $("srLoad").style.display="none";
+}
+window.__enterSelectRoof=enterSelectRoof;
+
+// Continue → leave the Select-Your-Roof gate and run the EXISTING 3D pipeline unchanged.
+$("srContinue").onclick=()=>{
+  const addr=($("addr").value||$("srAddr").textContent||"").trim(); if(!addr) return;
+  $("selectRoof").style.display="none";
+  $("bar").style.display="flex";
+  setFunnelStep("options");                     // model/lenses/edit = Roof+Options content; Estimate flips on quote render
+  run(addr);
+};
+// Back → return to the address hero.
+$("srBack").onclick=()=>{
+  __srReqSeq++;                                  // cancel any in-flight geocode/footprint paint
+  $("selectRoof").style.display="none";
+  hideFunnel();
+  $("bar").style.display="none";
+  const h=$("hero"); if(h) h.style.display="flex";
+  const a=$("addrHero"); if(a) a.focus();
+};
+
+function submitHero(){ const v=($("addrHero").value||"").trim(); if(!v){ const a=$("addrHero"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } const picked=window.__pickedPlace; const pid=(picked&&picked.addr===v)?picked.id:""; enterSelectRoof(v,pid); }
 $("goHero").onclick=submitHero;
 $("addrHero").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); submitHero(); } });
 $("heroSample").onclick=()=>{ $("addrHero").value=SAMPLE_ADDR; submitHero(); };
@@ -7216,7 +7416,7 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
     window.addEventListener("resize",()=>{ if(box.style.display!=="none") place(); });
   }
   attach($("addr"), (addr)=>{ $("addr").value=addr; $("go").click(); });
-  attach($("addrHero"), (addr)=>{ $("addrHero").value=addr; $("addr").value=addr; if(typeof window.__leaveHero==="function") window.__leaveHero(); run(addr); });
+  attach($("addrHero"), (addr)=>{ $("addrHero").value=addr; $("addr").value=addr; const picked=window.__pickedPlace; const pid=(picked&&picked.addr===addr)?picked.id:""; if(typeof window.__enterSelectRoof==="function"){ window.__enterSelectRoof(addr,pid); } else { if(typeof window.__leaveHero==="function") window.__leaveHero(); run(addr); } });   // funnel: hero autocomplete pick → Select-Your-Roof gate
   window.__acReady=true;
 }catch(_){ /* inputs still work as plain text fields */ } })();
 // Panels / Sun (shade) / ft² (measure) / Roof (material) are mutually-exclusive roof overlays
