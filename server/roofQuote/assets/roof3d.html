@@ -655,6 +655,62 @@
     #solarGrid .sg-price .pv{font-size:21px}
     #solarGrid .sg-hint{font-size:10.5px;padding:5px 11px;gap:6px;bottom:calc(env(safe-area-inset-bottom) + 6px)}
   }
+  /* ===== ROOFING REMODEL DESIGN STEP (counterpart to the solar designer) =====
+     The stage is the LIVE photoreal house (mounted via #gmapWrap behind this overlay, like the
+     solar 3D sub-view). This overlay is chrome only: a header at top + a premium glass picker
+     panel docked at the bottom — so the real house shows through the middle while the buyer
+     clicks materials/colours and watches the price + features update. Mirrors #solarGrid styling. */
+  #roofDesign{position:absolute;inset:0;z-index:34;display:none;flex-direction:column;pointer-events:none}
+  #roofDesign .rd-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.86),rgba(11,18,32,.42) 70%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:auto}
+  #roofDesign .rd-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+  #roofDesign .rd-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
+  #roofDesign .rd-back{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px 9px 10px;cursor:pointer}
+  #roofDesign .rd-back svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* the "see it on my house" CTA chip lives in the header, right-aligned */
+  #roofDesign .rd-ai{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(13,60,252,.92);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 14px;cursor:pointer;box-shadow:0 6px 20px rgba(13,60,252,.32)}
+  #roofDesign .rd-ai:disabled{opacity:.6;cursor:default}
+  #roofDesign .rd-ai svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* premium glass picker panel docked at the bottom */
+  #roofDesign .rd-panel{margin-top:auto;position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -14px 44px rgba(15,23,42,.22);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;pointer-events:auto;border-radius:18px 18px 0 0}
+  /* material / style chips (horizontal scroller) */
+  #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #roofDesign .rd-mats::-webkit-scrollbar{display:none}
+  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:96px;border:1px solid var(--line);border-radius:12px;padding:7px 8px 8px;background:#fff;cursor:pointer;text-align:left;transition:border-color .14s ease,box-shadow .14s ease}
+  #roofDesign .rd-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.16)}
+  #roofDesign .rd-mat .rdm-tex{width:100%;height:30px;border-radius:7px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08)}
+  #roofDesign .rd-mat .rdm-nm{font-size:11.5px;font-weight:800;color:var(--ink);line-height:1.1;letter-spacing:-.01em}
+  #roofDesign .rd-mat .rdm-tier{font-size:9.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.02em}
+  /* colour swatches */
+  #roofDesign .rd-cols{display:flex;gap:9px;overflow-x:auto;padding:1px 0 3px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #roofDesign .rd-cols::-webkit-scrollbar{display:none}
+  #roofDesign .rd-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:54px}
+  #roofDesign .rd-col .rdc-chip{width:40px;height:40px;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #roofDesign .rd-col.on .rdc-chip{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.18),inset 0 0 0 1px rgba(0,0,0,.10)}
+  #roofDesign .rd-col .rdc-nm{font-size:9.5px;font-weight:700;color:var(--muted);line-height:1.05;text-align:center;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+  #roofDesign .rd-col.on .rdc-nm{color:var(--ink)}
+  /* price + features row */
+  #roofDesign .rd-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
+  #roofDesign .rd-price{background:#f7f9fc;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+  #roofDesign .rd-price .rdp-lab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  #roofDesign .rd-price .rdp-v{font-size:21px;font-weight:900;color:var(--ink);letter-spacing:-.02em;line-height:1.05}
+  #roofDesign .rd-price .rdp-sub{font-size:10.5px;font-weight:600;color:var(--muted)}
+  #roofDesign .rd-feats{background:rgba(13,60,252,.045);border:1px solid rgba(13,60,252,.16);border-radius:12px;padding:9px 11px;min-width:0}
+  #roofDesign .rd-feats .rdf-h{font-size:11.5px;font-weight:800;color:var(--ink);line-height:1.15;margin-bottom:4px}
+  #roofDesign .rd-feats ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+  #roofDesign .rd-feats li{display:flex;align-items:flex-start;gap:6px;font-size:11px;font-weight:600;color:var(--ink);line-height:1.25}
+  #roofDesign .rd-feats li svg{flex:0 0 auto;width:12px;height:12px;margin-top:1px;fill:none;stroke:#16a34a;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+  #roofDesign .rd-cta{display:flex;gap:8px}
+  #roofDesign .rd-cta .rd-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--btn-shadow)}
+  /* the AI on-house "rendering" hint sits centred over the stage while a render is in-flight */
+  #roofDesign .rd-stagehint{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:8px;background:rgba(11,18,32,.82);color:#fff;font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:99px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
+  #roofDesign .rd-stagehint .mini{width:13px;height:13px;border:2.4px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .9s linear infinite}
+  @media (max-width:430px){
+    #roofDesign .rd-mat{width:88px}
+    #roofDesign .rd-price .rdp-v{font-size:19px}
+    #roofDesign .rd-info{gap:8px}
+    #roofDesign .rd-ai{padding:9px 11px}
+    #roofDesign .rd-feats li{font-size:10.5px}
+  }
 </style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
@@ -892,6 +948,31 @@
     </div>
   </div>
   <button id="solar3dBack" type="button" aria-label="Back to 2D panel grid"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>2D grid</button>
+  <!-- ROOFING REMODEL DESIGN STEP — premium picker over the LIVE photoreal house (counterpart to #solarGrid) -->
+  <div id="roofDesign">
+    <div class="rd-head">
+      <button class="rd-back" id="rdBack" type="button" aria-label="Back to Solar or Roofing choice"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
+      <div class="rd-title">Design your new roof<small id="rdSub">Tap a material &amp; colour — your home shown live</small></div>
+      <button class="rd-ai" id="rdAi" type="button"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span id="rdAiLbl">See it on my house</span></button>
+    </div>
+    <div class="rd-stagehint" id="rdStageHint"><span class="mini"></span><span id="rdStageHintT">Rendering your home…</span></div>
+    <div class="rd-panel">
+      <div class="rd-mats" id="rdMats"></div>
+      <div class="rd-cols" id="rdCols"></div>
+      <div class="rd-info">
+        <div class="rd-price">
+          <div class="rdp-lab">Installed estimate</div>
+          <div class="rdp-v" id="rdPrice">$0</div>
+          <div class="rdp-sub" id="rdPriceSub">on your measured roof</div>
+        </div>
+        <div class="rd-feats">
+          <div class="rdf-h" id="rdFeatH">Architectural</div>
+          <ul id="rdFeats"></ul>
+        </div>
+      </div>
+      <div class="rd-cta"><button class="rd-done" id="rdDone" type="button">Use this roof &amp; see my quote</button></div>
+    </div>
+  </div>
 </div>
 <script type="module">
 import * as THREE from "three";
@@ -7184,6 +7265,191 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
 })();
+/* ═══ ROOFING REMODEL DESIGN STEP ═══════════════════════════════════════════════
+   The counterpart to the solar designer. Reached from the "Continue with Roofing remodel"
+   branch choice (bcRoof). The stage is the SAME real-house photoreal view the solar 3D step
+   uses (setMode("photoreal") → ensurePhotoreal's oblique tilt:58 camera, then a tighter hero
+   reframe). Over it sits a premium picker: material/style chips (ROOF_CATALOG) + colour swatches,
+   with the installed price (ROOF_PSQ × measured squares via applyRoofOpts) and a per-material
+   features list (ROOF_SPEC / MAT_INFO) updating live on every pick. buildRoofMaterial() tints the
+   3D facets to the chosen colour so the real house reflects the selection; the header "See it on my
+   house" button upgrades to the AI Street-View repaint when Replicate credits allow, degrading
+   gracefully to the photoreal house + colour tint when AI is down/credit-gated (window.__aiDown). */
+window.__rdOpen=false;
+// installed price band string for the CURRENT selection — reuses the exact card math (ROOF_PSQ × measured squares, with applyRoofOpts).
+function rdPriceBand(){
+  const sel=window.__roofSel; const sqs=quoteAreaSqFt()/100;
+  if(!sel||!(sqs>0)) return null;
+  const psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
+  let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, (typeof getRoofTotals==="function"?getRoofTotals():null));
+  return { lo:Math.round(lo/50)*50, hi:Math.round(hi/50)*50 };
+}
+// render the price card + per-material features list for the current selection
+function rdRenderInfo(){
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0];
+  const band=rdPriceBand();
+  const pv=$("rdPrice"); if(pv) pv.textContent = band ? (fmtMoney(band.lo)+" – "+fmtMoney(band.hi)) : "Measuring…";
+  const sub=$("rdPriceSub"); if(sub){ const sqs=quoteAreaSqFt()/100; sub.textContent = sqs>0 ? ("on your "+sqs.toFixed(1)+"-square roof, installed") : "on your measured roof"; }
+  const fh=$("rdFeatH"); if(fh) fh.textContent=m.label;
+  const spec=ROOF_SPEC[m.id]||{}, info=MAT_INFO[m.id]||{};
+  // features = lifespan + warranty (from ROOF_SPEC) then the top product benefits (from MAT_INFO) — capped to keep the card tight
+  const feats=[];
+  if(spec.life) feats.push("Lasts "+spec.life);
+  if(spec.warranty) feats.push(spec.warranty+" warranty");
+  (info.benefits||info.features||[]).slice(0, feats.length>=2?2:3).forEach(b=>feats.push(b));
+  const CHK='<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+  const ul=$("rdFeats"); if(ul) ul.innerHTML=feats.slice(0,4).map(f=>'<li>'+CHK+'<span>'+esc(f)+'</span></li>').join('');
+}
+// build the horizontal material/style chip row (real shingle texture thumbnail per material)
+function rdBuildMats(){
+  const wrap=$("rdMats"); if(!wrap) return; wrap.innerHTML="";
+  ROOF_CATALOG.forEach((m,i)=>{
+    const b=document.createElement("button"); b.type="button"; b.className="rd-mat"+(i===selMat?" on":"");
+    let tex=""; try{ tex=matThumb(m); }catch(_){}
+    b.innerHTML='<div class="rdm-tex" style="background-image:url('+tex+')"></div><div class="rdm-tier">'+esc(m.tier||"")+'</div><div class="rdm-nm">'+esc(m.label)+'</div>';
+    b.onclick=()=>rdPickMat(i);
+    wrap.appendChild(b);
+  });
+}
+// build the colour swatch row for the selected material
+function rdBuildCols(){
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], wrap=$("rdCols"); if(!wrap) return; wrap.innerHTML="";
+  m.colors.forEach((c,i)=>{
+    const d=document.createElement("button"); d.type="button"; d.className="rd-col"+(i===selCol?" on":"");
+    let bg=c.base; try{ bg="center/cover url("+makeShingleCanvas(c.base,m.type).toDataURL()+")"; }catch(_){}
+    d.innerHTML='<div class="rdc-chip" style="background:'+bg+'"></div><div class="rdc-nm">'+esc(c.n)+'</div>';
+    d.onclick=()=>rdPickCol(i);
+    wrap.appendChild(d);
+  });
+}
+// commit the current selMat/selCol into window.__roofSel (the canonical selection the card/report read)
+function rdCommitSel(){
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0];
+  window.__roofSel={matId:m.id,matLabel:m.label,colorName:c.n}; tradeMode="roof"; window.__trade="roof";
+}
+// repaint the live house preview for the current selection: tint the 3D photoreal facets to the chosen
+// colour (always works, no credits) and — if the AI on-house render is already cached for this colour —
+// drop it onto #aiPhoto. AI is opt-in via the header button so we never auto-spend on a credit-gated render.
+function rdReflectOnHouse(){
+  try{ if(mode==="photoreal"&&gmap&&typeof buildRoofMaterial==="function") buildRoofMaterial(); }catch(_){}
+  // if a real AI render for this exact colour is already cached, show it instantly (free — no new spend)
+  try{
+    const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], key=(typeof colorKey==="function")?colorKey(m,c):null;
+    if(key && window.__matRenders && window.__matRenders[key] && typeof showAnalysis==="function"){
+      const img=$("aiPhoto"); if(img){ img.src=window.__matRenders[key]; img.style.display="block"; img.style.zIndex="16"; }
+    }
+  }catch(_){}
+}
+// keep the quote card's selection state synced for the Done hand-off, but never let it re-appear
+// over the immersive design step (renderQuoteCard sets #card display:block).
+function rdSyncCardHidden(){ try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} if(window.__rdOpen){ const cd=$("card"); if(cd) cd.style.display="none"; } }
+function rdPickMat(i){
+  selMat=i; selCol=0; rdCommitSel();
+  [...$("rdMats").children].forEach((x,j)=>x.classList.toggle("on",j===i));
+  rdBuildCols(); rdRenderInfo(); rdReflectOnHouse();
+  rdSyncCardHidden();
+}
+function rdPickCol(i){
+  selCol=i; rdCommitSel();
+  [...$("rdCols").children].forEach((x,j)=>x.classList.toggle("on",j===i));
+  rdRenderInfo(); rdReflectOnHouse();
+  rdSyncCardHidden();
+}
+// AI "see it on my house": reuse the existing /airender Street-View→Flux Kontext repaint. Degrades to the
+// photoreal house + colour tint (already on screen) when the render returns no url (credit-gated / no street photo).
+async function rdAiOnHouse(){
+  const addr=($("addr").value||"").trim(); const btn=$("rdAi"), lbl=$("rdAiLbl");
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], label=m.label+" · "+(c?c.n:"");
+  if(!addr) return;
+  const hint=$("rdStageHint"), hintT=$("rdStageHintT");
+  btn.disabled=true; if(lbl) lbl.textContent="Rendering…";
+  if(hint){ if(hintT) hintT.textContent="Applying "+label+" to your home…"; hint.style.display="flex"; }
+  try{
+    const r=await fetch(RQ_BASE+"/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(c?c.p:m.label));
+    const j=await r.json();
+    if(j&&j.url){
+      window.__aiDown=false;
+      try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=j.url; } }catch(_){}
+      const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,addr,c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; }
+    } else {
+      window.__aiDown=true;
+      setStatus(j&&j.error==="no_streetview" ? "No street photo here yet — showing the 3D house with your colour" : "Photo preview unavailable — showing the 3D house with your colour", true);
+      setTimeout(()=>setStatus(""),3600);
+    }
+  }catch(e){
+    window.__aiDown=true;
+    setStatus("Photo preview unavailable — showing the 3D house with your colour", true); setTimeout(()=>setStatus(""),3600);
+  }
+  if(hint) hint.style.display="none";
+  btn.disabled=false; if(lbl) lbl.textContent = window.__aiDown ? "Preview material" : "See it on my house";
+}
+// OPEN the roofing design step: mount the real-house photoreal stage, then paint the picker.
+async function openRoofDesign(){
+  // default into Architectural if nothing was picked yet (so the card/price/features have a basis)
+  if(!window.__roofSel){ selMat=0; selCol=0; }
+  rdCommitSel();
+  // leave any other lens cleanly (mirror enterSolar3D) so only the clean photoreal house shows behind the picker
+  try{
+    if(typeof exitGrey==="function") exitGrey();
+    if(typeof sunMode!=="undefined"){ sunMode=false; const b=$("bSun"); if(b) b.classList.remove("on"); }
+    if(typeof matMode!=="undefined"){ matMode=false; const b=$("bRoof"); if(b) b.classList.remove("on"); }
+    if(typeof labelsVisible!=="undefined"){ labelsVisible=false; const b=$("bLabels"); if(b) b.classList.remove("on"); }
+    if(typeof panelsVisible!=="undefined"){ panelsVisible=false; const b=$("bPanels"); if(b) b.classList.remove("on"); }
+    if(typeof stopSunPlay==="function") stopSunPlay();
+    if(typeof exitRealShade==="function") exitRealShade();
+    if(typeof clearPanels==="function") clearPanels();
+    if(typeof clearHeat==="function") clearHeat();
+    if(typeof clearLabels==="function") clearLabels();
+    if(typeof clearRoofMeas==="function") clearRoofMeas();
+  }catch(_){}
+  // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
+  rdBuildMats(); rdBuildCols(); rdRenderInfo();
+  $("roofDesign").style.display="flex"; window.__rdOpen=true;
+  const fb=$("funnelBar"); if(fb){ fb.dataset.rdPrev=fb.style.display; fb.style.display="none"; }
+  // the design step owns the screen — hide the floating quote card + search bar so neither bleeds at the edges
+  const cd=$("card"); if(cd){ cd.dataset.rdPrev=cd.style.display; cd.style.display="none"; }
+  const bar=$("bar"); if(bar){ bar.dataset.rdPrev=bar.style.display; bar.style.display="none"; }
+  try{
+    showLoad("Loading your home in 3D…");
+    if(mode!=="photoreal") await setMode("photoreal");
+    if(mode==="photoreal" && window.__photorealOk!==false){
+      try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // gmapWrap.display=block
+      // hero framing: tighten the oblique camera onto the roof so the material reads on the real house
+      try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
+        const rng=Math.round(roofFitRange(78)*0.82);
+        gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:rng, tilt:60, heading:18 }, durationMillis:900 });
+      } }catch(_){}
+      rdReflectOnHouse();   // tint the facets to the selected colour
+    }
+    showLoad(false);
+  }catch(e){ try{ showLoad(false); }catch(_){} }
+  if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+}
+// CLOSE → tear down the photoreal stage, hide the overlay, return to the branch choice.
+function closeRoofDesign(){
+  $("roofDesign").style.display="none"; window.__rdOpen=false;
+  const fb=$("funnelBar"); if(fb && fb.dataset.rdPrev!=null) fb.style.display=fb.dataset.rdPrev;
+  const cd=$("card"); if(cd && cd.dataset.rdPrev!=null) cd.style.display=cd.dataset.rdPrev;
+  const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; }
+  try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
+  try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
+}
+// wire the design-step controls
+(function wireRoofDesign(){
+  const back=$("rdBack"); if(back) back.onclick=()=>{ closeRoofDesign(); const bc=$("branchChoice"); if(bc) bc.style.display="flex"; };
+  const ai=$("rdAi"); if(ai) ai.onclick=()=>rdAiOnHouse();
+  const done=$("rdDone"); if(done) done.onclick=()=>{
+    // commit the chosen roof and drop the buyer onto the quote card (estimate) for this material
+    rdCommitSel(); closeRoofDesign();
+    $("bar").style.display="flex";
+    if(typeof applyTradeMode==="function"){ try{ applyTradeMode(); }catch(_){} }
+    if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+    if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+  };
+})();
+window.__openRoofDesign=openRoofDesign;
+window.__closeRoofDesign=closeRoofDesign;
+window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify hooks (deterministic selection)
 /* ── ENGINEERED PANEL LAYOUT (max-fit, installer-style) ───────────────────────
    ROOT CAUSE this fixes: Google's solarPanels[] under-fills the roof — on a big
    multi-facet house it returns a single tight cluster (e.g. 34 panels on the
@@ -8091,7 +8357,7 @@ function setFunnelStep(step){
   // carries the 2D⇄3D toggle at top:0. The funnelBar (z-index 40, top:0) would otherwise composite
   // OVER that toggle and swallow its clicks, so keep the bar hidden while the grid is open; its
   // display is restored by closeSolarGrid via the saved data-sgPrev value.
-  if(window.__sgOpen || window.__solar3dActive){ __funnelOn=true; window.__funnelActive=true; bar.dataset.sgPrev="flex"; return; }
+  if(window.__sgOpen || window.__solar3dActive || window.__rdOpen){ __funnelOn=true; window.__funnelActive=true; bar.dataset.sgPrev="flex"; return; }
   __funnelOn=true; window.__funnelActive=true; bar.style.display="flex";
   const idx=FUNNEL_STEPS.indexOf(step); if(idx<0) return;
   bar.querySelectorAll(".fb-step").forEach((el,i)=>{
@@ -8423,12 +8689,17 @@ $("bcSolar").onclick=()=>{
   try{ if(typeof openSolarGrid==="function") openSolarGrid(); }catch(_){}
   setFunnelStep("estimate");
 };
-// Roofing remodel → existing Roofing tab/lens.
+// Roofing remodel → premium roofing DESIGN step: the real-house photoreal preview + material/colour/
+// price/features picker (openRoofDesign). Falls back to the legacy Roofing tab if the new step is unavailable.
 $("bcRoof").onclick=()=>{
   $("branchChoice").style.display="none";
   window.__houseLoopActive=false;
+  $("bar").style.display="none";   // the design step owns the screen; its own header carries Back + the AI CTA
+  try{ tradeMode="roof"; window.__trade="roof"; }catch(_){}
+  if(typeof window.__openRoofDesign==="function"){ window.__openRoofDesign(); return; }
+  // fallback (shouldn't happen): the legacy Roofing tab/lens
   $("bar").style.display="flex";
-  try{ if(typeof window.__openMaterials==="function") window.__openMaterials(); else { tradeMode="roof"; if(typeof renderQuoteCard==="function") renderQuoteCard(); if(typeof applyTradeMode==="function") applyTradeMode(); } }catch(_){}
+  try{ if(typeof window.__openMaterials==="function") window.__openMaterials(); else { if(typeof renderQuoteCard==="function") renderQuoteCard(); if(typeof applyTradeMode==="function") applyTradeMode(); } }catch(_){}
   setFunnelStep("estimate");
 };
 // Back to editing the last house.
