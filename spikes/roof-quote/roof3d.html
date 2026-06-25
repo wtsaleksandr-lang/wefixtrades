@@ -7046,32 +7046,35 @@ function sgDraw(){
       } }
     ctx.putImageData(img,0,0);
   }
-  // 2) panels — selected = premium blue module; unselected = empty dashed slot; low-sun = amber accent.
-  const sel=SG_STATE.sel;
+  // 2) panels — selected = translucent blue module (+ × glyph); empty = thin slot with a "+"; low-sun = amber.
+  //    Hover lights the square under the cursor. Selected blue stays transparent so the roof reads through.
+  const sel=SG_STATE.sel, hoverId=SG_STATE.hoverId;
   for(const c of SG_STATE.panels){
     if(!c.px) continue;
-    const on=sel.has(c.id);
+    const on=sel.has(c.id), hot=(c.id===hoverId);
+    const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2;          // square centre (for glyph)
+    const sz=Math.hypot(c.px[1].x-c.px[0].x,c.px[1].y-c.px[0].y);          // edge length in px (for glyph scale)
     ctx.beginPath(); ctx.moveTo(c.px[0].x,c.px[0].y);
     for(let k=1;k<c.px.length;k++) ctx.lineTo(c.px[k].x,c.px[k].y);
     ctx.closePath();
     if(on){
-      ctx.fillStyle = c.lowSun ? "rgba(245,158,11,0.30)" : "rgba(13,60,252,0.30)";
+      // translucent blue (or amber for low-sun) — roof/heatmap shows through, per the design
+      ctx.fillStyle = c.lowSun ? "rgba(245,158,11,0.34)" : "rgba(13,60,252,0.42)";
       ctx.fill();
-      // premium module: deep panel fill + bright rim
-      ctx.fillStyle = c.lowSun ? "rgba(180,120,16,0.78)" : "rgba(18,40,120,0.80)";
-      ctx.fill();
-      ctx.lineWidth=Math.max(1.2,1.4*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : "rgba(150,196,255,0.95)";
+      if(hot){ ctx.fillStyle="rgba(255,255,255,0.16)"; ctx.fill(); }          // hover lift
+      ctx.lineWidth=Math.max(1.2,1.5*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.98)" : "rgba(150,196,255,0.98)";
       ctx.stroke();
-      // crossbar so a selected square reads as a real solar module, not a flat tile
-      const mx=(c.px[0].x+c.px[2].x)/2, my=(c.px[0].y+c.px[2].y)/2;
-      ctx.lineWidth=Math.max(0.8,0.8*pr.dpr); ctx.strokeStyle="rgba(220,235,255,0.4)";
-      ctx.beginPath(); ctx.moveTo((c.px[0].x+c.px[1].x)/2,(c.px[0].y+c.px[1].y)/2); ctx.lineTo((c.px[2].x+c.px[3].x)/2,(c.px[2].y+c.px[3].y)/2); ctx.stroke();
+      // × glyph so a selected square reads as "placed — tap to remove"
+      const r=sz*0.16; ctx.lineWidth=Math.max(1,1.4*pr.dpr); ctx.strokeStyle="rgba(232,241,255,0.92)";
+      ctx.beginPath(); ctx.moveTo(cx-r,cy-r); ctx.lineTo(cx+r,cy+r); ctx.moveTo(cx+r,cy-r); ctx.lineTo(cx-r,cy+r); ctx.stroke();
     } else {
-      // empty slot — faint glass outline so the user sees a placeable spot
-      ctx.fillStyle="rgba(255,255,255,0.10)"; ctx.fill();
-      ctx.setLineDash([4*pr.dpr,3*pr.dpr]); ctx.lineWidth=Math.max(1,1*pr.dpr);
-      ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.7)" : "rgba(255,255,255,0.6)";
+      // empty slot — faint glass; brightens on hover ("lit up"). A "+" marks a placeable spot.
+      ctx.fillStyle = hot ? "rgba(150,196,255,0.28)" : "rgba(255,255,255,0.10)"; ctx.fill();
+      ctx.setLineDash([4*pr.dpr,3*pr.dpr]); ctx.lineWidth=Math.max(1,(hot?1.4:1)*pr.dpr);
+      ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.7)" : (hot ? "rgba(190,215,255,0.95)" : "rgba(255,255,255,0.6)");
       ctx.stroke(); ctx.setLineDash([]);
+      const r=sz*0.15; ctx.lineWidth=Math.max(1,1.2*pr.dpr); ctx.strokeStyle = hot ? "rgba(232,241,255,0.95)" : "rgba(255,255,255,0.55)";
+      ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
     }
   }
   window.__sgDrawn=SG_STATE.panels.length;
@@ -7136,24 +7139,33 @@ function sgUpdateMetrics(){
   const anyLow=SG_STATE.panels.some(c=>c.lowSun);
   $("sgSubtitle").textContent = anyLow ? 'Amber squares get little sun — lower payoff' : 'Tap the squares to add or remove panels';
 }
-// ── Hit-test a tap (canvas px) against the panel quads; toggle the nearest hit.
-function sgHitTest(px,py){
-  if(!SG_STATE) return;
+// ── Pick the panel quad under a canvas-px point (exact polygon, else nearest centroid). No state change.
+function sgPick(px,py){
+  if(!SG_STATE) return null;
   const inPoly=(pt,poly)=>{ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y; if(((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/((yj-yi)||1e-9)+xi)) inside=!inside; } return inside; };
   const pt={x:px,y:py};
-  // exact polygon hit first; fall back to nearest-centroid within a tolerance so small panels are tappable
-  let hit=null;
-  for(const c of SG_STATE.panels){ if(c.px && inPoly(pt,c.px)){ hit=c; break; } }
-  if(!hit){ let best=Infinity; const tol=22*(SG_STATE.proj?SG_STATE.proj.dpr:1);
-    for(const c of SG_STATE.panels){ if(!c.px) continue; const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2; const d=Math.hypot(cx-px,cy-py); if(d<best && d<=tol){ best=d; hit=c; } } }
-  if(!hit) return;
+  for(const c of SG_STATE.panels){ if(c.px && inPoly(pt,c.px)) return c; }
+  let hit=null, best=Infinity; const tol=22*(SG_STATE.proj?SG_STATE.proj.dpr:1);
+  for(const c of SG_STATE.panels){ if(!c.px) continue; const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2; const d=Math.hypot(cx-px,cy-py); if(d<best && d<=tol){ best=d; hit=c; } }
+  return hit;
+}
+// ── Hit-test a tap (canvas px) against the panel quads; toggle the nearest hit.
+function sgHitTest(px,py){
+  const hit=sgPick(px,py); if(!hit) return;
   if(SG_STATE.sel.has(hit.id)) SG_STATE.sel.delete(hit.id); else SG_STATE.sel.add(hit.id);
   sgDraw(); sgUpdateMetrics();
+}
+// ── Hover: light up the square under the cursor (no toggle). Cheap redraw only when the hovered id changes.
+function sgHover(px,py){
+  if(!SG_STATE) return;
+  const h=sgPick(px,py); const id=h?h.id:null;
+  if(id!==SG_STATE.hoverId){ SG_STATE.hoverId=id; sgDraw();
+    const cv=$("sgCanvas"); if(cv) cv.style.cursor=(id!=null)?"pointer":"default"; }
 }
 // ── Open / close the interactive grid overlay.
 function openSolarGrid(){
   const cand=buildGridCandidates(); if(!cand){ return; }
-  SG_STATE={ panels:cand.panels, bbox:cand.bbox, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels) };
+  SG_STATE={ panels:cand.panels, bbox:cand.bbox, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels), hoverId:null };
   // seed the bill input from any earlier card selection so the two surfaces stay in sync
   if(solarBill>0 && !$("sgBill").value) $("sgBill").value=solarBill;
   $("solarGrid").style.display="flex";
@@ -7278,6 +7290,9 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
 (function wireSolarGrid(){
   const cv=$("sgCanvas"); if(!cv) return;
   cv.addEventListener("click",e=>{ const r=cv.getBoundingClientRect(), dpr=SG_STATE&&SG_STATE.proj?SG_STATE.proj.dpr:1; sgHitTest((e.clientX-r.left)*dpr,(e.clientY-r.top)*dpr); });
+  // hover: light up the square under the cursor (desktop; touch has no hover so this is harmless there)
+  cv.addEventListener("mousemove",e=>{ const r=cv.getBoundingClientRect(), dpr=SG_STATE&&SG_STATE.proj?SG_STATE.proj.dpr:1; sgHover((e.clientX-r.left)*dpr,(e.clientY-r.top)*dpr); });
+  cv.addEventListener("mouseleave",()=>{ if(SG_STATE&&SG_STATE.hoverId!=null){ SG_STATE.hoverId=null; sgDraw(); cv.style.cursor="default"; } });
   const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
   const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); sgDraw(); sgUpdateMetrics(); } };
   // PER-TRADE GATE (solar): "Use this system" reveals the estimate. If solar is gated and no
