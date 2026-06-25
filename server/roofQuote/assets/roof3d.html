@@ -3894,7 +3894,157 @@ function extractFacetPolysAnalytic(margin){
     viable.push(p);
   }
   if(!viable.length) throw new Error("no viable planes");
-  const viableSet=new Set(viable.map(p=>p.i));
+  let viableSet=new Set(viable.map(p=>p.i));
+
+  // ── (measure-iter3) MERGE OVER-SEGMENTED COPLANAR FACES ──────────────────────────────
+  //    Google's roofSegmentStats sometimes returns SEVERAL planes for ONE physical roof face
+  //    (same pitch + azimuth, e.g. a long slope split into 2–3 segments). The analytic
+  //    plane-intersection then draws a spurious interior crease where those near-identical
+  //    planes meet — a ridge/hip/valley line that does NOT exist on the real roof. We merge
+  //    such segments into a single plane BEFORE adjacency/crease building, so a crease is only
+  //    drawn where two GENUINELY-different planes meet. Conservative: merge only when azimuth
+  //    AND pitch are clearly equal, the two segments are ADJACENT (share ≥ ADJ_MIN border
+  //    cells), AND the DSM shows NO real crest/trough between them (if the DSM has a ridge
+  //    there, it's a REAL ridge between two same-azimuth slopes — never merge). Union-find,
+  //    in place: the absorbed plane's cells are relabelled to the group representative, whose
+  //    a/b/c are re-fit (cell-count-weighted) from the union — so all downstream geometry
+  //    (classification, adjacency, half-plane clip) treats the union as ONE facet.
+  (function mergeOverSegmented(){
+    try{
+      if(viable.length<2) return;
+      // verify hook: ?merge=off (or window.__noMerge) disables the merge so the harness can measure
+      // the spurious-crease count BEFORE vs AFTER the iter-3 fix on the SAME roof.
+      let mergeOff=false; try{ mergeOff=(typeof location!=="undefined" && new URLSearchParams(location.search).get("merge")==="off") || window.__noMerge===true; }catch(_){}
+      if(mergeOff){ try{ window.__planeMerge={merged:0,groups:0,disabled:true,planesBefore:viable.length,planesAfter:viable.length}; }catch(_){} return; }
+      // Tolerances are deliberately a touch generous because the DSM-crest VETO below is the real guard:
+      // a pair only merges when az+pitch are close AND the DSM shows no crest, so a slightly-loose az/pitch
+      // can't merge two genuinely-different faces (the veto blocks them on the height signal).
+      const MERGE_AZ_DEG=14;          // azimuths within this (circular) count as "same facing"
+      const MERGE_PITCH_X12=2.0;      // pitches within this many /12 count as "same slope" (≈ tan)
+      const MERGE_ADJ_MIN=6;          // shared-border cells required to call two planes adjacent (= ADJ_MIN below)
+      // 1) adjacency over the classified labels (same rule the real adjacency block uses)
+      const mAdj=new Map();
+      for(let r=0;r<rows-1;r++)for(let c=0;c<cols-1;c++){ const o=lab[r*cols+c]; if(o<0||!viableSet.has(o)) continue;
+        const right=lab[r*cols+c+1], down=lab[(r+1)*cols+c];
+        for(const nb of [right,down]){ if(nb>=0&&nb!==o&&viableSet.has(nb)){ const k=Math.min(o,nb),m=Math.max(o,nb); mAdj.set(k+","+m,(mAdj.get(k+","+m)||0)+1); } }
+      }
+      // circular azimuth delta (deg, 0..180)
+      const azDelta=(d1,d2)=>{ let d=Math.abs(((d1-d2)%360+540)%360-180); return d; };
+      // pitch in /12 from tanP
+      const x12=(tanP)=>Math.abs(tanP)*12;
+      // DSM crest/trough test AT THE WOULD-BE CREASE. Two coplanar segments draw a crease on the
+      // plane-intersection line; if that line lies on a REAL ridge/valley the DSM bulges above (crest)
+      // or dips below (trough) the line when sampled PERPENDICULAR to it. We profile the DSM across a
+      // small perpendicular window at stations along the line: at each station, prominence = how far
+      // the perpendicular extremum (max for a crest, |min| for a trough) sits off the straight blend of
+      // the two window rims (so a smoothly-sloping single surface reads ~0, a real roofline reads a real
+      // peak). Median prominence over stations ≥ CREST_M ⇒ a genuine crease → DON'T merge. This is the
+      // geometrically-correct test (perpendicular to the actual crease) and matches the verify probe.
+      // Falls back to az/pitch-only (allow merge) when the DSM is too sparse to decide.
+      const CREST_M=0.30;             // min crest/trough prominence (m) that proves a REAL crease
+      const dsmEN=(E,N)=>{ const z=sampleGrid(dg,E,N); return (z==null||z<=NODATA||!isFinite(z))?null:z; };
+      const noDsmCreaseBetween=(p1,p2)=>{
+        // the would-be crease line (plan E,N) between the two analytic planes
+        const line=planeIntersectLine(p1,p2);
+        // overlap span of the two segments' cells projected onto the line → where the crease actually lies
+        const cells=[].concat(p1.cells||[],p2.cells||[]);
+        if(!line||cells.length<6) return true;   // degenerate / no support → can't prove a crease, allow merge
+        const ux=line.dir[0], uy=line.dir[1], nx=-uy, ny=ux, px=line.p[0], py=line.p[1];
+        // 1-D extent of the supporting cells ALONG the line
+        let tmin=Infinity,tmax=-Infinity;
+        for(const [E,N] of cells){ const t=(E-px)*ux+(N-py)*uy; if(t<tmin)tmin=t; if(t>tmax)tmax=t; }
+        const span=tmax-tmin; if(span<1.2) return true;   // crease too short to read → allow merge
+        const WIN=1.8, DS=0.15, margin=Math.min(0.9,span*0.18), nSt=Math.max(4,Math.round((span-2*margin)/0.5));
+        const proms=[]; let stations=0;
+        for(let k=0;k<=nSt;k++){ const t=tmin+margin+(span-2*margin)*(k/nSt); const mx=px+ux*t, my=py+uy*t;
+          // SLOPE-CORRECTED prominence. On a STEEP roof the perpendicular window itself spans a big
+          // height change from the slope alone — so a flat "max minus mean-of-rims" reads ~half the
+          // slope drop and FALSELY looks like a crest. A REAL ridge peaks ABOVE *both* rims; a real
+          // valley dips BELOW *both* rims. So measure the interior extremum against the HIGHER rim
+          // (crest) / LOWER rim (trough): a pure monotonic slope then reads ~0 (its max == the higher
+          // rim), while a genuine roofline still shows a real peak. The extremum must also occur in the
+          // INTERIOR (not pinned at a rim) to count.
+          const zL=dsmEN(mx+nx*WIN, my+ny*WIN), zR=dsmEN(mx-nx*WIN, my-ny*WIN);
+          let mxV=null,mnV=null,mxS=0,mnS=0,got=0;
+          for(let s=-WIN;s<=WIN+1e-6;s+=DS){ const z=dsmEN(mx+nx*s,my+ny*s); if(z==null) continue; got++;
+            if(mxV==null||z>mxV){ mxV=z; mxS=s; } if(mnV==null||z<mnV){ mnV=z; mnS=s; } }
+          if(got<6 || zL==null || zR==null || mxV==null || mnV==null) continue;
+          const hiRim=Math.max(zL,zR), loRim=Math.min(zL,zR);
+          // crest only counts if the max is interior (off both rims) and sits above the HIGHER rim
+          const crest=(Math.abs(mxS)<WIN-DS*1.5) ? (mxV-hiRim) : 0;
+          const trough=(Math.abs(mnS)<WIN-DS*1.5) ? (loRim-mnV) : 0;
+          proms.push(Math.max(crest,trough)); stations++;
+        }
+        if(stations<3){ noDsmCreaseBetween._lastMed=null; return true; }    // sparse → allow merge on az/pitch
+        const s=proms.slice().sort((a,b)=>a-b); const med=s[Math.floor(s.length/2)];
+        noDsmCreaseBetween._lastMed=med;
+        return med < CREST_M;          // no real crest/trough at the would-be crease ⇒ safe to merge
+      };
+      // 2) union-find over mergeable adjacent pairs
+      const parent=new Map(); for(const p of viable) parent.set(p.i,p.i);
+      const find=(x)=>{ while(parent.get(x)!==x){ parent.set(x,parent.get(parent.get(x))); x=parent.get(x); } return x; };
+      const byI=new Map(viable.map(p=>[p.i,p]));
+      const mergedPairs=[]; const diag=[];
+      for(const [key,cnt] of mAdj){ if(cnt<MERGE_ADJ_MIN) continue;
+        const [k,m]=key.split(",").map(Number); const pk=byI.get(k), pm=byI.get(m); if(!pk||!pm) continue;
+        const azD=azDelta(pk.az*180/Math.PI, pm.az*180/Math.PI), pxD=Math.abs(x12(pk.tanP)-x12(pm.tanP));
+        const azOK=azD<=MERGE_AZ_DEG, pitchOK=pxD<=MERGE_PITCH_X12;
+        if(!azOK||!pitchOK) continue;   // PRIMARY trigger = clearly-equal az+pitch (Google split one face).
+        // The DSM crest is only a VETO: it reliably BLOCKS a merge when a real ridge/valley exists, but it
+        // is too noisy to be a primary trigger (low prominence shows up at real low-relief creases too), so
+        // we never merge on the DSM alone — only az+pitch match AND no DSM crest.
+        const noCrease=noDsmCreaseBetween(pk,pm); const crestMed=noDsmCreaseBetween._lastMed;
+        diag.push({k,m,cnt,azD:+azD.toFixed(1),pxD:+pxD.toFixed(1),crestMed:(crestMed==null?null:+crestMed.toFixed(2)),merge:noCrease});
+        if(!noCrease) continue;   // DSM shows a real ridge/valley between them → keep separate
+        // union (attach smaller-cell-count into larger so the representative is the bigger face)
+        const ra=find(k), rb=find(m); if(ra===rb) continue;
+        const na=byI.get(ra)?byI.get(ra).n:0, nb=byI.get(rb)?byI.get(rb).n:0;
+        if(na>=nb) parent.set(rb,ra); else parent.set(ra,rb);
+        mergedPairs.push([k,m]);
+      }
+      try{ window.__planeMergeDiag=diag; }catch(_){}
+      if(!mergedPairs.length){ try{ window.__planeMerge={merged:0,groups:0,planesBefore:viable.length,planesAfter:viable.length}; }catch(_){} return; }
+      // 3) collapse each group onto its representative: union cells/n/zsum, re-fit a/b/c (weighted),
+      //    relabel absorbed cells, drop absorbed planes from viable/viableSet.
+      const groups=new Map();   // rep → [members]
+      for(const p of viable){ const r=find(p.i); if(!groups.has(r)) groups.set(r,[]); groups.get(r).push(p); }
+      let nMerged=0, nGroups=0;
+      const drop=new Set();
+      for(const [rep,members] of groups){ if(members.length<2) continue; nGroups++;
+        const repP=byI.get(rep);
+        // cell-count-weighted plane coefficients = the area-weighted average plane over the union
+        let wa=0,wb=0,wc=0,wsum=0, allCells=[], zsum=0, n=0, gArea=0;
+        for(const p of members){ const wgt=Math.max(1,p.n);
+          wa+=p.a*wgt; wb+=p.b*wgt; wc+=p.c*wgt; wsum+=wgt;
+          if(Array.isArray(p.cells)) allCells=allCells.concat(p.cells);
+          zsum+=p.zsum||0; n+=p.n||0; gArea+=((p.seg&&p.seg.stats&&p.seg.stats.areaMeters2)||0);
+        }
+        const a=wa/wsum, b=wb/wsum, c=wc/wsum;
+        // derive pitch/azimuth/trig from the fitted gradient (z=a·E+b·N+c): downslope=(−a,−b) dir,
+        // tan(pitch)=|grad|. center = centroid of the union's cells.
+        const grad=Math.hypot(a,b); const tanP=grad;
+        let sinAz=0,cosAz=1,az=0;
+        if(grad>1e-6){ sinAz=-a/grad; cosAz=-b/grad; az=Math.atan2(sinAz,cosAz); if(az<0)az+=2*Math.PI; }
+        let cE=0,cN=0; if(allCells.length){ for(const[E,N]of allCells){cE+=E;cN+=N;} cE/=allCells.length; cN/=allCells.length; }
+        else { cE=repP.cE; cN=repP.cN; }
+        const h=a*cE+b*cN+c;
+        // mutate the representative IN PLACE so planesA[rep] / lab references stay valid
+        repP.a=a; repP.b=b; repP.c=c; repP.tanP=tanP; repP.sinAz=sinAz; repP.cosAz=cosAz; repP.az=az;
+        repP.pitch=Math.atan(tanP); repP.cE=cE; repP.cN=cN; repP.h=h;
+        repP.cells=allCells; repP.n=n; repP.zsum=zsum;
+        // accumulate Google area onto the rep's seg so the area-sanity gate stays honest
+        if(repP.seg&&repP.seg.stats){ repP.seg.stats.areaMeters2=gArea; }
+        for(const p of members){ if(p.i!==rep){ drop.add(p.i); nMerged++; } }
+      }
+      // relabel absorbed cells to their representative so adjacency reads the merged region as one
+      for(let idx=0;idx<lab.length;idx++){ const v=lab[idx]; if(v>=0 && drop.has(v)) lab[idx]=find(v); }
+      // shrink viable / viableSet to every plane that wasn't absorbed (reps + untouched singletons)
+      const survivors=[...byI.values()].filter(p=>!drop.has(p.i));
+      viable.length=0; for(const p of survivors) viable.push(p);
+      viableSet=new Set(viable.map(p=>p.i));
+      try{ window.__planeMerge={ merged:nMerged, groups:nGroups, planesBefore:byI.size, planesAfter:viable.length }; }catch(_){}
+    }catch(e){ try{ if(typeof errors!=="undefined") errors.push("plane-merge:"+(e&&e.message||e)); }catch(_){} }
+  })();
 
   // ── (1) ONE clean FOOTPRINT ring (UTM E,N) — Moore-trace the single largest mask
   //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
@@ -7627,6 +7777,53 @@ try{
     // (measure-iter2) interior crease (ridge/hip/valley) deviation vs the DSM crest/trough, before &
     // after the snap. Builds a fresh model (which runs the snap + records __creaseDev), then returns it.
     creaseDeviation:()=>{ try{ facetsToRoofModel(); return window.__creaseDev||null; }catch(e){ return {err:String(e&&e.message||e)}; } },
+    // (measure-iter3) SPURIOUS-CREASE probe. For every interior crease the model draws, measure the
+    // DSM crest/trough PROMINENCE perpendicular to the line: how much the real surface bulges above
+    // (ridge/hip) or dips below (valley) the straight perpendicular blend. A crease with prominence
+    // below the floor has NO real ridge/valley in the DSM → it is SPURIOUS (an over-segmentation
+    // artifact). Returns { total, spurious, real, perEdge:[{type,lenFt,promM,spurious}], merge }.
+    // Use BEFORE the merge (more spurious) vs AFTER (fewer) to quantify the iter-3 fix.
+    spuriousCreaseProbe:(promFloorM)=>{
+      try{
+        const floor=(promFloorM!=null)?promFloorM:0.30;
+        const model=facetsToRoofModel(); if(!model||!Array.isArray(model.edges)) return {err:"no-model"};
+        const dsmAt=model.__dsmAt; if(typeof dsmAt!=="function") return {err:"no-dsmAt"};
+        const per=[]; let spurious=0, real=0;
+        for(const e of model.edges){
+          if(e.type!=="ridge"&&e.type!=="hip"&&e.type!=="valley") continue;
+          const ax=e.a[0],ay=e.a[1],bx=e.b[0],by=e.b[1];
+          const ex=bx-ax,ey=by-ay,L=Math.hypot(ex,ey); if(L<0.8){ per.push({type:e.type,lenFt:+(e.lengthFt||0).toFixed(1),promM:null,spurious:false,weak:true}); continue; }
+          const ux=ex/L,uy=ey/L,nx=-uy,ny=ux;
+          const WIN=2.0, DS=0.15, margin=Math.min(0.9,L*0.18), nSt=Math.max(4,Math.round((L-2*margin)/0.5));
+          // crest/trough prominence = at each station, the DSM extremum across the perpendicular window
+          // minus the straight BLEND of the two window RIMS (the surfaces either side). Using the rim blend
+          // (not the height at the drawn line) makes the measure robust to the line sitting a little off the
+          // true crest — a real ridge still bulges above the rim blend even when the line is ~1 m off-crest.
+          // Median over stations = robust prominence; ~0 ⇒ smooth surface (no real crease) ⇒ spurious.
+          const proms=[];
+          for(let k=0;k<=nSt;k++){ const t=margin+(L-2*margin)*(k/nSt); const mx=ax+ux*t,my=ay+uy*t;
+            const zL=dsmAt(mx+nx*WIN,my+ny*WIN), zR=dsmAt(mx-nx*WIN,my-ny*WIN);
+            let mxV=null,mnV=null,mxS=0,mnS=0,got=0;
+            for(let s=-WIN;s<=WIN+1e-6;s+=DS){ const z=dsmAt(mx+nx*s,my+ny*s); if(z==null||!isFinite(z)) continue; got++;
+              if(mxV==null||z>mxV){mxV=z;mxS=s;} if(mnV==null||z<mnV){mnV=z;mnS=s;} }
+            if(got<6 || zL==null || zR==null || mxV==null || mnV==null) continue;
+            const hiRim=Math.max(zL,zR), loRim=Math.min(zL,zR);
+            // slope-corrected: a real ridge peaks above the HIGHER rim, a valley dips below the LOWER
+            // rim, and the extremum must be INTERIOR (not pinned at a rim). Pure slope → ~0.
+            const crest=(Math.abs(mxS)<WIN-DS*1.5)?(mxV-hiRim):0;
+            const trough=(Math.abs(mnS)<WIN-DS*1.5)?(loRim-mnV):0;
+            const p=(e.type==="valley")?trough:crest;
+            proms.push(p);
+          }
+          let promM=null;
+          if(proms.length>=3){ const s=proms.slice().sort((a,b)=>a-b); promM=s[Math.floor(s.length/2)]; }
+          const isSpur=(promM!=null)?(promM<floor):true;   // no measurable prominence → spurious
+          if(isSpur) spurious++; else real++;
+          per.push({ type:e.type, lenFt:+(e.lengthFt||0).toFixed(1), promM:(promM==null?null:+promM.toFixed(3)), spurious:isSpur });
+        }
+        return { total:per.length, spurious, real, floorM:floor, perEdge:per, merge:(window.__planeMerge||null) };
+      }catch(e){ return {err:String(e&&e.message||e)}; }
+    },
   };
   // direct aliases for the fixed-frame registration overlay diagnostic (verify-overlay.mjs)
   window.__wgs84ToUTM=(lat,lng,z)=>wgs84ToUTM(lat,lng,z);
