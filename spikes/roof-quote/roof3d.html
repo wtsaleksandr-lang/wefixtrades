@@ -634,16 +634,45 @@ function setStatus(t,isErr){ const s=$("status"); if(!t){s.style.display="none";
 function showLoad(t){ $("load").style.display=t?"flex":"none"; if(t)$("loadt").textContent=t; }
 
 /* 3D billboard label (canvas sprite) for per-facet sq-ft + pitch */
-function makeLabel(text){
+// Clean survey-sheet label sprite. Two typographic tiers so area reads as the HEADLINE and
+// pitch/secondary text is a quiet sub-line (defect-1: the old single-tier cyan-boxed chips all
+// looked equally loud and piled up). `opts.sub` = small secondary line (e.g. pitch "4/12");
+// `opts.kind` = "area" (prominent slate chip) | "edge" (subtle hairline length tag, no pill).
+function makeLabel(text, opts){
+  opts=opts||{};
+  // back-compat: callers passing "563 ft² · 4/12" as one string get split into headline + sub.
+  if(opts.sub==null && typeof text==="string" && text.indexOf(" · ")>=0){ const parts=text.split(" · "); text=parts[0]; opts.sub=parts.slice(1).join(" · "); }
+  const sub=opts.sub||"", edge=(opts.kind==="edge");
+  const DPR=2;                                  // supersample the sprite canvas → crisp text on the real GPU
+  const fsA=edge?26:34, fsB=22;                 // headline / sub font px (pre-DPR)
+  const padX=edge?14:20, padY=edge?8:11, gap=sub?6:0;
   const c=document.createElement("canvas"), x=c.getContext("2d");
-  x.font="bold 34px system-ui,Segoe UI,sans-serif"; const tw=x.measureText(text).width;
-  c.width=Math.ceil(tw)+44; c.height=56;
-  x.font="bold 34px system-ui,Segoe UI,sans-serif"; x.fillStyle="rgba(8,14,22,0.85)";
-  x.fillRect(0,0,c.width,c.height); x.strokeStyle="rgba(34,211,238,0.7)"; x.lineWidth=2; x.strokeRect(1,1,c.width-2,c.height-2);
-  x.fillStyle="#9fe7f5"; x.textBaseline="middle"; x.fillText(text,22,c.height/2+1);
-  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace;
+  x.font="800 "+fsA+"px system-ui,Segoe UI,sans-serif"; const wA=x.measureText(text).width;
+  x.font="600 "+fsB+"px system-ui,Segoe UI,sans-serif"; const wB=sub?x.measureText(sub).width:0;
+  const cw=Math.ceil(Math.max(wA,wB))+padX*2, chh=Math.ceil(fsA+(sub?fsB+gap:0))+padY*2;
+  c.width=cw*DPR; c.height=chh*DPR; x.scale(DPR,DPR);
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high";
+  const rr=(rx,ry,rw,rh,r)=>{ x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+rw,ry,rx+rw,ry+rh,r); x.arcTo(rx+rw,ry+rh,rx,ry+rh,r); x.arcTo(rx,ry+rh,rx,ry,r); x.arcTo(rx,ry,rx+rw,ry,r); x.closePath(); };
+  if(edge){
+    // subtle hairline length tag — bare text with a soft halo, no heavy pill (survey-sheet dimension)
+    x.font="700 "+fsA+"px system-ui,Segoe UI,sans-serif"; x.textAlign="center"; x.textBaseline="middle";
+    x.lineWidth=4; x.lineJoin="round"; x.strokeStyle="rgba(255,255,255,0.92)"; x.strokeText(text,cw/2,chh/2);
+    x.fillStyle="rgba(18,26,42,0.96)"; x.fillText(text,cw/2,chh/2);
+  } else {
+    // clean translucent slate chip — neutral, lets the roof read through; thin light hairline border
+    rr(1,1,cw-2,chh-2,8); x.fillStyle="rgba(13,20,34,0.74)"; x.fill();
+    x.lineWidth=1.4; x.strokeStyle="rgba(255,255,255,0.20)"; rr(1,1,cw-2,chh-2,8); x.stroke();
+    x.textAlign="center";
+    x.font="800 "+fsA+"px system-ui,Segoe UI,sans-serif"; x.fillStyle="#ffffff"; x.textBaseline="middle";
+    x.fillText(text, cw/2, padY+fsA/2);
+    if(sub){ x.font="600 "+fsB+"px system-ui,Segoe UI,sans-serif"; x.fillStyle="rgba(190,210,242,0.95)"; x.fillText(sub, cw/2, padY+fsA+gap+fsB/2); }
+  }
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
   const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
-  spr.scale.set(c.width/56*2.6, 2.6, 1);
+  // world scale: keep height ≈ 2.6 m for area chips, smaller (1.9 m) for edge tags so they read as subtle dims
+  const worldH=edge?1.9:2.6;
+  spr.scale.set(cw/chh*worldH, worldH, 1);
+  spr.userData.lblW=cw/chh*worldH; spr.userData.lblH=worldH;   // expose footprint for collision avoidance
   return spr;
 }
 
@@ -2318,7 +2347,31 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // Project each lifted ring to its own best-fit plane's 2D basis for a clean ear-clip,
   // then map triangle indices back to the lifted 3D vertices so facets meet exactly.
   let roofMinY=1e9, roofMaxY=-1e9, builtRoofArea=0;
-  for(const p of usable){
+  // (defect-1) shared collision list for the schematic ft²/pitch chips so they never pile up on
+  // adjacent facets. AABB overlap in scene-local XZ using each sprite's real footprint (half-extents
+  // + a small breathing gap). Returns false (skip the chip) when no clear slot is near the facet centre.
+  const schemPlaced=[];   // [{x,z,hw,hh}] scene-local metres
+  const schemPlace=(cx,cz,lb)=>{
+    const hw=(lb.userData.lblW||5)/2+0.5, hh=(lb.userData.lblH||2.6)/2+0.5;
+    const clash=(x,z)=> schemPlaced.some(b=> Math.abs(b.x-x)<(b.hw+hw) && Math.abs(b.z-z)<(b.hh+hh));
+    if(!clash(cx,cz)){ schemPlaced.push({x:cx,z:cz,hw,hh}); return [cx,cz]; }
+    // nudge outward in a small ring (keep the chip near its facet) and take the first clear slot
+    const step=Math.max(hh*1.3,2.2);
+    for(let ring=1;ring<=3;ring++) for(const [dx,dz] of [[0,-1],[0,1],[1,0],[-1,0],[1,-1],[-1,1],[1,1],[-1,-1]]){
+      const nx=cx+dx*step*ring, nz=cz+dz*step*ring; if(!clash(nx,nz)){ schemPlaced.push({x:nx,z:nz,hw,hh}); return [nx,nz]; } }
+    return null;   // nowhere clear within reach → drop this chip (de-clutter)
+  };
+  // emit a clean two-tier (area headline + pitch sub-line) chip with collision avoidance; sorted
+  // largest-first by the caller so the biggest facets win the contested slots.
+  const schemChip=(sqft,x12,cx,cy,cz,yOff)=>{
+    if(!(sqft>40)) return;   // only label facets big enough to read clearly (was >25 → tiny slivers cluttered)
+    const lb=makeLabel(sqft+" ft²",{sub:x12+"/12"});
+    const slot=schemPlace(cx,cz,lb); if(!slot){ return; }
+    lb.position.set(slot[0], cy+yOff, slot[1]); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb);
+  };
+  // largest-facet-first so contested label slots go to the dominant planes
+  const usableSorted=usable.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
+  for(const p of usableSorted){
     // convert ring3 (model-local) into buildScene-local 3D vertices
     const V3=p.ring3.map(v=>{ const s=M2S(v[0],v[1],v[2]); return new THREE.Vector3(s.x,s.y,s.z); });
     if(V3.length<3) continue;
@@ -2351,10 +2404,9 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const eg=new THREE.BufferGeometry().setFromPoints(ringPts);
     const edgeLine=new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5}));
     edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
-    // per-facet ft²/pitch chip
+    // per-facet ft²/pitch chip — collision-avoided, area-headline + pitch sub-line (defect-1)
     let cx=0,cy=0,cz=0; for(const v of V3){cx+=v.x;cy+=v.y;cz+=v.z;} cx/=V3.length;cy/=V3.length;cz/=V3.length;
-    const fsqft=Math.round(p.areaSqFt||0); const x12=facetX12(p.pitchX12,{fromX12:true});
-    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(cx, cy+1.6, cz); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
+    schemChip(Math.round(p.areaSqFt||0), facetX12(p.pitchX12,{fromX12:true}), cx, cy, cz, 1.6);
   }
   if(!skin.roofMeshes.length){ clearWorld(); return false; }   // nothing valid built → fall back
 
@@ -2411,33 +2463,51 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     // area chips and edge lengths never pile up in the centre. One placed[] list, checked across
     // both label kinds; area chips capped to the few largest facets and area-chips claim a wider
     // exclusion radius (they're wider sprites) so they breathe.
-    const placedXZ=[];   // [x,z,radius] in scene-local metres
-    const tryPlace=(x,z,radius)=>{ for(const [px,pz,pr] of placedXZ){ if(Math.hypot(px-x,pz-z) < (radius+pr)) return false; } placedXZ.push([x,z,radius]); return true; };
-    // AREA CHIPS FIRST (they're the headline numbers) — top few facets only, wide exclusion.
+    // (defect-1) AABB collision-avoidance in scene-local XZ using each sprite's REAL footprint
+    // (half-extents from makeLabel) instead of one fat isotropic radius — labels pack tighter without
+    // overlapping. One shared list across area chips + edge tags so the two kinds never collide either.
+    const placedXZ=[];   // [{x,z,hw,hh}]
+    const GAPM=0.6;      // breathing gap between any two labels (metres)
+    const clashAt=(x,z,hw,hh)=> placedXZ.some(b=> Math.abs(b.x-x)<(b.hw+hw+GAPM) && Math.abs(b.z-z)<(b.hh+hh+GAPM));
+    const claim=(x,z,hw,hh)=>{ placedXZ.push({x,z,hw,hh}); };
+    // AREA CHIPS FIRST (they're the headline numbers) — top few facets only.
     const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
     const mTarget=(typeof roofUnitSqFt==="function")?roofUnitSqFt():((QUOTE&&QUOTE.roofSqft)||0);   // split-aware owner's-unit area
     const mScale=(mTarget>0&&mPlaneSum>0)?(mTarget/mPlaneSum):1;
     const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
     const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
-    let nChips=0; const CHIP_MAX=5;   // show at most the 5 largest facets' area+pitch chips
+    let nChips=0; const CHIP_MAX=6;   // show at most the largest facets' area+pitch chips
     for(const p of mSorted){ if(nChips>=CHIP_MAX) break;
       if(p!==mSorted[0] && (p.areaSqFt||0)<mMax*0.18) continue;
       if(!Array.isArray(p.ring3)||p.ring3.length<3) continue;
       let cx=0,cy=0,cz=0; for(const v of p.ring3){ const s=M2S(v[0],v[1],v[2]); cx+=s.x; cy+=s.y; cz+=s.z; } cx/=p.ring3.length; cy/=p.ring3.length; cz/=p.ring3.length;
-      if(!tryPlace(cx,cz,4.2)) continue;   // skip a chip that would collide with one already placed
-      const lb=makeLabel(Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12");
-      lb.position.set(cx, cy+1.4, cz); g.add(lb); nChips++;
+      const lb=makeLabel(Math.round((p.areaSqFt||0)*mScale)+" ft²",{sub:facetX12(p.pitchX12,{fromX12:true})+"/12"});
+      const hw=(lb.userData.lblW||5)/2, hh=(lb.userData.lblH||2.6)/2;
+      // try the centroid, then a small outward ring (keep the chip on its facet) before dropping
+      let px=cx,pz=cz,ok=!clashAt(px,pz,hw,hh);
+      if(!ok){ const step=Math.max(hh*1.4,2.2);
+        outer: for(let ring=1;ring<=2;ring++) for(const [dx,dz] of [[0,-1],[0,1],[1,0],[-1,0],[1,-1],[-1,1],[1,1],[-1,-1]]){
+          const nx=cx+dx*step*ring, nz=cz+dz*step*ring; if(!clashAt(nx,nz,hw,hh)){ px=nx; pz=nz; ok=true; break outer; } } }
+      if(!ok){ try{ lb.material.map.dispose(); lb.material.dispose(); }catch(_){} continue; }
+      claim(px,pz,hw,hh); lb.position.set(px, cy+1.4, pz); g.add(lb); nChips++;
     }
-    // PER-EDGE LF labels — longest-first, placed ALONG the edge midpoint, dodging chips + each other.
+    // PER-EDGE LENGTH tags — longest-first, subtle hairline (edge kind), nudged ALONG the edge if the
+    // midpoint is blocked so dimensions sit on their edge instead of stacking on the area chips.
     const placed=[];
     for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<10) continue;
-      const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
-      const mz=(((typeof e.az==="number")?e.az:baseY)+((typeof e.bz==="number")?e.bz:baseY))/2;
-      const S=M2S(mx,my,mz);
-      if(!tryPlace(S.x,S.z,2.1)) continue;   // collide-avoid against chips + prior edge labels
-      placed.push([mx,my]);
-      const lb=makeLabel(Math.round(e.lengthFt)+"′");
-      lb.position.set(S.x, S.y+0.5, S.z); g.add(lb);
+      const az=(typeof e.az==="number")?e.az:baseY, bz=(typeof e.bz==="number")?e.bz:baseY;
+      const lb=makeLabel(Math.round(e.lengthFt)+"′",{kind:"edge"});
+      const hw=(lb.userData.lblW||3)/2, hh=(lb.userData.lblH||1.9)/2;
+      // candidate positions: midpoint, then slide ±15%/±30% along the edge toward a clear spot
+      let placedOk=false;
+      for(const t of [0.5,0.62,0.38,0.74,0.26]){
+        const mx=e.a[0]+(e.b[0]-e.a[0])*t, my=e.a[1]+(e.b[1]-e.a[1])*t, mz=az+(bz-az)*t;
+        const S=M2S(mx,my,mz);
+        if(clashAt(S.x,S.z,hw,hh)) continue;
+        claim(S.x,S.z,hw,hh); placed.push([mx,my]);
+        lb.position.set(S.x, S.y+0.5, S.z); g.add(lb); placedOk=true; break;
+      }
+      if(!placedOk){ try{ lb.material.map.dispose(); lb.material.dispose(); }catch(_){} }
     }
     scene.add(g); measGroup3D=g;
     window.__measScene3D={ edges:nEdge, typeCount, labels:placed.length, chips:nChips };
@@ -2692,6 +2762,22 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
   const roofMat=new THREE.MeshStandardMaterial({map:rgbTex,roughness:0.9,metalness:0,side:THREE.DoubleSide});
   const wallMat=new THREE.MeshStandardMaterial({color:0xcabfae,roughness:1,metalness:0,side:THREE.DoubleSide});
   skin.roofPhotoMat=roofMat;
+  // (defect-1) collision-avoided schematic chips in this fallback path too. Sprites are screen-facing,
+  // so dedupe in scene-local XZ using each chip's real footprint + a small gap; nudge outward, else drop.
+  const legSchemPlaced=[];
+  const legSchemChip=(sqft,x12,cx,cy,cz)=>{
+    if(!(sqft>40)) return;
+    const lb=makeLabel(sqft+" ft²",{sub:x12+"/12"});
+    const hw=(lb.userData.lblW||5)/2+0.5, hh=(lb.userData.lblH||2.6)/2+0.5;
+    const clash=(x,z)=> legSchemPlaced.some(b=> Math.abs(b.x-x)<(b.hw+hw) && Math.abs(b.z-z)<(b.hh+hh));
+    let px=cx,pz=cz;
+    if(clash(px,pz)){ let ok=false; const step=Math.max(hh*1.3,2.2);
+      outer: for(let ring=1;ring<=3;ring++) for(const [dx,dz] of [[0,-1],[0,1],[1,0],[-1,0],[1,-1],[-1,1],[1,1],[-1,-1]]){
+        const nx=cx+dx*step*ring, nz=cz+dz*step*ring; if(!clash(nx,nz)){ px=nx; pz=nz; ok=true; break outer; } }
+      if(!ok){ try{ lb.material.map.dispose(); lb.material.dispose(); }catch(_){} return; } }
+    legSchemPlaced.push({x:px,z:pz,hw,hh});
+    lb.position.set(px, cy, pz); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb);
+  };
   for(let si=0;si<segs.length;si++){
     const seg=segs[si], bb=seg.boundingBox;
     if(!bb||!bb.sw||!bb.ne){ facetInfo.push(null); continue; }
@@ -2722,10 +2808,10 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
     const eg=new THREE.BufferGeometry().setFromPoints([V[0],V[1],V[2],V[3],V[0]]);
     const edgeLine=new THREE.Line(eg,new THREE.LineBasicMaterial({color:0x22d3ee,transparent:true,opacity:0.5}));
     edgeLine.userData.schemMat=edgeLine.material; worldGroup.add(edgeLine); skin.edges.push(edgeLine);
-    // per-facet sq-ft + pitch label
+    // per-facet sq-ft + pitch label — collision-avoided, two-tier (defect-1)
     const fsqft=Math.round(((seg.stats&&seg.stats.areaMeters2)||0)*M2_SQFT);
     const x12=facetX12(seg.pitchDegrees);
-    if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(c.x, y0+2.4, c.z); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
+    legSchemChip(fsqft, x12, c.x, y0+2.4, c.z);
   }
 
   // ── Model-lens quality gate ──────────────────────────────────────────────
@@ -4656,8 +4742,13 @@ async function buildPhotoHeatmap(){
   let s=90,w=180,nn=-90,e=-180;
   for(const g of segs){ const b=g.boundingBox; if(!b)continue; s=Math.min(s,b.sw.latitude); nn=Math.max(nn,b.ne.latitude); w=Math.min(w,b.sw.longitude); e=Math.max(e,b.ne.longitude); }
   if(s>nn) return;
-  // step 0.55 + half-size 0.38 (cells overlap → smooths the grid look); erode only 0.5m so coverage reaches the roofline
-  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.55, dLat=step/mLat, dLng=step/mLng, hLat=0.38/mLat, hLng=0.38/mLng;
+  // (defect-3) CRISPER per-facet flux: finer grid (step 0.40 m, was 0.55) with cells sized to TILE
+  // edge-to-edge (half-size = step/2) instead of a fat 0.38 overlap that smeared the whole roof into one
+  // blob. Tighter, near-non-overlapping cells let adjacent facets at different irradiance read as distinct
+  // bands. Cap raised so the denser grid still covers the whole roof. Footprint clip is unchanged (BUG 1).
+  const mLat=111320, mLng=111320*Math.cos(((s+nn)/2)*Math.PI/180), step=0.40, dLat=step/mLat, dLng=step/mLng;
+  // half-size = a hair over half the step so cells just kiss (no gaps, no heavy overlap) → crisp, smooth-not-muddy
+  const hLat=(step*0.54)/mLat, hLng=(step*0.54)/mLng;
   let fmin=Infinity,fmax=-Infinity; const pts=[];
   const clip=roofFootprintClip();   // (BUG 1) precise footprint clip — excludes a neighbour inside Google's 40 m mask
   for(let lat=s; lat<=nn; lat+=dLat) for(let lng=w; lng<=e; lng+=dLng){
@@ -4667,9 +4758,15 @@ async function buildPhotoHeatmap(){
     const v=sampleGrid(fg,E,N); if(!(v>0)||!isFinite(v)) continue;
     if(v<fmin)fmin=v; if(v>fmax)fmax=v; pts.push([lat,lng,v]);
   }
-  if(!pts.length) return; const range=(fmax-fmin)||1;
-  for(let i=0;i<Math.min(pts.length,1100);i++){ const [lat,lng,v]=pts[i];
-    const c=fluxColorSmooth((v-fmin)/range); const fill=`rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},0.92)`;   // UNIFIED ramp — matches 2D heatmap + card legend (was energyColor: no green)
+  if(!pts.length) return;
+  // SHARPEN the ramp: use a robust P2–P98 spread (not raw min/max) so a couple of outlier samples
+  // don't flatten the whole roof into the middle of the gradient → distinct facets show distinct colour.
+  const sv=pts.map(p=>p[2]).sort((a,b)=>a-b);
+  const lo=sv[Math.floor(sv.length*0.02)]||fmin, hi=sv[Math.floor(sv.length*0.98)]||fmax;
+  const cMin=isFinite(lo)?lo:fmin, range=((isFinite(hi)?hi:fmax)-cMin)||1;
+  for(let i=0;i<Math.min(pts.length,2600);i++){ const [lat,lng,v]=pts[i];
+    const t=Math.max(0,Math.min(1,(v-cMin)/range));
+    const c=fluxColorSmooth(t); const fill=`rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},0.92)`;   // UNIFIED ramp — matches 2D heatmap + card legend (was energyColor: no green)
     const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeWidth:0, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=[ {lat:lat-hLat,lng:lng-hLng,altitude:0.12},{lat:lat-hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng+hLng,altitude:0.12},{lat:lat+hLat,lng:lng-hLng,altitude:0.12} ];
     gmap.append(poly); heatCells.push(poly);
@@ -4817,7 +4914,8 @@ function classifyPanelPlane(pn,segs,zone,dg){
    so the existing render + occlusion + corners code consumes them unchanged.
    Returns null if facet geometry isn't available (no DSM) → caller falls back to
    Google's array. */
-const PANEL_SETBACK_M = 0.30;   // uniform fire-code-style clearance (~1 ft) inset from EVERY facet edge (eave/ridge/valley/hip/rake) — every panel corner must clear the facet boundary by this much, so the array never reaches the roofline or overhangs the footprint. 0.30 reads as a clear visible setback while still letting a shallow (~2.3 m) facet keep its single landscape row (0.40 ate the whole band on thin analytic facets)
+const PANEL_SETBACK_M = 0.45;   // TARGET fire-code-style clearance (~1.5 ft) inset from EVERY facet edge (eave/ridge/valley/hip/rake). Raised from 0.30 → 0.45 so the setback RING reads clearly as an engineered installer layout (panels never reach the roofline). This is the target on a normal facet; engineeredFacetPanels computes a PER-FACET effective setback that shrinks toward PANEL_SETBACK_MIN on shallow/thin facets so they still keep a row instead of going empty (the failure mode a flat 0.40+ caused before).
+const PANEL_SETBACK_MIN = 0.22; // floor the per-facet setback never goes below — keeps at least a hairline clearance on a thin facet while still letting its single row survive
 const PANEL_GAP_M     = 0.03;   // inter-panel gap (rail spacing); keeps rows visually distinct, still dense
 /* ── TRUE PER-FACET ENGINEERED LAYOUT (installer-grade, no slab / no overhang) ──
    ROOT-CAUSE REWRITE: the prior version started `out` from Google's solarPanels[]
@@ -4876,11 +4974,22 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     let uMin=Infinity,uMax=-Infinity,vMin=Infinity,vMax=-Infinity;
     for(const [u,v] of ringUV){ if(u<uMin)uMin=u; if(u>uMax)uMax=u; if(v<vMin)vMin=v; if(v>vMax)vMax=v; }
     const cosP=Math.max(0.2,Math.cos((seg.pitchDegrees||0)*Math.PI/180));
+    // ── ADAPTIVE PER-FACET SETBACK (defect-2) ──────────────────────────────────────
+    // We WANT the full PANEL_SETBACK_M ring on normal facets so the array clearly clears the roofline.
+    // But on a shallow/thin facet a flat 0.45 m on every edge eats the whole band → 0 panels (the
+    // regression a flat high setback caused before). So compute `sb` = the largest setback ≤ the target
+    // that still leaves room for ONE panel in BOTH facet axes; never below PANEL_SETBACK_MIN. Smallest
+    // panel footprint (plan): across = min(pw,ph); down-slope = min(pw,ph)·cosP (foreshortened).
+    const _du=(uMax-uMin), _dv=(vMax-vMin);
+    const _minAcross=Math.min(pw,ph), _minDownPlan=Math.min(pw,ph)*cosP;
+    // max setback that still fits one panel on each axis = (axisExtent - panelDim)/2
+    const _sbU=(_du-_minAcross)/2, _sbV=(_dv-_minDownPlan)/2;
+    const sb=Math.max(PANEL_SETBACK_MIN, Math.min(PANEL_SETBACK_M, _sbU, _sbV));   // recorded per-facet in _dbg below
     // FORESHORTEN the down-slope axis by cos(pitch): the facet hull is in the GROUND (plan) frame, so a
     // panel that is `ah` long up the slope occupies only ah·cos(pitch) in plan. Across (u, eave-parallel) is
     // not foreshortened. rowsFor(ah) = whole rows of a panel of down-slope dim `ah` that fit the inset depth.
     const dvBand=(vMax-vMin);
-    const rowsFor=(ahS)=>{ const ahPP=ahS*cosP; const band=Math.max(0,dvBand-2*(ahPP/2+PANEL_SETBACK_M)); return Math.floor(band/(ahPP+PANEL_GAP_M))+1; };
+    const rowsFor=(ahS)=>{ const ahPP=ahS*cosP; const band=Math.max(0,dvBand-2*(ahPP/2+sb)); return Math.floor(band/(ahPP+PANEL_GAP_M))+1; };
     // orientation from the segment's seed panels (majority), default PORTRAIT — but on a SHALLOW facet where
     // the seed orientation can't fit a single row (e.g. a 2.5 m-deep strip vs a 1.88 m portrait panel),
     // flip to the orientation whose down-slope dimension DOES fit, so the strip still gets its row of panels.
@@ -4899,11 +5008,11 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     //    the real array sits), else CENTRE the maximum whole number of columns in the inset band.
     //  • DOWN-SLOPE (v): CENTRE the rows in the inset band so the max whole number of rows fits
     //    symmetrically — shallow facets reliably get every row that fits inside the setback.
-    const uUse=Math.max(0,(uMax-uMin)-2*(hw+PANEL_SETBACK_M));
+    const uUse=Math.max(0,(uMax-uMin)-2*(hw+sb));
     const cols=Math.max(1,Math.floor(uUse/cw)+1);
     let u0=(uMin+uMax)/2 - ((cols-1)/2)*cw;        // centre `cols` columns about the facet's u-midline (eave-parallel)
     // v-band usable after the per-corner setback (panel half-height hh + setback off each edge)
-    const vUse=Math.max(0,(vMax-vMin)-2*(hh+PANEL_SETBACK_M));
+    const vUse=Math.max(0,(vMax-vMin)-2*(hh+sb));
     const rows=Math.max(1,Math.floor(vUse/ch)+1);
     let v0=(vMin+vMax)/2 - ((rows-1)/2)*ch;   // centre `rows` rows about the facet's v-midline
     const nU=Math.ceil((uMax-uMin)/cw)+2, nV=Math.ceil((vMax-vMin)/ch)+2;
@@ -4929,7 +5038,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
       if(!pointInPoly2([u,v],ringUV)){ continue; }
       let ok=true;
       for(const [su,sv] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const px=u+su*hw, py=v+sv*hh;
-        if(!pointInPoly2([px,py],ringUV) || edgeDist(px,py) < PANEL_SETBACK_M){ ok=false; break; } }
+        if(!pointInPoly2([px,py],ringUV) || edgeDist(px,py) < sb){ ok=false; break; } }
       if(!ok){ _setb++; continue; }
       const [E,N]=fromUV(u,v); const [lng,lat]=utmToLL(E,N,zone);
       // Carry the EXACT analytic facet plane (a·E+b·N+c = absolute height, UTM) + this facet's az/pitch so
@@ -4947,7 +5056,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     // a usable face). Facets with >=2 panels always pass (a real row).
     if(facetPanels.length===1 && seedHere.length===0){ /* drop the lone stamp */ }
     else { for(const pn of facetPanels){ out.push(pn); _kept++; } }
-    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb});
+    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), sb:+sb.toFixed(2), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb});
   }
   if(!out.length) return null;
   // estimate per-panel yearly energy from the facet's seed panels (or roof mean) so colour/quote scaling stays sane
