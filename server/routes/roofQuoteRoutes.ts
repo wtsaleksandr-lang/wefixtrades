@@ -37,6 +37,7 @@ import {
 import {
   aiRender,
   buildingFootprint,
+  buildingsInBbox,
   captureOblique,
   CaptureUnavailableError,
   dataLayers,
@@ -330,6 +331,17 @@ export function registerRoofQuoteRoutes(app: Express) {
     } catch (err) {
       log.error("footprint failed", { err: (err as Error).message });
       return res.json({ source: "none", error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── MULTI-building footprints within the visible map bbox (Select-Your-Roof neighbour layer) ───
+     /api/roofquote/buildings?bbox=south,west,north,east → { buildings:[{id,ring,centroid,area,source}], source, attribution } */
+  app.get("/api/roofquote/buildings", async (req: Request, res: Response) => {
+    try {
+      return res.json(await buildingsInBbox(String(req.query.bbox || "")));
+    } catch (err) {
+      log.error("buildings failed", { err: (err as Error).message });
+      return res.json({ buildings: [], source: "none", error: String((err as Error).message || err) });
     }
   });
 

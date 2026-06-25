@@ -309,6 +309,97 @@ async function overpassFootprint(lat,lng){
   return null;
 }
 
+// ─── MULTI-building footprints inside a map-view bbox (Select-Your-Roof neighbour layer) ───
+// Returns EVERY building polygon whose geometry intersects the visible map bounds, so the client can
+// draw neighbouring houses as selectable outlines. bbox is the Overpass order (south,west,north,east).
+// Each entry is an OPEN [[lng,lat]] ring with a stable id + centroid + area. OSM first; if OSM yields
+// nothing (cold area), the Microsoft tile is scanned for every building inside the bbox as a fallback.
+function _bboxClamp(s,w,n,e){
+  // guard against an absurdly large bbox (whole-world query would hammer Overpass) — cap span ~0.01° (~1km)
+  const cs=Math.min(s,n), cn=Math.max(s,n), cw=Math.min(w,e), ce=Math.max(w,e);
+  const midLat=(cs+cn)/2, midLng=(cw+ce)/2;
+  const MAXSPAN=0.012;
+  const hs=Math.min((cn-cs)/2,MAXSPAN/2), hl=Math.min((ce-cw)/2,MAXSPAN/2);
+  return [midLat-hs, midLng-hl, midLat+hs, midLng+hl];
+}
+function ringsFromOverpassEls(elements,bs,bw,bn,be){
+  const out=[];
+  for(const el of (elements||[])){
+    const geom=el.geometry; if(!Array.isArray(geom)||geom.length<4) continue;
+    const ring=openRingLL(geom.map(g=>[g.lon,g.lat]));
+    if(ring.length<3) continue;
+    if(ringAreaLL(ring,(bs+bn)/2)<8) continue;             // skip tiny noise blobs
+    const c=ringCentroidLL(ring);
+    out.push({ id:"osm/"+(el.type||"way")+"/"+(el.id!=null?el.id:(c[0].toFixed(6)+","+c[1].toFixed(6))),
+               ring, centroid:c, area:ringAreaLL(ring,(bs+bn)/2), source:"osm" });
+  }
+  return out;
+}
+async function overpassBuildingsBbox(bs,bw,bn,be){
+  const q='[out:json][timeout:25];way["building"]('+bs+','+bw+','+bn+','+be+');out geom;';
+  const body="data="+encodeURIComponent(q);
+  const headers={ "Content-Type":"application/x-www-form-urlencoded",
+    "User-Agent":"WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+  for(const ep of endpoints){
+    try{
+      const r=await fetch(ep,{ method:"POST", headers, body });
+      if(!r.ok) continue;
+      const j=await r.json();
+      return ringsFromOverpassEls(j.elements,bs,bw,bn,be);  // possibly [] (valid empty)
+    }catch(_){ /* try next endpoint */ }
+  }
+  return null;                                              // both endpoints unreachable
+}
+// Scan the Microsoft z9 tile covering the bbox centre and collect EVERY building whose centroid lands
+// inside the bbox. Used only as a cold-area fallback (OSM empty). Re-uses the on-disk tile cache.
+function scanMsftTileBbox(srcStream,bs,bw,bn,be){
+  return new Promise((resolve)=>{
+    const out=[], lat0=(bs+bn)/2;
+    let done=false;
+    const gun=zlib.createGunzip();
+    const rl=readline.createInterface({ input:srcStream.pipe(gun), crlfDelay:Infinity });
+    const finish=()=>{ if(done) return; done=true; try{ rl.close(); }catch(_){} try{ srcStream.destroy(); }catch(_){} resolve(out); };
+    srcStream.on("error",finish); gun.on("error",finish);
+    rl.on("line",line=>{
+      if(done||!line||out.length>=400) { if(out.length>=400) finish(); return; }
+      let f; try{ f=JSON.parse(line); }catch(_){ return; }
+      const g=f&&f.geometry; if(!g) return;
+      const r=(g.type==="Polygon")?g.coordinates[0]:(g.type==="MultiPolygon"?g.coordinates[0][0]:null);
+      if(!r||r.length<4) return;
+      const open=openRingLL(r.map(c=>[c[0],c[1]]));
+      if(open.length<3) return;
+      if(ringAreaLL(open,lat0)<8) return;
+      const c=ringCentroidLL(open);
+      if(c[1]<bs||c[1]>bn||c[0]<bw||c[0]>be) return;        // centroid outside bbox
+      out.push({ id:"msft/"+c[0].toFixed(6)+","+c[1].toFixed(6), ring:open, centroid:c, area:ringAreaLL(open,lat0), source:"msft" });
+    });
+    rl.on("close",finish);
+  });
+}
+async function msftBuildingsBbox(bs,bw,bn,be){
+  const lat=(bs+bn)/2, lng=(bw+be)/2;
+  const idx=await loadMsftIndex();
+  const qk=lngLatToQuadkey(lat,lng,9);
+  const url=idx[qk];
+  if(!url) return null;
+  const tileFile=path.join(CACHE_DIR,"msfttile-"+qk+".gz");
+  const fs=await import("fs");
+  if(!existsSync(tileFile)){ const ok=await downloadMsftTile(url,tileFile); if(!ok) return null; }
+  try{ return await scanMsftTileBbox(fs.createReadStream(tileFile),bs,bw,bn,be); }
+  catch(_){ return null; }
+}
+async function buildingsInBbox(bs,bw,bn,be){
+  [bs,bw,bn,be]=_bboxClamp(bs,bw,bn,be);
+  // OSM is fast + clean where it exists; time-box it so a stalled Overpass can't hang the route.
+  const osm=await timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null);
+  if(Array.isArray(osm) && osm.length){ return { buildings:osm, source:"osm", attribution:"© OpenStreetMap contributors" }; }
+  // OSM empty / unreachable → cold-area fallback to the Microsoft tile (time-boxed; tile may warm in bg).
+  const msft=await timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null);
+  if(Array.isArray(msft) && msft.length){ return { buildings:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" }; }
+  return { buildings:[], source:"none" };
+}
+
 // On-disk pre-cached footprints (free national buildings data, fetched by a throwaway script).
 // File: spikes/roof-quote/cache/footprints.geojson — a FeatureCollection of Polygon buildings.
 let _fpCacheData=null, _fpCacheLoaded=false;
@@ -728,6 +819,26 @@ http.createServer(async (req,res)=>{
       if(out && typeof out==="object"){ const { msPending, ...wire }=out; res.end(JSON.stringify(wire)); }
       else res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }
+    return;
+  }
+  // ---- MULTI-building footprints within the visible map bbox (Select-Your-Roof neighbour layer) ----
+  // Query: /buildings?bbox=south,west,north,east  → { buildings:[{id,ring,centroid,area,source}], source, attribution }
+  // ring is OPEN [[lng,lat],...]. OSM (Overpass way[building] over the bbox) first; Microsoft tile
+  // scan as a cold-area fallback. Empty {buildings:[]} is a valid answer (client degrades to single building).
+  // Disk-cached by the rounded bbox, 7-day TTL (neighbourhoods don't change fast).
+  if(u.pathname==="/buildings"){
+    res.setHeader("Content-Type","application/json");
+    const parts=(u.searchParams.get("bbox")||"").split(",").map(Number);
+    if(parts.length!==4 || parts.some(n=>!isFinite(n))){ res.end(JSON.stringify({error:"bad_bbox",buildings:[]})); return; }
+    const [bs,bw,bn,be]=parts;
+    const gk=[bs,bw,bn,be].map(n=>n.toFixed(4)).join(",");
+    { const c=diskGetJSON("buildings",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<7*864e5){ res.setHeader("X-Cache","HIT"); res.end(JSON.stringify(c.body)); return; } }
+    res.setHeader("X-Cache","MISS");
+    try{
+      const out=await buildingsInBbox(bs,bw,bn,be);
+      if(out && Array.isArray(out.buildings) && out.buildings.length){ diskSetJSON("buildings",gk,{ body:out, _t:Date.now() }); }
+      res.end(JSON.stringify(out));
+    }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),buildings:[],source:"none"})); }
     return;
   }
   if(u.pathname==="/solar"){

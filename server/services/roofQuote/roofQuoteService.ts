@@ -974,6 +974,105 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
   return out;
 }
 
+/* ─── MULTI-building footprints within a map-view bbox (Select-Your-Roof neighbour layer) ───
+   Returns EVERY building polygon inside the visible map bounds so the client can draw neighbouring
+   houses as selectable outlines. Mirrors spikes/roof-quote/serve.mjs buildingsInBbox. OSM (Overpass
+   way[building] over the bbox) first; the Microsoft z9 tile is scanned as a cold-area fallback. Empty
+   {buildings:[]} is a valid answer (the client degrades to single-building). Disk-cached by rounded bbox. */
+export interface BboxBuilding { id: string; ring: LngLat[]; centroid: LngLat; area: number; source: "osm" | "msft"; }
+export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "none"; attribution?: string; error?: string; }
+function bboxClamp(s: number, w: number, n: number, e: number): [number, number, number, number] {
+  const cs = Math.min(s, n), cn = Math.max(s, n), cw = Math.min(w, e), ce = Math.max(w, e);
+  const midLat = (cs + cn) / 2, midLng = (cw + ce) / 2, MAXSPAN = 0.012;
+  const hs = Math.min((cn - cs) / 2, MAXSPAN / 2), hl = Math.min((ce - cw) / 2, MAXSPAN / 2);
+  return [midLat - hs, midLng - hl, midLat + hs, midLng + hl];
+}
+function ringsFromOverpassEls(elements: any[], lat0: number): BboxBuilding[] {
+  const out: BboxBuilding[] = [];
+  for (const el of elements || []) {
+    const geom = el.geometry; if (!Array.isArray(geom) || geom.length < 4) continue;
+    const ring = fpOpenRing(geom.map((g: any) => [g.lon, g.lat] as LngLat));
+    if (ring.length < 3) continue;
+    if (fpRingArea(ring, lat0) < 8) continue;
+    const c = fpCentroid(ring);
+    out.push({ id: "osm/" + (el.type || "way") + "/" + (el.id != null ? el.id : c[0].toFixed(6) + "," + c[1].toFixed(6)),
+      ring, centroid: c, area: fpRingArea(ring, lat0), source: "osm" });
+  }
+  return out;
+}
+async function overpassBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
+  const body = "data=" + encodeURIComponent('[out:json][timeout:25];way["building"](' + bs + "," + bw + "," + bn + "," + be + ");out geom;");
+  const headers = { "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  for (const ep of endpoints) {
+    try {
+      const r = await fetch(ep, { method: "POST", headers, body });
+      if (!r.ok) continue;
+      const j = (await r.json()) as any;
+      return ringsFromOverpassEls(j.elements, (bs + bn) / 2);
+    } catch { /* try next endpoint */ }
+  }
+  return null;
+}
+function scanMsftTileBbox(srcStream: NodeJS.ReadableStream, bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[]> {
+  return new Promise((resolve) => {
+    const out: BboxBuilding[] = [], lat0 = (bs + bn) / 2; let done = false;
+    const gun = zlib.createGunzip();
+    const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
+    const finish = () => { if (done) return; done = true; try { rl.close(); } catch { /* closed */ } try { (srcStream as any).destroy?.(); } catch { /* noop */ } resolve(out); };
+    srcStream.on("error", finish); gun.on("error", finish);
+    rl.on("line", (line) => {
+      if (done || !line) return;
+      if (out.length >= 400) { finish(); return; }
+      let f: any; try { f = JSON.parse(line); } catch { return; }
+      const g = f && f.geometry; if (!g) return;
+      const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!raw || raw.length < 4) return;
+      const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
+      if (open.length < 3) return;
+      if (fpRingArea(open, lat0) < 8) return;
+      const c = fpCentroid(open);
+      if (c[1] < bs || c[1] > bn || c[0] < bw || c[0] > be) return;
+      out.push({ id: "msft/" + c[0].toFixed(6) + "," + c[1].toFixed(6), ring: open, centroid: c, area: fpRingArea(open, lat0), source: "msft" });
+    });
+    rl.on("close", finish);
+  });
+}
+async function msftBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
+  const lat = (bs + bn) / 2, lng = (bw + be) / 2;
+  const idx = await loadMsftIndex();
+  const qk = lngLatToQuadkey(lat, lng, 9);
+  const url = idx[qk];
+  if (!url) return null;
+  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
+  if (!existsSync(tileFile)) { const ok = await downloadMsftTile(url, tileFile); if (!ok) return null; }
+  try { return await scanMsftTileBbox(createReadStream(tileFile), bs, bw, bn, be); }
+  catch { return null; }
+}
+export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult> {
+  const parts = String(bboxStr || "").split(",").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !isFinite(n))) return { buildings: [], source: "none", error: "bad_bbox" };
+  let [bs, bw, bn, be] = bboxClamp(parts[0], parts[1], parts[2], parts[3]);
+  const gk = [bs, bw, bn, be].map((n) => n.toFixed(4)).join(",");
+  const cached = diskGetJSON<{ body: BuildingsResult; _t: number }>("buildings", gk);
+  if (cached && cached.body && cached._t && Date.now() - cached._t < 7 * 864e5) return cached.body;
+  // OSM is fast + clean where it exists; time-box it so a stalled Overpass can't hang the route.
+  const osm = await timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null);
+  let out: BuildingsResult;
+  if (Array.isArray(osm) && osm.length) {
+    out = { buildings: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
+  } else {
+    // OSM empty / unreachable → cold-area fallback to the Microsoft tile (time-boxed; tile may warm in bg).
+    const msft = await timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null);
+    out = (Array.isArray(msft) && msft.length)
+      ? { buildings: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" }
+      : { buildings: [], source: "none" };
+  }
+  if (out.buildings.length) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
+  return out;
+}
+
 /* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,
    api.data.gov key). Returns expected annual AC kWh for a typical system. Cached. ─── */
 const nrelKey = (): string => process.env.NREL_API_KEY || "";

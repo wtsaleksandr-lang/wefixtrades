@@ -79,6 +79,8 @@
   #selectRoof #srMap{position:absolute;inset:0}
   #selectRoof .sr-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 28px);background:rgba(15,23,42,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:99px;text-align:center}
   #selectRoof .sr-hint svg{flex:0 0 auto;width:14px;height:14px;stroke:#7fa0ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-count{position:absolute;left:14px;top:14px;z-index:5;display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;letter-spacing:-.01em;padding:7px 13px;border-radius:99px;box-shadow:0 4px 14px rgba(13,60,252,.32)}
+  #selectRoof .sr-count svg{flex:0 0 auto;width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-load{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13.5px;font-weight:600}
   #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
   @keyframes srspin{to{transform:rotate(360deg)}}
@@ -673,7 +675,8 @@
     <div class="sr-mapwrap">
       <div id="srMap"></div>
       <div class="sr-load" id="srLoad"><div class="sr-ring"></div><span id="srLoadT">Locating your building…</span></div>
-      <div class="sr-hint" id="srHint"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="srHintT">This is the roof we detected. Not your building? Tap the correct one.</span></div>
+      <div class="sr-count" id="srCount" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span id="srCountT">1 building selected</span></div>
+      <div class="sr-hint" id="srHint"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="srHintT">Tap buildings to add or remove them from your quote.</span></div>
     </div>
     <div class="sr-foot">
       <button class="sr-back" id="srBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
@@ -3409,6 +3412,14 @@ async function run(addr){
     // edit clears the match) so a stale id never geocodes the wrong house.
     const picked=window.__pickedPlace; const placeId=(picked&&picked.addr===addr)?picked.id:"";
     const g=await geocode(addr,placeId); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
+    // MULTI-building: if the buyer chose a PRIMARY building on the Select-Your-Roof step that isn't the
+    // geocoded home (e.g. they deselected their house and picked a neighbour), anchor this analysis to
+    // that building's centroid instead of the raw geocode. Consumed once, then cleared.
+    if(window.__srPrimaryRun && window.__srPrimaryRun.centroid && Array.isArray(window.__srPrimaryRun.centroid)){
+      const c=window.__srPrimaryRun.centroid;   // [lng,lat]
+      if(isFinite(c[0])&&isFinite(c[1])){ g.lat=c[1]; g.lng=c[0]; window.__ll={lat:c[1],lng:c[0]}; SITE={lat:c[1],lng:c[0]}; }
+      window.__srPrimaryRun=null;
+    }
     // ── Clean VECTOR building footprint (the EVEN outer-roofline source) ──
     // Fetch the real vector building footprint (OSM/Overpass → on-disk cache) for this point.
     // It REPLACES the fuzzy Solar-mask Moore-trace as the primary outer outline in the analytic
@@ -7917,46 +7928,124 @@ function setFunnelStep(step){
 function hideFunnel(){ __funnelOn=false; window.__funnelActive=false; const bar=$("funnelBar"); if(bar) bar.style.display="none"; }
 window.__setFunnelStep=setFunnelStep;
 
-let __srMap=null, __srPoly=null, __srMarkers=[], __srReqSeq=0;
+let __srMap=null, __srReqSeq=0;
+// MULTI-building selection model for the Select-Your-Roof step.
+//   __srBuildings: every building polygon drawn on the map (detected home + neighbours), each
+//     { id, ring:[[lng,lat],...], centroid:[lng,lat], area, source, detected:bool, poly:google.maps.Polygon, selected:bool }
+//   window.__selectedBuildings: the SELECTED subset (footprint objects) the downstream steps iterate.
+//     Each carries { id, ring, centroid, area, source, detected } — NO live map object (serialisable).
+let __srBuildings=[];
+window.__selectedBuildings=window.__selectedBuildings||[];
+// Plan-metric ring area (m²) for ranking the "primary" selected building. ring is [[lng,lat],...].
+function _ringAreaM2(ring,lat0){ const mLat=111320, mLng=111320*Math.cos((lat0||43)*Math.PI/180);
+  let s=0; for(let i=0;i<ring.length;i++){ const a=ring[i],b=ring[(i+1)%ring.length];
+    s+=(a[0]*mLng)*(b[1]*mLat)-(b[0]*mLng)*(a[1]*mLat); } return Math.abs(s)/2; }
+function _ringCentroid(ring){ let x=0,y=0; for(const[lng,lat]of ring){x+=lng;y+=lat;} return [x/ring.length,y/ring.length]; }
+// Recompute window.__selectedBuildings + the count chip from the live building list. The PRIMARY building
+// (the one Continue runs) is the selected detected home if still selected, else the largest selected.
+function syncSelection(){
+  const sel=__srBuildings.filter(b=>b.selected);
+  window.__selectedBuildings=sel.map(b=>({ id:b.id, ring:b.ring, centroid:b.centroid, area:b.area, source:b.source, detected:!!b.detected }));
+  // primary: detected home if selected, else largest-area selected
+  let primary=sel.find(b=>b.detected) || sel.slice().sort((a,b)=>(b.area||0)-(a.area||0))[0] || null;
+  window.__srPrimary = primary ? { ring:primary.ring, centroid:primary.centroid, source:primary.source } : null;
+  const n=sel.length;
+  const chip=$("srCount"), ct=$("srCountT");
+  if(chip&&ct){ if(n>0){ chip.style.display="inline-flex"; ct.textContent=n+" building"+(n===1?"":"s")+" selected"; } else { chip.style.display="inline-flex"; ct.textContent="No buildings selected"; } }
+  // Continue is allowed even with 0 (degrades to the geocoded point) but nudge with the count.
+}
+// Visual style for a building polygon by selected state. Selected = brand-blue fill highlight (matches the
+// legacy single-detected look). Unselected = thin subtle outline that's clearly tappable.
+function _applyPolyStyle(b){
+  if(!b||!b.poly) return;
+  if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.28, zIndex:b.detected?20:15 }); }
+  else { b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:0.55, strokeWeight:1.5, fillColor:"#0d3cfc", fillOpacity:0.04, zIndex:5 }); }
+}
+function _toggleBuilding(b){ if(!b) return; b.selected=!b.selected; _applyPolyStyle(b); syncSelection(); }
+
 // Render the Select-Your-Roof aerial: a top-down satellite google.maps.Map centred on the geocode with
-// the detected footprint drawn as a highlighted filled polygon. Robust to a missing footprint (just
-// shows the satellite + a marker) and to a Maps load failure (the step still works — Continue proceeds).
-async function renderSelectRoofMap(g, fp){
+// the detected footprint drawn as a highlighted filled polygon AND every neighbouring building drawn as a
+// subtle selectable outline. Tapping any building toggles it in/out of the quote selection. Robust to a
+// missing footprint (marker + degrade to point) and to a Maps load failure (Continue still proceeds).
+async function renderSelectRoofMap(g, fp, neighbours){
   const el=$("srMap"); if(!el) return;
   try{
     const { Map }=await google.maps.importLibrary("maps");
     const center={lat:g.lat,lng:g.lng};
     if(!__srMap){
       __srMap=new Map(el,{ center, zoom:20, mapTypeId:"satellite", tilt:0, disableDefaultUI:true, gestureHandling:"greedy", keyboardShortcuts:false, clickableIcons:false });
+      window.__srMap=__srMap;   // expose for headless verification
     } else { __srMap.setCenter(center); __srMap.setZoom(20); }
-    // clear any prior overlays (second address)
-    if(__srPoly){ __srPoly.setMap(null); __srPoly=null; }
-    __srMarkers.forEach(m=>m.setMap(null)); __srMarkers=[];
-    // Draw the detected building footprint as a highlighted filled polygon. ring is [[lng,lat],...].
-    const ring=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
-    if(ring){
-      const path=ring.map(([lng,lat])=>({lat,lng}));
-      __srPoly=new google.maps.Polygon({ paths:path, strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.28, clickable:false, map:__srMap });
-      // frame the polygon so the whole roof is visible
-      const b=new google.maps.LatLngBounds(); path.forEach(p=>b.extend(p)); __srMap.fitBounds(b,{top:40,right:40,bottom:40,left:40});
-      $("srHintT").textContent="This is the roof we detected. Not your building? Tap the correct one.";
+    // clear any prior overlays (second address / re-render)
+    __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); }catch(_){} });
+    __srBuildings=[];
+    // Build the candidate list: the DETECTED home (fp) + all NEIGHBOUR rings, de-duped by overlap.
+    const detectedRing=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
+    const detectedC = detectedRing ? _ringCentroid(detectedRing) : [g.lng,g.lat];
+    const list=[];
+    if(detectedRing){ list.push({ id:"detected", ring:detectedRing, centroid:detectedC, source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
+    // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
+    const seen=detectedRing?[detectedC]:[];
+    const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
+      return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
+    for(const nb of (neighbours||[])){
+      const ring=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring) continue;
+      const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring);
+      if(near(c,seen,6)) continue;                          // de-dup the detected home / repeats
+      seen.push(c);
+      list.push({ id:nb.id||("nb/"+c[0].toFixed(6)+","+c[1].toFixed(6)), ring, centroid:c, source:nb.source||"osm", detected:false, selected:false });
+    }
+    // Draw each as a clickable polygon and wire the per-building toggle.
+    for(const item of list){
+      const path=item.ring.map(([lng,lat])=>({lat,lng}));
+      const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
+      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly };
+      _applyPolyStyle(b);
+      poly.addListener("click",()=>_toggleBuilding(b));     // tap toggles selected ⇄ unselected
+      __srBuildings.push(b);
+    }
+    window.__srBuildings=__srBuildings;   // expose the live list (debug / headless verification / next-task per-house loop)
+    if(detectedRing){
+      // frame the detected home (a touch wider so a neighbour or two is visible + tappable)
+      const b=new google.maps.LatLngBounds(); detectedRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
+      const hasNb=__srBuildings.length>1;
+      $("srHintT").textContent = hasNb ? "Tap buildings to add or remove them from your quote." : "This is the roof we detected. Not your building? Tap the correct one.";
     } else {
-      // No footprint — just drop a marker on the geocode so the buyer sees the targeted point.
-      try{ const { Marker }=await google.maps.importLibrary("marker"); __srMarkers.push(new Marker({ position:center, map:__srMap })); }catch(_){}
+      // No footprint — drop a marker on the geocode so the buyer sees the targeted point (degrade path).
+      try{ const { Marker }=await google.maps.importLibrary("marker"); new Marker({ position:center, map:__srMap }); }catch(_){}
       $("srHintT").textContent="Centred on your address. Tap your building if the marker is off.";
     }
-    // SIMPLE neighbour re-pick: a map click re-centres + re-targets that point (re-fetches its footprint).
-    // Full neighbour-marker selection (Sky-Quote drops pins on every roof) is deferred — see report notes.
+    syncSelection();
+    // FALLBACK re-pick: clicking the bare satellite (NOT a building polygon) re-targets that point and
+    // re-fetches its footprint — preserves the legacy "tap the correct one" rescue when OSM has no polygon
+    // where the buyer expects their house. Building-polygon clicks toggle (above) and don't bubble here.
     if(!el.__srClickWired){ el.__srClickWired=true;
       __srMap.addListener("click",async(ev)=>{ if(!ev||!ev.latLng) return;
-        const nlat=ev.latLng.lat(), nlng=ev.latLng.lng();
+        // Only re-pick if the click is NOT inside an already-drawn building (those handle their own toggle).
+        const cl={lng:ev.latLng.lng(),lat:ev.latLng.lat()};
+        const inside=__srBuildings.some(b=>_pointInRing([cl.lng,cl.lat],b.ring));
+        if(inside) return;
+        const nlat=cl.lat, nlng=cl.lng;
         window.__srGeo={lat:nlat,lng:nlng,formatted:(window.__srGeo&&window.__srGeo.formatted)||""};
         const nfp=await fetchJSON("/footprint?lat="+nlat+"&lng="+nlng,"footprint").catch(()=>null);
         const ncand=nfp&&Array.isArray(nfp.candidates)&&nfp.candidates[0]?nfp.candidates[0]:(nfp&&nfp.ring?nfp:null);
-        renderSelectRoofMap({lat:nlat,lng:nlng}, ncand);
+        const nbr=await fetchNeighbours(nlat,nlng).catch(()=>[]);
+        renderSelectRoofMap({lat:nlat,lng:nlng}, ncand, nbr);
       });
     }
   }catch(_){ /* Maps failed to load — leave the load veil; Continue still proceeds into run() */ }
+}
+// Point-in-ring test (ring is [[lng,lat],...], pt is [lng,lat]) — for the bare-satellite re-pick guard.
+function _pointInRing(pt,ring){ let inside=false; const x=pt[0],y=pt[1];
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) inside=!inside; } return inside; }
+// Fetch every neighbouring building footprint within ~a roof-view's worth of the point. Returns [] on any
+// miss so the caller degrades to single-building. ~110 m half-span ≈ a suburban block of neighbours.
+async function fetchNeighbours(lat,lng){
+  const dLat=0.0010, dLng=0.0010/Math.max(0.2,Math.cos(lat*Math.PI/180));   // ~110m N/S, ~110m E/W
+  const bbox=[(lat-dLat).toFixed(6),(lng-dLng).toFixed(6),(lat+dLat).toFixed(6),(lng+dLng).toFixed(6)].join(",");
+  const r=await fetchJSON("/buildings?bbox="+bbox,"buildings").catch(()=>null);
+  return (r&&Array.isArray(r.buildings))?r.buildings:[];
 }
 
 // Enter the Select-Your-Roof step for a typed/picked address. Geocodes (honouring any picked place_id)
@@ -7979,10 +8068,15 @@ async function enterSelectRoof(addr, placeId){
     window.__srGeo={lat:g.lat,lng:g.lng,formatted:g.formatted||v};
     if(g.formatted){ $("srAddr").textContent=g.formatted; $("addr").value=g.formatted; }
     $("srLoadT").textContent="Detecting your roof…";
-    const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
+    // Fetch the detected footprint AND the neighbouring buildings in parallel. Neighbours are best-effort:
+    // a miss/empty just degrades to single-building (renderSelectRoofMap handles []).
+    const [fp, nbr]=await Promise.all([
+      fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null),
+      fetchNeighbours(g.lat,g.lng).catch(()=>[]),
+    ]);
     if(seq!==__srReqSeq) return;
     const cand=fp&&Array.isArray(fp.candidates)&&fp.candidates[0]?fp.candidates[0]:(fp&&fp.ring?fp:null);
-    await renderSelectRoofMap(g, cand);
+    await renderSelectRoofMap(g, cand, nbr);
   } else {
     // geocode failed — show the step with a notice; Continue will surface the real geocode error via run()
     window.__srGeo=null;
@@ -7993,14 +8087,28 @@ async function enterSelectRoof(addr, placeId){
 }
 window.__enterSelectRoof=enterSelectRoof;
 
-// Continue → leave the Select-Your-Roof gate and run the EXISTING 3D pipeline unchanged.
+// Continue → leave the Select-Your-Roof gate and run the EXISTING 3D pipeline for the PRIMARY selected
+// building. window.__selectedBuildings holds the full chosen set for the (NEXT-task) per-house loop; for
+// now Continue analyses just the primary (selected detected home, else largest selected). If the primary
+// is NOT the detected home, anchor run() to its centroid so the analysis targets the building the buyer
+// picked rather than the raw geocode.
 $("srContinue").onclick=()=>{
   const addr=($("addr").value||$("srAddr").textContent||"").trim(); if(!addr) return;
+  // Stash the primary for run() to consume — only override the geocode when it's a non-detected building.
+  const p=window.__srPrimary;
+  window.__srPrimaryRun = (p && p.source!=="detected" && p.centroid && !__isDetectedPrimary()) ? { centroid:p.centroid } : null;
   $("selectRoof").style.display="none";
   $("bar").style.display="flex";
   setFunnelStep("options");                     // model/lenses/edit = Roof+Options content; Estimate flips on quote render
   run(addr);
 };
+// True when the primary selected building IS the detected home (then keep the precise geocode, no override).
+function __isDetectedPrimary(){
+  const sel=(__srBuildings||[]).filter(b=>b.selected);
+  const det=sel.find(b=>b.detected);
+  if(det) return true;            // detected home still selected → it's the primary → no override
+  return false;                   // home deselected → primary is a neighbour → override to its centroid
+}
 // Back → return to the address hero.
 $("srBack").onclick=()=>{
   __srReqSeq++;                                  // cancel any in-flight geocode/footprint paint
