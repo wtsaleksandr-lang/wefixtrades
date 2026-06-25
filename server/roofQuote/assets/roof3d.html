@@ -3754,9 +3754,36 @@ function extractFacetPolysAnalytic(margin){
   }
   if(cands && cands.length){
     let alignOff=false; try{ alignOff=(typeof location!=="undefined") && new URLSearchParams(location.search).get("align")==="off"; }catch(_){}
-    let best=null;       // { regBase, source, attribution, shiftM, overlap, applied, diag } — chosen candidate
+    // (fix7) ROOF-FIT SELECTION. The OLD logic picked the candidate with the SMALLEST registration
+    // shift (overlap only broke a <1 m tie). That auto-wins a COARSE OSM box that happens to centre on
+    // the roof — even when it bulges past the articulated edges onto lawn/driveway — over a DETAILED
+    // Microsoft footprint that actually traces the roof (1842 Glencoe St). The fix: score every accepted
+    // candidate's (registered) ring by AREA IoU against the ISOLATED Google roof blob (the real-roof
+    // mask from googleRoofReference) and select on roof-FIT first, shift only as a tiebreaker.
+    const ref=(()=>{ try{ return googleRoofReference(zone); }catch(_){ return null; } })();
+    const fitBlob=(ref && ref.blob && ref.blob.vals) ? ref.blob : null;   // isolated 0/1 real-roof grid
+    let best=null;       // { regBase, source, attribution, shiftM, overlap, iou, cover, prec, nVerts, applied, diag } — chosen candidate
     let bestRejected=null;   // closest-but-still-rejected candidate (for diagnostics only — NOT a confidence killer)
     const evals=[];          // per-candidate diagnostics → window.__fpCandidateEvals
+    // (fix7) selection comparator on ACCEPTED candidates:
+    //   1. IoU is the truth → clearly-better roof-fit wins (margin guards against rasterisation noise).
+    //   2. on an IoU tie, prefer the smaller registration shift (closer to Google's centroid).
+    //   3. on a shift tie too, prefer MORE detail (a coarse box for an articulated roof is suspect) —
+    //      but ONLY as a final tiebreak, so a genuinely simple 4-vertex rect is never penalised when it
+    //      already fits as well as anything else.
+    const IOU_BETTER=0.05;       // IoU lead needed to override the incumbent (beyond rasterisation noise)
+    const SHIFT_TIE=1.0;         // metres — within this the shift is a "tie", fall to detail
+    const betterThan=(a,b)=>{
+      if(!b || !b.applied) return true;
+      const ai=(a.iou==null?-1:a.iou), bi=(b.iou==null?-1:b.iou);
+      if(ai>bi+IOU_BETTER) return true;
+      if(bi>ai+IOU_BETTER) return false;
+      // IoU effectively tied → smaller shift wins
+      if(a.shiftM < b.shiftM-SHIFT_TIE) return true;
+      if(b.shiftM < a.shiftM-SHIFT_TIE) return false;
+      // shift tied too → more detail wins (suspect a coarse box only here, never over a real fit gap)
+      return (a.nVerts||0) > (b.nVerts||0);
+    };
     for(const cand of cands){
       try{
         const ringEN=cand.ring.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
@@ -3764,7 +3791,7 @@ function extractFacetPolysAnalytic(margin){
         if(!reg0 || reg0.length<3) continue;
         if(alignOff){
           // debug bypass: take the first candidate as-is, no registration
-          best={ regBase:reg0, source:cand.source, attribution:cand.attribution||"", shiftM:0, overlap:null, applied:false, diag:{applied:false,reason:"align=off-debug"} };
+          best={ regBase:reg0, source:cand.source, attribution:cand.attribution||"", shiftM:0, overlap:null, iou:null, applied:false, diag:{applied:false,reason:"align=off-debug"} };
           break;
         }
         const rr=registerFootprintToGoogle(reg0, zone);
@@ -3774,15 +3801,19 @@ function extractFacetPolysAnalytic(margin){
         const shiftM=(rr.diag && rr.diag.measShiftM!=null)?rr.diag.measShiftM:Infinity;
         const overlap=(rr.diag && rr.diag.overlapAfter!=null)?rr.diag.overlapAfter
                      :((rr.diag && rr.diag.overlapBefore!=null)?rr.diag.overlapBefore:null);
-        evals.push({ source:cand.source, accepted, shiftM:isFinite(shiftM)?+shiftM.toFixed(2):null, overlap, reason:rr.diag&&rr.diag.reason });
-        const entry={ regBase:accepted?rr.ring:reg0, source:cand.source, attribution:cand.attribution||"", shiftM, overlap, applied:accepted, diag:rr.diag };
+        const regBase=accepted?rr.ring:reg0;
+        // (fix7) AREA IoU of the EFFECTIVE (registered) ring vs the isolated real-roof blob — the roof-FIT
+        // score. Computed for accepted candidates (the ring is on-roof so the IoU is meaningful).
+        let iou=null, cover=null, prec=null;
+        if(accepted && fitBlob){ const fit=_ringBlobIoU(regBase, fitBlob); iou=fit.iou; cover=fit.cover; prec=fit.precision; }
+        const nVerts=regBase.length;
+        evals.push({ source:cand.source, accepted,
+          shiftM:isFinite(shiftM)?+shiftM.toFixed(2):null, overlap,
+          iou:(iou==null?null:+iou.toFixed(3)), cover:(cover==null?null:+cover.toFixed(3)),
+          prec:(prec==null?null:+prec.toFixed(3)), nVerts, reason:rr.diag&&rr.diag.reason });
+        const entry={ regBase, source:cand.source, attribution:cand.attribution||"", shiftM, overlap, iou, cover, prec, nVerts, applied:accepted, diag:rr.diag };
         if(accepted){
-          // Choose the best ACCEPTED candidate: smaller shift wins; on a near-tie (<1 m) higher overlap wins.
-          if(!best || !best.applied
-             || entry.shiftM < best.shiftM-1.0
-             || (Math.abs(entry.shiftM-best.shiftM)<=1.0 && (entry.overlap||0) > (best.overlap||0))){
-            best=entry;
-          }
+          if(betterThan(entry, best)) best=entry;
         } else if(!best){
           // track the least-bad rejected candidate so __alignDiag still reports something useful
           if(!bestRejected || entry.shiftM < bestRejected.shiftM) bestRejected=entry;
@@ -3790,9 +3821,22 @@ function extractFacetPolysAnalytic(margin){
       }catch(e){ if(typeof errors!=="undefined") errors.push("vector-fp:"+(e&&e.message||e)); }
     }
     try{ window.__fpCandidateEvals=evals; }catch(_){}
+    // (fix7) ROOF-FIT FLOOR — if the winning footprint still fits the real roof poorly (IoU below the
+    // floor), it traces a clean-but-WRONG shape. A jaggy mask-trace that follows the real roof edges is a
+    // better source for the rooflines than a crisp polygon sitting partly on the lawn → drop the vector
+    // winner and fall through to the mask-trace path below. Only enforced when we actually have a blob to
+    // measure against AND the candidate produced an IoU (no blob ⇒ keep prior shift/overlap behaviour).
+    const FIT_FLOOR=0.55;
+    if(best && best.applied && fitBlob && best.iou!=null && best.iou < FIT_FLOOR){
+      try{ window.__fpFitFloorReject={ source:best.source, iou:+best.iou.toFixed(3), shiftM:+best.shiftM.toFixed(2) }; }catch(_){}
+      try{ if(typeof errors!=="undefined") errors.push("vector-fp-fit-floor:"+best.source+" iou="+best.iou.toFixed(3)); }catch(_){}
+      bestRejected=bestRejected||best;   // keep diag
+      best=null;                          // → mask-trace fallback (jaggier but on the real roof)
+    }
     if(best && best.applied){
-      // A candidate registered ON Google's roof → use its clean straight outline + eave overhang.
-      try{ window.__alignDiag=best.diag; }catch(_){}
+      // A candidate registered ON Google's roof AND fits it best (IoU) → use its clean straight outline + eave.
+      try{ if(best.diag && best.iou!=null){ best.diag.fitIoU=+best.iou.toFixed(3); best.diag.fitCover=(best.cover==null?null:+best.cover.toFixed(3)); best.diag.fitPrec=(best.prec==null?null:+best.prec.toFixed(3)); } window.__alignDiag=best.diag; }catch(_){}
+      try{ window.__fpFitWinner={ source:best.source, iou:(best.iou==null?null:+best.iou.toFixed(3)), shiftM:+best.shiftM.toFixed(2), nVerts:best.nVerts }; }catch(_){}
       const reg=_overhangRing(best.regBase, 0.4);
       if(reg && reg.length>=3 && polyArea2(reg)>=8){
         footprint=reg; footprintSource=best.source;
@@ -4177,6 +4221,41 @@ function _ringMaskOverlap(ring, mg){
       tot++; const v=sampleGrid(mg,E,Nn); if(v!=null&&v>0.5) on++; }
   }
   return tot?on/tot:0;
+}
+/* (fix7) AREA IoU between a polygon `ring` ([E,N], UTM) and the ISOLATED queried-building roof
+   blob ({vals 0/1, w, h, bbox}, row 0 = north). This is the TRUE roof-FIT metric: it measures how
+   much of the real roof AREA the footprint actually covers (and how much it overshoots onto lawn/
+   driveway) — NOT just whether its boundary happens to graze roof pixels (which a coarse box can
+   fake). Walk every blob cell: A=inside-ring, B=roof-pixel. IoU = |A∩B| / |A∪B|. A coarse OSM box
+   that centres on the roof but bulges past the articulated edges has a large union but a smaller
+   intersection → lower IoU than a detailed MS footprint that traces the same blob.
+   Returns { iou, cover, precision, blobPix, ringPix } or { iou:null } when the blob is unusable. */
+function _ringBlobIoU(ring, blob){
+  if(!blob || !blob.vals || !(blob.w>0) && !(blob.h>0)) return { iou:null };
+  const { vals, w, h, bbox } = blob;
+  if(!(w>0)||!(h>0)||!bbox) return { iou:null };
+  const dE=(bbox[2]-bbox[0])/((w-1)||1), dN=(bbox[3]-bbox[1])/((h-1)||1);
+  // ring bbox → only scan blob cells the polygon could possibly touch (cheap fast-out)
+  let minE=Infinity,maxE=-Infinity,minN=Infinity,maxN=-Infinity;
+  for(const[E,N]of ring){ if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; }
+  let inter=0, ringPix=0, blobPix=0;
+  for(let r=0;r<h;r++){ const N=bbox[3]-r*dN;
+    for(let c=0;c<w;c++){ const E=bbox[0]+c*dE;
+      const isB=vals[r*w+c]>0.5; if(isB) blobPix++;
+      // skip the point-in-poly test for cells outside the ring bbox (they can't be inside)
+      const isR=(E>=minE&&E<=maxE&&N>=minN&&N<=maxN) ? pointInPoly2([E,N],ring) : false;
+      if(isR) ringPix++;
+      if(isR&&isB) inter++;
+    }
+  }
+  const uni=ringPix+blobPix-inter;
+  if(!(uni>0)||!(blobPix>0)) return { iou:null, blobPix, ringPix };
+  return {
+    iou: inter/uni,
+    cover: inter/blobPix,            // fraction of the REAL roof the footprint covers (recall)
+    precision: ringPix?inter/ringPix:0, // fraction of the footprint that sits ON the real roof
+    blobPix, ringPix
+  };
 }
 const ALIGN_MAX_SHIFT_M=6.0;     // (fix2 P0 #3) >this ⇒ implausible (wrong building/bad geocode) → don't register. Nudged 5.0→6.0 to capture borderline source-imagery offsets (registration SUCCEEDS more, fewer rejects→slabs); the overlap-regression guard below still reverts any shift that makes the on-roof overlap worse, so a genuinely wrong building is still rejected.
 const ALIGN_MIN_ROT_DEG=3.0;     // only correct a clear rotation mismatch
