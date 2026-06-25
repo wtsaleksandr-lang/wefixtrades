@@ -891,8 +891,8 @@
   <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
   <div id="report"></div>
   <div id="lead"><div class="lead-card">
-    <div class="lead-h">See your full quote</div>
-    <div class="lead-s">Your personalised roof &amp; solar plan, sent to you instantly.</div>
+    <div class="lead-h" id="leadH">See your full quote</div>
+    <div class="lead-s" id="leadS">Your personalised roof &amp; solar plan, sent to you instantly.</div>
     <label class="ll" for="lname">Full name</label>
     <input id="lname" placeholder="Jane Smith" autocomplete="name">
     <label class="ll" for="lemail">Email</label>
@@ -1772,7 +1772,12 @@ let TENANT={
     solarWarranty:"",      // e.g. "25-yr" → workmanship-warranty trust line on solar quotes
   },
   financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, leaseEnabled:true, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
-  features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true },
+  features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true,
+    // PER-TRADE LEAD-GATE (Sky-Quote/Roofr pattern). When a trade's gate is ON the homeowner
+    // must enter contact details BEFORE the estimate is revealed (collect-first). When OFF
+    // (default) the estimate shows immediately and contact stays optional (reveal-now). The
+    // contractor opts INTO gating per trade — solar and roofing are independent.
+    gateSolar:false, gateRoof:false },
 };
 // Solar Renewable Energy Credit value by state ($/MWh produced ≈ $ per SREC). Real programs; approx 2026 — installer tunes per market.
 const SREC_VALUE={ DC:350, NJ:85, MA:60, MD:55, IL:70, DE:40, PA:35, OH:5 };
@@ -7084,9 +7089,17 @@ function sgUpdateMetrics(){
   $("sgPanels").textContent=m.panels;
   $("sgKw").innerHTML=m.kw+'<small> kW</small>';
   $("sgKwh").textContent=m.kwhAc?m.kwhAc.toLocaleString():'0';
-  $("sgPrice").textContent=fmtMoney(m.sMid);
-  $("sgMonthly").textContent=m.mo>0?('or '+fmtMoney(m.mo)+'/mo'):'';
-  $("sgPriceSub").textContent='est. installed'+(m.itcAmt>0?(' · incl. −'+fmtMoney(m.itcAmt)+' tax credit'):'');
+  // PER-TRADE GATE: mask the live installed-price while solar is gated + no lead captured.
+  const _sgMasked=(typeof window.__priceGated==="function") && window.__priceGated("solar");
+  if(_sgMasked){
+    $("sgPrice").textContent="🔒 Unlock to see";
+    $("sgMonthly").textContent="";
+    $("sgPriceSub").textContent="Enter your details to reveal your price";
+  } else {
+    $("sgPrice").textContent=fmtMoney(m.sMid);
+    $("sgMonthly").textContent=m.mo>0?('or '+fmtMoney(m.mo)+'/mo'):'';
+    $("sgPriceSub").textContent='est. installed'+(m.itcAmt>0?(' · incl. −'+fmtMoney(m.itcAmt)+' tax credit'):'');
+  }
   // bill before / after
   const bill=+(($("sgBill").value)||0);
   const ba=$("sgBeforeAfter");
@@ -7257,7 +7270,14 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
   cv.addEventListener("click",e=>{ const r=cv.getBoundingClientRect(), dpr=SG_STATE&&SG_STATE.proj?SG_STATE.proj.dpr:1; sgHitTest((e.clientX-r.left)*dpr,(e.clientY-r.top)*dpr); });
   const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
   const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); sgDraw(); sgUpdateMetrics(); } };
-  const done=$("sgDoneBtn"); if(done) done.onclick=()=>closeSolarGrid(true);
+  // PER-TRADE GATE (solar): "Use this system" reveals the estimate. If solar is gated and no
+  // lead yet, collect contact FIRST, then close the grid + reveal. closeSolarGrid(true) commits
+  // the designed system and renders the quote card (the price reveal), so deferring the WHOLE
+  // call keeps the number hidden behind the form. Ungated → reveal immediately (current behaviour).
+  const done=$("sgDoneBtn"); if(done) done.onclick=()=>{
+    const reveal=()=>closeSolarGrid(true);
+    if(typeof window.__gateThenReveal==="function") window.__gateThenReveal("solar", reveal); else reveal();
+  };
   const v2=$("sgView2d"); if(v2) v2.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const v3=$("sgView3d"); if(v3) v3.onclick=()=>{ if(!window.__solar3dActive) enterSolar3D(); };
   const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
@@ -7288,8 +7308,10 @@ function rdPriceBand(){
 function rdRenderInfo(){
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0];
   const band=rdPriceBand();
-  const pv=$("rdPrice"); if(pv) pv.textContent = band ? (fmtMoney(band.lo)+" – "+fmtMoney(band.hi)) : "Measuring…";
-  const sub=$("rdPriceSub"); if(sub){ const sqs=quoteAreaSqFt()/100; sub.textContent = sqs>0 ? ("on your "+sqs.toFixed(1)+"-square roof, installed") : "on your measured roof"; }
+  // PER-TRADE GATE: mask the live roofing price while roofing is gated + no lead captured.
+  const _rdMasked=(typeof window.__priceGated==="function") && window.__priceGated("roof");
+  const pv=$("rdPrice"); if(pv) pv.textContent = _rdMasked ? "🔒 Unlock to see" : (band ? (fmtMoney(band.lo)+" – "+fmtMoney(band.hi)) : "Measuring…");
+  const sub=$("rdPriceSub"); if(sub){ if(_rdMasked){ sub.textContent="Enter your details to reveal your price"; } else { const sqs=quoteAreaSqFt()/100; sub.textContent = sqs>0 ? ("on your "+sqs.toFixed(1)+"-square roof, installed") : "on your measured roof"; } }
   const fh=$("rdFeatH"); if(fh) fh.textContent=m.label;
   const spec=ROOF_SPEC[m.id]||{}, info=MAT_INFO[m.id]||{};
   // features = lifespan + warranty (from ROOF_SPEC) then the top product benefits (from MAT_INFO) — capped to keep the card tight
@@ -7440,11 +7462,17 @@ function closeRoofDesign(){
   const ai=$("rdAi"); if(ai) ai.onclick=()=>rdAiOnHouse();
   const done=$("rdDone"); if(done) done.onclick=()=>{
     // commit the chosen roof and drop the buyer onto the quote card (estimate) for this material
-    rdCommitSel(); closeRoofDesign();
-    $("bar").style.display="flex";
-    if(typeof applyTradeMode==="function"){ try{ applyTradeMode(); }catch(_){} }
-    if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
-    if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+    const reveal=()=>{
+      rdCommitSel(); closeRoofDesign();
+      $("bar").style.display="flex";
+      if(typeof applyTradeMode==="function"){ try{ applyTradeMode(); }catch(_){} }
+      if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+      if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+    };
+    // PER-TRADE GATE (roof): if roofing is gated and no lead yet, collect contact FIRST then
+    // reveal; ungated → reveal immediately. The form sits over the design step; the price/quote
+    // card only renders inside reveal(), so the number stays hidden until valid contact submit.
+    if(typeof window.__gateThenReveal==="function") window.__gateThenReveal("roof", reveal); else reveal();
   };
 })();
 window.__openRoofDesign=openRoofDesign;
@@ -8055,8 +8083,52 @@ function openReport(){
 }
 window.__openReport=openReport;
 /* lead capture soft-gate: value (3D + teaser price) shown first; capture unlocks the full report */
-window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
-window.__closeCapture=()=>{ $("lead").style.display="none"; };
+window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } window.__leadThen=null; resetLeadCopy(); $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
+window.__closeCapture=()=>{ $("lead").style.display="none"; window.__leadThen=null; resetLeadCopy(); };
+/* ─── PER-TRADE LEAD-GATE (collect-first) ───────────────────────────────────
+   When a trade's gate is ON, the estimate reveal (end of the solar / roofing
+   design step) is intercepted: we show the SAME #lead contact form FIRST, and
+   only run the reveal once valid contact details are submitted. When the gate
+   is OFF (default), the reveal fires immediately and contact stays optional.
+   Reuses the existing #lead form, sendLead() path + window.__lead flag — this
+   is a gating layer, not a parallel lead pipeline. If a lead was already
+   captured earlier this session (window.__lead set), the gate passes silently. */
+// 1) Honour ?gateSolar=1 / ?gateRoof=1 URL params (same mechanism as ?plan, ?dbg, ?calc).
+//    The host-injected window.__TENANT__ / qq:tenant-config still wins where set; the URL
+//    param is the standalone-embed default the contractor pastes into the iframe src.
+try{
+  const _q=new URLSearchParams(location.search);
+  const _flag=(v)=>{ if(v==null) return null; const s=String(v).toLowerCase(); return (s==="1"||s==="true"||s==="on"||s==="yes"); };
+  const _gs=_flag(_q.get("gateSolar")), _gr=_flag(_q.get("gateRoof"));
+  if(_gs!=null) TENANT.features.gateSolar=_gs;
+  if(_gr!=null) TENANT.features.gateRoof=_gr;
+}catch(_){}
+// 2) Is THIS trade gated? ("solar" → gateSolar, "roof" → gateRoof). Per-trade & independent.
+function tradeGated(trade){ const f=TENANT.features||{}; return trade==="roof" ? !!f.gateRoof : !!f.gateSolar; }
+// 2b) Collect-first means the PRICE must not leak before contact. The design steps show a live
+//     running price as you design; when the trade is gated and no lead yet, mask it with a locked
+//     placeholder so the homeowner can still build their system but only sees the number after
+//     submitting. Returns true if the caller should SUPPRESS the real price write.
+function priceGated(trade){ return tradeGated(trade) && !window.__lead; }
+window.__priceGated=priceGated;
+// 3) Default lead-form copy (restored after a gate reuse so the soft-gate report wording returns).
+function resetLeadCopy(){ const h=$("leadH")||document.querySelector("#lead .lead-h"), s=$("leadS")||document.querySelector("#lead .lead-s"), g=$("lgo");
+  if(h) h.textContent="See your full quote"; if(s) s.innerHTML="Your personalised roof &amp; solar plan, sent to you instantly."; if(g) g.textContent="See my full quote"; }
+// 4) The gate: if the trade is gated AND no lead yet, show the form first and defer the
+//    reveal until a valid submit; otherwise reveal immediately (current behaviour).
+function gateThenReveal(trade, revealFn){
+  if(typeof revealFn!=="function") return;
+  if(!tradeGated(trade) || window.__lead){ revealFn(); return; }
+  // Attribute the lead to the trade being revealed BEFORE the form submits (the reveal fn that
+  // sets tradeMode runs only after submit), so sendLead()'s `trade` field is correct.
+  try{ tradeMode=trade; window.__trade=trade; }catch(_){}
+  window.__leadThen=revealFn;
+  const h=$("leadH")||document.querySelector("#lead .lead-h"), s=$("leadS")||document.querySelector("#lead .lead-s"), g=$("lgo");
+  if(h) h.textContent="See your estimate"; if(s) s.textContent="Enter your details to unlock your personalised estimate."; if(g) g.textContent="Show my estimate";
+  $("lead").style.display="flex"; setTimeout(()=>{ const n=$("lname"); if(n) n.focus(); },50);
+}
+window.__gateThenReveal=gateThenReveal;
+window.__tradeGated=tradeGated;
 // lead-qualification: priorities toggle + hide the block if the tenant disabled it
 document.querySelectorAll("#lqual .lqp").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
 if(!TENANT.features.leadQual){ const lq=$("lqual"); if(lq) lq.style.display="none"; }
@@ -8159,7 +8231,11 @@ $("lgo").onclick=async()=>{
   const timeline=($("ltime")&&$("ltime").value)||"", priorities=[...document.querySelectorAll("#lqual .lqp.on")].map(b=>b.dataset.p);
   const leadScore=timeline==="As soon as possible"?3:timeline==="This year"?2:timeline==="Just exploring"?1:0;   // hot/warm/cold for the installer's CRM
   await sendLead({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)});
-  window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none"; openReport();
+  window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none";
+  // PER-TRADE GATE: if a pending reveal was deferred behind this form, run it (and reveal the
+  // estimate) instead of opening the full report. Otherwise keep the soft-gate behaviour.
+  const _then=window.__leadThen; window.__leadThen=null; resetLeadCopy();
+  if(typeof _then==="function"){ try{ _then(); }catch(_){} } else { openReport(); }
 };
 window.__book=async()=>{
   const t=solarTiers[selTier]||{};
