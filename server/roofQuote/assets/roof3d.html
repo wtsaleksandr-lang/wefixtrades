@@ -3024,17 +3024,18 @@ async function run(addr){
     // (source:"none") just leaves the builder on its mask-trace fallback. window.__footprintSource
     // / __footprintWGS are read by extractFacetPolysAnalytic + the credits line.
     window.__footprintWGS=null; window.__footprintSource="mask";
-    try{
-      const _fpMode=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("fp");
-      if(_fpMode!=="mask"){
-        const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
-        if(fp && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
-          window.__footprintWGS=fp.ring;            // [[lng,lat],...] open ring
-          window.__footprintSource=fp.source;       // "osm" | "msft" | "cache"
-          window.__footprintAttribution=fp.attribution||"";
-        }
-      }
-    }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
+    // (fix3 P1 #3) DON'T block the whole quote on the building-footprint fetch. On a COLD address whose
+    // Microsoft GlobalML tile isn't cached yet, /footprint streams a ~40 MB z9 tile server-side and can
+    // take 8–15 s — and it used to be AWAITED right here, BEFORE solar()/datalayers()/buildScene(), so a
+    // slow MS download stalled the entire 25–40 s first load with nothing on screen. The footprint is
+    // only consumed downstream in buildScene → extractFacetPolysAnalytic (a STRAIGHTER outer roofline);
+    // the mask-trace fallback already covers its absence. So: kick the fetch off NOW (parallel with the
+    // Solar/raster pipeline) and only AWAIT it — on a tight ~5.5 s timeout — right before buildScene. If
+    // it's late, buildScene renders the model immediately on the mask outline; the slow MS tile no longer
+    // gates time-to-first-model. Server caches the footprint, so repeats are instant.
+    const _fpMode=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("fp");
+    const fpPromise=(_fpMode==="mask") ? Promise.resolve(null)
+      : fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
     showLoad("Analysing roof (Solar)…");
     const b=await solar(g.lat,g.lng); LASTB=b;
     if(!b.solarPotential) throw new Error("no solar potential for this building");
@@ -3119,6 +3120,20 @@ async function run(addr){
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
     showLoad(false);
+    // (fix3 P1 #3) Resolve the in-flight building footprint with a TIGHT timeout, just before the model
+    // is built. It was kicked off in parallel back when geocode returned, so by now (after solar + the
+    // four-raster decode) it has usually already landed — the await is free. Only a genuinely slow cold
+    // MS-tile download trips the ~5.5 s cap, in which case buildScene renders on the mask outline now
+    // (no stall) and the straighter vector outline is simply skipped for this load. fpPromise NEVER
+    // throws (its .catch maps to null) so this can't break the build.
+    try{
+      const fp=await Promise.race([ fpPromise, new Promise(r=>setTimeout(()=>r("__fp_timeout__"),5500)) ]);
+      if(fp && fp!=="__fp_timeout__" && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
+        window.__footprintWGS=fp.ring;            // [[lng,lat],...] open ring
+        window.__footprintSource=fp.source;       // "osm" | "msft" | "cache"
+        window.__footprintAttribution=fp.attribution||"";
+      }
+    }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
     // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
     try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun(); }
     catch(e){ errors.push("scene:"+((e&&e.message)||e)); }
@@ -4829,18 +4844,60 @@ function waitForTiles(map, capMs){
   return new Promise(resolve=>{
     let done=false, errored=false;
     const cleanup=()=>{ try{ map.removeEventListener&&map.removeEventListener("gmp-steadychange",onSteady); }catch(_){}
-      for(const ev of ERR_EVENTS){ try{ map.removeEventListener&&map.removeEventListener(ev,onErr); }catch(_){} } };
+      for(const ev of ERR_EVENTS){ try{ map.removeEventListener&&map.removeEventListener(ev,onErr); }catch(_){} }
+      if(pollT) clearInterval(pollT); if(capT) clearTimeout(capT); if(graceT) clearTimeout(graceT);
+      if(probeT) clearTimeout(probeT); try{ po&&po.disconnect(); }catch(_){} };
     const finish=(settled)=>{ if(done) return; done=true; cleanup(); resolve({ settled:!!settled, errored }); };
-    const onSteady=ev=>{ try{ if(ev && (ev.isSteady===true || (ev.detail&&ev.detail.isSteady===true))) finish(true); }catch(_){ finish(true); } };
+    // (fix3 P0 #1) A "steady" is only TRUSTWORTHY once the camera has stopped flying to the new
+    // address: the Map3DElement emits an EARLY gmp-steadychange(isSteady:true) the instant it mounts
+    // (before any tile paints) → then isSteady:false while it flies to center → then isSteady:true
+    // AGAIN (~6 s on a fast GPU, ~20 s on a weak iGPU / a heavy downtown scene) once tiles have
+    // streamed in. The OLD code resolved on the first spurious steady, or hit a 4.5 s desktop cap
+    // BEFORE the real steady → window.__photorealOk=false → the central setMode() fallback tore
+    // photoreal DOWN and showed "Aerial 3D isn't available here" even on fully-covered metros (the
+    // regression: tiles were literally rendering, e.g. all of downtown Denver, but we'd bail). Fix:
+    //   (a) require a steady to HOLD past a short grace (the mount-time false-steady never survives);
+    //   (b) ALSO poll the map.isSteady PROPERTY (flips reliably even if an event is dropped);
+    //   (c) detect ACTUAL TILE STREAMING via PerformanceObserver on the keyhole/3dtiles endpoints —
+    //       if tiles are flowing and NO auth/tile error fired, the aerial IS painting, so at the cap
+    //       we resolve settled:true (keep photoreal, it just streamed slowly) instead of falling back;
+    //   (d) only a real gmp-error/gmp-tilefailed, or the cap firing with ZERO tile activity (= genuinely
+    //       uncovered / blocked), forces the model fallback. A covered address never falls back now.
+    const steadyNow=()=>{ try{ return map.isSteady===true; }catch(_){ return false; } };
+    let graceT=null;
+    const onSteadyTrue=()=>{
+      if(done||graceT) return;
+      graceT=setTimeout(()=>{ graceT=null; if(!done && steadyNow()) finish(true); }, 700);
+    };
+    const onSteady=ev=>{ try{ const s=(ev && (ev.isSteady===true || (ev.detail&&ev.detail.isSteady===true))) || steadyNow();
+      if(s) onSteadyTrue(); else if(graceT){ clearTimeout(graceT); graceT=null; } }catch(_){ onSteadyTrue(); } };
     // Map3D surfaces tile/auth failures via an error event; capture the common names so a 502 /
-    // bad-tiles-key is treated as a hard failure (not just a slow load) → faster, cleaner fallback.
-    const ERR_EVENTS=["gmp-error","error","gmp-tilefailed"];
-    const onErr=()=>{ errored=true; finish(false); };
+    // bad-tiles-key is treated as a hard failure. We DON'T listen on the generic bare "error" — it
+    // fires for benign sub-resource hiccups and was causing a premature false fallback; an auth/tile
+    // failure surfaces via gmp-error / gmp-tilefailed (and, ultimately, never reaching steady).
+    const ERR_EVENTS=["gmp-error","gmp-tilefailed"];
+    const onErr=()=>{ if(steadyNow()||tilesSeen) return;   // already painting → late/benign error, ignore
+      errored=true; finish(false); };
     try{ map.addEventListener&&map.addEventListener("gmp-steadychange",onSteady); }catch(_){}
     for(const ev of ERR_EVENTS){ try{ map.addEventListener&&map.addEventListener(ev,onErr); }catch(_){} }
-    // Hard cap (longer on mobile/touch where tiles stream slower) so the spinner always clears.
+    // (c) tile-stream activity probe: count 3D tile fetches (keyhole NodeData/BulkMetadata, 3dtiles).
+    // tilesSeen>0 ⇒ Google IS serving 3D coverage for this point and the canvas is painting.
+    let tilesSeen=0, po=null;
+    try{
+      po=new PerformanceObserver(list=>{ for(const e of list.getEntries()){
+        if(/keyhole-pa\.googleapis\.com\/rt\/earth\/(NodeData|BulkMetadata)|tile\.googleapis\.com.*3dtiles|3dtiles.*tile/i.test(e.name)) tilesSeen++; } });
+      po.observe({ type:"resource", buffered:true });
+    }catch(_){ /* no PerformanceObserver → cap still falls back, no worse than before */ }
+    // Belt-and-suspenders: poll the isSteady PROPERTY — it flips true reliably even when the event is
+    // missed/ordered oddly. Once it's true, run it through the same grace-hold as the event.
+    const pollT=setInterval(()=>{ if(!done && steadyNow()) onSteadyTrue(); }, 400);
     const isMobile=(window.innerWidth||1024)<=560 || (("ontouchstart" in window)&&(window.innerWidth||1024)<900);
-    setTimeout(()=>finish(false), capMs || (isMobile?9000:4500));
+    // (d) UNCOVERED-address probe: if after ~4 s NO tile fetch has happened at all, Google has no 3D
+    // here (e.g. Antelope CA) → fall back fast rather than spin to the full cap.
+    const probeT=setTimeout(()=>{ if(!done && tilesSeen===0 && !steadyNow()) finish(false); }, 4200);
+    // Hard cap: on a covered-but-slow address (tiles streaming) resolve TRUE so we keep photoreal;
+    // only resolve false if nothing ever streamed. Generous so a weak GPU / heavy scene still lands.
+    const capT=setTimeout(()=>finish(steadyNow() || tilesSeen>0), capMs || (isMobile?16000:13000));
   });
 }
 /* 4 lat/lng/alt corners of a panel, COPLANAR with its facet plane.
@@ -5728,17 +5785,30 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
       if(v.length<3){ items=[]; hide(); return; }
       const mine=++seq;
       t=setTimeout(async()=>{ try{
-        const { suggestions }=await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:v, sessionToken:token, includedPrimaryTypes:["street_address","premise","subpremise","route"], includedRegionCodes:["us","ca"] });   // bias to US/CA so "1600 Amphitheatre Pkwy, Mymensingh, Bangladesh" never out-ranks the local match
+        // (fix3 P0 #2) Primary types are HOUSE-level only — street_address / premise / subpremise.
+        // We dropped "route" here: a route prediction is a whole street with NO house number, and it
+        // geocodes to the street CENTROID → the "Denver address landed on a vacant lot" symptom. By
+        // excluding it the dropdown only ever offers pickable PARCELS, each carrying a precise place_id.
+        const { suggestions }=await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:v, sessionToken:token, includedPrimaryTypes:["street_address","premise","subpremise"], includedRegionCodes:["us","ca"] });   // bias to US/CA so "1600 Amphitheatre Pkwy, Mymensingh, Bangladesh" never out-ranks the local match
         if(mine!==seq) return;   // stale response
         items=(suggestions||[]).filter(s=>s.placePrediction).map(s=>({ sugg:s, text:(s.placePrediction.text&&s.placePrediction.text.text)||"" })).slice(0,6);
-        active=-1; render();
+        // Pre-highlight the TOP match: it's the best parcel and makes Enter pick it (place_id resolve)
+        // instead of falling through to a raw-string geocode. -1 only when there's nothing to pick.
+        active=items.length?0:-1; render();
       }catch(_){ items=[]; hide(); } }, 180);
     });
-    input.addEventListener("keydown",(e)=>{ if(box.style.display==="none") return;
+    // CAPTURE phase so this runs BEFORE the input's own Enter→#go handler (which would otherwise fire a
+    // raw-string geocode). With the dropdown open, Enter ALWAYS resolves a real suggestion's place_id.
+    input.addEventListener("keydown",(e)=>{ if(box.style.display==="none"||!items.length) return;
       if(e.key==="ArrowDown"){ e.preventDefault(); active=Math.min(active+1,items.length-1); paint(); }
       else if(e.key==="ArrowUp"){ e.preventDefault(); active=Math.max(active-1,0); paint(); }
-      else if(e.key==="Enter"){ if(active>=0){ e.preventDefault(); choose(active); } }
-      else if(e.key==="Escape"){ hide(); } });
+      else if(e.key==="Enter"){
+        // Pick the highlighted row, else the best (first) suggestion. stopImmediatePropagation prevents
+        // the sibling #addr Enter→go handler from ALSO firing run() with the unresolved typed string.
+        e.preventDefault(); e.stopImmediatePropagation();
+        choose(active>=0?active:0);
+      }
+      else if(e.key==="Escape"){ hide(); } }, true);
     input.addEventListener("blur",()=>setTimeout(hide,150));
     window.addEventListener("resize",()=>{ if(box.style.display!=="none") place(); });
   }
