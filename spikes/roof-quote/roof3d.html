@@ -5816,6 +5816,26 @@ const RoofDots=(function(){
   // facetsToRoofModel().planes — SAME order + count as facets0, so facetRings0[i] is the polygon for
   // facets0[i] / measure().facets[i]. Used to draw a small "### SQFT" label centred inside each section.
   let facetRings0=[];      // [[[xMetres,yMetres],...], ...]
+  // ── PHASE 2: SHARED-VERTEX TOPOLOGY (true per-facet interior editing) ────────
+  // Welds the facetRings0[] polygons into ONE shared vertex pool so interior creases (ridge/hip/valley
+  // junctions) are SHARED between the facets that meet there. Dragging a shared interior vertex moves it
+  // for EVERY facet that references it, and each facet's plan area is recomputed by shoelace over its OWN
+  // current vertices — this is true per-section measurement, not a single whole-roof scale ratio.
+  //   verts      : [[xMetres,yMetres], ...]   the welded shared vertex pool (LIVE — dragging mutates this)
+  //   facetVI[i] : [vertexIndex, ...]          ordered ring of vertex indices for facet i (pairs 1:1 with facets0[i])
+  //   vertDeg[v] : number of DISTINCT facets that reference vertex v (≥2 ⇒ interior junction, 1 ⇒ outer-only)
+  //   vertOuter[v]: true if v lies on the outer boundary (an edge used by exactly one facet)
+  //   topoOn     : true once a valid multi-facet topology is built; false ⇒ degrade to outer-ring editing
+  let verts=[];            // shared vertex pool (model-local metres) — the editable interior model
+  let facetVI=[];          // per-facet ordered vertex-index rings
+  let vertDeg=[];          // per-vertex distinct-facet count
+  let vertOuter=[];        // per-vertex outer-boundary flag
+  let ringVI=[];           // when topoOn: outer-ring corner index → verts index (ringM[i] is verts[ringVI[i]])
+  let vertsAuto=null;      // baseline copy of verts at capture → topology Reset restores this
+  let topoDiag={};         // last buildTopology diagnostics (for verification/debug)
+  let boundaryLinked=false;// true when ringM corners 1:1 map to welded boundary verts (clean manifold loop)
+  let topoOn=false;        // interior-vertex editing engaged?
+  const WELD_TOL_M=0.30;   // weld coincident vertices within 30cm (creases snapped to within ~0.6m share a line)
   let autoPlanFt2=0;       // the auto outline's plan (footprint) area at capture — the scale denominator
   // pitch-class override: null = use the auto-detected per-facet pitch mix; otherwise force every
   // facet to this class's slope multiplier (sloped = plan × classMult) for the simple-tier estimate.
@@ -5844,6 +5864,102 @@ const RoofDots=(function(){
   function shoelaceM2(r){ let a=0; for(let i=0,n=r.length;i<n;i++){ const [x1,y1]=r[i],[x2,y2]=r[(i+1)%n]; a+=x1*y2-x2*y1; } return Math.abs(a)/2; }
   function perimEdges(r){ const out=[]; for(let i=0,n=r.length;i<n;i++){ const a=r[i],b=r[(i+1)%n]; out.push({a,b,m:Math.hypot(b[0]-a[0],b[1]-a[1])}); } return out; }
 
+  // ---- SHARED-VERTEX TOPOLOGY (weld facetRings0 → editable interior model) --
+  // Welds the per-facet rings into one shared vertex pool. Two vertices within WELD_TOL_M metres are the
+  // SAME shared vertex; an undirected edge used by exactly one facet is an OUTER boundary edge, an edge
+  // used by ≥2 facets is an interior crease. A vertex is an interior junction when ≥2 distinct facets
+  // reference it. Returns false (→ degrade to outer-ring editing) when there are <2 facets, any ring is
+  // degenerate, or welding collapses a facet below 3 distinct vertices.
+  function buildTopology(rings){
+    verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; topoOn=false;
+    topoDiag={ ringsIn:Array.isArray(rings)?rings.length:0, bail:null };
+    if(!Array.isArray(rings) || rings.length<2){ topoDiag.bail="rings<2"; return false; }
+    const tol2=WELD_TOL_M*WELD_TOL_M;
+    // weld: find-or-add a vertex by proximity (small N → linear scan is fine; roofs are ~4-40 verts)
+    const weld=(p)=>{
+      for(let i=0;i<verts.length;i++){ const dx=verts[i][0]-p[0], dy=verts[i][1]-p[1]; if(dx*dx+dy*dy<=tol2) return i; }
+      verts.push([p[0],p[1]]); return verts.length-1;
+    };
+    const facetSet=[];   // per-facet Set of vertex indices (for distinct-facet degree)
+    for(let f=0; f<rings.length; f++){
+      const ring=rings[f];
+      if(!Array.isArray(ring) || ring.length<3){ verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; topoDiag.bail="degenerate-ring@"+f; return false; }
+      const vi=[]; const seen=new Set();
+      for(const p of ring){ const idx=weld(p);
+        // drop consecutive duplicates that welded onto the previous vertex (keeps the ring simple)
+        if(vi.length && vi[vi.length-1]===idx) continue;
+        vi.push(idx); seen.add(idx);
+      }
+      // close-the-loop duplicate (last welds onto first)
+      if(vi.length>1 && vi[0]===vi[vi.length-1]) vi.pop();
+      if(vi.length<3){ verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; topoDiag.bail="collapsed-ring@"+f; return false; }
+      facetVI.push(vi); facetSet.push(new Set(vi));
+    }
+    const n=verts.length;
+    vertDeg=new Array(n).fill(0);
+    for(let v=0; v<n; v++){ for(const s of facetSet){ if(s.has(v)) vertDeg[v]++; } }
+    // outer-boundary detection: count undirected edge usage across all facets. An edge on exactly one
+    // facet ⇒ outer; both its endpoints are outer-boundary vertices.
+    const edgeCount=new Map();
+    const ekey=(a,b)=>(a<b?a+"_"+b:b+"_"+a);
+    for(const vi of facetVI){ for(let i=0;i<vi.length;i++){ const a=vi[i], b=vi[(i+1)%vi.length]; if(a===b) continue; const k=ekey(a,b); edgeCount.set(k,(edgeCount.get(k)||0)+1); } }
+    vertOuter=new Array(n).fill(false);
+    for(const [k,c] of edgeCount){ if(c===1){ const [a,b]=k.split("_").map(Number); vertOuter[a]=true; vertOuter[b]=true; } }
+    // require at least one genuine interior junction (a vertex shared by ≥2 facets that is NOT purely
+    // an outer corner) — otherwise there's nothing to gain over outer-only editing.
+    let interiorJunctions=0, sharedVerts=0;
+    for(let v=0; v<n; v++){ if(vertDeg[v]>=2){ sharedVerts++; if(!vertOuter[v]) interiorJunctions++; } }
+    topoDiag.nVerts=n; topoDiag.sharedVerts=sharedVerts; topoDiag.interiorJunctions=interiorJunctions;
+    topoDiag.outerEdges=0; topoDiag.interiorEdges=0;
+    for(const [,c] of edgeCount){ if(c===1) topoDiag.outerEdges++; else topoDiag.interiorEdges++; }
+    if(interiorJunctions===0){ verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; topoDiag.bail="no-interior-junctions"; return false; }
+    topoOn=true;
+    return true;
+  }
+  // plan-area (ft²) of facet fi from its CURRENT (possibly dragged) shared vertices
+  function facetPlanFt2(fi){ const vi=facetVI[fi]; if(!vi||vi.length<3) return 0;
+    const ring=vi.map(v=>verts[v]); return shoelaceM2(ring)*M2_SQFT; }
+  // rebuild the OUTER ring (ringM) from the welded boundary so the clip/perimeter follow interior edits too.
+  // Walk the boundary edges (each used once) into an ordered loop; fall back to keeping ringM if it can't.
+  function outerRingFromTopology(){
+    const oneUse=new Map();   // vertex → [neighbour boundary verts]
+    const ekey=(a,b)=>(a<b?a+"_"+b:b+"_"+a); const cnt=new Map();
+    for(const vi of facetVI){ for(let i=0;i<vi.length;i++){ const a=vi[i], b=vi[(i+1)%vi.length]; if(a===b) continue; const k=ekey(a,b); cnt.set(k,(cnt.get(k)||0)+1); } }
+    const adj=new Map();
+    for(const [k,c] of cnt){ if(c!==1) continue; const [a,b]=k.split("_").map(Number);
+      if(!adj.has(a)) adj.set(a,[]); if(!adj.has(b)) adj.set(b,[]); adj.get(a).push(b); adj.get(b).push(a); }
+    if(!adj.size) return null;
+    // every boundary vertex must have exactly 2 boundary neighbours for a single clean loop
+    for(const [,nb] of adj){ if(nb.length!==2) return null; }
+    const start=adj.keys().next().value; const loop=[start]; let prev=-1, cur=start;
+    for(let guard=0; guard<adj.size+2; guard++){ const nb=adj.get(cur); const next=(nb[0]!==prev)?nb[0]:nb[1];
+      if(next===start) break; loop.push(next); prev=cur; cur=next; }
+    if(loop.length<3 || loop.length!==adj.size) return null;
+    return loop;   // ordered array of VERTEX INDICES around the outer boundary
+  }
+  // rebuild ringM (outer ring, model metres) + ringVI (ring index → verts index) from the live topology,
+  // so the outer outline, clip + perimeter follow interior/outer vertex drags. No-op if the boundary
+  // can't be walked cleanly (keeps whatever ringM held → safe degrade).
+  function syncRingFromTopology(){
+    if(!topoOn) return false;
+    const loop=outerRingFromTopology(); if(!loop || loop.length<3) return false;
+    ringVI=loop.slice();
+    ringM=loop.map(v=>[verts[v][0],verts[v][1]]);
+    return true;
+  }
+  // Case B (boundary not a clean manifold loop): keep the analytic __footprint ring as the outer outline,
+  // but map each of its corners to the NEAREST welded OUTER vert (within a generous tol) so an outer-corner
+  // drag still moves that shared vertex → the adjacent facets recompute. Corners with no nearby vert get -1
+  // (legacy ring-only drag). This links outer editing to facets WITHOUT needing a manifold boundary.
+  function buildNearestRingVI(){
+    ringVI=[]; if(!ringM) return;
+    const tol2=(1.2*1.2);   // 1.2m: outer footprint ring and welded boundary verts are close but not exact
+    for(const c of ringM){ let best=-1, bd=tol2;
+      for(let v=0; v<verts.length; v++){ if(!vertOuter[v]) continue; const dx=verts[v][0]-c[0], dy=verts[v][1]-c[1]; const d=dx*dx+dy*dy; if(d<=bd){ bd=d; best=v; } }
+      ringVI.push(best);
+    }
+  }
+
   // ---- live measurements from the EDITED ring ------------------------------
   // PHASE 1b — TRUE per-facet sloped area, scaled to the edited outline.
   //   roof area = Σ over facets of  (scaledPlanArea_i ÷ cos(pitch_i))
@@ -5861,7 +5977,23 @@ const RoofDots=(function(){
     // plan-area ratio: how much the user grew/shrank the outline vs the captured auto outline
     const ratio=(autoPlanFt2>0)?(flatFt2/autoPlanFt2):1;
     let slopeFt2, facetBreakdown=null;
-    if(facets0.length){
+    if(topoOn && facets0.length && facetVI.length===facets0.length){
+      // ── PHASE 2: TRUE per-facet measurement from the DRAGGED geometry ──────────
+      // Each facet's plan area = shoelace over ITS OWN current shared vertices (facetVI[i] → verts).
+      // Dragging a shared interior vertex grows one facet's polygon while shrinking the neighbour's, so
+      // their SQFT change INDEPENDENTLY (opposite directions) — not by one uniform whole-roof ratio.
+      // Sloped area = plan ÷ cos(pitch_i) (or the selected class multiplier). Roof total = Σ sloped.
+      const useClass=(pitchClass!=null);
+      const cm=useClass?classMult(pitchClass):0;
+      facetBreakdown=facets0.map((f,i)=>{
+        const planFt2=facetPlanFt2(i);                          // ← from this facet's OWN dragged polygon
+        const sloped=useClass ? planFt2*cm : planFt2/f.cosP;    // class override, else per-facet cos(pitch)
+        return { i, planFt2:Math.round(planFt2), slopedFt2:Math.round(sloped),
+                 pitchDeg:Math.round(f.pitchDeg), x12:facetX12(f.pitchDeg) };
+      });
+      slopeFt2=facetBreakdown.reduce((s,f)=>s+f.slopedFt2,0);
+    } else if(facets0.length){
+      // PHASE 1b fallback (no interior topology — simple/degenerate roof): single whole-roof scale ratio.
       const useClass=(pitchClass!=null);
       const cm=useClass?classMult(pitchClass):0;
       facetBreakdown=facets0.map((f,i)=>{
@@ -5899,9 +6031,17 @@ const RoofDots=(function(){
     const px=(sx-c.r.left-c.offX)/c.sc, py=(sy-c.r.top-c.offY)/c.sc; return c.x.toModel(px,py); }
 
   // ---- undo / redo ----------------------------------------------------------
-  function snapshot(){ if(!ringM) return; undoStack.push(ringM.map(p=>[p[0],p[1]])); if(undoStack.length>60) undoStack.shift(); redoStack.length=0; updateButtons(); }
-  function undo(){ if(!undoStack.length) return; redoStack.push(ringM.map(p=>[p[0],p[1]])); ringM=undoStack.pop(); afterEdit(); updateButtons(); }
-  function redo(){ if(!redoStack.length) return; undoStack.push(ringM.map(p=>[p[0],p[1]])); ringM=redoStack.pop(); afterEdit(); updateButtons(); }
+  // snapshots capture BOTH the outer ring and (when topoOn) the full shared-vertex pool, so undo/redo
+  // restores interior ridge drags too. capState/restoreState keep the two in lock-step.
+  function capState(){ return { ring:ringM?ringM.map(p=>[p[0],p[1]]):null,
+                                verts:(topoOn&&verts)?verts.map(v=>[v[0],v[1]]):null,
+                                ringVI:(topoOn&&ringVI)?ringVI.slice():null }; }
+  function restoreState(st){ if(!st) return;
+    if(st.verts && topoOn){ verts=st.verts.map(v=>[v[0],v[1]]); if(st.ringVI) ringVI=st.ringVI.slice(); }
+    if(st.ring) ringM=st.ring.map(p=>[p[0],p[1]]); }
+  function snapshot(){ if(!ringM) return; undoStack.push(capState()); if(undoStack.length>60) undoStack.shift(); redoStack.length=0; updateButtons(); }
+  function undo(){ if(!undoStack.length) return; redoStack.push(capState()); restoreState(undoStack.pop()); afterEdit(); updateButtons(); }
+  function redo(){ if(!redoStack.length) return; undoStack.push(capState()); restoreState(redoStack.pop()); afterEdit(); updateButtons(); }
   function updateButtons(){ const u=$("dotUndo"), r=$("dotRedo"); if(u) u.disabled=!undoStack.length; if(r) r.disabled=!redoStack.length; }
 
   // ---- (re)draw the overlay (dots + outline + fill + edge-length labels) ----
@@ -5934,7 +6074,10 @@ const RoofDots=(function(){
     if(facetRings0&&facetRings0.length&&m&&m.facets){
       const ffs=10;   // small, subtle section-area font (NOT a big bold pill)
       for(let i=0;i<facetRings0.length;i++){
-        const ringMfacet=facetRings0[i]; const fa=m.facets[i]; if(!ringMfacet||ringMfacet.length<3||!fa) continue;
+        // PHASE 2: when interior topology is live, draw each facet from its CURRENT (dragged) shared
+        // vertices so the outline + centred SQFT MOVE with the ridge points. Else use the static capture.
+        const ringMfacet=(topoOn && facetVI[i]) ? facetVI[i].map(v=>verts[v]) : facetRings0[i];
+        const fa=m.facets[i]; if(!ringMfacet||ringMfacet.length<3||!fa) continue;
         const fp=ringMfacet.map(([xm,ym])=>{ const s=modelToScreen(xm,ym); return s?[s[0]-r.left,s[1]-r.top]:null; });
         if(fp.some(p=>!p)) continue;
         // thin internal facet outline (subtle — the outer outline + corners are the hero)
@@ -5973,6 +6116,23 @@ const RoofDots=(function(){
       const R=grabbed?6.5:5;
       ctx.beginPath(); ctx.arc(px,py,R,0,7); ctx.fillStyle="#ffffff"; ctx.fill();
       ctx.lineWidth=1.6; ctx.strokeStyle=BRAND_BLUE; ctx.stroke(); }
+    // 5) PHASE 2: INTERIOR RIDGE/HIP/VALLEY junction dots — draggable shared vertices that are NOT on the
+    //    outer boundary. Rendered subtly DISTINCT from outer corners (smaller HOLLOW dot, blue centre) so
+    //    the user can tell a ridge point from a corner, while staying within the "thin lines, small
+    //    circles" rule. Dragging one moves it for every facet that meets there → independent per-facet area.
+    if(topoOn && verts.length){
+      for(let v=0; v<verts.length; v++){
+        if(vertOuter[v] || vertDeg[v]<2) continue;            // only true interior junctions get a handle here
+        const s=modelToScreen(verts[v][0],verts[v][1]); if(!s) continue;
+        const px=s[0]-r.left, py=s[1]-r.top;
+        const grabbed=(dragKind==="interior"&&dragIdx===v);
+        const R=grabbed?5.5:4.2;                              // slightly smaller than outer corners
+        ctx.beginPath(); ctx.arc(px,py,R,0,7);
+        ctx.fillStyle="rgba(255,255,255,0.55)"; ctx.fill();   // hollow-ish (semi-transparent) → distinct from solid white corners
+        ctx.lineWidth=1.6; ctx.strokeStyle=BRAND_BLUE; ctx.stroke();
+        ctx.beginPath(); ctx.arc(px,py,1.5,0,7); ctx.fillStyle=BRAND_BLUE; ctx.fill();   // blue centre pip = ridge point
+      }
+    }
   }
 
   // ---- recompute numbers + repaint after any edit --------------------------
@@ -6009,12 +6169,22 @@ const RoofDots=(function(){
   function hit(sx,sy){
     if(!ringM) return null; const el=$("matCanvas"); const r=el.getBoundingClientRect();
     const pts=ringM.map(([xm,ym])=>modelToScreen(xm,ym));
-    // corners first (bigger grab radius on touch)
     const grab=22;
+    // corners first (bigger grab radius on touch) — these are outer-boundary handles
     for(let i=0;i<pts.length;i++){ if(pts[i]&&Math.hypot(pts[i][0]-sx,pts[i][1]-sy)<=grab) return {kind:"corner",idx:i}; }
-    // mid-edge add-dots
-    for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; if(!a||!b) continue; const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
-      if(Math.hypot(mx-sx,my-sy)<=18) return {kind:"mid",idx:i}; }
+    // PHASE 2: interior ridge/hip/valley junction handles (shared verts not on the outer boundary).
+    // Slightly tighter grab so they don't steal an outer-corner grab; checked AFTER corners.
+    if(topoOn && verts.length){
+      for(let v=0; v<verts.length; v++){ if(vertOuter[v]||vertDeg[v]<2) continue;
+        const s=modelToScreen(verts[v][0],verts[v][1]); if(!s) continue;
+        if(Math.hypot(s[0]-sx,s[1]-sy)<=18) return {kind:"interior",idx:v}; }
+    }
+    // mid-edge add-dots — only in the legacy outer-only path (inserting a corner into a welded boundary
+    // would desync the topology; interior editing is the feature when topoOn).
+    if(!topoOn){
+      for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; if(!a||!b) continue; const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+        if(Math.hypot(mx-sx,my-sy)<=18) return {kind:"mid",idx:i}; }
+    }
     return null;
   }
 
@@ -6022,14 +6192,25 @@ const RoofDots=(function(){
   function onDown(e){ if(!on) return; const sx=e.clientX, sy=e.clientY; const h=hit(sx,sy); if(!h) return;
     e.preventDefault(); pointerId=e.pointerId; try{ cv.setPointerCapture(pointerId); }catch(_){}
     snapshot();
-    if(h.kind==="mid"){ // insert a new corner at this midpoint, then drag it
+    if(h.kind==="mid"){ // insert a new corner at this midpoint, then drag it (legacy outer-only path)
       const a=ringM[h.idx], b=ringM[(h.idx+1)%ringM.length]; const nv=[(a[0]+b[0])/2,(a[1]+b[1])/2];
       ringM.splice(h.idx+1,0,nv); dragIdx=h.idx+1; dragKind="corner";
-    } else { dragIdx=h.idx; dragKind="corner"; }
+    } else if(h.kind==="interior"){ dragIdx=h.idx; dragKind="interior"; }
+    else { dragIdx=h.idx; dragKind="corner"; }
     afterEdit();
   }
+  // write the dragged pointer position into the active handle's model coordinate. When topoOn, a corner
+  // drag moves the SHARED vert (ringVI[i]) so every adjacent facet follows; an interior drag moves the
+  // shared junction vert directly; either way we re-derive ringM from the boundary. Legacy path edits ringM.
+  function applyDrag(mm){
+    if(dragKind==="interior"){ if(verts[dragIdx]){ verts[dragIdx]=[mm[0],mm[1]]; syncRingFromTopology(); } return; }
+    // corner: when linked to a shared vert, move BOTH (so adjacent facets recompute); else legacy ring-only.
+    if(topoOn && ringVI && ringVI[dragIdx]!=null && ringVI[dragIdx]>=0){ const vIdx=ringVI[dragIdx];
+      if(verts[vIdx]){ verts[vIdx]=[mm[0],mm[1]]; ringM[dragIdx]=[mm[0],mm[1]]; if(boundaryLinked) syncRingFromTopology(); } return; }
+    ringM[dragIdx]=[mm[0],mm[1]];
+  }
   function onMove(e){ if(!on||dragIdx<0) return; e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
-    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ ringM[dragIdx]=[mm[0],mm[1]]; afterEdit(); } }
+    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); } }
   function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null; draw(); }
 
   // ---- mount / unmount ------------------------------------------------------
@@ -6074,7 +6255,12 @@ const RoofDots=(function(){
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
       const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
-    $("dotReset").onclick=()=>{ if(!window.__dotsAuto) return; snapshot(); ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); pitchClass=null; afterEdit(); };
+    $("dotReset").onclick=()=>{ if(!window.__dotsAuto) return; snapshot();
+      // restore the full shared-vertex pool (interior + boundary) when topoOn, and the outer ring.
+      if(topoOn && vertsAuto){ verts=vertsAuto.map(v=>[v[0],v[1]]);
+        if(boundaryLinked) syncRingFromTopology(); else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); buildNearestRingVI(); } }
+      else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); }
+      pitchClass=null; afterEdit(); };
     $("dotDone").onclick=()=>{ confirmed=true; hide(); try{ renderRoofDiagram(); }catch(_){}
       try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} };
   }
@@ -6117,6 +6303,41 @@ const RoofDots=(function(){
       const pk=autoPlanFt2/planSum0;
       for(const f of facets0){ f.planFt2*=pk; }   // sloped/cosP identity preserved: sloped=plan/cos still holds per facet
     }
+    // ── PHASE 2: build the shared-vertex topology from the welded facet rings ──────────────────────────
+    // Engages interior-vertex editing when there are ≥2 facets meeting at a real interior junction;
+    // otherwise topoOn stays false and the editor degrades to outer-ring-only (PHASE-1b ratio scaling).
+    buildTopology(facetRings0);
+    // Calibrate the welded geometry so the per-facet plan areas it yields AT REST sum to exactly the
+    // reconciled facets0 plan total (= autoPlanFt2). The raw DSM-traced rings can over/under-cover by a
+    // few %; we scale the vert pool about its centroid by √(targetPlan/weldedPlan) so the starting per-
+    // section SQFT match the card/diagram, while DRAGGING still moves area between facets independently.
+    if(topoOn){
+      try{
+        let weldedPlan=0; for(let i=0;i<facetVI.length;i++) weldedPlan+=facetPlanFt2(i);
+        if(weldedPlan>0 && autoPlanFt2>0){
+          const s=Math.sqrt(autoPlanFt2/weldedPlan);
+          if(isFinite(s) && s>0.2 && s<5){
+            let cx=0,cy=0; for(const v of verts){ cx+=v[0]; cy+=v[1]; } cx/=verts.length; cy/=verts.length;
+            for(const v of verts){ v[0]=cx+(v[0]-cx)*s; v[1]=cy+(v[1]-cy)*s; }
+          }
+        }
+      }catch(e){ try{ errors.push("dots-topo-cal:"+(e&&e.message||e)); }catch(_){} }
+      // Try to align the outer ring + ringVI mapping to the welded boundary, so OUTER-corner drags also
+      // move the shared vertex (and thus the adjacent facets) and the clip/perimeter follow the interior
+      // model. Real DSM-traced facets often DON'T tile into a clean manifold boundary (T-junctions, slivers
+      // → boundary nodes with degree≠2), so this can fail. That's FINE: interior-vertex editing only needs
+      // the interior junctions. When the boundary can't be linked we keep the analytic __footprint ring for
+      // the outer outline (legacy outer-corner drags) and leave INTERIOR junctions fully draggable.
+      boundaryLinked=syncRingFromTopology();
+      if(boundaryLinked){
+        try{ window.__dotsAuto=ringM.map(p=>[p[0],p[1]]); }catch(_){}   // reset baseline = welded boundary
+        topoDiag.boundaryLinked=true;
+      } else {
+        buildNearestRingVI();   // map outer corners → nearest welded vert so outer drags still move facets
+        topoDiag.boundaryLinked=false; topoDiag.ringViMatched=ringVI.filter(v=>v>=0).length;
+      }
+      vertsAuto=verts.map(v=>[v[0],v[1]]);          // full topology baseline for Reset (interior + boundary)
+    } else { vertsAuto=null; boundaryLinked=false; }
     // default the pitch-class selector to the auto-detected average pitch (area-weighted), but leave the
     // OVERRIDE off (pitchClass=null) so the auto per-facet mix drives the number until the user picks a class.
     const avgMult=(baseArea0>0&&autoPlanFt2>0)?(baseArea0/autoPlanFt2):pitchMult;
@@ -6186,11 +6407,42 @@ const RoofDots=(function(){
     setPitchClass:(c)=>{ pitchClass=(c==="auto"||c==null)?null:c; afterEdit(); return measure(); },  // for tests
     pitchClass:()=>pitchClass,
     cornersScreen:()=>{ if(!ringM) return null; return ringM.map(([xm,ym])=>modelToScreen(xm,ym)); },  // current corner CSS-px positions (editor's own mapping) — for tests
-    setCorner:(i,sx,sy)=>{ const mm=screenToModel(sx,sy); if(mm){ snapshot(); ringM[i]=[mm[0],mm[1]]; afterEdit(); } return measure(); },
+    setCorner:(i,sx,sy)=>{ const mm=screenToModel(sx,sy); if(!mm) return measure(); snapshot();
+      dragIdx=i; dragKind="corner"; applyDrag(mm); dragIdx=-1; dragKind=null; afterEdit(); return measure(); },
+    // ── PHASE 2 topology introspection + deterministic interior drag (for tests/verification) ──
+    topoInfo:()=>({ on:topoOn, nVerts:verts.length, nFacets:facetVI.length, diag:topoDiag,
+      interior:verts.map((v,i)=>({i,deg:vertDeg[i],outer:!!vertOuter[i]})).filter(o=>o.deg>=2&&!o.outer).map(o=>o.i) }),
+    // for a given interior vert, the SCREEN centroids of the (up to 2) facets that share it → lets a test
+    // drag the vert toward one facet's centroid (shrinking it, growing the neighbour) to prove independence.
+    vertFacetCentroids:(v)=>{ if(!topoOn) return []; const out=[];
+      for(let f=0; f<facetVI.length; f++){ if(facetVI[f].indexOf(v)<0) continue;
+        let cx=0,cy=0; for(const vi of facetVI[f]){ cx+=verts[vi][0]; cy+=verts[vi][1]; } cx/=facetVI[f].length; cy/=facetVI[f].length;
+        const s=modelToScreen(cx,cy); out.push({ f, s:s?[Math.round(s[0]),Math.round(s[1])]:null }); }
+      return out; },
+    interiorScreen:()=>{ if(!topoOn) return []; return verts.map((v,i)=>({i,deg:vertDeg[i],outer:!!vertOuter[i],
+      s:modelToScreen(v[0],v[1])})).filter(o=>o.deg>=2&&!o.outer); },
+    facetAreas:()=>{ const m=measure(); return m&&m.facets?m.facets.map(f=>f.slopedFt2):[]; },
+    ringLinkInfo:()=>({ boundaryLinked, ringVI:ringVI.slice() }),   // which outer corners drive shared verts
+    // for an interior vert, the SCREEN-space unit normal to the interior edge it sits on (the ridge/valley
+    // line shared by its two facets) — lets a test drag perpendicular to the ridge to sweep area between
+    // the two facets (the "one grows one shrinks" gesture when they're opposing planes).
+    sharedEdgeNormalScreen:(v)=>{ if(!topoOn||!verts[v]) return null;
+      // find an interior edge incident to v (an edge used by ≥2 facets)
+      const ek=(a,b)=>(a<b?a+"_"+b:b+"_"+a); const cnt=new Map();
+      for(const vi of facetVI){ for(let i=0;i<vi.length;i++){ const a=vi[i], b=vi[(i+1)%vi.length]; if(a===b) continue; const k=ek(a,b); cnt.set(k,(cnt.get(k)||0)+1); } }
+      let other=-1; for(const vi of facetVI){ for(let i=0;i<vi.length;i++){ const a=vi[i], b=vi[(i+1)%vi.length];
+        if((a===v||b===v) && (cnt.get(ek(a,b))||0)>=2){ other=(a===v)?b:a; break; } } if(other>=0) break; }
+      if(other<0) return null;
+      const s0=modelToScreen(verts[v][0],verts[v][1]), s1=modelToScreen(verts[other][0],verts[other][1]);
+      if(!s0||!s1) return null; let dx=s1[0]-s0[0], dy=s1[1]-s0[1]; const L=Math.hypot(dx,dy)||1; dx/=L; dy/=L;
+      return { other, normal:[-dy,dx] };   // unit normal to the ridge in screen px
+    },
+    dragInterior:(v,sx,sy)=>{ if(!topoOn||!verts[v]) return measure(); const mm=screenToModel(sx,sy); if(!mm) return measure();
+      snapshot(); dragIdx=v; dragKind="interior"; applyDrag(mm); dragIdx=-1; dragKind=null; afterEdit(); return measure(); },
     onDiagramRendered:()=>{ if(on) requestAnimationFrame(draw); },   // keep dots aligned after a re-render
     init:initFromModel,
-    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; },
-    _state:()=>({on,confirmed,n:ringM&&ringM.length})
+    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; },
+    _state:()=>({on,confirmed,n:ringM&&ringM.length,topo:topoOn})
   };
 })();
 window.RoofDots=RoofDots;
