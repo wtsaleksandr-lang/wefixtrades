@@ -591,6 +591,14 @@
   #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
   #solarGrid .sg-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  /* 2D ⇄ 3D segmented control — sits in the solar grid header; 2D (grid+flux, default) ⇄ 3D (real photoreal house + panels) */
+  #solarGrid .sg-vt{margin-left:auto;flex:0 0 auto;display:inline-flex;gap:2px;padding:2px;border-radius:99px;border:1px solid rgba(255,255,255,.20);background:rgba(255,255,255,.08)}
+  #solarGrid .sg-vt button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.66);font:800 12px/1 inherit;letter-spacing:.01em;padding:7px 14px;border-radius:99px;cursor:pointer;transition:background .15s ease,color .15s ease}
+  #solarGrid .sg-vt button.on{background:#fff;color:#0b1220;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  #solarGrid .sg-vt + .sg-x{margin-left:10px}
+  /* floating "2D" return chip overlaid on the photoreal 3D solar view */
+  #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
+  #solar3dBack svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0}
   #sgCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
   #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:99px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
@@ -851,6 +859,10 @@
   <div id="solarGrid">
     <div class="sg-head">
       <div><div class="sg-title">Design your solar system<small id="sgSubtitle">Tap the squares to add or remove panels</small></div></div>
+      <div class="sg-vt" id="sgViewToggle" role="group" aria-label="2D or 3D view">
+        <button id="sgView2d" class="on" type="button" aria-pressed="true">2D</button>
+        <button id="sgView3d" type="button" aria-pressed="false">3D</button>
+      </div>
       <button class="sg-x" id="sgClose" type="button" aria-label="Close panel designer">&times;</button>
     </div>
     <div class="sg-stage"><canvas id="sgCanvas"></canvas>
@@ -879,6 +891,7 @@
       </div>
     </div>
   </div>
+  <button id="solar3dBack" type="button" aria-label="Back to 2D panel grid"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>2D grid</button>
 </div>
 <script type="module">
 import * as THREE from "three";
@@ -7041,10 +7054,17 @@ function openSolarGrid(){
   $("solarGrid").style.display="flex";
   // hide funnel/search chrome so the immersive designer owns the screen; restored on close
   const fb=$("funnelBar"); if(fb) fb.dataset.sgPrev=fb.style.display; if(fb) fb.style.display="none";
+  // always open on the 2D grid (the owner-mandated default); reset the toggle + hide the 3D back chip
+  window.__solar3dActive=false; sgSetViewButtons(false);
+  const back0=$("solar3dBack"); if(back0) back0.style.display="none";
   requestAnimationFrame(()=>{ sgLayout(); sgDraw(); sgUpdateMetrics(); });
   window.__sgOpen=true;
 }
 function closeSolarGrid(commit){
+  // if we're closing while in the 3D photoreal sub-view, tear that surface down cleanly first
+  if(window.__solar3dActive){ window.__solar3dActive=false; sgSetViewButtons(false);
+    const b=$("solar3dBack"); if(b) b.style.display="none";
+    try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){} }
   $("solarGrid").style.display="none";
   const fb=$("funnelBar"); if(fb && fb.dataset.sgPrev!=null) fb.style.display=fb.dataset.sgPrev;
   window.__sgOpen=false;
@@ -7058,6 +7078,88 @@ function closeSolarGrid(commit){
   }
   if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
 }
+// ── 2D ⇄ 3D in the solar step ────────────────────────────────────────────────
+// 2D = the top-down tappable grid over the flux heatmap (default). 3D = Google's
+// PHOTOREALISTIC tiles of the REAL building with the user's CURRENTLY-SELECTED panels
+// draped on the real roof (NOT the grey massing model). We reuse the existing photoreal
+// pipeline (setMode("photoreal") → buildPhotoPanels), but first commit the grid selection
+// into window.__selPanels so buildPhotoPanels renders exactly the count the user designed.
+function sgSetViewButtons(is3d){
+  const b2=$("sgView2d"), b3=$("sgView3d");
+  if(b2){ b2.classList.toggle("on",!is3d); b2.setAttribute("aria-pressed",String(!is3d)); }
+  if(b3){ b3.classList.toggle("on",is3d); b3.setAttribute("aria-pressed",String(is3d)); }
+}
+// Push the current grid selection into the quote/render pipeline so BOTH the 3D overlay and
+// the quote card reflect the designed system (count + energy). Mirrors closeSolarGrid(true).
+function sgCommitSelection(){
+  if(!SG_STATE) return;
+  const m=gridSelectionMetrics();
+  if(m && m.panels>0){
+    window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw };
+    const bill=+(($("sgBill").value)||0); if(bill>0){ solarBill=bill; }
+  }
+}
+async function enterSolar3D(){
+  if(!SG_STATE) return;
+  sgCommitSelection();
+  sgSetViewButtons(true);
+  window.__solar3dActive=true;
+  // hide the 2D designer overlay so the photoreal house shows through; keep SG_STATE intact for return.
+  $("solarGrid").style.display="none";
+  const back=$("solar3dBack"); if(back) back.style.display="flex";
+  try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}   // card now reads __selPanels
+  // Mount a CLEAN photoreal solar view = Google's real-house tiles + ONLY the selected panels.
+  // Mirror the "Satellite" toggle recipe (line ~8743): leave any grey-model / Sun / Material /
+  // Measure lens and clear their overlays, then setMode("photoreal") — which ALWAYS runs
+  // ensurePhotoreal() (oblique tilt:58 camera framed on the roof, clears measurement labels) and
+  // buildPhotoPanels(), which reads __selPanels to draw exactly the designed count on the real roof.
+  try{
+    if(typeof exitGrey==="function") exitGrey();
+    if(typeof sunMode!=="undefined"){ sunMode=false; const b=$("bSun"); if(b) b.classList.remove("on"); }
+    if(typeof matMode!=="undefined"){ matMode=false; const b=$("bRoof"); if(b) b.classList.remove("on"); }
+    if(typeof labelsVisible!=="undefined"){ labelsVisible=false; const b=$("bLabels"); if(b) b.classList.remove("on"); }
+    if(typeof stopSunPlay==="function") stopSunPlay();
+    if(typeof exitRealShade==="function") exitRealShade();
+    if(typeof clearHeat==="function") clearHeat();
+    if(typeof clearLabels==="function") clearLabels();
+    if(typeof clearMat==="function") clearMat();
+    if(typeof clearRoofMeas==="function") clearRoofMeas();
+    if(typeof panelsVisible!=="undefined"){ panelsVisible=true; }
+    const bp=$("bPanels"); if(bp) bp.classList.add("on");
+    showLoad("Loading photoreal 3D…");
+    // ALWAYS re-enter photoreal (even if mode was already "photoreal" from the measure view) so the
+    // camera reframes obliquely on the roof and the measurement overlays are gone — a clean house+panels view.
+    await setMode("photoreal");
+    if(mode==="photoreal" && window.__photorealOk!==false){
+      try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // sets gmapWrap.display=block (blank-map fix)
+      await buildPhotoPanels();
+      // Hero framing for the solar 3D step: tighten the oblique camera onto the roof so the panels on the
+      // real house read clearly (the default photoreal range frames the whole parcel). Reuses roofFitRange
+      // (true roof extent) scaled ~0.8× at a steeper tilt; safe no-op if the camera API is unavailable.
+      try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
+        const r=Math.round(roofFitRange(78)*0.8);
+        gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:r, tilt:62, heading:18 }, durationMillis:900 });
+      } }catch(_){}
+    }
+    showLoad(false);
+  }catch(e){ try{ showLoad(false); }catch(_){} try{ setStatus("3D view unavailable — your design is shown on the card."); }catch(_){} }
+  // If photoreal genuinely isn't covered here, setMode already fell back to the grey model + set a note;
+  // bring the user back to the 2D grid so they're never stranded on the wrong surface.
+  if(window.__photorealOk===false){ exitSolar3D(); }
+}
+async function exitSolar3D(){
+  window.__solar3dActive=false;
+  sgSetViewButtons(false);
+  const back=$("solar3dBack"); if(back) back.style.display="none";
+  // tear the photoreal surface down so the 2D overlay isn't composited over live tiles, then re-show the grid.
+  try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
+  $("solarGrid").style.display="flex";
+  window.__sgOpen=true;
+  // selection is preserved in SG_STATE.sel; relayout + redraw for the (possibly resized) stage.
+  requestAnimationFrame(()=>{ try{ sgLayout(); sgDraw(); sgUpdateMetrics(); }catch(_){} });
+}
+window.__enterSolar3D=enterSolar3D;
+window.__exitSolar3D=exitSolar3D;
 window.__openSolarGrid=openSolarGrid;
 window.__gridSelectionMetrics=gridSelectionMetrics;
 // headless-verify helpers: toggle N selected panels off / on by id, deterministically (real selection mutation).
@@ -7074,6 +7176,9 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
   const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
   const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); sgDraw(); sgUpdateMetrics(); } };
   const done=$("sgDoneBtn"); if(done) done.onclick=()=>closeSolarGrid(true);
+  const v2=$("sgView2d"); if(v2) v2.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
+  const v3=$("sgView3d"); if(v3) v3.onclick=()=>{ if(!window.__solar3dActive) enterSolar3D(); };
+  const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
@@ -7448,6 +7553,17 @@ async function buildPhotoPanels(){
       engN=renderList.length;
     }
   }catch(_){ renderList=keep; }   // any geometry failure → safe fall back to Google's placeable array
+  // ── 2D⇄3D SYNC: honor the buyer's grid-designed system ────────────────────────
+  // When the user designed a custom system in the 2D tappable grid (window.__selPanels),
+  // the 3D photoreal view must show THAT panel count — not the full engineered max-fit array.
+  // We can't 1:1 map grid cells to the photoreal engineered layout (different generators), so we
+  // render the top-N highest-energy placeable panels (best ROI first — same ranking the grid's
+  // default selection uses), giving an exact count match on the real roof. Never below 1, never
+  // above what the roof can place. Only applies in the Solar trade, never in an attached split.
+  const _selN=(window.__selPanels&&window.__selPanels.panels>0&&!window.__attached)?window.__selPanels.panels:0;
+  if(_selN>0 && renderList.length>_selN){
+    renderList=renderList.slice().sort((a,b)=>((b.pn.yearlyEnergyDcKwh||0)-(a.pn.yearlyEnergyDcKwh||0))).slice(0,_selN);
+  }
   const ren=renderList.map(x=>x.pn);
   const ren_e=ren.map(p=>p.yearlyEnergyDcKwh||0), rmin=Math.min(...ren_e,0), rmax=Math.max(...ren_e,1);
   for(const {pn,seg} of renderList){
@@ -7970,6 +8086,11 @@ const FUNNEL_FILL={address:0,roof:1,options:2,estimate:3};
 let __funnelOn=false;
 function setFunnelStep(step){
   const bar=$("funnelBar"); if(!bar) return;
+  // The immersive solar designer (and its 3D photoreal sub-view) owns the full screen — its header
+  // carries the 2D⇄3D toggle at top:0. The funnelBar (z-index 40, top:0) would otherwise composite
+  // OVER that toggle and swallow its clicks, so keep the bar hidden while the grid is open; its
+  // display is restored by closeSolarGrid via the saved data-sgPrev value.
+  if(window.__sgOpen || window.__solar3dActive){ __funnelOn=true; window.__funnelActive=true; bar.dataset.sgPrev="flex"; return; }
   __funnelOn=true; window.__funnelActive=true; bar.style.display="flex";
   const idx=FUNNEL_STEPS.indexOf(step); if(idx<0) return;
   bar.querySelectorAll(".fb-step").forEach((el,i)=>{
