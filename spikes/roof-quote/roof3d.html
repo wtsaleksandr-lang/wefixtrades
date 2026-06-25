@@ -2876,9 +2876,9 @@ async function run(addr){
       const _fpMode=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("fp");
       if(_fpMode!=="mask"){
         const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
-        if(fp && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="cache")){
+        if(fp && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
           window.__footprintWGS=fp.ring;            // [[lng,lat],...] open ring
-          window.__footprintSource=fp.source;       // "osm" | "cache"
+          window.__footprintSource=fp.source;       // "osm" | "msft" | "cache"
           window.__footprintAttribution=fp.attribution||"";
         }
       }
@@ -3556,12 +3556,12 @@ function extractFacetPolysAnalytic(margin){
   //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
   //    every facet is clipped FROM (already ordered; no stitching).
   let footprint=null, footprintFull=null;   // footprintFull = whole-block ring when a shared-building split trims `footprint` to one unit
-  let footprintSource="mask";                // "osm" | "cache" | "mask" — exposed via window.__footprintSource
+  let footprintSource="mask";                // "osm" | "msft" | "cache" | "mask" — exposed via window.__footprintSource
   // ── PRIMARY: clean VECTOR building footprint (OSM/cache), fetched in run() into window.__footprintWGS.
   //    Convert to UTM (E,N), regularize to straight architectural edges + overhang offset, and use THAT
   //    as the outer ring every facet is clipped from. This is the EVEN-roofline fix — straight eaves on
   //    the real roof edges instead of the jagged mask trace. Falls through to the mask trace on any failure.
-  if(Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="cache")){
+  if(Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="msft"||window.__footprintSource==="cache")){
     try{
       const ringEN=window.__footprintWGS.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
       // Regularize to clean straight eaves (overhang baked in below), THEN RIGID-REGISTER the whole
@@ -5102,6 +5102,7 @@ function footprintCreditLine(){
   const src=(typeof window!=="undefined")&&window.__footprintSource;
   let txt="";
   if(src==="osm") txt="Building outline © OpenStreetMap contributors.";
+  else if(src==="msft") txt=(window.__footprintAttribution||"© Microsoft Building Footprints")+" (building outline).";
   else if(src==="cache") txt=(window.__footprintAttribution||"© national building footprints")+" (building outline).";
   else return "";
   return '<div class="muted" style="font-size:10px;margin-top:4px;opacity:.8">'+txt+'</div>';

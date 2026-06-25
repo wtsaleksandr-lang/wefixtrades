@@ -1,4 +1,4 @@
-import http from "http"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url";
+import http from "http"; import https from "https"; import zlib from "zlib"; import readline from "readline"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url";
 // ---- persistent disk cache: captures + AI renders survive restarts (cost lever; foundation for cross-tenant cache) ----
 const CACHE_DIR=path.join(import.meta.dirname,"cache");
 try{ mkdirSync(CACHE_DIR,{recursive:true}); }catch(_){}
@@ -339,9 +339,168 @@ function cacheFootprint(lat,lng){
   return (best && bestD<=40)?best:null;
 }
 
+// ─── Microsoft GlobalML Building Footprints — ON-DEMAND universal backstop (US + Canada + global) ───
+// Microsoft's open Building Footprints set (CDL-licensed, free) covers essentially every building on
+// Earth, distributed BY MAP TILE at Bing zoom level 9 (9-digit quadkey). A small index CSV maps
+// QuadKey → a per-tile gzipped GeoJSONL download URL. For ANY lat/lng we:
+//   1. compute the z9 quadkey of the point,
+//   2. look its download URL up in the (disk-cached) dataset-links index,
+//   3. stream-fetch + gunzip that tile, scanning line-by-line for the building CONTAINING the point
+//      (else the nearest centroid within ~40 m), short-circuiting the instant we find a hit,
+//   4. cache the chosen building per rounded lat/lng (the route does this) so repeats are instant.
+// Index: https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv (~7 MB,
+// columns: Location,QuadKey,Url,Size,UploadDate). Per-tile files are large (a z9 metro tile can be
+// 30–45 MB gzipped / ~400k buildings), so the FIRST address in a fresh tile costs ~3–5 s to
+// fetch+scan; we optionally cache the raw .gz to disk so a SECOND address in the same tile re-scans
+// locally in ~1.5 s with no re-download. All on Node built-ins (https + zlib + readline) — no dep.
+const MSFT_LINKS_URL="https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv";
+const MSFT_UA="WeFixTrades-RoofQuote/1.0 (building footprint lookup; contact support@wefixtrades.com)";
+const MSFT_TILE_MAX_BYTES=220*1024*1024;   // hard ceiling: refuse pathologically huge tiles rather than OOM. Dense metro
+                                           // z9 tiles (e.g. Phoenix ~132 MB) are legitimate, so the ceiling is generous;
+                                           // the FIRST address in such a metro pays ~8–15 s, then the disk cache makes
+                                           // every later address in that tile fast. (A truly absurd tile still bails.)
+let _msftIndex=null, _msftIndexLoaded=false, _msftIndexInflight=null;
+
+// Bing tile-system quadkey for a lat/lng at a given zoom (matches the dataset's z9 partitioning).
+function lngLatToQuadkey(lat,lng,z){
+  const sinLat=Math.sin(Math.max(-85.05,Math.min(85.05,lat))*Math.PI/180);
+  const x=(lng+180)/360;
+  const y=0.5-Math.log((1+sinLat)/(1-sinLat))/(4*Math.PI);
+  const n=Math.pow(2,z);
+  let tx=Math.floor(x*n), ty=Math.floor(y*n);
+  tx=Math.max(0,Math.min(n-1,tx)); ty=Math.max(0,Math.min(n-1,ty));
+  let qk="";
+  for(let i=z;i>0;i--){ let d=0; const m=1<<(i-1); if((tx&m)!==0)d+=1; if((ty&m)!==0)d+=2; qk+=d; }
+  return qk;
+}
+// Plain HTTPS GET → Buffer (follows one level of redirect). Used for the small index CSV.
+function httpsGetBuffer(url){
+  return new Promise((resolve,reject)=>{
+    https.get(url,{ headers:{ "User-Agent":MSFT_UA } },r=>{
+      if(r.statusCode>=300 && r.statusCode<400 && r.headers.location){ r.resume(); return httpsGetBuffer(r.headers.location).then(resolve,reject); }
+      if(r.statusCode!==200){ r.resume(); return reject(new Error("http_"+r.statusCode)); }
+      const chunks=[]; r.on("data",c=>chunks.push(c)); r.on("end",()=>resolve(Buffer.concat(chunks))); r.on("error",reject);
+    }).on("error",reject);
+  });
+}
+// Load + cache the QuadKey→URL index, filtered to US + Canada rows (~4.5k of ~190k → ~1 MB JSON on
+// disk, 30-day TTL). One ~7 MB fetch per server lifetime (then disk). Concurrent callers share one
+// in-flight promise so a cold start never double-downloads. Returns a plain object map or {}.
+async function loadMsftIndex(){
+  if(_msftIndexLoaded) return _msftIndex||{};
+  if(_msftIndexInflight) return _msftIndexInflight;
+  _msftIndexInflight=(async()=>{
+    // disk cache first
+    try{ const c=diskGetJSON("msftidx","us-ca-v1"); if(c && c._t && (Date.now()-c._t)<30*864e5 && c.map){ _msftIndex=c.map; _msftIndexLoaded=true; return _msftIndex; } }catch(_){}
+    try{
+      const buf=await httpsGetBuffer(MSFT_LINKS_URL);
+      const txt=buf.toString("utf8");
+      const map={};
+      let nl=0;
+      for(let i=txt.indexOf("\n")+1; i>0 && i<txt.length; ){   // skip header row, then walk line by line
+        let j=txt.indexOf("\n",i); if(j<0) j=txt.length;
+        const line=txt.slice(i,j); i=j+1;
+        // columns: Location,QuadKey,Url,Size,UploadDate — split on first commas (Location has no comma; URL has none)
+        const a=line.indexOf(","); if(a<0) continue;
+        const region=line.slice(0,a);
+        if(region!=="UnitedStates" && region!=="Canada") continue;
+        const b=line.indexOf(",",a+1); if(b<0) continue;
+        const qk=line.slice(a+1,b);
+        const d=line.indexOf(",",b+1); const url=(d<0?line.slice(b+1):line.slice(b+1,d)).trim();
+        if(qk && url){ map[qk]=url; nl++; }
+      }
+      _msftIndex=map; _msftIndexLoaded=true;
+      try{ diskSetJSON("msftidx","us-ca-v1",{ map, _t:Date.now(), n:nl }); }catch(_){}
+      return map;
+    }catch(e){ try{process.stderr.write("[msftidx] ERR "+(e&&e.message||e)+"\n");}catch(_){} _msftIndex={}; _msftIndexLoaded=true; return _msftIndex; }   // index unreachable → MS layer disabled, cascade falls through
+  })();
+  try{ return await _msftIndexInflight; } finally { _msftIndexInflight=null; }
+}
+// Stream a per-quadkey tile and return the open [[lng,lat]] ring of the building at the point (else
+// nearest centroid ≤40 m). Streams from a local .gz if previously cached, otherwise from HTTPS while
+// opportunistically persisting the .gz to disk for the next address in this tile. Short-circuits on
+// the first containing building. Aborts on any error / oversized tile rather than hanging.
+function scanMsftTile(srcStream,lat,lng){
+  return new Promise((resolve)=>{
+    const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
+    let found=null, best=null, bestD=Infinity, done=false;
+    const gun=zlib.createGunzip();
+    const rl=readline.createInterface({ input:srcStream.pipe(gun), crlfDelay:Infinity });
+    const finish=(val)=>{ if(done) return; done=true; try{ rl.close(); }catch(_){} try{ srcStream.destroy(); }catch(_){} resolve(val); };
+    srcStream.on("error",()=>finish(null));
+    gun.on("error",()=>finish(null));
+    rl.on("line",line=>{
+      if(done||!line) return;
+      let f; try{ f=JSON.parse(line); }catch(_){ return; }
+      const g=f&&f.geometry; if(!g) return;
+      const ring=(g.type==="Polygon")?g.coordinates[0]:(g.type==="MultiPolygon"?g.coordinates[0][0]:null);
+      if(!ring||ring.length<4) return;
+      const open=openRingLL(ring.map(c=>[c[0],c[1]]));
+      if(open.length<3) return;
+      if(ringAreaLL(open,lat)<8) return;                 // skip tiny noise blobs
+      if(pointInRingLL([lng,lat],open)){ found=open; finish(open); return; }
+      // fallback rank: nearest by centroid AND by closest edge vertex — a large building can have its
+      // centroid far from a query that still sits at its edge, so track the smaller of the two.
+      const c=ringCentroidLL(open);
+      let dEdge=Infinity; for(const p of open){ const dv=Math.hypot((p[0]-lng)*mLng,(p[1]-lat)*mLat); if(dv<dEdge) dEdge=dv; }
+      const d=Math.min(Math.hypot((c[0]-lng)*mLng,(c[1]-lat)*mLat), dEdge);
+      if(d<bestD){ bestD=d; best=open; }
+    });
+    // Nearest building within ~60 m. Generous because some geocodes land on the street centerline a
+    // few tens of metres off the house; the widget's downstream registration step REJECTS any footprint
+    // needing a >5 m shift to fit Google's roof, so a genuinely-wrong neighbour still falls back to mask.
+    rl.on("close",()=>{ if(done) return; finish(found || (best && bestD<=60 ? best : null)); });
+  });
+}
+// Download a per-quadkey tile fully to disk (streamed → low memory) and atomically rename into place.
+// Returns the .gz path on success, else null. Kept separate from scanning so the on-disk cache is
+// always a COMPLETE file — a tile is downloaded at most once, then every later address re-scans locally.
+function downloadMsftTile(url,tileFile){
+  return new Promise(async(resolve)=>{
+    let settled=false; const settle=(v)=>{ if(!settled){ settled=true; resolve(v); } };
+    const fs=await import("fs");
+    const part=tileFile+".part";
+    let ws; try{ ws=fs.createWriteStream(part); }catch(_){ return settle(null); }
+    const fail=()=>{ try{ ws.destroy(); }catch(_){} try{ if(fs.existsSync(part)) fs.unlinkSync(part); }catch(_){} settle(null); };
+    const req=https.get(url,{ headers:{ "User-Agent":MSFT_UA } },r=>{
+      if(r.statusCode!==200){ r.resume(); return fail(); }
+      const len=+(r.headers["content-length"]||0);
+      if(len && len>MSFT_TILE_MAX_BYTES){ r.resume(); try{req.destroy();}catch(_){} return fail(); }   // refuse to OOM on a pathological tile
+      r.pipe(ws);
+      r.on("error",fail);
+      ws.on("error",fail);
+      ws.on("finish",()=>{ try{ fs.renameSync(part,tileFile); resolve(tileFile); }catch(_){ fail(); } });
+    });
+    req.on("error",fail);
+    req.setTimeout(45000,()=>{ try{ req.destroy(); }catch(_){} fail(); });   // generous: a cold 40 MB tile can take a few seconds, but never hang forever
+  });
+}
+async function msftFootprint(lat,lng){
+  const idx=await loadMsftIndex();
+  const qk=lngLatToQuadkey(lat,lng,9);
+  const url=idx[qk];
+  if(!url) return null;                                  // no tile for this point (ocean / unmapped region)
+  const tileFile=path.join(CACHE_DIR,"msfttile-"+qk+".gz");
+  const fs=await import("fs");
+  // 1) ensure the tile is on disk (download once per quadkey; later addresses skip the network)
+  if(!existsSync(tileFile)){
+    const ok=await downloadMsftTile(url,tileFile);
+    if(!ok) return null;                                 // download failed → MS layer yields, cascade falls through
+  }
+  // 2) scan the COMPLETE local .gz for the building at the point. If the file is corrupt/partial the
+  //    gunzip errors → null; we drop the bad file so a later request re-downloads cleanly.
+  try{ const ring=await scanMsftTile(fs.createReadStream(tileFile),lat,lng); if(ring && ring.length>=3) return ring; }
+  catch(_){ try{ fs.unlinkSync(tileFile); }catch(__){} }
+  return null;
+}
+
 async function footprintForPoint(lat,lng){
+  // CASCADE: OSM/Overpass (fast, clean where present) → Microsoft on-demand per-quadkey (universal
+  // backstop, US+Canada+global) → committed national cache → {source:"none"} (widget mask fallback).
   const osm=await overpassFootprint(lat,lng).catch(()=>null);
   if(osm && osm.length>=3) return { ring:osm, source:"osm", attribution:"© OpenStreetMap contributors" };
+  const msft=await msftFootprint(lat,lng).catch(()=>null);
+  if(msft && msft.length>=3) return { ring:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" };
   const cached=cacheFootprint(lat,lng);
   if(cached && cached.length>=3) return { ring:cached, source:"cache", attribution:"© Microsoft / national building footprints" };
   return { source:"none" };
@@ -477,22 +636,30 @@ http.createServer(async (req,res)=>{
   // outer roofline source that replaces the fuzzy Solar-mask Moore-trace. Coverage cascade:
   //   1. OpenStreetMap via Overpass (free, hosted, no dep) — the ring CONTAINING the point,
   //      else the nearest building centroid within ~40 m.
-  //   2. On-disk pre-cached footprints (spikes/roof-quote/cache/footprints.geojson) for
-  //      addresses OSM misses (e.g. 30 Angus Rd, Hamilton) — sourced from a free national
-  //      buildings dataset by a throwaway pre-cache script (no runtime dep).
-  //   3. {source:"none"} → the widget keeps its mask-trace fallback (flagged low-confidence).
+  //   2. Microsoft GlobalML Building Footprints ON-DEMAND (msftFootprint) — universal US+Canada
+  //      backstop: z9 quadkey → per-tile gzipped GeoJSONL → building at the point. First hit per
+  //      tile ~3–5 s (40 MB fetch+scan), cached .gz makes later same-tile addresses ~1.5 s.
+  //   3. On-disk pre-cached footprints (spikes/roof-quote/cache/footprints.geojson) — legacy
+  //      neighborhood cache (e.g. 30 Angus Rd, Hamilton); now largely subsumed by (2).
+  //   4. {source:"none"} → the widget keeps its mask-trace fallback (flagged low-confidence).
   // Disk-cached by rounded lat/lng like the other endpoints.
   if(u.pathname==="/footprint"){
     res.setHeader("Content-Type","application/json");
     const lat=+(u.searchParams.get("lat")), lng=+(u.searchParams.get("lng"));
     if(!isFinite(lat)||!isFinite(lng)){ res.end(JSON.stringify({error:"bad_coords"})); return; }
     const gk=lat.toFixed(5)+","+lng.toFixed(5);
-    { const c=diskGetJSON("footprint",gk); if(c&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(JSON.stringify(c.body)); return; } }
+    // src=msft forces the Microsoft on-demand layer (skips OSM) — diagnostic only, lets ops verify
+    // the universal backstop independently of whatever OSM happens to have for a given address.
+    const forceSrc=(u.searchParams.get("src")||"").toLowerCase();
+    if(forceSrc!=="msft"){ const c=diskGetJSON("footprint",gk); if(c&&c._t&&(Date.now()-c._t)<30*864e5){ res.setHeader("X-Cache","HIT"); res.end(JSON.stringify(c.body)); return; } }
     res.setHeader("X-Cache","MISS");
     try{
-      const out=await footprintForPoint(lat,lng);
-      if(out && out.ring && out.ring.length>=4 && (out.source==="osm")){
-        diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });   // cache only confident OSM hits
+      let out;
+      if(forceSrc==="msft"){ const m=await msftFootprint(lat,lng).catch(()=>null);
+        out = (m&&m.length>=3) ? { ring:m, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" } : { source:"none" };
+      } else out=await footprintForPoint(lat,lng);
+      if(out && out.ring && out.ring.length>=4 && (out.source==="osm"||out.source==="msft")){
+        diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });   // cache confident OSM + Microsoft hits (per rounded lat/lng → instant repeats)
       }
       res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }

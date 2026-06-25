@@ -16,9 +16,12 @@
  *   (the tiles key — ROOFQUOTE_TILES_KEY || GOOGLE_MAPS_API_KEY — is consumed in the route layer, not here)
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, createReadStream, createWriteStream, renameSync, unlinkSync } from "fs";
 import path from "path";
 import os from "os";
+import https from "https";
+import zlib from "zlib";
+import readline from "readline";
 import { createHash } from "crypto";
 import { chromium, type Browser } from "playwright";
 import { createLogger } from "../../lib/logger";
@@ -765,7 +768,144 @@ function cacheFootprint(lat: number, lng: number): LngLat[] | null {
     const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = ring; } }
   return best && bestD <= 40 ? best : null;
 }
-export interface FootprintResult { ring?: LngLat[]; source: "osm" | "cache" | "none"; attribution?: string; error?: string; }
+/* ─── Microsoft GlobalML Building Footprints — ON-DEMAND universal backstop (US + Canada) ───
+   Microsoft's open Building Footprints set covers essentially every building on Earth, distributed
+   by Bing-zoom-9 map tile (9-digit quadkey). A ~7 MB index CSV maps QuadKey → per-tile gzipped
+   GeoJSONL URL. For any lat/lng we compute the z9 quadkey, look up its tile URL (index disk-cached,
+   filtered to US+Canada), download the tile once to disk (streamed → low memory), then scan it for
+   the building containing the point (else nearest within ~60 m). First address per tile costs a few
+   seconds (a dense metro tile can be 30–130 MB); later addresses in that tile re-scan locally fast.
+   Node stdlib only (https + zlib + readline). Mirrors spikes/roof-quote/serve.mjs. ─── */
+const MSFT_LINKS_URL = "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv";
+const MSFT_UA = "WeFixTrades-RoofQuote/1.0 (building footprint lookup; contact support@wefixtrades.com)";
+const MSFT_TILE_MAX_BYTES = 220 * 1024 * 1024;   // refuse pathologically huge tiles rather than OOM
+let _msftIndex: Record<string, string> | null = null;
+let _msftIndexLoaded = false;
+let _msftIndexInflight: Promise<Record<string, string>> | null = null;
+
+function lngLatToQuadkey(lat: number, lng: number, z: number): string {
+  const sinLat = Math.sin(Math.max(-85.05, Math.min(85.05, lat)) * Math.PI / 180);
+  const x = (lng + 180) / 360;
+  const y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+  const n = Math.pow(2, z);
+  let tx = Math.max(0, Math.min(n - 1, Math.floor(x * n)));
+  let ty = Math.max(0, Math.min(n - 1, Math.floor(y * n)));
+  let qk = "";
+  for (let i = z; i > 0; i--) { let d = 0; const m = 1 << (i - 1); if ((tx & m) !== 0) d += 1; if ((ty & m) !== 0) d += 2; qk += d; }
+  return qk;
+}
+function httpsGetBuffer(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { "User-Agent": MSFT_UA } }, (r) => {
+      if (r.statusCode && r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) { r.resume(); httpsGetBuffer(r.headers.location).then(resolve, reject); return; }
+      if (r.statusCode !== 200) { r.resume(); reject(new Error("http_" + r.statusCode)); return; }
+      const chunks: Buffer[] = []; r.on("data", (c) => chunks.push(c as Buffer)); r.on("end", () => resolve(Buffer.concat(chunks))); r.on("error", reject);
+    }).on("error", reject);
+  });
+}
+async function loadMsftIndex(): Promise<Record<string, string>> {
+  if (_msftIndexLoaded) return _msftIndex || {};
+  if (_msftIndexInflight) return _msftIndexInflight;
+  _msftIndexInflight = (async () => {
+    const disk = diskGetJSON<{ map: Record<string, string>; _t: number }>("msftidx", "us-ca-v1");
+    if (disk && disk._t && Date.now() - disk._t < 30 * 864e5 && disk.map) { _msftIndex = disk.map; _msftIndexLoaded = true; return _msftIndex; }
+    try {
+      const txt = (await httpsGetBuffer(MSFT_LINKS_URL)).toString("utf8");
+      const map: Record<string, string> = {};
+      for (let i = txt.indexOf("\n") + 1; i > 0 && i < txt.length;) {
+        let j = txt.indexOf("\n", i); if (j < 0) j = txt.length;
+        const line = txt.slice(i, j); i = j + 1;
+        const a = line.indexOf(","); if (a < 0) continue;
+        const region = line.slice(0, a);
+        if (region !== "UnitedStates" && region !== "Canada") continue;
+        const b = line.indexOf(",", a + 1); if (b < 0) continue;
+        const qk = line.slice(a + 1, b);
+        const d = line.indexOf(",", b + 1);
+        const url = (d < 0 ? line.slice(b + 1) : line.slice(b + 1, d)).trim();
+        if (qk && url) map[qk] = url;
+      }
+      _msftIndex = map; _msftIndexLoaded = true;
+      diskSetJSON("msftidx", "us-ca-v1", { map, _t: Date.now() });
+      return map;
+    } catch (err) {
+      log.warn("msft index load failed", { err: (err as Error).message });
+      _msftIndex = {}; _msftIndexLoaded = true; return _msftIndex;
+    }
+  })();
+  try { return await _msftIndexInflight; } finally { _msftIndexInflight = null; }
+}
+function scanMsftTile(srcStream: NodeJS.ReadableStream, lat: number, lng: number): Promise<LngLat[] | null> {
+  return new Promise((resolve) => {
+    const { mLat, mLng } = fpMetres(lat);
+    let found: LngLat[] | null = null, best: LngLat[] | null = null, bestD = Infinity, done = false;
+    const gun = zlib.createGunzip();
+    const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
+    const finish = (val: LngLat[] | null) => {
+      if (done) return; done = true;
+      try { rl.close(); } catch { /* already closed */ }
+      try { (srcStream as any).destroy?.(); } catch { /* best-effort */ }
+      resolve(val);
+    };
+    srcStream.on("error", () => finish(null));
+    gun.on("error", () => finish(null));
+    rl.on("line", (line) => {
+      if (done || !line) return;
+      let f: any; try { f = JSON.parse(line); } catch { return; }
+      const g = f && f.geometry; if (!g) return;
+      const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!raw || raw.length < 4) return;
+      const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
+      if (open.length < 3) return;
+      if (fpRingArea(open, lat) < 8) return;
+      if (fpPointInRing([lng, lat], open)) { found = open; finish(open); return; }
+      const c = fpCentroid(open);
+      let dEdge = Infinity; for (const p of open) { const dv = Math.hypot((p[0] - lng) * mLng, (p[1] - lat) * mLat); if (dv < dEdge) dEdge = dv; }
+      const d = Math.min(Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat), dEdge);
+      if (d < bestD) { bestD = d; best = open; }
+    });
+    rl.on("close", () => { if (done) return; finish(found || (best && bestD <= 60 ? best : null)); });
+  });
+}
+function downloadMsftTile(url: string, tileFile: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false; const settle = (v: string | null) => { if (!settled) { settled = true; resolve(v); } };
+    const part = tileFile + ".part";
+    let ws: ReturnType<typeof createWriteStream>;
+    try { ws = createWriteStream(part); } catch { settle(null); return; }
+    const fail = () => { try { ws.destroy(); } catch { /* noop */ } try { if (existsSync(part)) unlinkSync(part); } catch { /* noop */ } settle(null); };
+    const req = https.get(url, { headers: { "User-Agent": MSFT_UA } }, (r) => {
+      if (r.statusCode !== 200) { r.resume(); fail(); return; }
+      const len = +(r.headers["content-length"] || 0);
+      if (len && len > MSFT_TILE_MAX_BYTES) { r.resume(); try { req.destroy(); } catch { /* noop */ } fail(); return; }
+      r.pipe(ws);
+      r.on("error", fail);
+      ws.on("error", fail);
+      ws.on("finish", () => { try { renameSync(part, tileFile); resolve(tileFile); } catch { fail(); } });
+    });
+    req.on("error", fail);
+    req.setTimeout(45000, () => { try { req.destroy(); } catch { /* noop */ } fail(); });
+  });
+}
+async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
+  const idx = await loadMsftIndex();
+  const qk = lngLatToQuadkey(lat, lng, 9);
+  const url = idx[qk];
+  if (!url) return null;
+  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
+  if (!existsSync(tileFile)) {
+    const ok = await downloadMsftTile(url, tileFile);
+    if (!ok) return null;
+  }
+  try {
+    const ring = await scanMsftTile(createReadStream(tileFile), lat, lng);
+    if (ring && ring.length >= 3) return ring;
+  } catch {
+    try { unlinkSync(tileFile); } catch { /* noop */ }
+  }
+  return null;
+}
+
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; }
 export async function buildingFootprint(lat: string, lng: string): Promise<FootprintResult> {
   const la = +lat, ln = +lng;
   if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords" };
@@ -777,6 +917,14 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
   const osm = await overpassFootprint(la, ln);
   if (osm && osm.length >= 3) {
     const out: FootprintResult = { ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
+    diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+    return out;
+  }
+  // Microsoft on-demand per-quadkey — the universal US+Canada backstop. msftFootprint swallows its
+  // own network/parse errors (returns null), so no outer .catch() is needed (no-silent-catch guard).
+  const msft = await msftFootprint(la, ln);
+  if (msft && msft.length >= 3) {
+    const out: FootprintResult = { ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" };
     diskSetJSON("footprint", key, { body: out, _t: Date.now() });
     return out;
   }
