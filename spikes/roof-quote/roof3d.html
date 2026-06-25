@@ -979,12 +979,65 @@ const hemi=new THREE.HemisphereLight(0xcfe3ff,0x2a3340,0.45); scene.add(hemi);
 // "Model" (Scanifly-style clay) lens palette + surface — a single neutral matte grey across
 // roof+walls reads FORM, not material; light studio floor receives a soft contact shadow.
 const GREY_SURFACE=0xeef1f6;   // wizard surface colour the grey-model background is pinned to
+// ── PREMIUM "Model" lens palette (STEP 5) ──────────────────────────────────────
+// Aurora/OpenSolar look: a subtle charcoal shingle roof (NOT flat grey), a neutral
+// warm-grey wall, a clean studio floor. The roof tone is varied per-facet by
+// orientation in buildSceneAnalytic (greyRoofMatFor) so the massing reads with depth
+// instead of one uniform slab. GREY.roof stays as the neutral fallback / shadow-study tone.
 const GREY={
-  roof:new THREE.MeshStandardMaterial({color:0x9aa0a8,roughness:0.92,metalness:0,side:THREE.DoubleSide}),
-  wall:new THREE.MeshStandardMaterial({color:0x8b9098,roughness:0.95,metalness:0,side:THREE.DoubleSide}),
-  ground:new THREE.MeshStandardMaterial({color:0xe3e7ec,roughness:1,metalness:0}),
-  edge:new THREE.LineBasicMaterial({color:0x6b7280,transparent:true,opacity:0.35})
+  roof:new THREE.MeshStandardMaterial({color:0x4a525e,roughness:0.86,metalness:0.02,side:THREE.DoubleSide}),
+  wall:new THREE.MeshStandardMaterial({color:0xcdc6bb,roughness:0.95,metalness:0,side:THREE.DoubleSide}),
+  ground:new THREE.MeshStandardMaterial({color:0xe7eaef,roughness:1,metalness:0}),
+  edge:new THREE.LineBasicMaterial({color:0x5a6472,transparent:true,opacity:0.28})
 };
+// Per-facet roof tone: a base charcoal nudged by the facet's azimuth so adjacent
+// planes read as distinct surfaces (sun-facing = slightly lighter, away = darker),
+// like real shingles under directional light. Cached so re-skins don't churn GC.
+const _greyRoofMatCache=new Map();
+function greyRoofMatFor(azDeg){
+  const az=((azDeg%360)+360)%360;
+  // map azimuth → a small lightness delta: south(180°)≈+ , north(0°)≈- . Quantise to 12 buckets.
+  const b=Math.round(az/30)%12;
+  if(_greyRoofMatCache.has(b)) return _greyRoofMatCache.get(b);
+  const lift=Math.cos((az-180)*Math.PI/180);            // +1 facing south … -1 facing north
+  const base=new THREE.Color(0x4a525e);
+  const hsl={}; base.getHSL(hsl);
+  base.setHSL(hsl.h, hsl.s, Math.min(0.42, Math.max(0.20, hsl.l + lift*0.05)));
+  const m=new THREE.MeshStandardMaterial({color:base,roughness:0.86,metalness:0.02,side:THREE.DoubleSide});
+  _greyRoofMatCache.set(b,m); return m;
+}
+// ── Solar-panel material (premium, shared) ─────────────────────────────────────
+// A dark-blue mono-PV face with a thin silver frame and a faint cell grid, baked
+// into a canvas texture so each engineered panel reads as a real module (not a flat
+// blue tile). One texture, reused across all instances.
+let _panelTex=null;
+function panelFaceTex(){
+  if(_panelTex) return _panelTex;
+  const N=128, c=document.createElement("canvas"); c.width=c.height=N; const x=c.getContext("2d");
+  // deep mono-silicon blue with a subtle vertical sheen
+  const g=x.createLinearGradient(0,0,N,N);
+  g.addColorStop(0,"#16335f"); g.addColorStop(0.5,"#1b3c6e"); g.addColorStop(1,"#122a52");
+  x.fillStyle=g; x.fillRect(0,0,N,N);
+  // 6×10 cell grid (busbars) — thin darker lines
+  x.strokeStyle="rgba(8,16,34,0.55)"; x.lineWidth=2;
+  const cols=6, rows=10;
+  for(let i=1;i<cols;i++){ const px=Math.round(i*N/cols)+0.5; x.beginPath(); x.moveTo(px,4); x.lineTo(px,N-4); x.stroke(); }
+  for(let j=1;j<rows;j++){ const py=Math.round(j*N/rows)+0.5; x.beginPath(); x.moveTo(4,py); x.lineTo(N-4,py); x.stroke(); }
+  // silver frame
+  x.strokeStyle="#c7ced8"; x.lineWidth=6; x.strokeRect(3,3,N-6,N-6);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8;
+  _panelTex=t; return t;
+}
+let _panelMat=null;
+function panelMatPremium(){
+  if(_panelMat) return _panelMat;
+  _panelMat=new THREE.MeshStandardMaterial({map:panelFaceTex(),color:0xffffff,roughness:0.32,metalness:0.45,emissive:0x0a1830,emissiveIntensity:0.16,side:THREE.DoubleSide});
+  return _panelMat;
+}
+// 3D engineered-panel group for the Model lens — built per scene, lives in worldGroup,
+// shown in BOTH grey/model and photoreal-schematic. Holds an InstancedMesh of textured
+// panel boxes sitting coplanar on the roof, plus a thin top-edge line set for crisp rows.
+let modelPanelGroup=null;
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
 // (BUG 2) On-model 3D measurement overlay (colour-coded typed edges + LF/area labels) drawn on OUR
 // Three.js scene — guaranteed on-surface (same M2S as the facet meshes), unlike the old Google-tile
@@ -2019,7 +2072,7 @@ function updateSun(){
     const ap=h>=12?"PM":"AM", h12=((h+11)%12)+1; lbl.textContent=h12+":"+String(m).padStart(2,"0")+" "+ap; }
   const mv=$("sMonthV"); if(mv) mv.textContent=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][sunMonth-1];
   if(sp.altitude<=1){ sun.intensity=0.15; ambient.intensity=0.55; if(!greyMode) scene.background.setHex(0x0a0e16); else scene.background.setHex(GREY_SURFACE); return; }
-  sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=0.42;
+  sun.intensity=Math.min(2.8, 1.1+sp.altitude/22); ambient.intensity=greyMode?0.34:0.42;   // (STEP 5) keep the Model lens contrasty so the charcoal roof reads with depth
   // dusk tint when low — but the grey "Model" lens stays a calm light studio surface
   // (Scanifly-style); only the sun INTENSITY drops so shadows still lengthen at dusk.
   if(!greyMode) scene.background.setHex(sp.altitude<8?0x10131c:0x0b1017);
@@ -2051,7 +2104,7 @@ function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjection
 addEventListener("resize",resize); resize();
 (function loop(){ controls.update(); renderer.render(scene,camera); requestAnimationFrame(loop); })();
 
-function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); if(typeof clearMeas3D==="function") clearMeas3D(); }   // (BUG 2) also drop the 3D measure overlay (sibling of worldGroup)
+function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); modelPanelGroup=null; if(typeof clearMeas3D==="function") clearMeas3D(); }   // (BUG 2) also drop the 3D measure overlay (sibling of worldGroup); (STEP 5) drop the engineered-panel group ref so setModelPanelsVisible falls back to panelMesh on the legacy path
 
 /* build the textured DSM mesh + panels */
 let panelMesh=null;
@@ -2190,6 +2243,8 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     fg.setAttribute("uv",new THREE.Float32BufferAttribute(uvArr,2));
     fg.computeVertexNormals();
     const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm); skin.roofMeshes.push(fm);
+    // tag facet azimuth (deg, 0=N) so the Model lens can tone each plane individually (greyRoofMatFor)
+    fm.userData.facetAz = Array.isArray(p.normal) ? (Math.atan2(p.normal[0],p.normal[1])*180/Math.PI) : 180;
     for(const v of V3){ roofMinY=Math.min(roofMinY,v.y); roofMaxY=Math.max(roofMaxY,v.y); }
     builtRoofArea += (p.areaSqFt||0);
     // crisp facet outline (matches legacy look)
@@ -2235,29 +2290,40 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
       g.add(mkFat(A.x,A.y,A.z,B.x,B.y,B.z,hex,3.0));
       nEdge++; if(typeCount[e.type]!=null) typeCount[e.type]++;
     }
-    // per-edge LF labels — longest-first, spaced out (mirror buildRoofMeasure's dedup/placement)
-    const placed=[]; const mScaleE=(QUOTE&&QUOTE.roofSqft)?1:1;
-    for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<10) continue;
-      const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
-      if(placed.some(p=>Math.hypot(p[0]-mx,p[1]-my)<3.0)) continue; placed.push([mx,my]);
-      const mz=(((typeof e.az==="number")?e.az:baseY)+((typeof e.bz==="number")?e.bz:baseY))/2;
-      const S=M2S(mx,my,mz); const lb=makeLabel(Math.round(e.lengthFt)+"′");
-      lb.position.set(S.x, S.y+0.5, S.z); g.add(lb);
-    }
-    // per-facet area+pitch chips (scaled to the quote total like the 2D/3D-tile views), top few facets
+    // (STEP 5) DECLUTTER: collision-avoid ALL labels in the shared scene-local XZ plane so the
+    // area chips and edge lengths never pile up in the centre. One placed[] list, checked across
+    // both label kinds; area chips capped to the few largest facets and area-chips claim a wider
+    // exclusion radius (they're wider sprites) so they breathe.
+    const placedXZ=[];   // [x,z,radius] in scene-local metres
+    const tryPlace=(x,z,radius)=>{ for(const [px,pz,pr] of placedXZ){ if(Math.hypot(px-x,pz-z) < (radius+pr)) return false; } placedXZ.push([x,z,radius]); return true; };
+    // AREA CHIPS FIRST (they're the headline numbers) — top few facets only, wide exclusion.
     const mPlaneSum=model.planes.reduce((s,p)=>s+(p.areaSqFt||0),0);
     const mTarget=(typeof roofUnitSqFt==="function")?roofUnitSqFt():((QUOTE&&QUOTE.roofSqft)||0);   // split-aware owner's-unit area
     const mScale=(mTarget>0&&mPlaneSum>0)?(mTarget/mPlaneSum):1;
     const mSorted=model.planes.slice().sort((a,b)=>(b.areaSqFt||0)-(a.areaSqFt||0));
     const mMax=(mSorted[0]&&mSorted[0].areaSqFt)||0;
-    for(const p of mSorted){ if(p===mSorted[0]?false:((p.areaSqFt||0)<mMax*0.18)) continue;
+    let nChips=0; const CHIP_MAX=5;   // show at most the 5 largest facets' area+pitch chips
+    for(const p of mSorted){ if(nChips>=CHIP_MAX) break;
+      if(p!==mSorted[0] && (p.areaSqFt||0)<mMax*0.18) continue;
       if(!Array.isArray(p.ring3)||p.ring3.length<3) continue;
       let cx=0,cy=0,cz=0; for(const v of p.ring3){ const s=M2S(v[0],v[1],v[2]); cx+=s.x; cy+=s.y; cz+=s.z; } cx/=p.ring3.length; cy/=p.ring3.length; cz/=p.ring3.length;
+      if(!tryPlace(cx,cz,4.2)) continue;   // skip a chip that would collide with one already placed
       const lb=makeLabel(Math.round((p.areaSqFt||0)*mScale)+" ft² · "+facetX12(p.pitchX12,{fromX12:true})+"/12");
-      lb.position.set(cx, cy+1.0, cz); g.add(lb);
+      lb.position.set(cx, cy+1.4, cz); g.add(lb); nChips++;
+    }
+    // PER-EDGE LF labels — longest-first, placed ALONG the edge midpoint, dodging chips + each other.
+    const placed=[];
+    for(const e of model.edges.slice().sort((a,b)=>b.lengthFt-a.lengthFt)){ if(e.lengthFt<10) continue;
+      const mx=(e.a[0]+e.b[0])/2, my=(e.a[1]+e.b[1])/2;
+      const mz=(((typeof e.az==="number")?e.az:baseY)+((typeof e.bz==="number")?e.bz:baseY))/2;
+      const S=M2S(mx,my,mz);
+      if(!tryPlace(S.x,S.z,2.1)) continue;   // collide-avoid against chips + prior edge labels
+      placed.push([mx,my]);
+      const lb=makeLabel(Math.round(e.lengthFt)+"′");
+      lb.position.set(S.x, S.y+0.5, S.z); g.add(lb);
     }
     scene.add(g); measGroup3D=g;
-    window.__measScene3D={ edges:nEdge, typeCount, labels:placed.length };
+    window.__measScene3D={ edges:nEdge, typeCount, labels:placed.length, chips:nChips };
   }catch(e){ errors.push("meas3d:"+((e&&e.message)||e)); }
 
   // ── WALLS: ONE coherent band. Top follows the building outline at its true (eave) height;
@@ -2300,7 +2366,13 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const wm=new THREE.Mesh(wg,wallMat); wm.castShadow=true; wm.receiveShadow=true; worldGroup.add(wm); skin.wallMeshes.push(wm);
   }
 
-  // ── PANELS — same Solar-data placement as legacy (independent of roof geometry) ──
+  // ── PANELS — ENGINEERED 3D array on OUR model (STEP 5) ───────────────────────
+  // Build the SAME max-fit, split-aware layout the photo lens draws (engineeredFacetPanels:
+  // aligned rows, fire-setback, owner's-half only — extractFacetPolys clips to the owner unit),
+  // but as real 3D textured panel boxes sitting coplanar + slightly proud of each roof facet,
+  // in THIS scene's M2S/toLocal frame so they land exactly on the roof meshes. Shown in the
+  // Model lens (grey) AND the photoreal-schematic base. Falls back to Google's array if the
+  // engineered fill is unavailable.
   const facetInfo=[];
   for(let si=0;si<segs.length;si++){ const seg=segs[si], bb=seg.boundingBox;
     if(!bb||!bb.sw||!bb.ne){ facetInfo.push(null); continue; }
@@ -2312,21 +2384,60 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
   const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
-  const panels=(sp.solarPanels||[]).slice(0,n);
-  const box=new THREE.BoxGeometry(1,0.06,1);
-  const pmat=new THREE.MeshStandardMaterial({color:0x16335f,roughness:0.3,metalness:0.5,emissive:0x0a1830,emissiveIntensity:0.25});
+  // Seed = owner's-section panels when attached (split-aware), else the whole array — mirrors buildPhotoPanels.
+  let seed=(window.__attached&&window.__sectionMode==="mine")
+    ? sectionPanels(sp, window.__ll, window.__sectionShare||0.5).slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0))
+    : (sp.solarPanels||[]);
+  if(!seed.length) seed=(sp.solarPanels||[]);
+  seed=seed.slice(0,n);
+  // engineeredFacetPanels is split-aware for free: extractFacetPolys clips facets to the owner unit,
+  // so on a semi-detached only the owner's half fills.
+  let modelPanels=seed;
+  try{ const eng=engineeredFacetPanels(sp,segs,zone,pw,ph,seed); if(eng&&eng.length) modelPanels=eng; }catch(_){}
+  const panels=modelPanels.filter(p=>p.center && facetInfo[p.segmentIndex]);
+  window.__modelPanelsEng = (modelPanels!==seed);
+
+  // PROUD panel box: a thin module, its face textured, lifted a few cm along the facet normal
+  // so it floats just over the roof skin (no z-fight) and reads as a mounted module.
+  modelPanelGroup=new THREE.Group(); modelPanelGroup.renderOrder=2;
+  const PANEL_THICK=0.05, PANEL_PROUD=0.10;   // metres
+  const box=new THREE.BoxGeometry(1,PANEL_THICK,1);
+  const pmat=panelMatPremium();
   panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=true;
   const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(), pVec=new THREE.Vector3(), sVec=new THREE.Vector3(), nrmV=new THREE.Vector3();
+  // thin top-edge frame lines per panel (the bright module rim) — one merged line set, cheap
+  const frameSegs=[]; const corner=new THREE.Vector3();
   let placed=0;
   for(const pn of panels){ if(!pn.center) continue; const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
     const L=toLocal(pn.center.latitude,pn.center.longitude);
     const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
-    const y=fi.y0 - d*fi.tanP + 0.16;
+    const yPlane=fi.y0 - d*fi.tanP;
+    // facet normal in scene frame (down-slope tilt) — lift the panel proud along it
     nrmV.set(Math.sin(fi.P)*fi.sinAz, Math.cos(fi.P), -Math.sin(fi.P)*fi.cosAz).normalize();
-    q.setFromUnitVectors(up,nrmV); pVec.set(L.x,y,L.z);
-    const land=pn.orientation==="LANDSCAPE"; sVec.set(land?ph:pw,1,land?pw:ph);
-    m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m); }
-  panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; worldGroup.add(panelMesh);
+    q.setFromUnitVectors(up,nrmV);
+    pVec.set(L.x + nrmV.x*PANEL_PROUD, yPlane + nrmV.y*PANEL_PROUD, L.z + nrmV.z*PANEL_PROUD);
+    const land=pn.orientation==="LANDSCAPE"; const w=land?ph:pw, h=land?pw:ph;
+    sVec.set(w,1,h);
+    m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m);
+    // top-rim outline: 4 corners of the module, lifted a hair more so the rim reads
+    const rim=PANEL_PROUD+PANEL_THICK*0.6;
+    const cs=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([cx,cz])=>{
+      // rotate the local (across,downslope) offset by the panel quaternion
+      corner.set(cx,0,cz).applyQuaternion(q);
+      return new THREE.Vector3(L.x+nrmV.x*rim+corner.x, yPlane+nrmV.y*rim+corner.y, L.z+nrmV.z*rim+corner.z);
+    });
+    for(let k=0;k<4;k++){ frameSegs.push(cs[k], cs[(k+1)%4]); }
+  }
+  panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; modelPanelGroup.add(panelMesh);
+  if(frameSegs.length){
+    const fg=new THREE.BufferGeometry().setFromPoints(frameSegs);
+    const fl=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0xbcd4f0,transparent:true,opacity:0.5}));
+    fl.renderOrder=2; modelPanelGroup.add(fl);
+  }
+  worldGroup.add(modelPanelGroup);
+  // Visible only when the Model lens is mounted (NOT in the photoreal base, which draws its own
+  // Polygon3DElement panels, and NOT during the active Sun shadow-play sub-view).
+  modelPanelGroup.visible = !!(greyMode && !sunMode);
   window.__panelsPlaced=placed;
 
   // ── Model-lens quality gate: coherence now comes from the analytic model, so the lens
@@ -2336,11 +2447,23 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   window.__modelDebug={mode:"analytic",facets:usable.length,roofMeshes:skin.roofMeshes.length,wallMeshes:skin.wallMeshes.length,builtSqFt:Math.round(builtRoofArea),googleSqFt:Math.round(gTot)};
   if(typeof applyModelGate==="function") applyModelGate();
 
-  // ── camera + shadow frustum (same framing as legacy) ──
+  // ── (STEP 5) HERO CAMERA + shadow frustum ──────────────────────────────────
+  // Frame the building like a product hero shot: a flattering 3/4 oblique, centred on the
+  // roof's own centroid + mid-height, distance sized to the building's footprint (+padding) so
+  // the roof fills the frame with breathing room. Reset/Rotate orbit around this target.
+  let bx0=1e9,bx1=-1e9,bz0=1e9,bz1=-1e9;
+  for(const mm of skin.roofMeshes){ const pa=mm.geometry.attributes.position; for(let i=0;i<pa.count;i++){ const x=pa.getX(i),z=pa.getZ(i); if(x<bx0)bx0=x; if(x>bx1)bx1=x; if(z<bz0)bz0=z; if(z>bz1)bz1=z; } }
+  const bcx=(bx0+bx1)/2, bcz=(bz0+bz1)/2, bMidY=(roofMinY+roofMaxY)/2;
+  const footR=Math.max(8, Math.hypot(bx1-bx0,bz1-bz0)/2);   // half-diagonal of the roof footprint
   const span=CROP*2;
-  controls.target.set(0,5,0);
-  camera.position.set(span*0.48, span*0.62, span*0.72);
-  controls.minDistance=10; controls.maxDistance=span*2.0;
+  controls.target.set(bcx, Math.max(2,bMidY*0.7), bcz);
+  // 3/4 oblique: ~35° elevation, ~35° off-axis in plan; dist scaled to the building + ~1.7× padding.
+  const dist=footR*3.0;
+  const heroPos={x:bcx + dist*0.62, y:bMidY + dist*0.66, z:bcz + dist*0.74};
+  const heroTgt={x:bcx, y:Math.max(2,bMidY*0.7), z:bcz};
+  window.__heroCam={pos:heroPos, tgt:heroTgt};   // Reset (bReset) recalls this exact hero framing
+  camera.position.set(heroPos.x, heroPos.y, heroPos.z);
+  controls.minDistance=footR*0.9; controls.maxDistance=span*2.2;
   SCENE_R=span; const sc=sun.shadow.camera; sc.near=0.5; sc.far=span*6; sc.left=sc.bottom=-span; sc.right=sc.top=span; sc.updateProjectionMatrix();
   modelSkin=skin;
   applyModelSkin(greyMode);
@@ -2516,7 +2639,7 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
   const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
   const panels=(sp.solarPanels||[]).slice(0,n);
   const box=new THREE.BoxGeometry(1,0.06,1);
-  const pmat=new THREE.MeshStandardMaterial({color:0x16335f,roughness:0.3,metalness:0.5,emissive:0x0a1830,emissiveIntensity:0.25});
+  const pmat=panelMatPremium();   // (STEP 5) same textured PV module material as the analytic path
   panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1);
   panelMesh.castShadow=true; panelMesh.receiveShadow=true;
   const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(),
@@ -2554,16 +2677,26 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
    (or restore the aerial-photo schematic) WITHOUT rebuilding geometry. */
 function applyModelSkin(grey){
   const s=modelSkin; if(!s) return;
-  for(const m of s.roofMeshes){ m.material=grey?GREY.roof:s.roofPhotoMat; }
+  // STEP 5: premium per-facet charcoal shingle tone in the Model lens (depth, not a flat slab).
+  for(const m of s.roofMeshes){ m.material = grey ? greyRoofMatFor(m.userData.facetAz!=null?m.userData.facetAz:180) : s.roofPhotoMat; }
   for(const m of s.wallMeshes){ if(m.userData.wallPhotoMat===undefined) m.userData.wallPhotoMat=m.material; m.material=grey?GREY.wall:m.userData.wallPhotoMat; }
   for(const e of s.edges){ e.material=grey?GREY.edge:(e.userData.schemMat||e.material); }
   if(s.ground) s.ground.material=grey?GREY.ground:s.groundPhotoMat;
   if(s.contact) s.contact.visible=grey;
-  // neutralise the sun + lift the soft fill so flat grey doesn't read as cardboard
-  sun.color.setHex(grey?0xfff8f0:0xfff4e0);
-  hemi.intensity=grey?0.6:0.45;
+  // premium directional key + warm sun + lifted hemi fill so the charcoal roof + blue array read
+  // with depth and a soft ground shadow (Aurora/OpenSolar look), not as a flat toy.
+  sun.color.setHex(grey?0xfff6ec:0xfff4e0);
+  hemi.intensity=grey?0.78:0.45;
+  ambient.intensity=grey?0.34:0.42;
   // grey-model labels are about geometry+shade, not numbers — keep the ft²/pitch chips off
   if(grey) setSchemLabels(false);
+}
+// STEP 5: the engineered 3D panel array lives in modelPanelGroup (analytic build) or, on the
+// legacy fallback, in the bare panelMesh. One switch toggles whichever exists so the Model lens
+// can show panels and the shadow-only study can hide them.
+function setModelPanelsVisible(on){
+  if(modelPanelGroup) modelPanelGroup.visible=!!on;
+  else if(panelMesh) panelMesh.visible=!!on;
 }
 // Leave the grey "Model" lens (called when another exclusive lens is entered). Restores the
 // aerial-photo schematic skin + clears the Model button + hint. Does NOT itself switch mode.
@@ -2572,7 +2705,7 @@ function exitGrey(){
   if(!greyMode) return;
   greyMode=false; const b=$("bModel"); if(b) b.classList.remove("on");
   applyModelSkin(false); if(typeof setSchemLabels==="function") setSchemLabels(true);
-  if(panelMesh) panelMesh.visible=true;
+  setModelPanelsVisible(false);   // leaving Model → photoreal lens draws its own panels
   const mh=$("matHint"); if(mh){ mh.style.display="none"; }
 }
 /* Gate the grey "Model" lens on roofs whose Solar segments don't assemble into a coherent solid
@@ -4903,7 +5036,7 @@ async function applySunView(){
     // overlay must be hidden so the grey model's cast shadows are what's visible.
     $("gmapWrap").style.display="none"; $("scene").style.display="block";
     applyModelSkin(true);
-    if(panelMesh) panelMesh.visible=false;
+    setModelPanelsVisible(false);   // shadow-play study = clean geometry + cast shadows only
     setSunbarMode("shadows"); updateSun();
     showLoad(false); return;
   }
@@ -5023,7 +5156,7 @@ $("bSun").onclick=async()=>{
     stopSunPlay(); exitRealShade(); setSchemLabels(!greyMode); $("sunbar").style.display=greyMode?"flex":"none";
     const _ctl=$("sunShadowCtl"); if(_ctl) _ctl.style.display="flex";   // restore time/season controls for the grey Model lens
     showAnalysis(null);
-    if(greyMode){ if(panelMesh) panelMesh.visible=false; }   // back to the static grey Model lens
+    if(greyMode){ setModelPanelsVisible(true); }   // back to the static Model lens → show the engineered array
     else { panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} }
   }
   renderQuoteCard();
@@ -5038,7 +5171,7 @@ $("bModel").onclick=async()=>{
     panelsVisible=false; $("bPanels").classList.remove("on");
     if(mode!=="schematic") await setMode("schematic");
     applyModelSkin(true);
-    if(panelMesh) panelMesh.visible=false;   // grey lens = clean geometry + shade, panels off
+    setModelPanelsVisible(true);   // STEP 5: Model lens shows the engineered 3D solar array on the roof
     window.__sunView="shadows"; updateSun();
     // Caption states the lens's PURPOSE (PO asked "what's the 3D Model for?"): it's the clean
     // structure massing AND the surface the Sun shadow-play animates on.
@@ -5683,7 +5816,7 @@ function rotateCam(delta){
 }
 $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
-$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
+$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); return; } const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun();
   if(realShadeActive) renderShadePlay();   // scrub the hour → repaint Google's real shade for that hour (cached raster, no API hit)
 });
