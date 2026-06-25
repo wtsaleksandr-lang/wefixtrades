@@ -307,11 +307,17 @@ http.createServer(async (req,res)=>{
     }); return;
   }
   // ---- server-side geocode (no referrer; uses Solar key now authorized for Geocoding API) ----
+  // Prefer place_id when the client picked an autocomplete suggestion: geocoding by place_id
+  // resolves the EXACT parcel Google already chose, so it can never drift to the street/route
+  // centroid the way re-geocoding a free-text string can (the P0 where "7 Painter Ave" resolved
+  // to "Painter Ave" → a degenerate roof). Falls back to the address string when no place_id.
   if(u.pathname==="/geocode"){
     const addr=u.searchParams.get("address")||"";
+    const placeId=u.searchParams.get("place_id")||"";
     res.setHeader("Content-Type","application/json");
     try{
-      const r=await fetch("https://maps.googleapis.com/maps/api/geocode/json?address="+encodeURIComponent(addr)+"&key="+SOLAR);
+      const q = placeId ? ("place_id="+encodeURIComponent(placeId)) : ("address="+encodeURIComponent(addr));
+      const r=await fetch("https://maps.googleapis.com/maps/api/geocode/json?"+q+"&key="+SOLAR);
       const j=await r.json();
       if(j.status==="OK"&&j.results[0]){ const l=j.results[0].geometry.location;
         res.end(JSON.stringify({lat:l.lat,lng:l.lng,formatted:j.results[0].formatted_address})); }

@@ -133,22 +133,105 @@ export function buildRoofModel(planes, sampleHeight, opts) {
   // intersection coords → use a tight 0.05 m. The legacy raster fallback passes
   // independently-regularized rings → keep the original ~1 m fuzzy match.
   const shareTol = (typeof opts.shareTolM === "number") ? opts.shareTolM : SHARE_TOL_M;
+
+  // --- DEGENERATE-GEOMETRY GUARD (anti-spike) --------------------------------
+  // The analytic extractor lifts each vertex with p.liftZ = a·E + b·N + c (a plane
+  // equation that EXTRAPOLATES LINEARLY). Two real-world inputs make that explode into
+  // the "giant needle / spike" artifact seen on 7 Painter Ave:
+  //   • a Solar segment with an implausible pitch (steep tanP) → a tiny plan error
+  //     becomes a huge vertical error;
+  //   • a clip-corner vertex (line∩line) landing far from the plane's valid extent,
+  //     or a NaN/Inf height → the lifted Z balloons to thousands of metres.
+  // A single such vertex draws a line from the roof out to that altitude = the spike.
+  // Defence in depth: (1) clamp every lifted Z into a plausible band around the facet's
+  // OWN robust-median height (the slope can only carry it so far across the facet's plan
+  // span); (2) reject a whole facet whose pitch is wall-steep or whose lifted ring is
+  // degenerate. Rejected facets are reported via model.degenerate so the caller can fall
+  // back to a clean massing / photoreal instead of rendering garbage.
+  const MAX_ROOF_PITCH_DEG = 72;     // a residential roof facet steeper than this is a wall / bad plane
+  const median = (arr) => { const s = arr.slice().sort((a, b) => a - b); const n = s.length; return n ? (n & 1 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+
+  // Sanitize one lifted ring in place: replace NaN/Inf with the ring's median height,
+  // then clamp each Z so it cannot stray further from the median than the facet could
+  // plausibly rise/fall across its own plan extent (planSpan · tan(MAX_PITCH) + slack).
+  // Returns { ring3, clamped } where clamped counts how many vertices were corrected.
+  function sanitizeRing3(ring3) {
+    let clamped = 0;
+    const finiteZ = ring3.map((v) => v[2]).filter((z) => isFinite(z));
+    if (!finiteZ.length) return { ring3, clamped: ring3.length, dead: true };
+    const medZ = median(finiteZ);
+    // plan extent of the ring bounds how far Z may legitimately travel across the facet.
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [x, y] of ring3) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    const planSpan = Math.hypot(maxX - minX, maxY - minY);
+    // The band is the SMALLER of two bounds, so a single wild vertex is pulled back to roughly
+    // where the facet's OTHER vertices already sit — not merely to the theoretical max-pitch reach
+    // (which is so wide a 46 m corner survives and still spikes/over-tilts the facet):
+    //   • spread of the INLIER heights (those within a generous max-pitch reach of the median) + 1 m;
+    //   • the geometric max-pitch reach over the plan span (a hard ceiling).
+    const maxReach = Math.max(3, planSpan * Math.tan(MAX_ROOF_PITCH_DEG * Math.PI / 180) + 2);
+    const inliers = finiteZ.filter((z) => Math.abs(z - medZ) <= maxReach);
+    const inlierSpread = inliers.length ? Math.max(...inliers) - Math.min(...inliers) : 0;
+    const reach = Math.max(1.5, Math.min(maxReach, inlierSpread + 1));
+    const lo = medZ - reach, hi = medZ + reach;
+    const out = ring3.map(([x, y, z]) => {
+      let zz = z;
+      if (!isFinite(zz)) { zz = medZ; clamped++; }
+      else if (zz < lo) { zz = lo; clamped++; }
+      else if (zz > hi) { zz = hi; clamped++; }
+      return [x, y, zz];
+    });
+    return { ring3: out, clamped, dead: false };
+  }
+
+  // PLAN-SPACE spike test: a clip-corner from two near-parallel crease lines (or a runaway
+  // footprint vertex on a bad geocode) lands a single ring vertex hundreds of metres away IN
+  // PLAN — a flat horizontal NEEDLE (the 7 Painter Ave artifact: a facet/wall mesh spiking
+  // ~100 m in northing while staying at roof height). Z-clamping can't fix that (the height is
+  // fine; the X/Y is wild). Detect it: a vertex whose plan distance from the ring's median
+  // centre is far beyond the bulk of the ring → the facet is degenerate, drop it.
+  function ringPlanSpike(ring2) {
+    const n = ring2.length; if (n < 3) return false;
+    const xs = ring2.map((v) => v[0]).sort((a, b) => a - b);
+    const ys = ring2.map((v) => v[1]).sort((a, b) => a - b);
+    const mx = xs[(n - 1) >> 1], my = ys[(n - 1) >> 1];          // median centre (robust to the outlier)
+    const d = ring2.map(([x, y]) => Math.hypot(x - mx, y - my)).sort((a, b) => a - b);
+    const medD = d[(n - 1) >> 1] || 0;                            // typical vertex distance from centre
+    const maxD = d[d.length - 1];
+    // a real building facet is compact: its farthest vertex is at most a few × the median reach,
+    // and never more than ~60 m from centre (a residential parcel). Either breach ⇒ a spike.
+    return maxD > 60 || (medD > 0.5 && maxD > medD * 8);
+  }
+
   // 1) Per-plane geometry --------------------------------------------------
-  const facets = planes.map((p) => {
+  const degenerate = [];   // ids of facets dropped as degenerate (spike / wall / sliver)
+  const facets = [];
+  for (const p of planes) {
     const ring2 = openRing(p.ring);
+    if (ring2.length < 3) { degenerate.push(p.id); continue; }
+    if (ringPlanSpike(ring2)) { degenerate.push(p.id); continue; }   // horizontal-needle facet → drop (anti-spike)
     // Lift each vertex to 3D. If the plane carries an exact analytic height function
     // (p.liftZ — the analytic extractor passes one), use it: it is smooth and exact, so
     // crease endpoints get the TRUE roof elevation instead of a noisy DSM sample, which
     // makes ridge/hip/valley classification (edge-vs-centroid height) reliable and lets
     // the 3D overlay ride the real slope. Falls back to the shared DSM sampleHeight.
     const lift = (typeof p.liftZ === "function") ? p.liftZ : sampleHeight;
-    const ring3 = ring2.map(([x, y]) => [x, y, lift(x, y)]);
+    const liftedRaw = ring2.map(([x, y]) => [x, y, lift(x, y)]);
+    // anti-spike: clamp wild / NaN heights into a facet-plausible band before any geometry is computed
+    const san = sanitizeRing3(liftedRaw);
+    if (san.dead) { degenerate.push(p.id); continue; }   // every vertex height was NaN/Inf → unrenderable
+    const ring3 = san.ring3;
     const normal = fitNormal(ring3);
     const { pitchDeg, azimuthDeg } = pitchAndAzimuth(normal);
+    // reject a wall-steep facet: a plane this vertical is a bad Solar segment / clip artifact,
+    // not a roof face. Drawing it produces the flat-slab + needle look; drop it and let the
+    // caller's area-sanity gate fall back to a clean massing / photoreal if too much is lost.
+    if (!isFinite(pitchDeg) || pitchDeg > MAX_ROOF_PITCH_DEG) { degenerate.push(p.id); continue; }
     const pitchX12 = Math.round(Math.tan(pitchDeg * Math.PI / 180) * 12);
     const areaSqM = area3D(ring3);
     const areaSqFt = areaSqM * SQFT_PER_SQM;
-    return {
+    if (!isFinite(areaSqFt) || areaSqFt < 1) { degenerate.push(p.id); continue; }   // near-zero / NaN area sliver
+    facets.push({
       id: p.id,
       ring: ring2,
       ring3,
@@ -159,8 +242,8 @@ export function buildRoofModel(planes, sampleHeight, opts) {
       orientation: compass8(azimuthDeg),
       areaSqFt,
       centroid: centroid3(ring3),
-    };
-  });
+    });
+  }
 
   // 2) Collect every directed facet edge with its 3D endpoints ------------
   const rawEdges = [];
@@ -322,7 +405,11 @@ export function buildRoofModel(planes, sampleHeight, opts) {
     orientation: f.orientation,
   }));
 
-  return { planes: outPlanes, edges, totals };
+  // degenerate = ids of facets dropped by the anti-spike guard (wall-steep plane, NaN/
+  // wild lifted vertices, or zero-area sliver). The caller (buildSceneAnalytic) inspects
+  // this + the built-vs-Google area ratio to decide whether to render our model or fall
+  // back to a clean massing / photoreal, so a single bad Solar segment never spikes.
+  return { planes: outPlanes, edges, totals, degenerate };
 }
 
 // ============================================================================
@@ -477,6 +564,100 @@ if (isMain()) {
   test("valley: at least one valley detected", () => {
     assert.ok(valley.edges.filter((e) => e.type === "valley").length >= 1,
       `valleys=${valley.edges.filter((e) => e.type === "valley").length}`);
+  });
+
+  // --------------------------------------------------------------------
+  // FIXTURE 4 — ANTI-SPIKE guard (the P0 on 7 Painter Ave).
+  //   (a) a single wild lifted vertex (one corner shot to 9000 m altitude, as a bad
+  //       analytic liftZ extrapolation does) must NOT survive into ring3 — it is clamped
+  //       back into the facet's plausible band, so no needle is drawn.
+  //   (b) a wall-steep facet (near-vertical plane from a bad Solar segment) is DROPPED and
+  //       reported in model.degenerate, so the caller can fall back instead of rendering a slab.
+  //   (c) a clean facet alongside the bad one is preserved (the guard is surgical, not nuke-all).
+  // --------------------------------------------------------------------
+  // (a) a real 4/12 gable-ish facet (coherent slope) where ONE vertex's height comes back
+  //     as a wild 9000 m extrapolation (the analytic-liftZ spike) — the rest are sane. The
+  //     guard must clamp that one Z back into the band so the facet still renders cleanly,
+  //     with NO needle. (A facet whose geometry is genuinely degenerate is dropped instead —
+  //     covered by the wall test below; here the facet is otherwise valid.)
+  function spikeHeight(x, y) {
+    if (x > 9 && y > 9) return 9000;           // the single bad vertex
+    return 3 - x * (4 / 12);                    // clean 4/12 plane for the other corners
+  }
+  const spikePlanes = [{ id: "spk", ring: [[0, 0], [10, 0], [10, 10], [0, 10]] }];
+  const spiked = buildRoofModel(spikePlanes, spikeHeight);
+  test("anti-spike: wild vertex clamped — no ring3 Z exceeds a plausible roof band", () => {
+    // band ≈ median(±~3 m) + slope reach over a ~14 m diagonal; 9000 m must be gone.
+    const maxZ = Math.max(...spiked.planes.flatMap((p) => p.ring3.map((v) => v[2])), 0);
+    assert.ok(maxZ < 60, `clamped maxZ=${maxZ} (want « 9000)`);
+  });
+  test("anti-spike: clamped facet still renders (not dropped)", () => {
+    assert.ok(spiked.planes.length === 1, `planes=${spiked.planes.length}`);
+    assert.deepEqual(spiked.degenerate, []);
+  });
+  // (b) a near-vertical wall plane (huge Z gradient) next to a clean roof facet. The guard
+  //     must ensure the wall NEVER renders as a spike — either by clamping its impossible
+  //     heights into a bounded band OR by dropping it — while the clean roof facet is kept.
+  function wallAndRoofHeight(x, y) {
+    // x<6 region: a near-vertical wall (Z rockets with x). x>=6: a gentle 4/12 roof.
+    return x < 6 ? x * 20 : 3 - (x - 6) * (4 / 12);
+  }
+  const mixedPlanes = [
+    { id: "wall", ring: [[0, 0], [5.9, 0], [5.9, 8], [0, 8]] },
+    { id: "roof", ring: [[6, 0], [12, 0], [12, 8], [6, 8]] },
+  ];
+  const mixed = buildRoofModel(mixedPlanes, wallAndRoofHeight);
+  test("anti-spike: no wall facet survives as a spike (clamped flat or dropped)", () => {
+    const wall = mixed.planes.find((p) => p.id === "wall");
+    if (wall) {
+      // kept → its lifted ring must be flattened to a plausible vertical spread (no needle).
+      const zs = wall.ring3.map((v) => v[2]);
+      const spread = Math.max(...zs) - Math.min(...zs);
+      assert.ok(spread < 12, `wall vertical spread ${spread.toFixed(1)} m must be bounded (no spike)`);
+    } else {
+      // dropped → must be reported as degenerate.
+      assert.ok(mixed.degenerate.includes("wall"), `degenerate=${JSON.stringify(mixed.degenerate)}`);
+    }
+  });
+  test("anti-spike: clean roof facet survives alongside the bad wall", () => {
+    assert.ok(mixed.planes.some((p) => p.id === "roof"), "roof facet should remain");
+  });
+  // (d) a PLAN-SPACE horizontal needle: one ring vertex shot ~100 m away in plan (a clip-corner from
+  //     near-parallel creases / a runaway footprint vertex — the 7 Painter Ave artifact) must be
+  //     dropped & reported, while a neighbouring compact facet survives.
+  const spikePlanPlanes = [
+    { id: "needle", ring: [[0, 0], [10, 0], [10, 103], [0, 8]] },   // 3rd vertex 103 m north = the needle
+    { id: "ok2", ring: [[20, 0], [26, 0], [26, 6], [20, 6]] },
+  ];
+  const spikePlan = buildRoofModel(spikePlanPlanes, (x, y) => 3 - x * (4 / 12));
+  test("anti-spike: plan-space horizontal needle facet is dropped & reported", () => {
+    assert.ok(spikePlan.degenerate.includes("needle"), `degenerate=${JSON.stringify(spikePlan.degenerate)}`);
+    assert.ok(spikePlan.planes.some((p) => p.id === "ok2"), "compact neighbour facet should survive");
+    // and prove NO surviving facet ring has a plan extent anywhere near the needle (no 100 m mesh):
+    const maxPlan = Math.max(...spikePlan.planes.flatMap((p) => {
+      const xs = p.ring3.map((v) => v[0]), ys = p.ring3.map((v) => v[1]);
+      return [Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))];
+    }), 0);
+    assert.ok(maxPlan < 50, `surviving facet plan extent ${maxPlan.toFixed(0)} m must be compact`);
+  });
+  // (c) a fully unrenderable facet (every vertex height NaN, e.g. a DSM hole) is dropped + reported.
+  const deadPlanes = [
+    { id: "dead", ring: [[0, 0], [6, 0], [6, 6], [0, 6]] },
+    { id: "ok", ring: [[7, 0], [13, 0], [13, 6], [7, 6]] },
+  ];
+  const deadModel = buildRoofModel(deadPlanes, (x) => (x < 6.5 ? NaN : 3 - (x - 7) * (4 / 12)));
+  test("anti-spike: all-NaN facet is dropped & reported, neighbour kept", () => {
+    assert.ok(deadModel.degenerate.includes("dead"), `degenerate=${JSON.stringify(deadModel.degenerate)}`);
+    assert.ok(deadModel.planes.some((p) => p.id === "ok"), "valid neighbour facet should remain");
+  });
+  // DELIBERATE-FAILURE proof: WITHOUT the guard (raw lift), the wild vertex WOULD reach 9000 m —
+  // proving the clamp above is load-bearing, not vacuous.
+  test("anti-spike deliberate-failure: raw (unguarded) lift would spike to 9000 m", () => {
+    const rawMaxZ = Math.max(...spikePlanes[0].ring.map(([x, y]) => spikeHeight(x, y)));
+    assert.ok(rawMaxZ >= 9000, "the unguarded height fn must produce the spike the guard removes");
+    // and confirm the GUARDED model disagrees (the guard fired):
+    const guardedMaxZ = Math.max(...spiked.planes.flatMap((p) => p.ring3.map((v) => v[2])));
+    assert.ok(guardedMaxZ < rawMaxZ, `guarded ${guardedMaxZ} must be « raw ${rawMaxZ}`);
   });
 
   // --------------------------------------------------------------------

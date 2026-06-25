@@ -21,7 +21,7 @@ DST="$DST_DIR/roof3d.html"
 #    a SECOND <script type="module"> block, which does NOT share top-level scope with
 #    this first block. Referencing the bare `RQ_BASE` const there throws
 #    "RQ_BASE is not defined", so the second block reads window.RQ_BASE instead.
-perl -0pi -e 's{(async function geocode\(addr\)\{)}{const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it\n$1}' "$DST"
+perl -0pi -e 's{(async function geocode\(addr[^)]*\)\{)}{const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it\n$1}' "$DST"
 
 # 2) Prefix backend route fetches.
 perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"

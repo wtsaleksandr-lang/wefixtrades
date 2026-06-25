@@ -78,7 +78,12 @@
   #status{position:absolute;top:62px;left:12px;z-index:20;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none;box-shadow:var(--card-shadow)}
   #status.err{color:#dc2626;border-color:#fecaca}
   /* overlay-suppression note: shown when tree canopy hides the roof so the heatmap/panels/measure can't be placed reliably */
-  #overlayNote{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;display:none;align-items:center;gap:8px;background:#fffaf0;border:1px solid #f4d9a6;border-radius:12px;padding:9px 13px;font-size:12.5px;line-height:1.35;color:#7a5a18;max-width:min(420px,92vw);box-shadow:var(--card-shadow)}
+  /* pointer-events:none — this centered tree-cover note shares the top-centre band with #aiBtn
+     ("See it on my house", same top:62/z21). When shown it sat OVER the button and intercepted its
+     clicks, making the AI render unreachable on exactly the tree-obscured homes where the note appears
+     (P1 audit). The note is purely informational, so it never needs to receive pointer events; this
+     lets every click fall through to #aiBtn underneath it. */
+  #overlayNote{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;display:none;pointer-events:none;align-items:center;gap:8px;background:#fffaf0;border:1px solid #f4d9a6;border-radius:12px;padding:9px 13px;font-size:12.5px;line-height:1.35;color:#7a5a18;max-width:min(420px,92vw);box-shadow:var(--card-shadow)}
   #overlayNote svg{flex:0 0 auto;width:16px;height:16px;stroke:#b8860b;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   /* mobile: the centered "See it on my house" button (#aiBtn) lives at top:62 (z21) and was covering
      these top toasts. Drop both below the button band (its bottom ≈ 100px) and lift their z above it so
@@ -696,7 +701,10 @@ async function fetchJSON(url, tag){
   }
   throw lastErr||new Error(tag+" unavailable");
 }
-async function geocode(addr){ const j=await fetchJSON("/geocode?address="+encodeURIComponent(addr),"geocode"); if(j.error) throw new Error("geocode "+j.error); return j; }
+// placeId (optional) = the exact Google place the user picked from autocomplete. When present we
+// geocode by place_id (exact parcel) instead of the free-text address, so the result can never
+// drift to the street/route centroid the typed string sometimes resolves to (the 7 Painter Ave P0).
+async function geocode(addr,placeId){ const qs="/geocode?address="+encodeURIComponent(addr)+(placeId?("&place_id="+encodeURIComponent(placeId)):""); const j=await fetchJSON(qs,"geocode"); if(j.error) throw new Error("geocode "+j.error); return j; }
 async function solar(lat,lng){ const j=await fetchJSON("/solar?lat="+lat+"&lng="+lng,"solar"); if(j.error) throw new Error("solar "+(j.code||j.error)); return j; }
 async function datalayers(lat,lng,fresh){ const j=await fetchJSON("/datalayers?lat="+lat+"&lng="+lng+(fresh?"&fresh=1":""),"datalayers"); if(j.error) throw new Error("datalayers "+(j.code||j.error)); return j; }
 
@@ -1051,6 +1059,7 @@ function panelMatPremium(){
 // panel boxes sitting coplanar on the roof, plus a thin top-edge line set for crisp rows.
 let modelPanelGroup=null;
 let worldGroup=new THREE.Group(); scene.add(worldGroup);
+try{ if(new URLSearchParams(location.search).get("dbg")==="1") window.__scene=scene; }catch(_){}
 // (BUG 2) On-model 3D measurement overlay (colour-coded typed edges + LF/area labels) drawn on OUR
 // Three.js scene — guaranteed on-surface (same M2S as the facet meshes), unlike the old Google-tile
 // Polyline3DElements that floated off the photoreal mesh. Built once per scene build, shown only in
@@ -2185,6 +2194,15 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // need lifted rings to build true-elevation roof meshes
   const usable=model.planes.filter(p=>Array.isArray(p.ring3) && p.ring3.length>=3);
   if(!usable.length) return false;
+  // (P0 anti-spike) roofgeo dropped facets it judged degenerate (wall-steep plane, NaN/wild
+  // lifted vertices, zero-area sliver). A FEW drops are normal; but if it had to reject a large
+  // share of the planes, the whole reconstruction is low-confidence (the 7 Painter Ave case where
+  // a bad geocode/Solar segment poisons the model) → don't render a half-built slab, fall back to
+  // legacy massing / photoreal instead. Threshold: >40% of planes dropped, or <2 usable on a
+  // multi-segment roof.
+  const dropped=(Array.isArray(model.degenerate)?model.degenerate.length:0);
+  const totalPlanes=usable.length+dropped;
+  if(totalPlanes>0 && dropped/totalPlanes>0.4){ if(typeof errors!=="undefined") errors.push("massing:too-many-degenerate-facets("+dropped+"/"+totalPlanes+")"); return false; }
 
   clearWorld(); schemLabels=[];
   const skin={roofMeshes:[],wallMeshes:[],edges:[],roofPhotoMat:null,ground:null,groundPhotoMat:null,contact:null};
@@ -2277,6 +2295,24 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     if(fsqft>25){ const lb=makeLabel(fsqft+" ft² · "+x12+"/12"); lb.position.set(cx, cy+1.6, cz); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb); }
   }
   if(!skin.roofMeshes.length){ clearWorld(); return false; }   // nothing valid built → fall back
+
+  // (P0 anti-spike) HARD geometry-sanity backstop on the BUILT roof meshes — catches a spike that
+  // slipped every upstream guard, in ANY direction:
+  //   • VERTICAL: a residential roof spans at most ~3 storeys (~12 m) of relief; a vertical needle
+  //     is hundreds of m.
+  //   • HORIZONTAL: a clip-corner / runaway footprint vertex draws a flat needle ~100 m across the
+  //     plan while staying at roof height (the 7 Painter Ave case). Cap the roof's plan extent to a
+  //     residential parcel (the DSM crop is ≤60 m half-width, so a real roof is well under ~80 m).
+  // Either breach ⇒ abandon the analytic build and fall back rather than render the artifact.
+  const ROOF_Y_SPAN_CAP=22;     // m — generous (tall gables / multi-level homes)
+  const ROOF_PLAN_SPAN_CAP=90;  // m — a residential roof's plan diagonal; a horizontal spike is »this
+  let rMinX=1e9,rMaxX=-1e9,rMinZ=1e9,rMaxZ=-1e9;
+  for(const m of skin.roofMeshes){ const pa=m.geometry.attributes.position; for(let i=0;i<pa.count;i++){ const x=pa.getX(i),z=pa.getZ(i); if(x<rMinX)rMinX=x; if(x>rMaxX)rMaxX=x; if(z<rMinZ)rMinZ=z; if(z>rMaxZ)rMaxZ=z; } }
+  const planSpan=Math.hypot(rMaxX-rMinX, rMaxZ-rMinZ);
+  if((isFinite(roofMinY)&&isFinite(roofMaxY)&&(roofMaxY-roofMinY)>ROOF_Y_SPAN_CAP) || (isFinite(planSpan)&&planSpan>ROOF_PLAN_SPAN_CAP)){
+    if(typeof errors!=="undefined") errors.push("massing:roof-span-spike(y="+(roofMaxY-roofMinY).toFixed(0)+"m plan="+planSpan.toFixed(0)+"m)");
+    clearWorld(); return false;
+  }
 
   // degeneracy guard: built roof area must track Google's segment total (else fall back)
   const gTot=segs.reduce((t,s)=>t+(((s.stats&&s.stats.areaMeters2)||0)*M2_SQFT),0);
@@ -2797,7 +2833,12 @@ async function run(addr){
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
   window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false;   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
-    const g=await geocode(addr); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
+    // If this run was launched by picking an autocomplete suggestion whose text matches what we're
+    // geocoding, use that suggestion's place_id for an EXACT-parcel resolve (no street drift). The
+    // pick handler stashes {addr,id}; we only honour it when the address still matches (a later manual
+    // edit clears the match) so a stale id never geocodes the wrong house.
+    const picked=window.__pickedPlace; const placeId=(picked&&picked.addr===addr)?picked.id:"";
+    const g=await geocode(addr,placeId); window.__ll={lat:g.lat,lng:g.lng}; SITE={lat:g.lat,lng:g.lng};
     showLoad("Analysing roof (Solar)…");
     const b=await solar(g.lat,g.lng); LASTB=b;
     if(!b.solarPotential) throw new Error("no solar potential for this building");
@@ -3510,6 +3551,19 @@ function extractFacetPolysAnalytic(margin){
     fpxy=cleanFootprintRing(fpxy, fpAxis, { minLen:0.8*cellsPerM, mergeDeg:8, rectTol:0.06, maxVerts:6 });
     footprint=fpxy.map(([x,y])=>cellEN(y,x));   // [[E,N],...] outer ring
     if(polyArea2(footprint)<3) throw new Error("footprint too small");
+    // (P0 anti-spike) FOOTPRINT-SPIKE GUARD. On a bad geocode (e.g. the address resolves to a STREET
+    // centroid, not a parcel) the mask blob + Moore-trace can yield a footprint with a single runaway
+    // vertex hundreds of metres from the building — a flat horizontal NEEDLE that poisons every facet
+    // mesh AND the wall envelope built from this ring (the 7 Painter Ave artifact). A residential
+    // footprint is compact: its farthest vertex sits at most a few × the median vertex-distance from
+    // centre, and never >70 m out. Either breach ⇒ the parcel geometry is untrustworthy → THROW so the
+    // analytic build falls back to legacy/photoreal rather than render a spike.
+    { const F=footprint, n=F.length;
+      let mE=0,mN=0; for(const[E,N]of F){mE+=E;mN+=N;} mE/=n; mN/=n;
+      const ds=F.map(([E,N])=>Math.hypot(E-mE,N-mN)).sort((a,b)=>a-b);
+      const medD=ds[(n-1)>>1]||0, maxD=ds[ds.length-1];
+      if(maxD>70 || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
+    }
     // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
     //    The geocoded address point (window.__ll) lands on the owner's unit; clip the footprint
     //    to that unit's slab BEFORE facets are reconstructed, so every downstream facet inherits
@@ -3844,7 +3898,10 @@ function facetsToRoofModel(){
   return model;
 }
 async function buildRoofMeasure(){
-  if(!gmap) return; clearRoofMeas();
+  // (P1 #4) No longer gated on gmap: Measure rides OUR own model (the 2D #matCanvas takeoff + the
+  // 3D #scene edge overlay), neither of which needs Google's Map3D base. The only place gmap is
+  // still required is the legacy buildPhotoLabels() fallback below, which is guarded individually.
+  clearRoofMeas();
   // COMMERCIAL/LOW-CONFIDENCE GATE — compute the verdict UP FRONT, before any takeoff
   // polygons or facet badges paint. On a high-rise (e.g. 20 W 34th St) the confident facet
   // badges used to flash across neighbouring buildings for a few seconds, then get replaced
@@ -3859,7 +3916,7 @@ async function buildRoofMeasure(){
     if(largeRoof || (conf&&conf.low)) return;   // commercial / low-confidence → no on-map takeoff; the card shows the commercial verdict
   }catch(_){}
   if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → DSM-derived measure would drift; suppress (quote still shows measured ft² from Solar)
-  const model=facetsToRoofModel(); if(!model){ await buildPhotoLabels(); return; }   // graceful fallback to legacy outline
+  const model=facetsToRoofModel(); if(!model){ if(gmap) await buildPhotoLabels(); return; }   // graceful fallback to legacy outline (only available on the photoreal base)
   // (BUG 2) The 3D measurement lines are NO LONGER drawn on Google's photoreal tiles (they floated
   // off the mesh due to the DSM↔3D-Tiles datum mismatch and were blank/unverifiable headless). They
   // are now built ON our own Three.js scene (measGroup3D, in buildSceneAnalytic) via the SAME M2S()
@@ -4214,7 +4271,9 @@ function roofFitRange(fallback){
 async function ensurePhotoreal(){
   const cam={ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:roofFitRange(78), tilt:58, heading:15 };
   if(gmap){ // re-search: fly the existing map to the new address (was a bug: 3D stayed on the old address)
+    window.__photorealOk=undefined;   // re-validate for THIS address (a new parcel may 502 / lack tiles even if the last one painted)
     try{ if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:800}); else Object.assign(gmap,cam); }catch(_){}
+    const tiles=await waitForTiles(gmap); window.__photorealOk=!!(tiles&&tiles.settled&&!tiles.errored);
     return gmap; }
   const { Map3DElement }=await google.maps.importLibrary("maps3d");
   gmap=new Map3DElement(Object.assign({mode:"HYBRID"},cam));
@@ -4226,20 +4285,33 @@ async function ensurePhotoreal(){
   // the moment this returns, so mobile showed a dark-olive void with NO indicator until tiles painted.
   // Hold here until the map reaches its first STEADY state (tiles settled) or a hard cap, so the
   // "Loading photoreal 3D…" spinner stays up until the oblique view has actually rendered.
-  await waitForTiles(gmap);
+  const tiles=await waitForTiles(gmap);
+  window.__photorealOk=!!(tiles&&tiles.settled&&!tiles.errored);   // false ⇒ tiles never painted (502 / rate-limit / blank void) — caller falls back
   return gmap;
 }
 // Resolve once the Map3DElement has finished streaming/settling its tiles (first gmp-steadychange→steady),
 // or after a hard timeout so we never hang the spinner on a slow/uncovered address. Best-effort: any API
-// shape mismatch falls through to the timeout rather than throwing.
+// shape mismatch falls through to the timeout rather than throwing. Resolves { settled, errored }:
+//   settled=true  → a steady-change fired (tiles actually painted);
+//   settled=false → only the hard cap fired (NO steady event = blank/olive void, e.g. a 502 / tile
+//                   rate-limit) → the caller treats this as "aerial unavailable" and falls back.
+//   errored=true  → a Map3D error/auth event fired (key/tiles failure) — also a fallback trigger.
 function waitForTiles(map, capMs){
   return new Promise(resolve=>{
-    let done=false; const finish=()=>{ if(done) return; done=true; try{ map.removeEventListener&&map.removeEventListener("gmp-steadychange",onSteady); }catch(_){} resolve(); };
-    const onSteady=ev=>{ try{ if(ev && (ev.isSteady===true || (ev.detail&&ev.detail.isSteady===true))) finish(); }catch(_){ finish(); } };
+    let done=false, errored=false;
+    const cleanup=()=>{ try{ map.removeEventListener&&map.removeEventListener("gmp-steadychange",onSteady); }catch(_){}
+      for(const ev of ERR_EVENTS){ try{ map.removeEventListener&&map.removeEventListener(ev,onErr); }catch(_){} } };
+    const finish=(settled)=>{ if(done) return; done=true; cleanup(); resolve({ settled:!!settled, errored }); };
+    const onSteady=ev=>{ try{ if(ev && (ev.isSteady===true || (ev.detail&&ev.detail.isSteady===true))) finish(true); }catch(_){ finish(true); } };
+    // Map3D surfaces tile/auth failures via an error event; capture the common names so a 502 /
+    // bad-tiles-key is treated as a hard failure (not just a slow load) → faster, cleaner fallback.
+    const ERR_EVENTS=["gmp-error","error","gmp-tilefailed"];
+    const onErr=()=>{ errored=true; finish(false); };
     try{ map.addEventListener&&map.addEventListener("gmp-steadychange",onSteady); }catch(_){}
+    for(const ev of ERR_EVENTS){ try{ map.addEventListener&&map.addEventListener(ev,onErr); }catch(_){} }
     // Hard cap (longer on mobile/touch where tiles stream slower) so the spinner always clears.
     const isMobile=(window.innerWidth||1024)<=560 || (("ontouchstart" in window)&&(window.innerWidth||1024)<900);
-    setTimeout(finish, capMs || (isMobile?9000:4500));
+    setTimeout(()=>finish(false), capMs || (isMobile?9000:4500));
   });
 }
 /* 4 lat/lng/alt corners of a panel, COPLANAR with its facet plane.
@@ -5038,12 +5110,17 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
       box.style.display="block"; };
     const paint=()=>{ [...box.children].forEach((c,i)=>{ c.style.background=(i===active)?"#eef2ff":""; }); };
     async function choose(i){ const it=items[i]; if(!it) return; hide();
+      // capture the suggestion's place_id so run()/geocode() can resolve the EXACT parcel the user
+      // chose (place_id geocode never drifts to the street centroid the typed string can — the
+      // 7 Painter Ave P0). Keyed by the resolved address so a later manual edit invalidates it.
+      const pid=(it.sugg&&it.sugg.placePrediction&&it.sugg.placePrediction.placeId)||"";
       try{ const place=it.sugg.placePrediction.toPlace(); await place.fetchFields({ fields:["formattedAddress"] });
-        const addr=place.formattedAddress||it.text; input.value=addr; onPick(addr);
-      }catch(_){ input.value=it.text; onPick(it.text); }
+        const addr=place.formattedAddress||it.text; input.value=addr; try{ window.__pickedPlace={addr,id:pid}; }catch(_){} onPick(addr);
+      }catch(_){ input.value=it.text; try{ window.__pickedPlace={addr:it.text,id:pid}; }catch(_){} onPick(it.text); }
       token=new AutocompleteSessionToken(); }
     let t=null;
     input.addEventListener("input",()=>{ const v=input.value.trim(); clearTimeout(t);
+      try{ if(window.__pickedPlace && window.__pickedPlace.addr!==v) window.__pickedPlace=null; }catch(_){}   // manual edit → invalidate any stale picked place_id
       if(v.length<3){ items=[]; hide(); return; }
       const mine=++seq;
       t=setTimeout(async()=>{ try{
@@ -5254,13 +5331,21 @@ $("bModel").onclick=async()=>{
   renderQuoteCard();
 };
 $("bLabels").onclick=async()=>{
-  exitGrey();   // Measure forces the photoreal base; leave the grey Model lens
   labelsVisible=!labelsVisible; $("bLabels").classList.toggle("on",labelsVisible);
   sunMode=false; matMode=false; $("bSun").classList.remove("on"); $("bRoof").classList.remove("on");
   if(labelsVisible){ panelsVisible=false; $("bPanels").classList.remove("on"); }   // exclusive lens: Measure replaces the Panels view
   clearPanels(); clearHeat(); clearMat(); clearLabels(); clearRoofMeas();
-  if(labelsVisible){ showLoad("Measuring roof…"); showAnalysis(null); if(mode!=="photoreal") await setMode("photoreal"); await buildRoofMeasure(); showLoad(false); }
-  else { showAnalysis(null); if(window.__trade!=="roof"){ panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} } }   // restore panels only in Solar
+  if(labelsVisible){
+    // (P1 #4) Measure rides OUR OWN model now — it no longer flips to Google's photoreal base
+    // (which also triggered the 502 "Loading photoreal 3D…" hang). The default lens is the 2D
+    // top-down takeoff (#matCanvas, drawn from the facet model — needs no map), and the "3D"
+    // toggle mounts #scene + the on-model edge overlay (measGroup3D). Mount our schematic base so
+    // both rooflines render on our premium model. greyMode stays as-is so exitGrey() isn't needed.
+    showLoad("Measuring roof…"); showAnalysis(null);
+    if(mode!=="schematic") await setMode("schematic");
+    await buildRoofMeasure(); showLoad(false);
+  }
+  else { exitGrey(); showAnalysis(null); if(window.__trade!=="roof"){ panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"){ showLoad(""); await buildPhotoPanels(); showLoad(false);} } }   // restore panels only in Solar
   if(typeof syncViewToggle==="function") syncViewToggle();
   renderQuoteCard();
 };
@@ -5298,6 +5383,13 @@ $("viewToggle").querySelectorAll("button").forEach(btn=>{
       try{ await setMode("photoreal"); showAnalysis(null); await buildPhotoPanels(); }
       catch(e){ errors.push("toggle-photo:"+((e&&e.message)||e)); }
       showLoad(false);
+      // (P0 #2) Google's photoreal tiles never painted (502 / rate-limit / no coverage → a blank blue
+      // void). Don't strand the buyer on an empty map: revert to OUR premium 3D model and say why.
+      if(window.__photorealOk===false){
+        try{ await enterModelDefault(); }catch(_){}
+        setStatus("Aerial 3D view is temporarily unavailable — showing our 3D model instead.");
+        syncViewToggle(); renderQuoteCard(); return;
+      }
     } else {
       if(mode==="schematic" && greyMode){ syncViewToggle(); return; }   // already on our model
       showLoad("Loading 3D model…");
