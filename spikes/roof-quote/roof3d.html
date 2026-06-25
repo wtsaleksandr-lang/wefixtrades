@@ -406,6 +406,20 @@
   #dotHud .dh-v{font-size:16px;font-weight:800;color:#0f172a;line-height:1.1;font-variant-numeric:tabular-nums}
   #dotHud .dh-price .dh-v{font-size:13.5px;color:#0d3cfc}
   #dotHud .dh-l{font-size:10px;font-weight:600;color:var(--muted);margin-top:2px}
+  /* pitch-class selector */
+  #dotHud .dh-pitch{margin-bottom:9px;text-align:left}
+  #dotHud .dh-pitch-l{font-size:10px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.03em}
+  #dotHud .dh-pitch-row{display:flex;gap:5px}
+  #dotHud .dh-pbtn{flex:1;background:#f5f7fb;border:1px solid #e1e7ef;color:#475569;border-radius:9px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #dotHud .dh-pbtn.dh-pauto{flex:.7;color:#0d3cfc}
+  #dotHud .dh-pbtn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07);box-shadow:inset 0 0 0 1px #0d3cfc}
+  /* per-facet breakdown chips */
+  #dotHud .dh-facets{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px}
+  #dotHud .dh-facets:empty{display:none;margin:0}
+  #dotHud .dh-flabel{flex-basis:100%;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:1px}
+  #dotHud .dh-fchip{font-size:11px;font-weight:600;color:#334155;background:#f5f7fb;border:1px solid #eef1f6;border-radius:8px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px}
+  #dotHud .dh-fchip b{font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums}
+  #dotHud .dh-fchip i{font-style:normal;color:#94a3b8;font-size:10px}
   #dotHud .dh-actions{display:flex;gap:6px;justify-content:center}
   #dotHud .dh-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:10px;padding:9px 8px;font-size:12.5px;font-weight:700;cursor:pointer}
   #dotHud .dh-btn:disabled{opacity:.4;cursor:default}
@@ -1560,7 +1574,20 @@ function quoteAreaSqFt(){
 // Unrounded owner's-unit area (Google whole × split ratio) — the scale TARGET every measurement
 // surface reconciles to, so the diagram / preview / 3D / report / takeoff all report the SAME
 // owner's-half roof on a shared building (and the whole roof on a detached home).
-function roofUnitSqFt(){ return ((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio(); }
+function roofUnitSqFt(){
+  // PHASE 1b — when the homeowner has edited the outer outline (RoofDots active or confirmed), the
+  // CANONICAL roof area becomes their EDITED, pitch-corrected sloped area (Σ per-facet scaled by the
+  // edited plan-area ratio). Routing it through here means the WHOLE real quote — squares, the material
+  // price ladder, the takeoff, solar kW — recomputes from the edited area via the existing pricing path,
+  // so the live number on drag == the real quote engine's number (one roof size everywhere).
+  try{
+    if(typeof RoofDots!=="undefined" && RoofDots.active()){
+      const e=RoofDots.editArea();   // edited sloped ft² (already pitch-corrected + reconciled)
+      if(e>0 && isFinite(e)) return e;
+    }
+  }catch(_){}
+  return ((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio();
+}
 window.__quoteAreaSqFt=()=>quoteAreaSqFt();
 window.__roofUnitSqFt=()=>roofUnitSqFt();
 // The reconstructed facet model (facetsToRoofModel) sometimes under-/over-captures facets, so its area
@@ -5579,7 +5606,33 @@ const RoofDots=(function(){
   let dragIdx=-1, dragKind=null;// "corner" | "mid"
   let pointerId=null;
   let baseArea0=0, flat0=0, pitchMult=1, pricePerSqft=0;   // captured at init for honest live scaling
+  // ── PHASE 1b: per-facet pitch-corrected area model ──────────────────────────
+  // facets0[]: the reconciled per-facet breakdown captured once per roof. Each entry is the
+  // owner's-unit sloped area of one roof plane PLUS the cos(pitch) needed to re-derive it from a
+  // scaled plan-area. We reconcile each model plane's sloped area up to the authoritative
+  // owner's-unit total (baseArea0 = roofUnitSqFt) so the breakdown sums to the same roof the
+  // quote bills — then the edited plan-area ratio scales every facet, preserving the pitch mix.
+  let facets0=[];          // [{planFt2, slopedFt2, pitchDeg, cosP}]  (cosP guards a flat facet's ÷0)
+  let autoPlanFt2=0;       // the auto outline's plan (footprint) area at capture — the scale denominator
+  // pitch-class override: null = use the auto-detected per-facet pitch mix; otherwise force every
+  // facet to this class's slope multiplier (sloped = plan × classMult) for the simple-tier estimate.
+  let pitchClass=null;     // null | "flat" | "sloped" | "steep" | "vsteep"
   let cv=null, hud=null, started=false;
+  // class slope multipliers (sloped-area ÷ plan-area = 1/cos(pitch)). Representative residential pitches:
+  // flat 0.5/12 (~2°)≈1.00, sloped 6/12 (~26.6°)≈1.118, steep 9/12 (~36.9°)≈1.25, very-steep 12/12 (45°)≈1.414.
+  const PITCH_CLASSES=[
+    {id:"flat",   label:"Flat",       mult:1.00},
+    {id:"sloped", label:"Sloped",     mult:1.118},
+    {id:"steep",  label:"Steep",      mult:1.25},
+    {id:"vsteep", label:"Very steep", mult:1.414},
+  ];
+  const classMult=(id)=>{ const c=PITCH_CLASSES.find(c=>c.id===id); return c?c.mult:1; };
+  // map an auto-detected average pitch multiplier → the nearest class id (for the selector default)
+  function classForMult(mult){
+    let best=PITCH_CLASSES[1], bd=Infinity;
+    for(const c of PITCH_CLASSES){ const d=Math.abs(c.mult-mult); if(d<bd){ bd=d; best=c; } }
+    return best.id;
+  }
 
   const X=()=>window.__diagXform;
   const M2_FT=M_FT; // alias
@@ -5589,16 +5642,41 @@ const RoofDots=(function(){
   function perimEdges(r){ const out=[]; for(let i=0,n=r.length;i<n;i++){ const a=r[i],b=r[(i+1)%n]; out.push({a,b,m:Math.hypot(b[0]-a[0],b[1]-a[1])}); } return out; }
 
   // ---- live measurements from the EDITED ring ------------------------------
+  // PHASE 1b — TRUE per-facet sloped area, scaled to the edited outline.
+  //   roof area = Σ over facets of  (scaledPlanArea_i ÷ cos(pitch_i))
+  // where scaledPlanArea_i = facet_i.planFt2 × (editedPlanArea ÷ autoPlanArea). The edit changes
+  // ONE number — the outer plan area — and every facet's plan-area scales by that same ratio, so the
+  // pitch MIX is preserved (a steep facet still contributes more sloped ft² than its footprint).
+  // When a pitch CLASS is selected, every facet uses that class's slope multiplier instead of its
+  // own cos(pitch) — this is the simple-tier estimate / correction the user dialled in.
   function measure(){
     if(!ringM||ringM.length<3) return null;
     const flatM2=shoelaceM2(ringM);
-    const flatFt2=flatM2*M2_SQFT;
-    const slopeFt2=flatFt2*pitchMult;           // apply the captured pitch multiplier → true roof area
+    const flatFt2=flatM2*M2_SQFT;                 // edited plan (footprint) area
     const edges=perimEdges(ringM).map(e=>({lenFt:e.m*M2_FT}));
     const perimFt=edges.reduce((s,e)=>s+e.lenFt,0);
+    // plan-area ratio: how much the user grew/shrank the outline vs the captured auto outline
+    const ratio=(autoPlanFt2>0)?(flatFt2/autoPlanFt2):1;
+    let slopeFt2, facetBreakdown=null;
+    if(facets0.length){
+      const useClass=(pitchClass!=null);
+      const cm=useClass?classMult(pitchClass):0;
+      facetBreakdown=facets0.map((f,i)=>{
+        const planFt2=f.planFt2*ratio;
+        const sloped=useClass ? planFt2*cm : planFt2/f.cosP;   // class override, else per-facet cos(pitch)
+        return { i, planFt2:Math.round(planFt2), slopedFt2:Math.round(sloped),
+                 pitchDeg:Math.round(f.pitchDeg), x12:facetX12(f.pitchDeg) };
+      });
+      slopeFt2=facetBreakdown.reduce((s,f)=>s+f.slopedFt2,0);
+    } else {
+      // no facet model captured (fallback) — single uniform multiplier (class or the captured mix avg)
+      const mult=(pitchClass!=null)?classMult(pitchClass):pitchMult;
+      slopeFt2=flatFt2*mult;
+    }
     const priceMid=Math.round(slopeFt2*pricePerSqft);
     return { areaSqFt:Math.round(slopeFt2), flatSqFt:Math.round(flatFt2), squares:slopeFt2/100,
-             edges, perimFt:Math.round(perimFt), priceLo:Math.round(priceMid*0.9), priceHi:Math.round(priceMid*1.12), priceMid };
+             edges, perimFt:Math.round(perimFt), facets:facetBreakdown, ratio,
+             pitchClass, priceLo:Math.round(priceMid*0.9), priceHi:Math.round(priceMid*1.12), priceMid };
   }
 
   // ---- coordinate mapping: model metres ⇄ displayed CSS px -----------------
@@ -5677,9 +5755,26 @@ const RoofDots=(function(){
       if(aEl) aEl.textContent=m.areaSqFt.toLocaleString();
       if(sqEl) sqEl.textContent=m.squares.toFixed(1);
       if(pEl) pEl.textContent=m.perimFt.toLocaleString();
-      if(prEl) prEl.textContent="$"+m.priceLo.toLocaleString()+"–$"+m.priceHi.toLocaleString();
+      // PRICE: prefer the REAL quote engine's material-ladder number for this edited area; fall back to
+      // the simple $/ft² band only before the quote card exists. Keeps the live HUD $ == the quote card $.
+      const real=realQuoteBand(m.areaSqFt);
+      if(prEl) prEl.textContent = real ? ("$"+real.lo.toLocaleString()+"–$"+real.hi.toLocaleString())
+                                       : ("$"+m.priceLo.toLocaleString()+"–$"+m.priceHi.toLocaleString());
+      // highlight the active pitch class (or "Auto" when no override)
+      try{ const row=$("dotPitchRow"); if(row){ const active=(pitchClass==null)?"auto":pitchClass;
+        row.querySelectorAll(".dh-pbtn").forEach(b=>b.classList.toggle("on", b.getAttribute("data-pc")===active)); } }catch(_){}
+      // per-facet breakdown chips (largest-first; sloped ft² with /12 pitch)
+      try{ const fe=$("dotFacets"); if(fe){
+        if(m.facets&&m.facets.length){
+          const rows=m.facets.slice().sort((a,b)=>b.slopedFt2-a.slopedFt2)
+            .map((f,n)=>'<span class="dh-fchip"><b>'+f.slopedFt2.toLocaleString()+'</b> ft²<i>'+(pitchClass!=null?PITCH_CLASSES.find(c=>c.id===pitchClass).label:(f.x12+'/12'))+'</i></span>');
+          fe.innerHTML='<div class="dh-flabel">'+m.facets.length+' facets · pitch-corrected</div>'+rows.join('');
+        } else { fe.innerHTML=''; }
+      } }catch(_){}
     }
     draw();
+    // live: keep the REAL quote card in sync with the edited area while the user drags (debounced).
+    syncRealQuote();
   }
 
   // ---- hit-testing (screen px) ---------------------------------------------
@@ -5729,6 +5824,17 @@ const RoofDots=(function(){
         '<div class="dh-stat"><div class="dh-v" id="dotPerim">0</div><div class="dh-l">perimeter ft</div></div>'+
         '<div class="dh-stat dh-price"><div class="dh-v" id="dotPrice">—</div><div class="dh-l">est. roof</div></div>'+
       '</div>'+
+      // pitch-class selector — Flat / Sloped / Steep / Very-steep. Defaults to the auto-detected pitch;
+      // picking a class overrides the per-facet mix for the simple-tier estimate (area + price update live).
+      '<div class="dh-pitch">'+
+        '<div class="dh-pitch-l">Roof pitch</div>'+
+        '<div class="dh-pitch-row" id="dotPitchRow">'+
+          PITCH_CLASSES.map(c=>'<button class="dh-pbtn" data-pc="'+c.id+'">'+c.label+'</button>').join('')+
+          '<button class="dh-pbtn dh-pauto" data-pc="auto" title="Use the auto-detected pitch">Auto</button>'+
+        '</div>'+
+      '</div>'+
+      // per-facet breakdown — each detected roof plane's pitch-corrected sloped area (sums to "sq ft").
+      '<div class="dh-facets" id="dotFacets"></div>'+
       '<div class="dh-actions">'+
         '<button id="dotUndo" class="dh-btn" title="Undo" aria-label="Undo">↶ Undo</button>'+
         '<button id="dotRedo" class="dh-btn" title="Redo" aria-label="Redo">↷ Redo</button>'+
@@ -5737,25 +5843,93 @@ const RoofDots=(function(){
       '</div>';
     $("app").appendChild(hud);
     $("dotUndo").onclick=undo; $("dotRedo").onclick=redo;
-    $("dotReset").onclick=()=>{ if(!window.__dotsAuto) return; snapshot(); ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); afterEdit(); };
+    // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
+    $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
+      const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
+    $("dotReset").onclick=()=>{ if(!window.__dotsAuto) return; snapshot(); ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); pitchClass=null; afterEdit(); };
     $("dotDone").onclick=()=>{ confirmed=true; hide(); try{ renderRoofDiagram(); }catch(_){}
       try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} };
   }
   let confirmed=false;
 
-  // capture the auto outline + the pitch multiplier + a $/ft² basis exactly once per roof
+  // capture the auto outline + the per-facet pitch-corrected area model + a $/ft² basis once per roof
   function initFromModel(){
     const model=facetsToRoofModel(); if(!model||!Array.isArray(model.__footprint)||model.__footprint.length<3) return false;
     window.__dotsAuto=model.__footprint.map(p=>[p[0],p[1]]);
     ringM=model.__footprint.map(p=>[p[0],p[1]]);
     flat0=shoelaceM2(ringM)*M2_SQFT;
-    baseArea0=(typeof quoteAreaSqFt==="function"?quoteAreaSqFt():0)||flat0;
-    pitchMult=(flat0>0&&baseArea0>0)?(baseArea0/flat0):1;            // true-area / flat-footprint
+    autoPlanFt2=flat0;                                              // scale denominator for the edit ratio
+    // authoritative owner's-unit roof area the quote bills (split-aware Google whole-roof). Every facet's
+    // sloped area is reconciled UP to this number so the breakdown sums to exactly what the card charges.
+    baseArea0=(typeof roofUnitSqFt==="function"?roofUnitSqFt():0)||(typeof quoteAreaSqFt==="function"?quoteAreaSqFt():0)||flat0;
+    pitchMult=(flat0>0&&baseArea0>0)?(baseArea0/flat0):1;            // overall true-area / flat-footprint (fallback only)
     if(!(pitchMult>0.5&&pitchMult<3)) pitchMult=1.15;                // sane clamp (typical 4-9/12)
-    // $/ft² basis: derive from the current squares→price band if present, else a market mid
+    // ── per-facet model: take each model plane's sloped area + pitch, RECONCILE the sum to baseArea0 ──
+    // (facetsToRoofModel's raw plane areas can under-/over-capture; the diagram already scales them by
+    //  baseArea0 ÷ Σplanes — we do the same so the editor's facet breakdown matches the diagram + card).
+    facets0=[];
+    try{
+      const planes=(model.planes||[]).filter(p=>isFinite(p.areaSqFt)&&p.areaSqFt>0);
+      const planeSum=planes.reduce((s,p)=>s+p.areaSqFt,0);
+      const k=(planeSum>0&&baseArea0>0)?(baseArea0/planeSum):1;      // reconcile model→authoritative
+      for(const p of planes){
+        const pitchDeg=Math.max(0,Math.min(60,p.pitchDeg||0));       // sane residential clamp
+        const cosP=Math.max(0.34,Math.cos(pitchDeg*Math.PI/180));    // floor at ~70° to avoid ÷~0 blow-up
+        const slopedFt2=p.areaSqFt*k;                                 // reconciled sloped area
+        const planFt2=slopedFt2*cosP;                                 // back out this facet's plan-area share
+        facets0.push({ planFt2, slopedFt2, pitchDeg, cosP });
+      }
+    }catch(e){ try{ errors.push("dots-facets:"+(e&&e.message||e)); }catch(_){} facets0=[]; }
+    // if reconstruction yielded facets, normalise their planFt2 so they sum to the edited-ring plan area
+    // at ratio 1 (keeps the ÷cos identity exact against autoPlanFt2 even after the cosP floor clamp).
+    const planSum0=facets0.reduce((s,f)=>s+f.planFt2,0);
+    if(facets0.length && planSum0>0 && autoPlanFt2>0){
+      const pk=autoPlanFt2/planSum0;
+      for(const f of facets0){ f.planFt2*=pk; }   // sloped/cosP identity preserved: sloped=plan/cos still holds per facet
+    }
+    // default the pitch-class selector to the auto-detected average pitch (area-weighted), but leave the
+    // OVERRIDE off (pitchClass=null) so the auto per-facet mix drives the number until the user picks a class.
+    const avgMult=(baseArea0>0&&autoPlanFt2>0)?(baseArea0/autoPlanFt2):pitchMult;
+    window.__dotsAutoClass=classForMult(avgMult);   // selector highlights this as the detected default
+    pitchClass=null;
+    // $/ft² basis: market mid for an instant estimate (real material ladder drives the card once confirmed)
     pricePerSqft=5.4;
     undoStack.length=0; redoStack.length=0; confirmed=false;
     return true;
+  }
+
+  // edited, pitch-corrected sloped roof area (ft²) — the canonical number the real quote bills once active.
+  function editArea(){ const m=measure(); return m?m.areaSqFt:0; }
+
+  // ── drive the REAL quote card from the edited area ──────────────────────────
+  // realQuoteBand: mirror the actual roofing material price ladder for the given (edited) area so the HUD's
+  // live $ equals the quote card's $. Returns null before a material is chosen (HUD then shows the simple band).
+  function realQuoteBand(areaSqFt){
+    try{
+      if(typeof window.__roofSel==="undefined" || !window.__roofSel || !QUOTE) return null;
+      if(typeof ROOF_PSQ==="undefined" || typeof WASTE_OPTS==="undefined") return null;
+      const sel=window.__roofSel, sqs=areaSqFt/100;
+      const t=(typeof getRoofTotals==="function")?getRoofTotals():null;
+      const wIdx=(t&&typeof recommendedWasteIdx==="function"&&!window.__wasteAuto)?recommendedWasteIdx(t):selWaste;
+      const wf=1+WASTE_OPTS[wIdx]/100;
+      const psq=ROOF_PSQ[sel.matId]||[450,700];
+      let lo=sqs*wf*psq[0], hi=sqs*wf*psq[1];
+      if(typeof applyRoofOpts==="function"){ const r=applyRoofOpts(lo,hi,sqs,t); lo=r[0]; hi=r[1]; }
+      lo=Math.round(lo/50)*50; hi=Math.round(hi/50)*50;
+      if(!(lo>0&&hi>0)) return null;
+      return {lo,hi};
+    }catch(_){ return null; }
+  }
+
+  // syncRealQuote: re-render the real quote card so it reflects the edited area LIVE while dragging.
+  // Debounced (rAF-coalesced) so a fast drag doesn't thrash the card. Only fires once the quote exists.
+  let _syncRaf=0;
+  function syncRealQuote(){
+    if(!on && !confirmed) return;
+    if(typeof window.__roofReady==="undefined" || !window.__roofReady) return;
+    if(typeof renderQuoteCard!=="function") return;
+    if(_syncRaf) return;
+    _syncRaf=requestAnimationFrame(()=>{ _syncRaf=0; try{ renderQuoteCard(); }catch(_){} });
   }
 
   function show(){
@@ -5778,6 +5952,9 @@ const RoofDots=(function(){
     editing:()=>on,
     footprintM:()=>ringM,                     // edited ring (model-local metres) for renderRoofDiagram's clip
     totals:()=>measure(),
+    editArea,                                 // edited pitch-corrected sloped ft² → canonical roof area while active
+    setPitchClass:(c)=>{ pitchClass=(c==="auto"||c==null)?null:c; afterEdit(); return measure(); },  // for tests
+    pitchClass:()=>pitchClass,
     cornersScreen:()=>{ if(!ringM) return null; return ringM.map(([xm,ym])=>modelToScreen(xm,ym)); },  // current corner CSS-px positions (editor's own mapping) — for tests
     setCorner:(i,sx,sy)=>{ const mm=screenToModel(sx,sy); if(mm){ snapshot(); ringM[i]=[mm[0],mm[1]]; afterEdit(); } return measure(); },
     onDiagramRendered:()=>{ if(on) requestAnimationFrame(draw); },   // keep dots aligned after a re-render
