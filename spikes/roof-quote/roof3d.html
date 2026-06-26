@@ -1404,7 +1404,7 @@ function panelFootprintUTM(pn,seg,zone,pw,ph){
    verifier can confirm dropped panels line up with the shaded/tree spots. */
 function panelOcclReason(pn,seg,zone,ctx){
   const ph=seg.planeHeightAtCenterMeters;
-  const pw=(LASTB.solarPotential.panelWidthMeters||1.045), pl=(LASTB.solarPotential.panelHeightMeters||1.879);
+  const pw=panelDimsPW(), pl=panelDimsPH();   // class-based dims (was Google panelWidthMeters/panelHeightMeters||1.045/1.879)
   const pts=panelFootprintUTM(pn,seg,zone,pw,pl);
   // (0) PRIMARY — Google flux/shade mask: low modelled sunlight here ⇒ a tree shades it.
   if(ctx.flux){ const v=sampleGrid(ctx.flux.fg, pts[0][0], pts[0][1]); if(v!=null&&isFinite(v)&&v>0&&v<ctx.flux.thresh) return "shade"; }
@@ -1709,7 +1709,7 @@ function savingsModel(kwhAc, netCost){
 /* 3 Good/Better/Best solar tiers from Google's panel configs + a ballpark installed price + monthly */
 function solarTiersFrom(spv){
   const cfgs=spv.solarPanelConfigs||[]; if(!cfgs.length) return [];
-  const w=spv.panelCapacityWatts||400, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
+  const w=panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];   // class nameplate watt (400 res / 500 comm) — single source of truth, was Google panelCapacityWatts
   const idx=[Math.floor(cfgs.length*0.45),Math.floor(cfgs.length*0.72),cfgs.length-1];
   return idx.map((ix,i)=>{ ix=Math.min(cfgs.length-1,Math.max(0,ix)); const c=cfgs[ix];
     const panels=c.panelsCount, kw=panels*w/1000, kwhAc=Math.round((c.yearlyEnergyDcKwh||0)*0.85);
@@ -1750,7 +1750,7 @@ function solarTiersFromPanels(list,w){
 function rebuildSolarTiers(){
   const spv=window.__spv; if(!spv) return;
   if(window.__attached && window.__sectionMode==="mine"){
-    solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), spv.panelCapacityWatts||400);
+    solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), panelDims().watt);   // class nameplate watt (400 res / 500 comm)
     if(!solarTiers.length) solarTiers=solarTiersFrom(spv);   // safety: never leave the user with nothing
   } else { solarTiers=solarTiersFrom(spv); }
   selTier=Math.max(0, solarTiers.length-1);
@@ -2144,6 +2144,31 @@ const TALL_BUILDING_M = 14;          // roof plane ≳ 14 m (~46 ft ≈ 4+ stori
 const RESIDENTIAL_MAX_KW   = 60;     // > this AND over the area ceiling ⇒ beyond a standard home system
 const RESIDENTIAL_MAX_SQFT = 8000;   // ~8,000 ft² is the top of plausible single-family; commercial starts above
 const TALL_MIN_GROUND_SAMPLES = 6;   // need at least this many valid off-footprint ground samples to trust the verdict
+// ── PANEL CLASS — SINGLE SOURCE OF TRUTH for module dimensions + nameplate watt (Alex's spec) ──
+// Two physical panel classes, auto-picked by ROOF CLASS. Every panel-dimension site (model render,
+// 2D grid, photoreal, occlusion, engineered layout) reads THIS — no more Google panelWidthMeters/
+// panelHeightMeters or the old 1.045×1.879 default, so dims + watt are class-consistent everywhere.
+//   • Residential / standard roof: 65"×39" (1.651 m long × 0.991 m short), 350–410 W → 400 W nameplate.
+//   • Commercial / large roof:     78"×39" (1.981 m long × 0.991 m short), 450–550 W → 500 W nameplate.
+// Returns { w, h, watt, cls } where w = LONG (along-slope, portrait), h = SHORT (across). Callers that
+// use the code's (pw=across/short, ph=along-slope/long) convention map pw←h, ph←w (see PANEL_DIMS_PW/PH).
+const PANEL_RES  = { w:1.651, h:0.991, watt:400, cls:"residential" };  // 65"×39", 350–410W band → 400W
+const PANEL_COMM = { w:1.981, h:0.991, watt:500, cls:"commercial"  };  // 78"×39", 450–550W band → 500W
+function panelDims(){
+  // ROOF-CLASS SIGNAL — REUSE the existing largeRoof verdict (the same flag the commercial card +
+  // on-map takeoff already gate on: window.__largeRoof, set by renderQuoteCard / the on-map pass).
+  // Fallback: if the card hasn't computed it yet (the grid can build first), fall back to the SAME
+  // residential area ceiling the largeRoof gate itself uses (quoteAreaSqFt > RESIDENTIAL_MAX_SQFT),
+  // so the class is stable even before the first card render. Fails residential when unknown.
+  let commercial = !!window.__largeRoof;
+  if(!commercial){ try{ const a=quoteAreaSqFt()||0; if(a>RESIDENTIAL_MAX_SQFT) commercial=true; }catch(_){} }
+  return commercial ? PANEL_COMM : PANEL_RES;
+}
+// Convenience accessors in the code's panel-dim convention (pw = across/short, ph = along-slope/long).
+// Default panel orientation is PORTRAIT → long axis runs DOWN the slope (ph), short axis ACROSS (pw).
+function panelDimsPW(){ return panelDims().h; }   // across / short  (was Google panelWidthMeters || 1.045)
+function panelDimsPH(){ return panelDims().w; }   // along-slope / long (was Google panelHeightMeters || 1.879)
+window.__panelDims=panelDims;   // headless-verify hook
 function buildingHeightAboveGrade(spv){
   try{
     spv=spv||(QUOTE&&QUOTE.spv)||(LASTB&&LASTB.solarPotential)||(window.__spv);
@@ -3234,7 +3259,7 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const c=toLocal(ctr.latitude,ctr.longitude);
     const y0=((seg.planeHeightAtCenterMeters!=null)?seg.planeHeightAtCenterMeters:baseY+4)-baseY;
     facetInfo[si]={cx:c.x,cz:c.z,y0,sinAz:Math.sin(Az),cosAz:Math.cos(Az),tanP:Math.tan(P),P}; }
-  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const pw=panelDimsPW(), ph=panelDimsPH();   // class-based dims (single source of truth — replaces Google panelWidthMeters/panelHeightMeters)
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
   const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
   // Seed = owner's-section panels when attached (split-aware), else the whole array — mirrors buildPhotoPanels.
@@ -3560,7 +3585,7 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
   }
 
   // panels — sit EXACTLY on their facet plane (same Solar data → zero drift)
-  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const pw=panelDimsPW(), ph=panelDimsPH();   // class-based dims (single source of truth — replaces Google panelWidthMeters/panelHeightMeters)
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
   const n=cfg?cfg.panelsCount:sp.maxArrayPanelsCount;
   const panels=(sp.solarPanels||[]).slice(0,n);
@@ -7675,7 +7700,7 @@ function buildGridCandidates(){
   if(!LASTB||!LASTB.solarPotential) return null;
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
   if(!segs.length) return null;
-  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const pw=panelDimsPW(), ph=panelDimsPH();   // class-based dims (single source of truth — drives the grid cell pitch + full-fit gate)
   const zone=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
   if(zone==null) return null;
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
@@ -7691,9 +7716,32 @@ function buildGridCandidates(){
   try{ const e=engineeredFacetPanels(sp,segs,zone,pw,ph,seed); if(e&&e.length){ list=e; eng=true; } }catch(_){}
   list=list.filter(p=>p.center && segs[p.segmentIndex]);
   if(!list.length) return null;
+  // ── FULL-PANEL-FIT GATE (Alex's spec #2): never offer a square where a WHOLE panel can't fit.
+  // The engineered layout already guarantees this (every cell is corner-tested inside the facet polygon +
+  // setback in engineeredFacetPanels), so we only police the RAW-GOOGLE fallback path (eng===false): drop
+  // any Google panel whose 4 corners aren't ALL inside its facet polygon — those are the edge squares that
+  // hang off the roofline. Fail-OPEN when facet polygons are unavailable (never blank the grid on missing
+  // DSM); a panel is only dropped when we can POSITIVELY prove a corner lands outside its facet.
+  if(!eng){
+    let facetUV=null;   // Map segmentIndex → facet polygon ring in UTM [[E,N],…]
+    try{ const fps=extractFacetPolys(0.0);
+      if(fps&&fps.length){ facetUV=new Map();
+        for(const f of fps){ const si=segs.indexOf(f.seg); if(si<0) continue;
+          const ring=(f.hull||[]).map(([lng,lat])=>wgs84ToUTM(lat,lng,zone)); if(ring.length>=3) facetUV.set(si,ring); } }
+    }catch(_){ facetUV=null; }
+    if(facetUV&&facetUV.size){
+      const before=list.length;
+      list=list.filter(p=>{ const ring=facetUV.get(p.segmentIndex); if(!ring) return true;   // no poly for this facet → can't disprove, keep
+        const cs=panelCornersLL(p,segs[p.segmentIndex],zone,pw,ph);
+        for(const c of cs){ const [E,N]=wgs84ToUTM(c.lat,c.lng,zone); if(!pointInPoly2([E,N],ring)) return false; }   // any corner outside the facet → not a whole-fit panel
+        return true; });
+      try{ window.__sgFullFitDropped=before-list.length; }catch(_){}
+      if(!list.length) return null;
+    }
+  }
   // Flux raster (annualFlux) for per-panel sun. Absent → no low-sun tint; energy from yearlyEnergyDcKwh.
   const fg=(LASTFLUX&&LASTFLUX.rasters)?{vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox}:null;
-  const wattsPerPanel=sp.panelCapacityWatts||400;
+  const wattsPerPanel=panelDims().watt;   // class nameplate watt (400 res / 500 comm) — single source of truth, was Google panelCapacityWatts
   // First pass: sample flux + corners, gather extents (UTM) and a robust flux ramp.
   const cand=[]; let minE=Infinity,minN=Infinity,maxE=-Infinity,maxN=-Infinity; const fluxVals=[];
   const usedSeg=new Set();                                                 // segment indices that actually carry a panel (this building)
@@ -8759,7 +8807,7 @@ async function buildPhotoPanels(){
   if(window.__rdOpen){ window.__photoPanels=0; return; }
   if(overlaySuppressed){ window.__photoPanels=0; setOverlayNote(true); return; }   // canopy/off-roof → don't drape panels onto the lawn
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
-  const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
+  const pw=panelDimsPW(), ph=panelDimsPH();   // class-based dims (single source of truth — replaces Google panelWidthMeters/panelHeightMeters)
   const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0];
   const baseN=(solarTiers[selTier]&&solarTiers[selTier].panels)||(cfg?cfg.panelsCount:sp.maxArrayPanelsCount);
   const n=Math.max(4,Math.round(baseN*(window.__sizePct||1)));   // size slider scales how many panels are drawn on the roof
