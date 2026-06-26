@@ -2900,6 +2900,15 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const slot=schemPlace(cx,cz,lb); if(!slot){ return; }
     lb.position.set(slot[0], cy+yOff, slot[1]); lb.visible=!sunMode; worldGroup.add(lb); schemLabels.push(lb);
   };
+  // (roof-skin gap fix) Continuous textured UNDERLAY accumulators. The per-facet roof meshes are
+  // reconstructed independently (each from its own analytic plane + 0.5m-eroded ring), so adjacent
+  // facets DON'T share edges exactly → thin grey seams open between them along ridges/hips/valleys.
+  // Once the shingle skin is applied those seams expose the bare grey base = a "shattered" roof. Fix:
+  // build ONE merged surface from every facet's ring, DILATED outward in its own plane + dropped a few
+  // cm below the facet meshes, carrying the SAME metre-based shingle UVs. It only renders when a roof
+  // skin is active (textured), so any inter-facet gap reveals the SAME texture, never grey. It changes
+  // nothing about measurements/areas/facet count — it's a pure visual backstop drawn under the facets.
+  const ul_pos=[], ul_uv=[], ul_shuv=[];
   for(const p of usableSorted){
     // convert ring3 (model-local) into buildScene-local 3D vertices
     const V3=p.ring3.map(v=>{ const s=M2S(v[0],v[1],v[2]); return new THREE.Vector3(s.x,s.y,s.z); });
@@ -2933,6 +2942,26 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm); skin.roofMeshes.push(fm);
     // tag facet azimuth (deg, 0=N) so the Model lens can tone each plane individually (greyRoofMatFor)
     fm.userData.facetAz = Array.isArray(p.normal) ? (Math.atan2(p.normal[0],p.normal[1])*180/Math.PI) : 180;
+    // (roof-skin gap fix) accumulate this facet's UNDERLAY triangles: same plane, ring DILATED outward
+    // in (uAxis,wAxis) about the facet centroid so neighbours overlap + bridge the seam, dropped along
+    // -Y so it sits just under the facet meshes. Reuses the SAME P2/tris ear-clip + shingle UVs, so the
+    // texture lines up with the facet above it. Pure visual backstop — not pushed to roofMeshes (kept
+    // out of every measurement/area/azimuth loop above).
+    {
+      const UL_DILATE_M=1.1;    // how far the underlay ring grows past the true facet edge (bridges seams + 0.5m erosion + eave gap)
+      const UL_DROP=0.12;       // metres the underlay sits below the facet meshes (avoids z-fight, hidden under skin)
+      let c2u=0,c2w=0; for(const d of P2){ c2u+=d[0]; c2w+=d[1]; } c2u/=P2.length; c2w/=P2.length;
+      // dilated plane-space ring: push each vertex outward from the 2D centroid by a fixed margin
+      const P2d=P2.map(([du,dw])=>{ const vx=du-c2u, vy=dw-c2w, L=Math.hypot(vx,vy)||1; return [du+vx/L*UL_DILATE_M, dw+vy/L*UL_DILATE_M]; });
+      for(const vi of tris){
+        const du=P2d[vi][0], dw=P2d[vi][1];
+        // back to 3D on the facet plane: origin o + du*uAxis + dw*wAxis, then drop along -Y
+        const wx=o.x+uAxis.x*du+wAxis.x*dw, wy=o.y+uAxis.y*du+wAxis.y*dw-UL_DROP, wz=o.z+uAxis.z*du+wAxis.z*dw;
+        ul_pos.push(wx,wy,wz);
+        const E=CE+wx, N=CN-wz; const [u,uv]=uvOf(E,N); ul_uv.push(u,uv);
+        ul_shuv.push(du,dw);   // metre-based shingle UV (same basis as the facet's shingleUV)
+      }
+    }
     for(const v of V3){ roofMinY=Math.min(roofMinY,v.y); roofMaxY=Math.max(roofMaxY,v.y); }
     builtRoofArea += (p.areaSqFt||0);
     // crisp facet outline (matches legacy look)
@@ -2945,6 +2974,42 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     schemChip(p, Math.round(p.areaSqFt||0), facetX12(p.pitchX12,{fromX12:true}), cx, cy, cz, 1.6);
   }
   if(!skin.roofMeshes.length){ clearWorld(); return false; }   // nothing valid built → fall back
+
+  // (roof-skin gap fix) FOOTPRINT CAP: the dilated per-facet underlay closes seam-scale gaps, but on
+  // roofs where the reconstructed facets DON'T span the whole plan (eroded rings, missing dormer/eave
+  // strips) there are LARGE plan-area holes that show the grey wall band. A single flat textured cap
+  // over the entire footprint, dropped just below the LOWEST eave, backstops every one of those: it
+  // never pokes above a facet (all facets sit at ≥ roofMinY) and any hole now reveals the SAME shingle
+  // texture. Continuous world-XZ shingle UVs so the texture tiles seamlessly across the cap.
+  if(Array.isArray(model.__footprint) && model.__footprint.length>=3 && isFinite(roofMinY)){
+    const capY=roofMinY-0.25;
+    const fp2=model.__footprint.map(([xm,ym])=>{ const s=M2S(xm,ym,baseY); return [s.x,s.z]; });   // plan ring (x,z)
+    const capTris=earClip(fp2);
+    if(capTris.length>=3){
+      for(const vi of capTris){
+        const x=fp2[vi][0], z=fp2[vi][1];
+        ul_pos.push(x,capY,z);
+        const E=CE+x, N=CN-z; const [u,uv]=uvOf(E,N); ul_uv.push(u,uv);
+        ul_shuv.push(x,z);   // metre-based shingle UV in the world XZ plane → continuous tiling across the cap
+      }
+    }
+  }
+
+  // (roof-skin gap fix) Build the merged continuous UNDERLAY mesh from the accumulated dilated facet
+  // triangles. It's invisible by default (no skin) and only made visible+textured by applyRoofSkin —
+  // so the grey "Model" lens and the photoreal schematic are visually unchanged. polygonOffset +
+  // renderOrder keep it behind the crisp facet meshes so the facets always read on top.
+  if(ul_pos.length>=9){
+    const ug=new THREE.BufferGeometry();
+    ug.setAttribute("position",new THREE.Float32BufferAttribute(ul_pos,3));
+    ug.setAttribute("uv",new THREE.Float32BufferAttribute(ul_uv,2));            // aerial-photo UV (parity w/ facets; unused while skinned)
+    ug.computeVertexNormals();
+    ug.userData={ shingleUV:new Float32Array(ul_shuv), photoUV:new Float32Array(ul_uv) };
+    const um=new THREE.Mesh(ug, new THREE.MeshBasicMaterial({visible:false}));   // hidden until a skin textures it
+    um.castShadow=false; um.receiveShadow=true; um.renderOrder=-1; um.visible=false;
+    um.userData.roofUnderlay=true;
+    worldGroup.add(um); skin.roofUnderlay=um;
+  }
 
   // (P0 anti-spike) HARD geometry-sanity backstop on the BUILT roof meshes — catches a spike that
   // slipped every upstream guard, in ANY direction:
@@ -3475,11 +3540,14 @@ function applyModelSkin(grey){
   const s=modelSkin; if(!s) return;
   // ROOFING SKIN takes precedence: if the buyer has a material picked (roofing designer), the model roof
   // shows that material's texture in BOTH grey/photo lenses — re-asserting here keeps it through rebuilds.
-  if(window.__roofSkin){ applyRoofSkin(window.__roofSkin); }
+  const skinned=!!window.__roofSkin;
+  if(skinned){ applyRoofSkin(window.__roofSkin); }
   else
   // STEP 5: premium per-facet charcoal shingle tone in the Model lens (depth, not a flat slab).
   for(const m of s.roofMeshes){ m.material = grey ? greyRoofMatFor(m.userData.facetAz!=null?m.userData.facetAz:180) : s.roofPhotoMat; }
-  for(const m of s.wallMeshes){ if(m.userData.wallPhotoMat===undefined) m.userData.wallPhotoMat=m.material; m.material=grey?GREY.wall:m.userData.wallPhotoMat; }
+  // wall band: while a roof skin is active keep the skin-matched darkened wall tone (set by applyRoofSkin
+  // above) so eroded-facet eaves never expose a bright grey void; otherwise the normal grey/photo wall.
+  for(const m of s.wallMeshes){ if(!skinned){ if(m.userData.wallPhotoMat===undefined) m.userData.wallPhotoMat=m.material; m.material=grey?GREY.wall:m.userData.wallPhotoMat; } }
   for(const e of s.edges){ e.material=grey?GREY.edge:(e.userData.schemMat||e.material); }
   if(s.ground) s.ground.material=grey?GREY.ground:s.groundPhotoMat;
   if(s.contact) s.contact.visible=grey;
@@ -3965,6 +4033,17 @@ function activeRoofSkin(){
   try{ const cm=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cc=(cm.colors&&cm.colors[selCol])||(cm.colors&&cm.colors[0]);
     return {base:(cc&&cc.base)||"rgb(110,110,110)", type:cm.type}; }catch(_){ return null; }
 }
+// (roof-skin gap fix) WALL tone matched to the skin: a darkened shade of the roof base colour so any
+// wall slice peeking between/below eroded facets reads as roof-in-shadow, never a bright grey void.
+const _roofWallMatCache=new Map();   // key base → MeshStandardMaterial (darkened wall)
+function roofSkinWallMaterial(base){
+  if(_roofWallMatCache.has(base)) return _roofWallMatCache.get(base);
+  let r=110,g=110,b=110; const mm=/rgb\(\s*(\d+)\D+(\d+)\D+(\d+)/i.exec(base||""); if(mm){ r=+mm[1]; g=+mm[2]; b=+mm[3]; }
+  const k=0.62;   // darken toward shadow so it never competes with the roof texture
+  const c=new THREE.Color((r*k)/255,(g*k)/255,(b*k)/255);
+  const m=new THREE.MeshStandardMaterial({color:c,roughness:0.96,metalness:0,side:THREE.DoubleSide});
+  _roofWallMatCache.set(base,m); return m;
+}
 /* Apply (skin={base,type}) or REMOVE (skin=null) the shingle skin on the Three.js model roof facets.
    When skinned: swap each facet geometry's `uv` to the metre-based shingleUV (so the texture tiles at a
    real course size) and assign the per-material textured map. When removed: restore the aerial-photo uv +
@@ -3983,6 +4062,36 @@ function applyRoofSkin(skin){
       m.material = greyMode ? greyRoofMatFor(m.userData.facetAz!=null?m.userData.facetAz:180) : s.roofPhotoMat;
     }
     n++;
+  }
+  // (roof-skin gap fix) the continuous underlay: textured + shown ONLY while a skin is active, so any
+  // seam between facets reveals the SAME shingle texture instead of grey; hidden when the skin is
+  // removed so the grey/photo lenses are untouched. Its own shingleUV (metre-based, same basis) is
+  // assigned once. A SEPARATE material instance (cloned + polygonOffset) so it z-sits under the facets.
+  const ul=s.roofUnderlay;
+  if(ul){
+    if(skin){
+      const g=ul.geometry; if(g&&g.userData&&g.userData.shingleUV){ g.setAttribute("uv",new THREE.Float32BufferAttribute(g.userData.shingleUV,2)); g.attributes.uv.needsUpdate=true; }
+      const base=roofSkinMaterial(skin.base,skin.type);
+      let m=ul.userData.skinMat;
+      if(!m || m.userData.skinKey!==(skin.type+"|"+skin.base)){
+        m=base.clone(); m.polygonOffset=true; m.polygonOffsetFactor=1; m.polygonOffsetUnits=1;
+        m.userData.skinKey=skin.type+"|"+skin.base; ul.userData.skinMat=m;
+      }
+      ul.material=m; ul.visible=true;
+    } else {
+      ul.visible=false;
+    }
+  }
+  // (roof-skin gap fix) tone the wall band to the skin's darkened base colour while skinned so any wall
+  // peeking through eroded-facet eaves reads as roof-in-shadow, not bright grey. Stash the active
+  // (grey/photo) wall material once so skin removal restores exactly what applyModelSkin set.
+  for(const m of (s.wallMeshes||[])){
+    if(skin){
+      if(m.userData.preSkinWallMat===undefined) m.userData.preSkinWallMat=m.material;
+      m.material=roofSkinWallMaterial(skin.base);
+    } else if(m.userData.preSkinWallMat!==undefined){
+      m.material=m.userData.preSkinWallMat; m.userData.preSkinWallMat=undefined;
+    }
   }
   window.__roofSkinMeshes=skin?n:0;
   return n;
@@ -10553,6 +10662,11 @@ try{
         return { total:per.length, spurious, real, floorM:floor, perEdge:per, merge:(window.__planeMerge||null) };
       }catch(e){ return {err:String(e&&e.message||e)}; }
     },
+    // (roof-skin gap fix) underlay diagnostics: count + visibility of the continuous textured backstop
+    roofUnderlayInfo:()=>{ try{ const ul=modelSkin&&modelSkin.roofUnderlay; if(!ul) return {present:false};
+      const pa=ul.geometry&&ul.geometry.attributes.position; return {present:true, visible:!!ul.visible,
+        tris:pa?pa.count/3:0, roofMeshes:(modelSkin.roofMeshes||[]).length, skin:window.__roofSkin||null}; }
+      catch(e){ return {err:String(e&&e.message||e)}; } },
   };
   // direct aliases for the fixed-frame registration overlay diagnostic (verify-overlay.mjs)
   window.__wgs84ToUTM=(lat,lng,z)=>wgs84ToUTM(lat,lng,z);
