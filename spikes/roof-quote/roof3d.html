@@ -3856,7 +3856,7 @@ function shadeHex(col,f){ let r,g,b; const m=String(col).match(/rgb\(\s*(\d+)\s*
 window.__matThumbs=window.__matThumbs||{};
 function matThumb(m){ if(!window.__matThumbs[m.id]){ try{ window.__matThumbs[m.id]=makeShingleCanvas((m.colors&&m.colors[0]&&m.colors[0].base)||"rgb(110,110,110)",m.type).toDataURL("image/jpeg",0.78); }catch(_){ window.__matThumbs[m.id]=""; } } return window.__matThumbs[m.id]; }
 function makeShingleCanvas(base,type){
-  const S=256, c=document.createElement("canvas"); c.width=S; c.height=S; const x=c.getContext("2d");
+  const S=256, c=document.createElement("canvas"); c.width=S; c.height=S; const x=c.getContext("2d",{willReadFrequently:true});   // getImageData readback below → hint avoids the Canvas2D perf warning
   const dark=shadeHex(base,-0.18), darker=shadeHex(base,-0.36), light=shadeHex(base,0.16), lighter=shadeHex(base,0.32);
   const rnd=(i,j)=>{ const s=Math.sin(i*12.9898+j*78.233)*43758.5453; return s-Math.floor(s); };
   x.fillStyle=base; x.fillRect(0,0,S,S);
@@ -7341,7 +7341,7 @@ function sgLayout(){
 // ── Draw the flux heatmap background (from the flux raster, clipped to the roof) + every panel quad.
 function sgDraw(){
   if(!SG_STATE) return;
-  const cv=$("sgCanvas"), ctx=cv.getContext("2d"); if(!ctx) return;
+  const cv=$("sgCanvas"), ctx=cv.getContext("2d",{willReadFrequently:true}); if(!ctx) return;   // flux heatmap getImageData every draw → hint avoids the Canvas2D perf warning
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.fillStyle="#0b1220"; ctx.fillRect(0,0,cv.width,cv.height);
   const pr=SG_STATE.proj; if(!pr) return;
