@@ -2893,13 +2893,20 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     const P2=V3.map(v=>{ const d=new THREE.Vector3().subVectors(v,o); return [d.dot(uAxis), d.dot(wAxis)]; });
     const tris=earClip(P2);
     if(tris.length<3) continue;
-    const posArr=[], uvArr=[];
+    const posArr=[], uvArr=[], shUvArr=[];
     for(let t=0;t<tris.length;t++){ const vi=tris[t]; const v=V3[vi]; posArr.push(v.x,v.y,v.z);
-      const E=CE+v.x, N=CN-v.z; const [u,uv]=uvOf(E,N); uvArr.push(u,uv); }
+      const E=CE+v.x, N=CN-v.z; const [u,uv]=uvOf(E,N); uvArr.push(u,uv);
+      // ROOFING SKIN: a SECOND UV set in real METRES on the facet plane so the shingle texture tiles at
+      // a realistic course size regardless of facet area/orientation. d = vertex offset from facet origin
+      // projected onto the same (uAxis,wAxis) plane basis used for the ear-clip; SHINGLE_TILE_M controls
+      // physical course size (set on the texture's repeat, not here).
+      const d=new THREE.Vector3().subVectors(v,o); shUvArr.push(d.dot(uAxis), d.dot(wAxis)); }
     const fg=new THREE.BufferGeometry();
     fg.setAttribute("position",new THREE.Float32BufferAttribute(posArr,3));
     fg.setAttribute("uv",new THREE.Float32BufferAttribute(uvArr,2));
     fg.computeVertexNormals();
+    // stash the metre-based shingle UVs (consumed by applyRoofSkin); the live `uv` stays the aerial-photo set
+    fg.userData=fg.userData||{}; fg.userData.shingleUV=new Float32Array(shUvArr); fg.userData.photoUV=new Float32Array(uvArr);
     const fm=new THREE.Mesh(fg,roofMat); fm.castShadow=true; fm.receiveShadow=true; worldGroup.add(fm); skin.roofMeshes.push(fm);
     // tag facet azimuth (deg, 0=N) so the Model lens can tone each plane individually (greyRoofMatFor)
     fm.userData.facetAz = Array.isArray(p.normal) ? (Math.atan2(p.normal[0],p.normal[1])*180/Math.PI) : 180;
@@ -3443,6 +3450,10 @@ function buildSceneLegacy(b, dsm, rgb, rgbTex){
    (or restore the aerial-photo schematic) WITHOUT rebuilding geometry. */
 function applyModelSkin(grey){
   const s=modelSkin; if(!s) return;
+  // ROOFING SKIN takes precedence: if the buyer has a material picked (roofing designer), the model roof
+  // shows that material's texture in BOTH grey/photo lenses — re-asserting here keeps it through rebuilds.
+  if(window.__roofSkin){ applyRoofSkin(window.__roofSkin); }
+  else
   // STEP 5: premium per-facet charcoal shingle tone in the Model lens (depth, not a flat slab).
   for(const m of s.roofMeshes){ m.material = grey ? greyRoofMatFor(m.userData.facetAz!=null?m.userData.facetAz:180) : s.roofPhotoMat; }
   for(const m of s.wallMeshes){ if(m.userData.wallPhotoMat===undefined) m.userData.wallPhotoMat=m.material; m.material=grey?GREY.wall:m.userData.wallPhotoMat; }
@@ -3540,7 +3551,9 @@ async function enterModelDefault(isInitial){
   panelsVisible=false; $("bPanels").classList.remove("on");
   if(mode!=="schematic") await setMode("schematic");   // mount the Three.js #scene (premium grey base)
   applyModelSkin(true);                                 // (fix8 P1) re-skins roof (greyRoofMatFor) + lighting (sun/hemi/ambient) — restores the textured hero look on toggle-back
-  setModelPanelsVisible(true);                          // STEP 4/5: show the engineered 3D solar array (+ re-asserts the premium PV material)
+  // ROOFING designer owns the model surface to show the SHINGLE texture — the blue solar array would hide
+  // it, so keep panels OFF while __rdOpen. Solar's enterModelDefault path (no __rdOpen) still shows them.
+  setModelPanelsVisible(!window.__rdOpen);              // STEP 4/5: show the engineered 3D solar array (+ re-asserts the premium PV material)
   syncModelRenderedPanels();                            // (fix8 P0) restore the engineered count as the canonical rendered count so the quote can't stay on the stale photoreal value
   window.__sunView="shadows"; if(typeof updateSun==="function") updateSun();   // (fix8 P1) re-applies directional sun + ambient/hemi for the Model lens so the restored model isn't a dark blob
   // (fix8 P0) re-derive the quote from the now-current engineered array so quote == panels drawn.
@@ -3891,6 +3904,66 @@ function makeShingleCanvas(base,type){
   x.fillStyle=vg; x.fillRect(0,0,S,S);
   return c;
 }
+/* ════════════ ROOFING STYLE SKIN — real material texture on the roof ════════════
+   The chosen catalogue material+colour drives a procedural shingle texture (makeShingleCanvas →
+   THREE.CanvasTexture). It is applied two ways:
+     • 3D MODEL view  — as the `map` on each roof facet mesh (always works; no canopy occlusion).
+     • PHOTOREAL house — as a textured GLB roof model laid on the real roof via Model3DElement.
+   `window.__roofSkin` holds the active {base,type}; null = no skin (grey/photo default). */
+window.__roofSkin=null;
+const _roofSkinTexCache=new Map();   // key `${type}|${base}` → THREE.CanvasTexture (tiled)
+const SHINGLE_TILE_M=1.4;            // metres of roof covered by one 256² texture tile (≈ a course block)
+function roofSkinTexture(base,type){
+  const key=type+"|"+base;
+  if(_roofSkinTexCache.has(key)) return _roofSkinTexCache.get(key);
+  const tex=new THREE.CanvasTexture(makeShingleCanvas(base,type));
+  tex.colorSpace=THREE.SRGBColorSpace; tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(1/SHINGLE_TILE_M, 1/SHINGLE_TILE_M); tex.anisotropy=8; tex.needsUpdate=true;
+  _roofSkinTexCache.set(key,tex); return tex;
+}
+const _roofSkinMatCache=new Map();   // key `${type}|${base}` → MeshStandardMaterial
+// per-material surface finish so metal reads glossy, slate/asphalt matte, etc.
+function _roofSkinFinish(type){
+  if(type==="metal") return {roughness:0.42,metalness:0.55};
+  if(type==="tile")  return {roughness:0.72,metalness:0.04};
+  if(type==="slate") return {roughness:0.80,metalness:0.02};
+  if(type==="wood")  return {roughness:0.92,metalness:0.0};
+  return {roughness:0.88,metalness:0.02};   // asphalt
+}
+function roofSkinMaterial(base,type){
+  const key=type+"|"+base;
+  if(_roofSkinMatCache.has(key)) return _roofSkinMatCache.get(key);
+  const f=_roofSkinFinish(type);
+  const m=new THREE.MeshStandardMaterial({map:roofSkinTexture(base,type),roughness:f.roughness,metalness:f.metalness,side:THREE.DoubleSide});
+  _roofSkinMatCache.set(key,m); return m;
+}
+// resolve the active roof skin {base,type} from the picked catalogue selection
+function activeRoofSkin(){
+  try{ const cm=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cc=(cm.colors&&cm.colors[selCol])||(cm.colors&&cm.colors[0]);
+    return {base:(cc&&cc.base)||"rgb(110,110,110)", type:cm.type}; }catch(_){ return null; }
+}
+/* Apply (skin={base,type}) or REMOVE (skin=null) the shingle skin on the Three.js model roof facets.
+   When skinned: swap each facet geometry's `uv` to the metre-based shingleUV (so the texture tiles at a
+   real course size) and assign the per-material textured map. When removed: restore the aerial-photo uv +
+   let applyModelSkin reassign the grey/photo material. Idempotent + safe if no model is built. */
+function applyRoofSkin(skin){
+  window.__roofSkin = skin || null;
+  const s=modelSkin; if(!s||!s.roofMeshes) return 0;
+  let n=0;
+  for(const m of s.roofMeshes){ const g=m.geometry; if(!g||!g.userData) continue;
+    if(skin){
+      if(g.userData.shingleUV){ g.setAttribute("uv",new THREE.Float32BufferAttribute(g.userData.shingleUV,2)); g.attributes.uv.needsUpdate=true; }
+      m.material=roofSkinMaterial(skin.base,skin.type); m.userData.roofSkinned=true;
+    } else if(m.userData.roofSkinned){
+      if(g.userData.photoUV){ g.setAttribute("uv",new THREE.Float32BufferAttribute(g.userData.photoUV,2)); g.attributes.uv.needsUpdate=true; }
+      m.userData.roofSkinned=false;
+      m.material = greyMode ? greyRoofMatFor(m.userData.facetAz!=null?m.userData.facetAz:180) : s.roofPhotoMat;
+    }
+    n++;
+  }
+  window.__roofSkinMeshes=skin?n:0;
+  return n;
+}
 /* FEASIBILITY SPIKE: can Map3D render a textured GLB on the roof? place an 8m textured plane at SITE */
 window.__testTexModel=async function(){
   try{
@@ -3908,21 +3981,69 @@ window.__testTexModel=async function(){
   }catch(e){ window.__texModelErr=String(e); errors.push("texmodel:"+e.message); return "err:"+e.message; }
 };
 function clearMat(){ for(const p of matPolys){ try{ p.remove&&p.remove(); }catch(_){} } matPolys=[]; window.__matPolys=0; }
-async function buildRoofMaterial(){
-  if(!gmap) return; clearMat();
-  if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → facet polys would drift onto the ground; suppress the material tint
-  const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
-  // Use the SELECTED catalogue material+colour (selMat/selCol), not the legacy ROOF_MATS[matIdx] alias —
-  // ROOF_MATS is always Architectural's colours, so the 3D overlay tinted the roof the wrong colour
-  // (e.g. matte-black metal rendered bright red) regardless of what the buyer picked. Mirror the 2D
-  // preview (line ~2739) and the AI render (line ~2977) which already derive from ROOF_CATALOG[selMat].
-  const cm=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cc=(cm.colors&&cm.colors[selCol])||(cm.colors&&cm.colors[0]);
-  const mt={ base:(cc&&cc.base)||"rgb(110,110,110)", type:cm.type };
-  const fill=mt.base.replace("rgb(","rgba(").replace(")",",0.6)");   // tint; real shingle texture shows through
-  for(const f of extractFacetPolys(0.4)){   // 0.4m erosion → near-full coverage (was 1m gap)
-    const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(0,0,0,0.35)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
-    poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.4})); gmap.append(poly); matPolys.push(poly);
+// local equirectangular metres relative to SITE — accurate enough across a single roof (~50 m), and
+// avoids UTM-zone bookkeeping. Returns [east_m, north_m]. Used to build the photoreal roof GLB geometry.
+function _llToLocalM(lng,lat){
+  const latR=SITE.lat*Math.PI/180;
+  return [ (lng-SITE.lng)*Math.cos(latR)*111320, (lat-SITE.lat)*110540 ];
+}
+/* PHOTOREAL roof skin: build ONE textured GLB from the real facet hulls and lay it on the photoreal
+   roof via Model3DElement (the proven __testTexModel path). The roof then shows the ACTUAL material
+   texture (metal ribs / clay tile / slate / shakes / asphalt granules) in the picked colour, not a
+   flat tint. Returns true on success. On overlaySuppressed roofs we do NOT draw here (the overlay
+   would drift onto canopy) — the caller routes those to the textured 3D model surface instead. */
+async function buildRoofMaterialPhotoGLB(skin){
+  const facets=extractFacetPolys(0.4); if(!facets||!facets.length) return false;
+  const { GLTFExporter }=await import("three/addons/exporters/GLTFExporter.js");
+  const tex=roofSkinTexture(skin.base,skin.type);
+  const f=_roofSkinFinish(skin.type);
+  // gentle emissive lift so the texture reads even under the photoreal tiles' baked lighting
+  const mat=new THREE.MeshStandardMaterial({map:tex,roughness:f.roughness,metalness:Math.min(f.metalness,0.35),emissive:0x141414,emissiveIntensity:0.18,side:THREE.DoubleSide});
+  const positions=[], uvs=[];
+  for(const fc of facets){
+    const ringLL=fc.hull; if(!ringLL||ringLL.length<3) continue;
+    // facet ring → local metres (east,north); triangulate flat; X=east, Z=-north (south), Y=0 (flat over roof)
+    const P=ringLL.map(([lng,lat])=>_llToLocalM(lng,lat));   // [e,n]
+    const tris=earClip(P); if(tris.length<3) continue;
+    for(const vi of tris){ const [e,n]=P[vi]; positions.push(e,0,-n); uvs.push(e/SHINGLE_TILE_M, n/SHINGLE_TILE_M); }
   }
+  if(!positions.length) return false;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
+  geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,mat);
+  const glb=await new GLTFExporter().parseAsync(mesh,{binary:true});
+  const blob=new Blob([glb],{type:"model/gltf-binary"});
+  const url=await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); });
+  window.__roofGlbBytes=glb.byteLength;
+  const { Model3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  // anchored at SITE; geometry is already SITE-relative metres. Small +altitude floats it just above the
+  // photoreal roof surface so it never z-fights the tiles. RELATIVE_TO_MESH = ride the photoreal roof.
+  const m=new Model3DElement({ src:url, position:{lat:SITE.lat,lng:SITE.lng,altitude:0.6}, altitudeMode:AltitudeMode.RELATIVE_TO_MESH });
+  gmap.append(m); matPolys.push(m);
+  window.__matModel=1; window.__matModelType=skin.type;
+  return true;
+}
+async function buildRoofMaterial(){
+  if(!gmap) return; clearMat(); window.__matModel=0;
+  if(overlaySuppressed){ setOverlayNote(true); return; }   // canopy/off-roof → photoreal overlay would drift onto trees; caller routes to the model surface
+  // Use the SELECTED catalogue material+colour (selMat/selCol), not the legacy ROOF_MATS[matIdx] alias.
+  const skin=activeRoofSkin(); if(!skin) return;
+  // TEXTURED roof model on the real photoreal house (replaces the old flat translucent tint).
+  try{
+    const ok=await buildRoofMaterialPhotoGLB(skin);
+    if(ok){ window.__matPolys=matPolys.length; return; }
+  }catch(e){ if(typeof errors!=="undefined") errors.push("roofGLB:"+(e&&e.message||e)); window.__matModelErr=String(e&&e.message||e); }
+  // GLB path failed → fall back to the legacy flat translucent tint so the buyer still sees the colour.
+  try{
+    const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+    const fill=skin.base.replace("rgb(","rgba(").replace(")",",0.6)");
+    for(const f of extractFacetPolys(0.4)){
+      const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:fill, strokeColor:"rgba(0,0,0,0.35)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+      poly.outerCoordinates=f.hull.map(([lng,lat])=>({lat,lng,altitude:0.4})); gmap.append(poly); matPolys.push(poly);
+    }
+  }catch(_){}
   window.__matPolys=matPolys.length;
 }
 // ── 3D SUN-EXPOSURE HEATMAP ─────────────────────────────────────────────────
@@ -7600,7 +7721,19 @@ function rdCommitSel(){
 // colour (always works, no credits) and — if the AI on-house render is already cached for this colour —
 // drop it onto #aiPhoto. AI is opt-in via the header button so we never auto-spend on a credit-gated render.
 function rdReflectOnHouse(){
-  try{ if(mode==="photoreal"&&gmap&&typeof buildRoofMaterial==="function") buildRoofMaterial(); }catch(_){}
+  // Resolve the picked material/colour into a roof skin and apply it on EVERY surface so the chosen
+  // STYLE (texture) is visible — not just a flat colour. The 3D model facets always carry the skin
+  // (no canopy occlusion); the photoreal house gets a textured GLB roof when it isn't suppressed.
+  const skin=(typeof activeRoofSkin==="function")?activeRoofSkin():null;
+  // ALWAYS skin the 3D-model roof facets (the premium, reliable surface — pitch-true, never occluded).
+  try{ if(typeof applyRoofSkin==="function") applyRoofSkin(skin); }catch(_){}
+  // On the 3D-model surface the skin above IS the render — nothing more to do. Only when we're on the
+  // PHOTOREAL house (fragmented-massing fallback, no clean model) do we build the textured GLB roof.
+  // (overlaySuppressed photoreal roofs draw nothing and set the suppressed note — but those roofs use the
+  //  model surface here, so the buyer always sees the style.)
+  if(mode==="photoreal" && !greyMode){
+    try{ if(gmap&&typeof buildRoofMaterial==="function") buildRoofMaterial(); }catch(_){}
+  }
   // if a real AI render for this exact colour is already cached, show it instantly (free — no new spend)
   try{
     const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], key=(typeof colorKey==="function")?colorKey(m,c):null;
@@ -7680,15 +7813,33 @@ async function openRoofDesign(){
   const bar=$("bar"); if(bar){ bar.dataset.rdPrev=bar.style.display; bar.style.display="none"; }
   try{
     showLoad("Loading your home in 3D…");
-    if(mode!=="photoreal") await setMode("photoreal");
-    if(mode==="photoreal" && window.__photorealOk!==false){
-      try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // gmapWrap.display=block
-      // hero framing: tighten the oblique camera onto the roof so the material reads on the real house
-      try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
-        const rng=Math.round(roofFitRange(78)*0.82);
-        gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:rng, tilt:60, heading:18 }, durationMillis:900 });
-      } }catch(_){}
-      rdReflectOnHouse();   // tint the facets to the selected colour
+    // RENDER SURFACE for the style preview: our OWN textured 3D MODEL is the premium, reliable surface —
+    // it follows the real roof pitch/facets, tiles the material at a true course scale, is NEVER canopy-
+    // occluded, and (unlike a Map3D GLB laid on photoreal tiles) never drifts off the roof. So when the
+    // massing model is available we drive the roofing designer on it; only a fragmented-massing roof
+    // (no clean model) falls back to the photoreal house.
+    const haveModel = (window.__modelQuality!==false);
+    if(haveModel){
+      // Force the Three.js scene surface ON. enterModelDefault skips setMode("schematic") when `mode` is
+      // already "schematic" — but an earlier photoreal teardown can leave #scene display:none with `mode`
+      // still reading "schematic", so the model surface stays hidden (blank screen). setMode("schematic")
+      // here is the single source of truth that mounts + shows the canvas before we skin it.
+      try{ await setMode("schematic"); }catch(_){}
+      try{ if(typeof enterModelDefault==="function") await enterModelDefault(); }catch(_){}
+      try{ const sc=$("scene"); if(sc) sc.style.display="block"; const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+      // hero 3/4 framing onto the roof so the texture reads big
+      try{ if(typeof frameRoofHero==="function") frameRoofHero(); }catch(_){}
+      rdReflectOnHouse();   // skin the model roof with the selected material+colour
+    } else {
+      if(mode!=="photoreal") await setMode("photoreal");
+      if(mode==="photoreal" && window.__photorealOk!==false){
+        try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // gmapWrap.display=block
+        try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
+          const rng=Math.round(roofFitRange(78)*0.82);
+          gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:rng, tilt:60, heading:18 }, durationMillis:900 });
+        } }catch(_){}
+        rdReflectOnHouse();   // photoreal-GLB roof skin
+      }
     }
     showLoad(false);
   }catch(e){ try{ showLoad(false); }catch(_){} }
@@ -7702,6 +7853,8 @@ function closeRoofDesign(){
   const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; }
   try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
   try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
+  // drop the roofing-skin texture off the model facets so it doesn't bleed into the solar/measure lenses
+  try{ if(typeof applyRoofSkin==="function") applyRoofSkin(null); }catch(_){}
 }
 // wire the design-step controls
 (function wireRoofDesign(){
