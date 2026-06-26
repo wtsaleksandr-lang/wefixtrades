@@ -79,7 +79,7 @@
   #selectRoof #srMap{position:absolute;inset:0}
   #selectRoof .sr-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 28px);background:rgba(15,23,42,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:99px;text-align:center}
   #selectRoof .sr-hint svg{flex:0 0 auto;width:14px;height:14px;stroke:#7fa0ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  #selectRoof .sr-count{position:absolute;left:14px;top:14px;z-index:5;display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;letter-spacing:-.01em;padding:7px 13px;border-radius:99px;box-shadow:0 4px 14px rgba(13,60,252,.32)}
+  #selectRoof .sr-count{position:absolute;left:8px;top:8px;z-index:5;display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;letter-spacing:-.01em;padding:7px 11px;border-radius:7px;box-shadow:0 4px 14px rgba(13,60,252,.32)}
   #selectRoof .sr-count svg{flex:0 0 auto;width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-load{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13.5px;font-weight:600}
   #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
@@ -9265,8 +9265,30 @@ function syncSelection(){
 // legacy single-detected look). Unselected = thin subtle outline that's clearly tappable.
 function _applyPolyStyle(b){
   if(!b||!b.poly) return;
-  if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.28, zIndex:b.detected?20:15 }); }
-  else { b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:0.55, strokeWeight:1.5, fillColor:"#0d3cfc", fillOpacity:0.04, zIndex:5 }); }
+  if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.18, zIndex:b.detected?20:15 }); }
+  else { b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:0.55, strokeWeight:1.5, fillColor:"#0d3cfc", fillOpacity:0.02, zIndex:5 }); }
+  // #4 striped solar-grid: every roof gets stripes; the selected roof's are a touch more prominent.
+  if(b.stripe && typeof b.stripe.setSelected==="function") b.stripe.setSelected(!!b.selected);
+  // #3 checkmark: only on selected buildings.
+  _applyCheck(b);
+}
+// #3 — a circular check-badge marker at the building centroid, present only while selected.
+const _CHECK_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">'
+  + '<circle cx="15" cy="15" r="13" fill="#0d3cfc" stroke="#ffffff" stroke-width="2.5"/>'
+  + '<path d="M9 15.5l4 4 8-8.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+  + '</svg>');
+function _applyCheck(b){
+  if(!b) return;
+  try{
+    if(b.selected){
+      if(!b.check){
+        const c=b.centroid&&b.centroid.length===2?{lat:b.centroid[1],lng:b.centroid[0]}:null; if(!c) return;
+        b.check=new google.maps.Marker({ position:c, map:__srMap, clickable:false, zIndex:60,
+          icon:{ url:_CHECK_ICON_URL, scaledSize:new google.maps.Size(30,30), anchor:new google.maps.Point(15,15) } });
+      } else { b.check.setMap(__srMap); }
+    } else if(b.check){ b.check.setMap(null); }
+  }catch(_){}
 }
 function _toggleBuilding(b){ if(!b) return; b.selected=!b.selected; _applyPolyStyle(b); syncSelection(); }
 
@@ -9274,17 +9296,63 @@ function _toggleBuilding(b){ if(!b) return; b.selected=!b.selected; _applyPolySt
 // the detected footprint drawn as a highlighted filled polygon AND every neighbouring building drawn as a
 // subtle selectable outline. Tapping any building toggles it in/out of the quote selection. Robust to a
 // missing footprint (marker + degrade to point) and to a Maps load failure (Continue still proceeds).
+// #4 — StripeOverlay: a canvas OverlayView that paints a subtle diagonal solar-panel-grid stripe
+// pattern CLIPPED to a single building footprint. Every detected roof gets one (reads as a "solar
+// surface"); the selected roof's stripes are a touch more prominent (brighter brand-blue). Pure overlay —
+// does not intercept clicks (the polygon underneath still handles selection).
+function _makeStripeOverlay(ring){
+  if(!(window.google&&google.maps&&google.maps.OverlayView)) return null;
+  const Base=google.maps.OverlayView;
+  function Stripe(){ this._ring=ring; this._selected=false; this._canvas=null; }
+  Stripe.prototype=Object.create(Base.prototype);
+  Stripe.prototype.onAdd=function(){
+    const c=document.createElement("canvas");
+    c.style.position="absolute"; c.style.pointerEvents="none"; c.style.willChange="transform";
+    this._canvas=c; this.getPanes().overlayLayer.appendChild(c);
+  };
+  Stripe.prototype.setSelected=function(s){ this._selected=!!s; this.draw(); };
+  Stripe.prototype.draw=function(){
+    const proj=this.getProjection(); const c=this._canvas; if(!proj||!c) return;
+    // project ring -> pixel, find bbox
+    const pts=this._ring.map(([lng,lat])=>proj.fromLatLngToDivPixel(new google.maps.LatLng(lat,lng)));
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of pts){ if(!p) return; minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); }
+    const pad=2, w=Math.max(1,Math.ceil(maxX-minX)+pad*2), h=Math.max(1,Math.ceil(maxY-minY)+pad*2);
+    c.width=w; c.height=h; c.style.left=(minX-pad)+"px"; c.style.top=(minY-pad)+"px";
+    const ctx=c.getContext("2d"); ctx.clearRect(0,0,w,h);
+    // clip to the footprint
+    ctx.save(); ctx.beginPath();
+    pts.forEach((p,i)=>{ const x=p.x-minX+pad, y=p.y-minY+pad; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.closePath(); ctx.clip();
+    // diagonal solar-panel stripes
+    const sel=this._selected;
+    const gap=Math.max(7, Math.min(14, Math.round((maxX-minX)/16)));   // scale stripe pitch to footprint size
+    ctx.lineWidth=sel?2.2:1.4;
+    ctx.strokeStyle=sel?"rgba(120,160,255,0.85)":"rgba(150,180,255,0.42)";
+    ctx.beginPath();
+    for(let d=-h; d<w+h; d+=gap){ ctx.moveTo(d,0); ctx.lineTo(d-h,h); }   // 45° stripes
+    ctx.stroke();
+    ctx.restore();
+  };
+  Stripe.prototype.onRemove=function(){ if(this._canvas&&this._canvas.parentNode){ this._canvas.parentNode.removeChild(this._canvas);} this._canvas=null; };
+  return new Stripe();
+}
+
 async function renderSelectRoofMap(g, fp, neighbours){
   const el=$("srMap"); if(!el) return;
   try{
     const { Map }=await google.maps.importLibrary("maps");
     const center={lat:g.lat,lng:g.lng};
     if(!__srMap){
-      __srMap=new Map(el,{ center, zoom:20, mapTypeId:"satellite", tilt:0, disableDefaultUI:true, gestureHandling:"greedy", keyboardShortcuts:false, clickableIcons:false });
+      __srMap=new Map(el,{ center, zoom:20, mapTypeId:"satellite", tilt:0,
+        // INTERACTIVE map (Alex: "the map is static and I can't move it — fix it"):
+        // pan via drag, zoom via wheel/pinch, and a visible zoom control.
+        gestureHandling:"greedy", draggable:true, scrollwheel:true, disableDoubleClickZoom:false,
+        disableDefaultUI:true, zoomControl:true, keyboardShortcuts:true, clickableIcons:false });
       window.__srMap=__srMap;   // expose for headless verification
     } else { __srMap.setCenter(center); __srMap.setZoom(20); }
     // clear any prior overlays (second address / re-render)
-    __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); }catch(_){} });
+    __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); if(b.check) b.check.setMap(null); if(b.stripe) b.stripe.setMap(null); }catch(_){} });
     __srBuildings=[];
     // Build the candidate list: the DETECTED home (fp) + all NEIGHBOUR rings, de-duped by overlap.
     const detectedRing=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
@@ -9306,7 +9374,9 @@ async function renderSelectRoofMap(g, fp, neighbours){
     for(const item of list){
       const path=item.ring.map(([lng,lat])=>({lat,lng}));
       const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
-      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly };
+      // #4 striped solar-grid overlay clipped to this footprint (every roof gets one).
+      const stripe=_makeStripeOverlay(item.ring); if(stripe) stripe.setMap(__srMap);
+      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, check:null };
       _applyPolyStyle(b);
       poly.addListener("click",()=>_toggleBuilding(b));     // tap toggles selected ⇄ unselected
       __srBuildings.push(b);
