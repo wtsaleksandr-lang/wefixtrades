@@ -6983,14 +6983,33 @@ function buildGridCandidates(){
   const wattsPerPanel=sp.panelCapacityWatts||400;
   // First pass: sample flux + corners, gather extents (UTM) and a robust flux ramp.
   const cand=[]; let minE=Infinity,minN=Infinity,maxE=-Infinity,maxN=-Infinity; const fluxVals=[];
+  const usedSeg=new Set();                                                 // segment indices that actually carry a panel (this building)
   for(let i=0;i<list.length;i++){ const pn=list[i], seg=segs[pn.segmentIndex];
     const corners=panelCornersLL(pn,seg,zone,pw,ph);                       // lat/lng quad (same as the rendered panel)
     const cu=corners.map(c=>{ const [E,N]=wgs84ToUTM(c.lat,c.lng,zone); if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; return [E,N]; });
     const [cE,cN]=wgs84ToUTM(pn.center.latitude,pn.center.longitude,zone);
     let flux=null; if(fg){ const v=sampleGrid(fg,cE,cN); if(v!=null&&isFinite(v)&&v>0){ flux=v; fluxVals.push(v); } }
+    if(pn.segmentIndex!=null) usedSeg.add(pn.segmentIndex);
     cand.push({ id:i, pn, seg, corners, cu, flux, baseKwh:(pn.yearlyEnergyDcKwh||0) });
   }
   if(!isFinite(minE)) return null;
+  // ── (heatmap neighbour-bleed fix) Build clip rectangles (UTM) that bound ONLY the SELECTED building's
+  //    roof, so sgDraw() paints the flux heatmap only there. Google's dataLayers mask/flux raster covers an
+  //    AREA that can include neighbouring buildings, so the mask>0.5 gate alone lets neighbour roofs through
+  //    (a detached flux blob to the side on a wide viewport). The panels only ever land on the selected
+  //    building, so the bounding boxes of the segments that CARRY panels (usedSeg) tightly frame the real
+  //    roof; neighbours fall outside them. A small margin keeps the roof's own edge cells from being clipped.
+  //    Falls back to the panel-corner extent when no usable segment boxes exist.
+  const clipBoxes=[]; const CLIP_MARGIN_M=1.4;                              // ~ <1 panel width of slack around the roof
+  for(const si of usedSeg){ const b=segs[si]&&segs[si].boundingBox; if(!b||!b.sw||!b.ne) continue;
+    let bs=Infinity,bw=Infinity,bn=-Infinity,be=-Infinity;
+    for(const [la,lo] of [[b.sw.latitude,b.sw.longitude],[b.sw.latitude,b.ne.longitude],[b.ne.latitude,b.sw.longitude],[b.ne.latitude,b.ne.longitude]]){
+      const [E,N]=wgs84ToUTM(la,lo,zone); if(E<bw)bw=E; if(E>be)be=E; if(N<bs)bs=N; if(N>bn)bn=N; }
+    if(isFinite(bs)&&isFinite(bw)) clipBoxes.push([bw-CLIP_MARGIN_M,bs-CLIP_MARGIN_M,be+CLIP_MARGIN_M,bn+CLIP_MARGIN_M]);
+  }
+  // Fallback / safety: also include the panel-corner extent (panels only exist on the selected roof). This
+  // guarantees the selected roof's own panels are never clipped even if a segment box is missing/degenerate.
+  clipBoxes.push([minE-CLIP_MARGIN_M,minN-CLIP_MARGIN_M,maxE+CLIP_MARGIN_M,maxN+CLIP_MARGIN_M]);
   // ── (grid-framing fix) The layout bbox above is the PANEL-corner extent only. On a canopy-occluded
   //    roof Google returns very few usable panels (e.g. 3 on the Pasadena oak-shaded roof), so that
   //    extent is a tiny strip — and sgLayout's contain-fit then ZOOMS it to fill the stage, blowing
@@ -7039,7 +7058,7 @@ function buildGridCandidates(){
       ? ((c.fluxT < SG_LOWSUN_FRAC) || (deepFloor>0 && c.flux!=null && c.flux < deepFloor))
       : (!!fg);   // null flux on a measured roof → treat as low-sun; on an unmeasured roof → not flagged
   }
-  return { panels:cand, bbox:[minE,minN,maxE,maxN], zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
+  return { panels:cand, bbox:[minE,minN,maxE,maxN], clipBoxes, zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
 }
 // Default selection = Google's recommended config count (best squares first), so the user opens onto a
 // sensible system and tweaks from there. Falls back to all non-shaded squares, then all squares.
@@ -7091,8 +7110,16 @@ function sgDraw(){
     const STEP=Math.max(2,Math.round(2*pr.dpr));        // sample every ~2 device px (fast, smooth enough)
     const W=cv.width, H=cv.height, img=ctx.getImageData(0,0,W,H), d=img.data;
     const range=(SG_STATE.fmax-SG_STATE.fmin)||1;
+    // Clip the heatmap to the SELECTED building's roof: only paint inside the union of the panel-bearing
+    // segment boxes (computed in buildGridCandidates). Google's mask/flux raster spills onto neighbouring
+    // roofs, so the mask>0.5 gate alone leaves a detached neighbour blob; this confines the paint to the
+    // real roof. Empty/absent → no clip (graceful degradation, paint as before).
+    const clip=SG_STATE.clipBoxes;
+    const inClip=(E,N)=>{ if(!clip||!clip.length) return true;
+      for(let ci=0;ci<clip.length;ci++){ const b=clip[ci]; if(E>=b[0]&&E<=b[2]&&N>=b[1]&&N<=b[3]) return true; } return false; };
     for(let y=0;y<H;y+=STEP){ const N=pr.N1-(y-pr.offY)/pr.scale;
       for(let x=0;x<W;x+=STEP){ const E=pr.E0+(x-pr.offX)/pr.scale;
+        if(!inClip(E,N)) continue;                                          // outside the selected roof → leave dark (no neighbour bleed)
         if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }   // off-roof → leave dark
         const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
         const t=(v-SG_STATE.fmin)/range, c=fluxColorSmooth(t);
@@ -7220,7 +7247,7 @@ function sgHover(px,py){
 // ── Open / close the interactive grid overlay.
 function openSolarGrid(){
   const cand=buildGridCandidates(); if(!cand){ return; }
-  SG_STATE={ panels:cand.panels, bbox:cand.bbox, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels), hoverId:null };
+  SG_STATE={ panels:cand.panels, bbox:cand.bbox, clipBoxes:cand.clipBoxes, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels), hoverId:null };
   // seed the bill input from any earlier card selection so the two surfaces stay in sync
   if(solarBill>0 && !$("sgBill").value) $("sgBill").value=solarBill;
   $("solarGrid").style.display="flex";
