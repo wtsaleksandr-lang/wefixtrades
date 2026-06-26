@@ -391,6 +391,10 @@
   #lead input{width:100%;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:12px 14px;height:48px;color:#0f172a;font-size:15px;margin-bottom:2px;outline:none}
   #lead input::placeholder{color:#94a3b8}
   #lead input:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
+  #lead input.lerr{border-color:#e0556a}
+  #lead input.lerr:focus{border-color:#e0556a;box-shadow:0 0 0 3px rgba(224,85,106,0.14)}
+  #lead .lerr-msg{display:none;font-size:11px;font-weight:600;color:#e0556a;margin:2px 0 0 2px}
+  #lead .lerr-msg.on{display:block}
   #lead #ltime{width:100%;background:#fff;border:1px solid #e1e7ef;border-radius:10px;padding:0 14px;height:46px;color:#0f172a;font-size:14px;margin-bottom:10px;outline:none}
   #lead .lq-l{display:block;font-size:11px;color:#94a3b8;margin-bottom:6px}
   #lead .lq-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
@@ -895,8 +899,10 @@
     <div class="lead-s" id="leadS">Your personalised roof &amp; solar plan, sent to you instantly.</div>
     <label class="ll" for="lname">Full name</label>
     <input id="lname" placeholder="Jane Smith" autocomplete="name">
+    <div class="lerr-msg" id="lnameErr">Please enter your name</div>
     <label class="ll" for="lemail">Email</label>
     <input id="lemail" type="email" placeholder="you@email.com" autocomplete="email">
+    <div class="lerr-msg" id="lemailErr">Please enter a valid email</div>
     <label class="ll" for="lphone">Phone <span class="lopt">(optional)</span></label>
     <input id="lphone" type="tel" placeholder="(555) 123-4567" autocomplete="tel">
     <div id="lqual">
@@ -986,6 +992,10 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const $=id=>document.getElementById(id);
 const M2_SQFT=10.7639; const M_FT=3.28084;
+// LABEL-ONLY: degenerate sliver facets (e.g. 12/19 ft²) get their own SQFT pill → visual
+// noise. Suppress just the per-section SQFT *label* below this area; geometry, outlines,
+// area math, roof total + quote are all untouched.
+const MIN_FACET_LABEL_SQFT=25;
 const PLAN=(new URLSearchParams(location.search).get("plan")||"free").toLowerCase();   // free shows our badge; paid = white-label
 // Privacy/consent notice version stamped on every lead the widget submits. Bump
 // when the lead-consent wording (above the submit button) materially changes so
@@ -5908,7 +5918,9 @@ function renderRoofDiagram(){
   const GAP=Math.max(6,fs*0.6);   // scale the clear-gap with the pill size so dense roofs don't crowd
   const hits=(box)=> lblBoxes.some(b=> Math.abs(b.x+b.w/2-(box.x+box.w/2)) < (b.w+box.w)/2+GAP && Math.abs(b.y+b.h/2-(box.y+box.h/2)) < (b.h+box.h)/2+GAP);
   for(const f of labelFp){
-    const a=Math.round((f.p.areaSqFt||0)*dScale).toLocaleString()+" SQFT", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
+    const aNum=Math.round((f.p.areaSqFt||0)*dScale);
+    if(aNum<MIN_FACET_LABEL_SQFT) continue;   // LABEL-ONLY: skip pill for degenerate slivers (area math unchanged)
+    const a=aNum.toLocaleString()+" SQFT", pit=facetX12(f.p.pitchX12,{fromX12:true})+"/12";
     // area is the headline (secondary-bold, smaller than before); pitch is a faint sub-line
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; const w1=ctx.measureText(a).width;
     ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; const w2=ctx.measureText(pit).width;
@@ -6271,6 +6283,9 @@ const RoofDots=(function(){
         // thin internal facet outline (subtle — the outer outline + corners are the hero)
         ctx.beginPath(); fp.forEach((p,k)=>{ k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.closePath();
         ctx.strokeStyle="rgba(13,60,252,0.55)"; ctx.lineWidth=1; ctx.stroke();
+        // LABEL-ONLY: skip the SQFT pill for degenerate slivers (outline above already drawn;
+        // area math / roof total untouched). Continues AFTER the outline so geometry is unchanged.
+        if((fa.slopedFt2||0)<MIN_FACET_LABEL_SQFT) continue;
         // centroid → small "### SQFT" label inside the section. WHITE text with a subtle dark halo so it
         // stays legible on a dark roof while remaining small + understated (not a big bold pill).
         let cx=0,cy=0; for(const p of fp){ cx+=p[0]; cy+=p[1]; } cx/=fp.length; cy/=fp.length;
@@ -8355,9 +8370,16 @@ async function flushLeads(){
   try{ localStorage.setItem("__qqLeadQ",JSON.stringify(keep)); }catch(_){}
 }
 try{ flushLeads(); }catch(_){}
+// Lead-form inline validation cues: red border + helper text on empty/invalid required
+// fields (name + email; phone optional), focus the first offender, and clear each field's
+// error the moment the user starts typing in it. Label-only feedback; submit logic unchanged.
+function setLeadErr(id,on){ const inp=$(id),msg=$(id+"Err"); if(inp) inp.classList.toggle("lerr",!!on); if(msg) msg.classList.toggle("on",!!on); }
+["lname","lemail"].forEach(id=>{ const inp=$(id); if(inp) inp.addEventListener("input",()=>setLeadErr(id,false)); });
 $("lgo").onclick=async()=>{
   const name=$("lname").value.trim(), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
-  if(!name||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ $("lemail").style.borderColor="#e0556a"; return; }
+  const nameBad=!name, emailBad=!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  setLeadErr("lname",nameBad); setLeadErr("lemail",emailBad);
+  if(nameBad||emailBad){ (nameBad?$("lname"):$("lemail")).focus(); return; }
   const t=solarTiers[selTier]||{};
   const timeline=($("ltime")&&$("ltime").value)||"", priorities=[...document.querySelectorAll("#lqual .lqp.on")].map(b=>b.dataset.p);
   const leadScore=timeline==="As soon as possible"?3:timeline==="This year"?2:timeline==="Just exploring"?1:0;   // hot/warm/cold for the installer's CRM
