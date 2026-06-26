@@ -198,6 +198,35 @@
   #card .card-fold-btn:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
   #card.folded{width:0;max-height:0;min-height:0;padding:0;border-width:0;overflow:hidden;opacity:0;pointer-events:none}
   body.card-folded #cardFold{display:inline-flex}
+  /* ── LOW-CONFIDENCE FALLBACK STATE ────────────────────────────────────────
+     When the roof can't be confidently measured (heavy canopy / no confident
+     satellite read), the 3D scene is empty/meaningless. Instead of leaving a
+     small card tucked in a corner over a giant grey void with a pointless lens
+     rail + a top button clipped under the stepper, we present a single, clean,
+     CENTERED "we couldn't instant-measure this one — request an on-site quote"
+     panel over a soft scrim, and hide everything that only makes sense with a
+     real model/imagery. Purely presentational; no quote/logic impact. */
+  body.lc-fallback #lcScrim{display:block}
+  body.lc-fallback #ctrls,
+  body.lc-fallback #bar,
+  body.lc-fallback #viewToggle,
+  body.lc-fallback #measToggle,
+  body.lc-fallback #cardFold{display:none!important}
+  /* scrim sits above the empty scene, below the centered card */
+  #lcScrim{position:absolute;inset:0;z-index:18;display:none;background:radial-gradient(120% 120% at 50% 38%,rgba(238,241,246,.62),var(--bg) 64%);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  body.lc-fallback #card{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 96px);padding:22px 24px;border-radius:20px;text-align:center;box-shadow:0 24px 70px rgba(15,23,42,.16),0 4px 16px rgba(15,23,42,.06)}
+  body.lc-fallback #card .qtabs,
+  body.lc-fallback #card .sheet-grab,
+  body.lc-fallback #card .card-fold-btn{display:none!important}
+  body.lc-fallback #card .qaddr{justify-content:center;margin-bottom:8px}
+  body.lc-fallback #card .qsub{text-align:center}
+  body.lc-fallback #card .qprice{margin-top:2px}
+  body.lc-fallback #card .rcta{max-width:300px;margin-left:auto;margin-right:auto}
+  @media (max-width:560px){
+    body.lc-fallback #ctrls{display:none!important}
+    body.lc-fallback #card{position:absolute;left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:calc(100vw - 24px);max-width:380px;max-height:calc(100vh - 110px);border-radius:20px}
+    body.lc-fallback.card-peek #card,body.lc-fallback.card-folded #card{max-height:calc(100vh - 110px)}
+  }
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
   #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
   #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
@@ -888,6 +917,7 @@
   </div>
   <div id="status"></div>
   <div id="overlayNote"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg><span id="overlayNoteText"></span></div>
+  <div id="lcScrim"></div>
   <div id="card"></div>
   <button id="cardFold" type="button" aria-label="Show quote"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span>Show quote</span></button>
   <div id="ctrls">
@@ -2209,6 +2239,7 @@ function showGracefulDegrade(){
     if(typeof window.__leaveHero==="function") window.__leaveHero();
     setStatus("");                       // clear any prior raw status chip
     card.style.display="block";
+    document.body.classList.add("lc-fallback");   // same clean centered fallback presentation as the low-confidence path
     card.innerHTML='<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — we couldn’t get a confident read</div>'+
       '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
       '<div class="qsub" style="margin-top:6px">We couldn’t pull confident satellite data for this address right now, so an instant measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
@@ -2646,6 +2677,12 @@ function renderQuoteCard(){
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
   const trust=(lowConf||bodyCommercial||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
   card.innerHTML='<div class="sheet-grab" aria-label="Drag to expand or collapse the quote" role="button" tabindex="0"></div><button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
+  // LOW-CONFIDENCE FALLBACK presentation (no model/imagery to manipulate): center the
+  // "couldn't get a confident read" card over a soft scrim and hide the lens rail / top
+  // bar / base-view toggles, so the screen reads as a deliberate "request an on-site
+  // quote" state instead of a broken empty grey scene. Purely visual; quote logic above
+  // is untouched. Restored automatically for any confident read (class removed).
+  try{ document.body.classList.toggle("lc-fallback", !!bodyLowConf); }catch(_){}
   const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
   wireSheetGrab(card);   // (mobile) re-bind the peek/expand drag handle after the innerHTML re-render
   applyCardFold();   // re-assert fold state after the re-render
@@ -9211,6 +9248,7 @@ function __srSetContinueReady(ready){
 }
 async function enterSelectRoof(addr, placeId){
   const v=(addr||"").trim(); if(!v) return;
+  document.body.classList.remove("lc-fallback");   // a fresh address run starts clean; the next render re-asserts if still low-confidence
   const h=$("hero"); if(h) h.style.display="none";
   $("bar").style.display="none";               // top search bar stays hidden behind this step
   $("addr").value=v;
