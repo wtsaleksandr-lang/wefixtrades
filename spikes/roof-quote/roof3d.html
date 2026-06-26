@@ -4986,24 +4986,88 @@ function extractFacetPolysAnalytic(margin){
       const ref0=(()=>{ try{ return googleRoofReference(zone); }catch(_){ return null; } })();
       const blob=(ref0 && ref0.blob && ref0.blob.vals)?ref0.blob:null;
       const snapGrid=blob||{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox};
-      // (iter2) Converge with up to 4 passes of DECREASING clamp: the first passes pull an edge that
-      // started 3–4 m out the bulk of the way; later tight-clamp passes refine the residual onto the eave
-      // without oscillating. NO outward bias — the measured iter-1 signed median was already ~0 to +0.1 m
-      // (centred, never the inward bias the brief anticipated), so a bias would push edges OUTSIDE the eave.
-      // The decreasing clamp alone tightens the residual on the few far-out edges. Stop early when a pass
-      // produces no further movement (returns the same array reference).
-      const PASSES=[ {maxShiftM:1.6}, {maxShiftM:0.8}, {maxShiftM:0.45}, {maxShiftM:0.3} ];
+      // (align-iter3) GLOBAL RIGID REFINEMENT (ICP-on-boundary). Registration's ICP nudge maximises a coarse
+      // boundary-ON-roof fraction, which is blind to a residual ~1–2° whole-footprint ROTATION: every edge can
+      // still sit "on roof" while one long eave is squarely 2 m off at its far end (4521 T St edges 4–7). The
+      // per-edge snap can't fix a coordinated rotation either — rotating one edge moves its shared corners and
+      // perturbs neighbours, so the gate (rightly) rejects it. Here we instead refine the WHOLE ring rigidly:
+      // a small grid of (rotation about centroid + translation) candidates, scored by the EXACT boundary
+      // distance metric, greedily descending. This corrects coordinated tilt with NO corner coupling. The
+      // same never-worse gate guarantees it can only reduce the boundary distance, never increase it.
+      try{
+        const errR=_ringMaskEdgeError(footprint, snapGrid);
+        if(isFinite(errR)){
+          let cx=0,cy=0; for(const[E,N]of footprint){cx+=E;cy+=N;} cx/=footprint.length; cy/=footprint.length;
+          const rotRing=(ring,ang,de,dn)=>{ const c=Math.cos(ang),s=Math.sin(ang);
+            return ring.map(([E,N])=>{ const dx=E-cx,dy=N-cy; return [cx+dx*c-dy*s+de, cy+dx*s+dy*c+dn]; }); };
+          let bestRing=footprint, bestErr=errR;
+          const ROT=[0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2].map(d=>d*Math.PI/180);   // ≤2.2° per step
+          const TR=[[0,0],[0.3,0],[-0.3,0],[0,0.3],[0,-0.3]];
+          for(let iter=0; iter<5; iter++){
+            let improved=false;
+            for(const ang of ROT) for(const[de,dn] of TR){ if(ang===0&&de===0&&dn===0) continue;
+              const cand=rotRing(bestRing,ang,de,dn); const e=_ringMaskEdgeError(cand,snapGrid);
+              if(isFinite(e) && e < bestErr-0.01){ bestErr=e; bestRing=cand; improved=true; } }
+            if(!improved) break;
+          }
+          // accept only a meaningful tightening (≥5 cm) — a tiny gain is rasterisation noise not worth a move.
+          if(bestRing!==footprint && bestErr < errR-0.05 && polyArea2(bestRing)>=3){
+            footprint=bestRing;
+            try{ window.__globalRefine={ errBeforeM:+errR.toFixed(3), errAfterM:+bestErr.toFixed(3), gainM:+(errR-bestErr).toFixed(3) }; }catch(_){}
+          } else { try{ window.__globalRefine={ errBeforeM:+errR.toFixed(3), applied:false }; }catch(_){} }
+        }
+      }catch(_){}
+      // (iter2/iter3) Converge in two phases, each pass GATED on the TRUE boundary distance:
+      //   • TRANSLATE passes (decreasing clamp) pull each edge perpendicular onto the eave — this is the
+      //     proven, safe correction (registration leaves a ~1–2 m non-rigid imagery offset).
+      //   • REFINE passes then allow a small per-edge ROTATION (line-fit) to square a TILTED edge onto the
+      //     real eave (one end hugs, the other ~2 m off — translation alone can't fix that). These run LAST
+      //     and tight, so they only nudge a residual; the gate rejects any that don't actually help.
+      // Splitting translate-first then rotate-last means a bad rotation is rejected WITHOUT discarding the
+      // good translation that preceded it (the iter-3a bug: a single combined pass that worsened got the
+      // whole snap reverted, losing the beneficial translate).
+      const PASSES=[
+        {maxShiftM:1.6, lineFit:false}, {maxShiftM:0.8, lineFit:false}, {maxShiftM:0.45, lineFit:false},
+        {maxShiftM:0.6, lineFit:true},  {maxShiftM:0.35, lineFit:true},
+      ];
       let cur=footprint, moved=false;
+      // (align-iter3) NEVER-WORSE GATE on the EXACT metric the verification reports (true distance to the
+      // traced mask boundary). Accept each pass only if it does NOT increase that distance (2 cm tolerance
+      // for rasterisation noise). This guarantees the snapped outline is never further from the real roof
+      // than the registered ring we started with — the brief's hard "a worse outline on any roof is a FAIL".
+      // A worsening pass is SKIPPED (continue), not aborting — a later tighter pass can still help.
+      const err0=_ringMaskEdgeError(footprint, snapGrid);
+      let errCur=err0, lastDiag=null;
+      const TOL=0.02;
       for(const cfg of PASSES){
         const snapped=snapRingEdgesToMask(cur, snapGrid, cfg);
-        if(!Array.isArray(snapped) || snapped.length<3 || polyArea2(snapped)<3) break;
-        if(snapped===cur) break;   // self-guard returned input → converged / degenerate
-        moved=true; cur=snapped;
+        if(!Array.isArray(snapped) || snapped.length<3 || polyArea2(snapped)<3) continue;
+        if(snapped===cur) continue;   // self-guard returned input → no movement this pass
+        const errNew=_ringMaskEdgeError(snapped, snapGrid);
+        // when the metric is unavailable (Infinity) on either side, fall back to accepting (the area/fling
+        // guards inside snapRingEdgesToMask already bound the move) so behaviour matches the pre-gate code.
+        if(isFinite(err0) && isFinite(errNew) && errNew > errCur + TOL) continue;   // this pass made it worse → skip it
+        moved=true; cur=snapped; if(isFinite(errNew)) errCur=errNew;
+        try{ lastDiag=window.__edgeSnapDiag||lastDiag; }catch(_){}
       }
       if(moved && Array.isArray(cur) && cur.length>=3 && polyArea2(cur)>=3){
-        try{ window.__edgeSnapApplied=true; }catch(_){}
+        try{ window.__edgeSnapApplied=true;
+          const sd=lastDiag||window.__edgeSnapDiag||{};
+          // honest confidence keyed on the TRUE post-snap boundary distance (errCur): high when the outline
+          // ends up tight (<0.35 m) and most edges were measured (not weak), low when it stays loose (>1.2 m)
+          // or most edges had too few mask hits to trust. This is an internal signal — a low value flags an
+          // outline that still needs manual dragging; it never produces a WORSE outline (the gate guarantees
+          // that). The metric matches what measureEdgeDeviation reports to verification.
+          const improved=(isFinite(err0)&&isFinite(errCur))?(err0-errCur):null;
+          const measuredFrac=(sd.nEdges>0)?((sd.nFit+sd.nTrans)/sd.nEdges):0;
+          let conf="medium";
+          if(isFinite(errCur)){ if(errCur<=0.35 && measuredFrac>=0.6) conf="high"; else if(errCur>1.2 || measuredFrac<0.4) conf="low"; }
+          window.__alignConfidence={ level:conf, errBeforeM:isFinite(err0)?+err0.toFixed(3):null,
+            errAfterM:isFinite(errCur)?+errCur.toFixed(3):null, improvedM:(improved==null?null:+improved.toFixed(3)),
+            measuredFrac:+measuredFrac.toFixed(2), nFit:sd.nFit||0, nTrans:sd.nTrans||0, nWeak:sd.nWeak||0 };
+        }catch(_){}
         footprint=cur;
-      } else { try{ window.__edgeSnapApplied=false; }catch(_){} }
+      } else { try{ window.__edgeSnapApplied=false; window.__alignConfidence={ level:"none", errBeforeM:isFinite(err0)?+err0.toFixed(3):null }; }catch(_){} }
     } else { try{ window.__edgeSnapApplied=false; }catch(_){} }
   }catch(e){ try{ window.__edgeSnapApplied=false; }catch(_){} }
 
@@ -5541,6 +5605,63 @@ function polyArea2(ring){ let s2=0; for(let i=0;i<ring.length;i++){ const A=ring
    straight; only their position is corrected. Edges with too few mask hits (gable end hidden under
    a tree, or a shared party wall) keep their registered position. Returns a new [[E,N]] ring or the
    input unchanged on any degeneracy.  `maskGrid` = {vals,w,h,bbox} of the ISOLATED roof blob. */
+/* (align-iter3) Trace the mask roof-blob boundary as an [E,N] ring (Moore trace of the largest connected
+   component, light DP-simplify). This is the SAME ground-truth boundary measureEdgeDeviation() scores the
+   drawn outline against, so the snap's accept/reject gate uses the EXACT metric the verification reports —
+   no proxy that can disagree (the iter-3a bug: a ray-cast proxy passed a pass that the true boundary metric
+   showed as worse on 4521 T St). Cached per-grid identity so the 4 snap passes trace it once. */
+let __snapBoundCache=null, __snapBoundKey=null;
+function _traceMaskBoundary(maskGrid){
+  try{
+    if(!maskGrid||!maskGrid.vals) return null;
+    const { vals, w, h, bbox } = maskGrid; if(!(w>0&&h>0&&bbox)) return null;
+    if(__snapBoundKey===vals && __snapBoundCache!==undefined) return __snapBoundCache;
+    __snapBoundKey=vals; __snapBoundCache=null;
+    const dE=(bbox[2]-bbox[0])/((w-1)||1), dN=(bbox[3]-bbox[1])/((h-1)||1);
+    const comp=new Int32Array(w*h).fill(-1); let bestC=-1,bestSz=0,cid=0;
+    for(let i0=0;i0<w*h;i0++){ if(!(vals[i0]>0.5)||comp[i0]>=0) continue;
+      const st=[i0]; comp[i0]=cid; let sz=0;
+      while(st.length){ const ix=st.pop(); sz++; const r=(ix/w)|0,c=ix%w;
+        for(const[nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){ if(nr<0||nc<0||nr>=h||nc>=w) continue; const nix=nr*w+nc; if(vals[nix]>0.5&&comp[nix]<0){ comp[nix]=cid; st.push(nix); } } }
+      if(sz>bestSz){ bestSz=sz; bestC=cid; } cid++;
+    }
+    if(bestC<0||bestSz<8) return null;
+    const inB=(r,c)=> r>=0&&c>=0&&r<h&&c<w && comp[r*w+c]===bestC;
+    let sr=-1,sc=-1; outerSB: for(let r=0;r<h;r++)for(let c=0;c<w;c++) if(comp[r*w+c]===bestC){sr=r;sc=c;break outerSB;}
+    if(sr<0) return null;
+    let cont=mooreTrace(inB,sr,sc,h,w); if(cont.length<4) return null;
+    const cellM=Math.max(Math.abs(dE),Math.abs(dN))||0.15;
+    cont=dpSimplify(cont, Math.max(1.0, 0.25/cellM));
+    const ring=cont.map(([r,c])=>[ bbox[0]+c*dE, bbox[3]-r*dN ]);
+    __snapBoundCache=(ring.length>=3 && polyArea2(ring)>=3)?ring:null;
+    return __snapBoundCache;
+  }catch(_){ return null; }
+}
+/* (align-iter3) Mean ABS distance (m) from a ring's EXTERIOR edges to the traced mask roof-boundary — the
+   SAME metric measureEdgeDeviation reports. Party-wall / shared-division edges (median sample > 1.2 m INSIDE
+   the boundary) are excluded (they have no exterior roof-edge to measure against). Used to GATE each snap
+   pass: a pass is kept only if it does NOT increase this true boundary distance, so the snapped outline can
+   never be further from the real roof than the registered ring (the brief's hard "never worse" rule).
+   Returns Infinity when the boundary can't be traced (gate then falls back to the area/fling guards). */
+function _ringMaskEdgeError(ringEN, maskGrid){
+  try{
+    if(!Array.isArray(ringEN)||ringEN.length<3) return Infinity;
+    const mring=_traceMaskBoundary(maskGrid); if(!mring||mring.length<3) return Infinity;
+    const allOff=[];
+    for(let i=0;i<ringEN.length;i++){ const A=ringEN[i],B=ringEN[(i+1)%ringEN.length];
+      const L=Math.hypot(B[0]-A[0],B[1]-A[1]); if(L<0.5) continue;
+      const steps=Math.max(2,Math.round(L/0.4)); const signed=[];
+      for(let k=0;k<=steps;k++){ const t=k/steps, E=A[0]+(B[0]-A[0])*t, N=A[1]+(B[1]-A[1])*t;
+        const d=_nearestDistToRing([E,N], mring); const outside=!pointInPoly2([E,N], mring);
+        signed.push(outside?d:-d); }
+      signed.sort((a,b)=>a-b); const med=signed[Math.floor(signed.length/2)];
+      if(med<=-1.2) continue;   // party-wall / shared division → no exterior edge here, skip
+      for(const o of signed) allOff.push(Math.abs(o));
+    }
+    if(allOff.length<4) return Infinity;
+    return allOff.reduce((s,x)=>s+x,0)/allOff.length;
+  }catch(_){ return Infinity; }
+}
 function snapRingEdgesToMask(ringEN, maskGrid, opts){
   try{
     if(!Array.isArray(ringEN)||ringEN.length<3||!maskGrid||!maskGrid.vals) return ringEN;
@@ -5552,19 +5673,30 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
     const MINHITS=(o.minHits!=null)?o.minHits:0.45;                          // fraction of samples that must find an edge
     const BIAS=(o.biasM!=null)?o.biasM:0;   // (iter2) constant OUTWARD nudge to cancel the ~0.2–0.3m inward bias of the
                                             // eroded mask blob (the snap centres on the blob edge, which sits just inside the true eave)
+    // (align-iter3) PER-EDGE LINE-FIT. The old snap shifted each edge by a single MEDIAN perpendicular
+    // offset — a pure translation. When the registered edge sits at a slight ANGLE to the true eave (one
+    // end hugs, the other end is ~2 m off, e.g. 4521 T St's long eaves: median 0.2 m but p90 ~2 m) a
+    // translation can't fix it: centring the edge leaves both ends off. Now, in addition to the robust
+    // median offset, we fit a CLAMPED slope (Theil–Sen, outlier-robust) of hit-offset vs position-along-edge
+    // and rotate the supporting line by that small angle, so a tilted edge is squared onto the real eave.
+    // Rotation is hard-capped (MAXROT) so a noisy/short edge can never swing wildly; a degenerate fit falls
+    // back to translation-only; a weak edge (too few mask hits) keeps its registered position untouched.
+    const MAXROT=(o.maxRotDeg!=null?o.maxRotDeg:7)*Math.PI/180;   // per-edge rotation cap (rad)
+    const FIT=(o.lineFit!=null)?!!o.lineFit:true;                 // enable the slope fit (off ⇒ legacy translate)
     const isRoof=(E,N)=>{ const c=Math.round((E-bbox[0])/dE), r=Math.round((bbox[3]-N)/dN);
       return r>=0&&c>=0&&r<h&&c<w && vals[r*w+c]>0.5; };
     // ring centroid (for outward sign) + CCW orientation
     let a2=0; for(let i=0;i<ringEN.length;i++){ const A=ringEN[i],B=ringEN[(i+1)%ringEN.length]; a2+=A[0]*B[1]-B[0]*A[1]; }
     const ccw=a2>0; const R=ccw?ringEN.slice():ringEN.slice().reverse();
     const n=R.length;
+    let nFit=0, nWeak=0, nTrans=0;   // (align-iter3) per-edge snap accounting → confidence
     // signed offset per edge (outward +). For each sample, march outward then inward from the edge along
     // its outward normal to find the LAST roof→nonroof transition = the true roof edge nearest this sample.
     const edgeOff=new Array(n).fill(null);
     for(let i=0;i<n;i++){
       const A=R[i], B=R[(i+1)%n]; const ex=B[0]-A[0], ey=B[1]-A[1]; const L=Math.hypot(ex,ey); if(L<0.6) continue;
       const ux=ex/L, uy=ey/L; let nx=uy, ny=-ux;   // right-of-direction; for CCW ring that's OUTWARD
-      const steps=Math.max(3,Math.round(L/0.5)); const hits=[];
+      const steps=Math.max(3,Math.round(L/0.5)); const hits=[]; const samp=[];   // samp: {t01, off} along-edge fit pairs
       for(let k=1;k<steps;k++){ const t=k/steps, mx=A[0]+ex*t, my=A[1]+ey*t;
         // sample roof occupancy along the normal from −REACH (inside) to +REACH (outside) in small steps;
         // the edge is the boundary between the roof run (near 0) and non-roof. Find the transition closest to 0.
@@ -5574,18 +5706,63 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
           if(prevRoof!==null && roof!==prevRoof){ // transition at ~ (s-ds/2)
             const sc=s-ds/2; if(Math.abs(sc)<bestAbs){ bestAbs=Math.abs(sc); bestS=sc; } }
           prevRoof=roof; }
-        if(bestS!=null && bestAbs<=REACH) hits.push(bestS);
+        if(bestS!=null && bestAbs<=REACH){ hits.push(bestS); samp.push({ t, off:bestS }); }
       }
       if(hits.length >= Math.max(2, Math.round((steps-1)*MINHITS))){
         hits.sort((a,b)=>a-b); let med=hits[Math.floor(hits.length/2)];
-        med+=BIAS;   // (iter2) recenter on the true eave (cancel the eroded-mask inward bias)
-        med=Math.max(-MAXSHIFT,Math.min(MAXSHIFT,med));
-        edgeOff[i]={ off:med, ux, uy, nx, ny, A, B };
-      } else edgeOff[i]={ off:0, ux, uy, nx, ny, A, B, weak:true };
+        // (align-iter3) robust SLOPE via Theil–Sen: median of pairwise (Δoff/Δt). t is 0..1 along the edge,
+        // so slope is metres-of-offset per full edge length → convert to a rotation angle about the edge
+        // midpoint. Robust to the handful of spurious hits a tree-shadow notch produces. Disabled when too
+        // few samples to fit a line (keep pure translation) or when FIT is off.
+        let slopePerL=0, rot=0;
+        if(FIT && samp.length>=5){
+          const sl=[];
+          for(let p=0;p<samp.length;p++)for(let q=p+1;q<samp.length;q++){ const dt=samp[q].t-samp[p].t; if(Math.abs(dt)<0.12) continue; sl.push((samp[q].off-samp[p].off)/dt); }
+          if(sl.length>=4){ sl.sort((a,b)=>a-b); const slopeCand=sl[Math.floor(sl.length/2)];   // median pairwise slope (offset per unit-t = per L)
+            // (align-iter3 guard A — MIN-TILT) only rotate when the edge is GENUINELY tilted: the across-edge
+            // drop from one end to the other is |slopeCand| metres over the full length; require half that
+            // (the worst end displacement vs the midpoint) to exceed MINTILT. An already-aligned edge (drop
+            // < MINTILT) stays translation-only, so the fit never perturbs a roof that's already tight
+            // (30 Angus regressed from 0.13→0.28 m when every near-perfect edge was rotated a hair).
+            const MINTILT=0.45, endDisp=Math.abs(slopeCand)/2;
+            // (align-iter3 guard B — FIT MUST HELP) compare the residual spread of the hits about the TILTED
+            // line vs about a pure horizontal (translation-only) line. Only keep the rotation if it cuts the
+            // median-abs residual by a clear margin — i.e. the tilt is real signal, not rasterisation noise.
+            const medOf=(arr)=>{ const a=arr.slice().sort((x,y)=>x-y); return a[Math.floor(a.length/2)]; };
+            const med0=medOf(samp.map(p=>p.off));
+            const resTrans=medOf(samp.map(p=>Math.abs(p.off-med0)));
+            const slopeC=Math.max(-Math.tan(MAXROT)*L, Math.min(Math.tan(MAXROT)*L, slopeCand));   // clamp before residual test
+            const medT=medOf(samp.map(p=>p.off - slopeC*(p.t-0.5)));
+            const resTilt=medOf(samp.map(p=>Math.abs((p.off - slopeC*(p.t-0.5)) - medT)));
+            if(endDisp>=MINTILT && resTilt < resTrans-0.06){
+              slopePerL=slopeC;
+              rot=Math.atan2(slopePerL, L);
+              if(!isFinite(rot)) rot=0;
+              rot=Math.max(-MAXROT, Math.min(MAXROT, rot));
+            }
+          }
+        }
+        // offset at the edge MIDPOINT (t=0.5): the median anchors the centre; the rotation pivots about it.
+        // Recompute the offset as the fit value at t=0.5 so the median + slope are mutually consistent.
+        let offMid=med;
+        if(rot!==0){ // offset implied by the (clamped) slope at midpoint = median of (off − slopePerL*(t−0.5))
+          const inter=samp.map(p=>p.off - (Math.tan(rot)*L)*(p.t-0.5)); inter.sort((a,b)=>a-b); offMid=inter[Math.floor(inter.length/2)];
+        }
+        offMid+=BIAS;   // (iter2) recenter on the true eave (cancel the eroded-mask inward bias)
+        offMid=Math.max(-MAXSHIFT,Math.min(MAXSHIFT,offMid));
+        if(rot!==0) nFit++; else nTrans++;
+        edgeOff[i]={ off:offMid, rot, ux, uy, nx, ny, A, B, L };
+      } else { edgeOff[i]={ off:0, rot:0, ux, uy, nx, ny, A, B, L, weak:true }; nWeak++; }
     }
-    // build shifted supporting lines (point on line + direction); shift point along outward normal by off
+    // build shifted+rotated supporting lines. The line passes through the edge MIDPOINT pushed outward by
+    // `off`, with direction (ux,uy) ROTATED by `rot` about that midpoint. rot=0 ⇒ identical to the legacy
+    // pure-translation line (so untilted edges are unchanged).
     const lines=edgeOff.map(eo=>{ if(!eo) return null;
-      const px=eo.A[0]+eo.nx*eo.off, py=eo.A[1]+eo.ny*eo.off; return { px, py, dx:eo.ux, dy:eo.uy }; });
+      const mx=(eo.A[0]+eo.B[0])/2, my=(eo.A[1]+eo.B[1])/2;        // edge midpoint
+      const px=mx+eo.nx*eo.off, py=my+eo.ny*eo.off;                 // pivot = midpoint shifted out by off
+      const cr=Math.cos(eo.rot||0), sr=Math.sin(eo.rot||0);
+      const dx=eo.ux*cr-eo.uy*sr, dy=eo.ux*sr+eo.uy*cr;             // direction rotated by rot
+      return { px, py, dx, dy }; });
     // intersect consecutive lines → new vertices. If a pair is near-parallel (bad), keep original vertex.
     const out=[]; const intersect=(l1,l2,fallback)=>{ if(!l1||!l2) return fallback;
       const det=l1.dx*(-l2.dy)-(-l2.dx)*l1.dy;   // [dx1 -dx2; dy1 -dy2]
@@ -5599,8 +5776,12 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
     const aIn=polyArea2(R), aOut=polyArea2(out);
     if(!(aOut>0) || aOut<aIn*0.6 || aOut>aIn*1.45) return ringEN;
     for(const v of out){ if(!isFinite(v[0])||!isFinite(v[1])) return ringEN; }
-    // cap each vertex move so a degenerate intersection can't fling a corner
-    for(let i=0;i<n;i++){ if(Math.hypot(out[i][0]-R[i][0],out[i][1]-R[i][1])>MAXSHIFT*2.2) return ringEN; }
+    // cap each vertex move so a degenerate intersection can't fling a corner. The slope fit pivots about the
+    // edge midpoint, so an end vertex can move a touch more than a pure translation — allow a slightly larger
+    // cap (MAXSHIFT*2.6) but still reject a genuine fling so the fallback to the registered ring holds.
+    for(let i=0;i<n;i++){ if(Math.hypot(out[i][0]-R[i][0],out[i][1]-R[i][1])>MAXSHIFT*2.6) return ringEN; }
+    // (align-iter3) record per-edge snap accounting for an honest confidence signal (read by the caller).
+    try{ window.__edgeSnapDiag={ nEdges:n, nFit, nTrans, nWeak, maxShiftM:MAXSHIFT, lineFit:FIT }; }catch(_){}
     return ccw?out:out.slice().reverse();
   }catch(_){ return ringEN; }
 }
