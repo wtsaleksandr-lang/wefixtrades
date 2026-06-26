@@ -5725,6 +5725,15 @@ function renderRoofDiagram(){
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
   const S=Math.min(3,Math.max(1.8,1100/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop
   const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+  // ── (label-scale fix) Fonts/legend are drawn in the cw×ch coord space, but #matCanvas is
+  //    object-fit:contain → that space is rescaled to fill the viewport. On a SMALL roof the crop
+  //    (cw,ch) is tiny, so a font sized as a FRACTION of cw (cw/52 etc.) blows up to a giant on-screen
+  //    label after the contain upscale. Fix: size labels in real SCREEN px, mapped back into coord
+  //    space via the SAME contain scale the dot-editor uses (sc = min(elW/cw, elH/ch)). px2coord(n)
+  //    returns the coord-space font that renders n CSS px on screen, regardless of roof size/zoom.
+  //    Falls back to the old cw-relative size if the element isn't laid out yet (off-screen render).
+  let __containSc=0; try{ const r=cv.getBoundingClientRect(); if(r.width>0&&r.height>0) __containSc=Math.min(r.width/cw, r.height/ch); }catch(_){}
+  const px2coord=(screenPx, fallbackCoord)=> __containSc>0 ? screenPx/__containSc : (fallbackCoord!=null?fallbackCoord:screenPx);
   // full ortho RGB → offscreen source (reused for both the main crop and the minimap)
   const src=document.createElement("canvas"); src.width=W; src.height=H; const sctx=src.getContext("2d");
   const od=sctx.createImageData(W,H), d=od.data, R=rgb.rasters[0],G=rgb.rasters[1]||R,B=rgb.rasters[2]||R;
@@ -5840,7 +5849,7 @@ function renderRoofDiagram(){
   //    roof (offset along the edge's outward normal), small and crisp. We label the longest edges
   //    first and skip any that would overlap an already-placed length tag, so the sheet never
   //    clutters. Each label box is registered so the facet area pills below also avoid them.
-  const efs=Math.max(8.5,cw/64);                         // edge-label font (secondary to area pills)
+  const efs=px2coord(11, Math.max(8.5,cw/64));           // edge-label font (~11 CSS px on screen, secondary to area pills)
   const edgeLblBoxes=[];
   const lenTxt=(ft)=>{ const f=Math.max(0,Math.round(ft)); return f+"'"; };
   // facet centroids (model space) → an "interior" reference so we can offset each label AWAY from the roof
@@ -5875,7 +5884,7 @@ function renderRoofDiagram(){
   //    tight padding, more transparent fill) so the aerial + red edges stay visible underneath.
   //    Tiny facets get NO on-canvas pill (their area still counts in every total + the report
   //    card — only the in-diagram callout is suppressed). (polish: facet-label clutter.)
-  const fs=Math.max(10,cw/52); ctx.textAlign="center"; ctx.textBaseline="middle";
+  const fs=px2coord(13, Math.max(10,cw/52)); ctx.textAlign="center"; ctx.textBaseline="middle";   // facet-area pill (~13 CSS px on screen)
   // seed the collision set with the edge-length tags so facet pills never sit on a dimension label
   const lblBoxes=edgeLblBoxes.map(b=>({x:b.x-b.w/2,y:b.y-b.h/2,w:b.w,h:b.h}));
   // Reconcile per-facet areas to the quote's whole-roof total (QUOTE.roofSqft) so the diagram numbers add up
@@ -5929,11 +5938,16 @@ function renderRoofDiagram(){
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.46);
     ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(196,214,244,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
   // ── LEGEND — small survey-sheet key (only the edge types actually present), bottom-left, off the roof.
+  //    Suppressed while the per-house DOT EDITOR is active: that surface overlays its own outline +
+  //    per-section SQFT and all lines are uniform brand-blue, so the colour key is pure redundant
+  //    clutter over the satellite there (the giant-legend complaint was on exactly this surface).
+  let __dotsActive=false; try{ __dotsActive=(typeof RoofDots!=="undefined" && RoofDots.active && RoofDots.active()); }catch(_){}
   try{
+    if(__dotsActive) throw 0;   // skip the legend in the funnel dot-editor
     const present=[...new Set(model.edges.map(e=>e.type))].filter(t=>EDGE_COLORS[t]);
     const order=["ridge","hip","valley","eave","rake"]; present.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
     if(present.length){
-      const lfs=Math.max(8,cw/72), pad=lfs*0.7, sw=lfs*1.3, row=lfs*1.5;
+      const lfs=px2coord(10, Math.max(8,cw/72)), pad=lfs*0.7, sw=lfs*1.3, row=lfs*1.5;   // legend key (~10 CSS px on screen)
       ctx.font="600 "+lfs+"px system-ui,Segoe UI,sans-serif"; ctx.textAlign="left"; ctx.textBaseline="middle";
       let bw=0; for(const t of present){ bw=Math.max(bw, sw+lfs*0.5+ctx.measureText(t[0].toUpperCase()+t.slice(1)).width); }
       const lw2=bw+pad*2, lh=present.length*row+pad*2, lx0=6, ly0=ch-lh-6;
@@ -6975,6 +6989,27 @@ function buildGridCandidates(){
     cand.push({ id:i, pn, seg, corners, cu, flux, baseKwh:(pn.yearlyEnergyDcKwh||0) });
   }
   if(!isFinite(minE)) return null;
+  // ── (grid-framing fix) The layout bbox above is the PANEL-corner extent only. On a canopy-occluded
+  //    roof Google returns very few usable panels (e.g. 3 on the Pasadena oak-shaded roof), so that
+  //    extent is a tiny strip — and sgLayout's contain-fit then ZOOMS it to fill the stage, blowing
+  //    each real ~1.9 m panel up ~10× so a legit 4-panel array reads as "4 giant blocks" over the roof.
+  //    Fix the FRAMING (not the count): union the panel bbox with the actual ROOF extent (the segment
+  //    bounding boxes — the same footprint the flux heatmap is drawn over) so panels always render at
+  //    true proportion ON the whole roof. Only EXPANDS the bbox; a residential roof is < ~80 m a side so
+  //    a pathological parcel-sized bbox is rejected. Does NOT change candidate count, cost, or metrics.
+  try{
+    let rs=Infinity,rw=Infinity,rn=-Infinity,re=-Infinity;   // roof lat/lng extent from segment bboxes
+    for(const sg of segs){ const b=sg&&sg.boundingBox; if(!b||!b.sw||!b.ne) continue;
+      rs=Math.min(rs,b.sw.latitude,b.ne.latitude); rn=Math.max(rn,b.sw.latitude,b.ne.latitude);
+      rw=Math.min(rw,b.sw.longitude,b.ne.longitude); re=Math.max(re,b.sw.longitude,b.ne.longitude); }
+    if(isFinite(rs)&&isFinite(rw)){
+      const cLat=(rs+rn)/2, dN=(rn-rs)*111320, dE=(re-rw)*111320*Math.cos(cLat*Math.PI/180);
+      if(dN>0.5 && dE>0.5 && dN<=80 && dE<=80){   // sane residential roof extent only
+        for(const [la,lo] of [[rs,rw],[rs,re],[rn,rw],[rn,re]]){ const [E,N]=wgs84ToUTM(la,lo,zone);
+          if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; }
+      }
+    }
+  }catch(_){}
   // robust flux ramp: 5th–95th percentile so a hot/cold outlier doesn't flatten the colours (matches the heatmap intent)
   let fmin=0, fmax=1;
   if(fluxVals.length>=4){ fluxVals.sort((a,b)=>a-b); fmin=fluxVals[Math.floor(fluxVals.length*0.05)]; fmax=fluxVals[Math.floor(fluxVals.length*0.95)]; if(fmax<=fmin) fmax=fmin+1; }
