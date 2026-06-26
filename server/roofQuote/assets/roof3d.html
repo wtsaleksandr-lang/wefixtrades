@@ -8028,6 +8028,85 @@ async function rdAiOnHouse(){
   if(hint) hint.style.display="none";
   btn.disabled=false; if(lbl) lbl.textContent = window.__aiDown ? "Preview material" : "See it on my house";
 }
+// ROOFING-DESIGNER hero framing (called from openRoofDesign). The shared STEP-5 __heroCam (in the
+// model build) is tuned for the SOLAR lens (distMul≈3.0) and frames the roof SMALL/low in a big empty
+// grey plane in the roofing designer — the P2 "premium look / no empty band" bug. This recomputes a
+// dedicated, tighter fit JUST for the roofing designer from the live roof bbox: same flattering 3/4
+// oblique ANGLE as the hero (we only change DISTANCE + TARGET), but sized via a real FOV fit so the
+// textured roof fills ~78% of the viewport — centred, modest margins — for SMALL roofs (the bug case)
+// without clipping LARGE/complex roofs. Solar lens + measurements + materials are untouched.
+function frameRoofHero(){
+  try{
+    const s=modelSkin; if(!s||!s.roofMeshes||!s.roofMeshes.length) return false;
+    // Tight 3D bbox of the roof facets (local==world coords; worldGroup is at identity).
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
+    for(const m of s.roofMeshes){ const pa=m.geometry.attributes.position;
+      for(let i=0;i<pa.count;i++){ const x=pa.getX(i),y=pa.getY(i),z=pa.getZ(i);
+        if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; if(z<z0)z0=z; if(z>z1)z1=z; } }
+    if(!(isFinite(x0)&&isFinite(z0))) return false;
+    const cx=(x0+x1)/2, cy=(y0+y1)/2, cz=(z0+z1)/2;
+    const isMob=(typeof window!=="undefined") && ((window.innerWidth||1024)<=560);
+    // Keep the EXISTING flattering 3/4 oblique ANGLE (same direction as the STEP-5 hero offsets) — we
+    // only change DISTANCE + TARGET. Build the camera basis (forward/right/up) from that look-direction.
+    const elevK=0.66, inK=0.62, fwdK=0.74;
+    const len=Math.hypot(inK,elevK,fwdK)||1;
+    const ux=inK/len, uy=elevK/len, uz=fwdK/len;     // unit offset (cam = tgt + dist*u) → forward = -u
+    const fwd={x:-ux,y:-uy,z:-uz};
+    // right = normalize(fwd × worldUp); up = right × fwd  (worldUp=+Y)
+    let rx=fwd.y*0-fwd.z*1, ry=fwd.z*0-fwd.x*0, rz=fwd.x*1-fwd.y*0;   // fwd × (0,1,0)
+    const rl=Math.hypot(rx,ry,rz)||1; rx/=rl; ry/=rl; rz/=rl;
+    let upx=ry*fwd.z-rz*fwd.y, upy=rz*fwd.x-rx*fwd.z, upz=rx*fwd.y-ry*fwd.x;
+    const ul=Math.hypot(upx,upy,upz)||1; upx/=ul; upy/=ul; upz/=ul;
+    // PROJECTED-SILHOUETTE FIT: project the 8 roof-bbox corners onto the camera right/up axes (relative to
+    // the roof centre) → the half-extents of the roof's actual on-screen footprint at this angle. Sizing the
+    // distance to THIS (not the bounding sphere) is what makes a wide/short roof fill the frame instead of
+    // floating small in a big empty band — and it's size-agnostic, so small roofs come in close while large
+    // roofs stay pulled back enough not to clip.
+    let halfW=0, halfH=0;
+    for(const sx of [x0,x1]) for(const sy of [y0,y1]) for(const sz of [z0,z1]){
+      const dx=sx-cx, dy=sy-cy, dz=sz-cz;
+      const pr=Math.abs(dx*rx+dy*ry+dz*rz);   // extent along screen-right
+      const pu=Math.abs(dx*upx+dy*upy+dz*upz); // extent along screen-up
+      if(pr>halfW)halfW=pr; if(pu>halfH)halfH=pu;
+    }
+    halfW=Math.max(halfW,2); halfH=Math.max(halfH,2);
+    const vFov=(camera.fov||50)*Math.PI/180;
+    const vh=Math.max(1, innerHeight||1);
+    const aspect=(camera.aspect&&camera.aspect>0)?camera.aspect:((innerWidth||1)/vh);
+    const tanV=Math.tan(vFov/2), tanH=tanV*aspect;
+    // VISIBLE-BAND fit: the roofing designer chrome occludes the canvas — the head bar at the TOP and the
+    // material/price PANEL at the BOTTOM. Measure the un-occluded vertical band so we (a) size the roof to
+    // the height it can actually use (not the full, partly-hidden viewport) and (b) centre it IN that band
+    // (not dead-centre behind the sheet). This is what fixes the mobile case where the sheet eats ~half the
+    // screen and a centre-framed roof hides behind it.
+    let bandTop=0, bandBot=vh;
+    try{ const hd=document.querySelector('#roofDesign .rd-head'); if(hd){ const r=hd.getBoundingClientRect(); if(r.height>0) bandTop=Math.max(bandTop, r.bottom); } }catch(_){}
+    try{ const pn=document.querySelector('#roofDesign .rd-panel'); if(pn){ const r=pn.getBoundingClientRect(); if(r.height>0 && r.top<bandBot) bandBot=r.top; } }catch(_){}
+    let bandH=bandBot-bandTop; if(!(bandH>40)){ bandTop=0; bandBot=vh; bandH=vh; }
+    const bandFracH=bandH/vh;                                   // visible band as a fraction of the viewport
+    const bandMidFrac=((bandTop+bandBot)/2)/vh;                 // its centre, as a fraction from the top
+    // FILL = fraction of the VISIBLE BAND the roof should span (rest = breathing margin). Distance is the MAX
+    // of the height-fit and width-fit so neither axis clips; whichever is the binding constraint wins.
+    const FILL=isMob?0.80:0.84;
+    const distH=halfH/(tanV*bandFracH*FILL);
+    const distW=halfW/(tanH*FILL);
+    const dist=Math.max(8, distH, distW);
+    // Centre the roof in the visible band: shift the camera so the band's centre (not the viewport centre)
+    // looks at the roof. Screen-centre offset = (0.5 - bandMidFrac) of the viewport height in world units at
+    // this distance; apply it along the camera's UP axis to the orbit target.
+    const worldPerVh=2*tanV*dist;                              // world height spanned by the full viewport
+    // To project the roof at screen-fraction bandMidFrac (above centre on mobile), shift the orbit TARGET
+    // DOWN along the camera-up axis: the fixed roof then sits ABOVE the target → higher on screen. (Shifting
+    // the target UP would carry the camera up too and push the roof lower — the inverse of what we want.)
+    const upShift=(0.5-bandMidFrac)*worldPerVh;                // +ve when the visible band sits above centre
+    const tgtX=cx - upx*upShift, tgtY=cy - upy*upShift, tgtZ=cz - upz*upShift;
+    controls.target.set(tgtX, tgtY, tgtZ);
+    camera.position.set(tgtX + dist*ux, tgtY + dist*uy, tgtZ + dist*uz);
+    controls.minDistance=Math.max(4, dist*0.5); controls.maxDistance=dist*3;
+    controls.update();
+    return true;
+  }catch(_){ return false; }
+}
 // OPEN the roofing design step: mount the real-house photoreal stage, then paint the picker.
 async function openRoofDesign(){
   // default into Architectural if nothing was picked yet (so the card/price/features have a basis)
@@ -10602,7 +10681,10 @@ $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
 $("bReset").onclick=()=>{ const surf=lensSurface();
   if(surf==="photoreal"){ gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return; }
-  if(surf==="scene"){ const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); return; } const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
+  if(surf==="scene"){
+    // Roofing designer owns a tighter, dedicated framing — Reset should return to THAT, not the looser solar hero.
+    if(window.__rdOpen && typeof frameRoofHero==="function" && frameRoofHero()) return;
+    const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); return; } const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun();
   if(realShadeActive) renderShadePlay();   // scrub the hour → repaint Google's real shade for that hour (cached raster, no API hit)
 });
