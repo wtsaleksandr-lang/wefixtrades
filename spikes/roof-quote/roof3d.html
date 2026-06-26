@@ -7819,6 +7819,12 @@ async function buildPhotoPanels(){
   const _stale=()=>((window.__viewGen||0)!==_vg || mode!=="photoreal");
   const { Polygon3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
   for(const p of photoPanels){ try{ p.remove&&p.remove(); }catch(_){} } photoPanels=[];
+  // ROOFING-CLEAN GUARD (P0): the Roofing remodel designer mounts the SAME photoreal house but must show a
+  // BARE roof so the chosen shingle colour reads — NEVER the blue solar panels. setMode("photoreal") always
+  // calls buildPhotoPanels(), so openRoofDesign()'s pre-clear would be undone here. When the roofing designer
+  // owns the screen (window.__rdOpen), tear the panel group down and return BEFORE drawing any panel. The solar
+  // designer never sets __rdOpen, so its 3D view (enterSolar3D) still renders panels exactly as before.
+  if(window.__rdOpen){ window.__photoPanels=0; return; }
   if(overlaySuppressed){ window.__photoPanels=0; setOverlayNote(true); return; }   // canopy/off-roof → don't drape panels onto the lawn
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
   const pw=sp.panelWidthMeters||1.045, ph=sp.panelHeightMeters||1.879;
