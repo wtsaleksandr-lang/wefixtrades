@@ -475,6 +475,9 @@
   #card .opt-row button{min-height:32px}
   /* controls */
   #ctrls{position:absolute;right:12px;bottom:12px;z-index:20;display:flex;flex-direction:column;gap:7px}
+  /* ROOFING DESIGNER OPEN = zero solar (Alex hard rule): hard-hide the lens rail + the Solar/Roofing quote
+     card no matter what inline display any later renderQuoteCard()/applyTradeMode() sets. !important wins. */
+  body.rd-open #ctrls,body.rd-open #card{display:none!important}
   #ctrls button{width:56px;height:56px;border-radius:16px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;box-shadow:var(--card-shadow)}
   #ctrls button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   #ctrls button span{font-size:9.5px;font-weight:600;letter-spacing:.01em}
@@ -625,7 +628,10 @@
   /* (polish: mobile-first-load) the EXPANDED sheet caps at 38vh; the DEFAULT (peek) state shows just the
      headline price + a drag handle (~31vh) so the 3D model — the hero — owns the upper ~2/3 of the phone
      on first load. Drag the handle UP (or tap it) to expand to the full quote; drag DOWN past peek to fold. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;padding-top:20px} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;padding-top:20px} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important}
+    /* C3: only one bottom sheet at a time on mobile — when the dot editor sheet (#dotHud) is up, hide the
+       quote card's mobile bottom sheet so they don't stack/collide. Desktop card is a side panel (no collision). */
+    body.dot-editing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
     /* peeking default: shorter sheet, headline price visible, body clipped — the model stays the hero */
     #card.peek{max-height:31vh}
     /* the grab handle — a centred pill at the top of the sheet; mobile only, drag/tap target */
@@ -7278,6 +7284,9 @@ const RoofDots=(function(){
     try{ const mc=$("matCanvas"); if(!mc||mc.style.display==="none"||!window.__diagXform){ showMeasDiagram(true); } }catch(_){}
     if(!ringM && !initFromModel()) return false;
     on=true; cv.style.display="block"; hud.style.display="block";
+    // C3: while the dot-editor bottom sheet is up, suppress the quote #card's mobile bottom sheet so the
+    // two sheets don't stack/collide at 375px — only ONE bottom sheet (the editor) shows.
+    try{ document.body.classList.add("dot-editing"); }catch(_){}
     // (ghost-line fix) Now that editing is ON, RE-RENDER the static #matCanvas diagram so its
     // outline/edges/per-facet SQFT labels are SUPPRESSED (renderRoofDiagram checks RoofDots.editing()).
     // Without this re-render the diagram painted BEFORE on=true still carries a duplicate outline + a
@@ -7287,7 +7296,7 @@ const RoofDots=(function(){
     window.addEventListener("resize",layout);
     return true;
   }
-  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} window.removeEventListener("resize",layout); }
+  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} try{ document.body.classList.remove("dot-editing"); }catch(_){} window.removeEventListener("resize",layout); }
   function layout(){ if(!on) return; draw(); }
 
   return {
@@ -8420,6 +8429,13 @@ async function openRoofDesign(){
   // the design step owns the screen — hide the floating quote card + search bar so neither bleeds at the edges
   const cd=$("card"); if(cd){ cd.dataset.rdPrev=cd.style.display; cd.style.display="none"; }
   const bar=$("bar"); if(bar){ bar.dataset.rdPrev=bar.style.display; bar.style.display="none"; }
+  // ROOFING = ZERO solar (Alex hard rule): hide the whole lens rail (#ctrls) so the SOLAR lenses
+  // Panels/Sun + the Model/Measure lenses cannot appear or be hit-tested over the roofing picker.
+  // The roofing designer carries its own material/colour controls; the rail belongs to the solar/editor context.
+  const ct=$("ctrls"); if(ct){ ct.dataset.rdPrev=ct.style.display; ct.style.display="none"; }
+  // Belt-and-suspenders: tag the body so the quote card cannot be re-shown over roofing by any later
+  // renderQuoteCard()/applyTradeMode() on the bcRoof entry path (the card-hide above was being undone there).
+  try{ document.body.classList.add("rd-open"); }catch(_){}
   try{
     showLoad("Loading your home in 3D…");
     // RENDER SURFACE for the style preview: our OWN textured 3D MODEL is the premium, reliable surface —
@@ -8459,6 +8475,9 @@ function closeRoofDesign(){
   $("roofDesign").style.display="none"; window.__rdOpen=false;
   const fb=$("funnelBar"); if(fb && fb.dataset.rdPrev!=null) fb.style.display=fb.dataset.rdPrev;
   const cd=$("card"); if(cd && cd.dataset.rdPrev!=null) cd.style.display=cd.dataset.rdPrev;
+  // restore the lens rail + clear the roofing body tag → solar/editor context regains its full controls
+  const ct=$("ctrls"); if(ct && ct.dataset.rdPrev!=null) ct.style.display=ct.dataset.rdPrev;
+  try{ document.body.classList.remove("rd-open"); }catch(_){}
   const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; }
   try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
   try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
@@ -9521,6 +9540,26 @@ const _CHECK_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent
   + '<circle cx="15" cy="15" r="13" fill="#0d3cfc" stroke="#ffffff" stroke-width="2.5"/>'
   + '<path d="M9 15.5l4 4 8-8.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
   + '</svg>');
+// ITEM A: the selected-roof checkmark must stay proportionate to the building. A Marker icon is fixed in
+// SCREEN px, so at a fixed 30px it dwarfs the footprint when you zoom OUT (building shrinks, check doesn't).
+// Fix: derive the icon px from the current zoom (the reference map opens at zoom 20 → 30px) and HALVE it
+// per zoom step out (~matches the footprint's on-screen shrink), clamped, and re-apply on zoom_changed.
+function _checkSizeForZoom(z){
+  if(typeof z!=="number") z=20;
+  // 30px at zoom 20; each level out halves the on-screen footprint, so halve the icon too. Clamp 9..40.
+  const px=30*Math.pow(2,(z-20));
+  return Math.max(9,Math.min(40,Math.round(px)));
+}
+function _setCheckIcon(b){
+  if(!b||!b.check) return;
+  try{
+    const z=(__srMap&&typeof __srMap.getZoom==="function")?__srMap.getZoom():20;
+    const s=_checkSizeForZoom(z), h=Math.round(s/2);
+    b.check.setIcon({ url:_CHECK_ICON_URL, scaledSize:new google.maps.Size(s,s), anchor:new google.maps.Point(h,h) });
+  }catch(_){}
+}
+// Re-size every visible check whenever the map zoom changes so each stays proportionate to its footprint.
+function _refreshAllChecks(){ try{ (__srBuildings||[]).forEach(b=>{ if(b&&b.check&&b.selected) _setCheckIcon(b); }); }catch(_){} }
 function _applyCheck(b){
   if(!b) return;
   try{
@@ -9529,7 +9568,10 @@ function _applyCheck(b){
         const c=b.centroid&&b.centroid.length===2?{lat:b.centroid[1],lng:b.centroid[0]}:null; if(!c) return;
         b.check=new google.maps.Marker({ position:c, map:__srMap, clickable:false, zIndex:60,
           icon:{ url:_CHECK_ICON_URL, scaledSize:new google.maps.Size(30,30), anchor:new google.maps.Point(15,15) } });
-      } else { b.check.setMap(__srMap); }
+        _setCheckIcon(b);   // size to the CURRENT zoom on first paint
+        // arm the zoom listener once — re-scales all checks as the buyer zooms in/out
+        if(__srMap && !__srMap.__checkZoomWired){ __srMap.__checkZoomWired=true; __srMap.addListener("zoom_changed",_refreshAllChecks); }
+      } else { b.check.setMap(__srMap); _setCheckIcon(b); }
     } else if(b.check){ b.check.setMap(null); }
   }catch(_){}
 }
