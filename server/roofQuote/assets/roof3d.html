@@ -523,35 +523,54 @@
     border:2px solid rgba(255,255,255,0.92);box-shadow:0 8px 24px rgba(8,14,30,0.38),0 0 0 1px rgba(13,60,252,0.35)}
   #dotLoupe canvas{display:block;width:100%;height:100%}
   @media (max-width:560px){ #dotLoupe{width:112px;height:112px;top:12px;left:12px} }
-  #dotHud{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:none;
-    background:#ffffff;border:1px solid #e1e7ef;border-radius:16px;padding:12px 14px;box-shadow:var(--card-shadow);
-    width:min(440px,calc(100vw - 24px));text-align:center}
-  #dotHud .dh-prompt{font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:9px}
-  #dotHud .dh-stats{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
-  #dotHud .dh-stat{flex:1;background:#f5f7fb;border:1px solid #eef1f6;border-radius:10px;padding:7px 4px}
+  /* (#5) corner-dot cursors: open-hand (grab) when the pointer is over a draggable dot, closed-hand
+     (grabbing) while a dot is held. The #dotEditor canvas toggles .dh-grab / .dh-grabbing in JS from the
+     hit-test; default cursor elsewhere on the canvas so the underlying map still reads as "not draggable". */
+  #dotEditor{cursor:default}
+  #dotEditor.dh-grab{cursor:grab}
+  #dotEditor.dh-grabbing{cursor:grabbing}
+  /* (#4) COMPACT slim editor bar — must NOT cover the roof being edited. Pinned bottom-centre, narrow,
+     low padding; the full stats/pitch/facet detail collapses behind a "Details" expander so the default
+     state is a slim prompt + the live area + the actions. Translucent so the roof reads behind it. */
+  #dotHud{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:30;display:none;
+    background:rgba(255,255,255,0.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    border:1px solid #e1e7ef;border-radius:13px;padding:7px 9px;box-shadow:var(--card-shadow);
+    width:min(360px,calc(100vw - 20px));text-align:center}
+  /* slim top row: prompt on the left, the live area read-out on the right */
+  #dotHud .dh-prompt{font-size:11px;font-weight:700;color:#0f172a;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  #dotHud .dh-prompt .dh-area{font-weight:800;color:#0d3cfc;font-variant-numeric:tabular-nums;white-space:nowrap}
+  #dotHud .dh-prompt .dh-area span{font-weight:600;color:var(--muted)}
+  /* full stats/pitch/facets live inside .dh-more — hidden until "Details" is toggled (keeps the bar slim) */
+  #dotHud .dh-more{display:none;margin-top:8px}
+  #dotHud.dh-open .dh-more{display:block}
+  #dotHud .dh-stats{display:flex;gap:5px;justify-content:center;margin-bottom:8px}
+  #dotHud .dh-stat{flex:1;background:#f5f7fb;border:1px solid #eef1f6;border-radius:9px;padding:6px 3px}
   #dotHud .dh-stat.dh-price{background:rgba(13,60,252,0.05);border-color:rgba(13,60,252,0.18)}
-  #dotHud .dh-v{font-size:16px;font-weight:800;color:#0f172a;line-height:1.1;font-variant-numeric:tabular-nums}
-  #dotHud .dh-price .dh-v{font-size:13.5px;color:#0d3cfc}
-  #dotHud .dh-l{font-size:10px;font-weight:600;color:var(--muted);margin-top:2px}
+  #dotHud .dh-v{font-size:14px;font-weight:800;color:#0f172a;line-height:1.1;font-variant-numeric:tabular-nums}
+  #dotHud .dh-price .dh-v{font-size:12.5px;color:#0d3cfc}
+  #dotHud .dh-l{font-size:9.5px;font-weight:600;color:var(--muted);margin-top:2px}
   /* pitch-class selector */
-  #dotHud .dh-pitch{margin-bottom:9px;text-align:left}
-  #dotHud .dh-pitch-l{font-size:10px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.03em}
+  #dotHud .dh-pitch{margin-bottom:8px;text-align:left}
+  #dotHud .dh-pitch-l{font-size:9.5px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.03em}
   #dotHud .dh-pitch-row{display:flex;gap:5px}
-  #dotHud .dh-pbtn{flex:1;background:#f5f7fb;border:1px solid #e1e7ef;color:#475569;border-radius:9px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #dotHud .dh-pbtn{flex:1;background:#f5f7fb;border:1px solid #e1e7ef;color:#475569;border-radius:8px;padding:6px 3px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
   #dotHud .dh-pbtn.dh-pauto{flex:.7;color:#0d3cfc}
   #dotHud .dh-pbtn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07);box-shadow:inset 0 0 0 1px #0d3cfc}
   /* per-facet breakdown chips */
-  #dotHud .dh-facets{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px}
+  #dotHud .dh-facets{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:2px}
   #dotHud .dh-facets:empty{display:none;margin:0}
-  #dotHud .dh-flabel{flex-basis:100%;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:1px}
-  #dotHud .dh-fchip{font-size:11px;font-weight:600;color:#334155;background:#f5f7fb;border:1px solid #eef1f6;border-radius:8px;padding:3px 7px;display:inline-flex;align-items:center;gap:4px}
+  #dotHud .dh-flabel{flex-basis:100%;font-size:9.5px;font-weight:700;color:var(--muted);margin-bottom:1px}
+  #dotHud .dh-fchip{font-size:10.5px;font-weight:600;color:#334155;background:#f5f7fb;border:1px solid #eef1f6;border-radius:8px;padding:3px 6px;display:inline-flex;align-items:center;gap:4px}
   #dotHud .dh-fchip b{font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums}
-  #dotHud .dh-fchip i{font-style:normal;color:#94a3b8;font-size:10px}
-  #dotHud .dh-actions{display:flex;gap:6px;justify-content:center}
-  #dotHud .dh-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:10px;padding:9px 8px;font-size:12.5px;font-weight:700;cursor:pointer}
+  #dotHud .dh-fchip i{font-style:normal;color:#94a3b8;font-size:9.5px}
+  /* slim action row — Details toggle + Undo/Redo/Reset + Done. Smaller padding than before. */
+  #dotHud .dh-actions{display:flex;gap:5px;justify-content:center;margin-top:7px}
+  #dotHud .dh-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:9px;padding:7px 5px;font-size:11.5px;font-weight:700;cursor:pointer}
   #dotHud .dh-btn:disabled{opacity:.4;cursor:default}
-  #dotHud .dh-btn.dh-primary{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.3}
-  @media (max-width:560px){ #dotHud{bottom:14px;padding:11px 12px} #dotHud .dh-v{font-size:15px} #dotHud .dh-btn{padding:11px 6px} }
+  #dotHud .dh-btn.dh-primary{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.25}
+  #dotHud .dh-btn.dh-more-btn{flex:.85;color:#475569}
+  #dotHud .dh-btn.dh-more-btn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07)}
+  @media (max-width:560px){ #dotHud{bottom:12px;padding:7px 9px;width:min(340px,calc(100vw - 16px))} #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px} }
   /* Base view switch — "3D model" (our premium own Three.js model, the DEFAULT first impression) ↔ "Satellite" (Google photoreal tiles, opt-in).
      Mirrors the #measToggle pill look; sits top-centre under the search bar. Shown only when a roof is ready and no other sub-view toggle owns the slot. */
   #viewToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
@@ -793,7 +812,7 @@
   <button id="aiBtn" style="display:none">See it on my house</button>
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
-  <div id="measToggle"><button data-v="diagram" class="on">Top-down</button><button data-v="3d">3D</button><button data-v="edit" title="Drag the corner dots to perfect your roof outline">✎ Edit outline</button></div>
+  <div id="measToggle"><button data-v="diagram" class="on">Top-down</button><button data-v="3d">3D</button></div>
   <!-- BASE VIEW switch: our premium 3D model (DEFAULT) ↔ Google satellite/photoreal (opt-in). Shown once a roof is ready. -->
   <div id="viewToggle">
     <button data-v="model" class="on" title="Our 3D model — your roof with the engineered solar design"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg>3D model</button>
@@ -5717,7 +5736,11 @@ function extractFacetPolysLegacy(margin){
 /* ===== EagleView-grade roof geometry (roofgeo.mjs) + measurement visualization ===== */
 let roofMeas=[];
 const EDGE_COLORS={ ridge:"#ff453a", hip:"#ff9f0a", valley:"#2e90ff", eave:"#32d74b", rake:"#bf5af2" };
-function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
+function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none";
+  // (#7) The dot editor + its sheet/loupe must NOT leak onto the solar-panel / photoreal house views.
+  // clearRoofMeas() fires from every lens that REPLACES Measure (Panels, Sun, Satellite, enterSolar3D),
+  // so tearing the always-on editor down here keeps the "panels on your real house" payoff unobstructed.
+  try{ if(typeof RoofDots!=="undefined") RoofDots.hide(); }catch(_){} }
 /* ===========================================================================
    (measure-iter2) INTERIOR-CREASE refinement: snap every ridge / hip / valley
    onto the REAL crease in the DSM. The interior creases produced by the analytic
@@ -6675,15 +6698,17 @@ const RoofDots=(function(){
   // stage especially, if the dot is on the LEFT half, pin the loupe top-RIGHT; else top-LEFT.
   function positionLoupe(){
     if(!loupeWrap) return;
-    const s=modelToScreen(...(activeDragModel()||[0,0]));
+    // (#6) Alex wants the loupe ALWAYS in the LEFT corner of the map — pin it top-left (the CSS default).
+    // Clear any inline right/left override so it sits where #dotLoupe's stylesheet rule puts it.
     const app=$("app"); const ar=app?app.getBoundingClientRect():null;
-    let onLeft=true; if(s&&ar){ onLeft=(s[0]-ar.left) < ar.width/2; }
-    // dot on the left → loupe on the right (and vice-versa) so it never sits under the finger.
-    if(onLeft){ loupeWrap.style.left="auto"; loupeWrap.style.right=(ar&&ar.width<=560?"12px":"14px"); }
-    else      { loupeWrap.style.right="auto"; loupeWrap.style.left=(ar&&ar.width<=560?"12px":"14px"); }
+    loupeWrap.style.right="auto"; loupeWrap.style.left=(ar&&ar.width<=560?"12px":"14px");
   }
-  function showLoupe(){ if(!loupeWrap) return; positionLoupe(); loupeWrap.style.display="block"; drawLoupe(); }
-  function hideLoupe(){ if(loupeWrap) loupeWrap.style.display="none"; }
+  // hide the small aerial mini-map while the loupe is up so they don't collide in the top-left corner.
+  function showLoupe(){ if(!loupeWrap) return; positionLoupe(); loupeWrap.style.display="block";
+    try{ const mm=$("measMini"); if(mm) mm.dataset.prevDisp=mm.style.display, mm.style.display="none"; }catch(_){}
+    drawLoupe(); }
+  function hideLoupe(){ if(loupeWrap) loupeWrap.style.display="none";
+    try{ const mm=$("measMini"); if(mm && mm.dataset.prevDisp!=null){ mm.style.display=mm.dataset.prevDisp; delete mm.dataset.prevDisp; } }catch(_){} }
 
   // ---- (re)draw the overlay (dots + outline + fill + edge-length labels) ----
   function draw(){
@@ -6845,6 +6870,8 @@ const RoofDots=(function(){
   // ---- pointer handlers -----------------------------------------------------
   function onDown(e){ if(!on) return; const sx=e.clientX, sy=e.clientY; const h=hit(sx,sy); if(!h) return;
     e.preventDefault(); pointerId=e.pointerId; try{ cv.setPointerCapture(pointerId); }catch(_){}
+    // (#5) closed-hand (grabbing) cursor while a dot is held
+    try{ cv.classList.remove("dh-grab"); cv.classList.add("dh-grabbing"); }catch(_){}
     snapshot();
     if(h.kind==="mid"){ // insert a new corner at this midpoint, then drag it (legacy outer-only path)
       const a=ringM[h.idx], b=ringM[(h.idx+1)%ringM.length]; const nv=[(a[0]+b[0])/2,(a[1]+b[1])/2];
@@ -6864,9 +6891,15 @@ const RoofDots=(function(){
       if(verts[vIdx]){ verts[vIdx]=[mm[0],mm[1]]; ringM[dragIdx]=[mm[0],mm[1]]; if(boundaryLinked) syncRingFromTopology(); } return; }
     ringM[dragIdx]=[mm[0],mm[1]];
   }
-  function onMove(e){ if(!on||dragIdx<0) return; e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
+  function onMove(e){ if(!on) return;
+    // (#5) HOVER (not dragging): open-hand (grab) cursor when the pointer is over a draggable dot, else default.
+    if(dragIdx<0){ try{ const overDot=!!hit(e.clientX,e.clientY); cv.classList.toggle("dh-grab",overDot); cv.classList.remove("dh-grabbing"); }catch(_){} return; }
+    e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
     if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); try{ positionLoupe(); drawLoupe(); }catch(_){} } }
-  function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null; try{ hideLoupe(); }catch(_){} draw(); }
+  function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null;
+    // (#5) back to hover state — grab if still over a dot, else default; never leave a stale grabbing cursor.
+    try{ cv.classList.remove("dh-grabbing"); cv.classList.toggle("dh-grab", !!hit(e.clientX,e.clientY)); }catch(_){}
+    try{ hideLoupe(); }catch(_){} draw(); }
 
   // ---- mount / unmount ------------------------------------------------------
   function ensureDom(){
@@ -6883,27 +6916,31 @@ const RoofDots=(function(){
     hud.innerHTML=
       // per-house banner — only shown (display:flex via openHouseEditor) while the multi-house loop iterates
       '<div id="dotHouse"><button class="dhb-prev" id="dotHousePrev" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button><span class="dhb-of" id="dotHouseOf">House 1 of 1</span></div>'+
-      '<div class="dh-prompt">Drag the dots to match your roof, or continue.</div>'+
-      '<div class="dh-stats">'+
-        '<div class="dh-stat"><div class="dh-v" id="dotArea">0</div><div class="dh-l">sq ft</div></div>'+
-        '<div class="dh-stat"><div class="dh-v" id="dotSq">0</div><div class="dh-l">squares</div></div>'+
-        '<div class="dh-stat"><div class="dh-v" id="dotPerim">0</div><div class="dh-l">perimeter ft</div></div>'+
-        '<div class="dh-stat dh-price"><div class="dh-v" id="dotPrice">—</div><div class="dh-l">est. roof</div></div>'+
-      '</div>'+
-      // pitch-class selector — Flat / Sloped / Steep / Very-steep. Defaults to the auto-detected pitch;
-      // picking a class overrides the per-facet mix for the simple-tier estimate (area + price update live).
-      '<div class="dh-pitch">'+
-        '<div class="dh-pitch-l">Roof pitch</div>'+
-        '<div class="dh-pitch-row" id="dotPitchRow">'+
-          PITCH_CLASSES.map(c=>'<button class="dh-pbtn" data-pc="'+c.id+'">'+c.label+'</button>').join('')+
-          '<button class="dh-pbtn dh-pauto" data-pc="auto" title="Use the auto-detected pitch">Auto</button>'+
+      // (#4) slim top row — prompt + the live roof area inline (the full stat grid lives in .dh-more)
+      '<div class="dh-prompt"><span>Drag the dots to match your roof</span><span class="dh-area"><b id="dotArea">0</b> <span>sq ft</span></span></div>'+
+      // collapsible detail — full stats / pitch selector / facet breakdown (hidden until "Details")
+      '<div class="dh-more">'+
+        '<div class="dh-stats">'+
+          '<div class="dh-stat"><div class="dh-v" id="dotSq">0</div><div class="dh-l">squares</div></div>'+
+          '<div class="dh-stat"><div class="dh-v" id="dotPerim">0</div><div class="dh-l">perimeter ft</div></div>'+
+          '<div class="dh-stat dh-price"><div class="dh-v" id="dotPrice">—</div><div class="dh-l">est. roof</div></div>'+
         '</div>'+
+        // pitch-class selector — Flat / Sloped / Steep / Very-steep. Defaults to the auto-detected pitch;
+        // picking a class overrides the per-facet mix for the simple-tier estimate (area + price update live).
+        '<div class="dh-pitch">'+
+          '<div class="dh-pitch-l">Roof pitch</div>'+
+          '<div class="dh-pitch-row" id="dotPitchRow">'+
+            PITCH_CLASSES.map(c=>'<button class="dh-pbtn" data-pc="'+c.id+'">'+c.label+'</button>').join('')+
+            '<button class="dh-pbtn dh-pauto" data-pc="auto" title="Use the auto-detected pitch">Auto</button>'+
+          '</div>'+
+        '</div>'+
+        // per-facet breakdown — each detected roof plane's pitch-corrected sloped area (sums to "sq ft").
+        '<div class="dh-facets" id="dotFacets"></div>'+
       '</div>'+
-      // per-facet breakdown — each detected roof plane's pitch-corrected sloped area (sums to "sq ft").
-      '<div class="dh-facets" id="dotFacets"></div>'+
       '<div class="dh-actions">'+
-        '<button id="dotUndo" class="dh-btn" title="Undo" aria-label="Undo">↶ Undo</button>'+
-        '<button id="dotRedo" class="dh-btn" title="Redo" aria-label="Redo">↷ Redo</button>'+
+        '<button id="dotMore" class="dh-btn dh-more-btn" title="Show squares, pitch & per-facet detail" aria-expanded="false">Details</button>'+
+        '<button id="dotUndo" class="dh-btn" title="Undo" aria-label="Undo">↶</button>'+
+        '<button id="dotRedo" class="dh-btn" title="Redo" aria-label="Redo">↷</button>'+
         '<button id="dotReset" class="dh-btn" title="Reset to auto outline">Reset</button>'+
         '<button id="dotDone" class="dh-btn dh-primary">Done</button>'+
       '</div>';
@@ -6913,6 +6950,9 @@ const RoofDots=(function(){
     loupeCv=document.createElement("canvas");
     loupeWrap.appendChild(loupeCv); $("app").appendChild(loupeWrap);
     $("dotUndo").onclick=undo; $("dotRedo").onclick=redo;
+    // (#4) "Details" toggle — expands the slim bar to show squares/perimeter/price + pitch + per-facet chips.
+    $("dotMore").onclick=()=>{ const open=hud.classList.toggle("dh-open"); const b=$("dotMore");
+      if(b){ b.classList.toggle("on",open); b.setAttribute("aria-expanded",open?"true":"false"); } };
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
       const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
@@ -7055,6 +7095,11 @@ const RoofDots=(function(){
     try{ const mc=$("matCanvas"); if(!mc||mc.style.display==="none"||!window.__diagXform){ showMeasDiagram(true); } }catch(_){}
     if(!ringM && !initFromModel()) return false;
     on=true; cv.style.display="block"; hud.style.display="block";
+    // (ghost-line fix) Now that editing is ON, RE-RENDER the static #matCanvas diagram so its
+    // outline/edges/per-facet SQFT labels are SUPPRESSED (renderRoofDiagram checks RoofDots.editing()).
+    // Without this re-render the diagram painted BEFORE on=true still carries a duplicate outline + a
+    // second SQFT label per facet underneath the live dot overlay → the ghost line + stacked numbers.
+    try{ renderRoofDiagram(); }catch(_){}
     layout(); afterEdit(); updateButtons();
     window.addEventListener("resize",layout);
     return true;
@@ -7118,7 +7163,12 @@ window.RoofDots=RoofDots;
 window.__editRoofOutline=()=>RoofDots.show();
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
-    setMeas3DVisible(false); }
+    setMeas3DVisible(false);
+    // EDITING IS ALWAYS ON in the Top-down view (no separate "Edit outline" step). Auto-mount the
+    // draggable-dot editor on the next frame, once __diagXform is rendered. RoofDots.show() suppresses
+    // the static outline/labels on #matCanvas so exactly ONE outline + ONE SQFT-label per facet shows.
+    requestAnimationFrame(()=>{ try{ if(typeof RoofDots!=="undefined" && window.__roofReady && !RoofDots._state().on){ RoofDots.show(); } }catch(_){} });
+  }
   else {
     // (BUG 2) 3D MEASURE = OUR Three.js scene, NOT Google's photoreal tiles. The old path mounted
     // #gmapWrap and drew Polyline3DElements with RELATIVE_TO_MESH onto Google's mesh, whose datum ≠
@@ -7139,15 +7189,12 @@ function showMeasDiagram(on){
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
   if(typeof syncLensControls==="function") syncLensControls();   // 2D top-down hides #scene → disable Rotate/Recenter; 3D re-enables
 }
+// 3D (Three.js massing) — the dot overlay maps onto #matCanvas (2D), which is hidden here, so the
+// editor can't be mounted on the 3D scene. Hide the dots; the 3D scene carries its own coloured edges.
 $("measToggle").querySelector('[data-v="3d"]').onclick=()=>{ try{ RoofDots.hide(); }catch(_){} showMeasDiagram(false); };
-$("measToggle").querySelector('[data-v="diagram"]').onclick=()=>{ try{ RoofDots.hide(); }catch(_){} showMeasDiagram(true); };
-// "Edit outline" → ensure the 2D top-down is mounted, then launch the draggable-dot outline editor.
-$("measToggle").querySelector('[data-v="edit"]').onclick=()=>{
-  const mc=$("matCanvas");
-  if(!mc || mc.style.display==="none"){ showMeasDiagram(true); }
-  // wait one frame so the diagram (and window.__diagXform) is rendered before mounting dots
-  requestAnimationFrame(()=>{ try{ RoofDots.show(); }catch(_){} });
-};
+// Top-down is the EDIT surface — editing is ALWAYS ON here (no separate "Edit outline" mode). Mount the
+// diagram then auto-launch the draggable-dot editor on the next frame (so __diagXform is ready first).
+$("measToggle").querySelector('[data-v="diagram"]').onclick=()=>{ showMeasDiagram(true); };
 function showRoofReport(t){ t=reconcileTotals(t); window.__roofTotals=t; const rp=$("roofReport"); if(!rp) return; const f=n=>Math.round(n||0).toLocaleString();
   const row=(c,l,v)=>'<div class="rr-row"><span>'+(c?'<i style="background:'+c+'"></i>':'')+l+'</span><b>'+v+'</b></div>';
   rp.innerHTML='<div class="rr-h">Roof measurements</div>'+
@@ -8644,6 +8691,11 @@ async function setMode(mo){
   // quote after a toggle-back, independent of how `mode` happens to read at the await boundary.
   window.__viewGen=(window.__viewGen||0)+1;
   mode=mo; const photo=mo==="photoreal";
+  // (#7) The always-on roof OUTLINE EDITOR (dots + sheet + loupe) must NEVER overlay the photoreal house /
+  // solar-panel view — it would clutter the "see your panels on your real roof" payoff. setMode("photoreal")
+  // is the single chokepoint for EVERY photoreal entry (Satellite toggle, enterSolar3D, Panels), so tear the
+  // editor down here. (Returning to the 2D top-down re-mounts it via showMeasDiagram → RoofDots.show.)
+  if(photo){ try{ if(typeof RoofDots!=="undefined") RoofDots.hide(); }catch(_){} }
   if(!photo && wasPhoto){ teardownPhotoreal(); }   // leaving Satellite → kill the photoreal surface cleanly
   $("gmapWrap").style.display=photo?"block":"none";
   $("scene").style.display=photo?"none":"block";
