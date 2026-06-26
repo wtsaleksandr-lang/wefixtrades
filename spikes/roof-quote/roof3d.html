@@ -9623,6 +9623,43 @@ function _makeStripeOverlay(ring){
   return new Stripe();
 }
 
+// (selectroof-align) Clean up a raw building FOOTPRINT for the FIRST Select-Your-Roof view so the
+// highlighted polygon reads as a crisp building outline that hugs the roof lines — instead of the loose,
+// jaggy OSM/Microsoft trace. This runs BEFORE the heavy roof analysis (no Google Solar buildingInsights /
+// dataLayers mask is fetched yet), so it is pure local geometry: ZERO extra network latency. It reuses the
+// SAME architectural regularizer the editor step uses (regularizeVectorFootprint): DP-simplify the jaggies,
+// snap to the dominant building axis (squaring near-90° corners), merge near-collinear/duplicate vertices,
+// then a tiny eave overhang so the outline sits on the eaves rather than just inside them.
+//   ring   = [[lng,lat],...] (WGS84, the candidate footprint).
+//   lat0   = a representative latitude (for the metric area gate).
+// NEVER-WORSE gate (per the brief): the cleaned ring is only used when it stays a sane variant of the raw
+// footprint — ≥3 verts, area within 0.55×–1.8× of the original, and centroid within ~3.5 m. On ANY
+// degeneracy/failure it returns the ORIGINAL ring unchanged, so the first view can never get a worse or
+// garbage polygon than today.
+function _regularizeSelectRoofRing(ring, lat0){
+  try{
+    if(!Array.isArray(ring) || ring.length<3) return ring;
+    // self-consistent UTM zone from the ring centroid longitude (we forward+inverse with the same zone, so
+    // the standard formula round-trips exactly — no dependence on the not-yet-fetched raster zone).
+    const c=_ringCentroid(ring); const zone=Math.floor((c[0]+180)/6)+1;
+    const ringEN=ring.map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
+    const reg=regularizeVectorFootprint(ringEN, 0.35);   // straight, axis-squared outline + small eave overhang
+    if(!Array.isArray(reg) || reg.length<3) return ring;
+    const out=reg.map(([E,N])=>utmToLL(E,N,zone));        // [[lng,lat],...]
+    if(!Array.isArray(out) || out.length<3) return ring;
+    if(out.some(p=>!isFinite(p[0])||!isFinite(p[1]))) return ring;
+    // never-worse gate: area + centroid stability vs the raw footprint
+    const aRaw=_ringAreaM2(ring,lat0), aReg=_ringAreaM2(out,lat0);
+    if(!(aRaw>0)||!(aReg>0)) return ring;
+    if(aReg < aRaw*0.55 || aReg > aRaw*1.8) return ring;
+    const cReg=_ringCentroid(out);
+    const mLng=111320*Math.cos((lat0||43)*Math.PI/180);
+    const drift=Math.hypot((cReg[0]-c[0])*mLng,(cReg[1]-c[1])*111320);
+    if(drift>3.5) return ring;
+    return out;
+  }catch(_){ return ring; }
+}
+
 async function renderSelectRoofMap(g, fp, neighbours){
   const el=$("srMap"); if(!el) return;
   try{
@@ -9643,17 +9680,21 @@ async function renderSelectRoofMap(g, fp, neighbours){
     const detectedRing=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
     const detectedC = detectedRing ? _ringCentroid(detectedRing) : [g.lng,g.lat];
     const list=[];
-    if(detectedRing){ list.push({ id:"detected", ring:detectedRing, centroid:detectedC, source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
+    // (selectroof-align) Square up + clean each raw footprint BEFORE drawing so the first view's polygon hugs
+    // the roof lines instead of showing the loose/jaggy OSM trace. Pure local geometry → no added latency; the
+    // helper gates itself and returns the raw ring on any degeneracy (never a worse polygon than today).
+    if(detectedRing){ const r=_regularizeSelectRoofRing(detectedRing, g.lat); list.push({ id:"detected", ring:r, centroid:_ringCentroid(r), source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
     // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
     const seen=detectedRing?[detectedC]:[];
     const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
       return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
     for(const nb of (neighbours||[])){
-      const ring=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring) continue;
-      const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring);
+      const ring0=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring0) continue;
+      const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring0);
       if(near(c,seen,6)) continue;                          // de-dup the detected home / repeats
       seen.push(c);
-      list.push({ id:nb.id||("nb/"+c[0].toFixed(6)+","+c[1].toFixed(6)), ring, centroid:c, source:nb.source||"osm", detected:false, selected:false });
+      const ring=_regularizeSelectRoofRing(ring0, g.lat);   // same architectural cleanup as the detected home
+      list.push({ id:nb.id||("nb/"+c[0].toFixed(6)+","+c[1].toFixed(6)), ring, centroid:_ringCentroid(ring), source:nb.source||"osm", detected:false, selected:false });
     }
     // Draw each as a clickable polygon and wire the per-building toggle.
     for(const item of list){
@@ -9668,8 +9709,10 @@ async function renderSelectRoofMap(g, fp, neighbours){
     }
     window.__srBuildings=__srBuildings;   // expose the live list (debug / headless verification / next-task per-house loop)
     if(detectedRing){
-      // frame the detected home (a touch wider so a neighbour or two is visible + tappable)
-      const b=new google.maps.LatLngBounds(); detectedRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
+      // frame the detected home (a touch wider so a neighbour or two is visible + tappable) — use the
+      // regularized ring that was actually drawn so the frame matches the highlighted outline.
+      const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:detectedRing;
+      const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
       const hasNb=__srBuildings.length>1;
       $("srHintT").textContent = hasNb ? "Tap buildings to add or remove them from your quote." : "This is the roof we detected. Not your building? Tap the correct one.";
     } else {
