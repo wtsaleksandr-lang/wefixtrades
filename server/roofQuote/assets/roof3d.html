@@ -647,12 +647,13 @@
   /* floating "2D" return chip overlaid on the photoreal 3D solar view */
   #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
   #solar3dBack svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:flex-start;justify-content:center}
-  /* canvas hugs to the TOP of the stage (sgLayout sets an explicit height that hugs the rendered heatmap
-     on short/wide roofs, no aspect distortion). The stage stays flex:1 so it fills down to the bottom
-     controls panel — the heatmap's own dark canvas bg reads as the stage, and the white panel anchors to
-     the screen bottom (bottom-sheet). That kills the grey/black VOID that used to show below the panel when
-     the heatmap was short and the stage was capped to hug it (Issue 2, mobile). */
+  #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
+  /* RECONCILED (heatmap-center): the canvas FILLS the full stage (flex:1, never capped) so the white
+     controls panel stays anchored to the screen bottom (kills the void BELOW the panel — 0157adec's win),
+     while sgLayout contain-fits the heatmap and CENTERS it inside that full canvas (offX/offY). On a
+     wide/short roof the heatmap therefore sits vertically centred with small BALANCED margins instead of
+     pinned to the top with a huge black void below it (8e921b5e's goal, done without capping the stage).
+     No aspect distortion — the contain-fit scale is uniform. */
   #sgCanvas{position:relative;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
   #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:99px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
   #solarGrid .sg-hint b{color:#fff}
@@ -7554,34 +7555,25 @@ function sgLayout(){
   if(!SG_STATE) return;
   const cv=$("sgCanvas"); if(!cv) return;
   const stage=cv.parentElement, dpr=Math.min(devicePixelRatio||1,2);
-  // The stage is capped (max-height) below to hug a short/wide heatmap, which would feed back into
-  // clientHeight and spiral the layout smaller on each pass. To break that loop, scale is always computed
-  // against the stage's NATURAL (uncapped) height: temporarily clear the cap, read the height, then re-apply.
-  const prevMax=stage.style.maxHeight; stage.style.maxHeight="none";
-  const stageW=stage.clientWidth||1, naturalH=stage.clientHeight||1;
-  stage.style.maxHeight=prevMax;
+  // RECONCILED (heatmap-center). We no longer cap the stage at all (0157adec's win: the white controls
+  // panel stays anchored to the screen bottom, so there is never a void BELOW it). The stage fills flex:1
+  // between the header and the panel; the canvas fills that whole stage box. Read the box directly — there
+  // is no max-height to clear/restore anymore.
+  const stageW=stage.clientWidth||1, stageH=stage.clientHeight||1;
   const [E0,N0,E1,N1]=SG_STATE.bbox;
-  const padPx=18*dpr;                                   // breathing room so edge panels aren't clipped (was 34 — tighter so the roof uses more area)
+  const padPx=12*dpr;                                   // breathing room so edge panels aren't clipped (was 18 — tighter so a width-bound roof uses more of the box)
   const spanE=Math.max(1,E1-E0), spanN=Math.max(1,N1-N0);
-  // Contain-fit against the FULL (natural) stage box — uniform, preserves the roof's aspect ratio.
-  const availW=stageW*dpr-padPx*2, availH=naturalH*dpr-padPx*2;
-  const scale=Math.min(availW/spanE, availH/spanN);     // metres → device px (uniform, contain-fit)
+  // Canvas fills the FULL stage box (no content-hug cap). Contain-fit the roof inside it — uniform scale,
+  // preserves aspect — then CENTER it with offX/offY. On a wide/short roof the heatmap is width-bound
+  // (drawH < canvas height), so centering leaves small BALANCED top+bottom margins instead of 8e921b5e's
+  // top-pinned strip with a huge void below. No aspect distortion; the bottom panel is unaffected.
+  cv.style.width=stageW+"px"; cv.style.height=stageH+"px";
+  cv.width=Math.round(stageW*dpr); cv.height=Math.round(stageH*dpr);
+  const availW=cv.width-padPx*2, availH=cv.height-padPx*2;
+  const scale=Math.min(availW/spanE, availH/spanN);     // metres → device px (uniform contain-fit — the roof is ALWAYS fully visible, no clip, no stretch)
   const drawW=spanE*scale, drawH=spanN*scale;
-  // The void fix: a short/wide roof (e.g. a rowhouse) is width-bound, so drawH ≪ naturalH and a tiny centred
-  // heatmap would float in a tall dark box. HUG the content: size the CANVAS to its rendered height (+padding)
-  // and top-align it in the stage (CSS align-items:flex-start), so the heatmap sits right under the header.
-  // We do NOT cap the stage anymore — the stage stays flex:1 and fills down to the bottom controls panel, so
-  // the white panel anchors to the screen bottom (bottom-sheet) and the heatmap's own dark canvas reads as the
-  // stage. Capping the stage used to make the panel RISE under the heatmap, which left a tall black VOID below
-  // the white panel on mobile (Issue 2) — anchoring the panel to the bottom instead removes that void. We keep
-  // a comfortable floor (≥45% of natural) so a normal roof still breathes. No aspect distortion — scale is unchanged.
-  const contentH=Math.round((drawH+padPx*2)/dpr);
-  const cssH=Math.max(Math.round(naturalH*0.45), Math.min(naturalH, contentH));
-  cv.style.width=stageW+"px"; cv.style.height=cssH+"px";
-  cv.width=Math.round(stageW*dpr); cv.height=Math.round(cssH*dpr);
-  stage.style.maxHeight="none";   // never cap the stage — it fills flex:1 down to the panel (no void below)
-  const offX=(cv.width-drawW)/2, offY=(cv.height-drawH)/2;
-  SG_STATE.proj={ scale, offX, offY, E0, N1, dpr, cw:stageW, chh:cssH };
+  const offX=(cv.width-drawW)/2, offY=(cv.height-drawH)/2;   // centre the heatmap in the full canvas (both axes)
+  SG_STATE.proj={ scale, offX, offY, E0, N1, dpr, cw:stageW, chh:stageH };
   // N up: canvas y grows downward, so larger N → smaller y.
   const toPx=(E,N)=>({ x:offX+(E-E0)*scale, y:offY+(N1-N)*scale });
   for(const c of SG_STATE.panels){ c.px=c.cu.map(([E,N])=>toPx(E,N)); }
