@@ -980,7 +980,7 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
    way[building] over the bbox) first; the Microsoft z9 tile is scanned as a cold-area fallback. Empty
    {buildings:[]} is a valid answer (the client degrades to single-building). Disk-cached by rounded bbox. */
 export interface BboxBuilding { id: string; ring: LngLat[]; centroid: LngLat; area: number; source: "osm" | "msft"; }
-export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "none"; attribution?: string; error?: string; }
+export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "none"; attribution?: string; error?: string; _incomplete?: boolean; }
 function bboxClamp(s: number, w: number, n: number, e: number): [number, number, number, number] {
   const cs = Math.min(s, n), cn = Math.max(s, n), cw = Math.min(w, e), ce = Math.max(w, e);
   const midLat = (cs + cn) / 2, midLng = (cw + ce) / 2, MAXSPAN = 0.012;
@@ -1000,20 +1000,25 @@ function ringsFromOverpassEls(elements: any[], lat0: number): BboxBuilding[] {
   }
   return out;
 }
+// Per-endpoint hard timeout so a single hung/rate-limited Overpass mirror can't eat the whole route
+// budget and starve the retry. Tight (the [timeout:7] server hint matches) → quick first attempt + quick
+// retry on the second mirror, all inside OSM_FOOTPRINT_BUDGET_MS.
+const OVERPASS_PER_TRY_MS = 6000;
 async function overpassBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
-  const body = "data=" + encodeURIComponent('[out:json][timeout:25];way["building"](' + bs + "," + bw + "," + bn + "," + be + ");out geom;");
+  const body = "data=" + encodeURIComponent('[out:json][timeout:7];way["building"](' + bs + "," + bw + "," + bn + "," + be + ");out geom;");
   const headers = { "Content-Type": "application/x-www-form-urlencoded",
     "User-Agent": "WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
   const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
   for (const ep of endpoints) {
     try {
-      const r = await fetch(ep, { method: "POST", headers, body });
-      if (!r.ok) continue;
+      // Tight abort so a hung mirror yields to the next one (the quick retry) well inside the budget.
+      const r = await fetch(ep, { method: "POST", headers, body, signal: AbortSignal.timeout(OVERPASS_PER_TRY_MS) });
+      if (!r.ok) continue; // 429/502/504 → failure, try next mirror
       const j = (await r.json()) as any;
-      return ringsFromOverpassEls(j.elements, (bs + bn) / 2);
-    } catch { /* try next endpoint */ }
+      return ringsFromOverpassEls(j.elements, (bs + bn) / 2); // possibly [] (valid empty — area genuinely has no OSM ways)
+    } catch { /* timeout / network → try next endpoint */ }
   }
-  return null;
+  return null; // both mirrors unreachable/failed (NOT a valid empty)
 }
 function scanMsftTileBbox(srcStream: NodeJS.ReadableStream, bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[]> {
   return new Promise((resolve) => {
@@ -1057,19 +1062,31 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   const gk = [bs, bw, bn, be].map((n) => n.toFixed(4)).join(",");
   const cached = diskGetJSON<{ body: BuildingsResult; _t: number }>("buildings", gk);
   if (cached && cached.body && cached._t && Date.now() - cached._t < 7 * 864e5) return cached.body;
-  // OSM is fast + clean where it exists; time-box it so a stalled Overpass can't hang the route.
-  const osm = await timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null);
+  // Reliability fix (mirrors spikes/roof-quote/serve.mjs): RACE OSM + MS concurrently instead of the old
+  // sequential cascade. The public Overpass mirrors intermittently time out / 429 / 502; under the old
+  // cascade that returned an empty list AND only began warming the MS tile AFTER OSM's full budget, so a
+  // transient Overpass blip left Select-Your-Roof stuck at the main house. Racing them starts the MS tile
+  // download WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is
+  // warm for the immediate retry). Independently time-boxed → total wait ≈ max(budget), not the sum.
+  const [osm, msft] = await Promise.all([
+    timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null),
+    timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null),
+  ]);
   let out: BuildingsResult;
+  // Prefer OSM where it has data; otherwise fall back to MS — crucially on OSM being EMPTY (null OR []),
+  // not just on an exception, so a quiet "0 buildings" from a flaky Overpass still gets the MS layer.
   if (Array.isArray(osm) && osm.length) {
     out = { buildings: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
+  } else if (Array.isArray(msft) && msft.length) {
+    out = { buildings: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" };
   } else {
-    // OSM empty / unreachable → cold-area fallback to the Microsoft tile (time-boxed; tile may warm in bg).
-    const msft = await timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null);
-    out = (Array.isArray(msft) && msft.length)
-      ? { buildings: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" }
-      : { buildings: [], source: "none" };
+    // `_incomplete` = MS was still downloading its cold tile (msft===null) when the budget expired → this
+    // empty answer is TRANSIENT (tile warms in bg, next load has it). Don't cache it so the retry self-heals.
+    out = { buildings: [], source: "none", _incomplete: msft === null };
   }
-  if (out.buildings.length) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
+  // Persist only NON-empty, COMPLETE results. Empty-but-complete (genuine sparse area) and incomplete
+  // (transient failure) both skip the cache → next load retries live instead of being shadowed by a 0.
+  if (out.buildings.length && !out._incomplete) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
   return out;
 }
 

@@ -335,21 +335,26 @@ function ringsFromOverpassEls(elements,bs,bw,bn,be){
   }
   return out;
 }
+// Per-endpoint hard timeout so a single hung/rate-limited Overpass mirror can't eat the whole route
+// budget and starve the retry. Keep it tight (the [timeout:7] server hint matches) so we get a quick
+// FIRST attempt then a quick retry on the SECOND mirror, all inside OSM_FOOTPRINT_BUDGET_MS.
+const OVERPASS_PER_TRY_MS=6000;
 async function overpassBuildingsBbox(bs,bw,bn,be){
-  const q='[out:json][timeout:25];way["building"]('+bs+','+bw+','+bn+','+be+');out geom;';
+  const q='[out:json][timeout:7];way["building"]('+bs+','+bw+','+bn+','+be+');out geom;';
   const body="data="+encodeURIComponent(q);
   const headers={ "Content-Type":"application/x-www-form-urlencoded",
     "User-Agent":"WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
   const endpoints=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
   for(const ep of endpoints){
     try{
-      const r=await fetch(ep,{ method:"POST", headers, body });
-      if(!r.ok) continue;
+      // Tight abort so a hung mirror yields to the next one (the quick retry) well inside the budget.
+      const r=await fetch(ep,{ method:"POST", headers, body, signal:AbortSignal.timeout(OVERPASS_PER_TRY_MS) });
+      if(!r.ok) continue;                                   // 429/502/504 → treat as failure, try next mirror
       const j=await r.json();
-      return ringsFromOverpassEls(j.elements,bs,bw,bn,be);  // possibly [] (valid empty)
-    }catch(_){ /* try next endpoint */ }
+      return ringsFromOverpassEls(j.elements,bs,bw,bn,be);  // possibly [] (valid empty — area genuinely has no OSM ways)
+    }catch(_){ /* timeout / network → try next endpoint */ }
   }
-  return null;                                              // both endpoints unreachable
+  return null;                                              // both endpoints unreachable/failed (NOT a valid empty)
 }
 // Scan the Microsoft z9 tile covering the bbox centre and collect EVERY building whose centroid lands
 // inside the bbox. Used only as a cold-area fallback (OSM empty). Re-uses the on-disk tile cache.
@@ -391,13 +396,28 @@ async function msftBuildingsBbox(bs,bw,bn,be){
 }
 async function buildingsInBbox(bs,bw,bn,be){
   [bs,bw,bn,be]=_bboxClamp(bs,bw,bn,be);
-  // OSM is fast + clean where it exists; time-box it so a stalled Overpass can't hang the route.
-  const osm=await timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null);
+  // Reliability fix: OSM (Overpass) is flaky — the public mirrors intermittently time out / 429 / 502, and
+  // when they do the old SEQUENTIAL cascade returned an empty list AND only started warming the MS tile
+  // AFTER OSM's full budget elapsed, so a transient Overpass blip left Select-Your-Roof stuck at the main
+  // house. Now we RACE both sources concurrently (mirrors footprintCandidates): MS starts downloading its
+  // tile WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is warm
+  // for the immediate retry). Both are time-boxed independently, so total wait ≈ max(budget), NOT the sum.
+  const [osm,msft]=await Promise.all([
+    timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
+    timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null),
+  ]);
+  // Prefer OSM where it actually has data (cleaner rings); otherwise fall back to MS — and CRUCIALLY fall
+  // back on OSM being EMPTY (null OR []), not just on an exception, so a quiet "0 buildings" from a flaky
+  // Overpass still gets the MS layer.
   if(Array.isArray(osm) && osm.length){ return { buildings:osm, source:"osm", attribution:"© OpenStreetMap contributors" }; }
-  // OSM empty / unreachable → cold-area fallback to the Microsoft tile (time-boxed; tile may warm in bg).
-  const msft=await timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null);
   if(Array.isArray(msft) && msft.length){ return { buildings:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" }; }
-  return { buildings:[], source:"none" };
+  // Nothing usable. `_incomplete` marks WHY: MS was still downloading its cold tile (msft===null) when the
+  // budget expired, so this empty answer is TRANSIENT — the tile warms in the background and the next load
+  // will have it. The /buildings route uses this flag to NOT persist the empty result to disk, so the
+  // retry re-runs live instead of being shadowed by a cached 0. (osm===null with msft===[] is a genuine
+  // empty area — MS truly has nothing here — and is safe to cache.)
+  const _incomplete = (msft===null);
+  return { buildings:[], source:"none", _incomplete };
 }
 
 // On-disk pre-cached footprints (free national buildings data, fetched by a throwaway script).
@@ -836,7 +856,14 @@ http.createServer(async (req,res)=>{
     res.setHeader("X-Cache","MISS");
     try{
       const out=await buildingsInBbox(bs,bw,bn,be);
-      if(out && Array.isArray(out.buildings) && out.buildings.length){ diskSetJSON("buildings",gk,{ body:out, _t:Date.now() }); }
+      // `_incomplete` = MS tile was still warming when the budget expired → a transient empty; do NOT cache
+      // it (a cached 0 would shadow the now-warming tile forever and the user stays stuck at the main house).
+      // Strip the internal flag before it goes on the wire so the response shape stays identical for the client.
+      const incomplete=!!(out && out._incomplete);
+      if(out && typeof out==="object") delete out._incomplete;
+      // Only persist NON-empty, COMPLETE results. Empty-but-complete (genuine sparse area) and incomplete
+      // (transient failure) both skip the cache → the next load retries live and self-heals.
+      if(out && Array.isArray(out.buildings) && out.buildings.length && !incomplete){ diskSetJSON("buildings",gk,{ body:out, _t:Date.now() }); }
       res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),buildings:[],source:"none"})); }
     return;

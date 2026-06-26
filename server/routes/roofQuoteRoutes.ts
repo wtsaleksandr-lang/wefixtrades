@@ -338,7 +338,11 @@ export function registerRoofQuoteRoutes(app: Express) {
      /api/roofquote/buildings?bbox=south,west,north,east → { buildings:[{id,ring,centroid,area,source}], source, attribution } */
   app.get("/api/roofquote/buildings", async (req: Request, res: Response) => {
     try {
-      return res.json(await buildingsInBbox(String(req.query.bbox || "")));
+      const out = await buildingsInBbox(String(req.query.bbox || ""));
+      // `_incomplete` is an internal cache-control flag (transient MS-pending empty) — strip it so the
+      // wire shape stays identical for the client; the service already used it to skip caching.
+      if (out && typeof out === "object") delete (out as { _incomplete?: boolean })._incomplete;
+      return res.json(out);
     } catch (err) {
       log.error("buildings failed", { err: (err as Error).message });
       return res.json({ buildings: [], source: "none", error: String((err as Error).message || err) });
