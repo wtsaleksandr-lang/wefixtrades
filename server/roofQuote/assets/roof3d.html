@@ -479,6 +479,13 @@
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
   /* ── ROOF-OUTLINE DOT EDITOR (Roofr/Sky-Quote style) ── */
   #dotEditor{cursor:crosshair}
+  /* magnifier / loupe — a small zoomed close-up of the dot being dragged, so the user can place it
+     precisely on the roof edge. Appears only mid-drag; pinned to a corner that won't cover the roof. */
+  #dotLoupe{position:absolute;top:14px;left:14px;z-index:31;width:128px;height:128px;border-radius:50%;
+    overflow:hidden;display:none;pointer-events:none;background:#0b1120;
+    border:2px solid rgba(255,255,255,0.92);box-shadow:0 8px 24px rgba(8,14,30,0.38),0 0 0 1px rgba(13,60,252,0.35)}
+  #dotLoupe canvas{display:block;width:100%;height:100%}
+  @media (max-width:560px){ #dotLoupe{width:112px;height:112px;top:12px;left:12px} }
   #dotHud{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:none;
     background:#ffffff;border:1px solid #e1e7ef;border-radius:16px;padding:12px 14px;box-shadow:var(--card-shadow);
     width:min(440px,calc(100vw - 24px));text-align:center}
@@ -5777,6 +5784,16 @@ function renderRoofDiagram(){
     };
     if(typeof RoofDots!=="undefined" && RoofDots.onDiagramRendered) RoofDots.onDiagramRendered();
   }catch(_){}
+  // ── (ghost-line fix) Is the draggable-dot OUTLINE EDITOR active? When it is, the #dotEditor overlay
+  //    paints its OWN live outline + edge lengths + per-section SQFT + facet fill on top of this canvas.
+  //    Drawing the STATIC measurement outline/edges/labels HERE too means a second (stale) line shows
+  //    behind the live one — and once a dot is dragged the live line moves away, leaving a visible GHOST
+  //    of the pre-edit outline underneath. So while the editor is active we paint ONLY the satellite base
+  //    image (+ scrim) here and let RoofDots own every line/label — exactly ONE outline on screen.
+  // editing() = the #dotEditor overlay is mounted+visible RIGHT NOW (on===true), NOT merely confirmed.
+  // We suppress the static outline only while the overlay is live (else a CONFIRMED diagram — overlay
+  // hidden — would show no outline at all). Fall back to active() if editing() isn't exposed.
+  let __dotsActive=false; try{ __dotsActive=(typeof RoofDots!=="undefined" && (RoofDots.editing?RoofDots.editing():(RoofDots.active&&RoofDots.active()))); }catch(_){}
   // ── (measure-iter) HARD CLIP BOUNDARY — the roof outline polygon in PIXEL space. Everything we
   //    draw (facet fills, every edge line, labels) is clipped to THIS so nothing renders past the
   //    roof edge onto lawn/driveway/neighbour. Prefer the registered+snapped footprint ring
@@ -5817,6 +5834,11 @@ function renderRoofDiagram(){
   const fp=planes.filter(p=>p.ring.length>=3).map(p=>{ const ring=p.ring.map(v=>P(v[0],v[1]));
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,cx=0,cy=0; for(const [px,py] of ring){ x0=Math.min(x0,px);y0=Math.min(y0,py);x1=Math.max(x1,px);y1=Math.max(y1,py);cx+=px;cy+=py; }
     return { p, ring, cx:cx/ring.length, cy:cy/ring.length, bw:x1-x0, bh:y1-y0 }; });
+  // (ghost-line fix) Skip ALL static measurement overlay (facet fill, edges/outline, vertex nodes,
+  // edge-length labels, facet-area pills) while the dot editor is active — RoofDots draws the single
+  // live outline on #dotEditor. Without this the static outline shows behind the live one and ghosts on
+  // drag. The satellite base image + scrim above are already painted, so the editor sits on clean imagery.
+  if(!__dotsActive){
   // 1) subtle translucent facet fill so each plane reads as a surface (the roof imagery shows through).
   //    (measure-iter) Clip every fill to the roof outline so NO facet-fill spills past the roof edge.
   ctx.lineJoin="round"; ctx.lineCap="round";
@@ -5950,13 +5972,13 @@ function renderRoofDiagram(){
     ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.46);
     ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(196,214,244,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
+  }  // end if(!__dotsActive) — static measurement overlay suppressed while the dot editor owns the outline
   // ── LEGEND — small survey-sheet key (only the edge types actually present), bottom-left, off the roof.
   //    Suppressed while the per-house DOT EDITOR is active: that surface overlays its own outline +
   //    per-section SQFT and all lines are uniform brand-blue, so the colour key is pure redundant
   //    clutter over the satellite there (the giant-legend complaint was on exactly this surface).
-  let __dotsActive=false; try{ __dotsActive=(typeof RoofDots!=="undefined" && RoofDots.active && RoofDots.active()); }catch(_){}
   try{
-    if(__dotsActive) throw 0;   // skip the legend in the funnel dot-editor
+    if(__dotsActive) throw 0;   // skip the legend in the funnel dot-editor (computed once, above)
     const present=[...new Set(model.edges.map(e=>e.type))].filter(t=>EDGE_COLORS[t]);
     const order=["ridge","hip","valley","eave","rake"]; present.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
     if(present.length){
@@ -6042,6 +6064,8 @@ const RoofDots=(function(){
   // facet to this class's slope multiplier (sloped = plan × classMult) for the simple-tier estimate.
   let pitchClass=null;     // null | "flat" | "sloped" | "steep" | "vsteep"
   let cv=null, hud=null, started=false;
+  let loupeWrap=null, loupeCv=null;        // magnifier window + its canvas (close-up of the dragged dot)
+  const LOUPE_ZOOM=2.8;                     // magnification of the close-up (2.5–3× reads well on a roof edge)
   // class slope multipliers (sloped-area ÷ plan-area = 1/cos(pitch)). Representative residential pitches:
   // flat 0.5/12 (~2°)≈1.00, sloped 6/12 (~26.6°)≈1.118, steep 9/12 (~36.9°)≈1.25, very-steep 12/12 (45°)≈1.414.
   const PITCH_CLASSES=[
@@ -6245,6 +6269,80 @@ const RoofDots=(function(){
   function redo(){ if(!redoStack.length) return; undoStack.push(capState()); restoreState(redoStack.pop()); afterEdit(); updateButtons(); }
   function updateButtons(){ const u=$("dotUndo"), r=$("dotRedo"); if(u) u.disabled=!undoStack.length; if(r) r.disabled=!redoStack.length; }
 
+  // ---- magnifier / loupe ----------------------------------------------------
+  // The model-metre position of the handle currently being dragged (corner or interior junction).
+  function activeDragModel(){
+    if(dragIdx<0) return null;
+    if(dragKind==="interior"){ return verts[dragIdx] ? [verts[dragIdx][0],verts[dragIdx][1]] : null; }
+    return (ringM && ringM[dragIdx]) ? [ringM[dragIdx][0],ringM[dragIdx][1]] : null;
+  }
+  // Draw a zoomed close-up of the area around the dragged dot into the loupe canvas. Source pixels come
+  // from #matCanvas (the satellite imagery the editor is already mapped onto — the static outline is
+  // suppressed there while editing, so the loupe shows clean roof imagery). We then overlay the LIVE
+  // outline segment(s) meeting the dot + a crosshair + the dot, all in loupe space, so the user sees the
+  // line relative to the roof edge at magnification. Redrawn only on drag move (cheap).
+  function drawLoupe(){
+    if(!loupeWrap||!loupeCv||dragIdx<0) return;
+    const mc=$("matCanvas"); const x=X(); if(!mc||!x) return;
+    const dm=activeDragModel(); if(!dm) return;
+    // dot position in #matCanvas-internal (un-scaled cw×ch) coords, then ×S to source pixels.
+    const Pc=x.P(dm[0],dm[1]); if(!Pc||!isFinite(Pc[0])||!isFinite(Pc[1])) return;
+    const S=(x.cw>0)?(mc.width/x.cw):1;                  // supersample factor renderRoofDiagram used
+    const cxSrc=Pc[0]*S, cySrc=Pc[1]*S;
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    const cssSize=parseFloat(getComputedStyle(loupeWrap).width)||128;
+    const dw=Math.round(cssSize*dpr); loupeCv.width=dw; loupeCv.height=dw;
+    const lc=loupeCv.getContext("2d");
+    // source rect = a small region around the dot; dest = the whole loupe → magnification = dw / (sw).
+    const sw=dw/LOUPE_ZOOM; const sx=cxSrc-sw/2, sy=cySrc-sw/2;
+    lc.clearRect(0,0,dw,dw);
+    lc.fillStyle="#0b1120"; lc.fillRect(0,0,dw,dw);
+    try{ lc.imageSmoothingEnabled=true; lc.imageSmoothingQuality="high";
+      lc.drawImage(mc, sx,sy,sw,sw, 0,0,dw,dw); }catch(_){}
+    // map a model-metre point → loupe-canvas px (same projection as the source crop, scaled to the loupe).
+    const toLoupe=(xm,ym)=>{ const p=x.P(xm,ym); if(!p) return null; const px=p[0]*S, py=p[1]*S;
+      return [ (px-sx)/sw*dw, (py-sy)/sw*dw ]; };
+    // live outline: draw the ring as a brand-blue line so the user sees the edge under the dot.
+    if(ringM&&ringM.length>=2){
+      lc.lineJoin="round"; lc.lineCap="round";
+      const lp=ringM.map(([xm,ym])=>toLoupe(xm,ym));
+      if(lp.every(p=>p)){
+        lc.beginPath(); lp.forEach((p,i)=>{ i?lc.lineTo(p[0],p[1]):lc.moveTo(p[0],p[1]); }); lc.closePath();
+        lc.strokeStyle="rgba(255,255,255,0.85)"; lc.lineWidth=4*dpr; lc.stroke();
+        lc.strokeStyle="#0d3cfc"; lc.lineWidth=2.2*dpr; lc.stroke();
+      }
+    }
+    // interior ridge segments (if topology live) — faint blue so the junction reads at zoom too.
+    if(topoOn && facetVI.length){
+      lc.strokeStyle="rgba(13,60,252,0.55)"; lc.lineWidth=1.4*dpr;
+      for(const vi of facetVI){ const fpl=vi.map(v=>toLoupe(verts[v][0],verts[v][1]));
+        if(!fpl.every(p=>p)) continue;
+        lc.beginPath(); fpl.forEach((p,i)=>{ i?lc.lineTo(p[0],p[1]):lc.moveTo(p[0],p[1]); }); lc.closePath(); lc.stroke(); }
+    }
+    // crosshair through the centre (where the dot sits) + the dot itself.
+    const c=dw/2;
+    lc.strokeStyle="rgba(255,255,255,0.55)"; lc.lineWidth=1*dpr;
+    lc.beginPath(); lc.moveTo(c,0); lc.lineTo(c,dw); lc.moveTo(0,c); lc.lineTo(dw,c); lc.stroke();
+    const dp=toLoupe(dm[0],dm[1]);   // == centre, but compute so it tracks exactly
+    const dx=dp?dp[0]:c, dy=dp?dp[1]:c;
+    lc.beginPath(); lc.arc(dx,dy,7*dpr,0,7); lc.fillStyle="#ffffff"; lc.fill();
+    lc.lineWidth=2*dpr; lc.strokeStyle="#0d3cfc"; lc.stroke();
+    lc.beginPath(); lc.arc(dx,dy,2*dpr,0,7); lc.fillStyle="#0d3cfc"; lc.fill();
+  }
+  // Position the loupe in a corner that the dragging thumb/cursor isn't covering. On a narrow (mobile)
+  // stage especially, if the dot is on the LEFT half, pin the loupe top-RIGHT; else top-LEFT.
+  function positionLoupe(){
+    if(!loupeWrap) return;
+    const s=modelToScreen(...(activeDragModel()||[0,0]));
+    const app=$("app"); const ar=app?app.getBoundingClientRect():null;
+    let onLeft=true; if(s&&ar){ onLeft=(s[0]-ar.left) < ar.width/2; }
+    // dot on the left → loupe on the right (and vice-versa) so it never sits under the finger.
+    if(onLeft){ loupeWrap.style.left="auto"; loupeWrap.style.right=(ar&&ar.width<=560?"12px":"14px"); }
+    else      { loupeWrap.style.right="auto"; loupeWrap.style.left=(ar&&ar.width<=560?"12px":"14px"); }
+  }
+  function showLoupe(){ if(!loupeWrap) return; positionLoupe(); loupeWrap.style.display="block"; drawLoupe(); }
+  function hideLoupe(){ if(loupeWrap) loupeWrap.style.display="none"; }
+
   // ---- (re)draw the overlay (dots + outline + fill + edge-length labels) ----
   function draw(){
     if(!on||!cv||!ringM) return;
@@ -6402,6 +6500,7 @@ const RoofDots=(function(){
     } else if(h.kind==="interior"){ dragIdx=h.idx; dragKind="interior"; }
     else { dragIdx=h.idx; dragKind="corner"; }
     afterEdit();
+    try{ showLoupe(); }catch(_){}   // magnifier appears the moment a dot is grabbed
   }
   // write the dragged pointer position into the active handle's model coordinate. When topoOn, a corner
   // drag moves the SHARED vert (ringVI[i]) so every adjacent facet follows; an interior drag moves the
@@ -6414,8 +6513,8 @@ const RoofDots=(function(){
     ringM[dragIdx]=[mm[0],mm[1]];
   }
   function onMove(e){ if(!on||dragIdx<0) return; e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
-    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); } }
-  function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null; draw(); }
+    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); try{ positionLoupe(); drawLoupe(); }catch(_){} } }
+  function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null; try{ hideLoupe(); }catch(_){} draw(); }
 
   // ---- mount / unmount ------------------------------------------------------
   function ensureDom(){
@@ -6457,6 +6556,10 @@ const RoofDots=(function(){
         '<button id="dotDone" class="dh-btn dh-primary">Done</button>'+
       '</div>';
     $("app").appendChild(hud);
+    // magnifier / loupe — a small canvas that shows a zoomed close-up centred on the dot being dragged.
+    loupeWrap=document.createElement("div"); loupeWrap.id="dotLoupe";
+    loupeCv=document.createElement("canvas");
+    loupeWrap.appendChild(loupeCv); $("app").appendChild(loupeWrap);
     $("dotUndo").onclick=undo; $("dotRedo").onclick=redo;
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
@@ -6604,7 +6707,7 @@ const RoofDots=(function(){
     window.addEventListener("resize",layout);
     return true;
   }
-  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; window.removeEventListener("resize",layout); }
+  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} window.removeEventListener("resize",layout); }
   function layout(){ if(!on) return; draw(); }
 
   return {
@@ -6649,6 +6752,10 @@ const RoofDots=(function(){
     },
     dragInterior:(v,sx,sy)=>{ if(!topoOn||!verts[v]) return measure(); const mm=screenToModel(sx,sy); if(!mm) return measure();
       snapshot(); dragIdx=v; dragKind="interior"; applyDrag(mm); dragIdx=-1; dragKind=null; afterEdit(); return measure(); },
+    loupeInfo:()=>{ try{ const r=loupeWrap?loupeWrap.getBoundingClientRect():null; return { mounted:!!loupeWrap,
+      visible:!!(loupeWrap&&loupeWrap.style.display!=="none"&&loupeWrap.style.display!==""),
+      rect:r?{left:Math.round(r.left),top:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)}:null,
+      zoom:LOUPE_ZOOM }; }catch(_){ return {mounted:false,visible:false}; } },
     onDiagramRendered:()=>{ if(on) requestAnimationFrame(draw); },   // keep dots aligned after a re-render
     init:initFromModel,
     reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; },
