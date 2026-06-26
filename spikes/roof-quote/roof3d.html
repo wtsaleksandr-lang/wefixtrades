@@ -618,9 +618,12 @@
   /* floating "2D" return chip overlaid on the photoreal 3D solar view */
   #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
   #solar3dBack svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
-  /* canvas is vertically centred in the stage; sgLayout() sets an explicit height that HUGS the rendered
-     heatmap on short/wide roofs so it doesn't float as a tiny island in a tall black void (no aspect distortion). */
+  #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:flex-start;justify-content:center}
+  /* canvas hugs to the TOP of the stage (sgLayout sets an explicit height that hugs the rendered heatmap
+     on short/wide roofs, no aspect distortion). The stage stays flex:1 so it fills down to the bottom
+     controls panel — the heatmap's own dark canvas bg reads as the stage, and the white panel anchors to
+     the screen bottom (bottom-sheet). That kills the grey/black VOID that used to show below the panel when
+     the heatmap was short and the stage was capped to hug it (Issue 2, mobile). */
   #sgCanvas{position:relative;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
   #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:99px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
   #solarGrid .sg-hint b{color:#fff}
@@ -5879,6 +5882,43 @@ function renderRoofDiagram(){
       }
     }
   }catch(_){}
+  // ── (mobile editor — Issue 1) The dot OUTLINE EDITOR hides #card, so the #card block above is skipped and a
+  //    WIDE/short roof crop would contain-center in the FULL viewport, letterboxing into a grey band UNDER the
+  //    sticky header (funnelBar + "Get Quote" + Top-down/3D/Edit toggles). Only WIDE crops letterbox: a tall
+  //    (portrait) crop already overfills the narrow mobile viewport, so we must NOT touch those (extending them
+  //    would only shrink the roof). So: when the raw crop is wider than the VISIBLE editor band (between the
+  //    header toggles and the #dotHud card), pad the crop TOP (header) + BOTTOM (#dotHud) so contain-fit drops
+  //    the whole roof into that visible band — grey gap gone, roof not clipped. Extensions are computed off the
+  //    ORIGINAL vertical span (each occluder reserves its own fraction), mirroring the #card logic above.
+  //    Mobile-only (A.width<=560) + editor-only (#dotHud visible) + wide-crop-only → no-op otherwise; zero
+  //    desktop / non-editor / portrait-roof impact.
+  try{
+    const app=$("app"), hud=$("dotHud"), tog=$("measToggle");
+    if(app && hud && getComputedStyle(hud).display!=="none"){
+      const A=app.getBoundingClientRect();
+      if(A.width>0 && A.height>0 && A.width<=560){
+        const M=8;                                   // small gap between roof and the header / card
+        const H=hud.getBoundingClientRect();         // bottom "Drag the dots" card
+        const togR=tog?tog.getBoundingClientRect():null;
+        const headBottom = (togR && togR.height>0) ? togR.bottom : (A.top+150);   // header band ends at the toggles
+        const bandH = Math.max(1, (H.top - headBottom));          // visible editor band height (header → card)
+        const bandAR = A.width / bandH;                            // visible band aspect (w/h)
+        const cropAR = (maxx-minx) / Math.max(1,(maxy-miny));      // raw roof-crop aspect (w/h)
+        // Only WIDE crops letterbox vertically inside the (taller-than-wide) visible band. Portrait crops
+        // already fill → leave them alone (extending would shrink the roof for no gain).
+        if(cropAR > bandAR){
+          let topFrac = Math.max(0, Math.min(0.30, (headBottom - A.top + M) / A.height));
+          let botFrac = Math.max(0, Math.min(0.46, (A.bottom - H.top + M) / A.height));
+          const denom = 1 - topFrac - botFrac;
+          if(denom>0.25){
+            const spanY = maxy - miny;
+            if(botFrac>0.02) maxy += spanY * (botFrac/denom);
+            if(topFrac>0.02) miny -= spanY * (topFrac/denom);
+          }
+        }
+      }
+    }
+  }catch(_){}
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
   const S=Math.min(3,Math.max(1.8,1100/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop
   const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
@@ -7380,17 +7420,19 @@ function sgLayout(){
   const availW=stageW*dpr-padPx*2, availH=naturalH*dpr-padPx*2;
   const scale=Math.min(availW/spanE, availH/spanN);     // metres → device px (uniform, contain-fit)
   const drawW=spanE*scale, drawH=spanN*scale;
-  // The void fix: a short/wide roof (e.g. a rowhouse) is width-bound, so drawH ≪ naturalH and the old code
-  // left huge black bands above AND below a tiny centred heatmap. Instead, HUG the content: size the canvas
-  // to its rendered height (+padding) and CAP the stage to match, so the bottom metrics panel rises and the
-  // dead black collapses. We keep a comfortable floor (≥45% of natural) so a normal roof still breathes and
-  // the heatmap never reads as a cramped strip. No aspect distortion — scale is unchanged either way.
+  // The void fix: a short/wide roof (e.g. a rowhouse) is width-bound, so drawH ≪ naturalH and a tiny centred
+  // heatmap would float in a tall dark box. HUG the content: size the CANVAS to its rendered height (+padding)
+  // and top-align it in the stage (CSS align-items:flex-start), so the heatmap sits right under the header.
+  // We do NOT cap the stage anymore — the stage stays flex:1 and fills down to the bottom controls panel, so
+  // the white panel anchors to the screen bottom (bottom-sheet) and the heatmap's own dark canvas reads as the
+  // stage. Capping the stage used to make the panel RISE under the heatmap, which left a tall black VOID below
+  // the white panel on mobile (Issue 2) — anchoring the panel to the bottom instead removes that void. We keep
+  // a comfortable floor (≥45% of natural) so a normal roof still breathes. No aspect distortion — scale is unchanged.
   const contentH=Math.round((drawH+padPx*2)/dpr);
   const cssH=Math.max(Math.round(naturalH*0.45), Math.min(naturalH, contentH));
   cv.style.width=stageW+"px"; cv.style.height=cssH+"px";
   cv.width=Math.round(stageW*dpr); cv.height=Math.round(cssH*dpr);
-  // Cap the stage to the canvas so leftover column space collapses (panel rises); full height → no cap.
-  stage.style.maxHeight = (cssH<naturalH-1) ? (cssH+"px") : "none";
+  stage.style.maxHeight="none";   // never cap the stage — it fills flex:1 down to the panel (no void below)
   const offX=(cv.width-drawW)/2, offY=(cv.height-drawH)/2;
   SG_STATE.proj={ scale, offX, offY, E0, N1, dpr, cw:stageW, chh:cssH };
   // N up: canvas y grows downward, so larger N → smaller y.
