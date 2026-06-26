@@ -89,7 +89,7 @@
   #selectRoof .sr-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-continue{flex:1 1 auto;max-width:360px;background:var(--blue);border:0;border-radius:12px;height:52px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;box-shadow:var(--btn-shadow);display:inline-flex;align-items:center;justify-content:center;gap:9px}
   #selectRoof .sr-continue svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  #selectRoof .sr-continue:disabled{opacity:.6;cursor:default}
+  #selectRoof .sr-continue:disabled,#selectRoof .sr-continue[aria-disabled="true"]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none;filter:grayscale(.35)}
   /* ── PER-HOUSE banner inside the Edit-outline HUD (only shown while iterating selected buildings) ── */
   #dotHouse{display:none;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 9px;padding:7px 10px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:10px}
   #dotHouse .dhb-of{font-size:12.5px;font-weight:800;color:var(--blue);white-space:nowrap}
@@ -113,8 +113,15 @@
   #branchChoice .bc-card .bc-go svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #branchChoice .bc-back{margin-top:clamp(20px,4vh,30px);background:#fff;border:1px solid var(--line);border-radius:12px;height:46px;padding:0 20px;font-weight:700;color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
   #branchChoice .bc-back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* FIX 2b: large/commercial roof — pills are disabled (greyed, not-clickable); only the commercial CTA is live */
+  #branchChoice.bc-commercial-gate .bc-card{opacity:.5;pointer-events:none;filter:grayscale(.4);box-shadow:none;transform:none}
+  #branchChoice.bc-commercial-gate .bc-card:hover{border-color:var(--line);transform:none;box-shadow:none}
+  #branchChoice .bc-commercial{margin-top:clamp(20px,4vh,30px);background:var(--blue);border:0;border-radius:12px;height:52px;padding:0 26px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:9px;box-shadow:var(--btn-shadow)}
+  #branchChoice .bc-commercial svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  #branchChoice.bc-commercial-gate .bc-back{margin-top:14px}
   @media (max-width:560px){
     #branchChoice{padding:36px 16px 24px}
+    #branchChoice .bc-commercial{width:100%;justify-content:center}
     #branchChoice .bc-cards{flex-direction:column;align-items:stretch}
     #branchChoice .bc-card{max-width:none}
     #branchChoice .bc-card{padding:20px}
@@ -194,6 +201,7 @@
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
   #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
   #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
+  #card .qtab.qtab-locked,#card .qtab[disabled]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none}
   #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#0f172a}
   #card .qprice .qunit{font-size:13px;font-weight:600;color:var(--muted)}
   #card .qband{font-size:11px;font-weight:700;color:#5b6573;background:#eef1f6;border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:3px}
@@ -808,6 +816,7 @@
         <span class="bc-go">Continue with Roofing remodel<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </button>
     </div>
+    <button class="bc-commercial" id="bcCommercial" type="button" style="display:none">Request a commercial quote<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     <button class="bc-back" id="bcBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to editing</button>
   </div>
   <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads (renderQuoteCard). Title-left, visual-right per Alex's hero rules. -->
@@ -2333,8 +2342,10 @@ function renderQuoteCard(){
   // (polish: mobile-first-load) the FIRST time the quote sheet appears on a phone, default it to PEEK so
   // the 3D model owns the upper viewport; the buyer drags the handle up for the full quote. One-shot.
   if(!window.__sheetPeekInit){ window.__sheetPeekInit=true; if(isMobileSheet()){ cardPeek=true; } }
-  const tabs='<div class="qtabs"><button class="qtab'+(tradeMode==="solar"?" on":"")+'" data-t="solar">Solar</button>'+
-    '<button class="qtab'+(tradeMode==="roof"?" on":"")+'" data-t="roof">Roofing</button></div>';
+  // tabs are built AFTER the commercial/low-conf verdict (below) so they can be disabled on a
+  // large/commercial roof — both Solar and Roofing degrade to the SAME "request a commercial quote"
+  // card, so leaving them live makes them read as real choices that do nothing (FIX 2b).
+  let tabs="";
   let body="";
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
@@ -2382,6 +2393,12 @@ function renderQuoteCard(){
   // price ranges + "Lock in my rate". largeRoof degrades EVERY trade/view, not just solar/measure.
   const bodyCommercial = (tradeMode==="solar" && largeRoof) || (tradeMode==="roof" && largeRoof) || (view==="measure" && largeRoof);
   const bodyLowConf = lowConf && !bodyCommercial;
+  // FIX 2(b): on a large/commercial roof BOTH tabs route to the identical "request a commercial quote"
+  // card — so the Solar/Roofing pills are inert choices. Disable them (greyed, not-clickable) so the
+  // only presented action is the footer "Request a commercial quote →". Residential keeps live tabs.
+  const tabsLocked = largeRoof;
+  const tabBtn=(t,lab)=>'<button class="qtab'+(tradeMode===t?" on":"")+(tabsLocked?" qtab-locked":"")+'" data-t="'+t+'"'+(tabsLocked?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
+  tabs='<div class="qtabs">'+tabBtn("solar","Solar")+tabBtn("roof","Roofing")+'</div>';
   // A LARGE/commercial roof (skyscraper, big-box) is not a "shaded house" — its degrade copy must be the
   // commercial message, never "heavy tree cover" (audit-3: Empire State read canopy-heavy because the DSM
   // sees neighbouring towers ABOVE the plane). largeRoof wins over the low-confidence canopy copy.
@@ -2627,7 +2644,7 @@ function renderQuoteCard(){
   const _fb=card.querySelector(".card-fold-btn"); if(_fb) _fb.onclick=()=>setCardFold(true);
   wireSheetGrab(card);   // (mobile) re-bind the peek/expand drag handle after the innerHTML re-render
   applyCardFold();   // re-assert fold state after the re-render
-  card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
+  card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ if(b.disabled||b.classList.contains("qtab-locked")) return; tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; window.__selPanels=null; renderQuoteCard();   // picking a preset tier overrides any custom grid design
     if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
@@ -6568,9 +6585,19 @@ const RoofDots=(function(){
       if(pEl) pEl.textContent=m.perimFt.toLocaleString();
       // PRICE: prefer the REAL quote engine's material-ladder number for this edited area; fall back to
       // the simple $/ft² band only before the quote card exists. Keeps the live HUD $ == the quote card $.
-      const real=realQuoteBand(m.areaSqFt);
-      if(prEl) prEl.textContent = real ? ("$"+real.lo.toLocaleString()+"–$"+real.hi.toLocaleString())
-                                       : ("$"+m.priceLo.toLocaleString()+"–$"+m.priceHi.toLocaleString());
+      // FIX 2(a): a precise instant $-range CONTRADICTS the commercial gate ("an instant satellite takeoff
+      // wouldn't be accurate enough to price from"). On a large/commercial roof, HIDE the est-roof stat so
+      // the live HUD never shows a confident range next to "we can't price this instantly". The sq-ft /
+      // squares / perimeter measurements stay — they're honest takeoff numbers, just not a quoted price.
+      const priceStat=prEl?prEl.closest(".dh-price"):null;
+      if(window.__largeRoof){
+        if(priceStat) priceStat.style.display="none";
+      } else {
+        if(priceStat) priceStat.style.display="";
+        const real=realQuoteBand(m.areaSqFt);
+        if(prEl) prEl.textContent = real ? ("$"+real.lo.toLocaleString()+"–$"+real.hi.toLocaleString())
+                                         : ("$"+m.priceLo.toLocaleString()+"–$"+m.priceHi.toLocaleString());
+      }
       // highlight the active pitch class (or "Auto" when no override)
       try{ const row=$("dotPitchRow"); if(row){ const active=(pitchClass==null)?"auto":pitchClass;
         row.querySelectorAll(".dh-pbtn").forEach(b=>b.classList.toggle("on", b.getAttribute("data-pc")===active)); } }catch(_){}
@@ -8986,6 +9013,16 @@ async function fetchNeighbours(lat,lng){
 // Enter the Select-Your-Roof step for a typed/picked address. Geocodes (honouring any picked place_id)
 // + fetches the footprint, then paints the aerial. NEVER blocks Continue on these — a geocode/footprint
 // miss just shows the satellite/marker and the buyer proceeds.
+// Gate Continue on the roof PREVIEW being ready. During the blank "Detecting…" window the buyer must not
+// be able to advance past an unconfirmed roof — that defeats the "confirm it's the right roof" purpose.
+// Re-enabled once detection resolves (footprint OR satellite+marker fallback), and ALWAYS re-enabled after
+// a hard timeout so a slow/failed footprint can never permanently block the buyer. Back stays enabled.
+let __srReadyTimer=null;
+function __srSetContinueReady(ready){
+  const b=$("srContinue"); if(!b) return;
+  if(ready){ b.disabled=false; b.removeAttribute("aria-disabled"); }
+  else { b.disabled=true; b.setAttribute("aria-disabled","true"); }
+}
 async function enterSelectRoof(addr, placeId){
   const v=(addr||"").trim(); if(!v) return;
   const h=$("hero"); if(h) h.style.display="none";
@@ -8995,6 +9032,11 @@ async function enterSelectRoof(addr, placeId){
   setFunnelStep("roof");
   $("srAddr").textContent=v;
   $("srLoad").style.display="flex"; $("srLoadT").textContent="Locating your building…";
+  // FIX 1: gate Continue while the preview is still detecting/blank. Disable now; re-enable when the
+  // preview renders (below) or after a safety timeout (~7s) so a slow/failed detect never traps the buyer.
+  __srSetContinueReady(false);
+  if(__srReadyTimer){ clearTimeout(__srReadyTimer); }
+  __srReadyTimer=setTimeout(()=>{ __srSetContinueReady(true); },7000);
   const seq=++__srReqSeq;
   let g=null;
   try{ g=await geocode(v, placeId||""); }catch(_){ g=null; }
@@ -9019,6 +9061,9 @@ async function enterSelectRoof(addr, placeId){
   }
   if(seq!==__srReqSeq) return;
   $("srLoad").style.display="none";
+  // FIX 1: preview has rendered (satellite + footprint/marker) OR geocode degraded — re-enable Continue.
+  if(__srReadyTimer){ clearTimeout(__srReadyTimer); __srReadyTimer=null; }
+  __srSetContinueReady(true);
 }
 window.__enterSelectRoof=enterSelectRoof;
 
@@ -9182,14 +9227,37 @@ window.__housePrev=()=>{
 function showBranchChoice(){
   try{ RoofDots.hide(); }catch(_){}
   const n=(window.__houseQueue||[]).length;
-  $("bcSub").textContent = (n>1)
-    ? ("All "+n+" roofs are measured. Continue to a solar-panel design or a full roofing remodel — your measurements carry over.")
-    : "Continue to a solar-panel design or a full roofing remodel — your measurements carry over either way.";
-  $("branchChoice").style.display="flex";
+  // FIX 2(b): a large/commercial roof has no instant solar/roofing path — both branches dead-end at the
+  // commercial gate. Disable the Solar/Roofing pills and present ONLY "Request a commercial quote" here,
+  // so the branch screen never offers two inert choices. Residential keeps the full live branch.
+  const commercial=!!window.__largeRoof;
+  const bc=$("branchChoice");
+  bc.classList.toggle("bc-commercial-gate", commercial);
+  const sBtn=$("bcSolar"), rBtn=$("bcRoof"), cBtn=$("bcCommercial");
+  [sBtn,rBtn].forEach(b=>{ if(!b) return; b.disabled=commercial; if(commercial) b.setAttribute("aria-disabled","true"); else b.removeAttribute("aria-disabled"); });
+  if(cBtn) cBtn.style.display=commercial?"inline-flex":"none";
+  if(commercial){
+    $("bcSub").textContent = (n>1)
+      ? ("All "+n+" roofs are measured. These are large / commercial roofs — too large for an instant takeoff. Request a commercial quote and we'll measure them properly.")
+      : "This is a large / commercial roof — too large for an instant takeoff. Request a commercial quote and we'll measure it properly.";
+  } else {
+    $("bcSub").textContent = (n>1)
+      ? ("All "+n+" roofs are measured. Continue to a solar-panel design or a full roofing remodel — your measurements carry over.")
+      : "Continue to a solar-panel design or a full roofing remodel — your measurements carry over either way.";
+  }
+  bc.style.display="flex";
   setFunnelStep("options");                    // path-choice point; the quote render flips to "estimate"
 }
+// Commercial gate → the lead-capture / commercial-quote request (same action as the quote-card footer CTA).
+$("bcCommercial").onclick=()=>{
+  $("branchChoice").style.display="none";
+  window.__houseLoopActive=false;
+  $("bar").style.display="flex";
+  try{ if(typeof window.__openCapture==="function") window.__openCapture(); }catch(_){}
+};
 // Solar → existing Solar view + interactive solar grid (primary/first house).
 $("bcSolar").onclick=()=>{
+  if($("bcSolar").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
   window.__houseLoopActive=false;
   $("bar").style.display="flex";
@@ -9204,6 +9272,7 @@ $("bcSolar").onclick=()=>{
 // Roofing remodel → premium roofing DESIGN step: the real-house photoreal preview + material/colour/
 // price/features picker (openRoofDesign). Falls back to the legacy Roofing tab if the new step is unavailable.
 $("bcRoof").onclick=()=>{
+  if($("bcRoof").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
   window.__houseLoopActive=false;
   $("bar").style.display="none";   // the design step owns the screen; its own header carries Back + the AI CTA
