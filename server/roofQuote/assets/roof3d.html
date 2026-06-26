@@ -1556,20 +1556,21 @@ function panelFaceTex(){
   // Higher-res bake so the frame + cell grid stay crisp at the zoom levels users see (near top-down
   // on a flat roof the module is only a few px tall otherwise).
   const N=256, c=document.createElement("canvas"); c.width=c.height=N; const x=c.getContext("2d");
-  // Saturated mono-silicon blue with a vertical sheen — pushed brighter/bluer so each module pops
-  // against the charcoal roof instead of washing into it when flush + lit from the same angle.
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high";
+  // DARK PV MODULE (Alex's spec) — deep navy→near-black so each module reads as a real silicon panel,
+  // consistent with the 2D selected look. A subtle diagonal sheen keeps it from looking flat-black.
   const g=x.createLinearGradient(0,0,N,N);
-  g.addColorStop(0,"#1e478f"); g.addColorStop(0.5,"#2a5aa8"); g.addColorStop(1,"#173a78");
+  g.addColorStop(0,"#0a1830"); g.addColorStop(0.5,"#070f20"); g.addColorStop(1,"#05060a");
   x.fillStyle=g; x.fillRect(0,0,N,N);
-  // 6×10 cell grid (busbars) — crisp dark lines so the cell pattern reads as a real module
-  x.strokeStyle="rgba(6,12,28,0.7)"; x.lineWidth=3;
+  // 6×10 cell grid (busbars) — faint cool lines so the cell pattern reads on the dark module
+  x.strokeStyle="rgba(120,150,200,0.22)"; x.lineWidth=2;
   const cols=6, rows=10;
   for(let i=1;i<cols;i++){ const px=Math.round(i*N/cols)+0.5; x.beginPath(); x.moveTo(px,8); x.lineTo(px,N-8); x.stroke(); }
   for(let j=1;j<rows;j++){ const py=Math.round(j*N/rows)+0.5; x.beginPath(); x.moveTo(8,py); x.lineTo(N-8,py); x.stroke(); }
-  // bright silver frame — a wide light rim is the single biggest visibility cue at top-down
-  x.strokeStyle="#e7ecf3"; x.lineWidth=14; x.strokeRect(7,7,N-14,N-14);
-  // thin dark inner shadow just inside the frame so the silver edge has crisp definition
-  x.strokeStyle="rgba(4,10,24,0.55)"; x.lineWidth=2; x.strokeRect(15,15,N-30,N-30);
+  // thin cool-white frame — a light rim is the key visibility cue at top-down without washing the module out
+  x.strokeStyle="rgba(190,215,255,0.85)"; x.lineWidth=9; x.strokeRect(5,5,N-10,N-10);
+  // thin dark inner line just inside the frame so the rim has crisp definition
+  x.strokeStyle="rgba(4,8,18,0.7)"; x.lineWidth=2; x.strokeRect(11,11,N-22,N-22);
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8;
   _panelTex=t; return t;
 }
@@ -1584,7 +1585,9 @@ function panelMatPremium(){
   // way it faces the sun — on a flat roof the lee-side modules were dropping to ambient-only and
   // washing into the charcoal roof. The diffuse `map` still supplies the silver frame + cell grid
   // detail on top. metalness↓/roughness↓ a touch so the lit side stays crisp, not chalky.
-  _panelMat=new THREE.MeshStandardMaterial({map:panelFaceTex(),color:0xdfe9ff,roughness:0.38,metalness:0.22,emissive:0x1d4fa0,emissiveIntensity:0.55,side:THREE.DoubleSide});
+  // DARK PV MODULE material — near-black base with a faint cool emissive floor so lee-side modules
+  // don't drop to pure black and vanish into shadow, but the resting look stays deep navy/near-black.
+  _panelMat=new THREE.MeshStandardMaterial({map:panelFaceTex(),color:0x223044,roughness:0.42,metalness:0.30,emissive:0x0a1830,emissiveIntensity:0.35,side:THREE.DoubleSide});
   return _panelMat;
 }
 // 3D engineered-panel group for the Model lens — built per scene, lives in worldGroup,
@@ -7817,9 +7820,18 @@ function sgDraw(){
   const fg=(LASTFLUX&&LASTFLUX.rasters)?{vals:LASTFLUX.rasters[0],w:LASTFLUX.width,h:LASTFLUX.height,bbox:LASTFLUX.bbox}:null;
   const mg=(LASTMASK&&LASTMASK.rasters)?{vals:LASTMASK.rasters[0],w:LASTMASK.width,h:LASTMASK.height,bbox:LASTMASK.bbox}:null;
   if(fg){
-    const STEP=Math.max(2,Math.round(2*pr.dpr));        // sample every ~2 device px (fast, smooth enough)
-    const W=cv.width, H=cv.height, img=ctx.getImageData(0,0,W,H), d=img.data;
+    // SMOOTH THERMAL MAP: sample the flux into a small low-res offscreen buffer (one px per sample),
+    // then blit it onto the main canvas UPSCALED with bilinear smoothing (imageSmoothingEnabled). The
+    // GPU interpolates between samples → a continuous orange/yellow gradient instead of the old hard
+    // STEP-block grid. We sample at ~3 device-px spacing so the buffer stays cheap, and let the scale-up
+    // do the smoothing. Premium thermal look, no pixel blocks.
+    const W=cv.width, H=cv.height;
     const range=(SG_STATE.fmax-SG_STATE.fmin)||1;
+    const SS=Math.max(2,Math.round(3*pr.dpr));            // device px per low-res sample
+    const lw=Math.max(1,Math.ceil(W/SS)), lh=Math.max(1,Math.ceil(H/SS));
+    const buf=(SG_STATE._heatBuf&&SG_STATE._heatBuf.width===lw&&SG_STATE._heatBuf.height===lh)
+      ? SG_STATE._heatBuf : (SG_STATE._heatBuf=Object.assign(document.createElement("canvas"),{width:lw,height:lh}));
+    const bx=buf.getContext("2d"); const limg=bx.createImageData(lw,lh), ld=limg.data;
     // Clip the heatmap to the SELECTED building's roof: only paint inside the union of the panel-bearing
     // segment boxes (computed in buildGridCandidates). Google's mask/flux raster spills onto neighbouring
     // roofs, so the mask>0.5 gate alone leaves a detached neighbour blob; this confines the paint to the
@@ -7827,45 +7839,93 @@ function sgDraw(){
     const clip=SG_STATE.clipBoxes;
     const inClip=(E,N)=>{ if(!clip||!clip.length) return true;
       for(let ci=0;ci<clip.length;ci++){ const b=clip[ci]; if(E>=b[0]&&E<=b[2]&&N>=b[1]&&N<=b[3]) return true; } return false; };
-    for(let y=0;y<H;y+=STEP){ const N=pr.N1-(y-pr.offY)/pr.scale;
-      for(let x=0;x<W;x+=STEP){ const E=pr.E0+(x-pr.offX)/pr.scale;
-        if(!inClip(E,N)) continue;                                          // outside the selected roof → leave dark (no neighbour bleed)
-        if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }   // off-roof → leave dark
-        const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
+    // device-px centre of each low-res cell → metres → sample → colour.
+    for(let ly=0;ly<lh;ly++){ const y=ly*SS+SS/2, N=pr.N1-(y-pr.offY)/pr.scale;
+      for(let lx=0;lx<lw;lx++){ const x=lx*SS+SS/2, E=pr.E0+(x-pr.offX)/pr.scale;
+        const k=(ly*lw+lx)*4;
+        if(!inClip(E,N)){ ld[k+3]=0; continue; }                            // outside selected roof → transparent
+        if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5){ ld[k+3]=0; continue; } }   // off-roof → transparent
+        const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0){ ld[k+3]=0; continue; }
         const t=(v-SG_STATE.fmin)/range, c=fluxColorSmooth(t);
-        const r=Math.round(c[0]),g=Math.round(c[1]),b=Math.round(c[2]);
-        for(let yy=y;yy<y+STEP&&yy<H;yy++){ for(let xx=x;xx<x+STEP&&xx<W;xx++){ const k=(yy*W+xx)*4; d[k]=r; d[k+1]=g; d[k+2]=b; d[k+3]=235; } }
+        ld[k]=Math.round(c[0]); ld[k+1]=Math.round(c[1]); ld[k+2]=Math.round(c[2]); ld[k+3]=235;
       } }
-    ctx.putImageData(img,0,0);
+    bx.putImageData(limg,0,0);
+    // Upscale with bilinear smoothing → continuous gradient. The transparent off-roof cells keep the
+    // dark backdrop showing through (edges feather slightly, which actually reads more premium).
+    ctx.save();
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+    ctx.drawImage(buf,0,0,lw,lh,0,0,W,H);
+    ctx.restore();
   }
-  // 2) panels — selected = translucent blue module (+ × glyph); empty = thin slot with a "+"; low-sun = amber.
-  //    Hover lights the square under the cursor. Selected blue stays transparent so the roof reads through.
+  // 2) panels (Alex's spec). UNSELECTED = a hollow, slightly-shaded BLUE glassy slot with a "+" and faint
+  //    HORIZONTAL grid lines (an empty solar-panel slot you can add). SELECTED = a DARK navy→near-black PV
+  //    module (deep navy-to-black, real silicon look) with a thin cool rim + faint cell lines. Anti-aliased
+  //    rounded-rect edges (no jaggies). Hover lifts the square; selected keeps a subtle remove affordance.
+  ctx.lineJoin="round"; ctx.lineCap="round";                                  // crisp, no spiky mitre corners
+  // Build a slightly-rounded path that follows the panel quad. The grid quads are near-rectangular, so we
+  // round the four corners by pulling each corner toward its neighbours — pure-canvas, anti-aliased.
+  const roundQuad=(pts,rad)=>{
+    ctx.beginPath();
+    const n=pts.length;
+    for(let i=0;i<n;i++){
+      const p=pts[i], prev=pts[(i-1+n)%n], next=pts[(i+1)%n];
+      const v1x=prev.x-p.x, v1y=prev.y-p.y, l1=Math.hypot(v1x,v1y)||1;
+      const v2x=next.x-p.x, v2y=next.y-p.y, l2=Math.hypot(v2x,v2y)||1;
+      const r=Math.min(rad,l1/2,l2/2);
+      const a={x:p.x+v1x/l1*r, y:p.y+v1y/l1*r}, b={x:p.x+v2x/l2*r, y:p.y+v2y/l2*r};
+      if(i===0) ctx.moveTo(a.x,a.y); else ctx.lineTo(a.x,a.y);
+      ctx.quadraticCurveTo(p.x,p.y,b.x,b.y);
+    }
+    ctx.closePath();
+  };
   const sel=SG_STATE.sel, hoverId=SG_STATE.hoverId;
   for(const c of SG_STATE.panels){
     if(!c.px) continue;
     const on=sel.has(c.id), hot=(c.id===hoverId);
     const cx=(c.px[0].x+c.px[2].x)/2, cy=(c.px[0].y+c.px[2].y)/2;          // square centre (for glyph)
     const sz=Math.hypot(c.px[1].x-c.px[0].x,c.px[1].y-c.px[0].y);          // edge length in px (for glyph scale)
-    ctx.beginPath(); ctx.moveTo(c.px[0].x,c.px[0].y);
-    for(let k=1;k<c.px.length;k++) ctx.lineTo(c.px[k].x,c.px[k].y);
-    ctx.closePath();
+    const ez=Math.hypot(c.px[3].x-c.px[0].x,c.px[3].y-c.px[0].y)||sz;       // the other edge (height)
+    const rad=Math.max(1.5,Math.min(sz,ez)*0.12);                          // corner radius ~12% of the short edge
+    roundQuad(c.px,rad);
     if(on){
-      // translucent blue (or amber for low-sun) — roof/heatmap shows through, per the design
-      ctx.fillStyle = c.lowSun ? "rgba(245,158,11,0.34)" : "rgba(13,60,252,0.42)";
-      ctx.fill();
-      if(hot){ ctx.fillStyle="rgba(255,255,255,0.16)"; ctx.fill(); }          // hover lift
-      ctx.lineWidth=Math.max(1.2,1.5*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.98)" : "rgba(150,196,255,0.98)";
+      // DARK PV MODULE — deep navy→near-black vertical gradient so it reads as a real silicon panel,
+      // clearly distinct from the hollow blue slot. Subtle cool rim. Low-sun keeps an amber rim cue.
+      const gy0=Math.min(c.px[0].y,c.px[1].y,c.px[2].y,c.px[3].y), gy1=Math.max(c.px[0].y,c.px[1].y,c.px[2].y,c.px[3].y);
+      const grad=ctx.createLinearGradient(cx,gy0,cx,gy1);
+      grad.addColorStop(0,"#0a1830"); grad.addColorStop(0.55,"#070d1c"); grad.addColorStop(1,"#05060a");
+      ctx.fillStyle=grad; ctx.fill();
+      if(hot){ ctx.fillStyle="rgba(120,170,255,0.14)"; ctx.fill(); }           // hover lift (subtle, stays dark)
+      // faint cell grid inside the module (clipped to the rounded quad)
+      ctx.save(); ctx.clip();
+      ctx.lineWidth=Math.max(0.6,0.7*pr.dpr); ctx.strokeStyle="rgba(120,150,200,0.18)";
+      const dx1=(c.px[1].x-c.px[0].x), dy1=(c.px[1].y-c.px[0].y), dx2=(c.px[3].x-c.px[0].x), dy2=(c.px[3].y-c.px[0].y);
+      for(let i=1;i<3;i++){ const f=i/3;
+        ctx.beginPath(); ctx.moveTo(c.px[0].x+dx1*f, c.px[0].y+dy1*f); ctx.lineTo(c.px[3].x+dx1*f, c.px[3].y+dy1*f); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c.px[0].x+dx2*f, c.px[0].y+dy2*f); ctx.lineTo(c.px[1].x+dx2*f, c.px[1].y+dy2*f); ctx.stroke(); }
+      ctx.restore();
+      // thin bright rim → reads as a framed PV module (amber rim if low-sun)
+      ctx.lineWidth=Math.max(1.1,1.4*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : "rgba(150,196,255,0.85)";
       ctx.stroke();
-      // × glyph so a selected square reads as "placed — tap to remove"
-      const r=sz*0.16; ctx.lineWidth=Math.max(1,1.4*pr.dpr); ctx.strokeStyle="rgba(232,241,255,0.92)";
-      ctx.beginPath(); ctx.moveTo(cx-r,cy-r); ctx.lineTo(cx+r,cy+r); ctx.moveTo(cx+r,cy-r); ctx.lineTo(cx-r,cy+r); ctx.stroke();
+      // resting look is a clean dark module; show a small × only on hover (remove affordance)
+      if(hot){ const r=sz*0.15; ctx.lineWidth=Math.max(1,1.3*pr.dpr); ctx.strokeStyle="rgba(232,241,255,0.92)";
+        ctx.beginPath(); ctx.moveTo(cx-r,cy-r); ctx.lineTo(cx+r,cy+r); ctx.moveTo(cx+r,cy-r); ctx.lineTo(cx-r,cy+r); ctx.stroke(); }
     } else {
-      // empty slot — faint glass; brightens on hover ("lit up"). A "+" marks a placeable spot.
-      ctx.fillStyle = hot ? "rgba(150,196,255,0.28)" : "rgba(255,255,255,0.10)"; ctx.fill();
-      ctx.setLineDash([4*pr.dpr,3*pr.dpr]); ctx.lineWidth=Math.max(1,(hot?1.4:1)*pr.dpr);
-      ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.7)" : (hot ? "rgba(190,215,255,0.95)" : "rgba(255,255,255,0.6)");
-      ctx.stroke(); ctx.setLineDash([]);
-      const r=sz*0.15; ctx.lineWidth=Math.max(1,1.2*pr.dpr); ctx.strokeStyle = hot ? "rgba(232,241,255,0.95)" : "rgba(255,255,255,0.55)";
+      // HOLLOW BLUE SLOT — slightly-shaded glassy blue rectangle, faint horizontal grid lines, centred "+".
+      // Brightens on hover ("lit up"). Smooth rounded corners. Low-sun gets an amber-tinted border cue.
+      ctx.fillStyle = c.lowSun ? "rgba(245,158,11,0.13)" : (hot ? "rgba(96,165,250,0.26)" : "rgba(96,165,250,0.15)"); ctx.fill();
+      // faint INTERNAL horizontal grid lines (clipped to the slot) so it reads as an empty panel
+      ctx.save(); ctx.clip();
+      ctx.lineWidth=Math.max(0.6,0.7*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(245,196,120,0.34)" : "rgba(150,196,255,0.40)";
+      const hdx=(c.px[3].x-c.px[0].x), hdy=(c.px[3].y-c.px[0].y);            // top-edge → bottom-edge direction
+      for(let i=1;i<3;i++){ const f=i/3;
+        ctx.beginPath(); ctx.moveTo(c.px[0].x+hdx*f, c.px[0].y+hdy*f); ctx.lineTo(c.px[1].x+hdx*f, c.px[1].y+hdy*f); ctx.stroke(); }
+      ctx.restore();
+      // thin clean border (solid, not dashed — Alex: "not a plain dashed box")
+      ctx.lineWidth=Math.max(1,(hot?1.3:1)*pr.dpr);
+      ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.7)" : (hot ? "rgba(190,215,255,0.95)" : "rgba(150,196,255,0.7)");
+      ctx.stroke();
+      // centred "+" glyph
+      const r=sz*0.15; ctx.lineWidth=Math.max(1,1.3*pr.dpr); ctx.strokeStyle = hot ? "rgba(232,241,255,0.95)" : "rgba(190,215,255,0.8)";
       ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
     }
   }
@@ -8818,8 +8878,10 @@ async function buildPhotoPanels(){
   const ren=renderList.map(x=>x.pn);
   const ren_e=ren.map(p=>p.yearlyEnergyDcKwh||0), rmin=Math.min(...ren_e,0), rmax=Math.max(...ren_e,1);
   for(const {pn,seg} of renderList){
-    const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-rmin)/((rmax-rmin)||1)) : "rgba(56,132,255,0.9)";
-    const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:"rgba(191,224,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    // DARK PV MODULE (Alex's spec) — deep navy/near-black so the draped panels read as real silicon
+    // modules, consistent with the 2D selected look. Sun/production lens keeps the energy heatmap colour.
+    const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-rmin)/((rmax-rmin)||1)) : "rgba(8,16,32,0.92)";
+    const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:"rgba(150,196,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=panelCornersLL(pn,seg,zone,pw,ph); gmap.append(poly); photoPanels.push(poly);
   }
   window.__photoPanels=photoPanels.length;
