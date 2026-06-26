@@ -1656,7 +1656,7 @@ function bldgGeom(spv){
   const area=(spv.wholeRoofStats&&spv.wholeRoofStats.areaMeters2)||0;
   return { s,w,n,e,longLng,longM,area,aspect:longM/shortM };
 }
-function isAttached(spv){ const g=bldgGeom(spv); return (g.aspect>=2.0 && g.area>=200) || g.area>=420; }
+function isAttached(spv){ const g=bldgGeom(spv); return (g.aspect>=2.2 && g.area>=200 && g.area<=900); }   // ONLY a long-narrow footprint (row/duplex) — size alone never implies attached; cap area so a sprawling detached estate with incidental high aspect isn't falsely flagged
 function estUnits(spv){ const g=bldgGeom(spv); return Math.max(2,Math.min(6,Math.round(g.longM/7.5))); }   // ~7.5 m typical attached-unit width
 function axisPos(g,lat,lng){ return g.longLng ? (lng-g.w)/Math.max(1e-9,(g.e-g.w)) : (lat-g.s)/Math.max(1e-9,(g.n-g.s)); }
 // panels in the owner's section: a window of fractional width `share` centred on the geocoded point
@@ -3701,9 +3701,9 @@ async function run(addr){
     const spv=b.solarPotential, wrs=spv.wholeRoofStats||{};
     QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
     setRegion();
-    window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached → default to the owner's section
+    window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached footprint → OFFER the owner's-section toggle (quote still defaults to the whole roof below)
     window.__selPanels=null; SG_STATE=null;   // a NEW roof invalidates any custom panel-grid design from a prior address
-    if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="mine"; if(!window.__sectionShare) window.__sectionShare=+(1/estUnits(spv)).toFixed(2); }
+    if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="whole"; if(!window.__sectionShare) window.__sectionShare=Math.max(0.5,+(1/estUnits(spv)).toFixed(2)); }   // correctness-by-default: quote the WHOLE confirmed roof; "My section" is user-opt-in via the toggle. Share floored at 0.5 (a residential unit is at least half a duplex) for when the user DOES opt in.
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
     try{ if(window.__funnelActive && typeof window.__setFunnelStep==="function") window.__setFunnelStep("estimate"); }catch(_){}   // funnel: the live quote is now on screen → advance the progress bar to Estimate
