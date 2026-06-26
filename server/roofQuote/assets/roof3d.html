@@ -3550,6 +3550,7 @@ function syncViewToggle(){
   const solar=(window.__trade||tradeMode)==="solar";
   const show=!!window.__roofReady && solar && !measOwns && !sunMapOwns;
   vt.style.display=show?"flex":"none";
+  if(typeof syncLensControls==="function") syncLensControls();   // keep Rotate/Recenter enable-state matched to the live 3D surface
 }
 /* ---------- run ---------- */
 async function run(addr){
@@ -6662,6 +6663,7 @@ function showMeasDiagram(on){
     try{ if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.42,span*0.66,span*0.62); controls.target.set(0,4,0); controls.update(); } }catch(_){}
   }
   const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
+  if(typeof syncLensControls==="function") syncLensControls();   // 2D top-down hides #scene → disable Rotate/Recenter; 3D re-enables
 }
 $("measToggle").querySelector('[data-v="3d"]').onclick=()=>{ try{ RoofDots.hide(); }catch(_){} showMeasDiagram(false); };
 $("measToggle").querySelector('[data-v="diagram"]').onclick=()=>{ try{ RoofDots.hide(); }catch(_){} showMeasDiagram(true); };
@@ -9070,6 +9072,7 @@ async function applySunView(){
   }
   // Keep the bar visible (toggle only) so the user can switch INTO the shadow-play day animation.
   setSunbarMode("map");
+  if(typeof syncLensControls==="function") syncLensControls();   // 2D heatmap may hide the live 3D surface → match the rail enable-state
   showLoad(false);
 }
 // Top-down ↔ 3D heatmap toggle (only in the Sun "map" sub-view). Mirrors the Measure lens's #measToggle.
@@ -9798,6 +9801,7 @@ function showAnalysis(kind){
     else { renderMeasurePreview(); $("matHint").textContent="Roof measurements · per-facet area + line lengths"; }
     $("matCanvas").style.display="block"; $("matHint").style.display=(kind==="material")?"none":"block"; }
   else { $("matCanvas").style.display="none"; $("matHint").style.display="none"; $("matbar").style.display="none"; $("gmapWrap").style.display="block"; $("aiBtn").style.display="none"; hideAI(); }
+  if(typeof syncLensControls==="function") syncLensControls();   // a 2D overlay hides BOTH 3D canvases → Rotate/Recenter are not applicable; restore re-enables
 }
 const showMaterial=on=>showAnalysis(on?"material":null);   // back-comp
 // roof material swatches + toggle (2D preview)
@@ -9969,17 +9973,42 @@ $("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block";
   // ("material") repaints #matCanvas — the shingle tint on RGB roofs, or the footprint silhouette when
   // there's no RGB ortho (30 Angus Rd) — so the preview is NEVER blank.
   if(matMode){ showAnalysis("material"); } };
+// Which rotatable 3D surface (if any) is ACTUALLY mounted + interactive right now? Read the live DOM
+// visibility of the two 3D canvases rather than trusting `mode` alone — the audited dead-button bug was
+// `mode==="photoreal"` (so #scene is display:none) while `gmap` had failed to mount / been torn down, so
+// the photoreal branch had no map and the Three.js branch's canvas was hidden → BOTH no-op'd silently.
+// This collapses every sub-view (materials-on-photo, grey Model, Sun shadow-play, 3D Measure, 2D top-down,
+// 2D heatmap) to one truthful answer: "photoreal" | "scene" | null. The rail enable-state mirrors it.
+function lensSurface(){
+  let sceneVis=false, photoVis=false;
+  try{ const s=$("scene"); sceneVis=!!(s && getComputedStyle(s).display!=="none"); }catch(_){}
+  try{ const w=$("gmapWrap"); photoVis=!!(w && getComputedStyle(w).display!=="none"); }catch(_){}
+  // photoreal is only rotatable if the Map3D element is live AND its fly API exists
+  if(mode==="photoreal" && photoVis && gmap && typeof gmap.flyCameraTo==="function") return "photoreal";
+  // the Three.js model is rotatable whenever its canvas is showing and the model has been wired
+  if(sceneVis && window.__roofReady && typeof controls!=="undefined" && controls) return "scene";
+  return null;
+}
+// Grey-out / re-enable Rotate ◀ ▶ + Recenter to match whether a rotatable surface is live, so a visible
+// rail button is NEVER a dead button: it either orbits something or is clearly marked not-applicable.
+function syncLensControls(){
+  const na = !lensSurface();
+  for(const id of ["bRotL","bRotR","bReset"]){ const b=$(id); if(b){ b.classList.toggle("lens-na",na); b.setAttribute("aria-disabled",na?"true":"false"); } }
+}
 // orbit the camera around the house (desktop has no 2-finger gesture — these buttons give the same control)
 function rotateCam(delta){
-  if(mode==="photoreal"&&gmap){ const h=(((+gmap.heading||0)+delta)%360+360)%360;
+  const surf=lensSurface();
+  if(surf==="photoreal"){ const h=(((+gmap.heading||0)+delta)%360+360)%360;
     const cam={ center:gmap.center||{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:gmap.range||78, tilt:gmap.tilt||58, heading:h };
-    if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:550}); else gmap.heading=h; return; }
-  if(window.__roofReady&&typeof controls!=="undefined"&&controls){ const a=delta*Math.PI/180, x=camera.position.x, z=camera.position.z;   // schematic mode → orbit the Three.js camera
+    gmap.flyCameraTo({endCamera:cam,durationMillis:550}); return; }
+  if(surf==="scene"){ const a=delta*Math.PI/180, x=camera.position.x, z=camera.position.z;   // schematic mode → orbit the Three.js camera
     camera.position.x=x*Math.cos(a)-z*Math.sin(a); camera.position.z=x*Math.sin(a)+z*Math.cos(a); controls.update(); }
 }
 $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
-$("bReset").onclick=()=>{ if(mode==="photoreal"&&gmap){ gmap.flyCameraTo&&gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return;} if(window.__roofReady){ const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); return; } const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
+$("bReset").onclick=()=>{ const surf=lensSurface();
+  if(surf==="photoreal"){ gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return; }
+  if(surf==="scene"){ const h=window.__heroCam; if(h){ camera.position.set(h.pos.x,h.pos.y,h.pos.z); controls.target.set(h.tgt.x,h.tgt.y,h.tgt.z); controls.update(); return; } const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.48,span*0.62,span*0.72); controls.target.set(0,5,0); controls.update(); } };
 $("sTime").addEventListener("input",e=>{ sunHourLocal=+e.target.value; if(window.__roofReady) updateSun();
   if(realShadeActive) renderShadePlay();   // scrub the hour → repaint Google's real shade for that hour (cached raster, no API hit)
 });
