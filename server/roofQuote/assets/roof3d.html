@@ -22,6 +22,17 @@
   #addr::placeholder{color:#94a3b8}
   #addr:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #go{background:#0d3cfc;border:0;border-radius:10px;padding:0 18px;font-weight:700;color:#ffffff;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow)}
+  /* (bug #3) DESKTOP: when the 4-step funnel stepper is showing (#funnelBar, top:0, z40, ~47px tall),
+     the top search bar (#bar) used to stay at top:12 — so its blue "Get Quote" pill (#go) was half-hidden
+     BEHIND the higher-z stepper, and the centered "3D model/Satellite" + "Top-down/3D" view toggles (top:62)
+     sat right under it (stacked floating containers → Alex's hard no-overlap rule). Drop the bar clear below
+     the stepper and push the centered toggles below the relocated bar so nothing overlaps. Scoped to desktop
+     (min-width:561px) so the existing mobile (max-width:560px) placement is untouched. */
+  @media (min-width:561px){
+    body.funnel-on #bar{top:55px}                                  /* clears the 47px stepper — Get Quote no longer clipped */
+    body.funnel-on #viewToggle,
+    body.funnel-on #measToggle{top:114px}                          /* below the relocated bar (bottom ≈ 103) — no toggle/bar overlap */
+  }
   /* ===== LANDING HERO (initial/empty state) — title-left, visual-right, clean, premium ===== */
   #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:24px clamp(20px,5vw,72px);background:radial-gradient(120% 120% at 82% 12%,rgba(13,60,252,.12),transparent 56%),var(--bg)}
   #hero .hero-inner{width:100%;max-width:1180px;display:flex;align-items:center;justify-content:space-between;gap:clamp(24px,5vw,72px)}
@@ -1750,11 +1761,58 @@ function sectionPanels(spv, ll, share){
 // Good/Better/Best tiers from an arbitrary panel subset (mirrors solarTiersFrom but on the filtered list)
 function solarTiersFromPanels(list,w){
   if(!list.length) return []; const rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
-  const sorted=list.slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)), total=sorted.length;
+  const sorted=list.slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0));
+  const total=(typeof usableRoofCount==="function")?usableRoofCount(sorted.length):sorted.length;   // bug #2: usable-roof cap
   const idx=[Math.max(1,Math.floor(total*0.45)),Math.max(1,Math.floor(total*0.72)),total];
   return idx.map((cnt,i)=>{ cnt=Math.min(total,Math.max(1,cnt)); const sub=sorted.slice(0,cnt);
     const kw=cnt*w/1000, kwhAc=Math.round(sub.reduce((a,p)=>a+(p.yearlyEnergyDcKwh||0),0)*0.85);
     return { label:labels[i], panels:cnt, kw:+kw.toFixed(1), kwhAc, lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
+}
+// ── USABLE-ROOF FRACTION (bug #2: oversized solar) ──────────────────────────
+// Even after the per-facet fire setback, the raw engineered array carpets ~100% of the clear
+// roof — a real residential install never claims every panel position (HVAC, plumbing vents,
+// access pathways, shading margins, the homeowner's own preference). Cap the "Best"/max tier to a
+// realistic usable fraction of the setback-clipped pool so Best reads as a believable max-fit, not
+// a 99-panel commercial-scale array on a single home. 0.70 ≈ the middle of the realistic 0.6–0.75 band.
+const USABLE_ROOF_FRAC = 0.70;
+// Apply the usable-roof fraction to a raw setback-clipped panel count → the realistic max-fit count.
+// Floors at min(raw, 6) so a genuinely tiny clear roof keeps every panel it can hold.
+function usableRoofCount(raw){ const n=Math.round((raw||0)*USABLE_ROOF_FRAC); return Math.max(Math.min(raw||0,6), n); }
+window.__usableRoofCount=usableRoofCount;
+// Right-size the DEFAULT solar tier instead of pre-selecting the largest "Best". Targets the home's
+// implied annual usage when a bill is known (size to ~the usage, like the bill-picker does), else a
+// sane residential fallback (~7.2 kW ≈ 18 × 400 W panels — the hero's own believable sample). Picks
+// the tier whose kWh first meets the usage target (or whose kW is closest to the fallback), never the
+// max unless that's genuinely the smallest sane option. Keeps headline == modal (the modal's default
+// selection is right-sized in lockstep via defaultPanelTarget()).
+function defaultPanelTarget(){
+  // implied annual usage from the entered bill, if any → target panels to roughly cover it
+  try{
+    if(typeof solarBill!=="undefined" && solarBill>0 && REGION && REGION.rate>0){
+      const usageKwh=solarBill*12/REGION.rate;          // implied annual usage
+      const perPanelKwh=Math.max(300, (panelDims().watt||400)*1.35);   // ~kWh/panel/yr ballpark (4.5 sun-hrs × 0.82)
+      const n=Math.round(usageKwh/perPanelKwh*1.05);    // ~105% offset
+      if(n>0) return { panels:Math.max(6,Math.min(60,n)), source:"usage" };
+    }
+  }catch(_){}
+  // fallback: ~7.2 kW residential default (the hero sample) → panels at the class watt
+  const w=(panelDims().watt||400);
+  return { panels:Math.max(8,Math.round(7200/w)), source:"fallback" };   // ~18 panels at 400 W
+}
+function defaultSolarTierIdx(tiers){
+  if(!Array.isArray(tiers) || !tiers.length) return 0;
+  // bill known → pick the smallest tier whose AC kWh covers implied usage (same rule the bill-picker uses)
+  try{
+    if(typeof solarBill!=="undefined" && solarBill>0 && REGION && REGION.rate>0){
+      const usage=solarBill*12/REGION.rate; let best=0;
+      for(let i=0;i<tiers.length;i++){ best=i; if((tiers[i].kwhAc||0)>=usage) break; }
+      return best;
+    }
+  }catch(_){}
+  // no bill → pick the tier whose panel count is closest to the residential target (≈18), not the max
+  const tgt=defaultPanelTarget().panels; let bi=0, bd=Infinity;
+  for(let i=0;i<tiers.length;i++){ const d=Math.abs((tiers[i].panels||0)-tgt); if(d<bd){ bd=d; bi=i; } }
+  return bi;
 }
 // ── ENGINEERED tier ladder (bug #1 "quote lurch" fix) ───────────────────────
 // Build Good/Better/Best from the SAME engineered, fits-the-actual-roof array the
@@ -1782,8 +1840,12 @@ function solarTiersFromEngineered(){
   const bestSubset=(good.length>=4) ? good : cand.panels.slice();   // mirror gridDefaultSelection's good-pool fallback (need ≥4 to lead with non-shaded squares)
   // rank the BEST subset by per-panel kWh (best ROI first) — identical ordering to gridDefaultSelection,
   // so the Good/Better sub-counts mirror what the modal would auto-select when sized down.
-  const ranked=bestSubset.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0)), total=ranked.length;
-  if(!total) return [];
+  const ranked=bestSubset.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0));
+  if(!ranked.length) return [];
+  // bug #2: cap "Best" to a realistic usable fraction of the setback-clipped pool so it isn't a
+  // 100%-packed 99-panel array on a single home. Keep the top (best-ROI) panels. The modal mirrors
+  // this same cap (gridDefaultSelection → usableRoofCount) so headline "Best" == modal's max.
+  const total=usableRoofCount(ranked.length);
   const idx=[Math.max(1,Math.floor(total*0.45)),Math.max(1,Math.floor(total*0.72)),total];
   return idx.map((cnt,i)=>{ cnt=Math.min(total,Math.max(1,cnt)); const sub=ranked.slice(0,cnt);
     const kw=+(cnt*w/1000).toFixed(1), kwhAc=Math.round(sub.reduce((a,c)=>a+(c.kwh||0),0)*0.85);   // same DC→AC derate as gridSelectionMetrics
@@ -1807,7 +1869,9 @@ function rebuildSolarTiers(){
     if(solarTiers.length){ window.__tiersEngineered=true; }
     else { solarTiers=solarTiersFrom(spv); window.__tiersEngineered=false; }
   }
-  selTier=Math.max(0, solarTiers.length-1);
+  // bug #2: default to a RIGHT-SIZED tier (usage-based, else ~7.2 kW residential fallback) — NOT the
+  // largest "Best". "Best" stays available as a tier; it's just no longer pre-selected on a single home.
+  selTier=defaultSolarTierIdx(solarTiers);
 }
 // contextual card bodies — the card shows info relevant to the active lens, not a static price
 // Solar Access % (shade), TOF (tilt/orientation) + TSRF per roof face — the metrics installers trust — derived
@@ -2061,6 +2125,40 @@ function roofUnitSqFt(){
 }
 window.__quoteAreaSqFt=()=>quoteAreaSqFt();
 window.__roofUnitSqFt=()=>roofUnitSqFt();
+// ── CANONICAL ROOFING-ORDER SQUARES (bug #1: desktop≠mobile fix) ──────────────
+// You don't order shingles for the flat FOOTPRINT — you order for the SLOPED roof area
+// (footprint ÷ cos(pitch)). The desktop roofing rail historically priced off the raw flat
+// footprint (quoteAreaSqFt/100) while the mobile designer priced off the pitch-corrected
+// sloped area (RoofDots.editArea), so the SAME roof+material showed two square counts and a
+// ~$5k price gap. This single helper is the ONE source of truth for roofing squares on BOTH
+// surfaces: when the dot-editor is active its editArea() is already pitch-corrected+reconciled
+// (prefer it — it reflects the user's edits); otherwise apply the canonical predominant-pitch
+// slope multiplier to the flat owner's-unit area. Waste is layered on TOP of this by the caller
+// (sqs*wf), exactly as before — this only fixes WHICH base both paths feed in.
+function pitchSlopeMult(){
+  // sloped/plan = 1/cos(pitch) = √(1+(rise/run)²) for an x/12 pitch. Use the canonical clamped
+  // predominant pitch (sanePitchX12 via getRoofTotals) so it can never present an impossible slope.
+  try{
+    const t=(typeof getRoofTotals==="function")?getRoofTotals():null;
+    const x12=(t&&t.predominantPitchX12!=null)?t.predominantPitchX12:null;
+    if(x12!=null && x12>=0){ const m=Math.sqrt(1+Math.pow(x12/12,2)); if(m>=1 && m<2) return m; }
+  }catch(_){}
+  return 1.0;   // unknown pitch → no correction (never under-count by guessing a steeper roof)
+}
+function roofingSquares(){
+  // RoofDots active/confirmed → its editArea() is ALREADY the pitch-corrected sloped area; route
+  // both surfaces through it so an edited outline updates desktop and mobile identically.
+  try{
+    if(typeof RoofDots!=="undefined" && RoofDots.active()){
+      const e=RoofDots.editArea();   // sloped ft² (pitch-corrected + reconciled)
+      if(e>0 && isFinite(e)) return e/100;
+    }
+  }catch(_){}
+  const flatSqFt=((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio();
+  const sloped=flatSqFt*pitchSlopeMult();
+  return sloped>0 ? sloped/100 : 0;
+}
+window.__roofingSquares=()=>roofingSquares();
 // The reconstructed facet model (facetsToRoofModel) sometimes under-/over-captures facets, so its area
 // can diverge wildly from reality (seen: 2.9 sq vs Google's ~11 sq on the same roof). The headline PRICE
 // uses Google's wholeRoofStats area (QUOTE.roofSqft), so anchor the model totals to that same authoritative
@@ -2718,7 +2816,11 @@ function renderQuoteCard(){
     body=measureCardBody(true);
   } else {
     // QUOTE AT THE END: price appears only AFTER a material + colour is chosen
-    const sqs=quoteAreaSqFt()/100, sel=window.__roofSel;   // squares off the owner's-unit area, so ft²/squares never disagree on a split
+    // bug #1: ROOFING squares = pitch-corrected SLOPED squares (the material-order figure), the SAME
+    // source of truth the mobile designer uses — NOT the flat footprint. This makes desktop and mobile
+    // show the identical square count + price for the same roof+material. The "sq ft" stat below stays
+    // the flat plan footprint (the measured roof area), which is a different, honest number.
+    const sqs=roofingSquares(), sel=window.__roofSel;
     const tF=getRoofTotals(), facetN=(roofSplitRatio()<1 && tF && tF.facetCount)?tF.facetCount:QUOTE.facets;
     const stats='<div class="grid"><div class="stat"><div class="v">'+quoteAreaSqFt().toLocaleString()+'</div><div class="l">sq ft</div></div>'+
       '<div class="stat"><div class="v">'+sqs.toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
@@ -7899,13 +8001,24 @@ function buildGridCandidates(){
 // sensible system and tweaks from there. Falls back to all non-shaded squares, then all squares.
 function gridDefaultSelection(cand){
   const sp=LASTB.solarPotential;
-  let recN=window.__renderedPanels||0;
-  if(!recN){ const cfg=(sp.solarPanelConfigs||[]).slice(-1)[0]; recN=(cfg?cfg.panelsCount:sp.maxArrayPanelsCount)||cand.length; }
-  recN=Math.max(1,Math.min(cand.length,recN));
-  // rank by kWh (best ROI first); take the top recN, but never auto-select a clearly low-sun square
-  // unless we'd otherwise have nothing.
+  // rank by kWh (best ROI first); never auto-select a clearly low-sun square unless we'd have nothing.
   const ranked=cand.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0));
   const good=ranked.filter(c=>!c.lowSun);
+  // bug #2: the modal's DEFAULT array must be RIGHT-SIZED — same target the headline tier uses — so the
+  // headline "Recommended" === the modal's opening selection (no headline-vs-modal mismatch), and so a
+  // single home no longer opens the grid pre-filled with ~99 panels. Target the residential default
+  // (usage-based when a bill is known, else ~7.2 kW); cap by the usable-roof count so we never exceed a
+  // believable max-fit. Falls back to the rendered count only if the target helper is unavailable.
+  const poolMax=usableRoofCount((good.length>=Math.min(4,ranked.length))?good.length:ranked.length);
+  let recN;
+  // Prefer the SELECTED headline tier's panel count so the modal opens on EXACTLY the headline array
+  // (headline === modal, guaranteed). Fall back to the standalone residential target, then rendered count.
+  try{
+    if(typeof solarTiers!=="undefined" && Array.isArray(solarTiers) && solarTiers[selTier] && solarTiers[selTier].panels>0){
+      recN=solarTiers[selTier].panels;
+    } else { recN=defaultPanelTarget().panels; }
+  }catch(_){ try{ recN=defaultPanelTarget().panels; }catch(__){ recN=window.__renderedPanels||poolMax; } }
+  recN=Math.max(1,Math.min(poolMax||cand.length,recN));
   const pool=(good.length>=Math.min(recN,4))?good:ranked;
   const sel=new Set(); for(const c of pool){ if(sel.size>=recN) break; sel.add(c.id); }
   if(!sel.size){ for(const c of ranked){ sel.add(c.id); if(sel.size>=recN) break; } }
@@ -8264,6 +8377,18 @@ window.__enterSolar3D=enterSolar3D;
 window.__exitSolar3D=exitSolar3D;
 window.__openSolarGrid=openSolarGrid;
 window.__gridSelectionMetrics=gridSelectionMetrics;
+// headless-verify + debug: read the live solar tier ladder, the default tier index, and the roofing-squares
+// reconciliation so QA can confirm headline==modal and desktop==mobile numbers without DOM scraping.
+window.__solarDebug=()=>{ try{ return {
+  selTier, tiers:(solarTiers||[]).map(t=>({label:t.label,panels:t.panels,kw:t.kw,kwhAc:t.kwhAc})),
+  defaultIdx:(typeof defaultSolarTierIdx==="function")?defaultSolarTierIdx(solarTiers):null,
+  target:(typeof defaultPanelTarget==="function")?defaultPanelTarget():null,
+  renderedPanels:window.__renderedPanels, usableFrac:(typeof USABLE_ROOF_FRAC!=="undefined")?USABLE_ROOF_FRAC:null,
+  roofingSquares:(typeof roofingSquares==="function")?+roofingSquares().toFixed(2):null,
+  flatSquares:(typeof quoteAreaSqFt==="function")?+((quoteAreaSqFt()/100).toFixed(2)):null,
+  pitchSlopeMult:(typeof pitchSlopeMult==="function")?+pitchSlopeMult().toFixed(3):null,
+  rdBand:(typeof rdPriceBand==="function")?rdPriceBand():null
+}; }catch(e){ return {err:String(e&&e.message||e)}; } };
 // headless-verify helpers: toggle N selected panels off / on by id, deterministically (real selection mutation).
 window.__sgToggleN=(n,turnOn)=>{ if(!SG_STATE) return 0; let c=0; const ids=SG_STATE.panels.map(p=>p.id);
   for(const id of ids){ const has=SG_STATE.sel.has(id); if(turnOn && !has){ SG_STATE.sel.add(id); c++; } else if(!turnOn && has){ SG_STATE.sel.delete(id); c++; } if(c>=n) break; }
@@ -8327,7 +8452,7 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
 window.__rdOpen=false;
 // installed price band string for the CURRENT selection — reuses the exact card math (ROOF_PSQ × measured squares, with applyRoofOpts).
 function rdPriceBand(){
-  const sel=window.__roofSel; const sqs=quoteAreaSqFt()/100;
+  const sel=window.__roofSel; const sqs=roofingSquares();   // bug #1: pitch-corrected sloped squares — SAME source as the desktop rail
   if(!sel||!(sqs>0)) return null;
   const psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
   let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, (typeof getRoofTotals==="function"?getRoofTotals():null));
@@ -8341,7 +8466,7 @@ function rdRenderInfo(){
   const _rdMasked=(typeof window.__priceGated==="function") && window.__priceGated("roof");
   const pv=$("rdPrice"); if(pv) pv.textContent = _rdMasked ? "🔒 Unlock to see" : (band ? (fmtMoney(band.lo)+" – "+fmtMoney(band.hi)) : "Measuring…");
   const sub=$("rdPriceSub"); if(sub){ if(_rdMasked){ sub.textContent="Enter your details to reveal your price"; } else {
-    const sqs=quoteAreaSqFt()/100;
+    const sqs=roofingSquares();   // bug #1: same pitch-corrected sloped squares the price + desktop rail use
     // (bug #3) The installed price is computed on the MATERIAL-ORDER squares (base × waste factor), so the
     // sub-label must show the SAME base squares the editor's "24.0 squares" stat reads PLUS the waste it adds
     // — otherwise the customer sees the editor's 24.0 sq next to a price that quietly bills ~27.6 sq with no
