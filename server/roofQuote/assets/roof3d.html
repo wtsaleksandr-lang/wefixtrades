@@ -5898,6 +5898,14 @@ function renderRoofDiagram(){
   for(let i=0;i<W*H;i++){ d[i*4]=R[i]; d[i*4+1]=G[i]; d[i*4+2]=B[i]; d[i*4+3]=255; }
   sctx.putImageData(od,0,0);
   ctx.drawImage(src, minx,miny,cw,ch, 0,0,cw,ch);
+  // (loupe clarity) Snapshot the CLEAN aerial (no scrim, no outline/labels) at full internal resolution
+  // BEFORE the scrim is laid down, so the drag-loupe magnifier can sample crisp roof imagery instead of
+  // the darkened editor canvas. Keyed to #matCanvas's internal pixel size so loupe sampling maps 1:1.
+  try{
+    const clean=document.createElement("canvas"); clean.width=cv.width; clean.height=cv.height;
+    clean.getContext("2d").drawImage(cv,0,0);   // cv currently holds only the pristine aerial
+    window.__diagClean=clean;
+  }catch(_){ window.__diagClean=null; }
   // very light scrim only (keep the aerial bright & legible like the reference — NOT the old dark wash)
   ctx.fillStyle="rgba(10,14,22,0.14)"; ctx.fillRect(0,0,cw,ch);
   const P=(x,y)=>{ const [px,py]=toPx(x,y); return [px-minx, py-miny]; };
@@ -6437,8 +6445,15 @@ const RoofDots=(function(){
     const sw=dw/LOUPE_ZOOM; const sx=cxSrc-sw/2, sy=cySrc-sw/2;
     lc.clearRect(0,0,dw,dw);
     lc.fillStyle="#0b1120"; lc.fillRect(0,0,dw,dw);
+    // (loupe clarity) Prefer the CLEAN pre-scrim aerial snapshot so the magnified roof reads crisp, not
+    // washed-out by the editor's darkening scrim. The clean canvas shares #matCanvas's internal pixel
+    // dims, so the same source rect maps 1:1. Fall back to #matCanvas if the snapshot is unavailable.
+    const clean=(window.__diagClean && window.__diagClean.width===mc.width) ? window.__diagClean : mc;
     try{ lc.imageSmoothingEnabled=true; lc.imageSmoothingQuality="high";
-      lc.drawImage(mc, sx,sy,sw,sw, 0,0,dw,dw); }catch(_){}
+      // light contrast/brightness lift for a sharper read of the roof edge under the dot.
+      lc.filter="contrast(1.12) brightness(1.06)";
+      lc.drawImage(clean, sx,sy,sw,sw, 0,0,dw,dw);
+      lc.filter="none"; }catch(_){ try{ lc.filter="none"; }catch(__){} }
     // map a model-metre point → loupe-canvas px (same projection as the source crop, scaled to the loupe).
     const toLoupe=(xm,ym)=>{ const p=x.P(xm,ym); if(!p) return null; const px=p[0]*S, py=p[1]*S;
       return [ (px-sx)/sw*dw, (py-sy)/sw*dw ]; };
