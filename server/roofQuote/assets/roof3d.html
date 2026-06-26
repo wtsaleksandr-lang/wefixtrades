@@ -6933,6 +6933,12 @@ function classifyPanelPlane(pn,segs,zone,dg){
    ─────────────────────────────────────────────────────────────────────────────── */
 let SG_STATE=null;   // { panels:[{id,pn,seg,flux,fluxT,kwh,corners,px:[{x,y}]}], sel:Set, w, h, bbox:[E0,N0,E1,N1] in UTM, zone, sysW, fmin, fmax }
 const SG_LOWSUN_FRAC=0.45;   // a panel whose normalized flux < this of the roof's best square is flagged "low sun" (shaded / poor ROI)
+// Absolute deep-shade floor: a square whose RAW annual flux is below this fraction of the roof's BEST square
+// is genuinely shaded, regardless of where the 5–95 percentile ramp lands. On a roof with a very bright max,
+// mid-shade squares can normalize ABOVE SG_LOWSUN_FRAC and slip through; this catches the near-black cells the
+// percentile ramp misses. Keyed to fluxBest (not an absolute kWh) so it self-scales per-roof and never
+// over-flags a uniformly-sunny roof (whose darkest square is still a large fraction of its best).
+const SG_DEEPSHADE_FRAC=0.55;
 // Build the candidate-panel set for the grid: the engineered max-fit array (preferred), else Google's
 // solarPanels[]. Each candidate carries its lat/lng corners, a sampled annual-flux value, a normalized
 // flux 0..1 (for colour + low-sun flag) and a flux-scaled per-panel yearly kWh.
@@ -6983,7 +6989,18 @@ function buildGridCandidates(){
     let kwh=c.baseKwh||meanBase;
     if(eng && c.flux!=null && fluxBest>0){ const fScale=Math.max(0.25,Math.min(1.05,c.flux/fluxBest)); kwh=(c.baseKwh||meanBase)*fScale; }
     c.kwh=kwh;
-    c.lowSun = (c.fluxT!=null) ? (c.fluxT < SG_LOWSUN_FRAC) : false;   // shaded / poor-ROI square
+    // Low-sun / poor-ROI flag. A square is "low sun" if ANY of:
+    //   • its normalized flux is in the bottom band of the roof's 5–95 ramp (the original test), OR
+    //   • its RAW flux is below the absolute deep-shade floor (catches mid-shade that the percentile ramp
+    //     misses on a roof with a very bright max — the near-black cells the audit saw selected), OR
+    //   • the flux raster has NO reading here while the rest of the roof DOES (fg present) — an unmeasurable
+    //     square on a measurable roof is suspect (roof edge / occluded), so don't lead with it.
+    // On a roof with no flux raster at all (fg absent → every flux null) we can't distinguish, so nothing is
+    // flagged — preserving the old graceful-degradation behaviour.
+    const deepFloor = (fluxBest>0) ? fluxBest*SG_DEEPSHADE_FRAC : 0;
+    c.lowSun = (c.fluxT!=null)
+      ? ((c.fluxT < SG_LOWSUN_FRAC) || (deepFloor>0 && c.flux!=null && c.flux < deepFloor))
+      : (!!fg);   // null flux on a measured roof → treat as low-sun; on an unmeasured roof → not flagged
   }
   return { panels:cand, bbox:[minE,minN,maxE,maxN], zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
 }
@@ -7310,6 +7327,25 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
+  // ── Keep the canvas locked to its STAGE box. sgLayout() writes an explicit cv.style.height, so when the
+  //    bottom metrics panel reflows (e.g. the bill before/after block expands on mobile), the stage shrinks
+  //    but the canvas keeps its old, taller height + stale projection → the heatmap overflows past the stage
+  //    and a clipped sliver of it shows through above the legend (the "duplicate strip" bug, 375px). A window
+  //    "resize" never fires for that internal reflow, so observe the stage itself and re-fit on any size change.
+  //    rAF-coalesced; only acts while the 2D grid is open (3D photoreal owns its own surface).
+  const stageEl=cv.parentElement;
+  if(stageEl && typeof ResizeObserver!=="undefined"){
+    let roPending=false, lastW=0, lastH=0;
+    const ro=new ResizeObserver(()=>{
+      if(!window.__sgOpen || window.__solar3dActive) return;
+      const w=stageEl.clientWidth, h=stageEl.clientHeight;
+      if(w===lastW && h===lastH) return;                 // ignore no-op notifications
+      lastW=w; lastH=h;
+      if(roPending) return; roPending=true;
+      requestAnimationFrame(()=>{ roPending=false; if(window.__sgOpen && !window.__solar3dActive){ sgLayout(); sgDraw(); } });
+    });
+    try{ ro.observe(stageEl); }catch(_){ }
+  }
 })();
 /* ═══ ROOFING REMODEL DESIGN STEP ═══════════════════════════════════════════════
    The counterpart to the solar designer. Reached from the "Continue with Roofing remodel"
