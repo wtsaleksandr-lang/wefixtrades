@@ -37,6 +37,11 @@
     body.funnel-on #bar{top:55px}                                  /* clears the 47px stepper — Get Quote no longer clipped */
     body.funnel-on #viewToggle,
     body.funnel-on #measToggle{top:114px}                          /* below the relocated bar (bottom ≈ 103) — no toggle/bar overlap */
+    /* (sidecard overlap) DESKTOP: in the funnel/designer state the search bar drops to top:55 (bottom ≈103),
+       but the bottom-anchored quote card's default cap (100vh-84 → top ≈72) let a tall quote rise past 72px
+       and clip the search bar's left edge. Re-cap the card here so its top stays ≥115px (12px below the bar) —
+       it never overlaps the relocated #bar. bottom:12 + max-height(100vh-127) → top = 115px. */
+    body.funnel-on #card{max-height:calc(100vh - 127px)}
   }
   /* ===== LANDING HERO (initial/empty state) — title-left, visual-right, clean, premium ===== */
   #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:24px clamp(20px,5vw,72px);background:radial-gradient(120% 120% at 82% 12%,rgba(13,60,252,.12),transparent 56%),var(--bg)}
