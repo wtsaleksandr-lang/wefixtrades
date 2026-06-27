@@ -382,6 +382,9 @@
   #card .qchip span{font-size:10px;font-weight:500;color:var(--muted)}
   #card .qchip.on{background:rgba(13,60,252,0.06);border-color:#0d3cfc;color:#0f172a}
   #card .qchip.on span{color:var(--muted)}
+  /* (tier-settle) skeleton tier chips shown while the engineered solar ladder is still settling — inert, muted, no value */
+  #card .qchip-skel{cursor:default;color:var(--muted);background:#f3f5f9;border-color:#eef1f6}
+  #card .qchip-skel span{color:var(--muted)}
   #card .qnote{font-size:9.5px;color:#94a3b8;margin-top:9px;line-height:1.3}
   #card .qcta{width:100%;margin-top:11px;background:#0d3cfc;border:0;border-radius:10px;padding:11px 0;font-size:14px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow)}
   /* timeline + "why us" trust signals shown on the quote before the email gate */
@@ -1898,14 +1901,27 @@ function rebuildSolarTiers(){
     solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), panelDims().watt);   // class nameplate watt (400 res / 500 comm)
     if(!solarTiers.length) solarTiers=solarTiersFrom(spv);   // safety: never leave the user with nothing
     window.__tiersEngineered=false;   // attached-section tiers use the legacy reconcile path
+    // The owner's-section ladder is built from Google's per-unit panels directly (no async engineered
+    // placement to wait on), so it is SETTLED the moment it's built — the headline may show it immediately.
+    window.__solarTiersSettled=solarTiers.length>0;
   } else {
     // Prefer the engineered ladder so the headline "Recommended" tier === the panel-grid modal's
     // default array on FIRST entry (bug #1). Fall back to Google's optimistic configs ONLY before the
     // engineered candidate list exists (rasters/zone still loading); the moment it does, a later
     // rebuildSolarTiers()/renderQuoteCard() reconciles the headline to the real roof.
     solarTiers=solarTiersFromEngineered();
+    // SETTLE-TIMING GATE (tier-settle): the headline is "settled" ONLY once the model is fully built
+    // (__roofReady). The engineered candidate pool depends on the building FOOTPRINT, which is resolved
+    // asynchronously LATER in run() (Promise.race, ~5.5s cap) — AFTER this first rebuildSolarTiers(). So on
+    // the first build the engineered ladder is itself PROVISIONAL (mask-facet pool, e.g. 8 panels / 3.2 kW)
+    // and reconciles DOWN to the footprint-settled array (e.g. 6 / 2.4 kW) at the post-__roofReady rebuild.
+    // The optimistic Google fallback (when even the provisional engineered pool isn't ready) is likewise a
+    // transiently LARGER system. In BOTH cases, until __roofReady we must NOT show the number — renderQuoteCard
+    // paints a neutral "sizing…" placeholder instead, so the user never sees a larger-then-smaller lurch and
+    // only ever lands on the settled value. The post-__roofReady rebuild (+ its fallback) flips this true.
     if(solarTiers.length){ window.__tiersEngineered=true; }
     else { solarTiers=solarTiersFrom(spv); window.__tiersEngineered=false; }
+    window.__solarTiersSettled = (solarTiers.length>0) && !!window.__roofReady;
   }
   // bug #2: default to a RIGHT-SIZED tier (usage-based, else ~7.2 kW residential fallback) — NOT the
   // largest "Best". "Best" stays available as a tier; it's just no longer pre-selected on a single home.
@@ -2626,6 +2642,7 @@ function renderQuoteCard(){
   // card, so leaving them live makes them read as real choices that do nothing (FIX 2b).
   let tabs="";
   let body="";
+  let solarSizing=false;   // (tier-settle) true while the solar headline is the neutral "sizing…" placeholder (engineered ladder not settled yet)
   const bestKw=(solarTiers[solarTiers.length-1]||{}).kw||0;
   const view=matMode?"material":sunMode?"sun":labelsVisible?"measure":"panels";
   // VIEW-INDEPENDENT "large / commercial roof" verdict. Computed once so EVERY lens agrees:
@@ -2699,6 +2716,20 @@ function renderQuoteCard(){
       '<div class="stat"><div class="v">'+bestKw+'</div><div class="l">kW potential</div></div>'+
       '<div class="stat"><div class="v">'+(QUOTE.facets||"—")+'</div><div class="l">facets</div></div></div>'+
       '<div class="qnote" style="margin-top:9px">'+(window.__attached?'Switch to <b>My section</b> above for an instant per-unit price, or request a custom commercial quote for the whole building.':'Request a custom commercial quote for accurate pricing.')+'</div>';
+  } else if(tradeMode==="solar" && solarTiers.length && !window.__solarTiersSettled && !(window.__selPanels&&window.__selPanels.panels>0)){
+    solarSizing=true;
+    // ── SETTLE-TIMING PLACEHOLDER (tier-settle) ─────────────────────────────────
+    // The engineered candidate pool (LASTFLUX raster / footprint / engineered placement) hasn't landed
+    // yet, so solarTiers currently holds Google's OPTIMISTIC ladder — a transiently LARGER system that
+    // reconciles DOWN to the settled engineered array once rebuildSolarTiers() re-runs post-__roofReady.
+    // Show a neutral "sizing your system" placeholder rather than that larger-then-smaller number, so the
+    // customer never sees a quote lurch from a bigger transient to the smaller settled value. The moment
+    // the engineered ladder settles (__solarTiersSettled flips true) a renderQuoteCard() paints the real
+    // headline. A user-designed grid (__selPanels) is authoritative and skips this gate (handled above).
+    const chips=solarTiers.map((x,i)=>'<button class="qchip qchip-skel" disabled aria-disabled="true">'+x.label+'<span>—</span></button>').join("");
+    body='<div class="qprice" style="font-size:20px;line-height:1.25">Sizing your solar system…</div>'+
+      '<div class="qsub" style="margin-top:6px">Measuring every usable roof face and placing panels for an accurate system size. This takes a moment.</div>'+
+      '<div class="qchips" style="margin-top:10px;opacity:.55;pointer-events:none">'+chips+'</div>';
   } else if(tradeMode==="solar" && solarTiers.length){
     const t=solarTiers[selTier]||solarTiers[solarTiers.length-1];
     const chips=solarTiers.map((x,i)=>'<button class="qchip'+(i===selTier?" on":"")+'" data-i="'+i+'">'+x.label+'<span>'+x.kw+' kW</span></button>').join("");
@@ -2913,7 +2944,7 @@ function renderQuoteCard(){
     if(/SGIP/i.test(n)) c+=TCUE("sgip");
     if(/net metering/i.test(n)) c+=TCUE("netmeter");
     return c; })();
-  const note=(lowConf || bodyCommercial || roofNoSel || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
+  const note=(lowConf || bodyCommercial || roofNoSel || solarSizing || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
     ? '<div class="qnote">*'+REGION.note+noteCues+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
     : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
@@ -2925,11 +2956,13 @@ function renderQuoteCard(){
     ? '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Request a commercial quote →</button>'
     : bodyLowConf
     ? ''   // low-confidence card carries its own "Request a precise on-site quote" CTA — no confident "Lock in my rate"
+    : solarSizing
+    ? ''   // (tier-settle) no confident "Lock in my rate" while the system is still being sized — the placeholder owns the card until the settled number paints
     : roofNoSel
     ? '<button class="qcta" onclick="window.__openMaterials&&window.__openMaterials()">Choose materials →</button>'
     : '<button class="qcta" onclick="window.__openCapture&&window.__openCapture()">Lock in my rate →</button>';
   // timeline + "why us" trust signals — on every price-bearing quote view (not the sun/measure overlays)
-  const trust=(lowConf||bodyCommercial||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
+  const trust=(lowConf||bodyCommercial||solarSizing||view==="sun"||view==="measure")?'':quoteTrustStrip(tradeMode==="roof"?"roof":"solar");
   card.innerHTML='<div class="sheet-grab" aria-label="Drag to expand or collapse the quote" role="button" tabindex="0"></div><button class="card-fold-btn" type="button" title="Hide quote — see the full roof" aria-label="Hide quote"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>'+tabs+addr+body+note+trust+cta;
   // LOW-CONFIDENCE FALLBACK presentation (no model/imagery to manipulate): center the
   // "couldn't get a confident read" card over a soft scrim and hide the lens rail / top
@@ -4176,6 +4209,13 @@ async function run(addr){
     // headline ladder must be rebuilt here against the same final geometry — otherwise the headline shows
     // the pre-settle count (32) while the modal shows the settled one (26). Cheap; only when not attached.
     try{ if(typeof rebuildSolarTiers==="function" && !(window.__attached && window.__sectionMode==="mine")) rebuildSolarTiers(); }catch(_){}
+    // (tier-settle) SETTLE FALLBACK: the model is now fully built — no further engineered/flux data is
+    // coming. If the engineered candidate pool never materialized for this address (no flux raster, etc.)
+    // the ladder is still the optimistic Google one and __solarTiersSettled is false → the headline would
+    // be STUCK on the "sizing…" placeholder forever. Accept whatever ladder we have as the final settled
+    // value now, so the customer always lands on a real number rather than a permanent spinner. (When the
+    // engineered ladder DID land, rebuildSolarTiers already set this true — this is a no-op then.)
+    try{ if(!(window.__attached && window.__sectionMode==="mine") && Array.isArray(solarTiers) && solarTiers.length) window.__solarTiersSettled=true; }catch(_){}
     try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}   // ensure the quote headline reflects the engineered render now that ready-gated rebasing is live
     setTimeout(()=>{ if(window.__roofReady){ fetch(RQ_BASE+"/capture?address="+encodeURIComponent($("addr").value.trim())).catch(()=>{}); fetchFeatures(); } }, 2500);   // pre-warm capture (free) + detect roof penetrations so they show in the quote
     applySharedSelection();   // if arrived via a shared link with &m/&c, land on that exact material quote
