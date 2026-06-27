@@ -2214,11 +2214,26 @@ function roofUnitSqFt(){
   // correction lives in ONE place (roofingSquares) and is never double-applied.
   // PHASE 1b — when the homeowner has edited the outer outline (RoofDots active/confirmed), use their
   // EDITED FLAT footprint (not the sloped editArea) so the whole quote recomputes from the edited size.
+  // BUG #1 RESIDUAL (steep-pitch path divergence) — the canonical FLAT area must be identical whether the
+  // homeowner reaches Roofing via the BRANCH card (RoofDots still active → flatArea) or via the Roofing TAB
+  // later (RoofDots NOT active → previously fell back to Google's raw flat, e.g. Mendham 1,381 vs the edited
+  // 1,333 → ~3.6% gap + a higher tab price). Fix: when the editor COMMITS an edited outline we persist its
+  // flat footprint into window.__committedFlatSqFt; here we return, in order:
+  //   (1) RoofDots.flatArea() while ACTIVE     — live edits in progress (highest fidelity), then
+  //   (2) window.__committedFlatSqFt if set     — the user DID edit; use their committed outline regardless
+  //                                               of current active() state, so branch == tab, then
+  //   (3) Google flat × split ratio             — never edited → raw Google footprint.
+  // quoteArea stays FLAT on every path; pitch+waste is applied ONCE downstream in roofingSquares (do NOT
+  // re-introduce the +46% bug by putting sloped area here).
   try{
     if(typeof RoofDots!=="undefined" && RoofDots.active() && typeof RoofDots.flatArea==="function"){
       const f=RoofDots.flatArea();   // edited FLAT footprint ft² (slope NOT applied — applied once in roofingSquares)
       if(f>0 && isFinite(f)) return f;
     }
+  }catch(_){}
+  try{
+    const c=window.__committedFlatSqFt;   // committed edited FLAT footprint — persists across active() toggling
+    if(c>0 && isFinite(c)) return c;
   }catch(_){}
   return ((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio();
 }
@@ -2259,7 +2274,17 @@ function roofingSquares(){
       if(e>0 && isFinite(e)) return e/100;
     }
   }catch(_){}
-  const flatSqFt=((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio();
+  // NOT active but the user DID edit → return the COMMITTED SLOPED area captured at "Done" (the same
+  // per-facet pitch-corrected editArea the BRANCH path returns above), so the TAB path bills the IDENTICAL
+  // square count. Without this the tab re-derives flat×predominant-pitch, which diverges from the active
+  // path's per-facet slope (Denver 30.83 vs 28.35 → two material prices for one roof).
+  try{
+    const cs=window.__committedSlopedSqFt;
+    if(cs>0 && isFinite(cs)) return cs/100;
+  }catch(_){}
+  // Never edited → apply the canonical predominant-pitch slope multiplier to the canonical FLAT base
+  // (roofUnitSqFt(), which falls back to Google flat × split ratio). One deterministic slope layer.
+  const flatSqFt=(typeof roofUnitSqFt==="function"?roofUnitSqFt():0)||(((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio());
   const sloped=flatSqFt*pitchSlopeMult();
   return sloped>0 ? sloped/100 : 0;
 }
@@ -4348,6 +4373,7 @@ async function run(addr){
     // ===== price card FIRST — it's pure Solar data; the 3D scene below is progressive enhancement =====
     const spv=b.solarPotential, wrs=spv.wholeRoofStats||{};
     QUOTE={ spv, roofSqft:(wrs.areaMeters2||0)*M2_SQFT, facets:(spv.roofSegmentStats||[]).length, hero:cv.toDataURL("image/jpeg",0.82) };
+    window.__committedFlatSqFt=null; window.__committedSlopedSqFt=null;   // NEW address/roof → drop any committed edited flat+sloped area from a prior run (no stale leak across addresses)
     setRegion();
     window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached footprint → OFFER the owner's-section toggle (quote still defaults to the whole roof below)
     window.__selPanels=null; SG_STATE=null;   // a NEW roof invalidates any custom panel-grid design from a prior address
@@ -7830,7 +7856,18 @@ const RoofDots=(function(){
         if(boundaryLinked) syncRingFromTopology(); else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); buildNearestRingVI(); } }
       else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); }
       pitchClass=null; afterEdit(); };
-    $("dotDone").onclick=()=>{ confirmed=true; hide(); try{ renderRoofDiagram(); }catch(_){}
+    $("dotDone").onclick=()=>{ confirmed=true;
+      // PERSIST the committed edited FLAT footprint so the canonical area survives RoofDots going inactive.
+      // roofUnitSqFt() reads this whenever the user HAS edited, so the Roofing TAB (reached later, dots not
+      // active) bills the exact same flat area as the BRANCH card — closing the steep-pitch ~3.6% gap.
+      try{ const m=measure(); const f=m?m.flatSqFt:0; if(f>0&&isFinite(f)) window.__committedFlatSqFt=f;
+        // ALSO persist the committed SLOPED (pitch-corrected per-facet) area so roofingSquares() returns the
+        // SAME square count via the TAB (dots inactive) as via the BRANCH (dots active → editArea). Without
+        // this the inactive path re-derives squares as flat×predominant-pitch which differs from the active
+        // path's per-facet editArea (Denver 30.83 vs 28.35) — same roof, two square counts + material prices.
+        const s=m?m.areaSqFt:0; if(s>0&&isFinite(s)) window.__committedSlopedSqFt=s;
+      }catch(_){}
+      hide(); try{ renderRoofDiagram(); }catch(_){}
       try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
       // PER-HOUSE loop: "Done" persists this house and advances to the next, or to the branch choice.
       try{ if(window.__houseLoopActive && typeof window.__houseAdvance==="function"){ window.__houseAdvance(); } }catch(_){} };
