@@ -22,6 +22,11 @@
   #addr::placeholder{color:#94a3b8}
   #addr:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #go{background:#0d3cfc;border:0;border-radius:10px;padding:0 18px;font-weight:700;color:#ffffff;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow)}
+  /* (bug #6) Priced steps (Options/Estimate): the bottom sheet is the single primary CTA, so the top
+     blue "Get Quote" button is hidden — the bar becomes a quiet, full-width "edit address" field. Enter
+     still re-runs the search (keydown handler is untouched). A small magnifier hint marks it editable. */
+  body.step-priced #go{display:none}
+  body.step-priced #addr{width:100%;box-shadow:var(--card-shadow)}
   /* (bug #3) DESKTOP: when the 4-step funnel stepper is showing (#funnelBar, top:0, z40, ~47px tall),
      the top search bar (#bar) used to stay at top:12 — so its blue "Get Quote" pill (#go) was half-hidden
      BEHIND the higher-z stepper, and the centered "3D model/Satellite" + "Top-down/3D" view toggles (top:62)
@@ -200,7 +205,23 @@
     body.funnel-on #status{top:172px}
     body.funnel-on #overlayNote{top:172px}
     body.funnel-on #aiBtn{top:162px}
+    /* (bug #5 — Alex's 375px flag) The "3D model / Satellite" view toggle (+ the Measure Top-down/3D
+       toggle and its minimap, which share the same top:128 slot) sat UNDER the funnel-on stacked search
+       bar: #bar is top:56 and ~90px tall → bottom ≈146, but #viewToggle was top:128 → the blue "Get
+       Quote" button overlapped the toggle pill. Drop all three below the bar's bottom (146) with an 8px
+       gap so nothing collides. Mirrors the #status/#aiBtn delta above. */
+    body.funnel-on #viewToggle{top:154px}
+    body.funnel-on #measToggle{top:154px}
+    body.funnel-on #measMini{top:154px}
   }
+  /* AERIAL EMPTY-STATE NOTE — the honest message painted over the satellite-roof fallback when no
+     3D/photoreal coverage exists. Centred over the upper preview band (above the bottom quote sheet),
+     pill card on a soft scrim so it reads over the aerial photo. Never intercepts pointer events. */
+  #aerialNote{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:18;display:none;pointer-events:none;align-items:flex-start;gap:9px;background:rgba(15,23,42,.78);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);color:#f4f7fb;font-size:13px;line-height:1.4;font-weight:600;padding:12px 15px;border-radius:14px;max-width:min(380px,86vw);box-shadow:0 10px 30px rgba(15,23,42,.28)}
+  #aerialNote svg{flex:0 0 auto;width:18px;height:18px;stroke:#9ec3ff;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;margin-top:1px}
+  /* On mobile the bottom quote sheet owns the lower ~38vh; lift the note into the upper preview band so
+     it sits over the roof photo, never under/over the sheet. */
+  @media (max-width:560px){ #aerialNote{top:34%;font-size:12.5px;max-width:90vw;padding:11px 13px} }
   /* report card */
   /* Cap the desktop card so a tall quote never grows up past the address bar (#bar bottom ≈ 60px). It is
      bottom-anchored; without a max-height it overflowed the top of short windows and overlapped the bar. */
@@ -831,6 +852,11 @@
   <div id="measMini"><canvas id="measMiniCv"></canvas><div class="mm-ring"></div></div>
   <div id="matHint">Top-down material preview · obstructions kept</div>
   <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:16">
+  <!-- AERIAL EMPTY-STATE FALLBACK — shown when neither our 3D model nor Google photoreal can render
+       (e.g. addresses with no Google Solar coverage). Paints the real satellite/aerial ortho of the
+       roof (QUOTE.hero) full-bleed with an honest on-brand note, so the preview is NEVER a blank void. -->
+  <img id="aerialFb" alt="Aerial view of your roof" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:14">
+  <div id="aerialNote" style="display:none"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg><span id="aerialNoteText"></span></div>
   <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:17">
   <div id="baHandle" style="display:none"><div class="ba-knob"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
   <span class="ba-tag" id="baTagA" style="display:none">After</span><span class="ba-tag" id="baTagB" style="display:none">Before</span>
@@ -3869,6 +3895,35 @@ function applyModelGate(){
   }
 }
 
+/* ---------- AERIAL EMPTY-STATE FALLBACK ----------
+   Last-resort preview when NEITHER our 3D model (fragmented massing → __modelQuality===false) NOR
+   Google photoreal tiles (__photorealOk===false, e.g. no Google Solar/3D coverage like Hamilton ON)
+   can render. Instead of leaving a raw gray void, paint the REAL satellite/aerial ortho of the roof
+   (QUOTE.hero — the RGB GeoTIFF captured in run()) full-bleed, with an honest on-brand note. The
+   numeric quote (roof size + local sun) still shows in the bottom sheet, so the buyer sees their roof
+   AND a clear explanation — never an unexplained blank. */
+const AERIAL_FB_MSG="Detailed sun analysis isn’t available for this location yet — here’s your roof. Your estimate is based on roof size & local sun data.";
+function showAerialFallback(msg){
+  try{
+    const img=$("aerialFb"); const note=$("aerialNote");
+    const src=(window.QUOTE&&QUOTE.hero)||(typeof QUOTE!=="undefined"&&QUOTE&&QUOTE.hero)||"";
+    if(img && src){ img.src=src; img.style.display="block"; }
+    else if(img){ img.style.display="none"; }   // no ortho captured → at least show the note over the surface colour (never a silent void)
+    // Hide the live 3D/photoreal surfaces so the aerial photo is the visible preview.
+    try{ const sc=$("scene"); if(sc) sc.style.display="none"; }catch(_){}
+    try{ const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+    if(note){ const t=$("aerialNoteText"); if(t) t.textContent=msg||AERIAL_FB_MSG; note.style.display="flex"; }
+    window.__aerialFallback=true;
+    try{ setStatus(""); }catch(_){}   // the on-canvas note replaces the small status chip → no duplicate message
+  }catch(_){ /* fallback is itself best-effort — never throw */ }
+}
+function hideAerialFallback(){
+  try{
+    const img=$("aerialFb"); if(img){ img.style.display="none"; img.src=""; }
+    const note=$("aerialNote"); if(note) note.style.display="none";
+    window.__aerialFallback=false;
+  }catch(_){}
+}
 /* ---------- DEFAULT base view: our premium own 3D model ----------
    STEP 6: on load the FIRST thing the homeowner sees is our own Three.js model — the charcoal-shingle
    massing with the engineered solar array + hero camera (STEP 5) — NOT Google's raw photoreal tiles
@@ -3883,6 +3938,10 @@ async function enterModelDefault(isInitial){
   // that first call window.__roofReady is still false, so the internal __roofReady-gated steps read this
   // flag instead. On every later toggle isInitial is undefined → the live window.__roofReady gates apply.
   const ready = isInitial || window.__roofReady;
+  // DEBUG (verification only): ?nocov=1 simulates an address with NO Google 3D/photoreal coverage —
+  // forces the fragmented-massing + photoreal-unavailable path so the aerial empty-state fallback can be
+  // exercised deterministically (Google's real coverage is intermittent). No effect without the flag.
+  try{ if(new URLSearchParams(location.search).get("nocov")==="1"){ window.__modelQuality=false; window.__forceNoPhotoreal=true; } }catch(_){}
   // Fragmented massing → no clean own-model; show the real aerial instead (honest, not a shard pile).
   if(window.__modelQuality===false){ await setMode("photoreal"); syncViewToggle(); return; }
   greyMode=true; $("bModel").classList.add("on");
@@ -3893,6 +3952,13 @@ async function enterModelDefault(isInitial){
   clearLabels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas();
   panelsVisible=false; $("bPanels").classList.remove("on");
   if(mode!=="schematic") await setMode("schematic");   // mount the Three.js #scene (premium grey base)
+  // (bug — Hamilton blank void) setMode is SKIPPED when `mode` is already "schematic" — but an earlier
+  // photoreal teardown / closed grid-designer modal can leave #scene display:none with `mode` still
+  // reading "schematic", so the model surface stays hidden behind a #gmapWrap left display:block → a raw
+  // gray void. ALWAYS re-assert the Three.js surface here (cheap, idempotent) so the model is visible
+  // regardless of the skipped setMode. Mirrors the same fix in openRoofDesign's haveModel branch.
+  try{ const sc=$("scene"); if(sc) sc.style.display="block"; const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+  try{ hideAerialFallback(); }catch(_){}   // a real 3D surface is now up → clear any aerial empty-state
   applyModelSkin(true);                                 // (fix8 P1) re-skins roof (greyRoofMatFor) + lighting (sun/hemi/ambient) — restores the textured hero look on toggle-back
   // ROOFING designer owns the model surface to show the SHINGLE texture — the blue solar array would hide
   // it, so keep panels OFF while __rdOpen. Solar's enterModelDefault path (no __rdOpen) still shows them.
@@ -8315,6 +8381,15 @@ function closeSolarGrid(commit){
   $("solarGrid").style.display="none";
   const fb=$("funnelBar"); if(fb && fb.dataset.sgPrev!=null) fb.style.display=fb.dataset.sgPrev;
   window.__sgOpen=false;
+  // (bug — Hamilton blank void) The grid designer was a full-screen overlay; closing it returned to the
+  // MAIN Options view whose base preview surface (#scene) could be left display:none (e.g. it was never
+  // mounted, or a prior photoreal teardown hid it) → a raw gray void behind the closed modal. Restore the
+  // Solar-context default surface (our premium 3D model; auto-falls back to photoreal, then the aerial
+  // empty-state) so the preview is ALWAYS filled — never blank. Skipped while another full-screen step
+  // (roofing design / photoreal 3D) owns the surface.
+  if(!window.__rdOpen && !window.__solar3dActive && window.__roofReady && typeof enterModelDefault==="function"){
+    Promise.resolve().then(()=>enterModelDefault()).catch(()=>{});
+  }
   if(commit && SG_STATE){
     // push the designed system back into the quote card: count + energy override the tier headline.
     const m=gridSelectionMetrics();
@@ -9258,7 +9333,9 @@ async function setMode(mo){
   $("sunbar").style.display=(!photo&&window.__roofReady&&sunbarOwns&&!matOrMeasure)?"flex":"none";
   if(photo){
     showLoad("Loading photoreal 3D…");
-    try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+((e&&e.message)||e)); try{ console.warn("photoreal degrade:",(e&&e.message)||e); }catch(_){} setStatus("3D view unavailable — your quote is shown on the card."); }   // enhancement-only failure: never leak a raw exception string; the price card already rendered
+    // DEBUG (verification only): ?nocov=1 forces photoreal unavailable so the aerial fallback path runs.
+    if(window.__forceNoPhotoreal){ window.__photorealOk=false; showLoad(false); }
+    else try{ await ensurePhotoreal(); await buildPhotoPanels(); }catch(e){ errors.push("photoreal:"+((e&&e.message)||e)); try{ console.warn("photoreal degrade:",(e&&e.message)||e); }catch(_){} setStatus("3D view unavailable — your quote is shown on the card."); }   // enhancement-only failure: never leak a raw exception string; the price card already rendered
     showLoad(false);
     // (fix2 P1 #4) CENTRAL photoreal fallback — covers EVERY entry point (viewToggle, bPanels, sun, the
     // default-model catch). ensurePhotoreal()/waitForTiles already TIMES OUT the tile stream (~9 s mobile /
@@ -9266,14 +9343,26 @@ async function setMode(mo){
     // canvas would sit blank / the spinner would have hung. Never strand the buyer on an empty olive void:
     // revert to OUR premium 3D model (or, if even that isn't available, leave the 2D card) with an honest
     // note. The guard flag prevents re-entry (enterModelDefault → setMode("schematic") never loops back here).
-    if(window.__photorealOk===false && !window.__photoFallbackInFlight && window.__modelQuality!==false && typeof enterModelDefault==="function"){
-      window.__photoFallbackInFlight=true;
-      try{ await enterModelDefault(); setStatus("Aerial 3D isn’t available here — showing our 3D model instead."); }
-      catch(_){ setStatus("Aerial 3D isn’t available here — your quote is shown on the card."); }
-      finally{ window.__photoFallbackInFlight=false; }
-      if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+    if(window.__photorealOk===false && !window.__photoFallbackInFlight){
+      if(window.__modelQuality!==false && typeof enterModelDefault==="function"){
+        // Our premium 3D model IS available — revert to it (no aerial needed). The guard flag prevents
+        // re-entry (enterModelDefault → setMode("schematic") never loops back here).
+        window.__photoFallbackInFlight=true;
+        try{ await enterModelDefault(); hideAerialFallback(); setStatus("Aerial 3D isn’t available here — showing our 3D model instead."); }
+        catch(_){ setStatus("Aerial 3D isn’t available here — your quote is shown on the card."); }
+        finally{ window.__photoFallbackInFlight=false; }
+        if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+      } else {
+        // (no-coverage bug) NEITHER our 3D model (fragmented massing) NOR photoreal tiles exist here —
+        // the old guard fell through and left a raw gray void (Hamilton ON). Paint the real satellite/aerial
+        // roof with an honest empty-state note instead. The quote (roof size + sun data) still shows below.
+        showAerialFallback();
+        if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+      }
+    } else if(window.__photorealOk!==false){
+      hideAerialFallback();   // photoreal painted fine → clear any prior aerial fallback
     }
-  } else setStatus("");
+  } else { setStatus(""); hideAerialFallback(); }   // a real surface (schematic/model) mounted → no fallback needed
   window.__mode=mode;
   if(typeof syncViewToggle==="function") syncViewToggle();
 }
@@ -9772,6 +9861,12 @@ function setFunnelStep(step){
   if(window.__sgOpen || window.__solar3dActive || window.__rdOpen){ __funnelOn=true; window.__funnelActive=true; bar.dataset.sgPrev="flex"; try{ document.body.classList.add("funnel-on"); }catch(_){} return; }
   __funnelOn=true; window.__funnelActive=true; bar.style.display="flex";
   try{ document.body.classList.add("funnel-on"); }catch(_){}   // (bug #4) mark the funnel active so the top search bar (#bar / "Get Quote") drops below the stepper header on mobile
+  // (bug #6 — Alex's redundant-CTA flag) On Options/Estimate the PRICED CTA lives in the bottom sheet
+  // ("Use this system" / "Lock in my rate"). The top blue "Get Quote" button then becomes an orphan
+  // second primary hovering over the preview. Past the address gate, demote the top bar to a quiet
+  // "edit address" field (the button is hidden; Enter still re-searches) so the screen has ONE clear
+  // CTA. Restored automatically on the Address/Roof steps where searching IS the primary action.
+  try{ const priced=(step==="options"||step==="estimate"); document.body.classList.toggle("step-priced",priced); }catch(_){}
   const idx=FUNNEL_STEPS.indexOf(step); if(idx<0) return;
   bar.querySelectorAll(".fb-step").forEach((el,i)=>{
     el.classList.remove("active","done");
@@ -9783,7 +9878,7 @@ function setFunnelStep(step){
   const fill=FUNNEL_FILL[step]||0;
   bar.querySelectorAll(".fb-line>i").forEach((i,k)=>{ i.style.width=(k<fill)?"100%":"0"; });
 }
-function hideFunnel(){ __funnelOn=false; window.__funnelActive=false; const bar=$("funnelBar"); if(bar) bar.style.display="none"; try{ document.body.classList.remove("funnel-on"); }catch(_){} }
+function hideFunnel(){ __funnelOn=false; window.__funnelActive=false; const bar=$("funnelBar"); if(bar) bar.style.display="none"; try{ document.body.classList.remove("funnel-on"); document.body.classList.remove("step-priced"); }catch(_){} }
 window.__setFunnelStep=setFunnelStep;
 
 let __srMap=null, __srReqSeq=0;
