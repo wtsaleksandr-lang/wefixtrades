@@ -705,8 +705,12 @@
     #card.folded{width:auto;left:2px;right:2px;max-height:0;padding:0;border-width:0}
     #cardFold{left:50%;right:auto;bottom:64px;transform:translateX(-50%)}
     #card .card-fold-btn{top:7px;right:8px} }
-  /* grab handle is mobile-only; hidden on desktop (the left panel doesn't peek) */
-  #card .sheet-grab{display:none;position:absolute;top:0;left:0;right:0;height:20px;align-items:center;justify-content:center;cursor:grab;touch-action:none;z-index:3}
+  /* grab handle is mobile-only; hidden on desktop (the left panel doesn't peek).
+     The display is split out: the non-display base props stay unscoped, and display:none is
+     scoped to desktop (min-width:561px) so it cannot clobber the mobile display:flex (L703) by
+     source order — media queries add no specificity, so an unscoped display:none would always win. */
+  #card .sheet-grab{position:absolute;top:0;left:0;right:0;height:20px;align-items:center;justify-content:center;cursor:grab;touch-action:none;z-index:3}
+  @media (min-width:561px){ #card .sheet-grab{display:none} }
   #card .sheet-grab::before{content:"";width:36px;height:4px;border-radius:99px;background:#cbd5e1}
   #card.peek .sheet-grab::before{background:#94a3b8}
   #card .sheet-grab:active{cursor:grabbing}
