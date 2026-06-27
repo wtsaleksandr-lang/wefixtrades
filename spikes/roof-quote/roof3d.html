@@ -4272,7 +4272,20 @@ async function run(addr){
     // SITE was just re-anchored to buildingInsights.center (the true roof centroid),
     // so fetch the rasters there: the window then frames the roof and the overlays —
     // which derive their lat/lng from Solar segment geometry — land on it.
-    let dl=await datalayers(SITE.lat,SITE.lng);
+    // Reuse the dataLayers the Select-Roof mask-trace upgrade already fetched, IFF it's for ~the same point
+    // (within ~3 m of this SITE) and still carries the layer URLs — avoids a second /datalayers round-trip on
+    // the common coarse-source path. Any mismatch (re-anchored center, different address) falls through to a
+    // fresh fetch, so correctness is never traded for the saving. The decoded mask raster is NOT reused here:
+    // run() re-decodes at SITE's window (it may differ from the geocode), so it pulls its own rasters below.
+    let dl=null;
+    try{ const smc=window.__srMaskCache;
+      if(smc&&smc.dl&&smc.dl.dsmUrl&&smc.dl.maskUrl&&isFinite(smc.lat)&&isFinite(smc.lng)){
+        const mLng=111320*Math.cos((SITE.lat||43)*Math.PI/180);
+        const d=Math.hypot((smc.lng-SITE.lng)*mLng,(smc.lat-SITE.lat)*111320);
+        if(d<=3){ dl=smc.dl; }
+      }
+    }catch(_){}
+    if(!dl) dl=await datalayers(SITE.lat,SITE.lng);
     if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
     // ── RESILIENT raster load ─────────────────────────────────────────────────
     // geoTiff URLs carry short-lived signed tokens; a cached dataLayers response can
@@ -10582,6 +10595,165 @@ function _regularizeSelectRoofRing(ring, lat0){
   }catch(_){ return ring; }
 }
 
+// ── SELECT-ROOF MASK-TRACE UPGRADE (coarse-source only, background, never-worse) ─────────────────────────
+// The FIRST Select-Roof view draws the coarse Microsoft/cache/approx footprint INSTANTLY (above), so the
+// step never waits on a network fetch. For those COARSE sources only, we then asynchronously fetch Google's
+// Solar roof MASK (the LASTMASK raster the 3D build already uses), trace it into a clean roofline, and — if
+// it passes a strict never-worse gate — SMOOTHLY swap the detected building's outline to that real roofline.
+//   • Clean OSM footprints are NEVER touched (they already hug the roof). Gate: source ∈ {msft,cache,approx}.
+//   • No latency: the coarse outline is on screen before this even starts; the swap lands in 1–3 s or never.
+//   • The fetched dataLayers/mask are cached on window.__srMaskCache so run() reuses them (no double-fetch).
+//   • Bounded (≤6 s). On slow/fail/degenerate trace the coarse outline stays permanently.
+const SR_COARSE_SOURCES={ msft:1, cache:1, approx:1 };
+window.__srMaskCache=window.__srMaskCache||null;   // { key, lat, lng, dl, mask } — reused by run()
+// Decode a Solar mask raster (rasters[0] roof-mask, bbox in UTM) into a CLEAN [[lng,lat],...] roof ring:
+// flood-fill the connected mask component containing the marker → Moore boundary trace → DP-simplify (tuned
+// epsilon that keeps L-shapes/wings) → reuse the SAME architectural regularizer (regularizeVectorFootprint:
+// axis-snap + square corners + collinear-merge) so the result is a crisp roofline, not a stair-stepped blob.
+function _traceMaskRing(mask, lat, lng){
+  try{
+    if(!mask||!mask.rasters||!mask.rasters[0]||!(mask.width>0)||!(mask.height>0)||!mask.bbox) return null;
+    const W=mask.width, H=mask.height, bbox=mask.bbox, zone=mask.zone||(Math.floor((lng+180)/6)+1);
+    const m=mask.rasters[0];
+    const [E0,N0,E1,N1]=bbox;                                   // [minX,minY,maxX,maxY] UTM
+    const bin=new Uint8Array(W*H); for(let i=0;i<m.length;i++) bin[i]=(m[i]>0.5)?1:0;
+    // marker pixel (the queried house) — flood-fill the component that owns it
+    let cx=Math.floor(W/2), cy=Math.floor(H/2);
+    try{ const [cE,cN]=wgs84ToUTM(lat,lng,zone); cx=Math.round((cE-E0)/((E1-E0)||1)*(W-1)); cy=Math.round((N1-cN)/((N1-N0)||1)*(H-1)); }catch(_){}
+    cx=Math.max(0,Math.min(W-1,cx)); cy=Math.max(0,Math.min(H-1,cy));
+    const idx=(x,y)=>y*W+x;
+    // seed: spiral out from the marker to the nearest set pixel (handles a marker that lands just off-mask)
+    let seed=-1; for(let r=0;r<Math.max(W,H)&&seed<0;r++){ for(let dy=-r;dy<=r&&seed<0;dy++)for(let dx=-r;dx<=r&&seed<0;dx++){ const x=cx+dx,y=cy+dy; if(x<0||y<0||x>=W||y>=H)continue; if(bin[idx(x,y)]) seed=idx(x,y); } }
+    if(seed<0) return null;
+    // 4-connected flood fill → the LARGEST connected roof component touching the marker
+    const comp=new Uint8Array(W*H); const stack=[seed]; comp[seed]=1; let area=0;
+    while(stack.length){ const p=stack.pop(); area++; const x=p%W,y=(p-x)/W;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=W||ny>=H)continue; const q=idx(nx,ny); if(bin[q]&&!comp[q]){ comp[q]=1; stack.push(q); } } }
+    if(area<24) return null;                                    // too small to be a real roof
+    // topmost-leftmost set pixel of the component = a guaranteed boundary start for the Moore trace
+    let sr=-1,sc=-1; outerMT: for(let y=0;y<H;y++)for(let x=0;x<W;x++){ if(comp[y*W+x]){ sr=y;sc=x; break outerMT; } }
+    if(sr<0) return null;
+    const isF=(r,c)=> r>=0&&c>=0&&r<H&&c<W && comp[r*W+c]===1;
+    let cont=mooreTrace(isF,sr,sc,H,W);                         // [[r,c],...] dense boundary (pixel space)
+    if(!cont||cont.length<8) return null;
+    // metres-per-pixel of the mask grid (typically ~0.1 m) → choose a DP epsilon in PIXELS that equals a
+    // tuned METRIC tolerance. ~0.45 m keeps multi-wing/L-shape detail (a real wing is metres long) while
+    // erasing the 1-pixel marching staircase. Floor of 1.5 px guards a very coarse grid.
+    const dEpx=Math.abs(E1-E0)/((W-1)||1), dNpx=Math.abs(N1-N0)/((H-1)||1);
+    const cellM=Math.max(dEpx,dNpx)||0.1;
+    const dpEpsPx=Math.max(1.5, 0.45/cellM);
+    let simp=dpSimplify(cont, dpEpsPx);                         // clean polyline, wings preserved
+    if(!simp||simp.length<4) return null;
+    // pixel ring → UTM [[E,N],...] (row 0 = north = maxY)
+    const ringEN=simp.map(([r,c])=>[ E0 + (c/((W-1)||1))*(E1-E0), N1 - (r/((H-1)||1))*(N1-N0) ]);
+    // ARCHITECTURAL CLEANUP — squared, premium roofline WITHOUT distorting the shape. The full
+    // regularizeVectorFootprint() applies a miter EAVE-OVERHANG that collapses a small/non-convex mask
+    // trace (observed: 128 m²→77 m² + degenerate triangle on Hamilton). So we do a lighter, AREA-PRESERVING
+    // pass: dominant-axis snap (squares the near-90° corners + kills the marching staircase) via regularizePoly
+    // with NO overhang, then merge near-collinear/duplicate vertices. If the snap drifts the area >12% or drops
+    // below 4 verts (it distorted the shape), we KEEP the plain DP-simplified trace instead — never a worse blob.
+    function _cleanTraceRing(ren){
+      try{
+        let R=ren.map(p=>[p[0],p[1]]);
+        if(R.length>1){ const f=R[0],l=R[R.length-1]; if(Math.hypot(f[0]-l[0],f[1]-l[1])<1e-6) R.pop(); }
+        if(R.length<4) return ren;
+        let oE=0,oN=0; for(const[E,N]of R){oE+=E;oN+=N;} oE/=R.length; oN/=R.length;
+        let xy=R.map(([E,N])=>[E-oE,N-oN]);
+        const aBefore=polyArea2(xy);
+        const axis=polyOrientation(xy,2.0);                    // dominant axis from edges ≥2 m
+        let snapped=regularizePoly(xy,axis,0.6,/*allow45=*/true);
+        if(!Array.isArray(snapped)||snapped.length<4) return ren;
+        snapped=cleanFootprintRing(snapped,axis,{ minLen:0.8, mergeDeg:7, rectTol:0.05, maxVerts:12 });
+        if(!Array.isArray(snapped)||snapped.length<4) return ren;
+        const aAfter=polyArea2(snapped);
+        if(!(aAfter>0)||Math.abs(aAfter-aBefore)/Math.max(1,aBefore)>0.12) return ren;   // shape distorted → keep raw trace
+        return snapped.map(([x,y])=>[x+oE,y+oN]);
+      }catch(_){ return ren; }
+    }
+    let reg=_cleanTraceRing(ringEN);
+    if(!Array.isArray(reg)||reg.length<4) reg=ringEN;
+    const out=reg.map(([E,N])=>utmToLL(E,N,zone));             // [[lng,lat],...]
+    if(!Array.isArray(out)||out.length<4) return null;
+    if(out.some(p=>!isFinite(p[0])||!isFinite(p[1]))) return null;
+    return out;
+  }catch(_){ return null; }
+}
+// Segment-intersection test for the never-worse self-intersection guard (ring is [[lng,lat],...]).
+function _ringSelfIntersects(ring){
+  const n=ring.length; if(n<4) return false;
+  const seg=(p1,p2,p3,p4)=>{ const d=(b,a,c)=>(c[1]-a[1])*(b[0]-a[0])-(c[0]-a[0])*(b[1]-a[1]);
+    const d1=d(p3,p4,p1),d2=d(p3,p4,p2),d3=d(p1,p2,p3),d4=d(p1,p2,p4);
+    return ((d1>0&&d2<0)||(d1<0&&d2>0))&&((d3>0&&d4<0)||(d3<0&&d4>0)); };
+  for(let i=0;i<n;i++){ const a=ring[i],b=ring[(i+1)%n];
+    for(let j=i+1;j<n;j++){ if(j===i||(j+1)%n===i||(i+1)%n===j) continue; const c=ring[j],e=ring[(j+1)%n];
+      if(seg(a,b,c,e)) return true; } }
+  return false;
+}
+// NEVER-WORSE gate for the traced roofline vs the coarse footprint it would replace. Only swap when the
+// trace is a SANE, plausibly-better variant: enough vertices, area in a sensible band AND within ~0.5–2× of
+// the coarse area, centroid near the marker, and not self-intersecting. ANY failure → keep the coarse outline.
+function _maskRingPassesGate(traced, coarseRing, lat0, markerLngLat){
+  try{
+    if(!Array.isArray(traced)||traced.length<4) return false;
+    if(_ringSelfIntersects(traced)) return false;
+    const aT=_ringAreaM2(traced,lat0); if(!(aT>0)) return false;
+    if(aT<15 || aT>4000) return false;                         // implausibly tiny / huge for a single home roof
+    const aC=_ringAreaM2(coarseRing,lat0);
+    if(aC>0 && (aT < aC*0.5 || aT > aC*2.0)) return false;     // within ~0.5–2× of the coarse footprint
+    const cT=_ringCentroid(traced);
+    const mLng=111320*Math.cos((lat0||43)*Math.PI/180);
+    const drift=Math.hypot((cT[0]-markerLngLat[0])*mLng,(cT[1]-markerLngLat[1])*111320);
+    if(drift>14) return false;                                  // centroid must be near the marker (same house)
+    return true;
+  }catch(_){ return false; }
+}
+// Background-upgrade the detected building's outline from the Solar mask. Coarse sources only; non-blocking;
+// bounded; swaps gently (one redraw of poly + stripe, no flicker) and re-runs syncSelection so the count
+// chip / checkmark / Continue all track the new ring. Caches dl+mask on window.__srMaskCache for run().
+async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
+  try{
+    if(!g||!isFinite(g.lat)||!isFinite(g.lng)) return;
+    if(!SR_COARSE_SOURCES[detectedSource]) return;             // OSM (or unknown) → leave EXACTLY as-is
+    if(!(window.GeoTIFF&&google&&google.maps)) return;
+    const key=g.lat.toFixed(6)+","+g.lng.toFixed(6);
+    window.__srUpgrade={ source:detectedSource, fired:true, started:performance.now(), key };
+    // bound the whole fetch+decode to ≤6 s; on timeout/fail keep the coarse outline permanently
+    const withTimeout=(p,ms)=>Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error("sr-mask-timeout")),ms))]);
+    let dl=null, mask=null;
+    const cached=window.__srMaskCache;
+    if(cached && cached.key===key && cached.mask){ dl=cached.dl; mask=cached.mask; }   // reuse if we already have it
+    else{
+      dl=await withTimeout(datalayers(g.lat,g.lng), 6000).catch(()=>null);
+      if(!dl||!dl.maskUrl) return;
+      mask=await withTimeout(decodeTiff(dl.maskUrl), 6000).catch(()=>null);
+      if(!mask) return;
+      window.__srMaskCache={ key, lat:g.lat, lng:g.lng, dl, mask };   // cache for run() reuse (no double-fetch)
+    }
+    if(typeof seq==="number" && seq!==__srReqSeq) return;       // a newer address superseded this run
+    const traced=_traceMaskRing(mask, g.lat, g.lng);
+    window.__srUpgrade.tracedVerts = traced ? traced.length : 0;
+    // locate the live detected building (the one this upgrade targets); bail if it's gone or got deselected away
+    const det=(__srBuildings||[]).find(b=>b&&b.detected);
+    if(!det || !SR_COARSE_SOURCES[det.source]) { window.__srUpgrade.applied=false; window.__srUpgrade.reason="no-coarse-detected"; return; }
+    if(!traced){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="trace-degenerate"; return; }
+    if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat])){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="never-worse-gate"; return; }
+    // ── SWAP: redraw the detected building's polygon + stripe with the traced roofline ──
+    const path=traced.map(([lng,lat])=>({lat,lng}));
+    try{ if(det.poly) det.poly.setPaths(path); }catch(_){}
+    det.ring=traced; det.centroid=_ringCentroid(traced); det.area=_ringAreaM2(traced,g.lat);
+    det.source="mask";                                          // mark upgraded so a re-entry won't re-fetch/re-swap
+    // rebuild the striped solar-grid overlay clipped to the NEW ring (gentle: remove old, add new)
+    try{ if(det.stripe) det.stripe.setMap(null); }catch(_){}
+    const stripe=_makeStripeOverlay(traced); if(stripe){ stripe.setMap(__srMap); det.stripe=stripe; if(typeof stripe.setSelected==="function") stripe.setSelected(!!det.selected); }
+    // move the checkmark to the new centroid
+    try{ if(det.check){ det.check.setMap(null); det.check=null; } }catch(_){}
+    _applyPolyStyle(det);                                       // re-asserts style + check at the new centroid
+    syncSelection();                                            // count chip / __srPrimary / Continue track the new ring
+    window.__srUpgrade.applied=true;
+    window.__srUpgrade.ms=Math.round(performance.now()-window.__srUpgrade.started);
+  }catch(_){ /* any failure: keep the coarse outline (already on screen) */ }
+}
+
 async function renderSelectRoofMap(g, fp, neighbours){
   const el=$("srMap"); if(!el) return;
   try{
@@ -10657,6 +10829,15 @@ async function renderSelectRoofMap(g, fp, neighbours){
       $("srHintT").textContent="Centred on your address. Tap your building if the marker is off.";
     }
     syncSelection();
+    // BACKGROUND MASK-TRACE UPGRADE: the coarse outline is now on screen (no latency). For COARSE sources
+    // only (Microsoft/cache/approx — never clean OSM), asynchronously fetch Google's roof mask, trace a clean
+    // roofline, and gently swap the detected outline to it if it passes the never-worse gate. Fire-and-forget
+    // — it NEVER blocks this render or Continue, and silently keeps the coarse outline on any slow/fail/reject.
+    try{
+      const detB=(__srBuildings||[]).find(b=>b&&b.detected);
+      if(detB && SR_COARSE_SOURCES[detB.source]){ _upgradeSelectRoofFromMask(g, detB.source, __srReqSeq); }
+      else { window.__srUpgrade={ fired:false, reason:detB?("clean-source:"+detB.source):"no-detected" }; }
+    }catch(_){}
     // FALLBACK re-pick: clicking the bare satellite (NOT a building polygon) re-targets that point and
     // re-fetches its footprint — preserves the legacy "tap the correct one" rescue when OSM has no polygon
     // where the buyer expects their house. Building-polygon clicks toggle (above) and don't bubble here.
