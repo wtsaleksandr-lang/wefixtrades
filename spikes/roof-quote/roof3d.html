@@ -1738,10 +1738,16 @@ async function pvwattsFallback(ll){ try{ const kw=6;
   setRegion(); refreshLiveRate();
   const prod=j.annualKwh, save=Math.round(prod*REGION.rate/12), lo=Math.round(kw*1000*2.5/100)*100, hi=Math.round(kw*1000*3.1/100)*100;
   const card=$("card"); card.style.display="block";
+  // PER-TRADE GATE (P0): this no-3D solar fallback also prints a price + "saves ~$X/mo" — mask both when
+  // solar is gated + no lead yet so no real figure leaks. Reveal normally after lead submit.
+  const _fbGated=(typeof window.__priceGated==="function") && window.__priceGated("solar");
   card.innerHTML='<div class="qsub" style="margin-bottom:6px">📍 '+(($("addr")&&$("addr").value)||"this location")+'</div>'+
-    '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div>'+
+    (_fbGated
+      ? '<div class="qprice">🔒 Unlock to see</div><div class="qsub">Enter your details to reveal your price</div>'+
+        '<div class="qfin" style="margin-top:6px">For your exact location a '+kw+' kW system would produce ~<b>'+prod.toLocaleString()+' kWh/yr</b>. A quick site visit confirms the roof fit and final price.</div>'
+      : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div>'+
     '<div class="qsub">typical '+kw+' kW system · saves ~$'+save+'/mo on power*</div>'+
-    '<div class="qfin" style="margin-top:6px">We couldn’t pull detailed roof imagery here, but for your exact location a '+kw+' kW system would produce ~<b>'+prod.toLocaleString()+' kWh/yr</b>. A quick site visit confirms the roof fit and final price.</div>'+
+    '<div class="qfin" style="margin-top:6px">We couldn’t pull detailed roof imagery here, but for your exact location a '+kw+' kW system would produce ~<b>'+prod.toLocaleString()+' kWh/yr</b>. A quick site visit confirms the roof fit and final price.</div>')+
     '<button class="rcta" style="margin-top:10px;width:100%" onclick="window.__book&&window.__book()">Get my custom on-site quote →</button>';
   return true; }catch(_){ return false; } }
 function creditTxt(){ const r=itcRate(); if(r>0) return 'after est. '+Math.round(r*100)+'% federal tax credit'; return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
@@ -2894,9 +2900,17 @@ function renderQuoteCard(){
     const haveGrid=((LASTB&&LASTB.solarPotential&&((LASTB.solarPotential.solarPanels||[]).length||(LASTB.solarPotential.solarPanelConfigs||[]).length))&&!window.__attached);
     const gridActive=!!(window.__selPanels&&window.__selPanels.panels>0);
     const gridOpenBtn=haveGrid?('<button class="sg-open" data-opengrid type="button"><span class="sgo-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9.7h18M3 14.3h18M9 5v14M15 5v14"/></svg></span><span class="sgo-t">'+(gridActive?'Your custom system · '+window.__selPanels.panels+' panels':'Design your system on the roof')+'<small>'+(gridActive?'Tap to keep editing the panel layout':'Tap squares over the sun map to add / remove panels')+'</small></span><span class="sgo-arr">›</span></button>'):'';
-    body='<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
+    // PER-TRADE GATE (P0): when solar is gated + no lead yet, the real price/financing/savings/ITC must
+    // be ABSENT from the DOM (a homeowner inspecting the page must not find it). Replace the entire money
+    // block (qprice $, "saves ~$X/mo", ITC, financing, money-story savings, KPI $ bill/savings, SREC $)
+    // with the locked mask; keep the non-price UI (design grid, tier chips show kW only, system stats,
+    // sun/CO₂ lines — none carry $). After lead submit priceGated→false → the block below renders.
+    const _solGated=(typeof window.__priceGated==="function") && window.__priceGated("solar");
+    body=(_solGated
+        ? quoteCardMaskHtml("solar")+sectionBanner
+        : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
       itcLine+finDisplay+payRow+
-      moneyStory+kpiStrip+srecLine+
+      moneyStory+kpiStrip+srecLine)+
       gridOpenBtn+
       '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
       '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Recommended panels</div></div>'+
@@ -2942,7 +2956,16 @@ function renderQuoteCard(){
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide details ▴':'See price breakdown &amp; options ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats+discLine("roof");
+      // PER-TRADE GATE (P0): when roofing is gated + no lead yet, suppress the real price + financing so
+      // they are ABSENT from the DOM. The price-breakdown takeoff (which prints $ line items) lives inside
+      // `detail` behind the Customize expander — also omit it while gated. Keep the material/colour pick,
+      // spec line, and roof stats (no $). After lead submit priceGated→false → the full body renders.
+      const _roofGated=(typeof window.__priceGated==="function") && window.__priceGated("roof");
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+
+        (_roofGated
+          ? quoteCardMaskHtml("roof")
+          : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail)
+        +stats+discLine("roof");
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
       // thumbnail + est. price FOR THIS ROOF + lifespan; tap to choose. (Avoids a long vertical list.)
@@ -2954,12 +2977,19 @@ function renderQuoteCard(){
       const catWasteIdx=tCat?recommendedWasteIdx(tCat):selWaste, catWf=1+WASTE_OPTS[catWasteIdx]/100;
       const catOptsBackup={steep:roofOpts.steep};
       if(tCat) roofOpts.steep=(tCat.predominantPitchX12||0)>=9;   // mirror the auto-flag select applies
-      const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700];
-        let [clo,chi]=applyRoofOpts(sqs*catWf*ps[0], sqs*catWf*ps[1], sqs, tCat);
-        clo=Math.round(clo/50)*50; chi=Math.round(chi/50)*50; const sp=ROOF_SPEC[m.id];   // round to $50 to match the selected card (lines 1248/2305/2898) — was /100, causing e.g. Metal $16,800 (catalogue) vs $16,850 (selected)
+      // PER-TRADE GATE (P0): the comparison catalogue leaks the ENTIRE price matrix (every material's
+      // $lo–$hi). When roofing is gated + no lead yet, replace each card's price with the locked mask so
+      // NO material price string is emitted into the DOM. The $ figures are not even computed while gated.
+      const _catGated=(typeof window.__priceGated==="function") && window.__priceGated("roof");
+      const cmp=ROOF_CATALOG.map(m=>{ const ps=ROOF_PSQ[m.id]||[450,700]; const sp=ROOF_SPEC[m.id];
+        let priceCell;
+        if(_catGated){ priceCell='<div class="mat-p">🔒 Unlock</div>'; }
+        else { let [clo,chi]=applyRoofOpts(sqs*catWf*ps[0], sqs*catWf*ps[1], sqs, tCat);
+          clo=Math.round(clo/50)*50; chi=Math.round(chi/50)*50;   // round to $50 to match the selected card (lines 1248/2305/2898) — was /100, causing e.g. Metal $16,800 (catalogue) vs $16,850 (selected)
+          priceCell='<div class="mat-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</div>'; }
         return '<button class="mat-card" data-mat="'+m.id+'">'+
           '<div class="mat-img" style="background-image:url('+matThumb(m)+')">'+(m.tier?'<span class="mat-badge">'+m.tier+'</span>':'')+'</div>'+
-          '<div class="mat-n">'+m.label+'</div><div class="mat-p">'+fmtMoney(clo)+'–'+fmtMoney(chi)+'</div><div class="mat-l">'+(sp?sp.life:'')+'</div>'+
+          '<div class="mat-n">'+m.label+'</div>'+priceCell+'<div class="mat-l">'+(sp?sp.life:'')+'</div>'+
           '</button>'; }).join('');
       roofOpts.steep=catOptsBackup.steep;   // restore — the card calc must not mutate the live option state
       body='<div class="qprompt">Compare materials for your roof <span class="qhint">swipe →</span></div><div class="mat-row">'+cmp+'</div>'+stats;
@@ -2972,7 +3002,11 @@ function renderQuoteCard(){
     if(/SGIP/i.test(n)) c+=TCUE("sgip");
     if(/net metering/i.test(n)) c+=TCUE("netmeter");
     return c; })();
-  const note=(lowConf || bodyCommercial || roofNoSel || solarSizing || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
+  // P0 gate: the solar footer note discloses the regional electricity rate ("savings at ~$X/kWh"). It's a
+  // generic local constant, not the homeowner's quote — but it carries a $ + the word "savings", so suppress
+  // it too while solar is gated so NO dollar figure is emitted for the gated trade. Restores after lead.
+  const _noteGated=(typeof window.__priceGated==="function") && ((tradeMode==="solar" && window.__priceGated("solar")) || (tradeMode==="roof" && window.__priceGated("roof")));
+  const note=(_noteGated || lowConf || bodyCommercial || roofNoSel || solarSizing || view==="sun" || view==="measure") ? '' : (tradeMode==="solar"
     ? '<div class="qnote">*'+REGION.note+noteCues+' · savings at ~$'+REGION.rate.toFixed(2)+'/kWh ('+REGION.n+')</div>'
     : '<div class="qnote">*ballpark for the selected material, tear-off + install · varies by access</div>');
   const addr='<div class="qaddr"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'+(($("addr").value||"").trim())+'</div>';
@@ -9906,6 +9940,18 @@ function tradeGated(trade){ const f=TENANT.features||{}; return trade==="roof" ?
 //     submitting. Returns true if the caller should SUPPRESS the real price write.
 function priceGated(trade){ return tradeGated(trade) && !window.__lead; }
 window.__priceGated=priceGated;
+// 2c) Card-surface mask. The quote card (renderQuoteCard + material catalogue) prints the REAL
+//     price/financing/savings/ITC/material-matrix with no gate check — a homeowner could read the
+//     gated number straight off the card and the contractor captures no lead. While a trade is gated
+//     (priceGated true), every money string on the card is REPLACED with this locked placeholder, so
+//     no real price/financing/ITC/savings value is ever emitted into the DOM for that trade. Mirrors
+//     the designer's mask copy (sgPrice/rdPrice). After lead submit priceGated→false and the normal
+//     reveal path runs. Returns the qprice + qsub mask HTML; callers omit all money lines when gated.
+function quoteCardMaskHtml(trade){
+  return '<div class="qprice">🔒 Unlock to see</div>'+
+    '<div class="qsub">Enter your details to reveal your price'+(typeof HCUE==="function"?HCUE(trade==="roof"?"roof":"solar"):"")+'</div>';
+}
+window.__quoteCardMaskHtml=quoteCardMaskHtml;
 // 3) Default lead-form copy (restored after a gate reuse so the soft-gate report wording returns).
 function resetLeadCopy(){ const h=$("leadH")||document.querySelector("#lead .lead-h"), s=$("leadS")||document.querySelector("#lead .lead-s"), g=$("lgo");
   if(h) h.textContent="See your full quote"; if(s) s.innerHTML="Your personalised roof &amp; solar plan, sent to you instantly."; if(g) g.textContent="See my full quote"; }
@@ -9943,7 +9989,23 @@ function deepMergeTenant(patch){
   if(patch.financing && typeof patch.financing==="object"){ TENANT.financing=Object.assign({}, TENANT.financing, patch.financing); }
   if(patch.features && typeof patch.features==="object"){ TENANT.features=Object.assign({}, TENANT.features, patch.features); }
   if(typeof patch.accent==="string") TENANT.accent=patch.accent;
+  if(typeof patch.brand==="string") TENANT.brand=patch.brand;   // P1: brand must merge so a runtime patch can re-brand the hero
 }
+// P1: re-render the hero "Instant quotes by <brand>" line from the CURRENT TENANT.brand. The boot path
+// (~end of file) paints this once from window.__TENANT__; a brand delivered/changed later via the
+// qq:tenant-config postMessage (wizard live-preview) must re-surface it. Same render the boot uses;
+// hides the line for the default/empty brand so non-white-label embeds stay clean. Brand text only —
+// does NOT touch the hero layout, globe, or card.
+function renderHeroBrand(){
+  try{
+    var el=document.getElementById("heroPoweredBy"); if(!el) return;
+    var brand=(TENANT && typeof TENANT.brand==="string")?TENANT.brand.trim():"";
+    if(brand && brand!=="WeFixTrades"){
+      el.innerHTML="Instant quotes by <b></b>"; el.querySelector("b").textContent=String(brand); el.style.display="block";
+    } else { el.textContent=""; el.style.display="none"; }
+  }catch(_){}
+}
+window.__renderHeroBrand=renderHeroBrand;
 function applyAccent(){
   // The widget's brand colour is driven by the --cyan / --blue CSS vars (and a
   // handful of accent-tint derivations). Overriding both at :root recolours
@@ -9964,6 +10026,7 @@ function applyTenant(){
   const lq=$("lqual"); if(lq) lq.style.display=TENANT.features.leadQual?"":"none";
   applyConsentCompany();
   applyAccent();
+  renderHeroBrand();   // P1: re-surface the hero brand line from the merged TENANT.brand (runtime re-brand)
   // Re-render the quote card so financing/feature toggles (battery/EV/SREC/lease/
   // size-slider) + any branding the card surfaces reflect the new config. Guarded
   // because the card only exists once a roof has been measured.
