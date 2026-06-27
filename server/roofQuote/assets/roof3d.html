@@ -7855,8 +7855,26 @@ function roofFitRange(fallback){
     return Math.round(Math.min(600, Math.max(60, extentM*2.6)));
   }catch(_){ return fallback; }
 }
+// Ground altitude (metres MSL) for the photoreal Map3D look-at point. CRITICAL FRAMING FIX (Hamilton):
+// Map3DElement reads center.altitude as ABSOLUTE metres-above-sea-level AND clamps the camera so it can't
+// sit below the photoreal MESH. If center.altitude is at/under the mesh top, the requested `range` gets
+// clamped DOWN (→ ~23 m, even collapsing to 0) and the oblique camera ends up BURIED in the neighbour's
+// tree canopy — the cut-off, foliage-dominated, pixelated view Alex saw. The DSM gives a reliable BARE-
+// EARTH ground (window.__roofDebug.baseY / siteAlt ≈ 106 m here); the photoreal mesh canopy/roof sits a
+// few metres above that, so we LIFT the look-at point a margin above bare earth. Lifting the center above
+// the mesh lets the full requested range hold (probe: alt≈ground+4 → range 126 held vs ground → 23).
+// Deterministic (no read-back feedback trap): derived from the DSM, not the possibly-collapsed live camera.
+function photoGroundAlt(){
+  try{
+    let g = (typeof siteAlt!=="undefined" && isFinite(siteAlt)) ? siteAlt : null;
+    if(g==null){ const d=window.__roofDebug; if(d&&isFinite(d.baseY)) g=d.baseY; }
+    if(g==null) return undefined;
+    return g + 8;   // +8 m: clear the photoreal roof/canopy mesh so Map3D doesn't clamp the range down
+  }catch(_){ return undefined; }
+}
 async function ensurePhotoreal(){
-  const cam={ center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:roofFitRange(78), tilt:58, heading:15 };
+  const cam={ center:{lat:SITE.lat,lng:SITE.lng}, range:roofFitRange(78), tilt:58, heading:15 };
+  { const ga=photoGroundAlt(); if(ga!=null) cam.center.altitude=ga; }
   if(gmap){ // re-search: fly the existing map to the new address (was a bug: 3D stayed on the old address)
     window.__photorealOk=undefined;   // re-validate for THIS address (a new parcel may 502 / lack tiles even if the last one painted)
     try{ if(gmap.flyCameraTo) gmap.flyCameraTo({endCamera:cam,durationMillis:800}); else Object.assign(gmap,cam); }catch(_){}
@@ -8549,17 +8567,36 @@ async function enterSolar3D(){
       await buildPhotoPanels();
       // Hero framing for the solar 3D step: tighten the oblique camera onto the roof so the panels on the
       // real house read clearly (the default photoreal range frames the whole parcel). Reuses roofFitRange
-      // (true roof extent) scaled ~0.8× at a steeper tilt; safe no-op if the camera API is unavailable.
+      // (true roof extent) scaled ~0.85× at a steeper tilt; safe no-op if the camera API is unavailable.
+      // ALTITUDE FIX (Hamilton): anchor center to the map's OWN ground altitude (photoGroundAlt), never the
+      // DSM-local siteAlt — siteAlt collapses the range and buries the camera in tree canopy. Range is also
+      // floored so a roof with only a couple of detected segments can't compute a tiny range that drops the
+      // camera into the canopy (Hamilton came back with 2 segments → a ~23 m range = inside the trees).
       try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
-        const r=Math.round(roofFitRange(78)*0.8);
-        gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:r, tilt:62, heading:18 }, durationMillis:900 });
+        const r=Math.max(72, Math.round(roofFitRange(78)*0.85));
+        const cam={ center:{lat:SITE.lat,lng:SITE.lng}, range:r, tilt:60, heading:18 };
+        const ga=photoGroundAlt(); if(ga!=null) cam.center.altitude=ga;
+        gmap.flyCameraTo({ endCamera:cam, durationMillis:900 });
       } }catch(_){}
     }
     showLoad(false);
   }catch(e){ try{ showLoad(false); }catch(_){} try{ setStatus("3D view unavailable — your design is shown on the card."); }catch(_){} }
-  // If photoreal genuinely isn't covered here, setMode already fell back to the grey model + set a note;
-  // bring the user back to the 2D grid so they're never stranded on the wrong surface.
-  if(window.__photorealOk===false){ exitSolar3D(); }
+  // If photoreal genuinely isn't covered here (Google has no 3D tiles for this parcel — a real no-coverage
+  // address, distinct from the Hamilton tree-canopy case which IS covered), bring the user back to the clean
+  // 2D grid rather than stranding them on a broken/blank photoreal surface — AND tell them WHY, so the "3D"
+  // button doesn't look broken. A bare silent bounce reads as a dead toggle.
+  if(window.__photorealOk===false){ exitSolar3D(); solarGridNoCoverageNote(); }
+}
+// Show an honest, on-brand note inside the 2D grid when the 3D photoreal view genuinely isn't available
+// for this location, then restore the normal legend hint after a few seconds. Reuses #sgHint so it sits in
+// the same on-canvas slot — no new chrome, never a blank/broken 3D surface.
+function solarGridNoCoverageNote(){
+  try{ const h=$("sgHint"); if(!h) return;
+    if(h.dataset.legend==null) h.dataset.legend=h.innerHTML;   // stash the real legend once
+    h.innerHTML='<b>3D view isn’t available for this location</b> — your panel layout is shown here on the 2D roof.';
+    clearTimeout(window.__sgHintT);
+    window.__sgHintT=setTimeout(()=>{ try{ if(h.dataset.legend!=null){ h.innerHTML=h.dataset.legend; } }catch(_){} }, 5200);
+  }catch(_){}
 }
 async function exitSolar3D(){
   window.__solar3dActive=false;
@@ -8961,8 +8998,10 @@ async function openRoofDesign(){
       if(mode==="photoreal" && window.__photorealOk!==false){
         try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // gmapWrap.display=block
         try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
-          const rng=Math.round(roofFitRange(78)*0.82);
-          gmap.flyCameraTo({ endCamera:{ center:{lat:SITE.lat,lng:SITE.lng,altitude:(typeof siteAlt!=="undefined"?siteAlt:0)}, range:rng, tilt:60, heading:18 }, durationMillis:900 });
+          const rng=Math.max(72, Math.round(roofFitRange(78)*0.82));   // floor range so a 2-segment roof can't drop the camera into the canopy
+          const cam={ center:{lat:SITE.lat,lng:SITE.lng}, range:rng, tilt:60, heading:18 };
+          const ga=(typeof photoGroundAlt==="function")?photoGroundAlt():undefined; if(ga!=null) cam.center.altitude=ga;   // map's own ground MSL, never siteAlt (terrain-collision → range collapse)
+          gmap.flyCameraTo({ endCamera:cam, durationMillis:900 });
         } }catch(_){}
         rdReflectOnHouse();   // photoreal-GLB roof skin
       }
@@ -9404,7 +9443,12 @@ async function buildPhotoPanels(){
     // DARK PV MODULE (Alex's spec) — deep navy/near-black so the draped panels read as real silicon
     // modules, consistent with the 2D selected look. Sun/production lens keeps the energy heatmap colour.
     const fill=(sunMode||window.__prodMode) ? energyColor(((pn.yearlyEnergyDcKwh||0)-rmin)/((rmax-rmin)||1)) : "rgba(8,16,32,0.92)";
-    const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:"rgba(150,196,255,0.85)", strokeWidth:1, extruded:false, drawsOccludedSegments:false });
+    // BRIGHTER, THICKER cool rim (was rgba(150,196,255,.85)/1px): at the ~70 m oblique range the navy
+    // modules sink into a dark or brown roof under tree shadow (Hamilton) and the array became invisible.
+    // A crisp light-blue outline makes the selected array read clearly on ANY roof colour while keeping the
+    // navy silicon fill — mirrors the 2D grid's cool-rim selected look. Heatmap lens keeps a subtle rim.
+    const stroke=(sunMode||window.__prodMode) ? "rgba(255,255,255,0.55)" : "rgba(120,190,255,0.95)";
+    const poly=new Polygon3DElement({ altitudeMode:altMode, fillColor:fill, strokeColor:stroke, strokeWidth:2, extruded:false, drawsOccludedSegments:false });
     poly.outerCoordinates=panelCornersLL(pn,seg,zone,pw,ph); gmap.append(poly); photoPanels.push(poly);
   }
   window.__photoPanels=photoPanels.length;
@@ -11670,7 +11714,8 @@ function syncLensControls(){
 function rotateCam(delta){
   const surf=lensSurface();
   if(surf==="photoreal"){ const h=(((+gmap.heading||0)+delta)%360+360)%360;
-    const cam={ center:gmap.center||{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt}, range:gmap.range||78, tilt:gmap.tilt||58, heading:h };
+    // orbit AROUND the current center (keep its live altitude) — never re-stamp siteAlt, which collapses range.
+    const cam={ center:gmap.center||{lat:SITE.lat,lng:SITE.lng}, range:gmap.range||90, tilt:gmap.tilt||58, heading:h };
     gmap.flyCameraTo({endCamera:cam,durationMillis:550}); return; }
   if(surf==="scene"){ const a=delta*Math.PI/180, x=camera.position.x, z=camera.position.z;   // schematic mode → orbit the Three.js camera
     camera.position.x=x*Math.cos(a)-z*Math.sin(a); camera.position.z=x*Math.sin(a)+z*Math.cos(a); controls.update(); }
@@ -11678,7 +11723,9 @@ function rotateCam(delta){
 $("bRotL").onclick=()=>rotateCam(-45);
 $("bRotR").onclick=()=>rotateCam(45);
 $("bReset").onclick=()=>{ const surf=lensSurface();
-  if(surf==="photoreal"){ gmap.flyCameraTo({endCamera:{center:{lat:SITE.lat,lng:SITE.lng,altitude:siteAlt},range:roofFitRange(78),tilt:58,heading:15},durationMillis:900}); return; }
+  if(surf==="photoreal"){ const cam={center:{lat:SITE.lat,lng:SITE.lng},range:Math.max(72,Math.round(roofFitRange(78)*0.85)),tilt:60,heading:18};
+    const ga=(typeof photoGroundAlt==="function")?photoGroundAlt():undefined; if(ga!=null) cam.center.altitude=ga;   // map ground MSL, not siteAlt → no canopy burial
+    gmap.flyCameraTo({endCamera:cam,durationMillis:900}); return; }
   if(surf==="scene"){
     // Roofing designer owns a tighter, dedicated framing — Reset should return to THAT, not the looser solar hero.
     if(window.__rdOpen && typeof frameRoofHero==="function" && frameRoofHero()) return;
