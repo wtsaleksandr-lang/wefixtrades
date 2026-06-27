@@ -923,8 +923,15 @@ http.createServer(async (req,res)=>{
       if(hasReal && !out.msPending){
         diskSetJSON("footprint",gk,{ body:out, _t:Date.now() });
       }
-      // strip the internal flag from the wire payload (clients don't consume it)
-      if(out && typeof out==="object"){ const { msPending, ...wire }=out; res.end(JSON.stringify(wire)); }
+      // (measure-stable) EXPOSE `incomplete` on the wire. When MS was still warming (msPending) the
+      // candidate set is OSM-only and was NOT persisted — a different (incomplete) footprint than the
+      // COMPLETE OSM+MS set the NEXT request will get from the now-warm cache. Because the client's facet
+      // partition depends on WHICH candidates it registers, measuring on the incomplete set yields a
+      // DIFFERENT (wrong) result than every subsequent load — the non-determinism. Telling the client the
+      // set is incomplete lets it wait + refetch the complete set before pinning the measurement, so the
+      // first cold load measures the SAME thing as all later loads. (Renamed from the internal msPending;
+      // old clients simply ignore the extra field.)
+      if(out && typeof out==="object"){ const { msPending, ...rest }=out; const wire={ ...rest, incomplete: !!msPending }; res.end(JSON.stringify(wire)); }
       else res.end(JSON.stringify(out));
     }catch(e){ res.end(JSON.stringify({error:String(e&&e.message||e),source:"none"})); }
     return;

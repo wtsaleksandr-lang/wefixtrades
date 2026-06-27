@@ -2112,7 +2112,17 @@ function quoteTrustStrip(modeKind){
 }
 function getRoofTotals(){
   if(window.__roofTotals) return window.__roofTotals;
-  try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){ window.__roofTotals=reconcileTotals(m.totals); return window.__roofTotals; } }catch(_){}
+  try{ const m=(typeof facetsToRoofModel==="function")&&facetsToRoofModel(); if(m&&m.totals){
+    const t=reconcileTotals(m.totals);
+    // (measure-stable) DETERMINISM: the facet model is derived from the building footprint, which resolves
+    // asynchronously in run(). Only PIN (cache) the totals once the footprint has SETTLED (__fpSettled) —
+    // before that this is a partial-state read (spurious facets / invented pitch / wrong area) that must
+    // NOT become the permanent cached measurement the quote prices off of. While unsettled we still RETURN
+    // the provisional totals (so an early Measure-lens render shows "a" number, not a spinner) but leave the
+    // cache empty so the next call after settle recomputes + pins the correct, deterministic value.
+    if(window.__fpSettled) window.__roofTotals=t;
+    return t;
+  } }catch(_){}
   return null;
 }
 // ── SHARED-BUILDING SPLIT RATIO ───────────────────────────────────────────────
@@ -4142,6 +4152,7 @@ async function run(addr){
     // it's late, buildScene renders the model immediately on the mask outline; the slow MS tile no longer
     // gates time-to-first-model. Server caches the footprint, so repeats are instant.
     const _fpMode=(typeof location!=="undefined")&&new URLSearchParams(location.search).get("fp");
+    window.__fpSettled=false;   // (measure-stable) the building footprint hasn't resolved yet → the measurement is NOT settled; getRoofTotals must not cache a partial-state read until this flips true
     const fpPromise=(_fpMode==="mask") ? Promise.resolve(null)
       : fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
     showLoad("Analysing roof (Solar)…");
@@ -4230,14 +4241,42 @@ async function run(addr){
     renderQuoteCard();
     try{ if(window.__funnelActive && typeof window.__setFunnelStep==="function") window.__setFunnelStep("estimate"); }catch(_){}   // funnel: the live quote is now on screen → advance the progress bar to Estimate
     showLoad(false);
-    // (fix3 P1 #3) Resolve the in-flight building footprint with a TIGHT timeout, just before the model
-    // is built. It was kicked off in parallel back when geocode returned, so by now (after solar + the
-    // four-raster decode) it has usually already landed — the await is free. Only a genuinely slow cold
-    // MS-tile download trips the ~5.5 s cap, in which case buildScene renders on the mask outline now
-    // (no stall) and the straighter vector outline is simply skipped for this load. fpPromise NEVER
-    // throws (its .catch maps to null) so this can't break the build.
+    // (measure-stable) DETERMINISM GATE — the measurement (facet count, pitch, area, squares, $ quote)
+    // is derived in buildScene→extractFacetPolysAnalytic from the building FOOTPRINT. If buildScene runs
+    // BEFORE the footprint lands, the analytic partition reads a PARTIAL state and invents spurious
+    // pitched facets (the same flat roof measured 3121 ft²/2-facet/4-pitch cold vs the correct
+    // 2017 ft²/1-facet/flat once the footprint settled — a ~55% area swing + wrong shape + wrong price
+    // on a cold first load, then "corrected" on reload). For a PRICING tool that non-determinism is a
+    // trust-killer, so we now AWAIT the footprint to actually SETTLE before the first model/measurement
+    // build rather than racing it on a tight cap and rendering on a partial outline. The server caches
+    // the footprint (OSM/MS), so only the FIRST visitor to a cold address pays the resolve cost once;
+    // every load thereafter is instant AND identical. The "Sizing your roof…" loader stays up during the
+    // wait, so the buyer sees the settled measurement, never the spurious partial one. The cap is generous
+    // (a genuinely slow cold MS GlobalML tile can take 8–15 s) but bounded so a dead network can't hang
+    // the quote forever; if it DOES exhaust, __fpSettled still flips and the measurement settles
+    // deterministically onto the mask-trace result (same every time for that address). (fix3 P1 #3's
+    // time-to-first-model optimisation is intentionally traded away here for measurement determinism —
+    // a correct, stable number matters more than shaving a few seconds off the first cold load.)
+    showLoad("Sizing your roof…");
+    const FP_SETTLE_CAP_MS=20000;
     try{
-      const fp=await Promise.race([ fpPromise, new Promise(r=>setTimeout(()=>r("__fp_timeout__"),5500)) ]);
+      let fp=await Promise.race([ fpPromise, new Promise(r=>setTimeout(()=>r("__fp_timeout__"),FP_SETTLE_CAP_MS)) ]);
+      if(fp==="__fp_timeout__"){ try{ errors.push("footprint-settle-timeout"); }catch(_){} }
+      // (measure-stable) COMPLETE-SET GATE. When the server answered with an INCOMPLETE footprint
+      // (`incomplete:true` ⇒ Microsoft's tile was still warming, so the set is OSM-only and was NOT
+      // cached), measuring on it would produce a DIFFERENT facet partition than the COMPLETE OSM+MS set
+      // every later load gets — the exact source of the cold-vs-warm non-determinism. So when we see an
+      // incomplete set, give the server a moment to finish caching the MS tile, then REFETCH once for the
+      // complete, deterministic set. Bounded retries; if it stays incomplete we proceed with what we have
+      // (still deterministic enough — a dead MS source yields OSM-only every time for this address too).
+      if(fp && fp!=="__fp_timeout__" && fp.incomplete && (typeof location==="undefined" || _fpMode!=="mask")){
+        for(let attempt=0; attempt<2 && fp && fp.incomplete; attempt++){
+          await new Promise(r=>setTimeout(r,1500));   // MS tile finishes caching server-side in a few seconds
+          try{ const fp2=await Promise.race([ fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null), new Promise(r=>setTimeout(()=>r("__fp_timeout__"),8000)) ]);
+            if(fp2 && fp2!=="__fp_timeout__") fp=fp2; }catch(_){}
+        }
+        if(fp && fp.incomplete){ try{ errors.push("footprint-incomplete-after-retry"); }catch(_){} }
+      }
       if(fp && fp!=="__fp_timeout__"){
         // (fix4 #1) Stash ALL candidate footprints (OSM + Microsoft + cache) so extractFacetPolysAnalytic
         // can register EACH to Google's roof and KEEP THE BEST-ALIGNED one. Server now returns
@@ -4259,6 +4298,7 @@ async function run(addr){
         }
       }
     }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
+    window.__fpSettled=true;   // (measure-stable) the footprint has resolved (landed or definitively exhausted) → the upcoming facet extraction reads a SETTLED input; getRoofTotals may now cache the measurement
     // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
     try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun(); }
     catch(e){ errors.push("scene:"+((e&&e.message)||e)); }
