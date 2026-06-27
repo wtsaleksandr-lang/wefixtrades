@@ -7156,6 +7156,53 @@ const RoofDots=(function(){
   const X=()=>window.__diagXform;
   const M2_FT=M_FT; // alias
 
+  // ── EDITOR VIEWPORT (pan/zoom/pinch) ───────────────────────────────────────
+  // vp = a CSS-px viewport {tx,ty,scale} composed into the editor's model→screen projection (containXform),
+  // so the satellite (#matCanvas), the outline, the corner/mid/interior dots AND the per-section SQFT labels
+  // ALL pan+zoom TOGETHER and stay LOCKED to the roof — the same pattern as the solar grid's SG_STATE.vp
+  // folded into sgLayout. scale=1 = the object-fit:contain fit (roof framed, can't shrink below); 1..ED_VP_MAX.
+  //   screen = base + vp.tx + vp.scale*(modelInsideContain - base)   ... applied as: containXform offsets/scale
+  // are multiplied by vp.scale and shifted by vp.t. The SAME transform is mirrored onto #matCanvas via a CSS
+  // transform (origin 0 0) so the actual satellite imagery pans/zooms in lock-step with the vector overlay.
+  // The loupe samples #matCanvas-INTERNAL pixels through x.P (model→internal) and is therefore viewport-
+  // independent — it keeps sampling the right roof crop at any pan/zoom with NO change.
+  const ED_VP_MAX=4;
+  let vp={tx:0,ty:0,scale:1};
+  function resetVp(){ vp={tx:0,ty:0,scale:1}; applyMatTransform(); }
+  // Mirror vp onto the #matCanvas element as a CSS transform so the satellite tracks the overlay. The overlay
+  // (#dotEditor) does NOT get a CSS transform — it redraws every frame through the vp-folded containXform.
+  function applyMatTransform(){
+    const mc=$("matCanvas"); if(!mc) return;
+    if(vp.scale===1 && vp.tx===0 && vp.ty===0){ mc.style.transform=""; mc.style.transformOrigin=""; return; }
+    mc.style.transformOrigin="0 0";
+    mc.style.transform="translate("+vp.tx+"px,"+vp.ty+"px) scale("+vp.scale+")";
+  }
+  // Clamp scale to [1,ED_VP_MAX] and bound the pan so the contain-fit roof crop stays mostly on-screen (the
+  // roof can't be flung off the canvas). All maths in CSS px against the untransformed element box.
+  function clampVp(){
+    vp.scale=Math.max(1,Math.min(ED_VP_MAX,vp.scale));
+    const mc=$("matCanvas"); const box=mc?(mc.parentElement||mc).getBoundingClientRect():null;
+    if(!box||!box.width||!box.height){ return; }
+    const W=box.width, H=box.height;
+    // the contain-fit content occupies [offX..offX+cw*sc] inside the box; transform scales the WHOLE box about
+    // 0,0 → visible box top-left = vp.tx, size = W*vp.scale (×H). Keep ≥40% of the box on each axis on-screen.
+    const vw=W*vp.scale, vh=H*vp.scale, marginX=Math.min(vw,W)*0.4, marginY=Math.min(vh,H)*0.4;
+    const txMax=W-marginX, txMin=marginX-vw;
+    const tyMax=H-marginY, tyMin=marginY-vh;
+    vp.tx=Math.max(txMin,Math.min(txMax,vp.tx));
+    vp.ty=Math.max(tyMin,Math.min(tyMax,vp.ty));
+  }
+  // Zoom toward an anchor (CSS px relative to the element box): keep the point under (ax,ay) fixed as scale
+  // changes. With screen = vp.t + vp.scale*world (origin 0,0), worldTerm=(a-t)/s is invariant ⇒ newT=a-newS*wt.
+  function zoomAt(ax,ay,factor){
+    const old=vp.scale; let next=Math.max(1,Math.min(ED_VP_MAX,old*factor));
+    if(next===old) return;
+    const wx=(ax-vp.tx)/old, wy=(ay-vp.ty)/old;
+    vp.scale=next; vp.tx=ax-next*wx; vp.ty=ay-next*wy;
+    clampVp(); applyMatTransform(); draw();
+  }
+  function panBy(dx,dy){ vp.tx+=dx; vp.ty+=dy; clampVp(); applyMatTransform(); draw(); }
+
   // ---- geometry helpers (model-local metres) -------------------------------
   function shoelaceM2(r){ let a=0; for(let i=0,n=r.length;i<n;i++){ const [x1,y1]=r[i],[x2,y2]=r[(i+1)%n]; a+=x1*y2-x2*y1; } return Math.abs(a)/2; }
   function perimEdges(r){ const out=[]; for(let i=0,n=r.length;i<n;i++){ const a=r[i],b=r[(i+1)%n]; out.push({a,b,m:Math.hypot(b[0]-a[0],b[1]-a[1])}); } return out; }
@@ -7314,11 +7361,19 @@ const RoofDots=(function(){
   // #matCanvas is object-fit:contain inside its element rect. Map model→canvas-internal
   // coords via X.P, then canvas-internal→displayed CSS px via the contain transform.
   function containXform(){
-    const el=$("matCanvas"); const r=el.getBoundingClientRect();
+    const el=$("matCanvas");
+    // The UNTRANSFORMED element box. #matCanvas is inset:0, so its parent's rect == its own pre-CSS-transform
+    // rect. We must NOT read el.getBoundingClientRect() here because the vp CSS transform on #matCanvas would
+    // feed the transform back into the projection (double-applying it). Use the parent box + fold vp manually.
+    const r=(el.parentElement||el).getBoundingClientRect();
     let x=X(); if(!x){ try{ renderRoofDiagram(); }catch(_){} x=X(); }   // diagram (and the transform) may not be mounted yet
     if(!x||!r.width||!r.height) return null;
-    const sc=Math.min(r.width/x.cw, r.height/x.ch);   // object-fit:contain scale
-    const offX=(r.width-x.cw*sc)/2, offY=(r.height-x.ch*sc)/2;
+    const sc0=Math.min(r.width/x.cw, r.height/x.ch);   // object-fit:contain scale (fit, vp.scale=1)
+    const offX0=(r.width-x.cw*sc0)/2, offY0=(r.height-x.ch*sc0)/2;
+    // ── fold the viewport: the satellite element is CSS-transformed by translate(vp.t)·scale(vp.scale) about
+    //    the box origin (0,0). Composing that with the contain map gives the EFFECTIVE projection the overlay
+    //    must use so its dots/outline/labels sit exactly on the transformed satellite at any pan/zoom.
+    const sc=sc0*vp.scale, offX=vp.tx+vp.scale*offX0, offY=vp.ty+vp.scale*offY0;
     return { r, sc, offX, offY, x };
   }
   function modelToScreen(xm,ym){ const c=containXform(); if(!c) return null;
@@ -7426,7 +7481,11 @@ const RoofDots=(function(){
   // ---- (re)draw the overlay (dots + outline + fill + edge-length labels) ----
   function draw(){
     if(!on||!cv||!ringM) return;
-    const el=$("matCanvas"); const r=el.getBoundingClientRect();
+    // Untransformed box (matCanvas is inset:0 → parent rect). The overlay canvas sits at the FULL box and
+    // paints vp-folded coords from modelToScreen (which also uses this same untransformed r), so the vectors
+    // track the CSS-transformed satellite exactly. Reading the transformed matCanvas rect here would shift
+    // the overlay off the satellite when zoomed.
+    const el=$("matCanvas"); const r=(el.parentElement||el).getBoundingClientRect();
     const dpr=Math.min(2,window.devicePixelRatio||1);
     cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
     cv.style.width=r.width+"px"; cv.style.height=r.height+"px";
@@ -7566,7 +7625,9 @@ const RoofDots=(function(){
 
   // ---- hit-testing (screen px) ---------------------------------------------
   function hit(sx,sy){
-    if(!ringM) return null; const el=$("matCanvas"); const r=el.getBoundingClientRect();
+    if(!ringM) return null;
+    // hit-test runs in vp-folded SCREEN coords (modelToScreen is viewport-aware), so a dot is grabbed exactly
+    // where it VISUALLY sits at any pan/zoom. grab radius is constant CSS px → easier to grab when zoomed in.
     const pts=ringM.map(([xm,ym])=>modelToScreen(xm,ym));
     const grab=22;
     // corners first (bigger grab radius on touch) — these are outer-boundary handles
@@ -7588,18 +7649,48 @@ const RoofDots=(function(){
   }
 
   // ---- pointer handlers -----------------------------------------------------
-  function onDown(e){ if(!on) return; const sx=e.clientX, sy=e.clientY; const h=hit(sx,sy); if(!h) return;
-    e.preventDefault(); pointerId=e.pointerId; try{ cv.setPointerCapture(pointerId); }catch(_){}
-    // (#5) closed-hand (grabbing) cursor while a dot is held
-    try{ cv.classList.remove("dh-grab"); cv.classList.add("dh-grabbing"); }catch(_){}
-    snapshot();
-    if(h.kind==="mid"){ // insert a new corner at this midpoint, then drag it (legacy outer-only path)
-      const a=ringM[h.idx], b=ringM[(h.idx+1)%ringM.length]; const nv=[(a[0]+b[0])/2,(a[1]+b[1])/2];
-      ringM.splice(h.idx+1,0,nv); dragIdx=h.idx+1; dragKind="corner";
-    } else if(h.kind==="interior"){ dragIdx=h.idx; dragKind="interior"; }
-    else { dragIdx=h.idx; dragKind="corner"; }
-    afterEdit();
-    try{ showLoupe(); }catch(_){}   // magnifier appears the moment a dot is grabbed
+  // GESTURE ARBITRATION (critical — pan/zoom must COEXIST with dot editing):
+  //   • pointerdown over a DOT (corner/mid/interior, hit-tested in vp-folded coords) → drag that dot (unchanged).
+  //   • pointerdown over EMPTY canvas → candidate PAN (becomes a real pan only past DRAG_THRESH px of movement;
+  //     a sub-threshold press-release does nothing — matches the solar grid's click-vs-pan latch).
+  //   • a SECOND pointer down (while not already dot-dragging) → PINCH-zoom toward the two-finger midpoint.
+  //   • wheel → zoom toward the cursor.
+  // The dot hit-test runs through hit()→modelToScreen which is vp-folded, so you always grab a dot where it
+  // VISUALLY is at any pan/zoom. Dot-dragging takes priority: once dragIdx≥0 we never pan/pinch.
+  const ED_DRAG_THRESH=5;                 // CSS px before an empty-canvas press becomes a pan (not a no-op tap)
+  const edPtrs=new Map();                 // active pointerId → last CSS-box position {x,y}
+  let edPan=null;                         // {id, last:{x,y}, moved:bool} — empty-canvas pan candidate
+  let edPinchDist=0;
+  const boxRect=()=>{ const mc=$("matCanvas"); return (mc&&(mc.parentElement||mc).getBoundingClientRect())||{left:0,top:0}; };
+  const toBox=e=>{ const b=boxRect(); return { x:e.clientX-b.left, y:e.clientY-b.top }; };
+  function onDown(e){ if(!on) return;
+    const sx=e.clientX, sy=e.clientY; const h=hit(sx,sy);
+    // ── DOT GRAB takes absolute priority — existing behaviour, untouched. ──
+    if(h){
+      e.preventDefault(); pointerId=e.pointerId; try{ cv.setPointerCapture(pointerId); }catch(_){}
+      // (#5) closed-hand (grabbing) cursor while a dot is held
+      try{ cv.classList.remove("dh-grab"); cv.classList.add("dh-grabbing"); }catch(_){}
+      snapshot();
+      if(h.kind==="mid"){ // insert a new corner at this midpoint, then drag it (legacy outer-only path)
+        const a=ringM[h.idx], b=ringM[(h.idx+1)%ringM.length]; const nv=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+        ringM.splice(h.idx+1,0,nv); dragIdx=h.idx+1; dragKind="corner";
+      } else if(h.kind==="interior"){ dragIdx=h.idx; dragKind="interior"; }
+      else { dragIdx=h.idx; dragKind="corner"; }
+      afterEdit();
+      try{ showLoupe(); }catch(_){}   // magnifier appears the moment a dot is grabbed
+      return;
+    }
+    // ── EMPTY CANVAS → PAN / PINCH (never while a dot is being dragged). ──
+    if(dragIdx>=0) return;              // a dot is mid-drag → ignore extra pointers (don't hijack into pan)
+    e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    edPtrs.set(e.pointerId,toBox(e));
+    if(edPtrs.size===1){
+      edPan={ id:e.pointerId, last:toBox(e), moved:false };
+      try{ cv.classList.remove("dh-grab"); cv.style.cursor="grabbing"; }catch(_){}
+    } else if(edPtrs.size===2){
+      edPan=null;                       // second finger → pinch, cancel the single-finger pan
+      const p=[...edPtrs.values()]; edPinchDist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1;
+    }
   }
   // write the dragged pointer position into the active handle's model coordinate. When topoOn, a corner
   // drag moves the SHARED vert (ringVI[i]) so every adjacent facet follows; an interior drag moves the
@@ -7612,14 +7703,47 @@ const RoofDots=(function(){
     ringM[dragIdx]=[mm[0],mm[1]];
   }
   function onMove(e){ if(!on) return;
+    // ── PINCH / PAN on empty canvas (only when NOT dot-dragging). ──
+    if(dragIdx<0 && edPtrs.has(e.pointerId)){
+      e.preventDefault(); edPtrs.set(e.pointerId,toBox(e));
+      if(edPtrs.size>=2){                                   // pinch toward the two-finger midpoint
+        const p=[...edPtrs.values()]; const dist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1;
+        const mid={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2};
+        if(edPinchDist>0) zoomAt(mid.x,mid.y,dist/edPinchDist);
+        edPinchDist=dist; return;
+      }
+      if(edPan && e.pointerId===edPan.id){
+        const cur=toBox(e);
+        if(!edPan.moved && Math.hypot(cur.x-edPan.last.x,cur.y-edPan.last.y)>ED_DRAG_THRESH) edPan.moved=true;
+        if(edPan.moved){ panBy(cur.x-edPan.last.x, cur.y-edPan.last.y); edPan.last=cur; }
+      }
+      return;
+    }
     // (#5) HOVER (not dragging): open-hand (grab) cursor when the pointer is over a draggable dot, else default.
-    if(dragIdx<0){ try{ const overDot=!!hit(e.clientX,e.clientY); cv.classList.toggle("dh-grab",overDot); cv.classList.remove("dh-grabbing"); }catch(_){} return; }
+    if(dragIdx<0){ try{ const overDot=!!hit(e.clientX,e.clientY); cv.classList.toggle("dh-grab",overDot); cv.classList.remove("dh-grabbing"); cv.style.cursor=""; }catch(_){} return; }
     e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
     if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); try{ positionLoupe(); drawLoupe(); }catch(_){} } }
-  function onUp(e){ if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null;
+  function onUp(e){
+    // ── release a PAN / PINCH pointer (empty-canvas gesture). ──
+    if(edPtrs.has(e.pointerId)){
+      edPtrs.delete(e.pointerId);
+      try{ cv.releasePointerCapture&&cv.releasePointerCapture(e.pointerId); }catch(_){}
+      if(edPan && e.pointerId===edPan.id) edPan=null;
+      if(edPtrs.size<2) edPinchDist=0;
+      if(edPtrs.size===1){ const [id]=[...edPtrs.keys()]; edPan={ id, last:edPtrs.get(id), moved:true }; }  // lifted one of two → resume pan
+      try{ cv.style.cursor=edPtrs.size?"grabbing":""; }catch(_){}
+      return;
+    }
+    if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null;
     // (#5) back to hover state — grab if still over a dot, else default; never leave a stale grabbing cursor.
     try{ cv.classList.remove("dh-grabbing"); cv.classList.toggle("dh-grab", !!hit(e.clientX,e.clientY)); }catch(_){}
     try{ hideLoupe(); }catch(_){} draw(); }
+  // DESKTOP WHEEL → zoom toward the cursor (the point under the cursor stays put). preventDefault so the page
+  // doesn't scroll while zooming the editor.
+  function onWheel(e){ if(!on) return; e.preventDefault();
+    if(dragIdx>=0) return;                                  // don't zoom mid dot-drag
+    const b=toBox(e); const factor=Math.exp(-e.deltaY*0.0015);   // smooth, up = zoom in
+    zoomAt(b.x,b.y,factor); }
 
   // ---- mount / unmount ------------------------------------------------------
   function ensureDom(){
@@ -7631,6 +7755,7 @@ const RoofDots=(function(){
     cv.addEventListener("pointermove",onMove);
     cv.addEventListener("pointerup",onUp);
     cv.addEventListener("pointercancel",onUp);
+    cv.addEventListener("wheel",onWheel,{passive:false});   // desktop/trackpad zoom-to-cursor
     // HUD: prompt + live stats + undo/redo + done
     hud=document.createElement("div"); hud.id="dotHud";
     hud.innerHTML=
@@ -7814,6 +7939,7 @@ const RoofDots=(function(){
     // guarantee the 2D top-down diagram is mounted + visible (the dots overlay maps onto #matCanvas).
     try{ const mc=$("matCanvas"); if(!mc||mc.style.display==="none"||!window.__diagXform){ showMeasDiagram(true); } }catch(_){}
     if(!ringM && !initFromModel()) return false;
+    resetVp();                          // enter the editor framed-to-fit (scale=1, no pan) every time
     on=true; cv.style.display="block"; hud.style.display="block";
     // C3: while the dot-editor bottom sheet is up, suppress the quote #card's mobile bottom sheet so the
     // two sheets don't stack/collide at 375px — only ONE bottom sheet (the editor) shows.
@@ -7827,7 +7953,10 @@ const RoofDots=(function(){
     window.addEventListener("resize",layout);
     return true;
   }
-  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} try{ document.body.classList.remove("dot-editing"); }catch(_){} window.removeEventListener("resize",layout); }
+  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} try{ document.body.classList.remove("dot-editing"); }catch(_){}
+    // clear the satellite's CSS transform + reset the viewport so a CONFIRMED/closed diagram (and any later
+    // static renderRoofDiagram repaint) shows the roof framed, not stuck at a prior zoom/pan.
+    try{ resetVp(); }catch(_){} window.removeEventListener("resize",layout); }
   function layout(){ if(!on) return; draw(); }
 
   return {
@@ -7878,7 +8007,7 @@ const RoofDots=(function(){
       zoom:LOUPE_ZOOM }; }catch(_){ return {mounted:false,visible:false}; } },
     onDiagramRendered:()=>{ if(on) requestAnimationFrame(draw); },   // keep dots aligned after a re-render
     init:initFromModel,
-    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; },
+    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; try{ resetVp(); }catch(_){} },
     _state:()=>({on,confirmed,n:ringM&&ringM.length,topo:topoOn})
   };
 })();
