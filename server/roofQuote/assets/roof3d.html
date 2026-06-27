@@ -355,6 +355,9 @@
   #card .tk-row b{color:#0f172a;font-weight:600}
   #card .qfin{font-size:11.5px;color:var(--muted);margin:7px 0 0;line-height:1.35}
   #card .qfin b{color:#0f172a;font-weight:800}
+  /* compliance footnote — muted, unobtrusive; ties the * markers on price/financing/ITC to a disclaimer */
+  #card .qdisc{font-size:10.5px;color:var(--faint);margin:9px 0 0;line-height:1.4}
+  #card .qdisc .qdisc-i{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--faint);color:var(--faint);font-size:9px;font-weight:700;font-style:normal;margin-left:3px;cursor:pointer;vertical-align:middle}
   /* money-story strip: ITC line + payback/lifetime pair — supportive numbers under the headline price */
   #card .itc-line{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#0f172a;font-weight:700;margin:6px 0 0;line-height:1.35}
   #card .itc-line .itc-amt{color:var(--green-text);font-weight:800}
@@ -788,6 +791,9 @@
   #solarGrid .sg-cta button{flex:1;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
   #solarGrid .sg-done{background:#0d3cfc;border:0;color:#fff;box-shadow:var(--btn-shadow)}
   #solarGrid .sg-reset{flex:0 0 auto;background:#fff;border:1px solid var(--line);color:var(--muted);padding:13px 16px}
+  /* compliance footnote on the panel-design card — muted, unobtrusive */
+  #solarGrid .sg-disc{font-size:10.5px;color:var(--faint);line-height:1.4;margin-top:2px;text-align:center}
+  #solarGrid .sg-disc .sg-disc-i{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--faint);color:var(--faint);font-size:9px;font-weight:700;margin-left:3px;cursor:pointer;vertical-align:middle}
   /* open-grid button injected into the Solar quote card */
   .sg-open{display:flex;align-items:center;gap:9px;width:100%;margin-top:9px;background:linear-gradient(120deg,rgba(13,60,252,.08),rgba(22,182,207,.10));border:1px solid rgba(13,60,252,.22);border-radius:12px;padding:11px 13px;cursor:pointer;font-family:inherit;text-align:left}
   .sg-open .sgo-ic{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:#0d3cfc;color:#fff;display:flex;align-items:center;justify-content:center}
@@ -1076,6 +1082,7 @@
         <button class="sg-reset" id="sgResetBtn" type="button">Reset</button>
         <button class="sg-done" id="sgDoneBtn" type="button">Use this system</button>
       </div>
+      <div class="sg-disc">Estimate only — final price confirmed after on-site assessment.<span class="sg-disc-i" id="sgDiscHelp" role="button" tabindex="0" title="Estimate &amp; eligibility disclaimer">i</span></div>
     </div>
   </div>
   <button id="solar3dBack" type="button" aria-label="Back to 2D panel grid"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>2D grid</button>
@@ -2103,6 +2110,18 @@ function applyRoofOpts(lo, hi, sqs, t){
 // monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
 function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
+// Compliance disclaimer footnote — muted, always-visible short line + (i) cue → full legal text.
+// kind: "solar" (price + ITC tax-credit + financing claims) or "roof" (financing-only).
+function discLine(kind){
+  const lead = kind==="solar"
+    ? 'Estimate only — final price confirmed after on-site assessment.'
+    : 'Estimate — final price confirmed after on-site assessment.';
+  return '<div class="qdisc">'+lead+'<i class="qdisc-i" data-disc="'+kind+'" title="Estimate &amp; eligibility disclaimer" role="button" tabindex="0">i</i></div>';
+}
+const DISC_FULL={
+  solar:'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates from aerial imagery and Google Solar data; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>',
+  roof:'<h3 style="margin:0 0 8px">Estimate &amp; financing</h3><p style="margin:0;color:var(--muted);line-height:1.5">The price range is an estimate from aerial measurements; your final price is confirmed after a free on-site assessment. Financing shown is illustrative; actual terms are subject to credit approval.</p>'
+};
 // Trust + timeline strip shown ON the quote card, before the email gate. A buyer's two open
 // questions — "how long does this take?" and "why trust you?" — answered up front.
 //   • Timeline is generic + honest (roofing vs solar), always shown.
@@ -2886,7 +2905,8 @@ function renderQuoteCard(){
       '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr'+TCUE("kwhyr")+'</div></div></div>'+
       '<button class="prodtog'+(window.__prodMode?' on':'')+'" data-prod><span class="pgrad"></span>'+(window.__prodMode?'Panel output · low → high':'Colour panels by yearly output')+'</button>'+
       (window.__sunHours?(()=>{ const s=window.__sunHours, d=s>=5.5?'excellent':s>=4.5?'strong':s>=3.5?'good':'moderate'; return '<div class="sunline">☀️ <b>'+s+' peak sun-hours</b>/day at this location — a '+d+' solar resource.</div>'; })():'')+
-      (totKwh?(()=>{ const kg=totKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'');
+      (totKwh?(()=>{ const kg=totKwh*co2Factor(), trees=Math.max(1,Math.round(kg/21.77)); return kg>50?'<div class="co2line">🌱 Avoids ~<b>'+(kg>=1000?(kg/1000).toFixed(1)+' tonnes':Math.round(kg)+' kg')+'</b> of CO₂ a year — like planting <b>'+trees.toLocaleString()+' trees</b>.</div>':''; })():'')+
+      discLine("solar");
   } else if(tradeMode==="roof" && largeRoof){
     // Roofing tab on a large/commercial roof — degrade to the SAME commercial verdict Solar/Measure
     // use (audit-7 P1). No confident material price ranges + no "Lock in my rate"; the footer renders
@@ -2923,7 +2943,7 @@ function renderQuoteCard(){
       const specNote=spec?'<div class="tk-note" style="color:var(--muted)">'+spec.note+'</div>':'';
       const detail=window.__roofExpanded ? '<div class="cust">'+specNote+wasteRow+optsRow+takeoff+'</div>' : '';
       const custToggle='<button class="cust-toggle" data-exp>'+(window.__roofExpanded?'Hide details ▴':'See price breakdown &amp; options ▾')+'</button>';
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats;
+      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+'<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail+stats+discLine("roof");
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
       // thumbnail + est. price FOR THIS ROOF + lifespan; tap to choose. (Avoids a long vertical list.)
@@ -2997,6 +3017,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll("[data-terminfo]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openInfoModal(termModal(b.dataset.terminfo)); });
+  card.querySelectorAll("[data-disc]").forEach(b=>{ const open=e=>{ e.stopPropagation(); openInfoModal(DISC_FULL[b.dataset.disc]||DISC_FULL.solar); }; b.onclick=open; b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(e); } }; });
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
   card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; window.__addonOpen=addBattery?"battery":(window.__addonOpen==="battery"?null:window.__addonOpen); renderQuoteCard(); });
@@ -8759,6 +8780,7 @@ window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; 
   const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
+  const sgDisc=$("sgDiscHelp"); if(sgDisc){ const openDisc=()=>{ if(typeof openInfoModal==="function") openInfoModal((typeof DISC_FULL!=="undefined"&&DISC_FULL.solar)||'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>'); }; sgDisc.onclick=openDisc; sgDisc.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openDisc(); } }; }
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
   // ── Keep the canvas locked to its STAGE box. sgLayout() writes an explicit cv.style.height, so when the
   //    bottom metrics panel reflows (e.g. the bill before/after block expands on mobile), the stage shrinks
