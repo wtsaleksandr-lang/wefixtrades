@@ -10561,115 +10561,6 @@ function _regularizeSelectRoofRing(ring, lat0){
   }catch(_){ return ring; }
 }
 
-// (msft-align) Coarse Microsoft / national-cache / approximate footprints are NOT registered to Google's
-// roof at Select-Roof time (registration only happens later in run() via __fpRejectShiftM). On addresses
-// with no OpenStreetMap building (e.g. Hamilton ON) the cascade falls to a Microsoft ML quad that is the
-// WRONG shape AND mis-placed — a loose rotated rectangle hanging off the roof into the driveway. The clean
-// OSM path (6+ verts that already hug the roof, e.g. Denver) must stay UNTOUCHED.
-//
-// Fix (coarse sources only): replace the loose quad with a rectangle ORIENTED to the Google Solar building's
-// dominant roof azimuth, SIZED to the union of the Solar segment bounding boxes, and CENTERED on the Solar
-// building centre — so the first-view outline sits SQUARE ON the roof at the right angle. This is the safe
-// "oriented-bbox rectangle" baseline (it won't trace every gable, but it beats a skewed mis-placed box on
-// Microsoft's coarse data).
-const COARSE_FP_SOURCES = new Set(["msft","cache","approx"]);
-function _isCoarseFpSource(s){ return COARSE_FP_SOURCES.has(String(s||"").toLowerCase()); }
-
-// Build an oriented rectangle (in WGS84 ring form) from a Google Solar buildingInsights object `b`.
-// - azimuth: the AREA-weighted dominant roof-segment azimuthDegrees (the way most of the roof faces). The
-//   rectangle's long axis is the ridge line, i.e. PERPENDICULAR to that downslope azimuth.
-// - size: the union of all segment boundingBoxes (the same roof extent the heatmap clip uses ~L8294),
-//   projected onto the azimuth/ridge axes so the rectangle tightly bounds the roof in its own frame.
-// - centre: Solar's b.center (the true building centroid).
-// Returns { ring:[[lng,lat]×4], centroid:[lng,lat], area } or null if the Solar data is missing/insane.
-function _orientedRectFromSolar(b, lat0){
-  try{
-    const sp=b && b.solarPotential; const segs=(sp&&sp.roofSegmentStats)||[];
-    if(!segs.length) return null;
-    const ctr=b.center;
-    if(!ctr || !isFinite(ctr.latitude) || !isFinite(ctr.longitude)) return null;
-    // area-weighted dominant azimuth (downslope facing). Average on the unit circle so 350°/10° don't cancel.
-    let sx=0, sy=0, wsum=0;
-    for(const s of segs){
-      if(typeof s.azimuthDegrees!=="number") continue;
-      const w=Math.max(0.0001,(s.stats&&s.stats.areaMeters2)||1);
-      const a=s.azimuthDegrees*Math.PI/180; sx+=w*Math.cos(a); sy+=w*Math.sin(a); wsum+=w;
-    }
-    if(!(wsum>0) || (sx===0 && sy===0)) return null;
-    const azRad=Math.atan2(sy,sx);                       // dominant downslope azimuth (compass, CW-from-N convention preserved)
-    // Project the Solar building centre + the union of segment bbox corners into a self-consistent UTM zone.
-    const zone=Math.floor((ctr.longitude+180)/6)+1;
-    const [cE,cN]=wgs84ToUTM(ctr.latitude,ctr.longitude,zone);
-    // unit vectors: u = downslope azimuth direction, v = ridge direction (perpendicular). In compass space
-    // azimuth 0°=N(+N axis), 90°=E(+E axis), so (E,N) component of the azimuth unit vector is (sin,cos).
-    const ux=Math.sin(azRad), uy=Math.cos(azRad);        // (E,N) of downslope direction
-    const vx=-uy,            vy=ux;                       // perpendicular (ridge)
-    let minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;
-    for(const s of segs){ const bb=s.boundingBox; if(!bb||!bb.sw||!bb.ne) continue;
-      // all four corners of each segment's lat/lng bbox
-      const corners=[[bb.sw.latitude,bb.sw.longitude],[bb.sw.latitude,bb.ne.longitude],
-                     [bb.ne.latitude,bb.sw.longitude],[bb.ne.latitude,bb.ne.longitude]];
-      for(const [la,lo] of corners){ const [E,N]=wgs84ToUTM(la,lo,zone);
-        const du=E-cE, dn=N-cN; const pu=du*ux+dn*uy, pv=du*vx+dn*vy;
-        if(pu<minU)minU=pu; if(pu>maxU)maxU=pu; if(pv<minV)minV=pv; if(pv>maxV)maxV=pv; } }
-    if(!isFinite(minU)||!isFinite(minV)) return null;
-    // half-extents along each axis (small eave overhang so the outline sits on the eaves, not just inside)
-    const padM=0.4;
-    const hu=Math.max(2,(maxU-minU)/2+padM), hv=Math.max(2,(maxV-minV)/2+padM);
-    // recentre on the actual roof-extent midpoint (the bbox may not be symmetric about Solar's centre)
-    const midU=(minU+maxU)/2, midV=(minV+maxV)/2;
-    const oE=cE+midU*ux+midV*vx, oN=cN+midU*uy+midV*vy;
-    const corner=(su,sv)=>{ const E=oE+su*hu*ux+sv*hv*vx, N=oN+su*hu*uy+sv*hv*vy; return utmToLL(E,N,zone); };
-    const ring=[corner(-1,-1),corner(1,-1),corner(1,1),corner(-1,1)];   // [[lng,lat]×4]
-    if(ring.some(p=>!isFinite(p[0])||!isFinite(p[1]))) return null;
-    const area=(2*hu)*(2*hv);   // metric rectangle area
-    return { ring, centroid:[ctr.longitude,ctr.latitude], area };
-  }catch(_){ return null; }
-}
-
-// Fetch Google Solar buildingInsights for the Select-Roof step, BOUNDED so the step never hangs. The /solar
-// route is disk-cached 30d + in-flight de-duped server-side, so this is cheap and run() reuses the same entry.
-// Per-address client cache + a hard timeout; ANY slowness/failure resolves null → caller keeps the raw ring.
-window.__srSolarCache=window.__srSolarCache||{};
-function _solarForSelectRoof(lat,lng,timeoutMs){
-  const key=(+lat).toFixed(5)+","+(+lng).toFixed(5);
-  if(window.__srSolarCache[key]!==undefined) return Promise.resolve(window.__srSolarCache[key]);
-  const fetchP=fetchJSON("/solar?lat="+lat+"&lng="+lng,"solar")
-    .then(j=>{ const ok=j && !j.error && j.solarPotential ? j : null; window.__srSolarCache[key]=ok; return ok; })
-    .catch(()=>{ window.__srSolarCache[key]=null; return null; });
-  const timeoutP=new Promise(res=>setTimeout(()=>res(null), Math.max(500,timeoutMs||2500)));
-  return Promise.race([fetchP, timeoutP]);   // whichever wins; a timeout returns null WITHOUT caching (lets run() retry)
-}
-
-// (msft-align) For a COARSE detected ring only: fetch the Google Solar building, build the oriented-bbox
-// rectangle, and return it ONLY if it passes a never-worse sanity gate; otherwise return null (caller keeps
-// the raw ring). Gate: Solar present + sane area (12–1200 m² → a plausible building, not a parcel or a dot)
-// + the rectangle centre near the search marker (≤30 m, so we never snap onto a wrong building Solar picked).
-async function _maybeOrientCoarseRing(rawRing, g, source){
-  try{
-    const b=await _solarForSelectRoof(g.lat, g.lng, 2500);
-    if(!b || !b.solarPotential) return null;
-    const rect=_orientedRectFromSolar(b, g.lat);
-    if(!rect || !Array.isArray(rect.ring) || rect.ring.length<4) return null;
-    // sane absolute area for a building footprint
-    const a=rect.area || _ringAreaM2(rect.ring, g.lat);
-    if(!(a>12) || a>1200) return null;
-    // centre must be near the buyer's geocoded marker (don't jump to a neighbour Solar happened to return)
-    const mLng=111320*Math.cos((g.lat||43)*Math.PI/180);
-    const c=rect.centroid;
-    const dMarker=Math.hypot((c[0]-g.lng)*mLng,(c[1]-g.lat)*111320);
-    if(dMarker>30) return null;
-    // ratio gate vs the raw coarse ring: the oriented rect should be a comparable-size building, not a wild
-    // blow-up/shrink (a sign Solar returned the wrong structure). approx/default rings are intentionally a
-    // fixed small square, so skip the ratio test for them (any sane-area Solar rect is an improvement).
-    if(source!=="approx"){
-      const aRaw=_ringAreaM2(rawRing, g.lat);
-      if(aRaw>0){ const ratio=a/aRaw; if(ratio<0.4 || ratio>2.6) return null; }
-    }
-    return rect.ring;
-  }catch(_){ return null; }
-}
-
 async function renderSelectRoofMap(g, fp, neighbours){
   const el=$("srMap"); if(!el) return;
   try{
@@ -10698,29 +10589,8 @@ async function renderSelectRoofMap(g, fp, neighbours){
     // (selectroof-align) Square up + clean each raw footprint BEFORE drawing so the first view's polygon hugs
     // the roof lines instead of showing the loose/jaggy OSM trace. Pure local geometry → no added latency; the
     // helper gates itself and returns the raw ring on any degeneracy (never a worse polygon than today).
-    const detectedSource=(fp&&fp.source)||"osm";
-    if(detectedRing){
-      let r=_regularizeSelectRoofRing(detectedRing, g.lat);
-      // (msft-align) Coarse Microsoft / national-cache footprints are mis-registered loose quads. ONLY these
-      // (NOT clean osm) get re-oriented to the Google Solar roof so the outline sits square + at the right
-      // angle. Awaited but BOUNDED (server-cached /solar + hard timeout) so Select-Roof never hangs; on any
-      // miss/insanity we keep the regularized raw ring (never worse).
-      window.__srOrientFired=false;
-      if(_isCoarseFpSource(detectedSource)){
-        const corrected=await _maybeOrientCoarseRing(r, g, detectedSource);
-        if(corrected){ r=corrected; window.__srOrientFired=true; }
-      }
-      list.push({ id:"detected", ring:r, centroid:_ringCentroid(r), source:detectedSource, detected:true, selected:true });
-    }
-    else if(usedApprox){
-      // CANOPY FALLBACK: no footprint at all. Try to seat the default square on the Google Solar roof too
-      // (same coarse-source treatment); fall back to the marker-centred default rectangle if Solar is absent.
-      let r=_defaultHomeRing(g.lng,g.lat,7);
-      window.__srOrientFired=false;
-      const corrected=await _maybeOrientCoarseRing(r, g, "approx");
-      if(corrected){ r=corrected; window.__srOrientFired=true; }
-      list.push({ id:"approx", ring:r, centroid:_ringCentroid(r), source:"approx", detected:true, selected:true });
-    }
+    if(detectedRing){ const r=_regularizeSelectRoofRing(detectedRing, g.lat); list.push({ id:"detected", ring:r, centroid:_ringCentroid(r), source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
+    else if(usedApprox){ const r=_defaultHomeRing(g.lng,g.lat,7); list.push({ id:"approx", ring:r, centroid:_ringCentroid(r), source:"approx", detected:true, selected:true }); }
     // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
     const seen=detectedRing?[detectedC]:[];
     const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
