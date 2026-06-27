@@ -794,6 +794,9 @@
   /* the "see it on my house" CTA chip lives in the header, right-aligned */
   #roofDesign .rd-ai{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(13,60,252,.92);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 14px;cursor:pointer;box-shadow:0 6px 20px rgba(13,60,252,.32)}
   #roofDesign .rd-ai:disabled{opacity:.6;cursor:default}
+  /* secondary "Upload photo" button sits beside the primary; outline style (not bright fill) per UI rules */
+  #roofDesign .rd-upload{margin-left:0;background:rgba(13,60,252,.14);color:#dbe4ff;border-color:rgba(255,255,255,.34)}
+  #roofDesign .rd-upload svg{stroke:#dbe4ff}
   #roofDesign .rd-ai svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   /* premium glass picker panel docked at the bottom */
   #roofDesign .rd-panel{margin-top:auto;position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -14px 44px rgba(15,23,42,.22);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;pointer-events:auto;border-radius:18px 18px 0 0}
@@ -1088,6 +1091,10 @@
       <button class="rd-back" id="rdBack" type="button" aria-label="Back to Solar or Roofing choice"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
       <div class="rd-title">Design your new roof<small id="rdSub">Tap a material &amp; colour — your home shown live</small></div>
       <button class="rd-ai" id="rdAi" type="button"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span id="rdAiLbl">See it on my house</span></button>
+      <!-- ToS-clean source: customer uploads their OWN house photo as the render base. No auto roof-mask is
+           derivable from an arbitrary oblique upload, so this path uses prompt-preservation (not the hard
+           top-down mask) — the top-down satellite "See it on my house" above is the roof-ONLY-guaranteed one. -->
+      <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" style="display:none"></label>
     </div>
     <div class="rd-stagehint" id="rdStageHint"><span class="mini"></span><span id="rdStageHintT">Rendering your home…</span></div>
     <div class="rd-panel">
@@ -8664,26 +8671,49 @@ function rdPickCol(i){
   rdRenderInfo(); rdReflectOnHouse();
   rdSyncCardHidden();
 }
-// AI "see it on my house": reuse the existing /airender Street-View→Flux Kontext repaint. Degrades to the
-// photoreal house + colour tint (already on screen) when the render returns no url (credit-gated / no street photo).
+// AI "see it on my house": ROOF-ONLY top-down render is the PRIMARY path — Static-Maps satellite +
+// footprint mask → Flux Fill inpaint → composite passthrough, so EVERY non-roof pixel (cars, yard,
+// driveway, neighbour roofs) is provably the original. Falls back to the legacy Kontext /airender ONLY
+// when no footprint mask exists for the address (so the roof-only guarantee can't be made there).
+// Final degrade = the photoreal house + colour tint already on screen (credit-gated / no base).
 async function rdAiOnHouse(){
   const addr=($("addr").value||"").trim(); const btn=$("rdAi"), lbl=$("rdAiLbl");
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], label=m.label+" · "+(c?c.n:"");
   if(!addr) return;
+  const matPrompt=c?c.p:m.label;
   const hint=$("rdStageHint"), hintT=$("rdStageHintT");
   btn.disabled=true; if(lbl) lbl.textContent="Rendering…";
-  if(hint){ if(hintT) hintT.textContent="Applying "+label+" to your home…"; hint.style.display="flex"; }
+  if(hint){ if(hintT) hintT.textContent="Applying "+label+" to your home (roof only)…"; hint.style.display="flex"; }
+  const paint=(url,beforeUrl)=>{
+    window.__aiDown=false;
+    try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=url; } }catch(_){}
+    const img=$("aiPhoto");
+    if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(url,addr,matPrompt); else { img.src=url; img.style.display="block"; } img.style.zIndex="16"; }
+    // before/after slider: the "before" is the ORIGINAL satellite (roof-only path) so the slider proves
+    // only the roof changed. window.__baBeforeSrc overrides activateBA's default before-source.
+    if(beforeUrl){ window.__baBeforeSrc=beforeUrl; const bb=$("baBefore"); if(bb){ bb.src=beforeUrl; } }
+    $("aiMat") && ($("aiMat").textContent=label+" — your home (roof only)");
+    if(typeof activateBA==="function") activateBA();
+    $("aiBar") && ($("aiBar").style.display="flex");
+  };
   try{
-    const r=await fetch("/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(c?c.p:m.label));
+    // 1) PRIMARY: roof-only masked top-down render.
+    const r=await fetch("/airender-topdown?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
     const j=await r.json();
-    if(j&&j.url){
-      window.__aiDown=false;
-      try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=j.url; } }catch(_){}
-      const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,addr,c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; }
-    } else {
-      window.__aiDown=true;
-      setStatus(j&&j.error==="no_streetview" ? "No street photo here yet — showing the 3D house with your colour" : "Photo preview unavailable — showing the 3D house with your colour", true);
-      setTimeout(()=>setStatus(""),3600);
+    // endpoint returns root-relative urls; prefix with RQ_BASE (set in the app build, "" in the spike) so the <img> resolves in both.
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    if(j&&j.url&&j.roofOnly){ paint(RB+j.url, j.base?(RB+j.base):null); }
+    else {
+      // 2) FALLBACK: no footprint mask → legacy Kontext repaint (no hard roof-only guarantee).
+      console.warn("[rdAi] no roof-only mask ("+(j&&j.error||"?")+") → Kontext fallback");
+      const r2=await fetch("/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
+      const j2=await r2.json();
+      if(j2&&j2.url){ window.__baBeforeSrc=null; paint(j2.url,null); }
+      else {
+        window.__aiDown=true;
+        setStatus(j2&&j2.error==="no_streetview" ? "No imagery here yet — showing the 3D house with your colour" : "Photo preview unavailable — showing the 3D house with your colour", true);
+        setTimeout(()=>setStatus(""),3600);
+      }
     }
   }catch(e){
     window.__aiDown=true;
@@ -8691,6 +8721,29 @@ async function rdAiOnHouse(){
   }
   if(hint) hint.style.display="none";
   btn.disabled=false; if(lbl) lbl.textContent = window.__aiDown ? "Preview material" : "See it on my house";
+}
+// Customer-photo upload → render the chosen material onto THEIR photo (ToS-clean base). No exact roof
+// mask for an arbitrary oblique upload, so this uses prompt-preservation (Kontext), not the hard mask.
+async function rdUploadOnHouse(file){
+  if(!file) return;
+  const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], label=m.label+" · "+(c?c.n:"");
+  const hint=$("rdStageHint"), hintT=$("rdStageHintT");
+  if(hint){ if(hintT) hintT.textContent="Applying "+label+" to your photo…"; hint.style.display="flex"; }
+  try{
+    const dataUri=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    const r=await fetch(RB+"/airender-upload",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ image:dataUri, material:(c?c.p:m.label) }) });
+    const j=await r.json();
+    if(j&&j.url){ window.__aiDown=false; window.__baBeforeSrc=null;
+      const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,$("addr").value.trim(),c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; }
+      // before = the user's ORIGINAL upload (so the slider compares against their own photo)
+      const bb=$("baBefore"); if(bb){ bb.src=dataUri; } window.__baBeforeSrc=dataUri;
+      $("aiMat") && ($("aiMat").textContent=label+" — your photo");
+      if(typeof activateBA==="function") activateBA(); $("aiBar") && ($("aiBar").style.display="flex");
+    } else { setStatus("Couldn't render that photo — try a clearer front-of-house shot", true); setTimeout(()=>setStatus(""),3600); }
+  }catch(e){ console.warn("[rdUpload]",e&&e.message||e); setStatus("Upload render failed — try again", true); setTimeout(()=>setStatus(""),3600); }
+  if(hint) hint.style.display="none";
 }
 // ROOFING-DESIGNER hero framing (called from openRoofDesign). The shared STEP-5 __heroCam (in the
 // model build) is tuned for the SOLAR lens (distMul≈3.0) and frames the roof SMALL/low in a big empty
@@ -8856,6 +8909,7 @@ function closeRoofDesign(){
 (function wireRoofDesign(){
   const back=$("rdBack"); if(back) back.onclick=()=>{ closeRoofDesign(); const bc=$("branchChoice"); if(bc) bc.style.display="flex"; };
   const ai=$("rdAi"); if(ai) ai.onclick=()=>rdAiOnHouse();
+  const up=$("rdUploadInput"); if(up) up.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f) rdUploadOnHouse(f); e.target.value=""; };
   const done=$("rdDone"); if(done) done.onclick=()=>{
     // commit the chosen roof and drop the buyer onto the quote card (estimate) for this material
     const reveal=()=>{
@@ -11431,7 +11485,10 @@ function activateBA(){ const addr=$("addr").value.trim(); if(!addr) return; cons
   const finish=ok=>{ if(settled) return; settled=true; clearTimeout(to);
     if(typeof setBaLoading==="function") setBaLoading(false);
     if(!ok) deactivateBA(); };
-  const load=cb=>{ bb.src="/capture?address="+encodeURIComponent(addr)+(cb?"&_cb="+Date.now():""); };
+  // Roof-only path sets window.__baBeforeSrc to the ORIGINAL satellite base — the slider then wipes
+  // between original-roof and new-roof, perfectly pixel-aligned (proving only the roof changed). When
+  // unset (Kontext fallback), fall back to the /capture oblique/Street-View "before".
+  const load=cb=>{ bb.src=window.__baBeforeSrc ? (window.__baBeforeSrc+(cb?"&_cb="+Date.now():"")) : ("/capture?address="+encodeURIComponent(addr)+(cb?"&_cb="+Date.now():"")); };
   bb.onerror=()=>{ if(!retried){ retried=true; load(true); return; } finish(false); };   // one retry, then give up gracefully
   bb.onload=()=>{ if(bb.naturalWidth===0){ if(!retried){ retried=true; load(true); return; } finish(false); return; }
     ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="block"; }); setBAPos(window.__baPos||55); finish(true); };

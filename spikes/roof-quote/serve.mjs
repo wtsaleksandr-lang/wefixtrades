@@ -12,6 +12,7 @@ const SOLAR=process.env.SOLAR_KEY||"";
 const EIA=process.env.EIA_KEY||process.env.EIA_API_KEY||"";   // US residential electricity rates (public-domain, free commercial use)
 const NREL=process.env.NREL_API_KEY||"";   // api.data.gov key for PVWatts production fallback (no Google Solar coverage)
 import { detectRoofFeatures } from "./rooffeatures.mjs";
+import { buildRoofMask, compositeThroughMask } from "./airoof.mjs";   // roof-ONLY masked-inpaint helpers (Web-Mercator mask + post-composite passthrough)
 const REPLICATE=process.env.REPLICATE_KEY||"";
 const GEMINI=process.env.GEMINI_KEY||"";
 const FAL=process.env.FAL_KEY||"";
@@ -117,6 +118,67 @@ async function renderFal(dataUri,material,pkg,view){
   return url;
 }
 const RENDER_CHAIN=[ ["openai",renderOpenAI], ["replicate",renderReplicate], ["gemini",renderGemini], ["fal",renderFal] ];
+
+// ─── ROOF-ONLY top-down masked re-render ──────────────────────────────────────
+// The guaranteed roof-only path (vs the Kontext img2img above, which can edit cars/yard).
+//  1. Static-Maps SATELLITE (top-down, exact Web Mercator).
+//  2. Building-footprint ring → roof MASK in the SAME pixel space (alignment by construction).
+//  3. Flux Fill inpaint — only the masked (roof) pixels can be repainted.
+//  4. POST-COMPOSITE the result back through the mask onto the ORIGINAL bytes → every non-roof
+//     pixel is provably the original (proven: composited outsideMeanDiff/maxDiff == 0).
+// Flux Fill bleeds outside the mask on its own (proven outsideMeanDiff ~33), so the composite
+// is REQUIRED, not optional. Returns { dataUri, whiteFrac } or throws.
+const TD_ZOOM=20, TD_SIZE=640, TD_SCALE=2;   // → 1280×1280 static-map satellite
+async function topDownSatellite(lat,lng){
+  const url="https://maps.googleapis.com/maps/api/staticmap?center="+lat+","+lng+
+    "&zoom="+TD_ZOOM+"&size="+TD_SIZE+"x"+TD_SIZE+"&scale="+TD_SCALE+"&maptype=satellite&key="+TILES;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error("staticmap_"+r.status);
+  return Buffer.from(await r.arrayBuffer());
+}
+async function fluxFillInpaint(satBuf,maskBuf,material){
+  if(!REPLICATE) throw new Error("no_replicate_key");
+  // guidance≈3 (a Flux guidance scale, NOT a 0-100 %); 60 washed the colour out in testing.
+  const prompt="Aerial top-down photo of a house roof. The masked roof is now covered entirely in "+material+
+    ". Photorealistic shingle texture, the whole roof surface this exact colour, sharp, with shadows and lighting matching the surrounding aerial photo. Keep the exact same roof shape, ridges, hips and outline.";
+  const body={ input:{ image:"data:image/png;base64,"+satBuf.toString("base64"),
+    mask:"data:image/png;base64,"+maskBuf.toString("base64"), prompt, steps:50, guidance:3,
+    output_format:"png", safety_tolerance:2 } };
+  let rr=await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-fill-pro/predictions",{
+    method:"POST", headers:{ "Authorization":"Bearer "+REPLICATE, "Content-Type":"application/json", "Prefer":"wait" },
+    body:JSON.stringify(body) });
+  let j=await rr.json(), tries=0;
+  while(j.status && !["succeeded","failed","canceled"].includes(j.status) && tries<60){
+    await new Promise(s=>setTimeout(s,1500));
+    j=await fetch(j.urls.get,{headers:{"Authorization":"Bearer "+REPLICATE}}).then(r=>r.json()); tries++;
+  }
+  if(j.status!=="succeeded") throw new Error("flux_fill_"+(j.error||j.status||"failed"));
+  const out=Array.isArray(j.output)?j.output[0]:j.output;
+  if(!out) throw new Error("flux_fill_no_output");
+  const raw=Buffer.from(await fetch(out).then(r=>r.arrayBuffer()));
+  return raw;
+}
+// Full roof-only render for an address+material. Caches the composited PNG on disk per (address|material).
+async function renderRoofOnlyTopDown(address,material){
+  // 1) geocode
+  const g=await fetch("https://maps.googleapis.com/maps/api/geocode/json?address="+encodeURIComponent(address)+"&key="+SOLAR).then(r=>r.json());
+  const loc=g.status==="OK"&&g.results[0]&&g.results[0].geometry.location;
+  if(!loc) throw new Error("geocode_failed");
+  // 2) footprint ring (OSM→MS→cache) — the mask source. No ring → no roof-only guarantee → caller falls back.
+  const fp=await footprintForPoint(loc.lat,loc.lng);
+  if(!fp.ring || fp.ring.length<3) throw new Error("no_footprint");
+  // 3) satellite (cache the base per-address so material flips reuse it)
+  let sat=diskGetBuf("tdsat",address);
+  if(!sat){ sat=await topDownSatellite(loc.lat,loc.lng); diskSetBuf("tdsat",address,sat); }
+  const W=TD_SIZE*TD_SCALE, H=TD_SIZE*TD_SCALE;
+  // 4) mask (feather 4px so eave edges are covered; stays roof-only)
+  const m=buildRoofMask(fp.ring,loc.lat,loc.lng,TD_ZOOM,W,H,TD_SCALE,4);
+  if(!(m.whiteFrac>0.002)) throw new Error("mask_empty:"+m.whiteFrac.toFixed(4));   // footprint projected off-frame → bail
+  // 5) inpaint + 6) composite passthrough (guarantees non-roof == original)
+  const raw=await fluxFillInpaint(sat,m.buf,material);
+  const comp=compositeThroughMask(sat,raw,m.png);
+  return { buf:comp.buf, base:sat, whiteFrac:m.whiteFrac, footprintSource:fp.source, attribution:fp.attribution };
+}
 
 // ---- DURABLE re-host of rendered images (audit-6 P1) ----
 // Provider delivery URLs (e.g. replicate.delivery/...) are EPHEMERAL → expire to 404.
@@ -1088,6 +1150,65 @@ http.createServer(async (req,res)=>{
     if(!buf){ res.statusCode=404; res.setHeader("Content-Type","text/plain"); res.end("not_found"); return; }
     const meta=diskGetJSON("airimgct",ck)||{}; const ct=meta.ct||"image/jpeg";
     res.setHeader("Content-Type",ct); res.setHeader("Cache-Control","public, max-age=86400"); res.end(buf);
+    return;
+  }
+  // ---- ROOF-ONLY top-down render: satellite + footprint mask → Flux Fill inpaint → composite passthrough ----
+  // Returns { url, base, footprintSource, attribution } where `url`=composited PNG (non-roof == original by
+  // construction) and `base`=the original satellite (the before image). Falls back gracefully when no footprint.
+  if(u.pathname==="/airender-topdown"){
+    res.setHeader("Content-Type","application/json");
+    const address=u.searchParams.get("address")||"", material=u.searchParams.get("material")||"new architectural asphalt shingles";
+    if(!address){ res.end('{"error":"no_address"}'); return; }
+    const ck="td|"+address+"|"+material+"|v1";
+    const cached=diskGetJSON("tdmeta",ck);
+    if(cached && diskGetBuf("tdimg",ck)){ res.end(JSON.stringify(Object.assign({cached:true},cached))); return; }
+    try{
+      const r=await renderRoofOnlyTopDown(address,material);
+      diskSetBuf("tdimg",ck,r.buf);                 // composited (after) image
+      diskSetBuf("tdbase",address,r.base);          // original satellite (before) image — per-address
+      const meta={ url:"/airender-topdown-img?key="+encodeURIComponent(ck),
+        base:"/airender-topdown-base?address="+encodeURIComponent(address),
+        footprintSource:r.footprintSource, attribution:r.attribution, whiteFrac:r.whiteFrac, roofOnly:true };
+      diskSetJSON("tdmeta",ck,meta);
+      res.end(JSON.stringify(meta));
+    }catch(e){
+      // Honest typed failure so the client can keep its swatch-tint fallback (no roof-only guarantee available here).
+      console.error("[airender-topdown fail]",e&&e.message||e);
+      res.end(JSON.stringify({error:String(e&&e.message||e)}));
+    }
+    return;
+  }
+  if(u.pathname==="/airender-topdown-img"){
+    const ck=u.searchParams.get("key")||""; const buf=ck?diskGetBuf("tdimg",ck):null;
+    if(!buf){ res.statusCode=404; res.setHeader("Content-Type","text/plain"); res.end("not_found"); return; }
+    res.setHeader("Content-Type","image/png"); res.setHeader("Cache-Control","public, max-age=86400"); res.end(buf); return;
+  }
+  if(u.pathname==="/airender-topdown-base"){
+    const address=u.searchParams.get("address")||""; const buf=address?diskGetBuf("tdbase",address):null;
+    if(!buf){ res.statusCode=404; res.setHeader("Content-Type","text/plain"); res.end("not_found"); return; }
+    res.setHeader("Content-Type","image/png"); res.setHeader("Cache-Control","public, max-age=86400"); res.end(buf); return;
+  }
+  // ---- Customer-photo upload render (ToS-clean base) ----
+  // The user uploads THEIR OWN house photo → we repaint the roof material onto it. An arbitrary oblique
+  // upload has no exact roof mask, so this uses the prompt-preservation Kontext chain (NOT the hard
+  // top-down mask) — documented limitation; the top-down satellite path is the roof-only-guaranteed one.
+  if(u.pathname==="/airender-upload" && req.method==="POST"){
+    res.setHeader("Content-Type","application/json");
+    let body=""; req.on("data",d=>{ body+=d; if(body.length>12_000_000){ req.destroy(); } });
+    req.on("end",async()=>{
+      try{
+        const j=JSON.parse(body||"{}");
+        const dataUri=j.image, material=j.material||"new architectural asphalt shingles";
+        if(!dataUri||!dataUri.startsWith("data:image/")){ res.end('{"error":"no_image"}'); return; }
+        // prompt-preservation chain (street view = oblique-style prompt); reuse RENDER_CHAIN providers.
+        const tried=[];
+        for(const [name,fn] of RENDER_CHAIN){
+          try{ const url=await fn(dataUri,material,"","street"); res.end(JSON.stringify({url,provider:name,source:"upload"})); return; }
+          catch(e){ tried.push(name+":"+e.message); console.error("[upload render fail]",name,e.message); }
+        }
+        res.end(JSON.stringify({error:"all_providers_failed",tried}));
+      }catch(e){ console.error("[airender-upload fail]",e&&e.message||e); res.end(JSON.stringify({error:String(e&&e.message||e)})); }
+    });
     return;
   }
   res.setHeader("Content-Type","text/html"); res.end(html);
