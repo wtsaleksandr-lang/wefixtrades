@@ -8306,7 +8306,16 @@ function buildGridCandidates(){
   }catch(_){}
   // robust flux ramp: 5th–95th percentile so a hot/cold outlier doesn't flatten the colours (matches the heatmap intent)
   let fmin=0, fmax=1;
-  if(fluxVals.length>=4){ fluxVals.sort((a,b)=>a-b); fmin=fluxVals[Math.floor(fluxVals.length*0.05)]; fmax=fluxVals[Math.floor(fluxVals.length*0.95)]; if(fmax<=fmin) fmax=fmin+1; }
+  if(fluxVals.length>=4){ fluxVals.sort((a,b)=>a-b); fmin=fluxVals[Math.floor(fluxVals.length*0.05)]; fmax=fluxVals[Math.floor(fluxVals.length*0.95)]; if(fmax<=fmin) fmax=fmin+1;
+    // HONEST DYNAMIC-RANGE FLOOR. On a large, FLAT, uniformly-lit roof the 5–95 flux values cluster in a
+    // tiny band (e.g. Hamilton ~540 kWh/m²/yr p5–p95), so the narrow fmin/fmax stretches sensor-noise-level
+    // differences across the WHOLE magma ramp → fake contour BANDING on a physically near-uniform roof. We
+    // floor the ramp span to an absolute minimum so a tight cluster reads as a smooth single-hue wash, not
+    // manufactured bands. The floor ONLY bites when the real range is below it — a genuinely varied roof
+    // (e.g. Denver's pitched, high/low-sun span ≫ floor) is left UNCHANGED, preserving its real contrast.
+    const ABS_MIN_RANGE=800;   // kWh/m²/yr — below this the variation is noise, not signal; keep it one smooth wash
+    if(fmax - fmin < ABS_MIN_RANGE){ const mid=(fmin+fmax)/2; fmin=mid-ABS_MIN_RANGE/2; fmax=mid+ABS_MIN_RANGE/2; }
+  }
   const fluxBest=fluxVals.length?fluxVals[fluxVals.length-1]:0;
   // per-panel yearly kWh, flux-scaled so a shaded square contributes less.
   //   • Google panels carry a real per-panel yearlyEnergyDcKwh → use it directly (already flux-aware).
@@ -8414,7 +8423,9 @@ function sgDraw(){
     return [bl(rgR),bl(rgG),bl(rgB)]; };
   {
     const range=(SG_STATE.fmax-SG_STATE.fmin)||1;
-    const SS=Math.max(2,Math.round(2*pr.dpr));            // device px per low-res sample (2px → crisp, GPU upscales)
+    const SS=2;                                           // device px per low-res sample. FIXED at 2 (was max(2,round(2*dpr))=4 on a 2× display):
+                                                          // a finer buffer + the multi-pass blur below removes the stair-stepping a 4×-downsampled
+                                                          // buffer left visible on a large, frame-filling FLAT roof. 2px is still cheap; GPU upscales.
     const lw=Math.max(1,Math.ceil(W/SS)), lh=Math.max(1,Math.ceil(H/SS));
     const buf=(SG_STATE._heatBuf&&SG_STATE._heatBuf.width===lw&&SG_STATE._heatBuf.height===lh)
       ? SG_STATE._heatBuf : (SG_STATE._heatBuf=Object.assign(document.createElement("canvas"),{width:lw,height:lh}));
@@ -8444,16 +8455,21 @@ function sgDraw(){
         tintR[ci]=c[0]; tintG[ci]=c[1]; tintB[ci]=c[2]; roofM[ci]=1;
       } }
     // PASS 2 — separable 5-tap binomial blur of the tint, CONFINED to roof cells (off-roof weights dropped),
-    // run once → smooths residual flux-cell stair-stepping into a continuous gradient without bleeding the
-    // colour past the roofline. Then composite the smoothed tint over the photo with an edge-feathered alpha.
+    // run BLUR_PASSES× → smooths residual flux-cell stair-stepping into a continuous gradient without bleeding
+    // the colour past the roofline. A single pass over the (previously 4×) downsampled buffer was too weak to
+    // hide the ramp banding on a large frame-filling flat roof; repeating the separable blur compounds the
+    // smoothing on the smooth-data case while still clipping to the roof. Then composite the smoothed tint
+    // over the photo with an edge-feathered alpha.
     if(fg){
       const KW=[1,4,6,4,1];
+      const BLUR_PASSES=3;   // full horizontal+vertical binomial passes; each is roof-confined so edges stay crisp
       const blurPass=(src,horiz)=>{ const dst=new Float32Array(cells);
         for(let ly=0;ly<lh;ly++)for(let lx=0;lx<lw;lx++){ const i=ly*lw+lx; if(!roofM[i]){ dst[i]=src[i]; continue; }
           let s=0,wsum=0; for(let kk=-2;kk<=2;kk++){ const cc=horiz?lx+kk:lx, rr=horiz?ly:ly+kk; if(cc<0||cc>=lw||rr<0||rr>=lh) continue; const j=rr*lw+cc; if(!roofM[j]) continue; const wkk=KW[kk+2]; s+=src[j]*wkk; wsum+=wkk; }
           dst[i]=wsum>0?s/wsum:src[i]; }
         return dst; };
-      const bR=blurPass(blurPass(tintR,true),false), bG=blurPass(blurPass(tintG,true),false), bB=blurPass(blurPass(tintB,true),false);
+      const smooth=(src)=>{ let a=src; for(let p=0;p<BLUR_PASSES;p++){ a=blurPass(blurPass(a,true),false); } return a; };
+      const bR=smooth(tintR), bG=smooth(tintG), bB=smooth(tintB);
       for(let ly=0;ly<lh;ly++)for(let lx=0;lx<lw;lx++){ const i=ly*lw+lx; if(!roofM[i]) continue;
         // edge feather: fraction of the 8 neighbours that are also roof → interior full alpha, edge softer.
         let nb=0; for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ if(!dr&&!dc) continue; const rr=ly+dr,cc=lx+dc; if(rr<0||cc<0||rr>=lh||cc>=lw) continue; if(roofM[rr*lw+cc]) nb++; }
