@@ -5535,14 +5535,25 @@ function extractFacetPolysAnalytic(margin){
   // Moore-trace can yield a footprint with a single runaway vertex hundreds of metres from the
   // building — a flat horizontal NEEDLE that poisons every facet mesh AND the wall envelope built
   // from this ring (the 7 Painter Ave artifact). The vector path can't normally do this (a real OSM
-  // building ring is compact), but the guard is cheap insurance. A residential footprint is compact:
-  // its farthest vertex sits at most a few × the median vertex-distance from centre, and never >70 m
-  // out. Either breach ⇒ untrustworthy → THROW so the analytic build falls back to legacy/photoreal.
+  // building ring is compact), but the guard is cheap insurance.
+  // A NEEDLE is defined by its SHAPE, not its size: ONE runaway vertex far beyond the bulk of the
+  // ring → maxD ≫ medD. That ratio test (maxD > medD·6) is the real spike detector and fires
+  // regardless of building size. The previous code ALSO hard-capped maxD > 70 m absolute — but a
+  // genuinely LARGE estate (e.g. 8 Frost Creek, a 28-facet mansion ~423 m²) is COMPACT yet legitimately
+  // spans >70 m from centre (medD≈72 m, maxD≈78 m, ratio≈1.1 = clearly NOT a needle), so the absolute
+  // cap mis-rejected it → analytic build fell back to a 2-facet legacy trace with ZERO interior creases
+  // → Ridge/Hip/Valley collapsed to 0 and the whole roof read as rake. Fix: keep the SHAPE test as the
+  // primary needle guard, and apply only a far looser absolute sanity ceiling (no residential parcel —
+  // even a sprawling estate — sits >MAX_FP_RADIUS_M from its own centroid), so a true street-centroid
+  // needle (tiny medD, huge maxD) is still rejected by the ratio while a compact large estate passes.
+  // Either breach ⇒ untrustworthy → THROW so the analytic build falls back to legacy/photoreal.
   { const F=footprint, n=F.length;
     let mE=0,mN=0; for(const[E,N]of F){mE+=E;mN+=N;} mE/=n; mN/=n;
     const ds=F.map(([E,N])=>Math.hypot(E-mE,N-mN)).sort((a,b)=>a-b);
     const medD=ds[(n-1)>>1]||0, maxD=ds[ds.length-1];
-    if(maxD>70 || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
+    const MAX_FP_RADIUS_M=130;   // absurd over-read ceiling (a 260 m-wide building is not residential); large estates sit well under this
+    try{ window.__fpSpikeDiag={ medD:+medD.toFixed(1), maxD:+maxD.toFixed(1), ratio:+(maxD/Math.max(0.01,medD)).toFixed(2), source:footprintSource }; }catch(_){}
+    if(maxD>MAX_FP_RADIUS_M || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
   }
   // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
   //    Applies to BOTH the vector and mask footprints: for a duplex (e.g. 30 Angus Rd), the OSM/mask
