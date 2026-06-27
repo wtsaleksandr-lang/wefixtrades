@@ -1029,13 +1029,13 @@
     <div class="lead-h" id="leadH">See your full quote</div>
     <div class="lead-s" id="leadS">Your personalised roof &amp; solar plan, sent to you instantly.</div>
     <label class="ll" for="lname">Full name</label>
-    <input id="lname" placeholder="Jane Smith" autocomplete="name">
+    <input id="lname" placeholder="Jane Smith" autocomplete="name" maxlength="80">
     <div class="lerr-msg" id="lnameErr">Please enter your name</div>
     <label class="ll" for="lemail">Email</label>
-    <input id="lemail" type="email" placeholder="you@email.com" autocomplete="email">
+    <input id="lemail" type="email" placeholder="you@email.com" autocomplete="email" maxlength="120">
     <div class="lerr-msg" id="lemailErr">Please enter a valid email</div>
     <label class="ll" for="lphone">Phone <span class="lopt">(optional)</span></label>
-    <input id="lphone" type="tel" placeholder="(555) 123-4567" autocomplete="tel">
+    <input id="lphone" type="tel" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
     <div id="lqual">
       <label class="ll" for="ltime">When are you looking to start?</label>
       <select id="ltime"><option value="">Select a timeframe…</option><option>As soon as possible</option><option>This year</option><option>Just exploring</option></select>
@@ -10088,15 +10088,44 @@ try{ flushLeads(); }catch(_){}
 // error the moment the user starts typing in it. Label-only feedback; submit logic unchanged.
 function setLeadErr(id,on){ const inp=$(id),msg=$(id+"Err"); if(inp) inp.classList.toggle("lerr",!!on); if(msg) msg.classList.toggle("on",!!on); }
 ["lname","lemail"].forEach(id=>{ const inp=$(id); if(inp) inp.addEventListener("input",()=>setLeadErr(id,false)); });
+// (P1b) Defense-in-depth at the source: the widget escapes on its OWN render, but the raw name/email
+// are sent byte-for-byte to /lead — a downstream consumer (contractor dashboard / lead email / webhook)
+// that doesn't escape would be a stored-XSS sink. Strip HTML-dangerous chars before building the payload.
+// Keep legitimate names intact (unicode, apostrophes like O'Brien, hyphens) — only remove < > tags/chars.
+function sanitizeLeadName(s){ return String(s||"").replace(/<[^>]*>/g,"").replace(/[<>]/g,"").replace(/\s+/g," ").trim().slice(0,80); }
+// (P0) Build the lead-quote fields for the ACTIVE trade. A roofing lead must carry the ROOFING quote
+// (material/color/squares + the roof card's price range + financing), NOT solar fields. Solar leads are
+// unchanged: tier/kw/priceLo/priceHi + roofSqft, exactly as before. The roof price reuses rdPriceBand() —
+// the single source the roof quote card (renderQuoteCard ~L2945) and rail (rdRenderInfo) already show.
+function leadQuoteFields(trade){
+  if(trade==="roof"){
+    const sel=window.__roofSel||{}, band=(typeof rdPriceBand==="function"?rdPriceBand():null);
+    const sqs=(typeof roofingSquares==="function")?roofingSquares():0;
+    const out={ material:sel.matLabel, matId:sel.matId, color:sel.colorName, squares:sqs?+sqs.toFixed(2):null };
+    if(band){ out.priceLo=band.lo; out.priceHi=band.hi;
+      try{ out.financeMo=Math.round(monthly((band.lo+band.hi)/2, TENANT.financing.roofApr, TENANT.financing.roofYears)); out.financeTerms=TENANT.financing.roofYears+"-yr @ "+TENANT.financing.roofApr+"%"; }catch(_){}
+    }
+    return out;
+  }
+  const t=solarTiers[selTier]||{};
+  return { tier:t.label, kw:t.kw, priceLo:t.lo, priceHi:t.hi, roofSqft:QUOTE&&Math.round(QUOTE.roofSqft) };
+}
 $("lgo").onclick=async()=>{
-  const name=$("lname").value.trim(), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
-  const nameBad=!name, emailBad=!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  const name=sanitizeLeadName($("lname").value), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
+  // reject angle brackets in the email local part too (tightened beyond the basic shape check)
+  const nameBad=!name, emailBad=!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email);
   setLeadErr("lname",nameBad); setLeadErr("lemail",emailBad);
   if(nameBad||emailBad){ (nameBad?$("lname"):$("lemail")).focus(); return; }
-  const t=solarTiers[selTier]||{};
+  // (P1a) one click = one POST: guard synchronously BEFORE the await so rapid clicks can't fire duplicate
+  // /lead POSTs. Re-enable + clear the flag on a thrown error so a failed submit can be retried.
+  if(window.__leadSubmitting) return;
+  window.__leadSubmitting=true; const _go=$("lgo"); if(_go) _go.disabled=true;
   const timeline=($("ltime")&&$("ltime").value)||"", priorities=[...document.querySelectorAll("#lqual .lqp.on")].map(b=>b.dataset.p);
   const leadScore=timeline==="As soon as possible"?3:timeline==="This year"?2:timeline==="Just exploring"?1:0;   // hot/warm/cold for the installer's CRM
-  await sendLead({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode,tier:t.label,kw:t.kw,priceLo:t.lo,priceHi:t.hi,roofSqft:QUOTE&&Math.round(QUOTE.roofSqft)});
+  try{
+    await sendLead(Object.assign({name,email,phone,timeline,priorities,leadScore,address:$("addr").value,trade:tradeMode}, leadQuoteFields(tradeMode)));
+  }catch(e){ window.__leadSubmitting=false; if(_go) _go.disabled=false; throw e; }
+  window.__leadSubmitting=false; if(_go) _go.disabled=false;
   window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none";
   // PER-TRADE GATE: if a pending reveal was deferred behind this form, run it (and reveal the
   // estimate) instead of opening the full report. Otherwise keep the soft-gate behaviour.
@@ -10104,9 +10133,15 @@ $("lgo").onclick=async()=>{
   if(typeof _then==="function"){ try{ _then(); }catch(_){} } else { openReport(); }
 };
 window.__book=async()=>{
-  const t=solarTiers[selTier]||{};
-  await sendLead(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode,tier:t.label,priceHi:t.hi}));
-  const b=$("bookBtn"); if(b){ b.textContent="Assessment requested"; b.classList.add("done"); }
+  // (P1a) one click = one POST: guard before the await + disable the book button.
+  if(window.__bookSubmitting) return;
+  window.__bookSubmitting=true; const b=$("bookBtn"); if(b) b.disabled=true;
+  // (P0) carry the ACTIVE trade's quote so a roofing assessment request shows the roofing quote, not solar.
+  try{
+    await sendLead(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode},leadQuoteFields(tradeMode)));
+  }catch(e){ window.__bookSubmitting=false; if(b) b.disabled=false; throw e; }
+  window.__bookSubmitting=false;
+  if(b){ b.disabled=false; b.textContent="Assessment requested"; b.classList.add("done"); }
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
 window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; };
