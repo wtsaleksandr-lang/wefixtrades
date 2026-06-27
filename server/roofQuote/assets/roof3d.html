@@ -371,7 +371,10 @@
   #baHandle .ba-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#0d3cfc}
   .ba-tag{position:absolute;top:12px;z-index:18;background:rgba(16,22,33,.72);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
   #baTagA{left:12px} #baTagB{right:12px}
-  .pac-container{font-family:"Satoshi","Satoshi Variable",system-ui,sans-serif;border-radius:12px;border:1px solid #e1e7ef;box-shadow:0 12px 40px rgba(15,23,42,.14);margin-top:5px;z-index:9999;overflow:hidden}
+  /* Google injects .pac-container at <body> with an inline z-index:1000, which can sit below
+     hero overlays / intercept the CTA on mobile (hero-bar stacks input over #goHero at 375px).
+     Force it above every overlay so suggestions are always tappable on top. */
+  .pac-container{font-family:"Satoshi","Satoshi Variable",system-ui,sans-serif;border-radius:12px;border:1px solid #e1e7ef;box-shadow:0 12px 40px rgba(15,23,42,.14);margin-top:5px;z-index:10000!important;overflow:hidden}
   .pac-item{padding:8px 12px;font-size:13px;color:#0f172a;cursor:pointer;border-top:1px solid #f1f4f8}
   .pac-item:hover,.pac-item-selected{background:rgba(13,60,252,0.06)}
   .pac-icon{display:none} .pac-item-query{font-size:13px;color:#0f172a}
@@ -11507,7 +11510,10 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
   // shared dropdown UI bound to a single input at a time
   function attach(input, onPick){
     const box=document.createElement("div");
-    box.style.cssText="position:absolute;z-index:60;background:#fff;border:1px solid #e1e7ef;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);overflow:hidden;display:none;font-size:14px;color:#0f172a;max-height:280px;overflow-y:auto";
+    // z-index 10000: this body-level suggestion dropdown must always paint ABOVE every hero/overlay,
+    // incl. the full-width #goHero CTA it stacks over on mobile (375px hero-bar is column, input over button)
+    // — so suggestions near/over the button stay tappable. Closes on pick, so covering the CTA is expected.
+    box.style.cssText="position:absolute;z-index:10000;background:#fff;border:1px solid #e1e7ef;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);overflow:hidden;display:none;font-size:14px;color:#0f172a;max-height:280px;overflow-y:auto";
     document.body.appendChild(box);
     let token=new AutocompleteSessionToken(), items=[], active=-1, seq=0;
     const place=()=>{ const r=input.getBoundingClientRect(); box.style.left=(r.left+window.scrollX)+"px"; box.style.top=(r.bottom+window.scrollY+4)+"px"; box.style.width=r.width+"px"; };
