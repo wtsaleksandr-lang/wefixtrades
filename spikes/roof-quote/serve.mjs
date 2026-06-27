@@ -212,18 +212,38 @@ async function getBrowser(){
   return _browser;
 }
 const captureCache=new Map();   // address → oblique aerial PNG buffer (one headless render per house; materials reuse it)
+const captureInflight=new Map(); // address → Promise<Buffer> — de-dupe concurrent headless renders (two callers share one browser run)
+const captureObliqueDown=new Map(); // address → expiry ms — oblique recently failed (no GPU/tiles); skip it & serve the fast fallback until it expires
+const OBLIQUE_DOWN_TTL=10*60*1000;  // 10 min — long enough to keep /capture snappy, short enough to retry oblique later
 // compass bearing from point A → point B (degrees, 0=N) — used to face the house FROM the street
 function bearing(lat1,lng1,lat2,lng2){
   const r=Math.PI/180, y=Math.sin((lng2-lng1)*r)*Math.cos(lat2*r);
   const x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lng2-lng1)*r);
   return (Math.atan2(y,x)/r+360)%360;
 }
+// Public entry: cached + disk-backed + in-flight de-duped. Two concurrent callers for the same
+// address share ONE headless render (never launch two browsers for one house).
 async function captureOblique(address){
   // VERIFY HOOK: simulate the prod (Replit publish) runtime that ships no headless Chromium,
   // so the /airender oblique→Street View fallback can be exercised locally. Off by default.
   if(process.env.RQ_FORCE_NO_CHROMIUM==="1") throw new Error("headless browser unavailable in this runtime");
   if(captureCache.has(address)) return captureCache.get(address);
   { const d=diskGetBuf("cap",address); if(d){ captureCache.set(address,d); return d; } }
+  if(captureInflight.has(address)) return captureInflight.get(address);   // a render is already running for this house → await it
+  const p=(async()=>{
+    const buf=await _captureObliqueRender(address);
+    captureCache.set(address,buf); diskSetBuf("cap",address,buf);
+    return buf;
+  })().finally(()=>{ captureInflight.delete(address); });
+  captureInflight.set(address,p);
+  return p;
+}
+// The actual headless render. Bounded so it can never hang the request ~70s:
+// poll __roofReady up to READY_MAX_MS, then give the tiles a short settle, then screenshot.
+async function _captureObliqueRender(address){
+  // Bounded readiness wait. Old code polled 60×1000ms (+9s tiles ≈ 70s worst case) which timed out
+  // the client. Cap the readiness poll so /capture can fall back fast instead of hanging.
+  const READY_MAX_MS=Number(process.env.RQ_CAPTURE_READY_MS||14000);   // ~14s ceiling on roof-ready (a GPU env reaches ready well under this; no-GPU never will → bail fast to fallback)
   const browser=await getBrowser();
   const ctx=await browser.newContext({ viewport:{width:1080,height:840} });
   const page=await ctx.newPage();
@@ -231,12 +251,18 @@ async function captureOblique(address){
     const port=process.env.PORT||5300;
     await page.goto("http://localhost:"+port+"/roof3d?noauto=1",{ waitUntil:"domcontentloaded" });   // noauto → no default-address race
     await page.fill("#addr",address); await page.click("#go");
-    for(let i=0;i<60;i++){ if(await page.evaluate(()=>window.__roofReady===true)) break; await sleep(1000); }
+    const readyDeadline=Date.now()+READY_MAX_MS;
+    let ready=false;
+    while(Date.now()<readyDeadline){ if(await page.evaluate(()=>window.__roofReady===true)){ ready=true; break; } await sleep(1000); }
+    // If readiness never arrived the scene/tiles aren't reliably painted (e.g. no GPU → SwiftShader can't
+    // stream Google 3D tiles). Bail NOW so the route falls back to Street View FAST, instead of spending
+    // another ~15s on camera+screenshot work that produces a blank/partial frame anyway.
+    if(!ready) throw new Error("__roofReady not set within "+READY_MAX_MS+"ms — bailing to fallback");
     await sleep(3500);
     await page.click("#bPanels").catch(()=>{});          // solar panels OFF → clean roof
     await sleep(700);
     // face the house FROM the street (curb-appeal angle): bearing street-pano → house. Falls back to 180.
-    const site=await page.evaluate(()=>window.__site());
+    const site=await page.evaluate(()=>(typeof window.__site==="function")?window.__site():null);
     let heading=180;
     try{
       const m=await fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+encodeURIComponent(address)+"&key="+SOLAR);
@@ -244,15 +270,14 @@ async function captureOblique(address){
       if(mj.status==="OK" && mj.location && site) heading=bearing(mj.location.lat,mj.location.lng,site.lat,site.lng);
     }catch(_){}
     // set the camera DIRECTLY (animated flyCameraTo doesn't reliably apply under headless SwiftShader) + fly as backup
-    await page.evaluate((h)=>{ try{ const s=window.__site(); const g=window.gmap;
+    await page.evaluate((h)=>{ try{ if(typeof window.__site!=="function") return; const s=window.__site(); const g=window.gmap;
       g.center={lat:s.lat,lng:s.lng,altitude:s.alt}; g.range=64; g.tilt=54; g.heading=h;   // zoomed OUT a bit (was 44) → more context, low-res Google imagery less obvious
       if(g.flyCameraTo) g.flyCameraTo({endCamera:{center:{lat:s.lat,lng:s.lng,altitude:s.alt},range:64,tilt:54,heading:h},durationMillis:300});
     }catch(e){} }, heading);
-    await sleep(9000);                                    // SwiftShader streams the closer tiles slowly — give it time
+    await sleep(9000);                                     // SwiftShader streams the closer tiles slowly — give it time
     await page.addStyleTag({ content:"#card,#ctrls,#bar,#status,#matbar,#sunbar,#matHint,#load,#aiBtn,#aiBar,#report{display:none!important}" });
     await sleep(700);
     const buf=await page.screenshot({ type:"png" });
-    captureCache.set(address,buf); diskSetBuf("cap",address,buf);
     return buf;
   } finally { await ctx.close(); }
 }
@@ -961,8 +986,56 @@ http.createServer(async (req,res)=>{
   if(u.pathname==="/capture"){
     const address=u.searchParams.get("address")||"";
     if(!address){ res.statusCode=400; res.end("missing address"); return; }
-    try{ const buf=await captureOblique(address); res.setHeader("Content-Type","image/png"); res.setHeader("Cache-Control","public, max-age=3600"); res.end(buf); }
-    catch(e){ res.statusCode=502; res.setHeader("Content-Type","text/plain"); res.end("capture_failed: "+(e&&e.message||e)); }
+    // ALWAYS return SOME image fast, never hang. Chain: bounded headless oblique → Street View "before".
+    // X-Capture-Source tells the client which path served it (oblique | streetview) so it can label honestly.
+    // Fast path: a real oblique is already cached → serve it.
+    if(captureCache.has(address) || diskGetBuf("cap",address)){
+      try{ const buf=await captureOblique(address);
+        res.setHeader("Content-Type","image/png"); res.setHeader("Cache-Control","public, max-age=3600");
+        res.setHeader("X-Capture-Source","oblique"); res.end(buf); return;
+      }catch(_){ /* fall through to fallback chain below */ }
+    }
+    // If oblique recently failed for this address (no GPU/tiles), skip the ~20s headless attempt and
+    // serve the cached/fresh Street-View fallback directly — keeps repeat /capture calls snappy.
+    const obliqueDown=(captureObliqueDown.get(address)||0)>Date.now();
+    const serveStreetView=async(extra)=>{
+      const cached=diskGetBuf("capfb",address);   // previously-fetched Street-View "before" → instant
+      if(cached){ res.setHeader("Content-Type","image/jpeg"); res.setHeader("Cache-Control","public, max-age=3600");
+        res.setHeader("X-Capture-Source","streetview"); res.end(cached); return true; }
+      const sv=await streetViewBuf(address).catch(e=>({ok:false,status:0,error:String(e&&e.message||e)}));
+      if(sv.ok){ diskSetBuf("capfb",address,sv.buf);
+        res.setHeader("Content-Type","image/jpeg"); res.setHeader("Cache-Control","public, max-age=3600");
+        res.setHeader("X-Capture-Source","streetview"); res.end(sv.buf); return true; }
+      // Neither oblique nor Street View available → honest failure (client paints its own aerial fallback).
+      res.statusCode=502; res.setHeader("Content-Type","text/plain"); res.setHeader("X-Capture-Source","none");
+      res.end("capture_failed: "+(extra||"")+"streetview("+(sv.status?sv.status+" ":"")+sv.error+")");
+      return false;
+    };
+    if(obliqueDown){ await serveStreetView(""); return; }
+    // RACE: wait up to CAPTURE_DEADLINE_MS for the oblique render. If it lands first, serve it. If the
+    // deadline wins, serve Street View NOW (never make the user wait the full render) while the oblique
+    // keeps running in the BACKGROUND to populate the cache — so the NEXT load of this house is the real
+    // oblique. This bounds /capture response time regardless of how slow the headless render is.
+    const CAPTURE_DEADLINE_MS=Number(process.env.RQ_CAPTURE_DEADLINE_MS||10000);
+    let settledByRace=false;
+    const obliqueP=captureOblique(address).then(buf=>({buf})).catch(capErr=>{
+      // Track failures so subsequent calls skip the slow attempt and go straight to the fast fallback.
+      captureObliqueDown.set(address,Date.now()+OBLIQUE_DOWN_TTL);
+      console.warn("[capture] oblique failed for "+address+" (bg):",capErr&&capErr.message||capErr);
+      return {err:capErr};
+    });
+    // Keep the background render alive even if the deadline serves SV first (don't drop it unhandled).
+    obliqueP.then(r=>{ if(r&&r.buf&&!settledByRace) console.log("[capture] oblique cached late for "+address); });
+    const deadline=new Promise(r=>setTimeout(()=>r("__deadline__"),CAPTURE_DEADLINE_MS));
+    const winner=await Promise.race([obliqueP,deadline]);
+    if(winner!=="__deadline__" && winner && winner.buf){
+      settledByRace=true;
+      res.setHeader("Content-Type","image/png"); res.setHeader("Cache-Control","public, max-age=3600");
+      res.setHeader("X-Capture-Source","oblique"); res.end(winner.buf); return;
+    }
+    // Deadline won OR oblique errored fast → serve Street View now (oblique, if still running, fills cache).
+    settledByRace=true;
+    await serveStreetView((winner&&winner.err)?("oblique("+(winner.err.message||winner.err)+") "):"oblique(slow>"+CAPTURE_DEADLINE_MS+"ms) ");
     return;
   }
   // ---- AI photoreal roof material re-render: Street View → Flux Kontext (Replicate) repaint, cached ----
@@ -1018,4 +1091,11 @@ http.createServer(async (req,res)=>{
     return;
   }
   res.setHeader("Content-Type","text/html"); res.end(html);
-}).listen(process.env.PORT||5300,()=>console.log("serving "+(process.env.PORT||5300)));
+}).listen(process.env.PORT||5300,()=>{
+  console.log("serving "+(process.env.PORT||5300));
+  // Pre-warm the headless browser off the critical path so the FIRST /capture (oblique) doesn't pay the
+  // one-time SwiftShader Chromium launch (~12-15s). Skipped when no-Chromium mode is forced.
+  if(process.env.RQ_FORCE_NO_CHROMIUM!=="1"){
+    getBrowser().then(()=>console.log("[capture] browser pre-warmed")).catch(e=>console.warn("[capture] browser pre-warm skipped:",e&&e.message||e));
+  }
+});

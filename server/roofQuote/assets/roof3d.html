@@ -10870,7 +10870,7 @@ function showInstantTint(m,c){
   const r=$("aiRendering"); if(r) r.style.display="flex";
   return ok;
 }
-function clearInstantTint(){ const r=$("aiRendering"); if(r) r.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }
+function clearInstantTint(){ const r=$("aiRendering"); if(r && !window.__baLoading) r.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none"; }   // keep the pill while a before/after "before" image is still loading
 /* UTM bbox of the queried building (+margin) so analysis paints only THIS roof, not neighbours */
 function buildingBox(margin){
   if(!LASTB||!(LASTFLUX||LASTDSM)) return null;
@@ -11419,9 +11419,24 @@ window.__openMaterials=()=>{ if(tradeMode!=="roof"){ tradeMode="roof"; renderQuo
 // ── Before/After slider: drag the divider to wipe between the new material (left) and the original roof (right) ──
 function setBAPos(pos){ pos=Math.max(3,Math.min(97,pos)); window.__baPos=pos; const b=$("baBefore"); if(b) b.style.clipPath="inset(0 0 0 "+pos+"%)"; const h=$("baHandle"); if(h) h.style.left="calc("+pos+"% - 1px)"; }
 function activateBA(){ const addr=$("addr").value.trim(); if(!addr) return; const bb=$("baBefore");
-  bb.onerror=()=>{ deactivateBA(); };   // if the "before" capture fails, hide the slider rather than show a blank white panel
-  bb.onload=()=>{ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="block"; }); setBAPos(window.__baPos||55); };   // only reveal the slider once the before image has actually loaded
-  bb.src="/api/roofquote/capture?address="+encodeURIComponent(addr); }
+  // /capture can be slow (headless render) or fall back to Street View. Show a loading hint while it
+  // resolves and a hard timeout so the "before" half never sits blank — on slow/fail we cleanly drop
+  // the slider (the AI "after" still shows full-bleed; never a blank gray box). Single retry on miss.
+  let settled=false, retried=false;
+  if(typeof setBaLoading==="function") setBaLoading(true);
+  const finish=ok=>{ if(settled) return; settled=true; clearTimeout(to);
+    if(typeof setBaLoading==="function") setBaLoading(false);
+    if(!ok) deactivateBA(); };
+  const load=cb=>{ bb.src="/api/roofquote/capture?address="+encodeURIComponent(addr)+(cb?"&_cb="+Date.now():""); };
+  bb.onerror=()=>{ if(!retried){ retried=true; load(true); return; } finish(false); };   // one retry, then give up gracefully
+  bb.onload=()=>{ if(bb.naturalWidth===0){ if(!retried){ retried=true; load(true); return; } finish(false); return; }
+    ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="block"; }); setBAPos(window.__baPos||55); finish(true); };
+  const to=setTimeout(()=>{ if(!settled){ try{ bb.src=""; }catch(_){} finish(false); } }, 28000);   // slow /capture → drop the before half, keep the after preview
+  load(false); }
+// Loading hint for the before/after "before" image fetch — reuses the #aiRendering pill (spinner + text).
+function setBaLoading(on){ try{ window.__baLoading=!!on; const r=$("aiRendering"); if(!r) return;
+  if(on){ const t=r.querySelector("span:last-child"); if(t) t.textContent="Loading your home photo…"; r.style.display="flex"; }
+  else { r.style.display="none"; } }catch(_){} }
 function deactivateBA(){ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{ const e=$(id); if(e) e.style.display="none"; }); }
 (function(){ let drag=false; const rect=()=>$("aiPhoto").getBoundingClientRect();
   const upd=cx=>{ const r=rect(); if(r.width) setBAPos((cx-r.left)/r.width*100); };
