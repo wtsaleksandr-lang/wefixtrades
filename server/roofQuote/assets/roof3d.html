@@ -2205,15 +2205,20 @@ function quoteAreaSqFt(){
 // surface reconciles to, so the diagram / preview / 3D / report / takeoff all report the SAME
 // owner's-half roof on a shared building (and the whole roof on a detached home).
 function roofUnitSqFt(){
-  // PHASE 1b — when the homeowner has edited the outer outline (RoofDots active or confirmed), the
-  // CANONICAL roof area becomes their EDITED, pitch-corrected sloped area (Σ per-facet scaled by the
-  // edited plan-area ratio). Routing it through here means the WHOLE real quote — squares, the material
-  // price ladder, the takeoff, solar kW — recomputes from the edited area via the existing pricing path,
-  // so the live number on drag == the real quote engine's number (one roof size everywhere).
+  // ── ONE CANONICAL BASIS: FLAT FOOTPRINT, INDEPENDENT OF ENTRY PATH (bug #1 fix) ───────────────
+  // quoteAreaSqFt() must return the SAME number whether the homeowner reached the roofing designer
+  // via the quote-card "Roofing" TAB or via the BRANCH card ("Continue with Roofing remodel"). The
+  // canonical roof area is the FLAT (footprint) area — pitch+waste is applied EXACTLY ONCE, downstream,
+  // in roofingSquares(). Previously the branch path activated RoofDots and committed the *sloped*
+  // editArea() here, inflating quoteArea ~+46% vs the tab path (which keeps the flat footprint), so the
+  // SAME roof billed two different sizes + prices. Now BOTH paths hold the flat area here; the slope
+  // correction lives in ONE place (roofingSquares) and is never double-applied.
+  // PHASE 1b — when the homeowner has edited the outer outline (RoofDots active/confirmed), use their
+  // EDITED FLAT footprint (not the sloped editArea) so the whole quote recomputes from the edited size.
   try{
-    if(typeof RoofDots!=="undefined" && RoofDots.active()){
-      const e=RoofDots.editArea();   // edited sloped ft² (already pitch-corrected + reconciled)
-      if(e>0 && isFinite(e)) return e;
+    if(typeof RoofDots!=="undefined" && RoofDots.active() && typeof RoofDots.flatArea==="function"){
+      const f=RoofDots.flatArea();   // edited FLAT footprint ft² (slope NOT applied — applied once in roofingSquares)
+      if(f>0 && isFinite(f)) return f;
     }
   }catch(_){}
   return ((QUOTE&&QUOTE.roofSqft)||0)*roofSplitRatio();
@@ -2241,11 +2246,17 @@ function pitchSlopeMult(){
   return 1.0;   // unknown pitch → no correction (never under-count by guessing a steeper roof)
 }
 function roofingSquares(){
-  // RoofDots active/confirmed → its editArea() is ALREADY the pitch-corrected sloped area; route
-  // both surfaces through it so an edited outline updates desktop and mobile identically.
+  // THE ONE PLACE pitch+slope is applied to get shingle squares — quoteAreaSqFt() stays FLAT (footprint)
+  // on BOTH the tab and branch paths (see roofUnitSqFt), so this is the single, deterministic slope layer.
+  // Whether the homeowner reached roofing via the TAB or the BRANCH, the flat basis is identical, so this
+  // returns the SAME squares (and thus the same material price) on both paths.
+  // RoofDots active/confirmed → its editArea() is the pitch-corrected sloped area of the EDITED outline
+  // (per-facet cos(pitch)); route both desktop + mobile surfaces through it so an edited outline updates
+  // both identically. Not active → apply the canonical predominant-pitch slope multiplier to the flat
+  // owner's-unit area. Either branch yields SLOPED squares from the SAME flat footprint — never doubled.
   try{
     if(typeof RoofDots!=="undefined" && RoofDots.active()){
-      const e=RoofDots.editArea();   // sloped ft² (pitch-corrected + reconciled)
+      const e=RoofDots.editArea();   // sloped ft² (pitch-corrected + reconciled) of the edited outline
       if(e>0 && isFinite(e)) return e/100;
     }
   }catch(_){}
@@ -7598,8 +7609,20 @@ const RoofDots=(function(){
       // the live HUD never shows a confident range next to "we can't price this instantly". The sq-ft /
       // squares / perimeter measurements stay — they're honest takeoff numbers, just not a quoted price.
       const priceStat=prEl?prEl.closest(".dh-price"):null;
+      // PER-TRADE GATE (BUG #2 — scrapeable hidden-node leak): this HUD lives in a zero-sized
+      // (offsetParent:null, w/h 0) but display:block node, so a real "$lo–$hi" written here is
+      // INVISIBLE on screen yet plain-text in document.body.innerHTML — readable via DevTools/scraper
+      // even though every VISIBLE card surface already masks it. So when the relevant trade is gated
+      // (no lead yet), NEVER emit the real range here — write the same 🔒 mask the visible surfaces use.
+      // The HUD prices a roof remodel ("est. roof"), so gate on roof; also honour the active trade's gate
+      // so a gated solar session never leaks a number through this node either. Reveals once __lead is set.
+      let _hudGated=false;
+      try{ _hudGated=(typeof window.__priceGated==="function") && (window.__priceGated("roof") || (typeof tradeMode!=="undefined" && window.__priceGated(tradeMode))); }catch(_){}
       if(window.__largeRoof){
         if(priceStat) priceStat.style.display="none";
+      } else if(_hudGated){
+        if(priceStat) priceStat.style.display="";
+        if(prEl) prEl.textContent="🔒";   // masked — real price absent from the DOM until lead capture
       } else {
         if(priceStat) priceStat.style.display="";
         const real=realQuoteBand(m.areaSqFt);
@@ -7966,7 +7989,8 @@ const RoofDots=(function(){
     editing:()=>on,
     footprintM:()=>ringM,                     // edited ring (model-local metres) for renderRoofDiagram's clip
     totals:()=>measure(),
-    editArea,                                 // edited pitch-corrected sloped ft² → canonical roof area while active
+    editArea,                                 // edited pitch-corrected SLOPED ft² → roofing squares while active
+    flatArea:()=>{ const m=measure(); return m?m.flatSqFt:0; },   // edited FLAT (footprint) ft² → canonical quoteArea (pitch applied later, once, in roofingSquares)
     setPitchClass:(c)=>{ pitchClass=(c==="auto"||c==null)?null:c; afterEdit(); return measure(); },  // for tests
     pitchClass:()=>pitchClass,
     cornersScreen:()=>{ if(!ringM) return null; return ringM.map(([xm,ym])=>modelToScreen(xm,ym)); },  // current corner CSS-px positions (editor's own mapping) — for tests
@@ -10161,7 +10185,10 @@ function proposalSections(){ const tr=TENANT.trade||{};
 }
 function openReport(){
   if(!QUOTE){ return; }
-  const addr=$("addr").value, sqs=quoteAreaSqFt()/100;   // owner's-unit squares (split-aware) so the report price matches the card
+  // bug #1: roofing squares = pitch-corrected SLOPED squares (roofingSquares), the SAME figure the quote
+  // card + desktop/mobile rails price off — NOT the flat quoteAreaSqFt()/100 — so the report price matches
+  // the card identically AND is the same whether roofing was reached via the tab or the branch.
+  const addr=$("addr").value, sqs=(typeof roofingSquares==="function")?roofingSquares():quoteAreaSqFt()/100;
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
   const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
@@ -12325,7 +12352,7 @@ function renderCols(){
 // live price for the current material selection — surfaced in the render bar so mobile sees the price while browsing (the quote card is hidden behind the catalogue on mobile)
 function matPriceStr(){
   if(!window.__roofSel||!QUOTE) return "";
-  const sel=window.__roofSel, sqs=quoteAreaSqFt()/100, psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;   // owner's-unit squares (split-aware)
+  const sel=window.__roofSel, sqs=(typeof roofingSquares==="function")?roofingSquares():quoteAreaSqFt()/100, psq=ROOF_PSQ[sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;   // bug #1: pitch-corrected sloped squares (SAME source as the card/desktop rail) so mobile price == card price, tab==branch
   let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, getRoofTotals());
   return fmtMoney(Math.round(lo/50)*50)+"–"+fmtMoney(Math.round(hi/50)*50);
 }
