@@ -43,36 +43,53 @@
        it never overlaps the relocated #bar. bottom:12 + max-height(100vh-127) → top = 115px. */
     body.funnel-on #card{max-height:calc(100vh - 127px)}
   }
-  /* ===== LANDING HERO (initial/empty state) — title-left, visual-right, clean, premium ===== */
-  #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:24px clamp(20px,5vw,72px);background:radial-gradient(120% 120% at 82% 12%,rgba(13,60,252,.12),transparent 56%),var(--bg)}
-  #hero .hero-inner{width:100%;max-width:1180px;display:flex;align-items:center;justify-content:space-between;gap:clamp(24px,5vw,72px)}
-  #hero .hero-panel{flex:1 1 0;min-width:0;max-width:560px;text-align:left}
-  /* right-half product preview — desktop only */
-  #hero .hero-visual{flex:0 0 auto;width:min(40%,420px);display:flex;justify-content:center}
-  #hero .hv-card{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:12px;box-shadow:0 24px 60px rgba(15,23,42,.14),0 4px 14px rgba(15,23,42,.06);transform:rotate(-1.2deg);transition:transform .25s ease}
-  #hero .hv-card:hover{transform:rotate(0deg)}
-  #hero .hv-render{position:relative;border-radius:14px;overflow:hidden;background:#eef2fb;aspect-ratio:320/220}
-  #hero .hv-svg{display:block;width:100%;height:100%}
-  #hero .hv-badge{position:absolute;top:10px;left:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(15,23,42,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px}
-  #hero .hv-dot{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.25)}
-  #hero .hv-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:11px 6px 4px}
-  #hero .hv-plabel{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
-  #hero .hv-price{font-size:22px;font-weight:900;color:var(--ink);line-height:1.05;letter-spacing:-.01em}
-  #hero .hv-price span{font-size:13px;font-weight:700;color:var(--muted)}
-  #hero .hv-spec{font-size:11px;font-weight:700;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:8px;padding:5px 9px;white-space:nowrap}
-  #hero .hero-eyebrow{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:5px 12px;margin-bottom:16px}
-  #hero .hero-title{margin:0;font-size:clamp(28px,4.6vw,46px);line-height:1.07;font-weight:900;letter-spacing:-.02em;color:var(--ink);text-wrap:balance}
-  #hero .hero-sub{margin:14px 0 22px;font-size:clamp(15px,1.7vw,18px);line-height:1.5;color:var(--muted);max-width:48ch}
-  #hero .hero-bar{display:flex;gap:8px;max-width:480px}
-  #hero #addrHero{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 16px;height:54px;color:var(--ink);font-size:16px;font-family:inherit;outline:none;box-shadow:var(--card-shadow)}
-  #hero #addrHero::placeholder{color:var(--faint)}
-  #hero #addrHero:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,.12)}
-  #hero #goHero{flex:0 0 auto;background:#0d3cfc;border:0;border-radius:12px;padding:0 22px;height:54px;font-weight:800;color:#fff;font-size:16px;cursor:pointer;box-shadow:var(--btn-shadow);font-family:inherit}
-  #hero .hero-sample{display:inline-block;margin:12px 0 0;background:none;border:0;padding:0;color:#0d3cfc;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  /* ===== LANDING HERO (initial/empty state) — slowly-spinning globe backdrop + centered dark frosted-glass card ===== */
+  /* #hero stays a flex centering container so the existing JS show/hide (h.style.display="flex"/"none") is untouched. */
+  #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:clamp(20px,5vw,64px) clamp(16px,5vw,64px);overflow:hidden;
+    /* deep-space backdrop: near-black with a faint blue glow up-right, so the frosted card pops */
+    background:radial-gradient(130% 120% at 78% 8%,rgba(40,86,255,.20),transparent 52%),radial-gradient(110% 120% at 15% 95%,rgba(16,140,120,.12),transparent 50%),#05070e}
+  /* GLOBE BACKDROP — a slowly-spinning Earth painted on a 2D canvas (GPU-light, no WebGL context, mobile-safe). */
+  #heroGlobe{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(118vw,118vh);height:min(118vw,118vh);max-width:1400px;max-height:1400px;z-index:0;pointer-events:none;opacity:.92;filter:saturate(1.02)}
+  /* faint star field behind the globe */
+  #heroStars{position:absolute;inset:0;z-index:0;pointer-events:none;background-repeat:repeat;opacity:.5}
+  /* the floating frosted card */
+  #hero .hero-card{position:relative;z-index:2;width:100%;max-width:560px;padding:clamp(24px,3.4vw,38px);border-radius:24px;text-align:left;
+    background:linear-gradient(165deg,rgba(17,22,34,.74),rgba(8,11,20,.80));
+    -webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 30px 80px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.06) inset,0 -1px 0 rgba(0,0,0,.3) inset;overflow:hidden}
+  /* subtle dotted texture in the lower-right corner like the reference */
+  #hero .hero-card::after{content:"";position:absolute;right:-10px;bottom:-10px;width:46%;height:54%;pointer-events:none;z-index:0;
+    background-image:radial-gradient(rgba(255,255,255,.16) 1px,transparent 1.4px);background-size:13px 13px;
+    -webkit-mask-image:radial-gradient(120% 120% at 100% 100%,#000 18%,transparent 62%);mask-image:radial-gradient(120% 120% at 100% 100%,#000 18%,transparent 62%);opacity:.7}
+  #hero .hero-card>*{position:relative;z-index:1}
+  /* eyebrow + pills row */
+  #hero .hc-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+  #hero .hc-eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)}
+  #hero .hc-pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:99px;border:1px solid currentColor;background:rgba(255,255,255,.02);line-height:1}
+  #hero .hc-pill.solar{color:#4ade80;background:rgba(74,222,128,.08)}
+  #hero .hc-pill.roof{color:#fb923c;background:rgba(251,146,60,.08)}
+  /* headline — big, LIGHT weight, white (matches reference) */
+  #hero .hc-title{margin:0;font-size:clamp(28px,4.4vw,44px);line-height:1.08;font-weight:300;letter-spacing:-.018em;color:#f6f8ff;text-wrap:balance}
+  #hero .hc-title em{font-style:normal;font-weight:500;color:#fff}
+  #hero .hc-body{margin:14px 0 0;font-size:clamp(14px,1.45vw,16px);line-height:1.55;color:rgba(232,237,248,.74);max-width:46ch}
+  /* feature checks */
+  #hero .hc-feats{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+  #hero .hc-feat{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:rgba(226,232,245,.82)}
+  #hero .hc-feat svg{flex:0 0 auto;width:16px;height:16px;stroke:#4ade80;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  /* address field + CTA */
+  #hero .hero-bar{display:flex;gap:10px;margin-top:22px}
+  #hero #addrHero{flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:0 16px;height:56px;color:#f4f7ff;font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+  #hero #addrHero::placeholder{color:rgba(226,232,245,.45)}
+  #hero #addrHero:focus{border-color:#3b82f6;background:rgba(255,255,255,.09);box-shadow:0 0 0 3px rgba(59,130,246,.28)}
+  #hero #goHero{flex:0 0 auto;background:linear-gradient(180deg,#2f7bff,#1763f5);border:0;border-radius:14px;padding:0 24px;height:56px;font-weight:800;color:#fff;font-size:16px;cursor:pointer;box-shadow:0 10px 26px rgba(23,99,245,.42);font-family:inherit;white-space:nowrap;transition:filter .15s,transform .05s}
+  #hero #goHero:hover{filter:brightness(1.06)}
+  #hero #goHero:active{transform:translateY(1px)}
+  #hero .hero-sample{display:inline-block;margin:14px 0 0;background:none;border:0;padding:0;color:#7eaaff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   #hero .hero-sample:hover{text-decoration:underline}
-  #hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:22px}
-  #hero .hero-tchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--muted)}
-  #hero .hero-tchip svg{flex:0 0 auto;width:15px;height:15px;stroke:#16a34a;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* white-label "powered by" line — hidden unless a tenant brand is injected */
+  #hero .hero-poweredby{display:none;margin:14px 0 0;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:rgba(226,232,245,.5)}
+  #hero .hero-poweredby b{color:rgba(232,237,248,.8);font-weight:700}
   /* ===== FUNNEL PROGRESS BAR (Sky-Quote/Roofr-style: Address · Roof · Options · Estimate) =====
      Hidden by default; shown on the Select-Your-Roof step and once the roof view loads. Sits at the
      very top, above the search bar, so the buyer always sees where they are in the flow. */
@@ -159,16 +176,15 @@
     #selectRoof .sr-back{width:100%;justify-content:center}
     #selectRoof .sr-continue{width:100%;max-width:none}
   }
-  /* below ~900px the two-column split gets cramped → drop the visual, let the panel breathe full-width */
-  @media (max-width:900px){ #hero .hero-visual{display:none} #hero .hero-panel{max-width:640px} #hero .hero-inner{justify-content:center} }
+  /* MOBILE (≤560px): card goes near-full-width, globe fills behind, address+CTA stack vertically */
   @media (max-width:560px){
-    #hero{align-items:flex-start;justify-content:flex-start;padding:64px 20px 24px}
-    #hero .hero-inner{display:block}
-    #hero .hero-visual{display:none}            /* mobile: clean stack only, no right-side visual, no overflow */
-    #hero .hero-bar{flex-direction:column}
-    #hero #goHero{height:50px;width:100%}
-    #hero #addrHero{height:50px}
-    #hero .hero-trust{gap:7px 14px;margin-top:18px}
+    #hero{align-items:center;justify-content:center;padding:24px 16px}
+    #hero .hero-card{max-width:none;padding:24px 22px;border-radius:22px}
+    #hero .hc-feats{grid-template-columns:1fr;gap:9px}
+    #hero .hero-bar{flex-direction:column;gap:10px}
+    #hero #goHero{height:54px;width:100%}
+    #hero #addrHero{height:54px}
+    #heroGlobe{width:150vw;height:150vw;opacity:.78}
     /* top search bar (active/quote state): at 375px the side-by-side "Get Quote" button squeezed the
        input and the entered address was clipped under it (wave-2 ellipsis only HID the clip, it didn't
        fix it). STACK the input above the button so the input gets the full bar width and the whole
@@ -936,66 +952,33 @@
     <button class="bc-commercial" id="bcCommercial" type="button" style="display:none">Request a commercial quote<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     <button class="bc-back" id="bcBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to editing</button>
   </div>
-  <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads (renderQuoteCard). Title-left, visual-right per Alex's hero rules. -->
+  <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads. Slowly-spinning globe backdrop + centered dark frosted-glass card (reference: Google Maps Platform "Solar" card). -->
   <div id="hero">
-    <div class="hero-inner">
-    <div class="hero-panel">
-      <div class="hero-eyebrow">Instant roof &amp; solar quote</div>
-      <h1 class="hero-title">See your home in 3D and get a real roof &amp; solar quote in ~60 seconds.</h1>
-      <p class="hero-sub">Type your address — we measure your roof from satellite imagery and price it instantly. No call, no obligation.</p>
+    <!-- BACKDROP: faint star field + slowly-rotating Earth globe painted on a 2D canvas (GPU-light). aria-hidden — decorative. -->
+    <div id="heroStars" aria-hidden="true"></div>
+    <canvas id="heroGlobe" aria-hidden="true"></canvas>
+    <!-- THE CARD -->
+    <div class="hero-card">
+      <div class="hc-top">
+        <span class="hc-eyebrow">Instant Quote</span>
+        <span class="hc-pill solar">Solar</span>
+        <span class="hc-pill roof">Roofing</span>
+      </div>
+      <h1 class="hc-title">Your roof &amp; solar quote — <em>in seconds</em></h1>
+      <p class="hc-body">Just enter your address. See real solar panels on your actual roof, preview a brand-new roof on your home, and get real pricing instantly — no sales calls, no waiting.</p>
+      <ul class="hc-feats">
+        <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant pricing from your address</li>
+        <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>See solar panels on your real roof</li>
+        <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Preview a new roof on your home</li>
+        <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Real sun &amp; savings data</li>
+      </ul>
       <div class="hero-bar">
         <input id="addrHero" placeholder="Enter your home address" autocomplete="off">
         <button id="goHero">Get my quote</button>
       </div>
       <button id="heroSample" class="hero-sample" type="button">Or try a sample address →</button>
-      <div class="hero-trust">
-        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Real measurements from satellite imagery</span>
-        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant — about 60 seconds</span>
-        <span class="hero-tchip"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Free · no obligation</span>
-      </div>
-    </div>
-    <!-- RIGHT-HALF VISUAL (desktop only) — an illustrative "this is what you'll get" preview that reads as the real
-         product: a 3D roof with solar panels + a floating price chip. Hidden on mobile so the clean stack is untouched. -->
-    <div class="hero-visual" aria-hidden="true">
-      <div class="hv-card">
-        <div class="hv-render">
-          <svg class="hv-svg" viewBox="0 0 320 220" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <linearGradient id="hvSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dce6fb"/><stop offset="1" stop-color="#eef2fb"/></linearGradient>
-              <linearGradient id="hvRoofL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4a63"/><stop offset="1" stop-color="#2a3850"/></linearGradient>
-              <linearGradient id="hvRoofR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#52617c"/><stop offset="1" stop-color="#3c4a63"/></linearGradient>
-              <linearGradient id="hvPanel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d49d6"/><stop offset="1" stop-color="#0d3cfc"/></linearGradient>
-            </defs>
-            <rect width="320" height="220" fill="url(#hvSky)"/>
-            <!-- ground -->
-            <path d="M0 168 L320 150 L320 220 L0 220 Z" fill="#e3e9f4"/>
-            <!-- house body -->
-            <path d="M96 132 L168 148 L168 196 L96 184 Z" fill="#f2f5fb"/>
-            <path d="M168 148 L232 134 L232 184 L168 196 Z" fill="#e4eaf4"/>
-            <!-- left roof plane (with panels) -->
-            <path d="M96 132 L150 96 L222 110 L168 148 Z" fill="url(#hvRoofL)"/>
-            <!-- right roof plane -->
-            <path d="M150 96 L208 78 L280 92 L222 110 Z" fill="url(#hvRoofR)"/>
-            <!-- ridge -->
-            <path d="M150 96 L222 110" stroke="#1c2638" stroke-width="1.4"/>
-            <!-- solar panel grid on the left plane (parallelogram rows) -->
-            <g class="hv-panels" fill="url(#hvPanel)" stroke="#7fa0ff" stroke-width="0.5">
-              <path d="M112 130 L130 118 L146 121 L128 133 Z"/>
-              <path d="M148 121 L166 109 L182 112 L164 124 Z"/>
-              <path d="M132 142 L150 130 L166 133 L148 145 Z"/>
-              <path d="M168 133 L186 121 L202 124 L184 136 Z"/>
-            </g>
-            <!-- panel sheen -->
-            <path class="hv-sheen" d="M112 130 L146 121 L184 136 L148 145 Z" fill="#ffffff" opacity="0.07"/>
-          </svg>
-          <span class="hv-badge"><span class="hv-dot"></span>Live 3D roof model</span>
-        </div>
-        <div class="hv-foot">
-          <div class="hv-pricewrap"><div class="hv-plabel">Your instant quote</div><div class="hv-price">$33,000<span>–$40,900</span></div></div>
-          <div class="hv-spec">7.2 kW · 18 panels</div>
-        </div>
-      </div>
-    </div>
+      <!-- white-label: populated + shown by JS only when window.__TENANT__.brand is a non-default business name -->
+      <div class="hero-poweredby" id="heroPoweredBy"></div>
     </div>
   </div>
   <div id="status"></div>
@@ -11804,5 +11787,156 @@ try{
 <script type="module">
   try{ const m=await import(window.RQ_BASE+"/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
   catch(e){ console.warn("roofgeo load failed",e); }
+</script>
+<!-- ===== HERO GLOBE — a slowly-spinning Earth painted on a 2D canvas. =====
+     Why this implementation: it's the LIGHTEST premium option. No WebGL context
+     (so it never competes with the main roof scene's Three.js renderer), no extra
+     dependency, no external asset (the continents are a procedural land-mask drawn
+     once to an offscreen canvas, then orthographically projected each frame). One
+     full turn ≈ 90s. It self-pauses when the hero is hidden (display:none) or the
+     tab is backgrounded, and honours prefers-reduced-motion. classic <script> so it
+     boots independently of the widget module. -->
+<script>
+(function(){
+  var cv=document.getElementById("heroGlobe"); if(!cv||!cv.getContext) return;
+  var ctx=cv.getContext("2d"); if(!ctx) return;
+  var reduce=false; try{ reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches; }catch(_){}
+
+  // ---- faint star field (drawn once into the #heroStars background) ----
+  try{
+    var sc=document.createElement("canvas"); sc.width=420; sc.height=420; var sx=sc.getContext("2d");
+    if(sx){ for(var i=0;i<150;i++){ var a=0.10+Math.random()*0.55, r=Math.random()<0.12?1.4:0.8;
+        sx.beginPath(); sx.arc(Math.random()*420,Math.random()*420,r,0,6.2832);
+        sx.fillStyle="rgba(255,255,255,"+a.toFixed(2)+")"; sx.fill(); }
+      var st=document.getElementById("heroStars"); if(st) st.style.backgroundImage="url("+sc.toDataURL()+")"; }
+  }catch(_){}
+
+  // ---- procedural land mask: draw blobby "continents" once into an equirectangular map (2:1) ----
+  var MW=720, MH=360;
+  var land=document.createElement("canvas"); land.width=MW; land.height=MH;
+  (function(){
+    var g=land.getContext("2d"); if(!g) return;
+    g.clearRect(0,0,MW,MH);
+    g.fillStyle="#2f9e6b";
+    // lon,lat centre (deg) + radii (deg) for each landmass lump — coarse but recognisably Earth-ish
+    var blobs=[
+      [ -100, 45, 34, 26],[ -90, 18, 16, 18],[ -60,-15, 24, 30],[ -65,-38, 9, 12],   // Americas
+      [  18, 12, 22, 26],[  24,-12, 20, 22],[  26,-32, 10, 12],                        // Africa
+      [  12, 50, 26, 16],[  60, 55, 46, 22],[  90, 28, 22, 18],[ 110, 18, 16, 14],     // Eurasia + India
+      [ 134,-26, 16, 12],[ 146,-8, 6, 6]                                               // Australia + NG
+    ];
+    function px(lon,lat){ return [ (lon+180)/360*MW, (90-lat)/180*MH ]; }
+    for(var b=0;b<blobs.length;b++){ var lon=blobs[b][0],lat=blobs[b][1],rx=blobs[b][2],ry=blobs[b][3];
+      // cluster of overlapping ellipses for an organic coastline
+      for(var k=0;k<7;k++){ var jl=lon+(Math.random()-0.5)*rx*0.9, jb=lat+(Math.random()-0.5)*ry*0.9;
+        var p=px(jl,jb); g.beginPath();
+        g.ellipse(p[0],p[1], rx*MW/360*(0.5+Math.random()*0.7), ry*MH/180*(0.5+Math.random()*0.7), Math.random()*3.14,0,6.2832);
+        g.fill();
+      }
+    }
+    // a couple of lighter inland highlights for subtle texture
+    g.globalAlpha=0.18; g.fillStyle="#7fd6a4";
+    for(var h=0;h<40;h++){ g.beginPath(); g.arc(Math.random()*MW,Math.random()*MH,2+Math.random()*7,0,6.2832); g.fill(); }
+    g.globalAlpha=1;
+  })();
+  var landData=null; try{ landData=land.getContext("2d").getImageData(0,0,MW,MH).data; }catch(_){}
+
+  // ---- render setup ----
+  var DPR=Math.min(window.devicePixelRatio||1,2), R=0, cx=0, cy=0, size=0;
+  function resize(){
+    var w=cv.clientWidth||cv.offsetWidth, h=cv.clientHeight||cv.offsetHeight;
+    if(!w||!h){ return; }
+    size=Math.min(w,h);
+    cv.width=Math.round(w*DPR); cv.height=Math.round(h*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    cx=w/2; cy=h/2; R=size*0.40;
+  }
+  window.addEventListener("resize",resize);
+
+  var rot=0;                      // current longitude rotation (radians)
+  var SPEED=reduce?0:(2*Math.PI/90); // rad/sec → one turn per 90s
+  var last=0;
+
+  function draw(t){
+    if(!last) last=t; var dt=(t-last)/1000; last=t;
+    // pause cleanly when hidden (display:none on #hero) or tab backgrounded
+    var hero=document.getElementById("hero");
+    var visible=hero && hero.style.display!=="none" && !document.hidden && cv.clientWidth>0;
+    if(!visible){ rafId=requestAnimationFrame(draw); return; }
+    if(!R) resize();
+    rot+=SPEED*dt;
+    var w=cv.clientWidth, h=cv.clientHeight;
+    ctx.clearRect(0,0,w,h);
+
+    // ocean sphere with a soft 3D shade (light from upper-right)
+    var grd=ctx.createRadialGradient(cx-R*0.32,cy-R*0.36,R*0.1, cx,cy,R*1.06);
+    grd.addColorStop(0,"#1f4a8a"); grd.addColorStop(0.55,"#123463"); grd.addColorStop(1,"#0a1f3f");
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.fillStyle=grd; ctx.fill();
+
+    // project the land map onto the visible hemisphere (orthographic), sampling per pixel-block
+    if(landData){
+      var step=Math.max(2,Math.round(R/120)); // coarser on small globes — keeps it cheap
+      ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
+      for(var py=-R; py<R; py+=step){
+        for(var pxx=-R; pxx<R; pxx+=step){
+          var nx=pxx/R, ny=py/R; var d2=nx*nx+ny*ny; if(d2>1) continue;
+          var nz=Math.sqrt(1-d2);
+          // sphere point → lat/lon (rotate around Y by rot)
+          var lat=Math.asin(ny);
+          var lon=Math.atan2(nx,nz)+rot;
+          // wrap lon to [-PI,PI)
+          lon=((lon+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+          var u=(lon+Math.PI)/(2*Math.PI)*MW|0;
+          var v=(Math.PI/2-lat)/Math.PI*MH|0;
+          if(u<0)u=0; if(u>=MW)u=MW-1; if(v<0)v=0; if(v>=MH)v=MH-1;
+          var idx=(v*MW+u)*4;
+          if(landData[idx+3]>40){            // land pixel
+            // simple lambert-ish shading from the upper-right light dir
+            var lightx=0.55, lighty=-0.5, lightz=0.66;
+            var shade=Math.max(0.18, nx*lightx + (-ny)*lighty + nz*lightz);
+            var rr=(landData[idx]  *shade)|0, gg=(landData[idx+1]*shade)|0, bb=(landData[idx+2]*shade)|0;
+            ctx.fillStyle="rgb("+rr+","+gg+","+bb+")";
+            ctx.fillRect(cx+pxx,cy+py,step+0.6,step+0.6);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    // day/night terminator — a soft shadow on the lower-left limb for depth
+    var nightx=cx+R*0.42, nighty=cy+R*0.48;
+    var ng=ctx.createRadialGradient(nightx,nighty,R*0.2, nightx,nighty,R*1.5);
+    ng.addColorStop(0,"rgba(2,6,18,0.62)"); ng.addColorStop(1,"rgba(2,6,18,0)");
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
+    ctx.fillStyle=ng; ctx.fillRect(0,0,w,h); ctx.restore();
+
+    // atmospheric rim glow
+    var atm=ctx.createRadialGradient(cx,cy,R*0.92, cx,cy,R*1.12);
+    atm.addColorStop(0,"rgba(90,150,255,0)"); atm.addColorStop(0.6,"rgba(90,150,255,0.28)"); atm.addColorStop(1,"rgba(90,150,255,0)");
+    ctx.beginPath(); ctx.arc(cx,cy,R*1.12,0,6.2832); ctx.fillStyle=atm; ctx.fill();
+
+    // a soft specular highlight (upper-right)
+    var hl=ctx.createRadialGradient(cx-R*0.34,cy-R*0.38,0, cx-R*0.34,cy-R*0.38,R*0.7);
+    hl.addColorStop(0,"rgba(255,255,255,0.10)"); hl.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
+    ctx.fillStyle=hl; ctx.fillRect(0,0,w,h); ctx.restore();
+
+    rafId=requestAnimationFrame(draw);
+  }
+  var rafId;
+  resize();
+  // resize once more after layout settles (fonts/flex), then start
+  setTimeout(resize,60);
+  rafId=requestAnimationFrame(draw);
+
+  // ---- white-label: surface the tenant's business name if injected (default copy otherwise) ----
+  try{
+    var t=window.__TENANT__; var brand=t&&t.brand;
+    if(brand && brand!=="WeFixTrades"){
+      var el=document.getElementById("heroPoweredBy");
+      if(el){ el.innerHTML="Instant quotes by <b></b>"; el.querySelector("b").textContent=String(brand); el.style.display="block"; }
+    }
+  }catch(_){}
+})();
 </script>
 </body></html>
