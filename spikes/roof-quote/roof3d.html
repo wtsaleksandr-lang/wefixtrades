@@ -7200,6 +7200,14 @@ const RoofDots=(function(){
   let undoStack=[], redoStack=[];
   let dragIdx=-1, dragKind=null;// "corner" | "mid"
   let pointerId=null;
+  // PERF (rAF-coalesce): on a high-facet roof, draw() is the per-frame cost. During a dot-drag the
+  // browser fires 2-4 pointermove events per frame; calling draw() synchronously on each one re-renders
+  // all facets+labels+loupe multiple times per frame and blows the frame budget. _drawPending collapses
+  // those into ONE draw() per animation frame. The DATA side of afterEdit (measure()/HUD/quote sync) still
+  // runs per-event so nothing downstream sees stale numbers; only the expensive visual redraw is coalesced.
+  // _loupePending does the same for the pixel-resampling loupe. pointer-UP force-flushes both synchronously
+  // so the committed end-state is always pixel-correct (never a dropped mid-drag frame).
+  let _drawPending=0, _loupePending=0;
   let baseArea0=0, flat0=0, pitchMult=1, pricePerSqft=0;   // captured at init for honest live scaling
   // ── PHASE 1b: per-facet pitch-corrected area model ──────────────────────────
   // facets0[]: the reconciled per-facet breakdown captured once per roof. Each entry is the
@@ -7684,8 +7692,21 @@ const RoofDots=(function(){
     }
   }
 
+  // PERF: request at most ONE draw() per animation frame. Multiple pointermoves in the same frame collapse
+  // to a single redraw (the dropped intermediate frames are exactly the wasted work). The drawn output is
+  // identical to a synchronous draw of the latest state — same ringM/verts, same measure() — just rendered
+  // once per frame instead of N times. flushDraw() forces any pending draw to run NOW (used on pointer-up).
+  function scheduleDraw(){ if(_drawPending) return; _drawPending=requestAnimationFrame(()=>{ _drawPending=0; try{ draw(); }catch(_){ } }); }
+  function flushDraw(){ if(_drawPending){ try{ cancelAnimationFrame(_drawPending); }catch(_){} _drawPending=0; } try{ draw(); }catch(_){} }
+  // PERF: throttle the pixel-resampling loupe to once per frame too (it's a visual aid; one update/frame is
+  // imperceptibly different from N/frame). positionLoupe()+drawLoupe() are folded into the same rAF cadence.
+  function scheduleLoupe(){ if(_loupePending) return; _loupePending=requestAnimationFrame(()=>{ _loupePending=0; try{ positionLoupe(); drawLoupe(); }catch(_){ } }); }
+
   // ---- recompute numbers + repaint after any edit --------------------------
-  function afterEdit(){
+  // opts.coalesce:true → defer the expensive visual draw() to the next animation frame (drag path).
+  // Default (sync) is used by every NON-drag caller (init, undo/redo, pitch toggles, mount) so their
+  // single-shot edits paint immediately exactly as before. The DATA work below ALWAYS runs synchronously.
+  function afterEdit(opts){
     const m=measure(); if(m){
       window.__editTotals=m;
       const aEl=$("dotArea"), sqEl=$("dotSq"), pEl=$("dotPerim"), prEl=$("dotPrice");
@@ -7732,7 +7753,7 @@ const RoofDots=(function(){
         } else { fe.innerHTML=''; }
       } }catch(_){}
     }
-    draw();
+    if(opts&&opts.coalesce){ scheduleDraw(); } else { draw(); }
     // live: keep the REAL quote card in sync with the edited area while the user drags (debounced).
     syncRealQuote();
   }
@@ -7836,7 +7857,9 @@ const RoofDots=(function(){
     // (#5) HOVER (not dragging): open-hand (grab) cursor when the pointer is over a draggable dot, else default.
     if(dragIdx<0){ try{ const overDot=!!hit(e.clientX,e.clientY); cv.classList.toggle("dh-grab",overDot); cv.classList.remove("dh-grabbing"); cv.style.cursor=""; }catch(_){} return; }
     e.preventDefault(); const mm=screenToModel(e.clientX,e.clientY);
-    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit(); try{ positionLoupe(); drawLoupe(); }catch(_){} } }
+    // PERF: data side-effects (applyDrag → measure/HUD/quote in afterEdit) run per-event; the expensive
+    // visual draw() + loupe re-sample are rAF-coalesced to once/frame. pointer-UP (onUp) force-flushes both.
+    if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit({coalesce:true}); scheduleLoupe(); } }
   function onUp(e){
     // ── release a PAN / PINCH pointer (empty-canvas gesture). ──
     if(edPtrs.has(e.pointerId)){
@@ -7851,7 +7874,10 @@ const RoofDots=(function(){
     if(dragIdx<0) return; try{ cv.releasePointerCapture(pointerId); }catch(_){} dragIdx=-1; dragKind=null; pointerId=null;
     // (#5) back to hover state — grab if still over a dot, else default; never leave a stale grabbing cursor.
     try{ cv.classList.remove("dh-grabbing"); cv.classList.toggle("dh-grab", !!hit(e.clientX,e.clientY)); }catch(_){}
-    try{ hideLoupe(); }catch(_){} draw(); }
+    // PERF: cancel any in-flight coalesced loupe frame (loupe is hidden now anyway), then FORCE a synchronous
+    // final draw() via flushDraw() so the committed end-state is always pixel-correct — never a dropped frame.
+    if(_loupePending){ try{ cancelAnimationFrame(_loupePending); }catch(_){} _loupePending=0; }
+    try{ hideLoupe(); }catch(_){} flushDraw(); }
   // DESKTOP WHEEL → zoom toward the cursor (the point under the cursor stays put). preventDefault so the page
   // doesn't scroll while zooming the editor.
   function onWheel(e){ if(!on) return; e.preventDefault();
