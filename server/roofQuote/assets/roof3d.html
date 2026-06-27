@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>3D Roof &amp; Solar — true model</title>
 <!-- Satoshi is self-hosted via the @font-face block below (served at /fonts/*.woff2 by both the spike
      serve.mjs and the embedded wefixtrades app). The old fontshare <link> was removed: it was
@@ -12,7 +12,7 @@
 @font-face{font-family:"Satoshi";font-weight:700;font-display:swap;src:url("/fonts/satoshi-700.woff2") format("woff2")}
 @font-face{font-family:"Satoshi";font-weight:900;font-display:swap;src:url("/fonts/satoshi-900.woff2") format("woff2")}</style>
 <style>
-  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28); }
+  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --green-text:#15803d; --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28); }
   *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 "Satoshi","Satoshi Variable",system-ui,sans-serif;overflow:hidden}
   #app{position:fixed;inset:0}
   #scene{position:absolute;inset:0;touch-action:none;display:block}
@@ -357,7 +357,7 @@
   #card .qfin b{color:#0f172a;font-weight:800}
   /* money-story strip: ITC line + payback/lifetime pair — supportive numbers under the headline price */
   #card .itc-line{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#0f172a;font-weight:700;margin:6px 0 0;line-height:1.35}
-  #card .itc-line .itc-amt{color:#16a34a;font-weight:800}
+  #card .itc-line .itc-amt{color:var(--green-text);font-weight:800}
   #card .ms-pair{display:flex;gap:7px;margin-top:8px}
   #card .ms-cell{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
   #card .ms-cell .msv{font-size:15px;font-weight:800;color:#0f172a;line-height:1.1;display:flex;align-items:center;flex-wrap:wrap}
@@ -441,7 +441,7 @@
   #report .satab th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-weight:700;padding:4px 8px;border-bottom:1px solid #e1e7ef}
   #report .satab th:not(:first-child),#report .satab td:not(:first-child){text-align:right}
   #report .satab td{padding:7px 8px;border-bottom:1px solid #eef2f7;color:#5b6573}
-  #report .satab tbody tr:first-child td b{color:#16a34a}
+  #report .satab tbody tr:first-child td b{color:var(--green-text)}
   #report .satab td b{color:#0f172a;font-weight:800}
   #report .mr-waste .wp{font-weight:700;margin-bottom:2px}
   #report .rp-about{font-size:14px;color:#334155;line-height:1.6;margin:8px 0 0}
@@ -783,7 +783,7 @@
   #solarGrid .sg-ba .ba-fill.before{background:linear-gradient(90deg,#94a3b8,#5b6573)}
   #solarGrid .sg-ba .ba-fill.after{background:linear-gradient(90deg,#0d3cfc,#16b6cf)}
   #solarGrid .sg-ba .ba-amt{flex:0 0 auto;font-weight:900;min-width:54px;text-align:right}
-  #solarGrid .sg-ba .ba-save{font-size:11.5px;font-weight:700;color:#16a34a;text-align:center}
+  #solarGrid .sg-ba .ba-save{font-size:11.5px;font-weight:700;color:var(--green-text);text-align:center}
   #solarGrid .sg-cta{display:flex;gap:8px}
   #solarGrid .sg-cta button{flex:1;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
   #solarGrid .sg-done{background:#0d3cfc;border:0;color:#fff;box-shadow:var(--btn-shadow)}
@@ -899,11 +899,11 @@
   <button id="aiBtn" style="display:none">See it on my house</button>
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
-  <div id="measToggle"><button data-v="diagram" class="on">Top-down</button><button data-v="3d">3D</button></div>
+  <div id="measToggle" role="group" aria-label="Measure view: Top-down or 3D"><button data-v="diagram" class="on" aria-pressed="true">Top-down</button><button data-v="3d" aria-pressed="false">3D</button></div>
   <!-- BASE VIEW switch: our premium 3D model (DEFAULT) ↔ Google satellite/photoreal (opt-in). Shown once a roof is ready. -->
-  <div id="viewToggle">
-    <button data-v="model" class="on" title="Our 3D model — your roof with the engineered solar design"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg>3D model</button>
-    <button data-v="photo" title="Real aerial / satellite imagery of your home"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg>Satellite</button>
+  <div id="viewToggle" role="group" aria-label="Base view: 3D model or Satellite">
+    <button data-v="model" class="on" aria-pressed="true" title="Our 3D model — your roof with the engineered solar design"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg>3D model</button>
+    <button data-v="photo" aria-pressed="false" title="Real aerial / satellite imagery of your home"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg>Satellite</button>
   </div>
   <div id="bar"><input id="addr" placeholder="4521 T St, Sacramento CA" value=""><button id="go">Get Quote</button></div>
   <!-- FUNNEL PROGRESS BAR — Address · Roof · Options · Estimate. Driven by setFunnelStep(); hidden on the hero. -->
@@ -1011,10 +1011,10 @@
          time/season sliders are shadow-only and live in #sunShadowCtl. -->
     <button id="sPlay" class="sunbtn" title="Watch the shadows move through the day">▶ Play day</button>
     <div id="sunShadowCtl" style="display:flex;gap:16px;align-items:center">
-      <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14"></div>
-      <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6"></div>
+      <div class="sl"><div class="lab"><span>☀ Time of day</span><span id="sTimeV">2:00 PM</span></div><input id="sTime" type="range" min="5" max="20" step="0.25" value="14" aria-label="Time of day"></div>
+      <div class="sl"><div class="lab"><span>Season</span><span id="sMonthV">Jun</span></div><input id="sMonth" type="range" min="1" max="12" step="1" value="6" aria-label="Month"></div>
     </div>
-    <div id="sunHeatToggle" style="display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px"><button data-v="2d" class="on">Top-down</button><button data-v="3d">3D</button></div>
+    <div id="sunHeatToggle" role="group" aria-label="Sun map view: Top-down or 3D" style="display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px"><button data-v="2d" class="on" aria-pressed="true">Top-down</button><button data-v="3d" aria-pressed="false">3D</button></div>
     <button id="sMap" class="sunbtn" title="Switch between the moving-shadow day play and the annual sun-exposure heatmap">☀ Sun map</button>
   </div>
   <div id="load"><div class="ring"></div><div class="t" id="loadt">Loading…</div></div>
@@ -1088,7 +1088,7 @@
       <!-- ToS-clean source: customer uploads their OWN house photo as the render base. No auto roof-mask is
            derivable from an arbitrary oblique upload, so this path uses prompt-preservation (not the hard
            top-down mask) — the top-down satellite "See it on my house" above is the roof-ONLY-guaranteed one. -->
-      <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" style="display:none"></label>
+      <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" aria-label="Upload a photo of your roof" style="display:none"></label>
     </div>
     <div class="rd-stagehint" id="rdStageHint"><span class="mini"></span><span id="rdStageHintT">Rendering your home…</span></div>
     <!-- CANOPY FALLBACK (Problem B): shown when the accurate top-down aerial render can't be produced (no
@@ -1954,7 +1954,7 @@ function sunCardBody(){
   const spv=QUOTE.spv||{}, hrs=Math.round(spv.maxSunshineHoursPerYear||0);
   const panels=spv.maxArrayPanelsCount||0, area=Math.round((spv.maxArrayAreaMeters2||0)*M2_SQFT);
   const sa=roofSolarAccess();
-  const saLine=sa?'<div class="qfin" style="margin-top:6px;line-height:1.5">☀ Solar access <b>'+sa.access+'%</b> · TSRF <b>'+sa.tsrf+'%</b> — '+sa.rating+(sa.tsrf>=75?' <span style="color:#16a34a;font-weight:700">✓ incentive-grade</span>':'')+HCUE("tsrf")+'<br><span class="muted" style="font-size:10.5px">Best face: '+sa.perFace[0].dir+' '+sa.perFace[0].x12+'/12 · '+sa.perFace[0].tsrf+'% TSRF. Planning estimate from satellite — confirm on site.</span></div>':'';
+  const saLine=sa?'<div class="qfin" style="margin-top:6px;line-height:1.5">☀ Solar access <b>'+sa.access+'%</b> · TSRF <b>'+sa.tsrf+'%</b> — '+sa.rating+(sa.tsrf>=75?' <span style="color:var(--green-text);font-weight:700">✓ incentive-grade</span>':'')+HCUE("tsrf")+'<br><span class="muted" style="font-size:10.5px">Best face: '+sa.perFace[0].dir+' '+sa.perFace[0].x12+'/12 · '+sa.perFace[0].tsrf+'% TSRF. Planning estimate from satellite — confirm on site.</span></div>':'';
   return '<div class="qprice">'+hrs.toLocaleString()+' <span class="qunit">sun-hrs/yr</span>'+HCUE("sun")+'</div>'+
     '<div class="qsub">Colours map sun across your roof — <b style="color:#ff9f0a">warm = most sun</b>, <b style="color:#2e90ff">cool = shaded</b>. The sunniest areas make the most power. <span class="muted" style="font-size:10.5px">Colours are relative to this roof.</span></div>'+
     saLine+
@@ -2702,8 +2702,8 @@ function renderQuoteCard(){
   // card — so the Solar/Roofing pills are inert choices. Disable them (greyed, not-clickable) so the
   // only presented action is the footer "Request a commercial quote →". Residential keeps live tabs.
   const tabsLocked = largeRoof;
-  const tabBtn=(t,lab)=>'<button class="qtab'+(tradeMode===t?" on":"")+(tabsLocked?" qtab-locked":"")+'" data-t="'+t+'"'+(tabsLocked?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
-  tabs='<div class="qtabs">'+tabBtn("solar","Solar")+tabBtn("roof","Roofing")+'</div>';
+  const tabBtn=(t,lab)=>'<button role="tab" aria-selected="'+(tradeMode===t?"true":"false")+'" class="qtab'+(tradeMode===t?" on":"")+(tabsLocked?" qtab-locked":"")+'" data-t="'+t+'"'+(tabsLocked?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
+  tabs='<div class="qtabs" role="tablist" aria-label="Quote type">'+tabBtn("solar","Solar")+tabBtn("roof","Roofing")+'</div>';
   // A LARGE/commercial roof (skyscraper, big-box) is not a "shaded house" — its degrade copy must be the
   // commercial message, never "heavy tree cover" (audit-3: Empire State read canopy-heavy because the DSM
   // sees neighbouring towers ABOVE the plane). largeRoof wins over the low-confidence canopy copy.
@@ -4133,8 +4133,8 @@ function syncViewToggle(){
   const vt=$("viewToggle"); if(!vt) return;
   const photo=(mode==="photoreal");
   const mb=vt.querySelector('[data-v="model"]'), pb=vt.querySelector('[data-v="photo"]');
-  if(mb) mb.classList.toggle("on",!photo);
-  if(pb) pb.classList.toggle("on",photo);
+  if(mb){ mb.classList.toggle("on",!photo); mb.setAttribute("aria-pressed",String(!photo)); }
+  if(pb){ pb.classList.toggle("on",photo); pb.setAttribute("aria-pressed",String(photo)); }
   const measOwns=(typeof labelsVisible!=="undefined"&&labelsVisible);
   const sunMapOwns=(typeof sunMode!=="undefined"&&sunMode);
   // The base switch is a Solar-context tool (our 3D model carries the engineered solar array); the
@@ -7835,7 +7835,7 @@ function showMeasDiagram(on){
     // frame the roof
     try{ if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.42,span*0.66,span*0.62); controls.target.set(0,4,0); controls.update(); } }catch(_){}
   }
-  const t=$("measToggle"); if(t){ t.querySelector('[data-v="diagram"]').classList.toggle("on",on); t.querySelector('[data-v="3d"]').classList.toggle("on",!on); }
+  const t=$("measToggle"); if(t){ const dg=t.querySelector('[data-v="diagram"]'), td=t.querySelector('[data-v="3d"]'); dg.classList.toggle("on",on); dg.setAttribute("aria-pressed",String(on)); td.classList.toggle("on",!on); td.setAttribute("aria-pressed",String(!on)); }
   if(typeof syncLensControls==="function") syncLensControls();   // 2D top-down hides #scene → disable Rotate/Recenter; 3D re-enables
 }
 // 3D (Three.js massing) — the dot overlay maps onto #matCanvas (2D), which is hidden here, so the
@@ -10929,7 +10929,7 @@ function setSunbarMode(view){
   const sm=$("sMap"); if(sm) sm.textContent = (view==="shadows") ? "☀ Sun map" : "▶ Play day & shadows";
   // the Top-down/3D heatmap toggle is only meaningful in the "map" sub-view (the heatmap); hide it in shadows
   const ht=$("sunHeatToggle"); if(ht){ ht.style.display = (view==="map") ? "flex" : "none";
-    const set=v=>{ ht.querySelector('[data-v="2d"]').classList.toggle("on",v!=="3d"); ht.querySelector('[data-v="3d"]').classList.toggle("on",v==="3d"); };
+    const set=v=>{ const b2=ht.querySelector('[data-v="2d"]'), b3=ht.querySelector('[data-v="3d"]'); b2.classList.toggle("on",v!=="3d"); b2.setAttribute("aria-pressed",String(v!=="3d")); b3.classList.toggle("on",v==="3d"); b3.setAttribute("aria-pressed",String(v==="3d")); };
     set(window.__sunMapDim||"2d"); }
 }
 async function applySunView(){
