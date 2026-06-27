@@ -8198,6 +8198,20 @@ function classifyPanelPlane(pn,segs,zone,dg){
    low-sun tint); no panels at all → the open button never appears.
    ─────────────────────────────────────────────────────────────────────────────── */
 let SG_STATE=null;   // { panels:[{id,pn,seg,flux,fluxT,kwh,corners,px:[{x,y}]}], sel:Set, w, h, bbox:[E0,N0,E1,N1] in UTM, zone, sysW, fmin, fmax }
+/* GOOGLE PROJECT-SUNROOF annual-flux palette + range, copied EXACTLY from Google's official
+   googlemaps-samples/js-solar-potential sample (colors.ts `ironPalette`, layer.ts annualFlux render).
+   Google renders the annual-flux GeoTIFF (the same raster we decode into LASTFLUX) with:
+     • ironPalette = ['00000A','91009C','E64616','FEB400','FFFFF6']  (deep-black→purple→orange→amber→white)
+     • normalize(value, max=1800, min=0)  — a FIXED kWh/kW/yr range, NOT a per-roof percentile stretch.
+   Reproducing both makes our heatmap pixel-faithful to the Sunroof reference: a flat roof's gentle real
+   gradient lands in a single warm band (smooth wash, no manufactured contour banding), while a pitched
+   roof's genuine high/low-sun spread still reads across the ramp. Defined here (before sgDraw) because
+   `const` is not hoisted. */
+const SG_FLUX_MAX=1800;                                    // Google annualFlux normalization max (kWh/kW/yr)
+const SG_IRON_STOPS=[[0,0,10],[145,0,156],[230,70,22],[254,180,0],[255,255,246]];   // ironPalette hex → rgb
+function fluxIronColor(t){ t=Math.max(0,Math.min(1,t));
+  const n=SG_IRON_STOPS.length-1, idx=t*n, seg=Math.min(n-1,Math.floor(idx)), f=idx-seg, a=SG_IRON_STOPS[seg],b=SG_IRON_STOPS[seg+1];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
 const SG_LOWSUN_FRAC=0.45;   // a panel whose normalized flux < this of the roof's best square is flagged "low sun" (shaded / poor ROI)
 // Absolute deep-shade floor: a square whose RAW annual flux is below this fraction of the roof's BEST square
 // is genuinely shaded, regardless of where the 5–95 percentile ramp lands. On a roof with a very bright max,
@@ -8422,7 +8436,14 @@ function sgDraw(){
     const bl=(A)=>{ const a=A[y0*w+x0],b=A[y0*w+x1],c=A[y1*w+x0],d=A[y1*w+x1]; return a*(1-tx)*(1-ty)+b*tx*(1-ty)+c*(1-tx)*ty+d*tx*ty; };
     return [bl(rgR),bl(rgG),bl(rgB)]; };
   {
-    const range=(SG_STATE.fmax-SG_STATE.fmin)||1;
+    // GOOGLE PROJECT-SUNROOF flux colorization (matches googlemaps-samples/js-solar-potential).
+    //   • normalize annual flux over the FIXED documented range [0 .. SG_FLUX_MAX] kWh/kW/yr, NOT this roof's
+    //     5–95 percentile. The percentile stretch manufactured contour BANDING on a physically near-uniform
+    //     flat roof (Hamilton) because it blew a tiny sensor-noise band across the whole ramp. A fixed range
+    //     reads a flat roof as one smooth wash and still shows a pitched roof's real high/low-sun spread,
+    //     exactly like Google Sunroof's own graphic. (Per-roof fmin/fmax is kept ONLY for kWh/lowSun ranking.)
+    //   • colorize with Google's "iron" palette via fluxIronColor().
+    const range=SG_FLUX_MAX, fmin0=0;                      // fixed Google normalization: normalize(v, max=SG_FLUX_MAX, min=0)
     const SS=2;                                           // device px per low-res sample. FIXED at 2 (was max(2,round(2*dpr))=4 on a 2× display):
                                                           // a finer buffer + the multi-pass blur below removes the stair-stepping a 4×-downsampled
                                                           // buffer left visible on a large, frame-filling FLAT roof. 2px is still cheap; GPU upscales.
@@ -8451,7 +8472,7 @@ function sgDraw(){
         if(!fg || !inClip(E,N)) continue;
         if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }
         const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
-        const t=(v-SG_STATE.fmin)/range, c=fluxColorSmooth(t);
+        const t=(v-fmin0)/range, c=fluxIronColor(t);       // fixed [0..SG_FLUX_MAX] norm + Google iron palette
         tintR[ci]=c[0]; tintG[ci]=c[1]; tintB[ci]=c[2]; roofM[ci]=1;
       } }
     // PASS 2 — separable 5-tap binomial blur of the tint, CONFINED to roof cells (off-roof weights dropped),
