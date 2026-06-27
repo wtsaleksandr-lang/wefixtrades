@@ -2974,10 +2974,10 @@ function renderQuoteCard(){
   applyCardFold();   // re-assert fold state after the re-render
   card.querySelectorAll(".qtab").forEach(b=>b.onclick=()=>{ if(b.disabled||b.classList.contains("qtab-locked")) return; tradeMode=b.dataset.t; renderQuoteCard(); applyTradeMode(); });
   card.querySelectorAll(".qchip").forEach(b=>b.onclick=async()=>{ selTier=+b.dataset.i; window.__selPanels=null; renderQuoteCard();   // picking a preset tier overrides any custom grid design
-    if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
+    if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} else { syncModelPanelsToCard(); } });
   card.querySelectorAll(".wb").forEach(b=>b.onclick=()=>{ selWaste=+b.dataset.w; window.__wasteAuto=true; renderQuoteCard(); });
   card.querySelectorAll(".bb").forEach(b=>b.onclick=async()=>{ solarBill=+b.dataset.bill; const usage=solarBill*12/REGION.rate; let best=0; for(let i=0;i<solarTiers.length;i++){ best=i; if((solarTiers[i].kwhAc||0)>=usage) break; } selTier=best; renderQuoteCard();
-    if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } });
+    if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } });
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
@@ -2998,8 +2998,8 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
-  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; window.__selPanels=null; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } }; });   // the size slider overrides a custom grid design
-  const reSection=async()=>{ window.__sizePct=1; window.__selPanels=null; SG_STATE=null; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } };
+  card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; window.__selPanels=null; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } }; });   // the size slider overrides a custom grid design
+  const reSection=async()=>{ window.__sizePct=1; window.__selPanels=null; SG_STATE=null; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } };
   card.querySelectorAll("[data-sect]").forEach(b=>b.onclick=()=>{ window.__sectionMode=b.dataset.sect; reSection(); });
   card.querySelectorAll("[data-sectshare]").forEach(s=>{ s.onchange=()=>{ window.__sectionShare=(+s.value)/100; reSection(); }; });
   card.querySelectorAll("[data-prod]").forEach(b=>b.onclick=async()=>{ window.__prodMode=!window.__prodMode; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } });
@@ -3108,6 +3108,23 @@ function earClip(pts){
   return tris;
 }
 
+/* (count-consistency) THE one selected-panel count every surface must agree on — the SAME number the
+   quote card headline draws (__quotePanels). Grid design (__selPanels) wins; else the selected tier's
+   engineered ladder count (solarTiers[selTier].panels). `cap` clamps to what the array can actually
+   place so a 3D draw never asks for more panels than exist. Mirrors renderQuoteCard (L~2780) +
+   buildPhotoPanels `_selN` (L~9354) so card == 2D grid navy == 3D model == photoreal. Never below 1.
+   Returns 0 only when there's genuinely no selection to honour (caller then draws its full array). */
+function selectedPanelCount(cap){
+  let n=0;
+  try{
+    const grid=window.__selPanels;
+    if(grid && grid.panels>0 && !window.__attached){ n=grid.panels; }
+    else if(typeof solarTiers!=="undefined" && Array.isArray(solarTiers) && solarTiers[selTier] && solarTiers[selTier].panels>0){ n=solarTiers[selTier].panels; }
+  }catch(_){ n=0; }
+  if(!(n>0)) return 0;
+  if(typeof cap==="number" && cap>0) n=Math.min(n,cap);
+  return Math.max(1,Math.round(n));
+}
 /* NEW massing — a COHERENT building envelope from the analytic roof model (facetsToRoofModel):
    true facet polygons triangulated at their real elevations (adjacent facets meet exactly at
    shared ridges/hips/valleys) + ONE wall band extruded from the building footprint/eave edges
@@ -3505,83 +3522,101 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
   // so on a semi-detached only the owner's half fills.
   let modelPanels=seed;
   try{ const eng=engineeredFacetPanels(sp,segs,zone,pw,ph,seed); if(eng&&eng.length) modelPanels=eng; }catch(_){}
-  const panels=modelPanels.filter(p=>p.center && facetInfo[p.segmentIndex]);
+  // (count-consistency) ROI-rank the placeable engineered panels best-energy-first — the SAME ordering
+  // buildPhotoPanels (_selN slice) and gridDefaultSelection use — so drawing the top-N selected slice on
+  // the 3D model picks the identical panels the 2D grid / photoreal would, and the count matches the card.
+  const panels=modelPanels.filter(p=>p.center && facetInfo[p.segmentIndex])
+    .slice().sort((a,b)=>((b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0)));
   window.__modelPanelsEng = (modelPanels!==seed);
 
-  // PROUD panel box: a thin module, its face textured, lifted a few cm along the facet normal
-  // so it floats just over the roof skin (no z-fight) and reads as a mounted module.
-  modelPanelGroup=new THREE.Group(); modelPanelGroup.renderOrder=2;
-  // Thicker module + a clearly-proud lift so the whole array sits visibly ABOVE the roof skin and
-  // each row casts a real edge shadow (reads as 3D mounted modules, not a flush decal washing into
-  // the charcoal roof). ~28cm proud / 9cm thick — enough separation to read at the hero camera,
-  // still a believable low-tilt rack height, not a float.
-  const PANEL_THICK=0.09, PANEL_PROUD=0.28;   // metres
-  // Small inter-panel gap so the charcoal roof shows through between modules → the array reads as a
-  // crisp grid of distinct tiles, not a continuous bluish sheet. ~6% per side.
-  const PANEL_GAP=0.94;
-  const box=new THREE.BoxGeometry(1,PANEL_THICK,1);
-  const pmat=panelMatPremium();
-  // InstancedMesh takes a single material; the dark side/bevel comes from the baked texture's wide
-  // silver frame + dark inner shadow on the top face, and the proud lift + inter-panel gap let each
-  // module drop a thin edge shadow on the roof so the array reads as distinct mounted tiles.
-  // castShadow ON so the array drops a soft shadow on the roof (depth); receiveShadow OFF so the
-  // proud modules don't shadow each OTHER (that washed the lee rows to a flat outline-only grey —
-  // the "half the strip reads as blank rectangles" bug). Every module now lights uniformly.
-  panelMesh=new THREE.InstancedMesh(box,pmat,panels.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=false;
-  const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(), pVec=new THREE.Vector3(), sVec=new THREE.Vector3(), nrmV=new THREE.Vector3();
-  // thin top-edge frame lines per panel (the bright module rim) — one merged line set, cheap
-  const frameSegs=[]; const corner=new THREE.Vector3();
-  let placed=0;
-  for(const pn of panels){ if(!pn.center) continue; const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
-    const L=toLocal(pn.center.latitude,pn.center.longitude);
-    // PREFER the engineered panel's OWN analytic facet plane (carried from engineeredFacetPanels) so the
-    // module seats on the EXACT plane the roof mesh was built from — eliminates the float/overhang where
-    // Google's segment height disagreed with our reconstructed facet. tilt/azimuth from the same facet.
-    let yPlane, P=fi.P, sinAz=fi.sinAz, cosAz=fi.cosAz;
-    if(pn.__plane && isFinite(pn.__plane.a)){
-      const zAbs=pn.__plane.a*L.E + pn.__plane.b*L.N + pn.__plane.c;   // absolute facet height at the panel centre (UTM)
-      yPlane=zAbs-baseY;
-      const Az2=(pn.__az||0)*Math.PI/180, P2=(pn.__pitch||0)*Math.PI/180;
-      sinAz=Math.sin(Az2); cosAz=Math.cos(Az2); P=P2;
-    } else {
-      const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
-      yPlane=fi.y0 - d*fi.tanP;
+  // Panel-instancing constants — shared by the initial draw and every re-draw on tier/size change.
+  // PROUD panel box: a thin module, its face textured, lifted a few cm along the facet normal so it
+  // floats just over the roof skin (no z-fight) and reads as a mounted module.
+  // Thicker module + a clearly-proud lift so the whole array sits visibly ABOVE the roof skin and each
+  // row casts a real edge shadow (reads as 3D mounted modules, not a flush decal washing into the
+  // charcoal roof). ~28cm proud / 9cm thick. Small inter-panel gap (~6%/side) so the dark roof shows
+  // through between modules → the array reads as a crisp grid of distinct tiles, not a bluish sheet.
+  const PANEL_THICK=0.09, PANEL_PROUD=0.28, PANEL_GAP=0.94;   // metres
+  // (count-consistency) Build/REBUILD the model panel layer drawing only the SELECTED top-N panels as
+  // filled navy modules. Extracted so the tier-chip / size-slider handlers can re-sync the 3D model to
+  // the new card count WITHOUT a full buildScene (no DSM re-fetch). selN<=0 ⇒ draw the full engineered
+  // array (no selection to honour yet — e.g. pre-settle first paint). Caps to what the roof can place.
+  function drawModelPanelInstances(selN){
+    // dispose + replace the previous panel group so a re-draw can't leak GPU buffers or stack meshes.
+    if(modelPanelGroup){ try{ worldGroup.remove(modelPanelGroup); modelPanelGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); }); }catch(_){} }
+    const drawList=(selN>0 && panels.length>selN) ? panels.slice(0,selN) : panels;
+    modelPanelGroup=new THREE.Group(); modelPanelGroup.renderOrder=2;
+    const box=new THREE.BoxGeometry(1,PANEL_THICK,1);
+    const pmat=panelMatPremium();
+    // InstancedMesh takes a single material; the dark side/bevel comes from the baked texture's wide
+    // silver frame + dark inner shadow on the top face, and the proud lift + inter-panel gap let each
+    // module drop a thin edge shadow on the roof so the array reads as distinct mounted tiles.
+    // castShadow ON so the array drops a soft shadow on the roof (depth); receiveShadow OFF so the
+    // proud modules don't shadow each OTHER (that washed the lee rows to a flat outline-only grey —
+    // the "half the strip reads as blank rectangles" bug). Every module now lights uniformly.
+    panelMesh=new THREE.InstancedMesh(box,pmat,drawList.length||1); panelMesh.castShadow=true; panelMesh.receiveShadow=false;
+    const up=new THREE.Vector3(0,1,0), q=new THREE.Quaternion(), m=new THREE.Matrix4(), pVec=new THREE.Vector3(), sVec=new THREE.Vector3(), nrmV=new THREE.Vector3();
+    // thin top-edge frame lines per panel (the bright module rim) — one merged line set, cheap
+    const frameSegs=[]; const corner=new THREE.Vector3();
+    let placed=0;
+    for(const pn of drawList){ if(!pn.center) continue; const fi=facetInfo[pn.segmentIndex]; if(!fi) continue;
+      const L=toLocal(pn.center.latitude,pn.center.longitude);
+      // PREFER the engineered panel's OWN analytic facet plane (carried from engineeredFacetPanels) so the
+      // module seats on the EXACT plane the roof mesh was built from — eliminates the float/overhang where
+      // Google's segment height disagreed with our reconstructed facet. tilt/azimuth from the same facet.
+      let yPlane, P=fi.P, sinAz=fi.sinAz, cosAz=fi.cosAz;
+      if(pn.__plane && isFinite(pn.__plane.a)){
+        const zAbs=pn.__plane.a*L.E + pn.__plane.b*L.N + pn.__plane.c;   // absolute facet height at the panel centre (UTM)
+        yPlane=zAbs-baseY;
+        const Az2=(pn.__az||0)*Math.PI/180, P2=(pn.__pitch||0)*Math.PI/180;
+        sinAz=Math.sin(Az2); cosAz=Math.cos(Az2); P=P2;
+      } else {
+        const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
+        yPlane=fi.y0 - d*fi.tanP;
+      }
+      // facet normal in scene frame (down-slope tilt) — lift the panel proud along it
+      nrmV.set(Math.sin(P)*sinAz, Math.cos(P), -Math.sin(P)*cosAz).normalize();
+      q.setFromUnitVectors(up,nrmV);
+      pVec.set(L.x + nrmV.x*PANEL_PROUD, yPlane + nrmV.y*PANEL_PROUD, L.z + nrmV.z*PANEL_PROUD);
+      const land=pn.orientation==="LANDSCAPE"; const w=land?ph:pw, h=land?pw:ph;
+      // shrink each module by PANEL_GAP so the dark roof shows through between tiles (visible grid).
+      sVec.set(w*PANEL_GAP,1,h*PANEL_GAP);
+      m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m);
+      // top-rim outline: 4 corners of the (gapped) module, lifted above the box top so the rim reads
+      const rim=PANEL_PROUD+PANEL_THICK+0.015;
+      const gw=w*PANEL_GAP, gh=h*PANEL_GAP;
+      const cs=[[-gw/2,-gh/2],[gw/2,-gh/2],[gw/2,gh/2],[-gw/2,gh/2]].map(([cx,cz])=>{
+        // rotate the local (across,downslope) offset by the panel quaternion
+        corner.set(cx,0,cz).applyQuaternion(q);
+        return new THREE.Vector3(L.x+nrmV.x*rim+corner.x, yPlane+nrmV.y*rim+corner.y, L.z+nrmV.z*rim+corner.z);
+      });
+      for(let k=0;k<4;k++){ frameSegs.push(cs[k], cs[(k+1)%4]); }
     }
-    // facet normal in scene frame (down-slope tilt) — lift the panel proud along it
-    nrmV.set(Math.sin(P)*sinAz, Math.cos(P), -Math.sin(P)*cosAz).normalize();
-    q.setFromUnitVectors(up,nrmV);
-    pVec.set(L.x + nrmV.x*PANEL_PROUD, yPlane + nrmV.y*PANEL_PROUD, L.z + nrmV.z*PANEL_PROUD);
-    const land=pn.orientation==="LANDSCAPE"; const w=land?ph:pw, h=land?pw:ph;
-    // shrink each module by PANEL_GAP so the dark roof shows through between tiles (visible grid).
-    sVec.set(w*PANEL_GAP,1,h*PANEL_GAP);
-    m.compose(pVec,q,sVec); panelMesh.setMatrixAt(placed++,m);
-    // top-rim outline: 4 corners of the (gapped) module, lifted above the box top so the rim reads
-    const rim=PANEL_PROUD+PANEL_THICK+0.015;
-    const gw=w*PANEL_GAP, gh=h*PANEL_GAP;
-    const cs=[[-gw/2,-gh/2],[gw/2,-gh/2],[gw/2,gh/2],[-gw/2,gh/2]].map(([cx,cz])=>{
-      // rotate the local (across,downslope) offset by the panel quaternion
-      corner.set(cx,0,cz).applyQuaternion(q);
-      return new THREE.Vector3(L.x+nrmV.x*rim+corner.x, yPlane+nrmV.y*rim+corner.y, L.z+nrmV.z*rim+corner.z);
-    });
-    for(let k=0;k<4;k++){ frameSegs.push(cs[k], cs[(k+1)%4]); }
+    panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; modelPanelGroup.add(panelMesh);
+    if(frameSegs.length){
+      const fg=new THREE.BufferGeometry().setFromPoints(frameSegs);
+      const fl=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0xdfeaf8,transparent:true,opacity:0.75}));
+      fl.renderOrder=2; modelPanelGroup.add(fl);
+    }
+    worldGroup.add(modelPanelGroup);
+    // Visible only when the Model lens is mounted (NOT in the photoreal base, which draws its own
+    // Polygon3DElement panels, and NOT during the active Sun shadow-play sub-view).
+    modelPanelGroup.visible = !!(greyMode && !sunMode);
+    window.__panelsPlaced=placed;
+    // (count-consistency) The N filled navy modules we just DREW is the count the customer sees on the
+    // model — publish it as the canonical rendered count so renderQuoteCard's headline matches exactly.
+    if(placed>0){ window.__renderedPanels=placed;
+      if(typeof renderQuoteCard==="function" && window.__roofReady){ try{ renderQuoteCard(); }catch(_){} } }
+    return placed;
   }
-  panelMesh.count=placed; panelMesh.instanceMatrix.needsUpdate=true; modelPanelGroup.add(panelMesh);
-  if(frameSegs.length){
-    const fg=new THREE.BufferGeometry().setFromPoints(frameSegs);
-    const fl=new THREE.LineSegments(fg,new THREE.LineBasicMaterial({color:0xdfeaf8,transparent:true,opacity:0.75}));
-    fl.renderOrder=2; modelPanelGroup.add(fl);
-  }
-  worldGroup.add(modelPanelGroup);
-  // Visible only when the Model lens is mounted (NOT in the photoreal base, which draws its own
-  // Polygon3DElement panels, and NOT during the active Sun shadow-play sub-view).
-  modelPanelGroup.visible = !!(greyMode && !sunMode);
-  window.__panelsPlaced=placed;
-  // (fix2 P0 #2) The engineered 3D array we just DREW is the authoritative panel count the customer
-  // sees on the model. Publish it as the canonical rendered count so renderQuoteCard's headline
-  // "Recommended panels N" matches the N panels on the roof — never 24-on-card / 34-on-model /
-  // 76-on-probe. `placed` is split-aware (owner's-unit only when attached) for free.
-  if(placed>0){ window.__renderedPanels=placed;
-    if(typeof renderQuoteCard==="function" && window.__roofReady){ try{ renderQuoteCard(); }catch(_){} } }
+  // Expose the re-draw so the tier-chip / size-slider handlers can re-sync the 3D model to the new card
+  // count. Cached refs let it rebuild only the panel layer (no DSM re-fetch / no full buildScene).
+  window.__redrawModelPanels=function(){
+    if(!segs || !worldGroup) return 0;   // scene not mounted (e.g. photoreal-only roof) → nothing to redraw
+    return drawModelPanelInstances(selectedPanelCount(panels.length));
+  };
+  // Initial draw: the selected tier's count (== card headline). 0 ⇒ pre-settle → full array placeholder.
+  drawModelPanelInstances(selectedPanelCount(panels.length));
 
   // ── Model-lens quality gate: coherence now comes from the analytic model, so the lens
   //    is available whenever we got valid facets. Keep only a true-degenerate guard. ──
@@ -3909,6 +3944,20 @@ function syncModelRenderedPanels(){
   const placed=window.__panelsPlaced||0;
   if(placed>0 && window.__renderedPanels!==placed){ window.__renderedPanels=placed; }
 }
+// (count-consistency) Re-draw the 3D Model-lens panel array to the CURRENT selected count (card headline)
+// after a tier-chip / size-slider / bill change. Only acts when our Three.js model is the live base
+// (schematic mode, Model lens up, no sun/measure/material sub-lens owning the surface) — on the photoreal
+// base the chip handlers already call buildPhotoPanels, and on a sub-lens the panels are intentionally
+// hidden. __redrawModelPanels (published by buildScene) rebuilds ONLY the panel layer, re-publishes
+// __renderedPanels=selN, and re-renders the quote card so card == 3D model stay locked together.
+function syncModelPanelsToCard(){
+  try{
+    if(mode==="photoreal") return;                       // photoreal path owns its own panel sync
+    if(typeof window.__redrawModelPanels!=="function") return;   // no model mounted (e.g. photoreal-only roof)
+    if(sunMode || labelsVisible || matMode) return;       // a sub-lens owns the surface → leave panels as-is
+    window.__redrawModelPanels();
+  }catch(_){}
+}
 // Leave the grey "Model" lens (called when another exclusive lens is entered). Restores the
 // aerial-photo schematic skin + clears the Model button + hint. Does NOT itself switch mode.
 function exitGrey(){
@@ -4008,6 +4057,7 @@ async function enterModelDefault(isInitial){
   // ROOFING designer owns the model surface to show the SHINGLE texture — the blue solar array would hide
   // it, so keep panels OFF while __rdOpen. Solar's enterModelDefault path (no __rdOpen) still shows them.
   setModelPanelsVisible(!window.__rdOpen);              // STEP 4/5: show the engineered 3D solar array (+ re-asserts the premium PV material)
+  if(!window.__rdOpen) syncModelPanelsToCard();         // (count-consistency) re-draw the model array to the SELECTED tier count so the default Model lens shows the card's N navy panels (Roofing designer keeps panels off, so skip there)
   syncModelRenderedPanels();                            // (fix8 P0) restore the engineered count as the canonical rendered count so the quote can't stay on the stale photoreal value
   window.__sunView="shadows"; if(typeof updateSun==="function") updateSun();   // (fix8 P1) re-applies directional sun + ambient/hemi for the Model lens so the restored model isn't a dark blob
   // (fix8 P0) re-derive the quote from the now-current engineered array so quote == panels drawn.
@@ -8433,15 +8483,11 @@ function closeSolarGrid(commit){
   $("solarGrid").style.display="none";
   const fb=$("funnelBar"); if(fb && fb.dataset.sgPrev!=null) fb.style.display=fb.dataset.sgPrev;
   window.__sgOpen=false;
-  // (bug — Hamilton blank void) The grid designer was a full-screen overlay; closing it returned to the
-  // MAIN Options view whose base preview surface (#scene) could be left display:none (e.g. it was never
-  // mounted, or a prior photoreal teardown hid it) → a raw gray void behind the closed modal. Restore the
-  // Solar-context default surface (our premium 3D model; auto-falls back to photoreal, then the aerial
-  // empty-state) so the preview is ALWAYS filled — never blank. Skipped while another full-screen step
-  // (roofing design / photoreal 3D) owns the surface.
-  if(!window.__rdOpen && !window.__solar3dActive && window.__roofReady && typeof enterModelDefault==="function"){
-    Promise.resolve().then(()=>enterModelDefault()).catch(()=>{});
-  }
+  // (count-consistency) COMMIT the designed selection FIRST — before re-entering the model — so the
+  // model's panel re-draw (enterModelDefault → syncModelPanelsToCard → selectedPanelCount) reads the
+  // just-committed __selPanels and draws EXACTLY that count. Previously enterModelDefault was scheduled
+  // ahead of this commit, so the model re-drew against the stale/null selection (e.g. drew 15 while the
+  // committed system was 18) and never re-synced → card 18 / model 15 on the grid-Done → model path.
   if(commit && SG_STATE){
     // push the designed system back into the quote card: count + energy override the tier headline.
     const m=gridSelectionMetrics();
@@ -8449,6 +8495,16 @@ function closeSolarGrid(commit){
       window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw };
       const bill=+(($("sgBill").value)||0); if(bill>0){ solarBill=bill; }
     }
+  }
+  // (bug — Hamilton blank void) The grid designer was a full-screen overlay; closing it returned to the
+  // MAIN Options view whose base preview surface (#scene) could be left display:none (e.g. it was never
+  // mounted, or a prior photoreal teardown hid it) → a raw gray void behind the closed modal. Restore the
+  // Solar-context default surface (our premium 3D model; auto-falls back to photoreal, then the aerial
+  // empty-state) so the preview is ALWAYS filled — never blank. Skipped while another full-screen step
+  // (roofing design / photoreal 3D) owns the surface. Runs AFTER the __selPanels commit above so the
+  // model draws the committed count.
+  if(!window.__rdOpen && !window.__solar3dActive && window.__roofReady && typeof enterModelDefault==="function"){
+    Promise.resolve().then(()=>enterModelDefault()).catch(()=>{});
   }
   if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
 }
@@ -9344,14 +9400,17 @@ async function buildPhotoPanels(){
       engN=renderList.length;
     }
   }catch(_){ renderList=keep; }   // any geometry failure → safe fall back to Google's placeable array
-  // ── 2D⇄3D SYNC: honor the buyer's grid-designed system ────────────────────────
-  // When the user designed a custom system in the 2D tappable grid (window.__selPanels),
-  // the 3D photoreal view must show THAT panel count — not the full engineered max-fit array.
-  // We can't 1:1 map grid cells to the photoreal engineered layout (different generators), so we
-  // render the top-N highest-energy placeable panels (best ROI first — same ranking the grid's
-  // default selection uses), giving an exact count match on the real roof. Never below 1, never
-  // above what the roof can place. Only applies in the Solar trade, never in an attached split.
-  const _selN=(window.__selPanels&&window.__selPanels.panels>0&&!window.__attached)?window.__selPanels.panels:0;
+  // ── 2D⇄3D SYNC: honor the SELECTED system count ────────────────────────────────
+  // The photoreal view must show the SAME panel count as the card headline + the 2D grid + the 3D
+  // model — not the full engineered max-fit array. Priority: a custom grid design (__selPanels) wins,
+  // else the selected tier's count (selectedPanelCount → solarTiers[selTier].panels). We can't 1:1 map
+  // to the engineered layout (different generators), so we render the top-N highest-energy placeable
+  // panels (best ROI first — same ranking the grid default + 3D model use), giving an exact count match
+  // on the real roof. Never below 1, never above what the roof can place. Never in an attached split.
+  // (count-consistency fix) Previously this only sliced when __selPanels existed, so on first load /
+  // after a tier-chip (which nulls __selPanels) the photoreal lens carpeted the roof with the full
+  // engineered array (24/35) behind an "8/18 panel" card. selectedPanelCount() closes that gap.
+  const _selN=(typeof selectedPanelCount==="function" && !window.__attached) ? selectedPanelCount(renderList.length) : 0;
   if(_selN>0 && renderList.length>_selN){
     renderList=renderList.slice().sort((a,b)=>((b.pn.yearlyEnergyDcKwh||0)-(a.pn.yearlyEnergyDcKwh||0))).slice(0,_selN);
   }
@@ -10792,6 +10851,7 @@ $("bModel").onclick=async()=>{
     if(mode!=="schematic") await setMode("schematic");
     applyModelSkin(true);
     setModelPanelsVisible(true);   // STEP 5: Model lens shows the engineered 3D solar array on the roof
+    syncModelPanelsToCard();       // (count-consistency) re-draw the model array to the SELECTED count so the lens shows the card's N navy panels, not the full engineered max-fit
     syncModelRenderedPanels();     // (fix8 P0) headline tracks the engineered array now on screen
     window.__sunView="shadows"; updateSun();
     // Caption states the lens's PURPOSE (PO asked "what's the 3D Model for?"): it's the clean
