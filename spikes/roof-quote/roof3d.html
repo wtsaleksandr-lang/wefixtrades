@@ -851,6 +851,10 @@
   /* the AI on-house "rendering" hint sits centred over the stage while a render is in-flight */
   #roofDesign .rd-stagehint{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:8px;background:rgba(11,18,32,.82);color:#fff;font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:99px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
   #roofDesign .rd-stagehint .mini{width:13px;height:13px;border:2.4px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .9s linear infinite}
+  /* CANOPY FALLBACK (Problem B): clickable "upload your photo instead" prompt when no accurate aerial render. */
+  #roofDesign .rd-uploadprompt{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:6;max-width:min(420px,86vw);display:flex;align-items:center;gap:9px;background:rgba(11,18,32,.92);color:#fff;font:700 11.5px/1.35 "Satoshi",system-ui,sans-serif;text-align:left;padding:10px 15px;border-radius:14px;border:1px solid rgba(120,160,255,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.34)}
+  #roofDesign .rd-uploadprompt svg{flex:0 0 auto;width:18px;height:18px;fill:none;stroke:#dbe4ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #roofDesign .rd-uploadprompt:hover{border-color:rgba(120,160,255,.85)}
   @media (max-width:430px){
     #roofDesign .rd-mat{width:88px}
     #roofDesign .rd-price .rdp-v{font-size:19px}
@@ -1083,6 +1087,14 @@
       <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" style="display:none"></label>
     </div>
     <div class="rd-stagehint" id="rdStageHint"><span class="mini"></span><span id="rdStageHintT">Rendering your home…</span></div>
+    <!-- CANOPY FALLBACK (Problem B): shown when the accurate top-down aerial render can't be produced (no
+         roof footprint under heavy tree canopy / gated lot). Rather than silently auto-rendering a Street-View
+         house that may be the WRONG house, we surface a clickable prompt to use the customer-photo upload path
+         (which renders from THEIR own photo → always the right house). Clicking it opens the upload picker. -->
+    <button class="rd-uploadprompt" id="rdUploadPrompt" type="button" style="display:none">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+      <span id="rdUploadPromptT">We couldn't get a clear aerial of your roof. Upload a photo of your house to see it with your new roof.</span>
+    </button>
     <div class="rd-panel">
       <div class="rd-mats" id="rdMats"></div>
       <div class="rd-cols" id="rdCols"></div>
@@ -8907,6 +8919,8 @@ async function rdAiOnHouse(){
     // so the late note can't fire and stomp the photo the buyer is now seeing.
     try{ clearTimeout(__aiTimeout); }catch(_){} try{ window.__aiTimedOut=false; }catch(_){}
     window.__aiDown=false;
+    // CANOPY FALLBACK (Problem B): a real render landed → dismiss the "upload your photo" prompt if it was shown.
+    try{ const pr=$("rdUploadPrompt"); if(pr) pr.style.display="none"; }catch(_){}
     try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=url; } }catch(_){}
     const img=$("aiPhoto");
     if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(url,addr,matPrompt); else { img.src=url; img.style.display="block"; } img.style.zIndex="16"; }
@@ -8924,8 +8938,21 @@ async function rdAiOnHouse(){
     // endpoint returns root-relative urls; prefix with RQ_BASE (set in the app build, "" in the spike) so the <img> resolves in both.
     const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
     if(j&&j.url&&j.roofOnly){ paint(RB+j.url, j.base?(RB+j.base):null); }
+    else if(j && j.error==="no_footprint"){
+      // 2) CANOPY GATE (Problem B): the top-down render has NO confident roof mask for this address (heavy
+      // tree canopy / gated lot). The legacy /airender Kontext path renders from Street View, which on these
+      // lots can return a DIFFERENT, generic house — presenting someone else's house as "yours" is a trust
+      // killer. So do NOT silently auto-render Street View. Keep the textured 3D model already on screen and
+      // surface a clear, clickable prompt to use the customer-photo UPLOAD path (renders from THEIR photo →
+      // always the right house). The buyer stays in control of whether to show a photo at all.
+      console.warn("[rdAi] no roof-only mask (no_footprint) → gating to customer-photo upload (not Street View)");
+      window.__aiDown=true;
+      const pr=$("rdUploadPrompt"); if(pr){ pr.style.display="flex"; }
+    }
     else {
-      // 2) FALLBACK: no footprint mask → legacy Kontext repaint (no hard roof-only guarantee).
+      // 3) FALLBACK: a top-down failure that is NOT the canopy/no-footprint case (e.g. a transient render
+      // error while a footprint DID exist) → legacy Kontext repaint at the resolved address. Street View at
+      // an address that geocoded to a real footprint is far more likely to be the right house.
       console.warn("[rdAi] no roof-only mask ("+(j&&j.error||"?")+") → Kontext fallback");
       const r2=await fetch("/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
       const j2=await r2.json();
@@ -9077,6 +9104,9 @@ async function openRoofDesign(){
   // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
   rdBuildMats(); rdBuildCols(); rdRenderInfo();
   $("roofDesign").style.display="flex"; window.__rdOpen=true;
+  // CANOPY FALLBACK (Problem B): start each designer session with the upload prompt hidden (a stale prompt
+  // from a prior address must not carry over); it re-shows only if THIS address has no aerial roof mask.
+  try{ const pr=$("rdUploadPrompt"); if(pr) pr.style.display="none"; }catch(_){}
   const fb=$("funnelBar"); if(fb){ fb.dataset.rdPrev=fb.style.display; fb.style.display="none"; }
   // the design step owns the screen — hide the floating quote card + search bar so neither bleeds at the edges
   const cd=$("card"); if(cd){ cd.dataset.rdPrev=cd.style.display; cd.style.display="none"; }
@@ -9147,6 +9177,9 @@ function closeRoofDesign(){
   const back=$("rdBack"); if(back) back.onclick=()=>{ closeRoofDesign(); const bc=$("branchChoice"); if(bc) bc.style.display="flex"; };
   const ai=$("rdAi"); if(ai) ai.onclick=()=>rdAiOnHouse();
   const up=$("rdUploadInput"); if(up) up.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f) rdUploadOnHouse(f); e.target.value=""; };
+  // CANOPY FALLBACK (Problem B): the "upload a photo instead" prompt opens the SAME file picker as the
+  // Upload-photo button. Hide the prompt once they act on it.
+  const upPrompt=$("rdUploadPrompt"); if(upPrompt) upPrompt.onclick=()=>{ upPrompt.style.display="none"; const inp=$("rdUploadInput"); if(inp) inp.click(); };
   const done=$("rdDone"); if(done) done.onclick=()=>{
     // commit the chosen roof and drop the buyer onto the quote card (estimate) for this material
     const reveal=()=>{
@@ -10198,6 +10231,18 @@ function _ringAreaM2(ring,lat0){ const mLat=111320, mLng=111320*Math.cos((lat0||
   let s=0; for(let i=0;i<ring.length;i++){ const a=ring[i],b=ring[(i+1)%ring.length];
     s+=(a[0]*mLng)*(b[1]*mLat)-(b[0]*mLng)*(a[1]*mLat); } return Math.abs(s)/2; }
 function _ringCentroid(ring){ let x=0,y=0; for(const[lng,lat]of ring){x+=lng;y+=lat;} return [x/ring.length,y/ring.length]; }
+// CANOPY FALLBACK (Problem A): on heavy tree canopy / gated estates the aerial footprint detection returns
+// an empty candidate set, so Select-Roof has NO polygon to draw and the chip would read "No buildings
+// selected" — an unconfirmed/empty look even though the home is clearly centred. When we have a geocoded
+// home but no footprint, synthesize a modest default house rectangle (~halfM metres half-side) centred at
+// the marker so the SAME confident path (striped overlay + checkmark + "1 building selected") still runs.
+// This is a fallback ONLY — it never touches the real-footprint path. Marked source:"approx" so downstream
+// code can tell it apart from a detected/edited footprint.
+function _defaultHomeRing(lng,lat,halfM){
+  const h=Math.max(5, halfM||7);   // ~7 m half-side → a ~14 m square ≈ a typical suburban home footprint
+  const dLat=h/111320, dLng=h/(111320*Math.max(0.2,Math.cos(lat*Math.PI/180)));
+  return [[lng-dLng,lat-dLat],[lng+dLng,lat-dLat],[lng+dLng,lat+dLat],[lng-dLng,lat+dLat]];
+}
 // Recompute window.__selectedBuildings + the count chip from the live building list. The PRIMARY building
 // (the one Continue runs) is the selected detected home if still selected, else the largest selected.
 function syncSelection(){
@@ -10208,7 +10253,14 @@ function syncSelection(){
   window.__srPrimary = primary ? { ring:primary.ring, centroid:primary.centroid, source:primary.source } : null;
   const n=sel.length;
   const chip=$("srCount"), ct=$("srCountT");
-  if(chip&&ct){ if(n>0){ chip.style.display="inline-flex"; ct.textContent=n+" building"+(n===1?"":"s")+" selected"; } else { chip.style.display="inline-flex"; ct.textContent="No buildings selected"; } }
+  if(chip&&ct){
+    chip.style.display="inline-flex";
+    if(n>0){ ct.textContent=n+" building"+(n===1?"":"s")+" selected"; }
+    // CANOPY FALLBACK (Problem A): never show the empty/unconfirmed "No buildings selected" when we have a
+    // geocoded home — the buyer deselected everything but their address is still pinned, so nudge to re-tap.
+    else if(window.__srGeo && isFinite(window.__srGeo.lat) && isFinite(window.__srGeo.lng)){ ct.textContent="Tap your building to confirm"; }
+    else { ct.textContent="No buildings selected"; }
+  }
   // Continue is allowed even with 0 (degrades to the geocoded point) but nudge with the count.
 }
 // Visual style for a building polygon by selected state. Selected = brand-blue fill highlight (matches the
@@ -10368,10 +10420,16 @@ async function renderSelectRoofMap(g, fp, neighbours){
     const detectedRing=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
     const detectedC = detectedRing ? _ringCentroid(detectedRing) : [g.lng,g.lat];
     const list=[];
+    // CANOPY FALLBACK (Problem A): no detected footprint but we DID geocode a home → auto-select an
+    // approximate home rectangle at the marker so the buyer gets a CONFIRMED roof (checkmark + striped
+    // overlay + "1 building selected") instead of the bare "No buildings selected" empty look. This is the
+    // ONLY change to the empty-candidate path; the real-footprint path below is untouched.
+    const usedApprox = !detectedRing && isFinite(g.lat) && isFinite(g.lng);
     // (selectroof-align) Square up + clean each raw footprint BEFORE drawing so the first view's polygon hugs
     // the roof lines instead of showing the loose/jaggy OSM trace. Pure local geometry → no added latency; the
     // helper gates itself and returns the raw ring on any degeneracy (never a worse polygon than today).
     if(detectedRing){ const r=_regularizeSelectRoofRing(detectedRing, g.lat); list.push({ id:"detected", ring:r, centroid:_ringCentroid(r), source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
+    else if(usedApprox){ const r=_defaultHomeRing(g.lng,g.lat,7); list.push({ id:"approx", ring:r, centroid:_ringCentroid(r), source:"approx", detected:true, selected:true }); }
     // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
     const seen=detectedRing?[detectedC]:[];
     const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
@@ -10403,8 +10461,16 @@ async function renderSelectRoofMap(g, fp, neighbours){
       const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
       const hasNb=__srBuildings.length>1;
       $("srHintT").textContent = hasNb ? "Tap buildings to add or remove them from your quote." : "This is the roof we detected. Not your building? Tap the correct one.";
+    } else if(usedApprox){
+      // CANOPY FALLBACK (Problem A): no aerial footprint (heavy tree canopy / gated estate), but we geocoded
+      // the home → an approximate home rectangle is auto-selected at the marker (checkmark + stripes drawn
+      // above). Frame it like a detected home and keep a centred marker so the buyer can re-tap if it's off.
+      const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:_defaultHomeRing(g.lng,g.lat,7);
+      const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
+      try{ const { Marker }=await google.maps.importLibrary("marker"); new Marker({ position:center, map:__srMap }); }catch(_){}
+      $("srHintT").textContent="Your home — tap a building to adjust if the marker is off.";
     } else {
-      // No footprint — drop a marker on the geocode so the buyer sees the targeted point (degrade path).
+      // No footprint AND no usable geocode — drop a marker on the geocode so the buyer sees the targeted point.
       try{ const { Marker }=await google.maps.importLibrary("marker"); new Marker({ position:center, map:__srMap }); }catch(_){}
       $("srHintT").textContent="Centred on your address. Tap your building if the marker is off.";
     }
