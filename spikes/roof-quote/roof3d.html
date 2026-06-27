@@ -8874,8 +8874,38 @@ async function rdAiOnHouse(){
   const matPrompt=c?c.p:m.label;
   const hint=$("rdStageHint"), hintT=$("rdStageHintT");
   btn.disabled=true; if(lbl) lbl.textContent="Rendering…";
-  if(hint){ if(hintT) hintT.textContent="Applying "+label+" to your home (roof only)…"; hint.style.display="flex"; }
+  // (BUG 2) The photoreal render can take up to ~52s (fast top-down → Kontext fallback on tree-canopy).
+  // A frozen "Rendering…" pill for that long reads as a hang. Step the copy through honest stages (no
+  // fake progress bar that lies) so the buyer sees motion + a time expectation, and clean it up on resolve.
+  const STAGES=[
+    "Analyzing your roof…",
+    "Applying "+label+" to your home…",
+    "Painting on the new material…",
+    "This usually takes up to a minute…",
+    "Finishing your photoreal preview…"
+  ];
+  let __aiStage=0;
+  if(hint){ if(hintT) hintT.textContent=STAGES[0]; hint.style.display="flex"; }
+  const __aiStageTimer=setInterval(()=>{
+    __aiStage=Math.min(__aiStage+1, STAGES.length-1);
+    if(hintT) hintT.textContent=STAGES[__aiStage];
+  }, 9000);
+  // CLIENT TIMEOUT BACKSTOP: the server bounds itself, but a stalled network/Replicate call must NEVER
+  // spin forever. After ~72s, gracefully fall back to the textured 3D house already on screen + a brief
+  // note, and stop the spinner. __aiTimedOut guards the late fetch result from re-stomping the UI.
+  let __aiTimedOutLocal=false;
+  const stopSpinner=()=>{ try{ clearInterval(__aiStageTimer); }catch(_){} if(hint) hint.style.display="none"; };
+  const timeoutFallback=()=>{ if(__aiTimedOutLocal) return; __aiTimedOutLocal=true;
+    stopSpinner();
+    try{ window.__aiTimedOut=true; }catch(_){}
+    if(typeof setStatus==="function"){ setStatus("Preview is taking longer than usual — showing your 3D model", true); setTimeout(()=>setStatus(""),4200); }
+    btn.disabled=false; if(lbl) lbl.textContent="See it on my house";
+  };
+  const __aiTimeout=setTimeout(timeoutFallback, 72000);
   const paint=(url,beforeUrl)=>{
+    // a real render landed — it always wins over the timeout note (better outcome). Clear the backstop
+    // so the late note can't fire and stomp the photo the buyer is now seeing.
+    try{ clearTimeout(__aiTimeout); }catch(_){} try{ window.__aiTimedOut=false; }catch(_){}
     window.__aiDown=false;
     try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=url; } }catch(_){}
     const img=$("aiPhoto");
@@ -8908,10 +8938,13 @@ async function rdAiOnHouse(){
     }
   }catch(e){
     window.__aiDown=true;
-    setStatus("Photo preview unavailable — showing the 3D house with your colour", true); setTimeout(()=>setStatus(""),3600);
+    if(!__aiTimedOutLocal){ setStatus("Photo preview unavailable — showing the 3D house with your colour", true); setTimeout(()=>setStatus(""),3600); }
   }
-  if(hint) hint.style.display="none";
-  btn.disabled=false; if(lbl) lbl.textContent = window.__aiDown ? "Preview material" : "See it on my house";
+  // tear down the stepped-copy interval + timeout backstop no matter how we resolved. If the timeout
+  // already fired it reset the button/note itself — only re-touch the button/label if it did NOT.
+  try{ clearTimeout(__aiTimeout); }catch(_){}
+  stopSpinner();
+  if(!__aiTimedOutLocal){ btn.disabled=false; if(lbl) lbl.textContent = window.__aiDown ? "Preview material" : "See it on my house"; }
 }
 // Customer-photo upload → render the chosen material onto THEIR photo (ToS-clean base). No exact roof
 // mask for an arbitrary oblique upload, so this uses prompt-preservation (Kontext), not the hard mask.
@@ -9033,6 +9066,13 @@ async function openRoofDesign(){
     if(typeof clearHeat==="function") clearHeat();
     if(typeof clearLabels==="function") clearLabels();
     if(typeof clearRoofMeas==="function") clearRoofMeas();
+    // (BUG 1) Coming from the Measure / Materials top-down lens leaves the 2D #matCanvas diagram
+    // (z-index 15) display:block ON TOP of #scene, and clearRoofMeas() only drops it when
+    // __analysis!=="material" — so the flat top-down measure/material diagram can stay painted over
+    // the textured 3D house. Reset the analysis lens + force the 2D canvas hidden here so the mount
+    // below is the only visible surface. (Mirrors the deterministic mount shipped for the Roofing tab.)
+    if(typeof showAnalysis==="function") showAnalysis(null);
+    try{ const mc=$("matCanvas"); if(mc) mc.style.display="none"; }catch(_){}
   }catch(_){}
   // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
   rdBuildMats(); rdBuildCols(); rdRenderInfo();
@@ -9063,12 +9103,16 @@ async function openRoofDesign(){
       // here is the single source of truth that mounts + shows the canvas before we skin it.
       try{ await setMode("schematic"); }catch(_){}
       try{ if(typeof enterModelDefault==="function") await enterModelDefault(); }catch(_){}
-      try{ const sc=$("scene"); if(sc) sc.style.display="block"; const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+      // (BUG 1) DETERMINISTIC mount: always force the Three.js #scene visible + #gmapWrap AND the 2D
+      // top-down #matCanvas hidden. neither setMode nor enterModelDefault touch #matCanvas, so a stale
+      // Measure/Materials diagram (z-index 15) would otherwise stay painted over the textured house.
+      try{ const sc=$("scene"); if(sc) sc.style.display="block"; const gw=$("gmapWrap"); if(gw) gw.style.display="none"; const mc=$("matCanvas"); if(mc) mc.style.display="none"; }catch(_){}
       // hero 3/4 framing onto the roof so the texture reads big
       try{ if(typeof frameRoofHero==="function") frameRoofHero(); }catch(_){}
       rdReflectOnHouse();   // skin the model roof with the selected material+colour
     } else {
       if(mode!=="photoreal") await setMode("photoreal");
+      try{ const mc=$("matCanvas"); if(mc) mc.style.display="none"; }catch(_){}   // (BUG 1) drop any stale 2D top-down diagram over the photoreal house
       if(mode==="photoreal" && window.__photorealOk!==false){
         try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}   // gmapWrap.display=block
         try{ if(gmap && gmap.flyCameraTo && typeof roofFitRange==="function" && typeof SITE!=="undefined"){
