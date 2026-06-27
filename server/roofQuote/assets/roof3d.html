@@ -2019,8 +2019,10 @@ function measureCardBody(largeRoof){
     '<div class="grid"><div class="stat"><div class="v">'+(t.squares||0).toFixed(1)+'</div><div class="l">squares'+TCUE("squares")+'</div></div>'+
     '<div class="stat"><div class="v">'+t.facetCount+'</div><div class="l">facets</div></div>'+
     '<div class="stat"><div class="v">'+t.predominantPitchX12+'/12</div><div class="l">pitch'+TCUE("pitch")+'</div></div></div>'+
-    '<div class="mrows">'+row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt))+row(EDGE_COLORS.hip,"Hip",f(t.hipFt))+
-    row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>';
+    (edgesUntrustworthy(t)
+      ? '<div class="qsub" style="margin-top:8px">Ridge, hip &amp; valley details are confirmed during your free on-site assessment for this complex roof.</div>'
+      : '<div class="mrows">'+row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt))+row(EDGE_COLORS.hip,"Hip",f(t.hipFt))+
+        row(EDGE_COLORS.valley,"Valley",f(t.valleyFt))+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt))+row(EDGE_COLORS.rake,"Rake",f(t.rakeFt))+'</div>');
 }
 // ── Materials takeoff: credible line-item estimate from the roof geometry (Roofr/EagleView-style) ──
 const WASTE_OPTS=[0,10,15,20]; let selWaste=1;   // default 10% (recommended); 20% for very cut-up hip/valley roofs (roofer convention 18-20%)
@@ -2611,6 +2613,26 @@ function confidencePct(t){
   const facets=t.facetCount||1, sq=t.squares||(t.roofAreaSqFt/100)||1, cx=facets + (t.valleyFt||0)/sq;
   return cx>9 ? 7 : cx>5 ? 6 : 5;
 }
+// (legacy-edge-honest) STRICT gate: are this roof's per-edge lengths untrustworthy?
+// Fires ONLY when ALL THREE hold, so a normal analytic roof with real edges is NEVER affected:
+//   (1) the model came from the LEGACY raster-trace fallback (t.__legacyTrace===true) — set in
+//       facetsToRoofModel only when the analytic plane-intersection path degenerated; an analytic
+//       roof (Denver/Asheville) has this falsy, so it always shows its full breakdown.
+//   (2) the interior-crease edges are DEGENERATE — ridge+hip+valley collapse to ~0 (< 8 lf total),
+//       the tell-tale of the global-axis-snap mis-classification.
+//   (3) it's a MULTI-FACET roof (facetCount >= 6) — a genuine 1-2 facet gable legitimately has
+//       0 hips/valleys, so we only flag the impossible case (many facets but no creases).
+// When true the area/squares/facets/pitch are still correct (Google-anchored) and stay shown; only
+// the misleading per-edge rows are replaced by an on-site caveat. Price math is untouched.
+function edgesUntrustworthy(t){
+  try{
+    if(!t || t.__legacyTrace!==true) return false;
+    const interior=(t.ridgeFt||0)+(t.hipFt||0)+(t.valleyFt||0);
+    const facets=t.facetCount||0;
+    return interior < 8 && facets >= 6;
+  }catch(_){ return false; }
+}
+window.__edgesUntrustworthy=t=>edgesUntrustworthy(t);
 // material-aware field line: asphalt→bundles, metal→panels/squares, clay/slate→tiles, wood→bundles.
 // (~ per-square counts: asphalt 3 bundles/sq; metal panels ≈ field sqft ÷ (1.5ft coverage × panel run);
 //  clay/slate ≈ 90–110 tiles/sq.) Returns {label, detail} for the field-material takeoff row.
@@ -2626,12 +2648,17 @@ function roofTakeoff(t, wastePct){
   const eave=t.eaveFt||0, rake=t.rakeFt||0, ridge=t.ridgeFt||0, hip=t.hipFt||0, valley=t.valleyFt||0;
   const r=(l,v,ck)=>'<div class="tk-row"><span>'+l+(ck?'<span class="ccue" data-compinfo="'+ck+'" title="What is this?">i</span>':'')+'</span><b>'+v+'</b></div>';
   const fld=fieldMaterialLine(window.__roofSel&&window.__roofSel.matId, fieldSq);
+  // (legacy-edge-honest) On the degenerate legacy-trace case the linear-foot quantities derived from
+  // ridge/hip/valley/eave/rake are garbage (0 lf cap, inflated drip). Show "confirmed on-site" for the
+  // edge-derived rows instead of a misleading 0/inflated figure. Area-derived rows (field/underlayment/
+  // nails) stay — they're correct. This is DISPLAY ONLY; the price total is computed elsewhere.
+  const eu=edgesUntrustworthy(t), onsite='confirmed on-site';
   let rows=r(fld.label, fld.detail)
-    + r('Starter strip', Math.round(eave)+' lf', 'starter')
-    + r('Hip &amp; ridge cap', Math.round(ridge+hip)+' lf', 'ridgecap')
-    + r('Drip edge', Math.round(eave+rake)+' lf', 'drip')
+    + r('Starter strip', eu?onsite:Math.round(eave)+' lf', 'starter')
+    + r('Hip &amp; ridge cap', eu?onsite:Math.round(ridge+hip)+' lf', 'ridgecap')
+    + r('Drip edge', eu?onsite:Math.round(eave+rake)+' lf', 'drip')
     + r('Underlayment', Math.ceil(fieldSq)+' sq', 'underlay');
-  if(valley>0) rows+=r('Valley flashing', Math.round(valley)+' lf', 'flashing');
+  if(!eu && valley>0) rows+=r('Valley flashing', Math.round(valley)+' lf', 'flashing');
   rows+=r('Roofing nails', Math.ceil(fieldSq*2.2)+' lb');
   const c=window.__roofFeatures&&window.__roofFeatures.counts;
   if(c){ const pen=(c.chimneys||0)+(c.vents||0)+(c.skylights||0); if(pen) rows+=r('Pipe boots + flashing', pen+' penetration'+(pen>1?'s':''), 'flashing'); }
@@ -6705,6 +6732,15 @@ function facetsToRoofModel(){
   const shareTolM=(facets.__analytic===false)?1.0:0.6;
   let model; try{ model=window.__buildRoofModel(planes, sampleHeight, {shareTolM}); }catch(e){ errors.push("roofgeo:"+e.message); return null; }
   model.__toWgs=toWgs;
+  // (legacy-edge-honest) Stamp WHICH extraction path produced this model. On large/complex roofs
+  // the analytic plane-intersection path can degenerate and we fall back to the legacy raster trace
+  // (facets.__analytic===false). The legacy trace's global-axis snap classifies interior creases
+  // poorly → ridge/hip/valley collapse to ~0 and rake inflates, so the per-edge takeoff is GARBAGE
+  // even though the AREA/squares/pitch (anchored to Google) stay correct. Carry the flag through to
+  // the totals so the display layer can replace the broken edge rows with an honest on-site caveat
+  // WITHOUT touching the price (which already under-counts conservatively + has the on-site disclaimer).
+  model.__legacyTrace=(facets.__analytic===false);
+  if(model.totals) model.totals.__legacyTrace=model.__legacyTrace;
   // Forward the single analytic footprint ring (in model-local metres) for the 3D wall envelope.
   if(Array.isArray(facets.__footprintLL)) model.__footprint=facets.__footprintLL.map(([lng,lat])=>toLocal(lng,lat));
   // ── (measure-iter2) RIDGE/HIP/VALLEY SNAP onto the real DSM crest/trough. dsmAt samples the DSM
@@ -8142,9 +8178,11 @@ function showRoofReport(t){ t=reconcileTotals(t); window.__roofTotals=t; const r
   const row=(c,l,v)=>'<div class="rr-row"><span>'+(c?'<i style="background:'+c+'"></i>':'')+l+'</span><b>'+v+'</b></div>';
   rp.innerHTML='<div class="rr-h">Roof measurements</div>'+
     '<div class="rr-big">'+f(t.roofAreaSqFt)+' ft²</div><div class="rr-sub">'+(t.squares||0).toFixed(1)+' squares · '+t.facetCount+' facets · '+t.predominantPitchX12+'/12 pitch</div>'+
-    row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt)+"′")+row(EDGE_COLORS.hip,"Hip",f(t.hipFt)+"′")+
-    row(EDGE_COLORS.valley,"Valley",f(t.valleyFt)+"′")+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt)+"′")+
-    row(EDGE_COLORS.rake,"Rake",f(t.rakeFt)+"′");
+    (edgesUntrustworthy(t)
+      ? '<div class="rr-row" style="color:var(--muted);font-size:11px;display:block">Ridge, hip &amp; valley details are confirmed during your free on-site assessment for this complex roof.</div>'
+      : row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt)+"′")+row(EDGE_COLORS.hip,"Hip",f(t.hipFt)+"′")+
+        row(EDGE_COLORS.valley,"Valley",f(t.valleyFt)+"′")+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt)+"′")+
+        row(EDGE_COLORS.rake,"Rake",f(t.rakeFt)+"′"));
   rp.style.display="none";   // the quote card now carries measurements contextually → avoid duplicate HUD
 }
 async function buildPhotoLabels(){
@@ -10210,8 +10248,11 @@ function measurementReport(t, sqs){
   return '<div class="sec mr"><h2>Roof measurement report</h2>'+
     '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+(t.squares||0).toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
     (diag?'<img class="mr-diag" src="'+diag+'" alt="Roof measurement diagram">':'')+
-    '<div class="mr-cols"><div><div class="mr-h2">Length report</div>'+lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
-      '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div></div>'+
+    '<div class="mr-cols"><div><div class="mr-h2">Length report</div>'+
+      (edgesUntrustworthy(t)
+        ? '<div class="mr-row"><span style="color:#64748b">Ridge, hip &amp; valley details are confirmed during your free on-site assessment for this complex roof.</span></div>'
+        : lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
+          '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div>')+'</div>'+
       '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+(t.squares||0).toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
     '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
     '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
@@ -10268,7 +10309,9 @@ function openReport(){
     const spec=ROOF_SPEC[_sel.matId], psq=ROOF_PSQ[_sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
     let [mlo,mhi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, _rt); mlo=Math.round(mlo/50)*50; mhi=Math.round(mhi/50)*50;
     const pen=_ft?((_ft.chimneys||0)+(_ft.vents||0)+(_ft.skylights||0)):0;
-    const measLine=_rt?`Measured: ${Math.round(_rt.ridgeFt+_rt.hipFt)} lf ridge/hip · ${Math.round(_rt.eaveFt+_rt.rakeFt)} lf drip edge · ±${confidencePct(_rt)}%${pen?` · ${pen} penetration${pen>1?'s':''} flashed`:''}.`:`${sqs.toFixed(1)} squares.`;
+    const measLine=_rt?(edgesUntrustworthy(_rt)
+      ? `${sqs.toFixed(1)} squares · ±${confidencePct(_rt)}%${pen?` · ${pen} penetration${pen>1?'s':''} flashed`:''}. Ridge, hip & valley details are confirmed during your free on-site assessment for this complex roof.`
+      : `Measured: ${Math.round(_rt.ridgeFt+_rt.hipFt)} lf ridge/hip · ${Math.round(_rt.eaveFt+_rt.rakeFt)} lf drip edge · ±${confidencePct(_rt)}%${pen?` · ${pen} penetration${pen>1?'s':''} flashed`:''}.`):`${sqs.toFixed(1)} squares.`;
     roofSec=`<div class="sec"><h2>New roof — ${_sel.matLabel}</h2><div class="pricebig">${fmtMoney(mlo)}–${fmtMoney(mhi)}</div>
       <div class="muted">${_sel.matLabel} · ${_sel.colorName}${spec?` — ${spec.warranty} warranty, ${spec.life} lifespan`:''} · ${sqs.toFixed(1)} squares · tear-off + install${roofOpts.layers>1?' (2 layers)':''}${roofOpts.ridgeVent?' · ridge vent':''}${roofOpts.steep?' · steep/2-story':''}.</div>
       <div class="bul"><span class="bm"></span><div>${measLine}</div></div></div>`;
