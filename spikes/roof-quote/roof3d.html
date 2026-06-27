@@ -2539,6 +2539,21 @@ function roofDataConfidence(){
   // segments, bad imagery, implausible area, floating array, canopy-occluded). extractFacetPolysAnalytic
   // now keeps window.__fpRejectShiftM=null on a footprint reject (see the candidate-registration block);
   // this is the matching half of the decoupling so the signal can never re-enter through here.
+  // ── MODEL-SUCCESS OVERRIDE for CANOPY signals (estate P3 Bug A) ─────────────────────────────
+  // The canopy/canopy-heavy reasons come from the PHOTOREAL-TILE crop (roofOverlayConfidence /
+  // __canopyDegrade) — i.e. "how much of the array is under tree cover in the 3D imagery". That is
+  // only a degrade signal when we have NOTHING better. When the ANALYTIC model genuinely succeeded
+  // (8 Frost Creek: __modelQuality===true, 86 panels placed, full flux raster), the engine DID
+  // measure this roof off Google's own segments/flux — canopy in the photoreal tiles does not make
+  // that measurement low-confidence. A successfully-measured roof must show the confident quote, not
+  // the apologetic "couldn't get a confident read" card. So drop canopy from the degrade reasons
+  // when the model succeeded. (We do NOT touch bad-data roofs: no model → __modelQuality!==true or
+  // 0 panels placed → modelSucceeded false → canopy still degrades, and bad-model still fires.)
+  const modelSucceeded = (window.__modelQuality===true) && ((window.__panelsPlaced||0) > 0) && !!(LASTFLUX && LASTFLUX.rasters);
+  if(modelSucceeded){
+    for(let i=reasons.length-1;i>=0;i--){ if(reasons[i]==="canopy"||reasons[i]==="canopy-heavy") reasons.splice(i,1); }
+  }
+  window.__modelSucceeded=modelSucceeded;
   // LOW-CONFIDENCE = a hard physical impossibility (tiny/huge roof, no segments) OR
   // ≥2 softer signals stacking (e.g. no-solar + bad-model + low-imagery, or floating + small-segment).
   // A confirmed floating array is itself disqualifying (panels literally in the air) → treat as hard.
