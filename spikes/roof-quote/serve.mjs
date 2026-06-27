@@ -452,7 +452,7 @@ function scanMsftTileBbox(srcStream,bs,bw,bn,be){
     const gun=zlib.createGunzip();
     const rl=readline.createInterface({ input:srcStream.pipe(gun), crlfDelay:Infinity });
     const finish=()=>{ if(done) return; done=true; try{ rl.close(); }catch(_){} try{ srcStream.destroy(); }catch(_){} resolve(out); };
-    srcStream.on("error",finish); gun.on("error",finish);
+    srcStream.on("error",finish); gun.on("error",finish); rl.on("error",finish);   // a corrupt/truncated gz tile makes gunzip error → readline re-emits it; guard the interface too so it can't crash the process
     rl.on("line",line=>{
       if(done||!line||out.length>=400) { if(out.length>=400) finish(); return; }
       let f; try{ f=JSON.parse(line); }catch(_){ return; }
@@ -627,6 +627,7 @@ function scanMsftTile(srcStream,lat,lng){
     const finish=(val)=>{ if(done) return; done=true; try{ rl.close(); }catch(_){} try{ srcStream.destroy(); }catch(_){} resolve(val); };
     srcStream.on("error",()=>finish(null));
     gun.on("error",()=>finish(null));
+    rl.on("error",()=>finish(null));   // guard the readline interface too — it re-emits the gunzip error and would otherwise crash the process
     rl.on("line",line=>{
       if(done||!line) return;
       let f; try{ f=JSON.parse(line); }catch(_){ return; }

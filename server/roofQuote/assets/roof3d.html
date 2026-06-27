@@ -3010,10 +3010,45 @@ async function applyTradeMode(){
     // STEP 6: returning to the Solar context restores the DEFAULT premium own-3D-model base (not the
     // raw photoreal tiles), keeping the engineered solar array as the first impression. Only do this on
     // an actual category re-entry when a roof is ready; the model gate inside falls back to photoreal.
+    // Drop any roofing-skin the Roofing tab applied first, so the solar lens isn't left with a shingle
+    // texture on its facets (mirrors closeRoofDesign's teardown).
+    try{ if(typeof applyRoofSkin==="function") applyRoofSkin(null); }catch(_){}
     if(window.__roofReady && typeof enterModelDefault==="function"){ try{ await enterModelDefault(); }catch(_){ panelsVisible=true; $("bPanels").classList.add("on"); } }
     else { panelsVisible=true; $("bPanels").classList.add("on"); if(mode==="photoreal"&&gmap){ try{ await buildPhotoPanels(); }catch(_){} } }
   }
-  else { panelsVisible=false; $("bPanels").classList.remove("on"); clearPanels(); }
+  else {
+    // ROOFING tab (in-card quick-switch). The Solar branch above mounts a 3D surface; the roofing tab
+    // must mount one too — otherwise switching to Roofing only flips state + clears panels and leaves the
+    // central canvas BLANK light-grey (the model/photoreal surface was never (re)shown). Mirror the SAME
+    // mount the proper roofing designer (openRoofDesign) uses: bring up our textured 3D model (or the
+    // photoreal house fallback), keep panels OFF (ZERO solar), and skin the roof with the picked material.
+    panelsVisible=false; $("bPanels").classList.remove("on"); clearPanels();
+    if(window.__roofReady){
+      try{
+        const haveModel = (window.__modelQuality!==false);
+        if(haveModel && typeof enterModelDefault==="function"){
+          // enterModelDefault shows the engineered solar array unless window.__rdOpen — the in-card roofing
+          // tab is NOT the full designer (no overlay), so set a transient flag to keep panels off the same
+          // way, mount the schematic surface, then drop it. (setMode("schematic") inside is the single
+          // source of truth that shows #scene; the early-return when mode is already schematic is why the
+          // canvas could stay blank — enterModelDefault re-asserts the surface regardless.)
+          const wasRd=window.__rdOpen; window.__rdOpen=true;
+          try{ await enterModelDefault(); }catch(_){}
+          window.__rdOpen=wasRd;
+          setModelPanelsVisible(false);
+          try{ const sc=$("scene"); if(sc) sc.style.display="block"; const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+          try{ if(typeof frameRoofHero==="function") frameRoofHero(); }catch(_){}
+        } else {
+          // fragmented massing → drive the roofing preview on the photoreal house (same fallback as openRoofDesign)
+          if(mode!=="photoreal" && typeof setMode==="function") await setMode("photoreal");
+          try{ if(typeof showAnalysis==="function") showAnalysis(null); }catch(_){}
+        }
+        // skin the roof with the selected (or default) material+colour so the preview shows the STYLE,
+        // not a bare grey/photo roof — exactly what the full roofing designer renders.
+        try{ if(typeof rdReflectOnHouse==="function") rdReflectOnHouse(); }catch(_){}
+      }catch(_){}
+    }
+  }
   if(typeof syncViewToggle==="function") syncViewToggle();
 }
 function updateSun(){
