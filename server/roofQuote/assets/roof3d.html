@@ -206,6 +206,11 @@
   /* status chip */
   #status{position:absolute;top:62px;left:12px;z-index:20;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:80vw;display:none;box-shadow:var(--card-shadow)}
   #status.err{color:#dc2626;border-color:#fecaca}
+  /* (BUG 2) when the full-screen report (#report, z-index:50) is open, the Share toast must sit ABOVE
+     it — otherwise the "Quote link copied to clipboard" confirmation renders under the report overlay
+     and Share looks like it did nothing. Scoped to body.report-open so on-screen z-order is untouched
+     normally. More specific than both the base (z20) and mobile (z22) #status rules → covers both. */
+  body.report-open #status{z-index:60}
   /* overlay-suppression note: shown when tree canopy hides the roof so the heatmap/panels/measure can't be placed reliably */
   /* pointer-events:none — this centered tree-cover note shares the top-centre band with #aiBtn
      ("See it on my house", same top:62/z21). When shown it sat OVER the button and intercepted its
@@ -484,7 +489,13 @@
   #report .rbadge b{color:#0d3cfc;font-weight:800}
   #report .foot{padding:18px 30px;color:#94a3b8;font-size:10.5px;line-height:1.5}
   @media print{
-    #report .rbar{display:none!important} #report{position:static;display:block!important} #app>*:not(#report){display:none!important}
+    /* (BUG 1) the screen layout clamps the page to one viewport: html,body{height:100%;overflow:hidden}
+       (~L16) + #app{position:fixed;inset:0} (~L17) are never reset for print, so window.print() only
+       emitted the first ~900px of the ~3500px report. Reset the host chain to flow the full report
+       height across multiple pages. PRINT-MEDIA ONLY — screen rendering is untouched. */
+    html,body{height:auto!important;overflow:visible!important}
+    #app{position:static!important;height:auto!important;overflow:visible!important}
+    #report .rbar{display:none!important} #report{position:static!important;height:auto!important;overflow:visible!important;display:block!important} #app>*:not(#report){display:none!important}
     #report .hero,#report .hero .ov,#report .tier.pop,#report .rcta,#report .brand,#report .bul b,#report .bm,#report .bc{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
     #report .sec,#report .tier,#report .rp-card,#report .mr-waste,#report .mr,#report .bul,#report .hero{break-inside:avoid;page-break-inside:avoid}
     #report .sec h2{break-after:avoid}
@@ -10264,22 +10275,31 @@ function tradeHeader(){ const tr=TENANT.trade||{};
 function measurementReport(t, sqs){
   if(!t) return '';
   const f=n=>Math.round(n||0).toLocaleString();
-  const lf=n=>{ const ft=Math.floor(n||0), inch=Math.round(((n||0)-ft)*12); return ft+'′ '+inch+'″'; };
+  // (BUG 3) feet+inches with proper rollover: when the rounded inches hit 12 they must carry into the
+  // next foot (e.g. 8.99 ft → "9′ 0″", never "8′ 12″"). Round to total inches first, then split.
+  const lf=n=>{ const ti=Math.round((n||0)*12); return Math.floor(ti/12)+'′ '+(ti%12)+'″'; };
   const diag=(()=>{ try{ if(typeof renderRoofDiagram==="function" && renderRoofDiagram()) return $("matCanvas").toDataURL("image/png"); }catch(_){} return ''; })();
   const lenRow=(l,v)=>'<div class="mr-row"><span>'+l+'</span><b>'+lf(v)+'</b></div>';
   const rec=(typeof recommendedWasteIdx==="function")?recommendedWasteIdx(t):2;
-  const baseSq=(t.squares||sqs);   // waste % applies to the MEASURED (pitch-adjusted) squares shown in stats/takeoff — not the flat footprint, or the table contradicts the rest of the report
+  // (BUG 4) ONE squares value across the whole report. `sqs` is roofingSquares() — the canonical
+  // pitch-corrected SLOPED material-order figure the plan-at-a-glance + new-roof sections already show
+  // (e.g. 17.8). `t.squares` is the FLAT footprint/100 (e.g. 17.3) — a different metric. Showing both
+  // bare-labelled "squares" made one roof read as two square counts. Use the sloped `sqs` here so the
+  // measurement report agrees with the rest of the report; ft² below stays the flat plan area (honest,
+  // distinct, and clearly labelled "ft²"). Falls back to t.squares only if sqs is missing.
+  const repSq=(sqs>0?sqs:(t.squares||0));
+  const baseSq=repSq;   // waste % applies to the MEASURED (pitch-adjusted) sloped squares shown in stats/takeoff — not the flat footprint, or the table contradicts the rest of the report
   const wasteCells=WASTE_OPTS.map((p,i)=>{ const sq=(baseSq*(1+p/100)); return '<td class="'+(i===rec?'rec':'')+'"><div class="wp">'+p+'%'+(i===rec?' ✓':'')+'</div><b>'+sq.toFixed(1)+'</b> sq</td>'; }).join('');
   const tk=roofTakeoff(t, WASTE_OPTS[rec]);
   return '<div class="sec mr"><h2>Roof measurement report</h2>'+
-    '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+(t.squares||0).toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
+    '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+repSq.toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
     (diag?'<img class="mr-diag" src="'+diag+'" alt="Roof measurement diagram">':'')+
     '<div class="mr-cols"><div><div class="mr-h2">Length report</div>'+
       (edgesUntrustworthy(t)
         ? '<div class="mr-row"><span style="color:#64748b">Ridge, hip &amp; valley details are confirmed during your free on-site assessment for this complex roof.</span></div>'
         : lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
           '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div>')+'</div>'+
-      '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+(t.squares||0).toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
+      '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+repSq.toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
     '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
     '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
     '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div>'+
@@ -10379,6 +10399,10 @@ function openReport(){
      <div class="rbadge">Measurements &amp; report powered by <b>QuoteQuick</b></div>
    </div>`;
   $("report").style.display="block"; document.body.style.overflow="hidden";
+  // (BUG 2) flag the report as open so the #status "copied" toast can lift above the z-index:50
+  // report overlay (Share writes the clipboard fine, but the confirmation was rendering UNDER the
+  // report and looked like a no-op). Cleared in __closeReport.
+  document.body.classList.add("report-open");
 }
 window.__openReport=openReport;
 /* lead capture soft-gate: value (3D + teaser price) shown first; capture unlocks the full report */
@@ -10613,7 +10637,7 @@ window.__book=async()=>{
   if(b){ b.disabled=false; b.textContent="Assessment requested"; b.classList.add("done"); }
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
-window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; };
+window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; document.body.classList.remove("report-open"); };
 // reusable info modal (material + data help cues)
 function openInfoModal(html){ const m=$("infoModal"); if(!m) return; $("imBody").innerHTML=html; m.style.display="flex"; }
 window.__closeInfo=()=>{ const m=$("infoModal"); if(m) m.style.display="none"; };
