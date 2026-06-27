@@ -728,17 +728,42 @@ export function registerRoofQuoteRoutes(app: Express) {
       // Map the widget payload onto the leads schema. name/email/phone are direct
       // columns; everything roof-specific (timeline, priorities, lead score, tier,
       // kW, price range, sqft, intent) lives in `answers` (jsonb).
-      const name = typeof body.name === "string" ? body.name.trim() : null;
-      const email = typeof body.email === "string" ? body.email.trim() : null;
-      const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+      // ── Server-side input validation (defense-in-depth) ───────────────────
+      // A client can POST arbitrary JSON straight here, bypassing the widget's
+      // client-side sanitize. Type-check + cap every free-text field so a
+      // malicious/oversized body can't bloat the row or smuggle objects. NOTE:
+      // we do NOT HTML-escape here — escaping belongs at the HTML render
+      // boundary (the notification email, server/jobs/notificationWorker.ts);
+      // storing escaped entities would double-escape and corrupt the data.
+      const cleanStr = (v: unknown, cap: number): string | null => {
+        if (typeof v !== "string") return null;
+        // Strip ASCII control chars (incl. CR/LF/tab/null), trim, then cap length.
+        const s = v.replace(/[\x00-\x1F\x7F]/g, "").trim();
+        return s ? s.slice(0, cap) : null;
+      };
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      const name = cleanStr(body.name, 120);
+      const emailRaw = cleanStr(body.email, 200);
+      const email = emailRaw && EMAIL_RE.test(emailRaw) ? emailRaw : null;
+      const phone = cleanStr(body.phone, 30);
+
+      // trade: known widget values are "roof" | "solar"; accept those verbatim,
+      // otherwise keep a capped/type-checked string so a future trade still
+      // persists but an object/huge payload can't. tier is free metadata → cap.
+      const ALLOWED_TRADES = new Set(["roof", "solar"]);
+      const tradeStr = cleanStr(body.trade, 50);
+      const trade = tradeStr && ALLOWED_TRADES.has(tradeStr) ? tradeStr : (tradeStr ? tradeStr.slice(0, 50) : null);
+      const tier = cleanStr(body.tier, 50);
+
       const priceHi = Number(body.priceHi);
       const quoteAmount = Number.isFinite(priceHi) && priceHi > 0 ? Math.round(priceHi) : null;
 
       const answers: Record<string, any> = {
         source: "roof_visualizer",
         address: body.address ?? null,
-        trade: body.trade ?? null,
-        tier: body.tier ?? null,
+        trade,
+        tier,
         kw: body.kw ?? null,
         priceLo: body.priceLo ?? null,
         priceHi: body.priceHi ?? null,
