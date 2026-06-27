@@ -115,7 +115,9 @@
   #selectRoof .sr-addr svg{flex:0 0 auto;width:15px;height:15px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-mapwrap{flex:1 1 auto;position:relative;margin:0 clamp(14px,4vw,40px);border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--card-shadow);background:#dfe5ee;min-height:0}
   #selectRoof #srMap{position:absolute;inset:0}
-  #selectRoof .sr-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 28px);background:rgba(15,23,42,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:99px;text-align:center}
+  /* Apple-style frosted-glass hint: low-radius rounded rect (not a pill), refined translucent surface,
+     hairline border + soft shadow. Kept legible over the map. */
+  #selectRoof .sr-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 28px);background:rgba(17,24,39,.52);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:12px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.12) inset}
   #selectRoof .sr-hint svg{flex:0 0 auto;width:14px;height:14px;stroke:#7fa0ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-count{position:absolute;left:8px;top:8px;z-index:5;display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;letter-spacing:-.01em;padding:7px 11px;border-radius:7px;box-shadow:0 4px 14px rgba(13,60,252,.32)}
   #selectRoof .sr-count svg{flex:0 0 auto;width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -546,6 +548,10 @@
   /* ROOFING DESIGNER OPEN = zero solar (Alex hard rule): hard-hide the lens rail + the Solar/Roofing quote
      card no matter what inline display any later renderQuoteCard()/applyTradeMode() sets. !important wins. */
   body.rd-open #ctrls,body.rd-open #card{display:none!important}
+  /* DOT-EDITING (Alex flag "why are there buttons behind this card?"): while the dot editor card (#dotHud)
+     owns the bottom of the editor, hard-hide the lens rail so no buttons peek out behind/around the card.
+     The editor card is the only control surface visible at the bottom during editing. */
+  body.dot-editing #ctrls{display:none!important}
   #ctrls button{width:56px;height:56px;border-radius:16px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;box-shadow:var(--card-shadow)}
   #ctrls button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   #ctrls button span{font-size:9.5px;font-weight:600;letter-spacing:.01em}
@@ -582,7 +588,8 @@
   #roofReport .rr-row b{color:#0f172a;font-weight:700}
   #roofReport .rr-row i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
   @media (max-width:560px){ #roofReport{top:60px;right:8px;width:170px;padding:10px 12px} #roofReport .rr-big{font-size:18px} }
-  #measToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
+  /* Editor view toggle (Top-down / 3D) — Alex flag: flush TOP-LEFT corner, consistent placement. */
+  #measToggle{position:absolute;top:62px;left:12px;z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
   /* ── ROOF-OUTLINE DOT EDITOR (Roofr/Sky-Quote style) ── */
@@ -654,9 +661,11 @@
   #sunHeatToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
   /* MOBILE: clear the stacked search bar — sit the Top-down/3D toggle below it (top:128px), left-aligned;
      the minimap now lives top-right so the two no longer collide (audit-7 P1). */
-  @media (max-width:560px){ #measToggle{left:8px;transform:none;top:128px} #measToggle button{padding:6px 12px} }
-  /* Measure-lens minimap (Scanifly-style wide-context inset, top-left of the diagram) */
-  #measMini{position:absolute;top:62px;left:12px;z-index:23;width:118px;height:118px;border-radius:13px;overflow:hidden;background:#0b1220;border:1px solid #ffffff;box-shadow:var(--card-shadow);display:none}
+  @media (max-width:560px){ #measToggle{left:12px;transform:none;top:128px} #measToggle button{padding:6px 12px} }
+  /* Measure-lens minimap (Scanifly-style wide-context inset). Alex flag: removed from the editor to
+     declutter the top-right corner — purely a decorative context inset, not load-bearing. Hidden hard
+     so the JS that sets display:block can't re-show it. */
+  #measMini{display:none!important}
   #measMini canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #measMini .mm-ring{position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,69,58,0.92);pointer-events:none}
   /* MOBILE (audit-7 P1): the 92px dark minimap inset previously sat at top:60px;left:8px — directly on
@@ -926,9 +935,7 @@
        centred on the geocode with the detected building footprint highlighted, + Continue/Back. -->
   <div id="selectRoof">
     <div class="sr-head">
-      <span class="sr-eyebrow">What would my roof cost?</span>
       <h2 class="sr-title">Select your roof</h2>
-      <p class="sr-sub">We found your building from satellite imagery — confirm it's the right roof.</p>
       <div class="sr-addr"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span id="srAddr"></span></div>
     </div>
     <div class="sr-mapwrap">
