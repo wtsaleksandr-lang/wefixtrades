@@ -434,6 +434,33 @@ export class CaptureUnavailableError extends Error {
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+// ── capture reliability state (ported from spikes/roof-quote/serve.mjs, commit 2dd7e876) ──
+// De-dupe concurrent headless renders: two callers for the SAME address share ONE browser run
+// (never launch two browsers for one house). Cleared when the render settles.
+const captureInflight = new Map<string, Promise<Buffer>>();
+// Recently-down memory: an address whose oblique render just failed (no GPU / no 3D tiles in this
+// runtime) maps to an expiry ms. While it's in the future the route SKIPS the slow ~20s headless
+// attempt and serves the fast Street-View fallback directly — instead of retrying the slow path on
+// every request. Retried again automatically once the TTL lapses.
+const captureObliqueDown = new Map<string, number>();
+const OBLIQUE_DOWN_TTL = 10 * 60 * 1000; // 10 min — keeps /capture snappy, but retries oblique later
+// ~14s ceiling on the roof-ready poll. A GPU runtime reaches __roofReady well under this; a no-GPU
+// runtime never will → we bail fast to the Street-View fallback instead of spending ~70s on a render
+// that produces a blank/partial frame anyway. Env-configurable to match the spike (RQ_CAPTURE_READY_MS).
+const CAPTURE_READY_MAX_MS = Number(process.env.RQ_CAPTURE_READY_MS || 14000);
+
+/** True while `address` is inside its recently-failed cooldown window — the route uses this to skip the
+ *  slow headless attempt and serve the fast Street-View fallback directly. Exported for the route layer. */
+export function isObliqueRecentlyDown(address: string): boolean {
+  return (captureObliqueDown.get(address) || 0) > Date.now();
+}
+/** Mark `address` as recently-failed for OBLIQUE_DOWN_TTL so subsequent calls skip the slow path.
+ *  Called by the route layer when a capture attempt fails (or its deadline is exceeded). */
+export function markObliqueDown(address: string): void {
+  captureObliqueDown.set(address, Date.now() + OBLIQUE_DOWN_TTL);
+}
+
 let _browser: Browser | null = null;
 // Once a launch fails (no Chromium binary / missing system lib in this runtime),
 // every subsequent launch in the same process fails the same way. Latch it so we
@@ -482,7 +509,16 @@ function bearing(lat1: number, lng1: number, lat2: number, lng2: number): number
   return (Math.atan2(y, x) / r + 360) % 360;
 }
 
+// Public entry: cached + disk-backed + IN-FLIGHT DE-DUPED. Two concurrent callers for the same
+// address share ONE headless render (never launch two browsers for one house). The slow render is
+// delegated to `_captureObliqueRender`; the deadline/Street-View-fallback race lives at the route
+// layer (server/routes/roofQuoteRoutes.ts) so a slow render never hangs the HTTP response.
 export async function captureOblique(address: string): Promise<Buffer> {
+  // VERIFY HOOK: simulate the prod (Replit publish) runtime that ships no headless Chromium, so the
+  // oblique→Street-View fallback + recently-down cooldown can be exercised locally. Off by default.
+  if (process.env.RQ_FORCE_NO_CHROMIUM === "1") {
+    throw new CaptureUnavailableError("headless browser unavailable in this runtime");
+  }
   if (captureCache.has(address)) return captureCache.get(address)!;
   {
     const d = diskGetBuf("cap", address);
@@ -491,6 +527,27 @@ export async function captureOblique(address: string): Promise<Buffer> {
       return d;
     }
   }
+  // A render is already running for this house → await it instead of launching a second browser.
+  const existing = captureInflight.get(address);
+  if (existing) return existing;
+  const p = (async (): Promise<Buffer> => {
+    const buf = await _captureObliqueRender(address);
+    captureCache.set(address, buf);
+    diskSetBuf("cap", address, buf);
+    return buf;
+  })().finally(() => {
+    captureInflight.delete(address);
+  });
+  captureInflight.set(address, p);
+  return p;
+}
+
+// The actual headless render. BOUNDED so it can never hang the request ~70s: poll __roofReady up to
+// CAPTURE_READY_MAX_MS (~14s), then give the 3D tiles a short settle, then screenshot. If readiness
+// never arrives (e.g. no GPU → SwiftShader can't stream Google 3D tiles), bail NOW so the route falls
+// back to Street View FAST instead of spending another ~15s on camera/screenshot work that produces a
+// blank/partial frame anyway.
+async function _captureObliqueRender(address: string): Promise<Buffer> {
   const SOLAR = solarKey();
   const browser = await getBrowser();
   const ctx = await browser.newContext({ viewport: { width: 1080, height: 840 } });
@@ -503,9 +560,19 @@ export async function captureOblique(address: string): Promise<Buffer> {
     }); // noauto → no default-address race
     await page.fill("#addr", address);
     await page.click("#go");
-    for (let i = 0; i < 60; i++) {
-      if (await page.evaluate(() => (window as any).__roofReady === true)) break;
+    // Bounded readiness wait. Old code polled 60×1000ms (+9s tiles ≈ 70s worst case) which timed out
+    // the client with no fallback. Cap the poll so the route can fall back fast instead of hanging.
+    const readyDeadline = Date.now() + CAPTURE_READY_MAX_MS;
+    let ready = false;
+    while (Date.now() < readyDeadline) {
+      if (await page.evaluate(() => (window as any).__roofReady === true)) {
+        ready = true;
+        break;
+      }
       await sleep(1000);
+    }
+    if (!ready) {
+      throw new Error("__roofReady not set within " + CAPTURE_READY_MAX_MS + "ms — bailing to fallback");
     }
     await sleep(3500);
     // solar panels OFF → clean roof. Best-effort: if the toggle isn't present the
@@ -562,9 +629,7 @@ export async function captureOblique(address: string): Promise<Buffer> {
     });
     await sleep(700);
     const buf = await page.screenshot({ type: "png" });
-    captureCache.set(address, buf);
-    diskSetBuf("cap", address, buf);
-    return buf;
+    return buf; // caching (memory + disk) is done by the public captureOblique() wrapper
   } finally {
     await ctx.close();
   }

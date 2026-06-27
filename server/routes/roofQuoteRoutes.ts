@@ -44,7 +44,9 @@ import {
   geoTiff,
   geocode,
   houseKnowledge,
+  isObliqueRecentlyDown,
   localRate,
+  markObliqueDown,
   pvwattsProduction,
   readRehostedImage,
   roofFeatures,
@@ -431,8 +433,20 @@ export function registerRoofQuoteRoutes(app: Express) {
     }
   });
 
-  /* ─── Image Collector: oblique 3D aerial (headless capture, cached) ─── */
+  /* ─── Image Collector: oblique 3D aerial (headless capture, cached) ───
+   *
+   * RELIABILITY (ported from spikes/roof-quote/serve.mjs commit 2dd7e876): ALWAYS
+   * return SOME image fast, never hang ~70s. Chain: cached oblique → (recently-down
+   * skip) → bounded headless oblique RACED against a response deadline → Street-View
+   * "before". `X-Capture-Source` (oblique|streetview|none) tells the client which
+   * path served the image so it can label the slider honestly. The slow headless
+   * render keeps running in the BACKGROUND past the deadline to populate the cache,
+   * so the NEXT load of the same house serves the real oblique instantly. */
   app.get("/api/roofquote/capture", async (req: Request, res: Response) => {
+    // How long the route will WAIT for the oblique render before serving the fast
+    // Street-View fallback (the oblique keeps running in the background to fill cache).
+    // Bounds /capture response time regardless of how slow the headless render is.
+    const CAPTURE_DEADLINE_MS = Number(process.env.RQ_CAPTURE_DEADLINE_MS || 10000);
     try {
       // Pre-warm capture fires fire-and-forget on every widget load; a 429 here
       // is swallowed by the widget's .catch and the <img> onerror just hides the
@@ -440,18 +454,93 @@ export function registerRoofQuoteRoutes(app: Express) {
       if (await googleRateBlocked(req, res)) return;
       const address = String(req.query.address || "");
       if (!address) return res.status(400).send("missing address");
-      const buf = await captureOblique(address);
-      res.setHeader("Content-Type", "image/png");
-      res.setHeader("Cache-Control", "public, max-age=3600");
-      return res.send(buf);
+
+      // Serve a Street-View "before" (cached on disk via streetView()'s own caller, or
+      // freshly fetched). Returns true if it sent a response, false on no coverage.
+      const serveStreetView = async (extra: string): Promise<boolean> => {
+        const sv = await streetView(address).catch(
+          (e: unknown): { ok: false; status: number; error: string } => ({
+            ok: false,
+            status: 0,
+            error: String((e as Error)?.message || e),
+          }),
+        );
+        if (sv.ok) {
+          res.setHeader("Content-Type", "image/jpeg");
+          res.setHeader("Cache-Control", "public, max-age=3600");
+          res.setHeader("X-Capture-Source", "streetview");
+          res.send(sv.buf);
+          return true;
+        }
+        // Neither oblique nor Street View available → honest failure. The widget keeps
+        // its own swatch-tint/aerial fallback (baBefore.onerror) on any non-image body.
+        res.status(502).type("text/plain").setHeader("X-Capture-Source", "none");
+        res.send("capture_failed: " + extra + "streetview(" + (sv.status ? sv.status + " " : "") + sv.error + ")");
+        return false;
+      };
+
+      // If oblique recently failed for this address (no GPU/tiles in this runtime), skip
+      // the ~20s headless attempt entirely and serve the fast Street-View fallback now.
+      if (isObliqueRecentlyDown(address)) {
+        await serveStreetView("");
+        return;
+      }
+
+      // RACE the bounded oblique render against the response deadline. If oblique lands
+      // first → serve it. If the deadline wins (or oblique errors fast) → serve Street
+      // View NOW; the oblique, if still running, fills the cache in the background.
+      let settledByRace = false;
+      const obliqueP = captureOblique(address).then(
+        (buf): { buf?: Buffer; err?: unknown } => ({ buf }),
+        (capErr: unknown): { buf?: Buffer; err?: unknown } => {
+          // Track the failure so subsequent calls skip the slow attempt (recently-down).
+          markObliqueDown(address);
+          if (!(capErr instanceof CaptureUnavailableError)) {
+            log.warn("roofquote capture oblique failed (serving fast fallback)", {
+              address,
+              err: (capErr as Error)?.message || String(capErr),
+            });
+          }
+          return { err: capErr };
+        },
+      );
+      // Keep the background render handled even when the deadline serves SV first, so a
+      // late settle can never become an unhandled rejection (real handler, logs only).
+      obliqueP.then((r) => {
+        if (r && r.buf && !settledByRace) {
+          log.info("roofquote capture oblique cached late", { address });
+        }
+      });
+
+      const deadline = new Promise<"__deadline__">((r) =>
+        setTimeout(() => r("__deadline__"), CAPTURE_DEADLINE_MS),
+      );
+      const winner = await Promise.race([obliqueP, deadline]);
+      if (winner !== "__deadline__" && winner && winner.buf) {
+        settledByRace = true;
+        res.setHeader("Content-Type", "image/png");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("X-Capture-Source", "oblique");
+        return res.send(winner.buf);
+      }
+      // Deadline won OR oblique errored fast → serve Street View now. When the only
+      // failure was CaptureUnavailable (no Chromium binary in prod), degrade as a 502
+      // streetview/none below — the widget's onerror hides the slider gracefully either way.
+      settledByRace = true;
+      const err = winner !== "__deadline__" ? winner.err : undefined;
+      await serveStreetView(
+        err
+          ? "oblique(" + ((err as Error)?.message || String(err)) + ") "
+          : "oblique(slow>" + CAPTURE_DEADLINE_MS + "ms) ",
+      );
+      return;
     } catch (err) {
-      // Capture is a best-effort PRE-WARM (the before/after slider). The widget
-      // fires it fire-and-forget on every load and hides the slider on a failed
-      // image (baBefore.onerror). When the runtime can't launch a headless
-      // browser (prod ships without the Playwright Chromium binary), degrade
-      // CLEANLY — 204 No Content, no error log — so we don't 502-spam on every
-      // widget load. A 204 satisfies the <img> onerror path just like a 5xx,
-      // and the fire-and-forget fetch's .catch(()=>{}) swallows it either way.
+      // Capture is a best-effort PRE-WARM (the before/after slider). The widget fires it
+      // fire-and-forget on every load and hides the slider on a failed image. When the
+      // runtime can't launch a headless browser, degrade CLEANLY — 204 No Content, no
+      // error log — so we don't 502-spam on every widget load. (With the deadline race
+      // above, a CaptureUnavailable normally lands in the Street-View arm, not here; this
+      // is the backstop for an unexpected throw outside the race.)
       if (err instanceof CaptureUnavailableError) {
         return res.status(204).end();
       }
