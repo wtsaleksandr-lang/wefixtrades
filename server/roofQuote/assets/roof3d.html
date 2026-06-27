@@ -3115,7 +3115,21 @@ function daylightBand(minAlt){
 
 function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); if(typeof updateMeasLineRes==="function") updateMeasLineRes(); }   // (BUG 2) keep fat-line px resolution correct
 addEventListener("resize",resize); resize();
-(function loop(){ controls.update(); renderer.render(scene,camera); requestAnimationFrame(loop); })();
+// PERF (BUG 3): the rAF tick keeps running, but the expensive controls.update()+render()
+// only happen when the 3D WebGL view is actually on screen — i.e. the #scene canvas is not
+// display:none, the Step-1 hero isn't occluding it, and the tab is visible. On the hero and
+// while another overlay (Google photoreal/material/AI/aerial) covers the scene, we skip the
+// GL work entirely. When the view becomes active again the loop resumes rendering with no
+// restart (OrbitControls damping stays correct because controls.update only advances while shown).
+function scene3DActive(){
+  if(document.hidden) return false;
+  var sc=$("scene"); if(!sc || sc.style.display==="none") return false;
+  if(!sc.clientWidth || !sc.clientHeight) return false;
+  var h=$("hero"); if(h && h.style.display!=="none") return false;   // hero overlay covers the GL scene
+  return true;
+}
+try{ window.__scene3DActive=scene3DActive; }catch(_){}   // exposed for perf verification only
+(function loop(){ if(scene3DActive()){ controls.update(); renderer.render(scene,camera); } requestAnimationFrame(loop); })();
 
 function clearWorld(){ scene.remove(worldGroup); worldGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());} }); worldGroup=new THREE.Group(); scene.add(worldGroup); modelPanelGroup=null; if(typeof clearMeas3D==="function") clearMeas3D(); }   // (BUG 2) also drop the 3D measure overlay (sibling of worldGroup); (STEP 5) drop the engineered-panel group ref so setModelPanelsVisible falls back to panelMesh on the legacy path
 
@@ -12078,7 +12092,21 @@ try{
   var landData=null; try{ landData=land.getContext("2d").getImageData(0,0,MW,MH).data; }catch(_){}
 
   // ---- render setup ----
+  // PERF: the globe is rendered once per frame into a FIXED low-resolution offscreen
+  // buffer (the heavy per-pixel-block orthographic land projection costs the same no
+  // matter how large the hero is), then blitted scaled to the display canvas. The buffer
+  // globe radius is capped (BR), so the inner loop is bounded — desktop hero up to ~1400px
+  // no longer rasterises a ~560px-radius disc every frame. Visual result is essentially
+  // identical (a slightly softer upscale, fine for a slow background). The redraw is also
+  // time-gated to ~30fps. See the perf-fix audit.
   var DPR=Math.min(window.devicePixelRatio||1,2), R=0, cx=0, cy=0, size=0;
+  var BR=140;                 // fixed buffer globe radius (px) — independent of display size
+  var BMARG=1.14;             // margin so the atmosphere glow (R*1.12) fits in the buffer
+  var BH=Math.ceil(BR*BMARG); // buffer half-extent
+  var BSZ=BH*2;               // buffer canvas is BSZ × BSZ
+  var bcx=BH, bcy=BH;         // globe centre inside the buffer
+  var buf=document.createElement("canvas"); buf.width=BSZ; buf.height=BSZ;
+  var bctx=buf.getContext("2d");
   function resize(){
     var w=cv.clientWidth||cv.offsetWidth, h=cv.clientHeight||cv.offsetHeight;
     if(!w||!h){ return; }
@@ -12092,30 +12120,26 @@ try{
   var rot=0;                      // current longitude rotation (radians)
   var SPEED=reduce?0:(2*Math.PI/90); // rad/sec → one turn per 90s
   var last=0;
+  var lastDraw=0;                  // perf time-gate
+  var FRAME_MS=1000/30;            // cap globe redraws to ~30fps
 
-  function draw(t){
-    if(!last) last=t; var dt=(t-last)/1000; last=t;
-    // pause cleanly when hidden (display:none on #hero) or tab backgrounded
-    var hero=document.getElementById("hero");
-    var visible=hero && hero.style.display!=="none" && !document.hidden && cv.clientWidth>0;
-    if(!visible){ rafId=requestAnimationFrame(draw); return; }
-    if(!R) resize();
-    rot+=SPEED*dt;
-    var w=cv.clientWidth, h=cv.clientHeight;
-    ctx.clearRect(0,0,w,h);
+  // Paint the whole globe (ocean, projected land, terminator, atmosphere, highlight) into
+  // the fixed-size offscreen buffer using buffer-space coordinates (centre bcx/bcy, radius BR).
+  function paintGlobe(){
+    var g=bctx; g.clearRect(0,0,BSZ,BSZ);
 
     // ocean sphere with a soft 3D shade (light from upper-right)
-    var grd=ctx.createRadialGradient(cx-R*0.32,cy-R*0.36,R*0.1, cx,cy,R*1.06);
+    var grd=g.createRadialGradient(bcx-BR*0.32,bcy-BR*0.36,BR*0.1, bcx,bcy,BR*1.06);
     grd.addColorStop(0,"#1f4a8a"); grd.addColorStop(0.55,"#123463"); grd.addColorStop(1,"#0a1f3f");
-    ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.fillStyle=grd; ctx.fill();
+    g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.fillStyle=grd; g.fill();
 
     // project the land map onto the visible hemisphere (orthographic), sampling per pixel-block
     if(landData){
-      var step=Math.max(2,Math.round(R/120)); // coarser on small globes — keeps it cheap
-      ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
-      for(var py=-R; py<R; py+=step){
-        for(var pxx=-R; pxx<R; pxx+=step){
-          var nx=pxx/R, ny=py/R; var d2=nx*nx+ny*ny; if(d2>1) continue;
+      var step=3;                  // fixed small step on the bounded buffer disc — bounded, low fillRect count; upscale hides the coarseness
+      g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
+      for(var py=-BR; py<BR; py+=step){
+        for(var pxx=-BR; pxx<BR; pxx+=step){
+          var nx=pxx/BR, ny=py/BR; var d2=nx*nx+ny*ny; if(d2>1) continue;
           var nz=Math.sqrt(1-d2);
           // sphere point → lat/lon (rotate around Y by rot)
           var lat=Math.asin(ny);
@@ -12131,39 +12155,80 @@ try{
             var lightx=0.55, lighty=-0.5, lightz=0.66;
             var shade=Math.max(0.18, nx*lightx + (-ny)*lighty + nz*lightz);
             var rr=(landData[idx]  *shade)|0, gg=(landData[idx+1]*shade)|0, bb=(landData[idx+2]*shade)|0;
-            ctx.fillStyle="rgb("+rr+","+gg+","+bb+")";
-            ctx.fillRect(cx+pxx,cy+py,step+0.6,step+0.6);
+            g.fillStyle="rgb("+rr+","+gg+","+bb+")";
+            g.fillRect(bcx+pxx,bcy+py,step+0.6,step+0.6);
           }
         }
       }
-      ctx.restore();
+      g.restore();
     }
 
     // day/night terminator — a soft shadow on the lower-left limb for depth
-    var nightx=cx+R*0.42, nighty=cy+R*0.48;
-    var ng=ctx.createRadialGradient(nightx,nighty,R*0.2, nightx,nighty,R*1.5);
+    var nightx=bcx+BR*0.42, nighty=bcy+BR*0.48;
+    var ng=g.createRadialGradient(nightx,nighty,BR*0.2, nightx,nighty,BR*1.5);
     ng.addColorStop(0,"rgba(2,6,18,0.62)"); ng.addColorStop(1,"rgba(2,6,18,0)");
-    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
-    ctx.fillStyle=ng; ctx.fillRect(0,0,w,h); ctx.restore();
+    g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
+    g.fillStyle=ng; g.fillRect(0,0,BSZ,BSZ); g.restore();
 
     // atmospheric rim glow
-    var atm=ctx.createRadialGradient(cx,cy,R*0.92, cx,cy,R*1.12);
+    var atm=g.createRadialGradient(bcx,bcy,BR*0.92, bcx,bcy,BR*1.12);
     atm.addColorStop(0,"rgba(90,150,255,0)"); atm.addColorStop(0.6,"rgba(90,150,255,0.28)"); atm.addColorStop(1,"rgba(90,150,255,0)");
-    ctx.beginPath(); ctx.arc(cx,cy,R*1.12,0,6.2832); ctx.fillStyle=atm; ctx.fill();
+    g.beginPath(); g.arc(bcx,bcy,BR*1.12,0,6.2832); g.fillStyle=atm; g.fill();
 
     // a soft specular highlight (upper-right)
-    var hl=ctx.createRadialGradient(cx-R*0.34,cy-R*0.38,0, cx-R*0.34,cy-R*0.38,R*0.7);
+    var hl=g.createRadialGradient(bcx-BR*0.34,bcy-BR*0.38,0, bcx-BR*0.34,bcy-BR*0.38,BR*0.7);
     hl.addColorStop(0,"rgba(255,255,255,0.10)"); hl.addColorStop(1,"rgba(255,255,255,0)");
-    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,6.2832); ctx.clip();
-    ctx.fillStyle=hl; ctx.fillRect(0,0,w,h); ctx.restore();
+    g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
+    g.fillStyle=hl; g.fillRect(0,0,BSZ,BSZ); g.restore();
+  }
 
+  // Blit the buffer to the display canvas, scaling BR→R so the globe lands centred at cx,cy.
+  function blit(){
+    var w=cv.clientWidth, h=cv.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    var scale=R/BR;
+    if(bctx) ctx.drawImage(buf, cx-bcx*scale, cy-bcy*scale, BSZ*scale, BSZ*scale);
+  }
+
+  function draw(t){
+    if(!last) last=t; var dt=(t-last)/1000; last=t;
+    // pause cleanly when hidden (display:none on #hero) or tab backgrounded
+    var hero=document.getElementById("hero");
+    var visible=hero && hero.style.display!=="none" && !document.hidden && cv.clientWidth>0;
+    if(!visible){ rafId=requestAnimationFrame(draw); return; }
+    if(!R) resize();
+    // time-gate to ~30fps: only repaint+blit when enough wall-clock has passed
+    if(t-lastDraw>=FRAME_MS){
+      rot+=SPEED*(t-lastDraw)/1000; lastDraw=t;
+      paintGlobe();
+      blit();
+    }
     rafId=requestAnimationFrame(draw);
   }
+
+  // Reduced-motion: paint a single static frame, then STOP — no rAF loop at all.
+  function drawStatic(){
+    if(!R) resize();
+    if(!R){ setTimeout(drawStatic,60); return; }   // wait for layout, then one paint
+    paintGlobe(); blit();
+  }
+
   var rafId;
   resize();
-  // resize once more after layout settles (fonts/flex), then start
-  setTimeout(resize,60);
-  rafId=requestAnimationFrame(draw);
+  if(reduce){
+    // one static frame, no continuous loop (re-paint only if the layout settles late)
+    drawStatic(); setTimeout(drawStatic,60);
+    // honour a live change of the media query (e.g. user toggles the OS setting)
+    try{
+      var mq=window.matchMedia("(prefers-reduced-motion:reduce)");
+      var onMq=function(){ if(mq.matches){ drawStatic(); } else { reduce=false; SPEED=2*Math.PI/90; last=0; lastDraw=0; rafId=requestAnimationFrame(draw); } };
+      if(mq.addEventListener) mq.addEventListener("change",onMq); else if(mq.addListener) mq.addListener(onMq);
+    }catch(_){}
+  } else {
+    // resize once more after layout settles (fonts/flex), then start the animated loop
+    setTimeout(resize,60);
+    rafId=requestAnimationFrame(draw);
+  }
 
   // ---- white-label: surface the tenant's business name if injected (default copy otherwise) ----
   try{
