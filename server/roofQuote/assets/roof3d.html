@@ -682,10 +682,13 @@
   #measMini{display:none!important}
   #measMini canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #measMini .mm-ring{position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,69,58,0.92);pointer-events:none}
-  /* MOBILE (audit-7 P1): the 92px dark minimap inset previously sat at top:60px;left:8px — directly on
-     top of the stacked search bar AND the #measToggle (3D/Top-down) toggle, blocking both. Move it to the
-     top-RIGHT and below the ~112px stacked search bar so it overlaps nothing tappable. */
-  @media (max-width:560px){ #measMini{width:84px;height:84px;top:128px;left:auto;right:8px} }
+  /* (FIX 2) NO top-right inset thumbnail in the editor — on EITHER viewport. The minimap inset is killed
+     globally above (#measMini{display:none!important}); desktop already reads insetThumbPresent:false. The
+     old mobile rule below only REPOSITIONED the inset to the top-right (it didn't override the global hide),
+     leaving a stale "show it on mobile" intent. Re-assert display:none!important on mobile so the editor's
+     top-right corner stays clear at 375px, exactly matching desktop. (Decorative context inset only — its
+     removal changes no measurement, the dot editor owns the single on-canvas outline + labels.) */
+  @media (max-width:560px){ #measMini{display:none!important} }
   #matbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;align-items:stretch;max-width:96vw;box-shadow:var(--card-shadow)}
   #matCats{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
   #matCats .matcat{background:#f7f9fc;border:1px solid #e1e7ef;color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -7633,6 +7636,19 @@ const RoofDots=(function(){
     //     SQFT and this redraws (afterEdit → draw). facetRings0[i] pairs 1:1 with m.facets[i].
     if(facetRings0&&facetRings0.length&&m&&m.facets){
       const ffs=10;   // small, subtle section-area font (NOT a big bold pill)
+      // (FIX 3) MOBILE label budget: on a small canvas (≤430px) a complex roof's 26-47 SQFT pills
+      // crowd/overlap. Thin to the largest-N facets using the SHARED pickLabelFacets budget (caps at
+      // LBL_MAX_CHIPS, largest-first, with the same relative floor used everywhere) so only the biggest
+      // sections get a pill — slivers stay clean. Outlines below still draw for EVERY facet; only the pill
+      // is thinned. Desktop is unchanged (every facet keeps its pill). Area math / roof total untouched.
+      let mobileLblSet=null;
+      try{
+        if(window.innerWidth<=430 && typeof pickLabelFacets==="function"){
+          const idx=m.facets.map((_,i)=>i).filter(i=>Number.isFinite(Number(m.facets[i]&&m.facets[i].slopedFt2)));
+          const sorted=idx.sort((a,b)=>(Number(m.facets[b].slopedFt2)||0)-(Number(m.facets[a].slopedFt2)||0));
+          mobileLblSet=new Set(pickLabelFacets(sorted, i=>Number(m.facets[i].slopedFt2)||0));
+        }
+      }catch(_){ mobileLblSet=null; }
       for(let i=0;i<facetRings0.length;i++){
         // PHASE 2: when interior topology is live, draw each facet from its CURRENT (dragged) shared
         // vertices so the outline + centred SQFT MOVE with the ridge points. Else use the static capture.
@@ -7652,6 +7668,9 @@ const RoofDots=(function(){
         // label entirely (never a literal placeholder), a good one renders the real number.
         const _aSq=Number(fa.slopedFt2);
         if(!Number.isFinite(_aSq) || _aSq<MIN_FACET_LABEL_SQFT) continue;
+        // (FIX 3) on mobile, only the largest-N facets (mobileLblSet) earn a pill — keeps the small
+        // canvas readable. The internal outline above already drew for this facet regardless.
+        if(mobileLblSet && !mobileLblSet.has(i)) continue;
         // centroid → small "### SQFT" label inside the section. WHITE text with a subtle dark halo so it
         // stays legible on a dark roof while remaining small + understated (not a big bold pill).
         let cx=0,cy=0; for(const p of fp){ cx+=p[0]; cy+=p[1]; } cx/=fp.length; cy/=fp.length;
@@ -7761,7 +7780,11 @@ const RoofDots=(function(){
           const rows=m.facets.slice().sort((a,b)=>(Number(b.slopedFt2)||0)-(Number(a.slopedFt2)||0))
             .filter(f=>Number.isFinite(Number(f.slopedFt2)))   // (bug #2) never render a chip for a non-numeric area
             .map((f,n)=>'<span class="dh-fchip"><b>'+Number(f.slopedFt2).toLocaleString()+'</b> ft²<i>'+(pitchClass!=null?PITCH_CLASSES.find(c=>c.id===pitchClass).label:(f.x12+'/12'))+'</i></span>');
-          fe.innerHTML='<div class="dh-flabel">'+m.facets.length+' facets · pitch-corrected</div>'+rows.join('');
+          // (FIX 4) the editor merges Google's raw roof segments into the draggable EDITABLE planes, so this
+          // count (e.g. 26) legitimately differs from the canonical "facets" stat the quote card + report show
+          // (QUOTE.facets, Google's segment count, e.g. 47). Label it "editable sections" so it reads as the
+          // distinct editing metric it is — never as a second, contradictory public "facets" number.
+          fe.innerHTML='<div class="dh-flabel">'+m.facets.length+' editable sections · pitch-corrected</div>'+rows.join('');
         } else { fe.innerHTML=''; }
       } }catch(_){}
     }
@@ -9638,6 +9661,12 @@ async function openRoofDesign(){
     if(typeof exitRealShade==="function") exitRealShade();
     if(typeof clearPanels==="function") clearPanels();
     if(typeof clearHeat==="function") clearHeat();
+    // (FIX 1) the roofing designer owns its OWN "See it on my house" affordance (#rdAi, in the rail header,
+    // always visible) — so the user discovers the headline AI render on landing WITHOUT having to enter the
+    // Materials lens. Hide the floating Materials-lens AI button (#aiBtn) here so the two never double-show
+    // over each other, and make sure the rail button is visible + enabled on every open.
+    try{ const ab=$("aiBtn"); if(ab) ab.style.display="none"; }catch(_){}
+    try{ const ra=$("rdAi"); if(ra){ ra.style.display=""; ra.disabled=false; const rl=$("rdAiLbl"); if(rl) rl.textContent="See it on my house"; } }catch(_){}
     if(typeof clearLabels==="function") clearLabels();
     if(typeof clearRoofMeas==="function") clearRoofMeas();
     // (BUG 1) Coming from the Measure / Materials top-down lens leaves the 2D #matCanvas diagram
@@ -10274,6 +10303,12 @@ function tradeHeader(){ const tr=TENANT.trade||{};
 }
 function measurementReport(t, sqs){
   if(!t) return '';
+  // (FIX 5) ONE roof area across the whole report. The measurement header read t.roofAreaSqFt from
+  // a possibly-stale cached getRoofTotals() (e.g. 2,510), while "The plan at a glance" reads the LIVE
+  // canonical quoteAreaSqFt() (e.g. 2,131) — the same roof showed two ft² values. Pin the header's area
+  // to the live canonical area so both surfaces always agree. Pricing/takeoff use sqs (roofingSquares),
+  // untouched. Pure display reconciliation — never changes the $ math.
+  try{ if(typeof quoteAreaSqFt==="function"){ const ca=quoteAreaSqFt(); if(ca>0 && isFinite(ca)) t=Object.assign({},t,{roofAreaSqFt:ca}); } }catch(_){}
   const f=n=>Math.round(n||0).toLocaleString();
   // (BUG 3) feet+inches with proper rollover: when the rounded inches hit 12 they must carry into the
   // next foot (e.g. 8.99 ft → "9′ 0″", never "8′ 12″"). Round to total inches first, then split.
