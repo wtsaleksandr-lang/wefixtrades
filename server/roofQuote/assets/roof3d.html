@@ -2352,6 +2352,7 @@ function sanePitchX12(modelX12){
   const g=googlePredominantPitchX12();
   let v=modelX12;
   if(!(v>0) || v>MAX_RES_PITCH_X12){ v=(g!=null?g:Math.min(MAX_RES_PITCH_X12, modelX12||6)); }
+  else if(g!=null && v < g-1){ v=g; }   // DSM facet-fit degenerated LOW on a genuinely steep roof → trust Google's area-weighted segment pitch (steep gables read ~1-2/12 when the fit collapses; fires only when ≥2/12 shallower than Google — keeps a 1/12 buffer so flat roofs (g≈0, clause can't fire) and medium roofs where the model agrees with Google are untouched)
   return Math.min(MAX_RES_PITCH_X12, Math.max(0, Math.round(v||0)));
 }
 function reconcileTotals(t){
