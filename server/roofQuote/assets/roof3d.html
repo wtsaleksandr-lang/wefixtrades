@@ -10415,6 +10415,35 @@ function proposalSections(){ const tr=TENANT.trade||{};
 }
 function openReport(){
   if(!QUOTE){ return; }
+  // COMMERCIAL GATE: a large/commercial roof was REFUSED an instant takeoff (the branch screen + quote
+  // card already say "too large for an instant-satellite-takeoff"). The residential proposal below
+  // (solar tiers, 25-yr savings, ITC math, shingle-bundle takeoff) would directly contradict that, so
+  // render an honest commercial-confirmation card instead — same report shell/styling, NO residential pricing.
+  if(window.__largeRoof){
+    const cAddr=$("addr").value;
+    const cName=(window.__lead&&window.__lead.name)?(" "+String(window.__lead.name).split(/\s+/)[0]):"";
+    const cSqft=(QUOTE&&QUOTE.roofSqft)?Math.round(QUOTE.roofSqft).toLocaleString():null;
+    $("report").innerHTML=`
+     <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
+     <div class="rwrap">
+       ${tradeHeader()}
+       <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'COMMERCIAL QUOTE REQUEST'}</div><h1>Commercial quote requested</h1><div class="addr">${esc(cAddr)}</div></div></div>
+       <div class="sec"><h2>Thanks${esc(cName)} — your request is in</h2>
+         <div class="muted">Your roof${cSqft?` (~${cSqft} ft²)`:''} is larger than our instant-satellite-takeoff range, so we don't auto-price it. A specialist will measure it properly and send your custom commercial quote shortly.</div></div>
+       <div class="sec"><h2>What happens next</h2>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>A commercial specialist reviews your address and roof.</div></div>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>We take precise measurements (satellite estimates aren't accurate enough at this scale).</div></div>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>You receive a custom commercial quote with options — no obligation.</div></div></div>
+       <div class="sec"><h2>Next step</h2>
+         <button class="rcta" id="bookBtn" onclick="window.__book()">Book my free assessment</button>
+         <div class="signbox" id="signbox">No obligation · pick a time that works · we confirm the final price on-site</div></div>
+       <div class="foot">A specialist will be in touch to schedule your measured commercial assessment.</div>
+       <div class="rbadge">Measurements &amp; report powered by <b>QuoteQuick</b></div>
+     </div>`;
+    $("report").style.display="block"; document.body.style.overflow="hidden";
+    document.body.classList.add("report-open");
+    return;
+  }
   // bug #1: roofing squares = pitch-corrected SLOPED squares (roofingSquares), the SAME figure the quote
   // card + desktop/mobile rails price off — NOT the flat quoteAreaSqFt()/100 — so the report price matches
   // the card identically AND is the same whether roofing was reached via the tab or the branch.
@@ -10525,6 +10554,11 @@ function quoteCardMaskHtml(trade){
 window.__quoteCardMaskHtml=quoteCardMaskHtml;
 // 3) Default lead-form copy (restored after a gate reuse so the soft-gate report wording returns).
 function resetLeadCopy(){ const h=$("leadH")||document.querySelector("#lead .lead-h"), s=$("leadS")||document.querySelector("#lead .lead-s"), g=$("lgo");
+  // COMMERCIAL GATE: a refused large/commercial roof reaches this same form via the "Request a commercial
+  // quote →" CTA — the residential "See your full quote / sent to you instantly" copy is wrong there.
+  if(window.__largeRoof){
+    if(h) h.textContent="Request your commercial quote"; if(s) s.textContent="A specialist will measure your roof and send a custom quote."; if(g) g.textContent="Request my commercial quote"; return;
+  }
   if(h) h.textContent="See your full quote"; if(s) s.innerHTML="Your personalised roof &amp; solar plan, sent to you instantly."; if(g) g.textContent="See my full quote"; }
 // 4) The gate: if the trade is gated AND no lead yet, show the form first and defer the
 //    reveal until a valid submit; otherwise reveal immediately (current behaviour).
@@ -10668,6 +10702,12 @@ function sanitizeLeadName(s){ return String(s||"").replace(/<[^>]*>/g,"").replac
 // unchanged: tier/kw/priceLo/priceHi + roofSqft, exactly as before. The roof price reuses rdPriceBand() —
 // the single source the roof quote card (renderQuoteCard ~L2945) and rail (rdRenderInfo) already show.
 function leadQuoteFields(trade){
+  // COMMERCIAL GATE: this roof was REFUSED an instant takeoff, so the residential price band/tier below
+  // would be a fabricated extrapolation the contractor must not receive. Emit an honest commercial marker
+  // instead — roofSqft is a real measured-ish size (useful context), but NO invented tier/priceLo/priceHi.
+  if(window.__largeRoof){
+    return { commercial:true, intent:"commercial_quote", roofSqft:QUOTE&&Math.round(QUOTE.roofSqft) };
+  }
   if(trade==="roof"){
     const sel=window.__roofSel||{}, band=(typeof rdPriceBand==="function"?rdPriceBand():null);
     const sqs=(typeof roofingSquares==="function")?roofingSquares():0;
