@@ -509,12 +509,12 @@
   /* lead fields — title-in-field + help-cue top-left, matching the .sg-bill house-input pattern.
      Each field is a bordered box; its title lives top-left INSIDE the box; the input sits inside
      transparently. 2px stacked-field gaps per the hard input rule. */
-  #lead .lf{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:18px 12px 9px;margin-bottom:2px}
+  #lead .lf{display:block;position:relative;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:18px 12px 9px;margin-bottom:2px}
   #lead .lf:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
   #lead .lf-cue{position:absolute;top:6px;left:11px;font-size:10px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px;pointer-events:none}
   #lead .lf-cue .hq{width:13px;height:13px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;cursor:help;pointer-events:auto}
   #lead .lopt{color:var(--faint);font-weight:700}
-  #lead input,#lead #ltime{width:100%;border:0;outline:0;background:transparent;padding:0;height:auto;min-height:21px;line-height:21px;color:var(--ink);font-size:15px;font-family:inherit}
+  #lead input,#lead #ltime{display:block;width:100%;border:0;outline:0;background:transparent;padding:0;margin:0;height:21px;line-height:21px;color:var(--ink);font-size:15px;font-family:inherit;vertical-align:top}
   #lead input::placeholder{color:var(--faint)}
   #lead #ltime{font-size:14px;cursor:pointer}
   /* error state lives on the field BOX (which now carries the border) */
