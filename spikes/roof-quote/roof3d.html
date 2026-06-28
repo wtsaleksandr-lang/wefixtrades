@@ -11158,6 +11158,18 @@ function _regularizeSelectRoofRing(ring, lat0){
 //   • The fetched dataLayers/mask are cached on window.__srMaskCache so run() reuses them (no double-fetch).
 //   • Bounded (≤6 s). On slow/fail/degenerate trace the coarse outline stays permanently.
 const SR_COARSE_SOURCES={ msft:1, cache:1, approx:1 };
+// Whether a detected building's outline should attempt the Solar-mask roof-trace upgrade.
+// Coarse sources (msft/cache/approx) always do — but ALSO any footprint that is a coarse
+// RECTANGLE (≤5 vertices), regardless of source. An OSM 4-corner box never matches a real
+// hip/complex roof and is often mis-registered off Google's imagery, so it needs tracing too;
+// a detailed OSM polygon (≥6 verts) is hand-mapped + left alone. The never-worse gate
+// (_maskRingPassesGate) still decides whether the trace is actually applied.
+function _srOutlineNeedsTrace(b){
+  if(!b || b.source==="mask") return false;                    // already upgraded to the traced roofline
+  if(SR_COARSE_SOURCES[b.source]) return true;                 // msft/cache/approx → always
+  if(b.source==="osm") return true;                            // OSM vector boxes broadly mis-match Google's roof → try the trace; the gate keeps OSM if the trace isn't better
+  return Array.isArray(b.ring) && b.ring.length<=5;            // any other/unknown source that's a coarse rectangle
+}
 window.__srMaskCache=window.__srMaskCache||null;   // { key, lat, lng, dl, mask } — reused by run()
 // Decode a Solar mask raster (rasters[0] roof-mask, bbox in UTM) into a CLEAN [[lng,lat],...] roof ring:
 // flood-fill the connected mask component containing the marker → Moore boundary trace → DP-simplify (tuned
@@ -11266,7 +11278,7 @@ function _maskRingPassesGate(traced, coarseRing, lat0, markerLngLat){
 async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
   try{
     if(!g||!isFinite(g.lat)||!isFinite(g.lng)) return;
-    if(!SR_COARSE_SOURCES[detectedSource]) return;             // OSM (or unknown) → leave EXACTLY as-is
+    // eligibility (coarse source OR ≤5-vert rectangle) is gated by the CALLER + re-checked on `det` below.
     if(!(window.GeoTIFF&&google&&google.maps)) return;
     const key=g.lat.toFixed(6)+","+g.lng.toFixed(6);
     window.__srUpgrade={ source:detectedSource, fired:true, started:performance.now(), key };
@@ -11287,7 +11299,7 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     window.__srUpgrade.tracedVerts = traced ? traced.length : 0;
     // locate the live detected building (the one this upgrade targets); bail if it's gone or got deselected away
     const det=(__srBuildings||[]).find(b=>b&&b.detected);
-    if(!det || !SR_COARSE_SOURCES[det.source]) { window.__srUpgrade.applied=false; window.__srUpgrade.reason="no-coarse-detected"; return; }
+    if(!det || !_srOutlineNeedsTrace(det)) { window.__srUpgrade.applied=false; window.__srUpgrade.reason="not-eligible-detected"; return; }
     if(!traced){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="trace-degenerate"; return; }
     if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat])){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="never-worse-gate"; return; }
     // ── SWAP: redraw the detected building's polygon + stripe with the traced roofline ──
@@ -11388,7 +11400,7 @@ async function renderSelectRoofMap(g, fp, neighbours){
     // — it NEVER blocks this render or Continue, and silently keeps the coarse outline on any slow/fail/reject.
     try{
       const detB=(__srBuildings||[]).find(b=>b&&b.detected);
-      if(detB && SR_COARSE_SOURCES[detB.source]){ _upgradeSelectRoofFromMask(g, detB.source, __srReqSeq); }
+      if(detB && _srOutlineNeedsTrace(detB)){ _upgradeSelectRoofFromMask(g, detB.source, __srReqSeq); }
       else { window.__srUpgrade={ fired:false, reason:detB?("clean-source:"+detB.source):"no-detected" }; }
     }catch(_){}
     // FALLBACK re-pick: clicking the bare satellite (NOT a building polygon) re-targets that point and
