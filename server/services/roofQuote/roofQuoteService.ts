@@ -1044,8 +1044,8 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
    houses as selectable outlines. Mirrors spikes/roof-quote/serve.mjs buildingsInBbox. OSM (Overpass
    way[building] over the bbox) first; the Microsoft z9 tile is scanned as a cold-area fallback. Empty
    {buildings:[]} is a valid answer (the client degrades to single-building). Disk-cached by rounded bbox. */
-export interface BboxBuilding { id: string; ring: LngLat[]; centroid: LngLat; area: number; source: "osm" | "msft"; }
-export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "none"; attribution?: string; error?: string; _incomplete?: boolean; }
+export interface BboxBuilding { id: string; ring: LngLat[]; centroid: LngLat; area: number; source: "osm" | "msft" | "vida"; }
+export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "vida" | "none"; attribution?: string; error?: string; _incomplete?: boolean; }
 function bboxClamp(s: number, w: number, n: number, e: number): [number, number, number, number] {
   const cs = Math.min(s, n), cn = Math.max(s, n), cw = Math.min(w, e), ce = Math.max(w, e);
   const midLat = (cs + cn) / 2, midLng = (cw + ce) / 2, MAXSPAN = 0.012;
@@ -1120,6 +1120,102 @@ async function msftBuildingsBbox(bs: number, bw: number, bn: number, be: number)
   try { return await scanMsftTileBbox(createReadStream(tileFile), bs, bw, bn, be); }
   catch { return null; }
 }
+
+/* ─── VIDA Google–Microsoft–OSM Open Buildings (3rd footprint source, coverage-gap regions) ───
+   FREE, public, anonymous S3 GeoParquet partitioned by country (ISO3). Queried at request-time with
+   DuckDB httpfs+spatial (no download — bbox row-group pruning fetches ~0.3% of the file). Fills the
+   coverage gap where OSM + Microsoft both return nothing (e.g. South Africa, Australia). Purely
+   additive: ANY failure (duckdb missing, S3 unreachable, unknown country, timeout) logs + returns [],
+   so the OSM→MS→approx union proceeds exactly as before. Mirrors spikes/roof-quote/serve.mjs. */
+const VIDA_FOOTPRINT_BUDGET_MS = 7000;
+const VIDA_S3 = "s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
+// Coarse ISO2/ISO3 lookup for the countries we expect coverage-gap roofs in. VIDA only needs the
+// 3-letter ISO to pick the country file; we derive it from the bbox centroid (the /buildings route
+// has no geocoded country — see the country-resolution note in vidaBuildingsBbox).
+const ISO2_TO_ISO3: Record<string, string> = { ZA: "ZAF", AU: "AUS", NZ: "NZL", US: "USA", CA: "CAN", GB: "GBR" };
+// Rough lon/lat boxes → ISO3. Coarse on purpose: just enough to route a query to the right country
+// file for the gap regions; an out-of-box centroid returns null and VIDA is gracefully skipped.
+const COUNTRY_BOXES: { iso3: string; w: number; s: number; e: number; n: number }[] = [
+  { iso3: "ZAF", w: 16.0, s: -35.0, e: 33.0, n: -22.0 },   // South Africa
+  { iso3: "AUS", w: 112.0, s: -44.0, e: 154.0, n: -10.0 }, // Australia
+  { iso3: "NZL", w: 166.0, s: -47.5, e: 179.0, n: -34.0 }, // New Zealand
+];
+function iso3FromBbox(bs: number, bw: number, bn: number, be: number): string | null {
+  const lat = (bs + bn) / 2, lng = (bw + be) / 2;
+  for (const b of COUNTRY_BOXES) if (lng >= b.w && lng <= b.e && lat >= b.s && lat <= b.n) return b.iso3;
+  return null;
+}
+function iso2ToIso3(iso2?: string): string | null {
+  if (!iso2) return null;
+  return ISO2_TO_ISO3[iso2.toUpperCase()] || null;
+}
+// Parse a WKT POLYGON / MULTIPOLYGON outer ring → open LngLat ring (same shape as OSM/MS rings).
+function wktOuterRing(wkt: string): LngLat[] | null {
+  if (!wkt) return null;
+  const m = /\(\(([^()]*)\)/.exec(wkt); // first coordinate group (outer ring of POLYGON or first MULTIPOLYGON part)
+  if (!m) return null;
+  const ring: LngLat[] = [];
+  for (const pair of m[1].split(",")) {
+    const t = pair.trim().split(/\s+/);
+    const lng = +t[0], lat = +t[1];
+    if (!isFinite(lng) || !isFinite(lat)) continue;
+    ring.push([lng, lat]);
+  }
+  const open = fpOpenRing(ring);
+  return open.length >= 3 ? open : null;
+}
+let _duckdbConn: any = null, _duckdbInit = false;
+async function vidaConn(): Promise<any> {
+  if (_duckdbInit) return _duckdbConn;
+  _duckdbInit = true;
+  try {
+    // Lazy/dynamic require so a missing native binding can NEVER crash module load — it just disables VIDA.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const duckdb = require("duckdb");
+    const db = new duckdb.Database(":memory:");
+    const conn = db.connect();
+    const run = (sql: string) => new Promise<void>((resolve, reject) => conn.run(sql, (e: any) => (e ? reject(e) : resolve())));
+    // Required session settings or it SSL-fails on the dotted bucket name.
+    await run("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial;");
+    await run("SET s3_region='us-west-2'; SET s3_url_style='path'; SET s3_endpoint='s3.us-west-2.amazonaws.com';");
+    _duckdbConn = conn;
+  } catch (e) {
+    log.warn("vida duckdb init failed — VIDA footprints disabled", { err: (e as Error).message });
+    _duckdbConn = null;
+  }
+  return _duckdbConn;
+}
+// Query the VIDA country file for buildings intersecting the bbox. lon=x, lat=y. NEVER throws — any
+// failure returns []. iso3 picks the country-partitioned parquet; null/unknown → skip (return []).
+async function vidaBuildingsBbox(bs: number, bw: number, bn: number, be: number, iso3: string | null): Promise<BboxBuilding[]> {
+  if (!iso3) return [];
+  try {
+    const conn = await vidaConn();
+    if (!conn) return [];
+    const file = `${VIDA_S3}/country_iso=${iso3}/${iso3}.parquet`;
+    // bbox STRUCT filter triggers GeoParquet row-group pruning (note: x=lon, y=lat).
+    const sql =
+      "SELECT ST_AsText(geometry) AS wkt, bf_source, confidence, area_in_meters " +
+      `FROM read_parquet('${file.replace(/'/g, "''")}') ` +
+      `WHERE bbox.xmin <= ${be} AND bbox.xmax >= ${bw} AND bbox.ymin <= ${bn} AND bbox.ymax >= ${bs} ` +
+      "LIMIT 600;";
+    const rows: any[] = await new Promise((resolve, reject) =>
+      conn.all(sql, (e: any, r: any[]) => (e ? reject(e) : resolve(r || []))));
+    const lat0 = (bs + bn) / 2, out: BboxBuilding[] = [];
+    for (const row of rows) {
+      const ring = wktOuterRing(String(row.wkt || ""));
+      if (!ring) continue;
+      if (fpRingArea(ring, lat0) < 8) continue;
+      const c = fpCentroid(ring);
+      if (c[1] < bs || c[1] > bn || c[0] < bw || c[0] > be) continue; // centroid outside bbox
+      out.push({ id: "vida/" + c[0].toFixed(6) + "," + c[1].toFixed(6), ring, centroid: c, area: fpRingArea(ring, lat0), source: "vida" });
+    }
+    return out;
+  } catch (e) {
+    log.warn("vida bbox query failed — skipping VIDA layer", { iso3, err: (e as Error).message });
+    return [];
+  }
+}
 export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult> {
   const parts = String(bboxStr || "").split(",").map(Number);
   if (parts.length !== 4 || parts.some((n) => !isFinite(n))) return { buildings: [], source: "none", error: "bad_bbox" };
@@ -1133,9 +1229,14 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   // transient Overpass blip left Select-Your-Roof stuck at the main house. Racing them starts the MS tile
   // download WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is
   // warm for the immediate retry). Independently time-boxed → total wait ≈ max(budget), not the sum.
-  const [osm, msft] = await Promise.all([
+  // 3rd source: VIDA Open Buildings (ISO3 from bbox centroid). Time-boxed like the others so a slow
+  // remote DuckDB query can never hang the request; vidaBuildingsBbox never throws (returns [] on any
+  // failure), so the fallback arm of timeboxResolve is just a backstop.
+  const iso3 = iso3FromBbox(bs, bw, bn, be);
+  const [osm, msft, vida] = await Promise.all([
     timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null),
     timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null),
+    timeboxResolve<BboxBuilding[]>(vidaBuildingsBbox(bs, bw, bn, be, iso3), VIDA_FOOTPRINT_BUDGET_MS, []),
   ]);
   let out: BuildingsResult;
   // UNIVERSAL COVERAGE ("not all roofs are detected, any region"): UNION OSM + Microsoft instead of OSM
@@ -1143,9 +1244,14 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   // (but Microsoft HAS) showed no selectable outline. Now OSM wins a duplicate (cleaner rings) and Microsoft
   // ADDS every building OSM lacks; dedup by point-in-polygon (an MS centroid inside an OSM ring = same
   // building) so adjacent/row houses are never wrongly merged.
+  // VIDA is the 3rd source (after OSM + Microsoft): it ADDS coverage-gap buildings (ZA/AU etc. where
+  // both OSM and MS are empty) that aren't already represented by an OSM or MS footprint. Deduped by the
+  // SAME point-in-polygon test so a VIDA building overlapping an existing OSM/MS ring is dropped and
+  // adjacent/row houses are never wrongly merged.
   const haveO = Array.isArray(osm) && osm.length > 0;
   const haveM = Array.isArray(msft) && msft.length > 0;
-  if (haveO || haveM) {
+  const haveV = Array.isArray(vida) && vida.length > 0;
+  if (haveO || haveM || haveV) {
     const inRing = (pt: LngLat, ring: LngLat[]): boolean => {
       let inside = false; const x = pt[0], y = pt[1];
       for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -1159,7 +1265,16 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
       const osmRings = haveO ? (osm as BboxBuilding[]).map((o) => o.ring) : [];
       for (const mb of msft as BboxBuilding[]) { if (osmRings.some((r) => inRing(mb.centroid, r))) continue; merged.push(mb); }
     }
-    out = { buildings: merged, source: haveO ? "osm" : "msft", attribution: "© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)" };
+    if (haveV) {
+      // Dedup VIDA against everything merged so far (OSM + the MS buildings we added) — append only
+      // VIDA buildings whose centroid isn't already inside an existing ring.
+      const existingRings = merged.map((b) => b.ring);
+      for (const vb of vida) { if (existingRings.some((r) => inRing(vb.centroid, r))) continue; merged.push(vb); }
+    }
+    const source: BuildingsResult["source"] = haveO ? "osm" : haveM ? "msft" : "vida";
+    let attribution = "© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)";
+    if (haveV) attribution += " · © Google–Microsoft–OSM Open Buildings / VIDA (CC-BY-4.0)";
+    out = { buildings: merged, source, attribution };
   } else {
     // `_incomplete` = MS was still downloading its cold tile (msft===null) when the budget expired → this
     // empty answer is TRANSIENT (tile warms in bg, next load has it). Don't cache it so the retry self-heals.
