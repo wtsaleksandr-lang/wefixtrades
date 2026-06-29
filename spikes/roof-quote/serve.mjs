@@ -493,11 +493,21 @@ async function buildingsInBbox(bs,bw,bn,be){
     timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
     timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null),
   ]);
-  // Prefer OSM where it actually has data (cleaner rings); otherwise fall back to MS — and CRUCIALLY fall
-  // back on OSM being EMPTY (null OR []), not just on an exception, so a quiet "0 buildings" from a flaky
-  // Overpass still gets the MS layer.
-  if(Array.isArray(osm) && osm.length){ return { buildings:osm, source:"osm", attribution:"© OpenStreetMap contributors" }; }
-  if(Array.isArray(msft) && msft.length){ return { buildings:msft, source:"msft", attribution:"© Microsoft Building Footprints (ODbL/CDLA)" }; }
+  // UNIVERSAL COVERAGE ("not all roofs are being detected, in any region"): UNION OSM + Microsoft instead of
+  // OSM-winner-take-all. Previously, if OSM had ANY building the MS layer was ignored — so buildings OSM was
+  // MISSING (but Microsoft HAS) showed no outline (the "some detected, some not" gap, e.g. Scone UK). Now OSM
+  // wins a duplicate (cleaner rings) and Microsoft ADDS every building OSM lacks. Dedup by point-in-polygon
+  // (an MS centroid inside an OSM ring = the same building) so adjacent/row houses are never wrongly merged.
+  const haveO=Array.isArray(osm)&&osm.length, haveM=Array.isArray(msft)&&msft.length;
+  if(haveO || haveM){
+    const merged = haveO ? osm.slice() : [];
+    if(haveM){
+      const osmRings = haveO ? osm.map(o=>o.ring) : [];
+      for(const mb of msft){ if(osmRings.some(r=>pointInRingLL(mb.centroid,r))) continue; merged.push(mb); }
+    }
+    const source = (haveO&&haveM) ? "osm+msft" : (haveO?"osm":"msft");
+    return { buildings:merged, source, attribution:"© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)" };
+  }
   // Nothing usable. `_incomplete` marks WHY: MS was still downloading its cold tile (msft===null) when the
   // budget expired, so this empty answer is TRANSIENT — the tile warms in the background and the next load
   // will have it. The /buildings route uses this flag to NOT persist the empty result to disk, so the
