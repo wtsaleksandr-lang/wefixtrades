@@ -16,9 +16,12 @@
  *   (the tiles key — ROOFQUOTE_TILES_KEY || GOOGLE_MAPS_API_KEY — is consumed in the route layer, not here)
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, createReadStream, createWriteStream, renameSync, unlinkSync } from "fs";
 import path from "path";
 import os from "os";
+import https from "https";
+import zlib from "zlib";
+import readline from "readline";
 import { createHash } from "crypto";
 import { chromium, type Browser } from "playwright";
 import { createLogger } from "../../lib/logger";
@@ -431,6 +434,33 @@ export class CaptureUnavailableError extends Error {
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+// ── capture reliability state (ported from spikes/roof-quote/serve.mjs, commit 2dd7e876) ──
+// De-dupe concurrent headless renders: two callers for the SAME address share ONE browser run
+// (never launch two browsers for one house). Cleared when the render settles.
+const captureInflight = new Map<string, Promise<Buffer>>();
+// Recently-down memory: an address whose oblique render just failed (no GPU / no 3D tiles in this
+// runtime) maps to an expiry ms. While it's in the future the route SKIPS the slow ~20s headless
+// attempt and serves the fast Street-View fallback directly — instead of retrying the slow path on
+// every request. Retried again automatically once the TTL lapses.
+const captureObliqueDown = new Map<string, number>();
+const OBLIQUE_DOWN_TTL = 10 * 60 * 1000; // 10 min — keeps /capture snappy, but retries oblique later
+// ~14s ceiling on the roof-ready poll. A GPU runtime reaches __roofReady well under this; a no-GPU
+// runtime never will → we bail fast to the Street-View fallback instead of spending ~70s on a render
+// that produces a blank/partial frame anyway. Env-configurable to match the spike (RQ_CAPTURE_READY_MS).
+const CAPTURE_READY_MAX_MS = Number(process.env.RQ_CAPTURE_READY_MS || 14000);
+
+/** True while `address` is inside its recently-failed cooldown window — the route uses this to skip the
+ *  slow headless attempt and serve the fast Street-View fallback directly. Exported for the route layer. */
+export function isObliqueRecentlyDown(address: string): boolean {
+  return (captureObliqueDown.get(address) || 0) > Date.now();
+}
+/** Mark `address` as recently-failed for OBLIQUE_DOWN_TTL so subsequent calls skip the slow path.
+ *  Called by the route layer when a capture attempt fails (or its deadline is exceeded). */
+export function markObliqueDown(address: string): void {
+  captureObliqueDown.set(address, Date.now() + OBLIQUE_DOWN_TTL);
+}
+
 let _browser: Browser | null = null;
 // Once a launch fails (no Chromium binary / missing system lib in this runtime),
 // every subsequent launch in the same process fails the same way. Latch it so we
@@ -479,7 +509,16 @@ function bearing(lat1: number, lng1: number, lat2: number, lng2: number): number
   return (Math.atan2(y, x) / r + 360) % 360;
 }
 
+// Public entry: cached + disk-backed + IN-FLIGHT DE-DUPED. Two concurrent callers for the same
+// address share ONE headless render (never launch two browsers for one house). The slow render is
+// delegated to `_captureObliqueRender`; the deadline/Street-View-fallback race lives at the route
+// layer (server/routes/roofQuoteRoutes.ts) so a slow render never hangs the HTTP response.
 export async function captureOblique(address: string): Promise<Buffer> {
+  // VERIFY HOOK: simulate the prod (Replit publish) runtime that ships no headless Chromium, so the
+  // oblique→Street-View fallback + recently-down cooldown can be exercised locally. Off by default.
+  if (process.env.RQ_FORCE_NO_CHROMIUM === "1") {
+    throw new CaptureUnavailableError("headless browser unavailable in this runtime");
+  }
   if (captureCache.has(address)) return captureCache.get(address)!;
   {
     const d = diskGetBuf("cap", address);
@@ -488,6 +527,27 @@ export async function captureOblique(address: string): Promise<Buffer> {
       return d;
     }
   }
+  // A render is already running for this house → await it instead of launching a second browser.
+  const existing = captureInflight.get(address);
+  if (existing) return existing;
+  const p = (async (): Promise<Buffer> => {
+    const buf = await _captureObliqueRender(address);
+    captureCache.set(address, buf);
+    diskSetBuf("cap", address, buf);
+    return buf;
+  })().finally(() => {
+    captureInflight.delete(address);
+  });
+  captureInflight.set(address, p);
+  return p;
+}
+
+// The actual headless render. BOUNDED so it can never hang the request ~70s: poll __roofReady up to
+// CAPTURE_READY_MAX_MS (~14s), then give the 3D tiles a short settle, then screenshot. If readiness
+// never arrives (e.g. no GPU → SwiftShader can't stream Google 3D tiles), bail NOW so the route falls
+// back to Street View FAST instead of spending another ~15s on camera/screenshot work that produces a
+// blank/partial frame anyway.
+async function _captureObliqueRender(address: string): Promise<Buffer> {
   const SOLAR = solarKey();
   const browser = await getBrowser();
   const ctx = await browser.newContext({ viewport: { width: 1080, height: 840 } });
@@ -500,9 +560,19 @@ export async function captureOblique(address: string): Promise<Buffer> {
     }); // noauto → no default-address race
     await page.fill("#addr", address);
     await page.click("#go");
-    for (let i = 0; i < 60; i++) {
-      if (await page.evaluate(() => (window as any).__roofReady === true)) break;
+    // Bounded readiness wait. Old code polled 60×1000ms (+9s tiles ≈ 70s worst case) which timed out
+    // the client with no fallback. Cap the poll so the route can fall back fast instead of hanging.
+    const readyDeadline = Date.now() + CAPTURE_READY_MAX_MS;
+    let ready = false;
+    while (Date.now() < readyDeadline) {
+      if (await page.evaluate(() => (window as any).__roofReady === true)) {
+        ready = true;
+        break;
+      }
       await sleep(1000);
+    }
+    if (!ready) {
+      throw new Error("__roofReady not set within " + CAPTURE_READY_MAX_MS + "ms — bailing to fallback");
     }
     await sleep(3500);
     // solar panels OFF → clean roof. Best-effort: if the toggle isn't present the
@@ -559,9 +629,7 @@ export async function captureOblique(address: string): Promise<Buffer> {
     });
     await sleep(700);
     const buf = await page.screenshot({ type: "png" });
-    captureCache.set(address, buf);
-    diskSetBuf("cap", address, buf);
-    return buf;
+    return buf; // caching (memory + disk) is done by the public captureOblique() wrapper
   } finally {
     await ctx.close();
   }
@@ -672,6 +740,419 @@ export async function sunHours(lat: string, lng: string): Promise<SunResult> {
     return out;
   }
   return { error: "no_sun" };
+}
+
+/* ─── Clean VECTOR building footprint (the EVEN/straight outer-roofline source) ───
+   Replaces the fuzzy Solar-mask Moore-trace as the primary outer-outline source.
+   Coverage cascade: OpenStreetMap via Overpass (free, hosted, no dep) → on-disk
+   pre-cached footprints (assets/footprints.geojson) for addresses OSM misses →
+   {source:"none"} so the widget keeps its mask-trace fallback (low-confidence).
+   Returns a clean building-footprint ring as GeoJSON [lng,lat][] (open). ─── */
+type LngLat = [number, number];
+const fpMetres = (lat: number) => ({ mLat: 111320, mLng: 111320 * Math.cos((lat * Math.PI) / 180) });
+function fpOpenRing(ring: LngLat[]): LngLat[] {
+  const r = ring.slice();
+  if (r.length > 1) { const f = r[0], l = r[r.length - 1];
+    if (Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) r.pop(); }
+  return r;
+}
+function fpRingArea(ring: LngLat[], lat0: number): number {
+  const { mLat, mLng } = fpMetres(lat0); let s = 0;
+  for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length];
+    s += (a[0] * mLng) * (b[1] * mLat) - (b[0] * mLng) * (a[1] * mLat); }
+  return Math.abs(s) / 2;
+}
+function fpCentroid(ring: LngLat[]): LngLat {
+  let x = 0, y = 0; for (const [lng, lat] of ring) { x += lng; y += lat; }
+  return [x / ring.length, y / ring.length];
+}
+function fpPointInRing(pt: LngLat, ring: LngLat[]): boolean {
+  let inside = false; const x = pt[0], y = pt[1];
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+  }
+  return inside;
+}
+function fpPickBuilding(elements: any[], lat: number, lng: number): LngLat[] | null {
+  const cands: LngLat[][] = [];
+  for (const el of elements || []) {
+    const geom = el.geometry; if (!Array.isArray(geom) || geom.length < 4) continue;
+    const ring = fpOpenRing(geom.map((g: any) => [g.lon, g.lat] as LngLat));
+    if (ring.length < 3) continue;
+    if (fpRingArea(ring, lat) < 8) continue;
+    cands.push(ring);
+  }
+  if (!cands.length) return null;
+  for (const ring of cands) if (fpPointInRing([lng, lat], ring)) return ring;
+  let best: LngLat[] | null = null, bestD = Infinity; const { mLat, mLng } = fpMetres(lat);
+  for (const ring of cands) { const c = fpCentroid(ring);
+    const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = ring; } }
+  return best && bestD <= 40 ? best : null;
+}
+async function overpassFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
+  const body = "data=" + encodeURIComponent('[out:json][timeout:25];way["building"](around:30,' + lat + "," + lng + ");out geom;");
+  const headers = { "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  for (const ep of endpoints) {
+    try {
+      const r = await fetch(ep, { method: "POST", headers, body });
+      if (!r.ok) continue;
+      const j = (await r.json()) as any;
+      const ring = fpPickBuilding(j.elements, lat, lng);
+      if (ring) return ring;
+      return null;
+    } catch { /* try next endpoint */ }
+  }
+  return null;
+}
+let _fpCache: LngLat[][] | null = null, _fpCacheLoaded = false;
+function loadFpCache(): LngLat[][] | null {
+  if (_fpCacheLoaded) return _fpCache;
+  _fpCacheLoaded = true;
+  try {
+    const f = path.join(__dirname, "..", "..", "roofQuote", "assets", "footprints.geojson");
+    if (existsSync(f)) {
+      const j = JSON.parse(readFileSync(f, "utf8"));
+      _fpCache = ((j.features || []) as any[]).map((ft) => {
+        const g = ft.geometry; if (!g) return null;
+        const coords = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+        if (!coords) return null;
+        return fpOpenRing(coords.map((c: number[]) => [c[0], c[1]] as LngLat));
+      }).filter((r): r is LngLat[] => !!r && r.length >= 3);
+    }
+  } catch { _fpCache = null; }
+  return _fpCache;
+}
+function cacheFootprint(lat: number, lng: number): LngLat[] | null {
+  const rings = loadFpCache(); if (!rings || !rings.length) return null;
+  for (const ring of rings) if (fpPointInRing([lng, lat], ring)) return ring;
+  let best: LngLat[] | null = null, bestD = Infinity; const { mLat, mLng } = fpMetres(lat);
+  for (const ring of rings) { const c = fpCentroid(ring);
+    const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = ring; } }
+  return best && bestD <= 40 ? best : null;
+}
+/* ─── Microsoft GlobalML Building Footprints — ON-DEMAND universal backstop (US + Canada) ───
+   Microsoft's open Building Footprints set covers essentially every building on Earth, distributed
+   by Bing-zoom-9 map tile (9-digit quadkey). A ~7 MB index CSV maps QuadKey → per-tile gzipped
+   GeoJSONL URL. For any lat/lng we compute the z9 quadkey, look up its tile URL (index disk-cached,
+   filtered to US+Canada), download the tile once to disk (streamed → low memory), then scan it for
+   the building containing the point (else nearest within ~60 m). First address per tile costs a few
+   seconds (a dense metro tile can be 30–130 MB); later addresses in that tile re-scan locally fast.
+   Node stdlib only (https + zlib + readline). Mirrors spikes/roof-quote/serve.mjs. ─── */
+const MSFT_LINKS_URL = "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv";
+const MSFT_UA = "WeFixTrades-RoofQuote/1.0 (building footprint lookup; contact support@wefixtrades.com)";
+const MSFT_TILE_MAX_BYTES = 220 * 1024 * 1024;   // refuse pathologically huge tiles rather than OOM
+let _msftIndex: Record<string, string> | null = null;
+let _msftIndexLoaded = false;
+let _msftIndexInflight: Promise<Record<string, string>> | null = null;
+
+function lngLatToQuadkey(lat: number, lng: number, z: number): string {
+  const sinLat = Math.sin(Math.max(-85.05, Math.min(85.05, lat)) * Math.PI / 180);
+  const x = (lng + 180) / 360;
+  const y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+  const n = Math.pow(2, z);
+  let tx = Math.max(0, Math.min(n - 1, Math.floor(x * n)));
+  let ty = Math.max(0, Math.min(n - 1, Math.floor(y * n)));
+  let qk = "";
+  for (let i = z; i > 0; i--) { let d = 0; const m = 1 << (i - 1); if ((tx & m) !== 0) d += 1; if ((ty & m) !== 0) d += 2; qk += d; }
+  return qk;
+}
+function httpsGetBuffer(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { "User-Agent": MSFT_UA } }, (r) => {
+      if (r.statusCode && r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) { r.resume(); httpsGetBuffer(r.headers.location).then(resolve, reject); return; }
+      if (r.statusCode !== 200) { r.resume(); reject(new Error("http_" + r.statusCode)); return; }
+      const chunks: Buffer[] = []; r.on("data", (c) => chunks.push(c as Buffer)); r.on("end", () => resolve(Buffer.concat(chunks))); r.on("error", reject);
+    }).on("error", reject);
+  });
+}
+async function loadMsftIndex(): Promise<Record<string, string>> {
+  if (_msftIndexLoaded) return _msftIndex || {};
+  if (_msftIndexInflight) return _msftIndexInflight;
+  _msftIndexInflight = (async () => {
+    const disk = diskGetJSON<{ map: Record<string, string>; _t: number }>("msftidx", "us-ca-v1");
+    if (disk && disk._t && Date.now() - disk._t < 30 * 864e5 && disk.map) { _msftIndex = disk.map; _msftIndexLoaded = true; return _msftIndex; }
+    try {
+      const txt = (await httpsGetBuffer(MSFT_LINKS_URL)).toString("utf8");
+      const map: Record<string, string> = {};
+      for (let i = txt.indexOf("\n") + 1; i > 0 && i < txt.length;) {
+        let j = txt.indexOf("\n", i); if (j < 0) j = txt.length;
+        const line = txt.slice(i, j); i = j + 1;
+        const a = line.indexOf(","); if (a < 0) continue;
+        const region = line.slice(0, a);
+        if (region !== "UnitedStates" && region !== "Canada") continue;
+        const b = line.indexOf(",", a + 1); if (b < 0) continue;
+        const qk = line.slice(a + 1, b);
+        const d = line.indexOf(",", b + 1);
+        const url = (d < 0 ? line.slice(b + 1) : line.slice(b + 1, d)).trim();
+        if (qk && url) map[qk] = url;
+      }
+      _msftIndex = map; _msftIndexLoaded = true;
+      diskSetJSON("msftidx", "us-ca-v1", { map, _t: Date.now() });
+      return map;
+    } catch (err) {
+      log.warn("msft index load failed", { err: (err as Error).message });
+      _msftIndex = {}; _msftIndexLoaded = true; return _msftIndex;
+    }
+  })();
+  try { return await _msftIndexInflight; } finally { _msftIndexInflight = null; }
+}
+function scanMsftTile(srcStream: NodeJS.ReadableStream, lat: number, lng: number): Promise<LngLat[] | null> {
+  return new Promise((resolve) => {
+    const { mLat, mLng } = fpMetres(lat);
+    let found: LngLat[] | null = null, best: LngLat[] | null = null, bestD = Infinity, done = false;
+    const gun = zlib.createGunzip();
+    const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
+    const finish = (val: LngLat[] | null) => {
+      if (done) return; done = true;
+      try { rl.close(); } catch { /* already closed */ }
+      try { (srcStream as any).destroy?.(); } catch { /* best-effort */ }
+      resolve(val);
+    };
+    srcStream.on("error", () => finish(null));
+    gun.on("error", () => finish(null));
+    rl.on("line", (line) => {
+      if (done || !line) return;
+      let f: any; try { f = JSON.parse(line); } catch { return; }
+      const g = f && f.geometry; if (!g) return;
+      const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!raw || raw.length < 4) return;
+      const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
+      if (open.length < 3) return;
+      if (fpRingArea(open, lat) < 8) return;
+      if (fpPointInRing([lng, lat], open)) { found = open; finish(open); return; }
+      const c = fpCentroid(open);
+      let dEdge = Infinity; for (const p of open) { const dv = Math.hypot((p[0] - lng) * mLng, (p[1] - lat) * mLat); if (dv < dEdge) dEdge = dv; }
+      const d = Math.min(Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat), dEdge);
+      if (d < bestD) { bestD = d; best = open; }
+    });
+    rl.on("close", () => { if (done) return; finish(found || (best && bestD <= 60 ? best : null)); });
+  });
+}
+function downloadMsftTile(url: string, tileFile: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false; const settle = (v: string | null) => { if (!settled) { settled = true; resolve(v); } };
+    const part = tileFile + ".part";
+    let ws: ReturnType<typeof createWriteStream>;
+    try { ws = createWriteStream(part); } catch { settle(null); return; }
+    const fail = () => { try { ws.destroy(); } catch { /* noop */ } try { if (existsSync(part)) unlinkSync(part); } catch { /* noop */ } settle(null); };
+    const req = https.get(url, { headers: { "User-Agent": MSFT_UA } }, (r) => {
+      if (r.statusCode !== 200) { r.resume(); fail(); return; }
+      const len = +(r.headers["content-length"] || 0);
+      if (len && len > MSFT_TILE_MAX_BYTES) { r.resume(); try { req.destroy(); } catch { /* noop */ } fail(); return; }
+      r.pipe(ws);
+      r.on("error", fail);
+      ws.on("error", fail);
+      ws.on("finish", () => { try { renameSync(part, tileFile); resolve(tileFile); } catch { fail(); } });
+    });
+    req.on("error", fail);
+    req.setTimeout(45000, () => { try { req.destroy(); } catch { /* noop */ } fail(); });
+  });
+}
+async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
+  const idx = await loadMsftIndex();
+  const qk = lngLatToQuadkey(lat, lng, 9);
+  const url = idx[qk];
+  if (!url) return null;
+  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
+  if (!existsSync(tileFile)) {
+    const ok = await downloadMsftTile(url, tileFile);
+    if (!ok) return null;
+  }
+  try {
+    const ring = await scanMsftTile(createReadStream(tileFile), lat, lng);
+    if (ring && ring.length >= 3) return ring;
+  } catch {
+    try { unlinkSync(tileFile); } catch { /* noop */ }
+  }
+  return null;
+}
+
+export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "cache"; attribution: string; }
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; }
+
+// (fix6 latency) How long the route will WAIT for the Microsoft tile before responding with whatever
+// it has (OSM). The msftFootprint promise is NOT aborted past this budget — Node keeps it running so
+// its downloadMsftTile() finishes and writes the .gz to the disk tile cache in the BACKGROUND, making
+// the NEXT request for that dense-metro tile instant. Dense z9 tiles (Phoenix/Denver ~100-130 MB)
+// cost 15-25 s cold; that no longer stalls the caller.
+const MS_FOOTPRINT_BUDGET_MS = 6500;
+const OSM_FOOTPRINT_BUDGET_MS = 8000;   // overall route ceiling: even if Overpass stalls (its [timeout:25] is too long), bail at 8s → route ≤~8s
+// Resolve `live` to its value if it settles within `ms`, else `fallback`. Does NOT abort `live` — it
+// keeps running so any in-flight download finishes + caches in the background; we just stop waiting.
+function timeboxResolve<T>(live: Promise<T>, ms: number, fallback: T): Promise<T> {
+  // `live` keeps running past `ms` (we attach handlers but never abort it), so an in-flight tile
+  // download finishes + caches in the background. A late rejection lands in the `.then` reject arm
+  // below, which is a real handler — so it can never become an unhandled rejection.
+  return new Promise((resolve) => {
+    let settled = false;
+    const t = setTimeout(() => { if (!settled) { settled = true; resolve(fallback); } }, ms);
+    live.then(
+      (v) => { if (!settled) { settled = true; clearTimeout(t); resolve(v); } },
+      () => { if (!settled) { settled = true; clearTimeout(t); resolve(fallback); } },
+    );
+  });
+}
+function timeboxMsft(lat: number, lng: number): Promise<LngLat[] | null> {
+  // Resolves to the MS ring if it arrives within the budget, else null. The underlying msftFootprint
+  // promise keeps running past the budget to finish + cache the tile for the next request. msftFootprint
+  // already swallows its own network/parse errors (returns null); timeboxResolve's reject arm is the
+  // backstop, so no inline .catch is needed.
+  return timeboxResolve<LngLat[] | null>(msftFootprint(lat, lng), MS_FOOTPRINT_BUDGET_MS, null);
+}
+
+export async function buildingFootprint(lat: string, lng: string): Promise<FootprintResult> {
+  const la = +lat, ln = +lng;
+  if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords", candidates: [] };
+  const key = la.toFixed(5) + "," + ln.toFixed(5);
+  const cached = diskGetJSON<{ body: FootprintResult; _t: number }>("footprint", key);
+  if (cached && cached._t && Date.now() - cached._t < 30 * 864e5) return cached.body;
+  // (fix4 #1) Fetch OSM AND Microsoft in PARALLEL and return EVERY candidate, so the CLIENT can register
+  // each to Google's roof reference and keep the best-aligned one — instead of "first source wins", which
+  // on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m OSM ring. overpassFootprint /
+  // msftFootprint each swallow their own network/parse errors (return null), so no outer .catch() is
+  // needed (no-silent-catch guard). Cascade order (OSM>MS>cache) is preserved in the top-level fields.
+  // (fix6) MS is TIME-BOXED via timeboxMsft so a slow cold tile can't block the response: in time → it's
+  // a candidate (best-aligned selection intact); slow → respond with OSM now, MS finishes + caches in bg.
+  const [osm, msft] = await Promise.all([
+    timeboxResolve<LngLat[] | null>(overpassFootprint(la, ln), OSM_FOOTPRINT_BUDGET_MS, null),
+    timeboxMsft(la, ln),
+  ]);
+  const candidates: FootprintCandidate[] = [];
+  if (osm && osm.length >= 3) candidates.push({ ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" });
+  if (msft && msft.length >= 3) candidates.push({ ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" });
+  if (!candidates.length) {
+    const c = cacheFootprint(la, ln);
+    if (c && c.length >= 3) candidates.push({ ring: c, source: "cache", attribution: "© Microsoft / national building footprints" });
+  }
+  // msPending: MS was still warming when the budget expired, so this set is INCOMPLETE (missing MS).
+  // We DON'T persist an OSM-only set in that case — a cache hit would permanently shadow the MS tile
+  // caching in the background; instead the next request re-runs, finds the warm tile, and caches then.
+  const msPending = !msft;
+  if (!candidates.length) return { source: "none", candidates: [] };
+  const primary = candidates[0];
+  const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates };
+  // Only cache when a real source (OSM/MS) hit AND the candidate set is COMPLETE (MS not still pending).
+  if (!msPending && candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+  return out;
+}
+
+/* ─── MULTI-building footprints within a map-view bbox (Select-Your-Roof neighbour layer) ───
+   Returns EVERY building polygon inside the visible map bounds so the client can draw neighbouring
+   houses as selectable outlines. Mirrors spikes/roof-quote/serve.mjs buildingsInBbox. OSM (Overpass
+   way[building] over the bbox) first; the Microsoft z9 tile is scanned as a cold-area fallback. Empty
+   {buildings:[]} is a valid answer (the client degrades to single-building). Disk-cached by rounded bbox. */
+export interface BboxBuilding { id: string; ring: LngLat[]; centroid: LngLat; area: number; source: "osm" | "msft"; }
+export interface BuildingsResult { buildings: BboxBuilding[]; source: "osm" | "msft" | "none"; attribution?: string; error?: string; _incomplete?: boolean; }
+function bboxClamp(s: number, w: number, n: number, e: number): [number, number, number, number] {
+  const cs = Math.min(s, n), cn = Math.max(s, n), cw = Math.min(w, e), ce = Math.max(w, e);
+  const midLat = (cs + cn) / 2, midLng = (cw + ce) / 2, MAXSPAN = 0.012;
+  const hs = Math.min((cn - cs) / 2, MAXSPAN / 2), hl = Math.min((ce - cw) / 2, MAXSPAN / 2);
+  return [midLat - hs, midLng - hl, midLat + hs, midLng + hl];
+}
+function ringsFromOverpassEls(elements: any[], lat0: number): BboxBuilding[] {
+  const out: BboxBuilding[] = [];
+  for (const el of elements || []) {
+    const geom = el.geometry; if (!Array.isArray(geom) || geom.length < 4) continue;
+    const ring = fpOpenRing(geom.map((g: any) => [g.lon, g.lat] as LngLat));
+    if (ring.length < 3) continue;
+    if (fpRingArea(ring, lat0) < 8) continue;
+    const c = fpCentroid(ring);
+    out.push({ id: "osm/" + (el.type || "way") + "/" + (el.id != null ? el.id : c[0].toFixed(6) + "," + c[1].toFixed(6)),
+      ring, centroid: c, area: fpRingArea(ring, lat0), source: "osm" });
+  }
+  return out;
+}
+// Per-endpoint hard timeout so a single hung/rate-limited Overpass mirror can't eat the whole route
+// budget and starve the retry. Tight (the [timeout:7] server hint matches) → quick first attempt + quick
+// retry on the second mirror, all inside OSM_FOOTPRINT_BUDGET_MS.
+const OVERPASS_PER_TRY_MS = 6000;
+async function overpassBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
+  const body = "data=" + encodeURIComponent('[out:json][timeout:7];way["building"](' + bs + "," + bw + "," + bn + "," + be + ");out geom;");
+  const headers = { "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "WeFixTrades-RoofQuote/1.0 (roof footprint lookup; contact support@wefixtrades.com)" };
+  const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  for (const ep of endpoints) {
+    try {
+      // Tight abort so a hung mirror yields to the next one (the quick retry) well inside the budget.
+      const r = await fetch(ep, { method: "POST", headers, body, signal: AbortSignal.timeout(OVERPASS_PER_TRY_MS) });
+      if (!r.ok) continue; // 429/502/504 → failure, try next mirror
+      const j = (await r.json()) as any;
+      return ringsFromOverpassEls(j.elements, (bs + bn) / 2); // possibly [] (valid empty — area genuinely has no OSM ways)
+    } catch { /* timeout / network → try next endpoint */ }
+  }
+  return null; // both mirrors unreachable/failed (NOT a valid empty)
+}
+function scanMsftTileBbox(srcStream: NodeJS.ReadableStream, bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[]> {
+  return new Promise((resolve) => {
+    const out: BboxBuilding[] = [], lat0 = (bs + bn) / 2; let done = false;
+    const gun = zlib.createGunzip();
+    const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
+    const finish = () => { if (done) return; done = true; try { rl.close(); } catch { /* closed */ } try { (srcStream as any).destroy?.(); } catch { /* noop */ } resolve(out); };
+    srcStream.on("error", finish); gun.on("error", finish);
+    rl.on("line", (line) => {
+      if (done || !line) return;
+      if (out.length >= 400) { finish(); return; }
+      let f: any; try { f = JSON.parse(line); } catch { return; }
+      const g = f && f.geometry; if (!g) return;
+      const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!raw || raw.length < 4) return;
+      const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
+      if (open.length < 3) return;
+      if (fpRingArea(open, lat0) < 8) return;
+      const c = fpCentroid(open);
+      if (c[1] < bs || c[1] > bn || c[0] < bw || c[0] > be) return;
+      out.push({ id: "msft/" + c[0].toFixed(6) + "," + c[1].toFixed(6), ring: open, centroid: c, area: fpRingArea(open, lat0), source: "msft" });
+    });
+    rl.on("close", finish);
+  });
+}
+async function msftBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
+  const lat = (bs + bn) / 2, lng = (bw + be) / 2;
+  const idx = await loadMsftIndex();
+  const qk = lngLatToQuadkey(lat, lng, 9);
+  const url = idx[qk];
+  if (!url) return null;
+  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
+  if (!existsSync(tileFile)) { const ok = await downloadMsftTile(url, tileFile); if (!ok) return null; }
+  try { return await scanMsftTileBbox(createReadStream(tileFile), bs, bw, bn, be); }
+  catch { return null; }
+}
+export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult> {
+  const parts = String(bboxStr || "").split(",").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !isFinite(n))) return { buildings: [], source: "none", error: "bad_bbox" };
+  let [bs, bw, bn, be] = bboxClamp(parts[0], parts[1], parts[2], parts[3]);
+  const gk = [bs, bw, bn, be].map((n) => n.toFixed(4)).join(",");
+  const cached = diskGetJSON<{ body: BuildingsResult; _t: number }>("buildings", gk);
+  if (cached && cached.body && cached._t && Date.now() - cached._t < 7 * 864e5) return cached.body;
+  // Reliability fix (mirrors spikes/roof-quote/serve.mjs): RACE OSM + MS concurrently instead of the old
+  // sequential cascade. The public Overpass mirrors intermittently time out / 429 / 502; under the old
+  // cascade that returned an empty list AND only began warming the MS tile AFTER OSM's full budget, so a
+  // transient Overpass blip left Select-Your-Roof stuck at the main house. Racing them starts the MS tile
+  // download WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is
+  // warm for the immediate retry). Independently time-boxed → total wait ≈ max(budget), not the sum.
+  const [osm, msft] = await Promise.all([
+    timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null),
+    timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null),
+  ]);
+  let out: BuildingsResult;
+  // Prefer OSM where it has data; otherwise fall back to MS — crucially on OSM being EMPTY (null OR []),
+  // not just on an exception, so a quiet "0 buildings" from a flaky Overpass still gets the MS layer.
+  if (Array.isArray(osm) && osm.length) {
+    out = { buildings: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
+  } else if (Array.isArray(msft) && msft.length) {
+    out = { buildings: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" };
+  } else {
+    // `_incomplete` = MS was still downloading its cold tile (msft===null) when the budget expired → this
+    // empty answer is TRANSIENT (tile warms in bg, next load has it). Don't cache it so the retry self-heals.
+    out = { buildings: [], source: "none", _incomplete: msft === null };
+  }
+  // Persist only NON-empty, COMPLETE results. Empty-but-complete (genuine sparse area) and incomplete
+  // (transient failure) both skip the cache → next load retries live instead of being shadowed by a 0.
+  if (out.buildings.length && !out._incomplete) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
+  return out;
 }
 
 /* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,

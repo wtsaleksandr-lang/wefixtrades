@@ -27,12 +27,19 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
 
   const dashboardLink = payload?.dashboard_url || "";
   const hostedLink = payload?.hosted_url || "";
-  const subject = `New Quote Request — ${lead.name || "Unknown"} (${calc.trade_type})`;
+  // Subject is rendered in the contractor's mail-client header; strip CR/LF to
+  // avoid header injection, then HTML-escape the lead-supplied name (defensive —
+  // some clients render subject as HTML in previews).
+  const subjectName = String(lead.name || "Unknown").replace(/[\r\n]+/g, " ").trim();
+  const subject = `New Quote Request — ${escapeHtml(subjectName)} (${escapeHtml(String(calc.trade_type || ""))})`;
 
+  // detailRow escapes its `value` — every caller passes PLAIN-TEXT lead/calc data
+  // (name/phone/email/quote), so escaping inside is the safest single choke point.
+  // (If a caller ever needs intentional HTML, escape at the call site instead.)
   const detailRow = (label: string, value: string, accent?: boolean) => `
     <tr>
-      <td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">${label}</td>
-      <td style="padding:6px 0;font-size:14px;color:${accent ? "#0d3cfc" : "#F0F0F0"};font-weight:600;text-align:right;">${value}</td>
+      <td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">${escapeHtml(label)}</td>
+      <td style="padding:6px 0;font-size:14px;color:${accent ? "#0d3cfc" : "#F0F0F0"};font-weight:600;text-align:right;">${escapeHtml(value)}</td>
     </tr>`;
 
   const inputsBlock = answers
@@ -54,9 +61,9 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
 
   const html = buildTransactionalEmail({
     recipientEmail: calc.owner_email || undefined,
-    headerTagline: `${calc.business_name} · ${calc.trade_type}`,
+    headerTagline: `${escapeHtml(String(calc.business_name || ""))} · ${escapeHtml(String(calc.trade_type || ""))}`,
     eyebrow: "New quote request",
-    headline: `${lead.name || "A new lead"} just requested a quote`,
+    headline: `${escapeHtml(String(lead.name || "A new lead"))} just requested a quote`,
     intro: `Quote: <strong style="color:#0d3cfc;">${quoteDisplay}</strong>. Full details below — reply within an hour for the best conversion.`,
     bodyHtml: `
       <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">

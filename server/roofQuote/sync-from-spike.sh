@@ -21,10 +21,10 @@ DST="$DST_DIR/roof3d.html"
 #    a SECOND <script type="module"> block, which does NOT share top-level scope with
 #    this first block. Referencing the bare `RQ_BASE` const there throws
 #    "RQ_BASE is not defined", so the second block reads window.RQ_BASE instead.
-perl -0pi -e 's{(async function geocode\(addr\)\{)}{const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it\n$1}' "$DST"
+perl -0pi -e 's{(async function geocode\(addr[^)]*\)\{)}{const RQ_BASE="/api/roofquote";window.RQ_BASE=RQ_BASE;   // ported into the wefixtrades Express app under this path prefix; window.* so the 2nd module block can see it\n$1}' "$DST"
 
 # 2) Prefix backend route fetches.
-perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"
+perl -pi -e 's{fetch\("/(airender|capture|datalayers|features|footprint|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)}{fetch(RQ_BASE+"/$1}g' "$DST"
 
 # 3) Prefix the dynamic module import.
 #    This import lives in the SECOND <script type="module"> block (after the first block
@@ -40,7 +40,7 @@ perl -pi -e 's{="/(capture|streetview)\?}{="/api/roofquote/$1?}g' "$DST"
 
 # Verify: no raw root-relative backend calls remain.
 # `|| LEFT=0` so a zero-match grep (the SUCCESS case — no unprefixed calls left) doesn't abort under set -e/pipefail
-LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)' "$DST" | wc -l | tr -d ' ') || LEFT=0
+LEFT=$(grep -oE 'fetch\("/(airender|capture|datalayers|features|footprint|geocode|geotiff|lead|pvwatts|rates|solar|streetview|sun|analyze)' "$DST" | wc -l | tr -d ' ') || LEFT=0
 PREFIXED=$(grep -oE 'RQ_BASE\+"/' "$DST" | wc -l | tr -d ' ') || PREFIXED=0
 echo "sync done → unprefixed-left:$LEFT  prefixed-sites:$PREFIXED  RQ_BASE:$(grep -c 'const RQ_BASE' "$DST")"
 [ "$LEFT" = "0" ] || { echo "ERROR: $LEFT unprefixed backend fetch(es) remain"; exit 1; }
