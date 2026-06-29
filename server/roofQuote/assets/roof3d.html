@@ -11323,7 +11323,10 @@ function syncSelection(){
 function _applyPolyStyle(b){
   if(!b||!b.poly) return;
   if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.18, zIndex:b.detected?20:15 }); }
-  else { b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:0.55, strokeWeight:1.5, fillColor:"#0d3cfc", fillOpacity:0.02, zIndex:5 }); }
+  // Unselected NEIGHBOUR: a clearly-visible-but-secondary outline so the buyer can SEE there are other
+  // tappable roofs (a multi-building quote). Brighter dashed-feel stroke + a faint white wash fill that
+  // reads on dark satellite without competing with the selected home's solid-blue fill.
+  else { b.poly.setOptions({ strokeColor:"#ffffff", strokeOpacity:0.92, strokeWeight:2, fillColor:"#0d3cfc", fillOpacity:0.10, zIndex:8 }); }
   // #4 striped solar-grid: every roof gets stripes; the selected roof's are a touch more prominent.
   if(b.stripe && typeof b.stripe.setSelected==="function") b.stripe.setSelected(!!b.selected);
   // #3 checkmark: only on selected buildings.
@@ -11672,15 +11675,27 @@ async function renderSelectRoofMap(g, fp, neighbours){
     else if(usedApprox){ const r=_defaultHomeRing(g.lng,g.lat,7); list.push({ id:"approx", ring:r, centroid:_ringCentroid(r), source:"approx", detected:true, selected:true }); }
     // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
     const seen=detectedRing?[detectedC]:[];
+    const homeC=detectedRing?detectedC:[g.lng,g.lat];
+    const mLngF=111320*Math.cos((g.lat||43)*Math.PI/180);
+    const distM=(c)=>Math.hypot((c[0]-homeC[0])*mLngF,(c[1]-homeC[1])*111320);
     const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
       return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
+    // Gather candidate neighbours, then keep only the NEAREST few so the map shows the home + its immediate
+    // neighbours (a 2-3 roof pick), not the whole suburb (84 footprints = clutter). Cap: within ~80 m, top 12.
+    const NB_MAX_M=80, NB_MAX_N=12;
+    const cands=[];
     for(const nb of (neighbours||[])){
       const ring0=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring0) continue;
       const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring0);
       if(near(c,seen,6)) continue;                          // de-dup the detected home / repeats
       seen.push(c);
-      const ring=_regularizeSelectRoofRing(ring0, g.lat);   // same architectural cleanup as the detected home
-      list.push({ id:nb.id||("nb/"+c[0].toFixed(6)+","+c[1].toFixed(6)), ring, centroid:_ringCentroid(ring), source:nb.source||"osm", detected:false, selected:false });
+      const d=distM(c); if(d>NB_MAX_M) continue;             // skip far-suburb footprints
+      cands.push({ nb, ring0, c, d });
+    }
+    cands.sort((a,b)=>a.d-b.d);                              // nearest first
+    for(const cd of cands.slice(0,NB_MAX_N)){
+      const ring=_regularizeSelectRoofRing(cd.ring0, g.lat); // same architectural cleanup as the detected home
+      list.push({ id:cd.nb.id||("nb/"+cd.c[0].toFixed(6)+","+cd.c[1].toFixed(6)), ring, centroid:_ringCentroid(ring), source:cd.nb.source||"osm", detected:false, selected:false });
     }
     // Draw each as a clickable polygon and wire the per-building toggle.
     for(const item of list){
@@ -11695,10 +11710,14 @@ async function renderSelectRoofMap(g, fp, neighbours){
     }
     window.__srBuildings=__srBuildings;   // expose the live list (debug / headless verification / next-task per-house loop)
     if(detectedRing){
-      // frame the detected home (a touch wider so a neighbour or two is visible + tappable) — use the
-      // regularized ring that was actually drawn so the frame matches the highlighted outline.
+      // Frame the detected home PLUS its drawn neighbours so the buyer SEES the other tappable roofs.
+      // Fit-bounds over the home ring + every neighbour ring within ~55 m of the home (the immediate few),
+      // so the home stays comfortably large while 3-6 neighbours come into frame. Cap the included
+      // neighbours' distance so one stray far footprint can't zoom the whole map out.
       const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:detectedRing;
-      const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng})); __srMap.fitBounds(b,{top:90,right:90,bottom:90,left:90});
+      const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng}));
+      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=55){ bb.ring.forEach(([lng,lat])=>b.extend({lat,lng})); } }catch(_){} });
+      __srMap.fitBounds(b,{top:70,right:70,bottom:70,left:70});
       const hasNb=__srBuildings.length>1;
       $("srHintT").textContent = hasNb ? "Tap buildings to add or remove them from your quote." : "This is the roof we detected. Not your building? Tap the correct one.";
     } else if(usedApprox){

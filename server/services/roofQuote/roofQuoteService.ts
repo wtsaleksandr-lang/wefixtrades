@@ -1127,7 +1127,7 @@ async function msftBuildingsBbox(bs: number, bw: number, bn: number, be: number)
    coverage gap where OSM + Microsoft both return nothing (e.g. South Africa, Australia). Purely
    additive: ANY failure (duckdb missing, S3 unreachable, unknown country, timeout) logs + returns [],
    so the OSM→MS→approx union proceeds exactly as before. Mirrors spikes/roof-quote/serve.mjs. */
-const VIDA_FOOTPRINT_BUDGET_MS = 7000;
+const VIDA_FOOTPRINT_BUDGET_MS = 10000;   // duckdb S3 parquet read is ~9s COLD; 7s cut off genuine cold first requests
 const VIDA_S3 = "s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
 // Coarse ISO2/ISO3 lookup for the countries we expect coverage-gap roofs in. VIDA only needs the
 // 3-letter ISO to pick the country file; we derive it from the bbox centroid (the /buildings route
@@ -1284,6 +1284,23 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   // (transient failure) both skip the cache → next load retries live instead of being shadowed by a 0.
   if (out.buildings.length && !out._incomplete) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
   return out;
+}
+
+/* Fire-and-forget VIDA pre-warm — call once at server startup. The duckdb httpfs range-cache +
+   spatial/httpfs extensions are ~9s cold, so the FIRST real ZA/AU request would otherwise blow the
+   per-request budget and return 0 neighbours. Run a tiny-bbox query per common gap country to warm the
+   connection + range cache before the first user. NEVER blocks startup; never throws. */
+export function prewarmVida(): void {
+  void (async () => {
+    try {
+      const warm: Array<{ iso3: string; s: number; w: number; n: number; e: number }> = [
+        { iso3: "ZAF", s: -26.1700, w: 28.1300, n: -26.1690, e: 28.1310 }, // Bedfordview, JHB
+        { iso3: "AUS", s: -33.8690, w: 151.2090, n: -33.8680, e: 151.2100 }, // Sydney
+      ];
+      for (const b of warm) { await vidaBuildingsBbox(b.s, b.w, b.n, b.e, b.iso3).catch(() => {}); }
+      console.log("[vida] prewarm done");
+    } catch (e) { console.warn("[vida] prewarm failed:", (e as Error)?.message || e); }
+  })();
 }
 
 /* ─── Production fallback for addresses Google Solar doesn't cover (NREL PVWatts v8,
