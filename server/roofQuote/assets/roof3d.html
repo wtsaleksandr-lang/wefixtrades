@@ -8031,6 +8031,11 @@ const RoofDots=(function(){
         // this the inactive path re-derives squares as flat×predominant-pitch which differs from the active
         // path's per-facet editArea (Denver 30.83 vs 28.35) — same roof, two square counts + material prices.
         const s=m?m.areaSqFt:0; if(s>0&&isFinite(s)) window.__committedSlopedSqFt=s;
+        // The committed outline is now the canonical quote area — drop any roofTotals cached EARLIER (before
+        // the outline settled) so the headline/Measure/report stat recomputes off the committed outline and
+        // matches the price. Fixes a stale area STAT on roofs where an early getRoofTotals cached a smaller
+        // number (e.g. the share-ratio path 1764×0.33 on a detached home the undercount-fix later widened).
+        try{ window.__roofTotals=null; }catch(_){}
       }catch(_){}
       hide(); try{ renderRoofDiagram(); }catch(_){}
       try{ if(window.__roofReady && typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
