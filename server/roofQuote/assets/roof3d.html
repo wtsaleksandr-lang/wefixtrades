@@ -8281,7 +8281,22 @@ function showMeasDiagram(on){
         if(typeof setMode==="function"){
           await setMode("photoreal");
           if(myGen!==window.__measGen) return;                 // user toggled away mid-load
-          if(window.__photorealOk){ try{ if(typeof buildPhotoLabels==="function") await buildPhotoLabels(); }catch(_){} return; }   // draw the roofline (facet outlines + edge/area labels) ON the real house
+          if(window.__photorealOk){
+            // FRAME for roofline viewing: roofFitRange is roof-size based (not viewport-aware), so on a WIDE
+            // desktop viewport the solar "hero" range leaves the house small in a block-wide shot. Tighten the
+            // range by the aspect ratio (wide → zoom in) so the roof fills the frame on every device, and use a
+            // slightly more overhead tilt than the solar hero so the ROOF (not the facade) reads.
+            try{ if(gmap && gmap.flyCameraTo && typeof SITE!=="undefined"){
+              const asp=(window.innerWidth||1)/Math.max(1,(window.innerHeight||1));
+              let rng=(typeof roofFitRange==="function")?roofFitRange(78):120;
+              if(asp>1) rng=Math.round(rng/Math.min(asp,1.8));
+              const ctr={lat:SITE.lat,lng:SITE.lng};
+              try{ const ga=(typeof photoGroundAlt==="function")?photoGroundAlt():null; if(ga!=null) ctr.altitude=ga; }catch(_){}
+              gmap.flyCameraTo({ endCamera:{ center:ctr, range:rng, tilt:52, heading:15 }, durationMillis:650 });
+            } }catch(_){}
+            try{ if(typeof buildPhotoLabels==="function") await buildPhotoLabels(); }catch(_){}   // draw the roofline (facet outlines + edge/area labels) ON the real house
+            return;
+          }
         }
       }catch(_){}
       if(myGen!==window.__measGen) return;
