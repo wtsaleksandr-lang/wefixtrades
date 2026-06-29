@@ -572,6 +572,10 @@
      owns the bottom of the editor, hard-hide the lens rail so no buttons peek out behind/around the card.
      The editor card is the only control surface visible at the bottom during editing. */
   body.dot-editing #ctrls{display:none!important}
+  /* STEP-3 ROOFLINE 3D VIEW: trim the lens rail to only the controls that make sense for viewing/adjusting
+     the roof (Rotate/Recenter). Panels/Model/Sun/Measure are solar/lens views that don't belong before the
+     Solar-vs-Roofing choice. */
+  body.meas-3d #bPanels,body.meas-3d #bModel,body.meas-3d #bSun,body.meas-3d #bLabels{display:none!important}
   #ctrls button{width:56px;height:56px;border-radius:16px;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;box-shadow:var(--card-shadow)}
   #ctrls button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   #ctrls button span{font-size:9.5px;font-weight:600;letter-spacing:.01em}
@@ -4144,6 +4148,7 @@ function applyModelSkin(grey){
 // legacy fallback, in the bare panelMesh. One switch toggles whichever exists so the Model lens
 // can show panels and the shadow-only study can hide them.
 function setModelPanelsVisible(on){
+  if(window.__measEditing) on=false;   // step-3 roofline view is BEFORE the Solar/Roofing choice → never show panels
   if(modelPanelGroup) modelPanelGroup.visible=!!on;
   else if(panelMesh) panelMesh.visible=!!on;
   // (fix8 P1) The engineered panels carry the cached premium PV material; toggling back from
@@ -8246,6 +8251,7 @@ window.RoofDots=RoofDots;
 window.__editRoofOutline=()=>RoofDots.show();
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
+    try{ document.body.classList.remove("meas-3d"); window.__measEditing=false; }catch(_){}   // leaving the 3D roofline view → restore the normal rail + allow panels again
     setMeas3DVisible(false);
     // EDITING IS ALWAYS ON in the Top-down view (no separate "Edit outline" step). Auto-mount the
     // draggable-dot editor on the next frame, once __diagXform is rendered. RoofDots.show() suppresses
@@ -8253,21 +8259,34 @@ function showMeasDiagram(on){
     requestAnimationFrame(()=>{ try{ if(typeof RoofDots!=="undefined" && window.__roofReady && !RoofDots._state().on){ RoofDots.show(); } }catch(_){} });
   }
   else {
-    // (BUG 2) 3D MEASURE = OUR Three.js scene, NOT Google's photoreal tiles. The old path mounted
-    // #gmapWrap and drew Polyline3DElements with RELATIVE_TO_MESH onto Google's mesh, whose datum ≠
-    // the Solar DSM altitudes → lines floated off the roof / were invisible (and blank/unverifiable
-    // headless). We mount #scene, apply the clean grey skin, and show the on-model colour-coded edges
-    // (measGroup3D) built in buildSceneAnalytic via the SAME M2S() as the facet meshes.
-    $("matCanvas").style.display="none"; $("measMini").style.display="none"; $("gmapWrap").style.display="none"; $("scene").style.display="block";
-    // tear down any stray Google-tile measure overlays WITHOUT hiding #measToggle (clearRoofMeas hides it).
+    // STEP-3 3D = the buyer's REAL house in LIVE photoreal Google 3D (not the grey massing box, not a static
+    // image). This is BEFORE the Solar/Roofing choice → panels are suppressed (__measEditing) and the lens
+    // rail is trimmed to Rotate/Reset (body.meas-3d). The roofline is overlaid via the SAME working
+    // RELATIVE_TO_MESH path the Solar view uses for panels (NOT the abandoned absolute-DSM polyline that
+    // floated). If an address has NO photoreal coverage, fall back to the clean grey schematic.
+    $("matCanvas").style.display="none"; $("measMini").style.display="none";
     for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[];
-    if(mode!=="schematic"){ setMode("schematic"); }   // schematic mounts the Three.js scene (async; visibility already set)
-    try{ applyModelSkin(true); }catch(_){}  // grey clay so the coloured edge lines read clearly
-    setSchemLabels(false);                  // hide the schematic per-facet sprites; the measure overlay carries its own labels
-    if(measGroup3D){ setMeas3DVisible(true); }
-    else { showAnalysis(null); $("scene").style.display="block"; }   // analytic model absent → show plain massing (legacy fallback, no typed edges)
-    // frame the roof
-    try{ if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.42,span*0.66,span*0.62); controls.target.set(0,4,0); controls.update(); } }catch(_){}
+    try{ window.__measEditing=true; panelsVisible=false; if(typeof setModelPanelsVisible==="function") setModelPanelsVisible(false); }catch(_){}
+    try{ document.body.classList.add("meas-3d"); }catch(_){}
+    const _mountSchematic=()=>{ try{
+      $("gmapWrap").style.display="none"; $("scene").style.display="block";
+      if(mode!=="schematic"){ setMode("schematic"); }
+      applyModelSkin(true); setSchemLabels(false);
+      if(measGroup3D){ setMeas3DVisible(true); } else { showAnalysis(null); $("scene").style.display="block"; }
+      if(window.__roofReady){ const d=window.__roofDebug||{}; const span=(d.crop||30)*2; camera.position.set(span*0.42,span*0.66,span*0.62); controls.target.set(0,4,0); controls.update(); }
+    }catch(_){ } };
+    (async()=>{
+      const myGen=(window.__measGen=(window.__measGen||0)+1);
+      try{
+        if(typeof setMode==="function"){
+          await setMode("photoreal");
+          if(myGen!==window.__measGen) return;                 // user toggled away mid-load
+          if(window.__photorealOk){ try{ if(typeof buildPhotoLabels==="function") await buildPhotoLabels(); }catch(_){} return; }   // draw the roofline (facet outlines + edge/area labels) ON the real house
+        }
+      }catch(_){}
+      if(myGen!==window.__measGen) return;
+      _mountSchematic();                                       // no/failed photoreal coverage → clean schematic fallback (no panels)
+    })();
   }
   const t=$("measToggle"); if(t){ const dg=t.querySelector('[data-v="diagram"]'), td=t.querySelector('[data-v="3d"]'); dg.classList.toggle("on",on); dg.setAttribute("aria-pressed",String(on)); td.classList.toggle("on",!on); td.setAttribute("aria-pressed",String(!on)); }
   if(typeof syncLensControls==="function") syncLensControls();   // 2D top-down hides #scene → disable Rotate/Recenter; 3D re-enables
@@ -10130,6 +10149,7 @@ async function buildPhotoPanels(){
   // owns the screen (window.__rdOpen), tear the panel group down and return BEFORE drawing any panel. The solar
   // designer never sets __rdOpen, so its 3D view (enterSolar3D) still renders panels exactly as before.
   if(window.__rdOpen){ window.__photoPanels=0; return; }
+  if(window.__measEditing){ window.__photoPanels=0; return; }   // step-3 roofline view (before Solar/Roofing choice) → bare roof, no panels
   if(overlaySuppressed){ window.__photoPanels=0; setOverlayNote(true); return; }   // canopy/off-roof → don't drape panels onto the lawn
   const sp=LASTB.solarPotential, segs=sp.roofSegmentStats||[];
   const pw=panelDimsPW(), ph=panelDimsPH();   // class-based dims (single source of truth — replaces Google panelWidthMeters/panelHeightMeters)
@@ -11755,6 +11775,7 @@ function showBranchChoice(){
 // Commercial gate → the lead-capture / commercial-quote request (same action as the quote-card footer CTA).
 $("bcCommercial").onclick=()=>{
   $("branchChoice").style.display="none";
+  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
   window.__houseLoopActive=false;
   $("bar").style.display="flex";
   try{ if(typeof window.__openCapture==="function") window.__openCapture(); }catch(_){}
@@ -11763,6 +11784,7 @@ $("bcCommercial").onclick=()=>{
 $("bcSolar").onclick=()=>{
   if($("bcSolar").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
+  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
   window.__houseLoopActive=false;
   $("bar").style.display="flex";
   try{ tradeMode="solar"; window.__trade="solar"; }catch(_){}
@@ -11778,6 +11800,7 @@ $("bcSolar").onclick=()=>{
 $("bcRoof").onclick=()=>{
   if($("bcRoof").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
+  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
   window.__houseLoopActive=false;
   $("bar").style.display="none";   // the design step owns the screen; its own header carries Back + the AI CTA
   try{ tradeMode="roof"; window.__trade="roof"; }catch(_){}
