@@ -267,6 +267,12 @@
   #card .card-fold-btn:hover{border-color:#0d3cfc;background:rgba(13,60,252,.06)}
   #card.folded{width:0;max-height:0;min-height:0;padding:0;border-width:0;overflow:hidden;opacity:0;pointer-events:none}
   body.card-folded #cardFold{display:inline-flex}
+  /* During the roofline-edit step (drag-the-dots), hide the Solar/Roofing quote
+     card + its folded pill on ALL viewports — the rate + "Lock in my rate" CTA must
+     only appear AFTER the Solar-vs-Roofing branch choice, not during dot editing.
+     (Previously only hidden inside @media max-width:560px, so desktop showed it early.) */
+  body.dot-editing #card{display:none!important}
+  body.dot-editing #cardFold{display:none!important}
   /* ── LOW-CONFIDENCE FALLBACK STATE ────────────────────────────────────────
      When the roof can't be confidently measured (heavy canopy / no confident
      satellite read), the 3D scene is empty/meaningless. Instead of leaving a
