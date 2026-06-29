@@ -12,6 +12,13 @@ DST_DIR="server/roofQuote/assets"
 cp "$SRC_DIR/roofgeo.mjs"      "$DST_DIR/roofgeo.mjs"
 cp "$SRC_DIR/rooffeatures.mjs" "$DST_DIR/rooffeatures.mjs"
 
+# Landing-hero background video clips (self-hosted, web-compressed H.264).
+# Served in prod by the /api/roofquote/assets/hero/:name route (roofQuoteRoutes.ts).
+if [ -d "$SRC_DIR/assets/hero" ]; then
+  mkdir -p "$DST_DIR/hero"
+  cp "$SRC_DIR/assets/hero/"*.mp4 "$DST_DIR/hero/"
+fi
+
 # Widget HTML: copy then re-base backend calls under /api/roofquote.
 cp "$SRC_DIR/roof3d.html" "$DST_DIR/roof3d.html"
 DST="$DST_DIR/roof3d.html"
