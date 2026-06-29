@@ -6970,8 +6970,37 @@ function renderRoofDiagram(){
       }
     }
   }catch(_){}
+  // ── (letterbox fix) #matCanvas is object-fit:contain, so a near-square roof crop on a WIDE viewport is
+  //    height-fit and centered → blank grey bars left+right. We must NOT switch to object-fit:cover (the dot
+  //    overlay's projection folds the SAME contain scale min(r.w/cw, r.h/ch), so cover would desync the dots).
+  //    Instead, grow the crop HORIZONTALLY (symmetric about the roof centre) until its aspect matches the live
+  //    #app viewport — then contain fills edge-to-edge with no bars, and the dots stay aligned automatically
+  //    because cw,ch,minx,maxx flow straight into __diagXform / sc0. Cap growth at 2.0× the current crop width
+  //    so a standard 16:9 desktop (needs ~1.9× on a square roof) fills edge-to-edge, while a genuine ultrawide
+  //    (21:9 ≈ 2.37) still keeps the roof at ≥½ width rather than zooming it to a dot (accept a small residual
+  //    bar there). Clamp to raster bounds [0,W]. Only WIDENS a too-tall crop — never narrows a wide one (no-op otherwise).
+  try{
+    const app=$("app");
+    if(app){
+      const A=app.getBoundingClientRect();
+      if(A.width>0 && A.height>0){
+        const viewportAR=A.width/A.height;
+        const curW=maxx-minx, curH=maxy-miny, cropAR=curW/Math.max(1,curH);
+        if(cropAR < viewportAR){
+          // target width to hit viewportAR, capped at 2.0× the current crop width
+          let targetW=Math.min(curH*viewportAR, curW*2.0);
+          const cx=(minx+maxx)/2;
+          let nMinx=cx-targetW/2, nMaxx=cx+targetW/2;
+          // clamp to raster bounds; if clamping prevents the target, take what we can
+          if(nMinx<0) nMinx=0;
+          if(nMaxx>W) nMaxx=W;
+          if(nMaxx-nMinx > curW){ minx=nMinx; maxx=nMaxx; }
+        }
+      }
+    }
+  }catch(_){}
   const cw=Math.max(8,Math.round(maxx-minx)), ch=Math.max(8,Math.round(maxy-miny));
-  const S=Math.min(3,Math.max(1.8,1100/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop
+  const S=Math.min(3,Math.max(1.8,1500/Math.max(cw,ch)));   // supersample → crisp red lines & numbers even on a small roof crop (raised 1100→1500 so the contain-downscale on wide viewports stays gentle)
   const cv=$("matCanvas"); cv.width=Math.round(cw*S); cv.height=Math.round(ch*S); const ctx=cv.getContext("2d"); ctx.scale(S,S); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
   // ── (label-scale fix) Fonts/legend are drawn in the cw×ch coord space, but #matCanvas is
   //    object-fit:contain → that space is rescaled to fill the viewport. On a SMALL roof the crop
