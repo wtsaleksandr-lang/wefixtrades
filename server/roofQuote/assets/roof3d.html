@@ -52,12 +52,14 @@
   /* VIDEO BACKDROP — full-viewport looping aerial neighborhood footage. One uniform color grade is applied
      here (filter) + via #heroGrade overlay so EVERY clip in the rotation reads as ONE continuous piece of footage. */
   #heroVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;
-    filter:saturate(.7) brightness(.62) contrast(1.08);
+    /* keep the desaturation for clip cohesion; let the footage stay BRIGHT & airy like the reference — only the card is dark glass */
+    filter:saturate(.75) brightness(.9) contrast(1.04);
     opacity:0;transition:opacity .9s ease}
   #heroVideo.show{opacity:1}
-  /* SHARED COLOR GRADE — brand-blue wash + bottom-weighted dark scrim over the video, identical for every clip → cohesive footage + crisp text */
+  /* SHARED COLOR GRADE — gentle brand-blue tint for clip cohesion + a soft bottom-weighted scrim that only lifts contrast
+     behind the lower card; the upper footage stays bright and vibrant. Identical over every clip. */
   #heroGrade{position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:linear-gradient(180deg,rgba(8,12,24,.45) 0%,rgba(8,12,24,.30) 40%,rgba(8,12,24,.78) 100%),rgba(13,60,252,.10)}
+    background:linear-gradient(180deg,rgba(8,12,24,.08) 0%,rgba(8,12,24,.04) 45%,rgba(8,12,24,.42) 100%),rgba(13,60,252,.05)}
   /* HEADER BAR — white bar across the top with the WeFixTrades wordmark left + menu glyph right (matches reference).
      Uses the existing TENANT brand string — not invented. */
   #heroBrand{position:absolute;top:0;left:0;right:0;z-index:5;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,3vw,20px);background:#fff;border-bottom:1px solid #e8ecf3;box-shadow:0 1px 0 rgba(15,23,42,.03)}
@@ -208,12 +210,12 @@
     #selectRoof .sr-back{width:100%;justify-content:center}
     #selectRoof .sr-continue{width:100%;max-width:none}
   }
-  /* MOBILE (≤560px): match the reference phone layout — white header bar on top, the frosted card floating
-     vertically-centered with side margins (video visible above + below), pill CTA + ghost button. */
+  /* MOBILE (≤560px): match the reference phone layout — white header bar on top, the frosted card BOTTOM-ANCHORED
+     (clear bright video breathing above it + a sliver below), pill CTA + ghost button. */
   @media (max-width:560px){
-    #hero{align-items:center;justify-content:center;padding:54px 16px 16px}   /* top pad clears the 54px header bar */
-    #hero .hero-card{max-width:none;padding:22px 20px;border-radius:20px}
-    #hero .hc-top{margin-bottom:16px}
+    #hero{align-items:flex-end;justify-content:center;padding:54px 14px 18px}   /* flex-end = card sits low; top pad clears the 54px header bar */
+    #hero .hero-card{max-width:none;padding:20px 18px;border-radius:20px}
+    #hero .hc-top{margin-bottom:14px}
     #hero .hc-title{font-size:27px;line-height:1.18}
     #hero .hc-body{margin-top:12px;font-size:14.5px;max-width:none}
     #hero .hero-field{margin-top:18px}
