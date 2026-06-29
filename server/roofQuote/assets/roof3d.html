@@ -6473,7 +6473,39 @@ function extractFacetPolys(margin){
   if(_fp!=="legacy"){
     try{
       const f=extractFacetPolysAnalytic(margin);
-      if(f&&f.length){ f.__analytic=true; return f; }   // f.__footprintLL carried for the wall envelope
+      if(f&&f.length){
+        // ── UNDERCOUNT GUARD (quote-accuracy) ───────────────────────────────────────────────────────────
+        // On some roofs the DSM analytic extraction goes PARTIAL — it captures only a subset of the roof
+        // (e.g. 5 of Google's 8 segments), so its outer hull (f.__footprintLL) is far smaller than the real
+        // building. That undersized hull becomes the dot-editor outline → an undersized quote AREA + panel
+        // count (confirmed: Vegas roof 1764 ft²/48-panel cap quoted as 628 ft²/5 panels). When the analytic
+        // hull is <70% of the REAL detected footprint (window.__footprintWGS — the OSM/MS/mask outline that
+        // matches Google's whole-roof), substitute the Google-segment (bbox) facets, which span the FULL
+        // roof, and set the outline to the real footprint — so outline + area + panels + quote all reflect
+        // the whole roof together. Only a big shortfall fires it; normal roofs (analytic ≈ footprint) are
+        // untouched, and the bbox facets flow through the same proven path as the flat-roof fallback.
+        try{
+          const fpWGS=window.__footprintWGS;
+          if(Array.isArray(fpWGS)&&fpWGS.length>=3 && Array.isArray(f.__footprintLL)&&f.__footprintLL.length>=3 && typeof _ringAreaM2==="function"){
+            const lat0=fpWGS[0][1];
+            const aHull=_ringAreaM2(f.__footprintLL, lat0), aFoot=_ringAreaM2(fpWGS, lat0);
+            if(aFoot>0 && aHull>0 && aHull < aFoot*0.70){
+              const _z=(LASTFLUX||LASTDSM||LASTMASK||LASTRGB)?(LASTFLUX||LASTDSM||LASTMASK||LASTRGB).zone:null;
+              if(_z!=null){
+                const fb=fallbackFacetPolysFromSegBBox(_z);
+                if(fb&&fb.length){
+                  fb.__footprintLL=fpWGS.map(p=>[p[0],p[1]]);   // outline = the real building footprint (whole roof)
+                  fb.__analytic=false; fb.__undercountFallback=true;
+                  if(typeof errors!=="undefined") errors.push("undercount-fallback:hull="+Math.round(aHull)+"<foot="+Math.round(aFoot));
+                  try{ window.__undercountFallback={hull:Math.round(aHull),foot:Math.round(aFoot),segs:fb.length}; }catch(_){}
+                  return fb;
+                }
+              }
+            }
+          }
+        }catch(_){ /* guard is best-effort; any failure keeps the analytic result */ }
+        f.__analytic=true; return f;
+      }   // f.__footprintLL carried for the wall envelope
     }catch(e){ if(typeof errors!=="undefined") errors.push("analytic-facets:"+(e&&e.message||e)); }
   }
   try{
