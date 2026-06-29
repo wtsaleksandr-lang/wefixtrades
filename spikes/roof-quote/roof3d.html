@@ -3805,7 +3805,10 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
       if(pn.__plane && isFinite(pn.__plane.a)){
         const zAbs=pn.__plane.a*L.E + pn.__plane.b*L.N + pn.__plane.c;   // absolute facet height at the panel centre (UTM)
         yPlane=zAbs-baseY;
-        const Az2=(pn.__az||0)*Math.PI/180, P2=(pn.__pitch||0)*Math.PI/180;
+        // FIX A (axis match): rotate the module to the SAME lattice axis its cell was spaced on (__layoutAz),
+        // not Google's segment azimuth — so the 3D array tiles flush in clean rows like the 2D/photoreal lenses.
+        const _az2=(pn.__layoutAz!=null && isFinite(pn.__layoutAz)) ? pn.__layoutAz : (pn.__az||0);
+        const Az2=_az2*Math.PI/180, P2=(pn.__pitch||0)*Math.PI/180;
         sinAz=Math.sin(Az2); cosAz=Math.cos(Az2); P=P2;
       } else {
         const ox=L.x-fi.cx, oz=L.z-fi.cz; const d=ox*fi.sinAz + oz*(-fi.cosAz);
@@ -8598,7 +8601,12 @@ function waitForTiles(map, capMs){
    + local slope delta sidesteps the datum entirely. */
 function panelCornersLL(pn,seg,zone,pw,ph){
   const lat=pn.center.latitude, lng=pn.center.longitude;
-  const Az=(seg.azimuthDegrees||0)*Math.PI/180, tanP=Math.tan((seg.pitchDegrees||0)*Math.PI/180);
+  // FIX A (axis match): an engineered panel carries __layoutAz = the angle of the lattice axis its cell was
+  // SPACED on (the facet's longest-edge / shared-lattice axis). Draw the rectangle rotated to THAT axis so
+  // the quad tiles flush with its neighbours. Falling back to Google's seg.azimuthDegrees (raw-Google panels,
+  // or a panel without the stamp) keeps legacy behaviour. tanP still uses the true facet pitch for the tilt.
+  const _az=(pn && pn.__layoutAz!=null && isFinite(pn.__layoutAz)) ? pn.__layoutAz : (seg.azimuthDegrees||0);
+  const Az=_az*Math.PI/180, tanP=Math.tan((seg.pitchDegrees||0)*Math.PI/180);
   const land=pn.orientation==="LANDSCAPE", w=land?ph:pw, h=land?pw:ph;     // across=w, along-slope=h
   const mLat=111320, mLng=111320*Math.cos(lat*Math.PI/180);
   const ax=Math.cos(Az), an=-Math.sin(Az), fx=Math.sin(Az), fn=Math.cos(Az); // across / facing in (E,N)
@@ -10035,8 +10043,43 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     let l=0,tot=0; for(const pn of (seedPanels||[])){ if(!pn.orientation) continue; tot++; if(pn.orientation==="LANDSCAPE") l++; }
     if(nC) _gShared={ ax:gax, an:gan, E:sE/nC, N:sN/nC, land:(tot>0 && l*2>=tot) };
   }
-  for(const f of facets){
+  // ── FIX B (per-PLANE shared lattice on PITCHED roofs) ─────────────────────────────────────────────
+  // When the whole roof isn't co-planar (a real gable/hip), the global lattice above stays off so genuinely
+  // independent planes keep their own grids. BUT Google routinely SPLITS one physical roof FACE into 2-3
+  // segments with near-identical azimuth+pitch (mis-segmentation); each got its OWN axis/origin/phase, so
+  // their rows staggered across the seam and the array read as scattered clusters. Fix: group facets whose
+  // PLANE is the same (azimuth within ~10° AND pitch within ~5°) and give each multi-member group ONE shared
+  // axis (longest edge across the group's hulls), ONE origin (group centroid) and ONE phase — so co-facing
+  // facets of a single roof face share a continuous lattice. Distinct planes (different az/pitch) stay
+  // independent. Skipped entirely when _gShared already covers the whole roof (coplanar/flat).
+  const _groupShared=new Map();   // facetArrayIndex → { ax,an,E,N,land } shared lattice for its plane-group
+  if(!_gShared && facets.length>1){
+    const angDiff=(a,b)=>{ let d=Math.abs((a-b)%360); return d>180?360-d:d; };
+    const used=new Array(facets.length).fill(false);
+    for(let gi=0; gi<facets.length; gi++){
+      if(used[gi]) continue;
+      const az0=(facets[gi].seg&&facets[gi].seg.azimuthDegrees)||0, p0=(facets[gi].seg&&facets[gi].seg.pitchDegrees)||0;
+      const members=[gi]; used[gi]=true;
+      for(let gj=gi+1; gj<facets.length; gj++){ if(used[gj]) continue;
+        const azj=(facets[gj].seg&&facets[gj].seg.azimuthDegrees)||0, pj=(facets[gj].seg&&facets[gj].seg.pitchDegrees)||0;
+        if(angDiff(az0,azj)<=10 && Math.abs(p0-pj)<=5){ members.push(gj); used[gj]=true; } }
+      if(members.length<2) continue;   // a lone plane keeps its own per-facet grid (unchanged)
+      // shared axis = longest edge across ALL member hulls; shared origin = mean member centroid.
+      let bL=-1,gax=1,gan=0, sE=0,sN=0,nC=0;
+      for(const mi of members){ const rEN=(facets[mi].hull||[]).map(([lng,lat])=>wgs84ToUTM(lat,lng,zone)); if(rEN.length<3) continue;
+        let fcE=0,fcN=0; for(const[E,N]of rEN){ fcE+=E; fcN+=N; } fcE/=rEN.length; fcN/=rEN.length; sE+=fcE; sN+=fcN; nC++;
+        for(let i=0;i<rEN.length;i++){ const A=rEN[i],B=rEN[(i+1)%rEN.length]; const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bL){ bL=L; const n=Math.sqrt(L)||1; gax=dx/n; gan=dy/n; } } }
+      if(!nC) continue;
+      // shared orientation: majority of this group's seed panels (else portrait).
+      let gl=0,gtot=0; for(const mi of members){ const sh=seedBySeg.get(segIndexOf(facets[mi].seg))||[]; for(const pn of sh){ if(!pn.orientation) continue; gtot++; if(pn.orientation==="LANDSCAPE") gl++; } }
+      const lat={ ax:gax, an:gan, E:sE/nC, N:sN/nC, land:(gtot>0 && gl*2>=gtot) };
+      for(const mi of members) _groupShared.set(mi, lat);
+    }
+  }
+  for(let _fIdx=0; _fIdx<facets.length; _fIdx++){
+    const f=facets[_fIdx];
     const seg=f.seg; const si=segIndexOf(seg); if(si<0) continue;
+    const _grp=_gShared || _groupShared.get(_fIdx) || null;   // shared lattice for this facet (global, per-plane-group, or none)
     let _kept=0, _tried=0, _occl=0, _setb=0; const _occlBy={};
     // facet ring → UTM (E,N)
     const ringEN=(f.hull||[]).map(([lng,lat])=>wgs84ToUTM(lat,lng,zone));
@@ -10051,10 +10094,17 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     { let bestL=-1; for(let i=0;i<ringEN.length;i++){ const A=ringEN[i],B=ringEN[(i+1)%ringEN.length];
         const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bestL){ bestL=L; const n=Math.sqrt(L)||1; _gax=dx/n; _gan=dy/n; } } }
     if(_gax==null){ const Az=(seg.azimuthDegrees||0)*Math.PI/180; _gax=Math.cos(Az); _gan=-Math.sin(Az); }
-    const ax=_gShared?_gShared.ax:_gax, an=_gShared?_gShared.an:_gan, fx=-(_gShared?_gShared.an:_gan), fn=(_gShared?_gShared.ax:_gax);   // across (u, along eave) / perpendicular (v) axes in (E,N)
+    const ax=_grp?_grp.ax:_gax, an=_grp?_grp.an:_gan, fx=-(_grp?_grp.an:_gan), fn=(_grp?_grp.ax:_gax);   // across (u, along eave) / perpendicular (v) axes in (E,N)
+    // ── FIX A (axis match): the panel QUADS must be drawn rotated to the SAME axis the layout SPACES cells
+    // on (this `ax/an` across-axis), NOT to Google's per-segment azimuthDegrees. When the two disagree (the
+    // facet's longest-edge axis ≠ Google's segment azimuth on a mis-segmented complex roof) the cells were
+    // spaced on one axis but each rectangle was rotated to another → quads don't tile flush → checkerboard.
+    // panelCornersLL uses Az with across=(cos Az, -sin Az); our across axis is (ax, an), so the matching
+    // angle is atan2(-an, ax). Stamp it on every panel and have the renderer prefer it over seg azimuth.
+    const _layoutAzDeg=Math.atan2(-an, ax)*180/Math.PI;
     // centroid + project ring to facet frame (u=across/eave-parallel, v=perpendicular)
     let cE=0,cN=0; for(const [E,N] of ringEN){ cE+=E; cN+=N; } cE/=ringEN.length; cN/=ringEN.length;
-    if(_gShared){ cE=_gShared.E; cN=_gShared.N; }   // shared origin so (u,v) is comparable across all co-planar facets
+    if(_grp){ cE=_grp.E; cN=_grp.N; }   // shared origin so (u,v) is comparable across all facets sharing this lattice
     const toUV=([E,N])=>[ (E-cE)*ax+(N-cN)*an, (E-cE)*fx+(N-cN)*fn ];
     const fromUV=(u,v)=>[ cE+u*ax+v*fx, cN+u*an+v*fn ];
     const ringUV=ringEN.map(toUV);
@@ -10094,7 +10144,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     // Flip to the orientation that fits MORE rows in this facet's depth (ties keep the seed orientation), so a
     // shallow strip packs landscape rows instead of losing them to a too-tall portrait panel.
     if(rowsFor(altDown)>rowsFor(seedDown)) land=!land;
-    if(_gShared) land=_gShared.land;   // one shared orientation so every co-planar facet uses the SAME cell pitch → lattice lines up
+    if(_grp) land=_grp.land;   // one shared orientation so every facet on this lattice uses the SAME cell pitch → lattice lines up
     const aw=(land?ph:pw), ah=(land?pw:ph);      // across-width, down-slope-height of one panel (slope metres)
     const ahP=ah*cosP;                            // down-slope panel length projected into the plan frame
     const cw=aw+PANEL_GAP_M, ch=ahP+PANEL_GAP_M;  // cell pitch (across, plan-down-slope)
@@ -10107,12 +10157,12 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     const uUse=Math.max(0,(uMax-uMin)-2*(hw+sb));
     const cols=Math.max(1,Math.floor(uUse/cw)+1);
     let u0=(uMin+uMax)/2 - ((cols-1)/2)*cw;        // centre `cols` columns about the facet's u-midline (eave-parallel)
-    if(_gShared) u0=0;   // global column phase: lattice {k·cw} anchored at the shared origin → all facets' columns align
+    if(_grp) u0=0;   // shared column phase: lattice {k·cw} anchored at the shared origin → all facets on it align
     // v-band usable after the per-corner setback (panel half-height hh + setback off each edge)
     const vUse=Math.max(0,(vMax-vMin)-2*(hh+sb));
     const rows=Math.max(1,Math.floor(vUse/ch)+1);
     let v0=(vMin+vMax)/2 - ((rows-1)/2)*ch;   // centre `rows` rows about the facet's v-midline
-    if(_gShared) v0=0;   // global row phase: lattice {k·ch} anchored at the shared origin → all facets' rows align
+    if(_grp) v0=0;   // shared row phase: lattice {k·ch} anchored at the shared origin → all facets on it align
     const nU=Math.ceil((uMax-uMin)/cw)+2, nV=Math.ceil((vMax-vMin)/ch)+2;
     if(nU*nV>1500) continue;   // pathological huge facet → skip (commercial; quote handles it)
     const kStartU=Math.round((uMin-u0)/cw)-1, kEndU=Math.round((uMax-u0)/cw)+1;
@@ -10126,6 +10176,15 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     const seedUV=seedHere.map(p=>{ const [sE,sN]=wgs84ToUTM(p.center.latitude,p.center.longitude,zone); return [ (sE-cE)*ax+(sN-cN)*an, (sE-cE)*fx+(sN-cN)*fn ]; });
     const onSeed=(u,v)=>{ for(const [su,sv] of seedUV){ if(Math.abs(u-su)<cw*0.7 && Math.abs(v-sv)<ch*0.7) return true; } return false; };
     const facetPanels=[];
+    // ── FIX C (cluster-gated occlusion) ─────────────────────────────────────────────────────────────
+    // The DSM/flux occlusion test is noisy on complex roofs: a ridge cap or a single DSM spike reads as
+    // 'tree'/'spike' and used to nuke that ONE cell inline → a hole punched in otherwise-clear bright roof.
+    // We now defer the drop: build a lattice map of every poly+setback-passing cell with its occlusion reason
+    // (still SKIPPING seed-covered cells — Google vetted those clear), then drop a flagged cell ONLY when an
+    // adjacent lattice cell ALSO failed the SAME reason. A lone, isolated failure in a field of clear cells is
+    // almost certainly a false positive (cap/spike) → keep it. Genuine obstructions fail in CLUSTERS (a tree
+    // crown / patio spans several cells), so this preserves real tree/patio rejection while filling the holes.
+    const _cells=new Map();   // "ku,kv" → { ku,kv,pn,occlR }  (occlR=reason string or null)
     for(let kv=kStartV;kv<=kEndV;kv++){ for(let ku=kStartU;ku<=kEndU;ku++){
       const u=u0+ku*cw, v=v0+kv*ch;
       _tried++;
@@ -10143,12 +10202,26 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
       // the 3D model render seats each panel on the SAME plane the roof mesh was built from (model.planes),
       // not on Google's segment height — that mismatch is what let panels float over the rendered roof.
       const pn={ center:{latitude:lat,longitude:lng}, orientation:land?"LANDSCAPE":"PORTRAIT", segmentIndex:si, yearlyEnergyDcKwh:0, __eng:true,
-                 __plane:(f.__plane?{a:f.__plane.a,b:f.__plane.b,c:f.__plane.c}:null), __zone:zone, __az:(seg.azimuthDegrees||0), __pitch:(seg.pitchDegrees||0) };
-      // real-obstruction test (chimney/skylight/vent/shade) — SKIPPED on a Google-seeded cell (Google vetted
-      // it clear); RUN on a fill cell so we never invent a panel onto a tree/patio.
-      if(!window.__noCrop && !onSeed(u,v)){ const _r=panelOcclReason(pn,seg,zone,occlCtx); if(_r){ _occl++; _occlBy[_r]=(_occlBy[_r]||0)+1; continue; } }
-      facetPanels.push(pn);
+                 __plane:(f.__plane?{a:f.__plane.a,b:f.__plane.b,c:f.__plane.c}:null), __zone:zone, __az:(seg.azimuthDegrees||0), __pitch:(seg.pitchDegrees||0),
+                 __layoutAz:_layoutAzDeg };   // FIX A: render the quad on the layout axis so cells tile flush (no checkerboard)
+      // real-obstruction test (chimney/skylight/vent/shade) — SKIPPED on a Google-seeded cell (Google vetted it
+      // clear). Compute the reason now; the cluster pass below decides whether to actually drop it.
+      let _r=null;
+      if(!window.__noCrop && !onSeed(u,v)){ _r=panelOcclReason(pn,seg,zone,occlCtx)||null; }
+      _cells.set(ku+","+kv, { ku, kv, pn, occlR:_r });
     } }
+    // CLUSTER PASS: keep clear cells; for a flagged cell, keep it UNLESS a 4-neighbour (lattice-adjacent) cell
+    // shares the SAME reason (a real, spatially-coherent obstruction). Isolated flags = false positives → kept.
+    for(const cell of _cells.values()){
+      if(cell.occlR){
+        let clustered=false;
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nb=_cells.get((cell.ku+dx)+","+(cell.kv+dy));
+          if(nb && nb.occlR===cell.occlR){ clustered=true; break; } }
+        if(clustered){ _occl++; _occlBy[cell.occlR]=(_occlBy[cell.occlR]||0)+1; continue; }   // real obstruction → drop
+        /* else: lone false-positive (ridge cap / DSM spike) → keep the cell, fill the hole */
+      }
+      facetPanels.push(cell.pn);
+    }
     // BBOX-FALLBACK area cap: the rectangle can be larger than the segment's real roof area (a sliver
     // facet whose Google bbox spans the whole roof). Cap the panels to what the REAL facet area holds so
     // we don't over-fill an oversized bbox. Keep seeded cells first (Google vetted them), then the rest.
