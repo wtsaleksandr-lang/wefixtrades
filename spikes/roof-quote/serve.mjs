@@ -873,6 +873,33 @@ http.createServer(async (req,res)=>{
     try{ res.end(readFileSync(path.join(import.meta.dirname,"roofgeo.mjs"),"utf8")); }catch(e){ res.statusCode=503; res.end("// roofgeo.mjs not built yet"); }
     return;
   }
+  // Landing-hero aerial background clips — self-hosted, web-compressed H.264 (assets/hero/hero1.mp4 …).
+  // The widget references them at /assets/hero/* (dev) or RQ_BASE+/assets/hero/* (prod Express). Supports
+  // HTTP Range so the browser can seek/buffer the loop. Bare-filename only (no path traversal).
+  if(u.pathname.startsWith("/assets/hero/") && u.pathname.endsWith(".mp4")){
+    const name=path.basename(u.pathname);
+    const fp=path.join(import.meta.dirname,"assets","hero",name);
+    try{
+      const buf=readFileSync(fp);
+      const range=req.headers.range;
+      res.setHeader("Content-Type","video/mp4");
+      res.setHeader("Accept-Ranges","bytes");
+      res.setHeader("Cache-Control","public,max-age=604800");
+      if(range){
+        const m=/bytes=(\d+)-(\d*)/.exec(range);
+        const start=m?parseInt(m[1],10):0;
+        const end=(m&&m[2])?parseInt(m[2],10):buf.length-1;
+        res.statusCode=206;
+        res.setHeader("Content-Range","bytes "+start+"-"+end+"/"+buf.length);
+        res.setHeader("Content-Length",end-start+1);
+        res.end(buf.subarray(start,end+1));
+      } else {
+        res.setHeader("Content-Length",buf.length);
+        res.end(buf);
+      }
+    }catch(e){ res.statusCode=404; res.end("video not found"); }
+    return;
+  }
   // Self-hosted Satoshi/Geist woff2 — the widget's @font-face points at /fonts/*.woff2 (same paths
   // the embedded wefixtrades app serves from client/public/fonts). Without this route the spike fell
   // through to the HTML handler, so the browser got text/html for a .woff2 and logged

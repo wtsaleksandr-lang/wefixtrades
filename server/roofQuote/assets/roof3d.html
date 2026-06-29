@@ -43,20 +43,44 @@
        it never overlaps the relocated #bar. bottom:12 + max-height(100vh-127) → top = 115px. */
     body.funnel-on #card{max-height:calc(100vh - 127px)}
   }
-  /* ===== LANDING HERO (initial/empty state) — slowly-spinning globe backdrop + centered dark frosted-glass card ===== */
-  /* #hero stays a flex centering container so the existing JS show/hide (h.style.display="flex"/"none") is untouched. */
-  #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:clamp(20px,5vw,64px) clamp(16px,5vw,64px);overflow:hidden;
-    /* deep-space backdrop: near-black with a faint blue glow up-right, so the frosted card pops */
-    background:radial-gradient(130% 120% at 78% 8%,rgba(40,86,255,.20),transparent 52%),radial-gradient(110% 120% at 15% 95%,rgba(16,140,120,.12),transparent 50%),#05070e}
-  /* GLOBE BACKDROP — a slowly-spinning Earth painted on a 2D canvas (GPU-light, no WebGL context, mobile-safe). */
-  #heroGlobe{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(118vw,118vh);height:min(118vw,118vh);max-width:1400px;max-height:1400px;z-index:0;pointer-events:none;opacity:.92;filter:saturate(1.02)}
-  /* faint star field behind the globe */
-  #heroStars{position:absolute;inset:0;z-index:0;pointer-events:none;background-repeat:repeat;opacity:.5}
+  /* ===== LANDING HERO (initial/empty state) — full-bleed graded aerial-neighborhood VIDEO backdrop + lower-center dark frosted-glass card ===== */
+  /* #hero stays a flex container so the existing JS show/hide (h.style.display="flex"/"none") is untouched.
+     Card sits lower-center on desktop (align-items:flex-end) to clear the wordmark + let the footage breathe. */
+  #hero{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:clamp(20px,5vw,56px) clamp(16px,5vw,56px);overflow:hidden;
+    /* dark base behind the video (covers the <2s before first frame paints + any letterbox edge) */
+    background:#070b16}
+  /* VIDEO BACKDROP — full-viewport looping aerial neighborhood footage. One uniform color grade is applied
+     here (filter) + via #heroGrade overlay so EVERY clip in the rotation reads as ONE continuous piece of footage. */
+  #heroVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;
+    filter:saturate(.7) brightness(.62) contrast(1.08);
+    opacity:0;transition:opacity .9s ease}
+  #heroVideo.show{opacity:1}
+  /* SHARED COLOR GRADE — brand-blue wash + bottom-weighted dark scrim over the video, identical for every clip → cohesive footage + crisp text */
+  #heroGrade{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(8,12,24,.45) 0%,rgba(8,12,24,.30) 40%,rgba(8,12,24,.78) 100%),rgba(13,60,252,.10)}
+  /* HEADER BAR — white bar across the top with the WeFixTrades wordmark left + menu glyph right (matches reference).
+     Uses the existing TENANT brand string — not invented. */
+  #heroBrand{position:absolute;top:0;left:0;right:0;z-index:5;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,3vw,20px);background:#fff;border-bottom:1px solid #e8ecf3;box-shadow:0 1px 0 rgba(15,23,42,.03)}
+  #heroBrand .hb-left{display:flex;align-items:center;gap:9px}
+  #heroBrand .hb-dot{width:26px;height:26px;border-radius:7px;flex:0 0 auto;background:linear-gradient(150deg,#2f7bff,#0d3cfc);box-shadow:0 3px 10px rgba(13,60,252,.3);display:flex;align-items:center;justify-content:center}
+  #heroBrand .hb-dot svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  #heroBrand .hb-name{font-size:16px;font-weight:800;letter-spacing:-.01em;color:#0f172a}
+  #heroBrand .hb-menu{display:flex;flex-direction:column;gap:4px;width:22px;cursor:default;pointer-events:none}
+  #heroBrand .hb-menu i{display:block;height:2px;border-radius:2px;background:#0f172a}
+  /* pause/mute control — small circular button, bottom-right (reference detail + a11y) */
+  #heroPlayPause{position:absolute;right:clamp(14px,2.4vw,22px);bottom:clamp(14px,2.4vw,22px);z-index:4;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(12,16,28,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:background .15s,transform .05s}
+  #heroPlayPause:hover{background:rgba(13,60,252,.55)}
+  #heroPlayPause:active{transform:scale(.94)}
+  #heroPlayPause svg{width:18px;height:18px;fill:#fff}
+  #heroPlayPause .ic-pause{display:block}
+  #heroPlayPause .ic-play{display:none}
+  #heroPlayPause.paused .ic-pause{display:none}
+  #heroPlayPause.paused .ic-play{display:block}
   /* the floating frosted card */
-  #hero .hero-card{position:relative;z-index:2;width:100%;max-width:560px;padding:clamp(24px,3.4vw,38px);border-radius:24px;text-align:left;
-    background:linear-gradient(165deg,rgba(17,22,34,.74),rgba(8,11,20,.80));
-    -webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);
-    border:1px solid rgba(255,255,255,.10);
+  #hero .hero-card{position:relative;z-index:2;width:100%;max-width:530px;padding:clamp(24px,3.4vw,34px);border-radius:20px;text-align:left;
+    background:linear-gradient(165deg,rgba(20,24,33,.80),rgba(12,15,24,.84));
+    -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
+    border:1px solid rgba(255,255,255,.12);
     box-shadow:0 30px 80px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.06) inset,0 -1px 0 rgba(0,0,0,.3) inset;overflow:hidden}
   /* subtle dotted texture in the lower-right corner like the reference */
   #hero .hero-card::after{content:"";position:absolute;right:-10px;bottom:-10px;width:46%;height:54%;pointer-events:none;z-index:0;
@@ -65,28 +89,34 @@
   #hero .hero-card>*{position:relative;z-index:1}
   /* eyebrow + pills row */
   #hero .hc-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px}
-  #hero .hc-eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)}
-  #hero .hc-pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:99px;border:1px solid currentColor;background:rgba(255,255,255,.02);line-height:1}
-  #hero .hc-pill.solar{color:#4ade80;background:rgba(74,222,128,.08)}
-  #hero .hc-pill.roof{color:#fb923c;background:rgba(251,146,60,.08)}
-  /* headline — big, LIGHT weight, white (matches reference) */
-  #hero .hc-title{margin:0;font-size:clamp(28px,4.4vw,44px);line-height:1.08;font-weight:300;letter-spacing:-.018em;color:#f6f8ff;text-wrap:balance}
-  #hero .hc-title em{font-style:normal;font-weight:500;color:#fff}
+  #hero .hc-eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#7ea0ff}
+  /* outline pills (selected-state rule: outline, not bright fill) */
+  #hero .hc-pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:99px;border:1px solid currentColor;background:rgba(255,255,255,.03);line-height:1}
+  #hero .hc-pill.solar{color:#8ee6a8}
+  #hero .hc-pill.roof{color:#ffb27a}
+  /* headline — light weight, white, 2 lines (matches reference type) */
+  #hero .hc-title{margin:0;font-size:clamp(28px,3.4vw,33px);line-height:1.14;font-weight:300;letter-spacing:-.01em;color:#f6f8ff;text-wrap:balance}
+  #hero .hc-title em{font-style:normal;font-weight:400;color:#fff}
   #hero .hc-body{margin:14px 0 0;font-size:clamp(14px,1.45vw,16px);line-height:1.55;color:rgba(232,237,248,.74);max-width:46ch}
-  /* feature checks */
-  #hero .hc-feats{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+  /* feature checks — hidden by default to keep the card compact like the reference (kept in DOM for white-label/SEO copy) */
+  #hero .hc-feats{display:none;list-style:none;margin:18px 0 0;padding:0;grid-template-columns:1fr 1fr;gap:8px 16px}
   #hero .hc-feat{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:rgba(226,232,245,.82)}
   #hero .hc-feat svg{flex:0 0 auto;width:16px;height:16px;stroke:#4ade80;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  /* address field + CTA */
-  #hero .hero-bar{display:flex;gap:10px;margin-top:22px}
-  #hero #addrHero{flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:0 16px;height:56px;color:#f4f7ff;font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+  /* address field + CTA — input-field rule: title-in/above-field top-left, help cue top-left.
+     The INPUT is the card's main element (our functional difference from the reference); the CTA pill sits on its own row below. */
+  #hero .hero-field{margin-top:22px}
+  #hero .hero-flabel{display:block;margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:.02em;color:rgba(232,237,248,.86)}
+  #hero .hero-bar{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+  #hero #addrHero{width:100%;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:0 16px;height:54px;color:#f4f7ff;font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
   #hero #addrHero::placeholder{color:rgba(226,232,245,.45)}
-  #hero #addrHero:focus{border-color:#3b82f6;background:rgba(255,255,255,.09);box-shadow:0 0 0 3px rgba(59,130,246,.28)}
-  #hero #goHero{flex:0 0 auto;background:linear-gradient(180deg,#2f7bff,#1763f5);border:0;border-radius:14px;padding:0 24px;height:56px;font-weight:800;color:#fff;font-size:16px;cursor:pointer;box-shadow:0 10px 26px rgba(23,99,245,.42);font-family:inherit;white-space:nowrap;transition:filter .15s,transform .05s}
-  #hero #goHero:hover{filter:brightness(1.06)}
+  #hero #addrHero:focus{border-color:#5a82ff;background:rgba(255,255,255,.10);box-shadow:0 0 0 3px rgba(13,60,252,.34)}
+  /* primary CTA — rounded-full pill, our blue #0d3cfc (matches reference "Explore demo" shape) */
+  #hero #goHero{flex:0 0 auto;background:#0d3cfc;border:0;border-radius:99px;padding:0 26px;height:52px;font-weight:700;color:#fff;font-size:15.5px;cursor:pointer;box-shadow:0 10px 26px rgba(13,60,252,.42);font-family:inherit;white-space:nowrap;transition:filter .15s,transform .05s}
+  #hero #goHero:hover{filter:brightness(1.08)}
   #hero #goHero:active{transform:translateY(1px)}
-  #hero .hero-sample{display:inline-block;margin:14px 0 0;background:none;border:0;padding:0;color:#7eaaff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-  #hero .hero-sample:hover{text-decoration:underline}
+  /* secondary GHOST pill (matches reference "API" ghost button) */
+  #hero .hero-sample{display:inline-flex;align-items:center;margin:12px 0 0;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:9px 18px;color:rgba(232,237,248,.86);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s}
+  #hero .hero-sample:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.34)}
   /* white-label "powered by" line — hidden unless a tenant brand is injected */
   #hero .hero-poweredby{display:none;margin:14px 0 0;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:rgba(226,232,245,.5)}
   #hero .hero-poweredby b{color:rgba(232,237,248,.8);font-weight:700}
@@ -178,15 +208,21 @@
     #selectRoof .sr-back{width:100%;justify-content:center}
     #selectRoof .sr-continue{width:100%;max-width:none}
   }
-  /* MOBILE (≤560px): card goes near-full-width, globe fills behind, address+CTA stack vertically */
+  /* MOBILE (≤560px): match the reference phone layout — white header bar on top, the frosted card floating
+     vertically-centered with side margins (video visible above + below), pill CTA + ghost button. */
   @media (max-width:560px){
-    #hero{align-items:center;justify-content:center;padding:24px 16px}
-    #hero .hero-card{max-width:none;padding:24px 22px;border-radius:22px}
-    #hero .hc-feats{grid-template-columns:1fr;gap:9px}
-    #hero .hero-bar{flex-direction:column;gap:10px}
-    #hero #goHero{height:54px;width:100%}
-    #hero #addrHero{height:54px}
-    #heroGlobe{width:150vw;height:150vw;opacity:.78}
+    #hero{align-items:center;justify-content:center;padding:54px 16px 16px}   /* top pad clears the 54px header bar */
+    #hero .hero-card{max-width:none;padding:22px 20px;border-radius:20px}
+    #hero .hc-top{margin-bottom:16px}
+    #hero .hc-title{font-size:27px;line-height:1.18}
+    #hero .hc-body{margin-top:12px;font-size:14.5px;max-width:none}
+    #hero .hero-field{margin-top:18px}
+    #hero .hero-bar{gap:11px}
+    #hero #goHero{height:50px;width:auto}     /* auto-width pill, like the reference "Explore demo" */
+    #hero #addrHero{height:52px}
+    #heroBrand{height:54px}
+    #heroBrand .hb-name{font-size:15px}
+    #heroPlayPause{width:40px;height:40px}
     /* top search bar (active/quote state): at 375px the side-by-side "Get Quote" button squeezed the
        input and the entered address was clipped under it (wave-2 ellipsis only HID the clip, it didn't
        fix it). STACK the input above the button so the input gets the full bar width and the whole
@@ -1006,29 +1042,46 @@
     <button class="bc-commercial" id="bcCommercial" type="button" style="display:none">Request a commercial quote<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     <button class="bc-back" id="bcBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back to editing</button>
   </div>
-  <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads. Slowly-spinning globe backdrop + centered dark frosted-glass card (reference: Google Maps Platform "Solar" card). -->
+  <!-- LANDING HERO — initial/empty state. Hidden the moment a quote loads. Full-bleed graded aerial-neighborhood VIDEO backdrop + lower-center dark frosted-glass card (reference: Google Maps Platform "Solar" page). -->
   <div id="hero">
-    <!-- BACKDROP: faint star field + slowly-rotating Earth globe painted on a 2D canvas (GPU-light). aria-hidden — decorative. -->
-    <div id="heroStars" aria-hidden="true"></div>
-    <canvas id="heroGlobe" aria-hidden="true"></canvas>
+    <!-- BACKDROP: looping muted autoplay aerial video. The single CSS color grade (#heroVideo filter + #heroGrade
+         overlay) is applied identically to every clip in the rotation so multiple files read as ONE piece of footage. -->
+    <video id="heroVideo" muted autoplay loop playsinline preload="auto" aria-hidden="true"></video>
+    <div id="heroGrade" aria-hidden="true"></div>
+    <!-- header bar: brand wordmark left + menu glyph right (existing TENANT brand string; populated by JS) -->
+    <div id="heroBrand" aria-hidden="true">
+      <span class="hb-left">
+        <span class="hb-dot"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg></span>
+        <span class="hb-name" id="heroBrandName">WeFixTrades</span>
+      </span>
+      <span class="hb-menu"><i></i><i></i><i></i></span>
+    </div>
+    <!-- pause/mute control bottom-right -->
+    <button id="heroPlayPause" type="button" aria-label="Pause background video" title="Pause background video">
+      <svg class="ic-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      <svg class="ic-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>
+    </button>
     <!-- THE CARD -->
     <div class="hero-card">
       <div class="hc-top">
-        <span class="hc-eyebrow">Instant Quote</span>
+        <span class="hc-eyebrow">Roof &amp; Solar · Instant Quote</span>
         <span class="hc-pill solar">Solar</span>
         <span class="hc-pill roof">Roofing</span>
       </div>
-      <h1 class="hc-title">Your roof &amp; solar quote — <em>in seconds</em></h1>
-      <p class="hc-body">Just enter your address. See real solar panels on your actual roof, preview a brand-new roof on your home, and get real pricing instantly — no sales calls, no waiting.</p>
+      <h1 class="hc-title">See your roof &amp; solar quote <em>in seconds</em></h1>
+      <p class="hc-body">Just enter your address — see real panels on your actual roof, preview a new roof on your home, and get real pricing instantly. No sales calls, no waiting.</p>
       <ul class="hc-feats">
         <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant pricing from your address</li>
         <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>See solar panels on your real roof</li>
         <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Preview a new roof on your home</li>
         <li class="hc-feat"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>Real sun &amp; savings data</li>
       </ul>
-      <div class="hero-bar">
-        <input id="addrHero" placeholder="Enter your home address" autocomplete="off">
-        <button id="goHero">Get my quote</button>
+      <div class="hero-field">
+        <label class="hero-flabel" for="addrHero">Your home address</label>
+        <div class="hero-bar">
+          <input id="addrHero" placeholder="Enter your home address" autocomplete="off">
+          <button id="goHero">Get my instant quote →</button>
+        </div>
       </div>
       <button id="heroSample" class="hero-sample" type="button">Or try a sample address →</button>
       <!-- white-label: populated + shown by JS only when window.__TENANT__.brand is a non-default business name -->
@@ -13219,201 +13272,84 @@ try{
   try{ const m=await import(window.RQ_BASE+"/roofgeo.mjs"); window.__buildRoofModel=m.buildRoofModel; }
   catch(e){ console.warn("roofgeo load failed",e); }
 </script>
-<!-- ===== HERO GLOBE — a slowly-spinning Earth painted on a 2D canvas. =====
-     Why this implementation: it's the LIGHTEST premium option. No WebGL context
-     (so it never competes with the main roof scene's Three.js renderer), no extra
-     dependency, no external asset (the continents are a procedural land-mask drawn
-     once to an offscreen canvas, then orthographically projected each frame). One
-     full turn ≈ 90s. It self-pauses when the hero is hidden (display:none) or the
-     tab is backgrounded, and honours prefers-reduced-motion. classic <script> so it
-     boots independently of the widget module. -->
+<!-- ===== HERO VIDEO — full-bleed looping aerial-neighborhood footage backdrop. =====
+     Replaces the old 2D globe. Self-hosted, web-compressed H.264 clips (assets/hero/hero1.mp4 …),
+     muted + autoplay + loop + playsinline. The clips CYCLE on `ended` with a short crossfade; the
+     SAME CSS colour grade (#heroVideo filter + #heroGrade overlay, defined in <style>) covers every
+     clip so the rotation reads as ONE continuous piece of footage. The pause/mute control toggles
+     playback. Self-pauses when the hero is hidden (display:none) or the tab is backgrounded, and
+     honours prefers-reduced-motion (first frame only, no loop). classic <script> so it boots
+     independently of the widget module. -->
 <script>
 (function(){
-  var cv=document.getElementById("heroGlobe"); if(!cv||!cv.getContext) return;
-  var ctx=cv.getContext("2d"); if(!ctx) return;
+  var vid=document.getElementById("heroVideo"); if(!vid) return;
   var reduce=false; try{ reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches; }catch(_){}
+  // Asset base: dev serve.mjs serves /assets/hero/*; the prod Express widget serves under window.RQ_BASE
+  // (/api/roofquote) — see server/routes/roofQuoteRoutes.ts. Resolve both so the same HTML works in either host.
+  var BASE=(window.RQ_BASE||"")+"/assets/hero/";
+  var CLIPS=[BASE+"hero1.mp4", BASE+"hero2.mp4"];   // hero1 = top-down rooftops (lead), hero2 = suburban solar
+  var idx=0, userPaused=false;
 
-  // ---- faint star field (drawn once into the #heroStars background) ----
-  try{
-    var sc=document.createElement("canvas"); sc.width=420; sc.height=420; var sx=sc.getContext("2d");
-    if(sx){ for(var i=0;i<150;i++){ var a=0.10+Math.random()*0.55, r=Math.random()<0.12?1.4:0.8;
-        sx.beginPath(); sx.arc(Math.random()*420,Math.random()*420,r,0,6.2832);
-        sx.fillStyle="rgba(255,255,255,"+a.toFixed(2)+")"; sx.fill(); }
-      var st=document.getElementById("heroStars"); if(st) st.style.backgroundImage="url("+sc.toDataURL()+")"; }
-  }catch(_){}
-
-  // ---- procedural land mask: draw blobby "continents" once into an equirectangular map (2:1) ----
-  var MW=720, MH=360;
-  var land=document.createElement("canvas"); land.width=MW; land.height=MH;
-  (function(){
-    var g=land.getContext("2d"); if(!g) return;
-    g.clearRect(0,0,MW,MH);
-    g.fillStyle="#2f9e6b";
-    // lon,lat centre (deg) + radii (deg) for each landmass lump — coarse but recognisably Earth-ish
-    var blobs=[
-      [ -100, 45, 34, 26],[ -90, 18, 16, 18],[ -60,-15, 24, 30],[ -65,-38, 9, 12],   // Americas
-      [  18, 12, 22, 26],[  24,-12, 20, 22],[  26,-32, 10, 12],                        // Africa
-      [  12, 50, 26, 16],[  60, 55, 46, 22],[  90, 28, 22, 18],[ 110, 18, 16, 14],     // Eurasia + India
-      [ 134,-26, 16, 12],[ 146,-8, 6, 6]                                               // Australia + NG
-    ];
-    function px(lon,lat){ return [ (lon+180)/360*MW, (90-lat)/180*MH ]; }
-    for(var b=0;b<blobs.length;b++){ var lon=blobs[b][0],lat=blobs[b][1],rx=blobs[b][2],ry=blobs[b][3];
-      // cluster of overlapping ellipses for an organic coastline
-      for(var k=0;k<7;k++){ var jl=lon+(Math.random()-0.5)*rx*0.9, jb=lat+(Math.random()-0.5)*ry*0.9;
-        var p=px(jl,jb); g.beginPath();
-        g.ellipse(p[0],p[1], rx*MW/360*(0.5+Math.random()*0.7), ry*MH/180*(0.5+Math.random()*0.7), Math.random()*3.14,0,6.2832);
-        g.fill();
-      }
-    }
-    // a couple of lighter inland highlights for subtle texture
-    g.globalAlpha=0.18; g.fillStyle="#7fd6a4";
-    for(var h=0;h<40;h++){ g.beginPath(); g.arc(Math.random()*MW,Math.random()*MH,2+Math.random()*7,0,6.2832); g.fill(); }
-    g.globalAlpha=1;
-  })();
-  var landData=null; try{ landData=land.getContext("2d").getImageData(0,0,MW,MH).data; }catch(_){}
-
-  // ---- render setup ----
-  // PERF: the globe is rendered once per frame into a FIXED low-resolution offscreen
-  // buffer (the heavy per-pixel-block orthographic land projection costs the same no
-  // matter how large the hero is), then blitted scaled to the display canvas. The buffer
-  // globe radius is capped (BR), so the inner loop is bounded — desktop hero up to ~1400px
-  // no longer rasterises a ~560px-radius disc every frame. Visual result is essentially
-  // identical (a slightly softer upscale, fine for a slow background). The redraw is also
-  // time-gated to ~30fps. See the perf-fix audit.
-  var DPR=Math.min(window.devicePixelRatio||1,2), R=0, cx=0, cy=0, size=0;
-  var BR=140;                 // fixed buffer globe radius (px) — independent of display size
-  var BMARG=1.14;             // margin so the atmosphere glow (R*1.12) fits in the buffer
-  var BH=Math.ceil(BR*BMARG); // buffer half-extent
-  var BSZ=BH*2;               // buffer canvas is BSZ × BSZ
-  var bcx=BH, bcy=BH;         // globe centre inside the buffer
-  var buf=document.createElement("canvas"); buf.width=BSZ; buf.height=BSZ;
-  var bctx=buf.getContext("2d");
-  function resize(){
-    var w=cv.clientWidth||cv.offsetWidth, h=cv.clientHeight||cv.offsetHeight;
-    if(!w||!h){ return; }
-    size=Math.min(w,h);
-    cv.width=Math.round(w*DPR); cv.height=Math.round(h*DPR);
-    ctx.setTransform(DPR,0,0,DPR,0,0);
-    cx=w/2; cy=h/2; R=size*0.40;
+  function load(i, autoplay){
+    idx=i%CLIPS.length;
+    vid.classList.remove("show");
+    vid.src=CLIPS[idx];
+    vid.load();
+    if(autoplay!==false) tryPlay();
   }
-  window.addEventListener("resize",resize);
+  function tryPlay(){
+    if(userPaused) return;
+    var p=vid.play();
+    if(p&&p.catch) p.catch(function(){ /* autoplay blocked → leave first frame painted; control still works */ });
+  }
+  // fade the frame in once it can render, so a black flash never shows between clips
+  vid.addEventListener("loadeddata", function(){ vid.classList.add("show"); });
+  vid.addEventListener("canplay", function(){ vid.classList.add("show"); });
+  // single-clip loop is handled by the `loop` attr; for the multi-clip ROTATION we advance on `ended`.
+  // `loop` keeps a single clip going if the next fails to load; we still rotate by listening to timeupdate
+  // near the end so the crossfade-style cut to the next clip happens even with loop set. Simpler + robust:
+  // remove `loop` and rotate purely on `ended`.
+  vid.loop=false;
+  vid.addEventListener("ended", function(){ load(idx+1, true); });
+  // if a clip errors (missing/blocked), skip to the next so the hero is never a black void
+  vid.addEventListener("error", function(){ if(CLIPS.length>1){ load(idx+1, true); } });
 
-  var rot=0;                      // current longitude rotation (radians)
-  var SPEED=reduce?0:(2*Math.PI/90); // rad/sec → one turn per 90s
-  var last=0;
-  var lastDraw=0;                  // perf time-gate
-  var FRAME_MS=1000/30;            // cap globe redraws to ~30fps
-
-  // Paint the whole globe (ocean, projected land, terminator, atmosphere, highlight) into
-  // the fixed-size offscreen buffer using buffer-space coordinates (centre bcx/bcy, radius BR).
-  function paintGlobe(){
-    var g=bctx; g.clearRect(0,0,BSZ,BSZ);
-
-    // ocean sphere with a soft 3D shade (light from upper-right)
-    var grd=g.createRadialGradient(bcx-BR*0.32,bcy-BR*0.36,BR*0.1, bcx,bcy,BR*1.06);
-    grd.addColorStop(0,"#1f4a8a"); grd.addColorStop(0.55,"#123463"); grd.addColorStop(1,"#0a1f3f");
-    g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.fillStyle=grd; g.fill();
-
-    // project the land map onto the visible hemisphere (orthographic), sampling per pixel-block
-    if(landData){
-      var step=3;                  // fixed small step on the bounded buffer disc — bounded, low fillRect count; upscale hides the coarseness
-      g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
-      for(var py=-BR; py<BR; py+=step){
-        for(var pxx=-BR; pxx<BR; pxx+=step){
-          var nx=pxx/BR, ny=py/BR; var d2=nx*nx+ny*ny; if(d2>1) continue;
-          var nz=Math.sqrt(1-d2);
-          // sphere point → lat/lon (rotate around Y by rot)
-          var lat=Math.asin(ny);
-          var lon=Math.atan2(nx,nz)+rot;
-          // wrap lon to [-PI,PI)
-          lon=((lon+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
-          var u=(lon+Math.PI)/(2*Math.PI)*MW|0;
-          var v=(Math.PI/2-lat)/Math.PI*MH|0;
-          if(u<0)u=0; if(u>=MW)u=MW-1; if(v<0)v=0; if(v>=MH)v=MH-1;
-          var idx=(v*MW+u)*4;
-          if(landData[idx+3]>40){            // land pixel
-            // simple lambert-ish shading from the upper-right light dir
-            var lightx=0.55, lighty=-0.5, lightz=0.66;
-            var shade=Math.max(0.18, nx*lightx + (-ny)*lighty + nz*lightz);
-            var rr=(landData[idx]  *shade)|0, gg=(landData[idx+1]*shade)|0, bb=(landData[idx+2]*shade)|0;
-            g.fillStyle="rgb("+rr+","+gg+","+bb+")";
-            g.fillRect(bcx+pxx,bcy+py,step+0.6,step+0.6);
-          }
-        }
-      }
-      g.restore();
-    }
-
-    // day/night terminator — a soft shadow on the lower-left limb for depth
-    var nightx=bcx+BR*0.42, nighty=bcy+BR*0.48;
-    var ng=g.createRadialGradient(nightx,nighty,BR*0.2, nightx,nighty,BR*1.5);
-    ng.addColorStop(0,"rgba(2,6,18,0.62)"); ng.addColorStop(1,"rgba(2,6,18,0)");
-    g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
-    g.fillStyle=ng; g.fillRect(0,0,BSZ,BSZ); g.restore();
-
-    // atmospheric rim glow
-    var atm=g.createRadialGradient(bcx,bcy,BR*0.92, bcx,bcy,BR*1.12);
-    atm.addColorStop(0,"rgba(90,150,255,0)"); atm.addColorStop(0.6,"rgba(90,150,255,0.28)"); atm.addColorStop(1,"rgba(90,150,255,0)");
-    g.beginPath(); g.arc(bcx,bcy,BR*1.12,0,6.2832); g.fillStyle=atm; g.fill();
-
-    // a soft specular highlight (upper-right)
-    var hl=g.createRadialGradient(bcx-BR*0.34,bcy-BR*0.38,0, bcx-BR*0.34,bcy-BR*0.38,BR*0.7);
-    hl.addColorStop(0,"rgba(255,255,255,0.10)"); hl.addColorStop(1,"rgba(255,255,255,0)");
-    g.save(); g.beginPath(); g.arc(bcx,bcy,BR,0,6.2832); g.clip();
-    g.fillStyle=hl; g.fillRect(0,0,BSZ,BSZ); g.restore();
+  // ---- pause/mute control ----
+  var btn=document.getElementById("heroPlayPause");
+  function setPaused(p){ userPaused=p; if(btn){ btn.classList.toggle("paused",p); btn.setAttribute("aria-label", p?"Play background video":"Pause background video"); btn.title=btn.getAttribute("aria-label"); } }
+  if(btn){
+    btn.addEventListener("click", function(){
+      if(vid.paused){ setPaused(false); tryPlay(); }
+      else { vid.pause(); setPaused(true); }
+    });
   }
 
-  // Blit the buffer to the display canvas, scaling BR→R so the globe lands centred at cx,cy.
-  function blit(){
-    var w=cv.clientWidth, h=cv.clientHeight;
-    ctx.clearRect(0,0,w,h);
-    var scale=R/BR;
-    if(bctx) ctx.drawImage(buf, cx-bcx*scale, cy-bcy*scale, BSZ*scale, BSZ*scale);
-  }
-
-  function draw(t){
-    if(!last) last=t; var dt=(t-last)/1000; last=t;
-    // pause cleanly when hidden (display:none on #hero) or tab backgrounded
+  // ---- pause when hero hidden / tab backgrounded; resume when shown ----
+  function syncVisibility(){
     var hero=document.getElementById("hero");
-    var visible=hero && hero.style.display!=="none" && !document.hidden && cv.clientWidth>0;
-    if(!visible){ rafId=requestAnimationFrame(draw); return; }
-    if(!R) resize();
-    // time-gate to ~30fps: only repaint+blit when enough wall-clock has passed
-    if(t-lastDraw>=FRAME_MS){
-      rot+=SPEED*(t-lastDraw)/1000; lastDraw=t;
-      paintGlobe();
-      blit();
-    }
-    rafId=requestAnimationFrame(draw);
+    var shown=hero && hero.style.display!=="none";
+    if(!shown || document.hidden){ if(!vid.paused) vid.pause(); }
+    else if(!userPaused && vid.paused){ tryPlay(); }
   }
+  document.addEventListener("visibilitychange", syncVisibility);
+  // the widget toggles #hero display via JS (leaveHero / srBack); poll lightly so we pause off-screen playback
+  setInterval(syncVisibility, 1500);
 
-  // Reduced-motion: paint a single static frame, then STOP — no rAF loop at all.
-  function drawStatic(){
-    if(!R) resize();
-    if(!R){ setTimeout(drawStatic,60); return; }   // wait for layout, then one paint
-    paintGlobe(); blit();
-  }
-
-  var rafId;
-  resize();
   if(reduce){
-    // one static frame, no continuous loop (re-paint only if the layout settles late)
-    drawStatic(); setTimeout(drawStatic,60);
-    // honour a live change of the media query (e.g. user toggles the OS setting)
-    try{
-      var mq=window.matchMedia("(prefers-reduced-motion:reduce)");
-      var onMq=function(){ if(mq.matches){ drawStatic(); } else { reduce=false; SPEED=2*Math.PI/90; last=0; lastDraw=0; rafId=requestAnimationFrame(draw); } };
-      if(mq.addEventListener) mq.addEventListener("change",onMq); else if(mq.addListener) mq.addListener(onMq);
-    }catch(_){}
+    // reduced motion: load the first clip but DON'T autoplay — show its first frame only.
+    userPaused=true; load(0, false); setPaused(true);
+    // still show the frame once it decodes
+    vid.addEventListener("loadeddata", function(){ vid.classList.add("show"); }, {once:true});
   } else {
-    // resize once more after layout settles (fonts/flex), then start the animated loop
-    setTimeout(resize,60);
-    rafId=requestAnimationFrame(draw);
+    load(0, true);
   }
 
-  // ---- white-label: surface the tenant's business name if injected (default copy otherwise) ----
+  // ---- brand wordmark + white-label: surface the tenant's business name if injected (default copy otherwise) ----
   try{
     var t=window.__TENANT__; var brand=t&&t.brand;
+    if(brand){
+      var bn=document.getElementById("heroBrandName"); if(bn) bn.textContent=String(brand);
+    }
     if(brand && brand!=="WeFixTrades"){
       var el=document.getElementById("heroPoweredBy");
       if(el){ el.innerHTML="Instant quotes by <b></b>"; el.querySelector("b").textContent=String(brand); el.style.display="block"; }

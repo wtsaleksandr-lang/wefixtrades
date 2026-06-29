@@ -17,7 +17,7 @@
  */
 
 import type { Express, Request, Response } from "express";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync, statSync, createReadStream } from "fs";
 import { createHash } from "node:crypto";
 import path from "path";
 import { createLogger } from "../lib/logger";
@@ -263,6 +263,42 @@ export function registerRoofQuoteRoutes(app: Express) {
     } catch (err) {
       log.error("rooffeatures.mjs serve failed", { err: (err as Error).message });
       return res.status(503).send("// rooffeatures.mjs not available");
+    }
+  });
+
+  /* ─── Landing-hero background video clips (self-hosted, web-compressed H.264) ───
+   * Served from server/roofQuote/assets/hero/. The widget references them at
+   * window.RQ_BASE + "/assets/hero/heroN.mp4". Streamed with HTTP Range support so
+   * the browser can buffer/seek the loop. Bare-filename only — no path traversal. */
+  app.get("/api/roofquote/assets/hero/:name", (req: Request, res: Response) => {
+    const name = path.basename(String(req.params.name || ""));
+    if (!/^[\w.-]+\.mp4$/.test(name)) {
+      return res.status(404).send("not found");
+    }
+    const fp = path.join(ASSET_DIR, "hero", name);
+    if (!existsSync(fp)) {
+      return res.status(404).send("video not found");
+    }
+    try {
+      const size = statSync(fp).size;
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Cache-Control", "public, max-age=604800");
+      const range = req.headers.range;
+      if (range) {
+        const m = /bytes=(\d+)-(\d*)/.exec(range);
+        const start = m ? parseInt(m[1], 10) : 0;
+        const end = m && m[2] ? parseInt(m[2], 10) : size - 1;
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+        res.setHeader("Content-Length", end - start + 1);
+        return createReadStream(fp, { start, end }).pipe(res);
+      }
+      res.setHeader("Content-Length", size);
+      return createReadStream(fp).pipe(res);
+    } catch (err) {
+      log.error("hero video serve failed", { err: (err as Error).message });
+      return res.status(500).send("video error");
     }
   });
 
