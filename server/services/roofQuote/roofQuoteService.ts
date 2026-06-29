@@ -1138,12 +1138,28 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
     timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null),
   ]);
   let out: BuildingsResult;
-  // Prefer OSM where it has data; otherwise fall back to MS — crucially on OSM being EMPTY (null OR []),
-  // not just on an exception, so a quiet "0 buildings" from a flaky Overpass still gets the MS layer.
-  if (Array.isArray(osm) && osm.length) {
-    out = { buildings: osm, source: "osm", attribution: "© OpenStreetMap contributors" };
-  } else if (Array.isArray(msft) && msft.length) {
-    out = { buildings: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" };
+  // UNIVERSAL COVERAGE ("not all roofs are detected, any region"): UNION OSM + Microsoft instead of OSM
+  // winner-take-all. Previously if OSM had ANY building the MS layer was ignored, so buildings OSM was MISSING
+  // (but Microsoft HAS) showed no selectable outline. Now OSM wins a duplicate (cleaner rings) and Microsoft
+  // ADDS every building OSM lacks; dedup by point-in-polygon (an MS centroid inside an OSM ring = same
+  // building) so adjacent/row houses are never wrongly merged.
+  const haveO = Array.isArray(osm) && osm.length > 0;
+  const haveM = Array.isArray(msft) && msft.length > 0;
+  if (haveO || haveM) {
+    const inRing = (pt: LngLat, ring: LngLat[]): boolean => {
+      let inside = false; const x = pt[0], y = pt[1];
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    };
+    const merged: BboxBuilding[] = haveO ? (osm as BboxBuilding[]).slice() : [];
+    if (haveM) {
+      const osmRings = haveO ? (osm as BboxBuilding[]).map((o) => o.ring) : [];
+      for (const mb of msft as BboxBuilding[]) { if (osmRings.some((r) => inRing(mb.centroid, r))) continue; merged.push(mb); }
+    }
+    out = { buildings: merged, source: haveO ? "osm" : "msft", attribution: "© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)" };
   } else {
     // `_incomplete` = MS was still downloading its cold tile (msft===null) when the budget expired → this
     // empty answer is TRANSIENT (tile warms in bg, next load has it). Don't cache it so the retry self-heals.
