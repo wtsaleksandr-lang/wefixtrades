@@ -11283,14 +11283,18 @@ function _ringSelfIntersects(ring){
 // NEVER-WORSE gate for the traced roofline vs the coarse footprint it would replace. Only swap when the
 // trace is a SANE, plausibly-better variant: enough vertices, area in a sensible band AND within ~0.5–2× of
 // the coarse area, centroid near the marker, and not self-intersecting. ANY failure → keep the coarse outline.
-function _maskRingPassesGate(traced, coarseRing, lat0, markerLngLat){
+function _maskRingPassesGate(traced, coarseRing, lat0, markerLngLat, coarseIsPlaceholder){
   try{
     if(!Array.isArray(traced)||traced.length<4) return false;
     if(_ringSelfIntersects(traced)) return false;
     const aT=_ringAreaM2(traced,lat0); if(!(aT>0)) return false;
     if(aT<15 || aT>4000) return false;                         // implausibly tiny / huge for a single home roof
     const aC=_ringAreaM2(coarseRing,lat0);
-    if(aC>0 && (aT < aC*0.5 || aT > aC*2.0)) return false;     // within ~0.5–2× of the coarse footprint
+    // The 0.5–2× ratio keeps a real OSM/MS footprint from being replaced by a wildly-different trace. But when
+    // the "coarse" ring is the GENERIC approx PLACEHOLDER (no real footprint data — a guessed default rectangle),
+    // there's nothing real to stay close to, so a successfully-traced roof of ANY plausible size is strictly
+    // better than the guessed box → skip the ratio test (the absolute 15–4000 m² bound + drift still protect).
+    if(!coarseIsPlaceholder && aC>0 && (aT < aC*0.5 || aT > aC*2.0)) return false;     // within ~0.5–2× of the coarse footprint
     const cT=_ringCentroid(traced);
     const mLng=111320*Math.cos((lat0||43)*Math.PI/180);
     const drift=Math.hypot((cT[0]-markerLngLat[0])*mLng,(cT[1]-markerLngLat[1])*111320);
@@ -11327,7 +11331,7 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     const det=(__srBuildings||[]).find(b=>b&&b.detected);
     if(!det || !_srOutlineNeedsTrace(det)) { window.__srUpgrade.applied=false; window.__srUpgrade.reason="not-eligible-detected"; return; }
     if(!traced){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="trace-degenerate"; return; }
-    if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat])){
+    if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat], det.source==="approx")){
       // diagnostic: record the sub-metrics so audits can tell a too-strict gate from a genuinely-bad trace
       try{ const aT=_ringAreaM2(traced,g.lat), aC=_ringAreaM2(det.ring,g.lat), cT=_ringCentroid(traced),
         mLng=111320*Math.cos((g.lat||43)*Math.PI/180), drift=Math.hypot((cT[0]-g.lng)*mLng,(cT[1]-g.lat)*111320);
@@ -11368,7 +11372,11 @@ async function renderSelectRoofMap(g, fp, neighbours){
     __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); if(b.check) b.check.setMap(null); if(b.stripe) b.stripe.setMap(null); }catch(_){} });
     __srBuildings=[];
     // Build the candidate list: the DETECTED home (fp) + all NEIGHBOUR rings, de-duped by overlap.
-    const detectedRing=fp && Array.isArray(fp.ring) && fp.ring.length>=3 ? fp.ring : null;
+    // DEBUG (verification only): ?forceApprox=1 simulates an address whose footprint resolver MISSED
+    // (no OSM/MS/cache) → forces the approx-placeholder path so the no-real-footprint mask-trace upgrade +
+    // relaxed gate can be exercised deterministically. No effect without the flag.
+    let _forceApprox=false; try{ _forceApprox=new URLSearchParams(location.search).get("forceApprox")==="1"; }catch(_){}
+    const detectedRing=(!_forceApprox && fp && Array.isArray(fp.ring) && fp.ring.length>=3) ? fp.ring : null;
     const detectedC = detectedRing ? _ringCentroid(detectedRing) : [g.lng,g.lat];
     const list=[];
     // CANOPY FALLBACK (Problem A): no detected footprint but we DID geocode a home → auto-select an
