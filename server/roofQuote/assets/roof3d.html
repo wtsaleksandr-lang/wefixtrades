@@ -8294,7 +8294,11 @@ function showMeasDiagram(on){
               try{ const ga=(typeof photoGroundAlt==="function")?photoGroundAlt():null; if(ga!=null) ctr.altitude=ga; }catch(_){}
               gmap.flyCameraTo({ endCamera:{ center:ctr, range:rng, tilt:52, heading:15 }, durationMillis:650 });
             } }catch(_){}
-            try{ if(typeof buildPhotoLabels==="function") await buildPhotoLabels(); }catch(_){}   // draw the roofline (facet outlines + edge/area labels) ON the real house
+            // NOTE: do NOT overlay the facet-outline/measurement graphic here. The Solar-DSM facet geometry
+            // does NOT register to Google's photoreal mesh (different datum), so those cyan lines float and cut
+            // THROUGH the house — the exact failure the original devs documented. Step-3 3D shows the buyer's
+            // CLEAN real house; precise roofline/corner editing happens in the Top-down view where it's accurate.
+            try{ for(const l of (photoLabels||[])){ l.remove&&l.remove(); } photoLabels=[]; window.__photoLabels=0; }catch(_){}
             return;
           }
         }
