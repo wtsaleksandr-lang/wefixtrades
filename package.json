@@ -168,6 +168,7 @@
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.7.0",
+    "duckdb": "^1.4.4",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.0.1",
     "express-session": "^1.18.1",
