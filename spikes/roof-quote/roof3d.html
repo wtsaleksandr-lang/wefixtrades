@@ -1356,6 +1356,11 @@ async function decodeTiff(url){
   const bbox=img.getBoundingBox();           // [minX,minY,maxX,maxY] in CRS units (UTM metres)
   let zone=17, north=true;
   try{ const gk=img.getGeoKeys(); const p=gk.ProjectedCSTypeGeoKey; if(p){ north=p<32700; zone=p-(north?32600:32700);} }catch(_){}
+  // SOUTHERN-HEMISPHERE FIX: UTM south uses a 10,000,000 m false northing (wgs84ToUTM adds it for lat<0).
+  // The inverse utmToLL reads this flag to subtract it back, so traced rooflines in the S hemisphere land on
+  // the real roof instead of ~10,000 km off (which the never-worse gate then rejected → a generic square).
+  // All rasters for one address share a hemisphere; US/north sets this false → utmToLL is unchanged there.
+  try{ window.__hemiSouth = (north===false); }catch(_){}
   return { rasters, width:img.getWidth(), height:img.getHeight(), bbox, zone, north, spd:rasters.length };
 }
 
@@ -6443,11 +6448,13 @@ function pointInPoly2(pt,ring){ let inside=false; const x=pt[0],y=pt[1];
     if(((yi>y)!==(yj>y)) && x < (xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) inside=!inside; }
   return inside; }
 
-/* inverse UTM → WGS84 (Karney/Snyder series), zone N hemisphere. Mirrors wgs84ToUTM. */
+/* inverse UTM → WGS84 (Karney/Snyder series). Mirrors wgs84ToUTM, BOTH hemispheres: when the working frame
+   is southern (window.__hemiSouth, set by decodeTiff from the GeoTIFF EPSG), subtract the 10,000,000 m false
+   northing so southern latitudes come out negative + on the real roof. North is unchanged (y=N). */
 function utmToLL(E,N,zone){
   const a=6378137, f=1/298.257223563, k0=0.9996, e2=f*(2-f), ep2=e2/(1-e2);
   const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-  const x=E-500000, y=N;
+  const x=E-500000, y=(window.__hemiSouth ? N-10000000 : N);
   const M=y/k0;
   const mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2**3/256));
   const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)
