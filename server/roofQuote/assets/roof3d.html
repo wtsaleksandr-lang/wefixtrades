@@ -1936,9 +1936,10 @@ function solarTiersFromEngineered(){
   // opened modal settles on, so the headline === modal regardless of when the ladder is (re)built.
   const good=cand.panels.filter(c=>!c.lowSun);
   const bestSubset=(good.length>=4) ? good : cand.panels.slice();   // mirror gridDefaultSelection's good-pool fallback (need ≥4 to lead with non-shaded squares)
-  // rank the BEST subset by per-panel kWh (best ROI first) — identical ordering to gridDefaultSelection,
-  // so the Good/Better sub-counts mirror what the modal would auto-select when sized down.
-  const ranked=bestSubset.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0));
+  // rank the BEST subset by the UNIFIED SUN metric (best-sun first) — identical ordering to
+  // gridDefaultSelection (which now also ranks by c.sun), so the Good/Better sub-counts mirror exactly
+  // which panels the modal auto-selects when sized down (brightest-sun squares first).
+  const ranked=bestSubset.slice().sort((a,b)=>(b.sun||0)-(a.sun||0));
   if(!ranked.length) return [];
   // bug #2: cap "Best" to a realistic usable fraction of the setback-clipped pool so it isn't a
   // 100%-packed 99-panel array on a single home. Keep the top (best-ROI) panels. The modal mirrors
@@ -8736,7 +8737,16 @@ function buildGridCandidates(){
     const corners=panelCornersLL(pn,seg,zone,pw,ph);                       // lat/lng quad (same as the rendered panel)
     const cu=corners.map(c=>{ const [E,N]=wgs84ToUTM(c.lat,c.lng,zone); if(E<minE)minE=E; if(E>maxE)maxE=E; if(N<minN)minN=N; if(N>maxN)maxN=N; return [E,N]; });
     const [cE,cN]=wgs84ToUTM(pn.center.latitude,pn.center.longitude,zone);
-    let flux=null; if(fg){ const v=sampleGrid(fg,cE,cN); if(v!=null&&isFinite(v)&&v>0){ flux=v; fluxVals.push(v); } }
+    // AREA-AVERAGE the flux under the WHOLE panel quad (5 taps: 4 corners + centre), not a single
+    // centre pixel. The orange/amber low-sun tint reads the heatmap under the entire quad the user sees,
+    // so the sun number that drives rank+tint must be the area mean — a single centre pixel can land on a
+    // bright sliver of an otherwise-shaded square (or vice-versa) and disagree with what's painted.
+    let flux=null;
+    if(fg){
+      const taps=[[cE,cN]]; for(const [E,N] of cu) taps.push([E,N]);
+      let s=0,k=0; for(const [E,N] of taps){ const v=sampleGrid(fg,E,N); if(v!=null&&isFinite(v)&&v>0){ s+=v; k++; } }
+      if(k>0){ flux=s/k; fluxVals.push(flux); }
+    }
     if(pn.segmentIndex!=null) usedSeg.add(pn.segmentIndex);
     cand.push({ id:i, pn, seg, corners, cu, flux, baseKwh:(pn.yearlyEnergyDcKwh||0) });
   }
@@ -8801,7 +8811,14 @@ function buildGridCandidates(){
     c.fluxT = (c.flux!=null) ? Math.max(0,Math.min(1,(c.flux-fmin)/(fmax-fmin))) : null;
     let kwh=c.baseKwh||meanBase;
     if(eng && c.flux!=null && fluxBest>0){ const fScale=Math.max(0.25,Math.min(1.05,c.flux/fluxBest)); kwh=(c.baseKwh||meanBase)*fScale; }
-    c.kwh=kwh;
+    c.kwh=kwh;   // per-panel ENERGY (kWh) — cost/metric math only (gridSelectionMetrics, headline tiers). Keep as-is.
+    // UNIFIED SUN METRIC (fix D). ONE per-panel sun number that drives BOTH the selection rank AND the
+    // low-sun tint, so "best-sun first" and the orange flag can never disagree. Built off the SAME
+    // area-averaged flux the heatmap shows under the quad:
+    //   • have a flux reading → rank on the area-mean flux directly (matches the painted heatmap pixel-for-pixel).
+    //   • no flux raster at all (fg absent) → fall back to Google's per-panel yearlyEnergyDcKwh (flux-aware
+    //     energy is the only sun signal we have), else the mean. Either way rank and tint share one source.
+    c.sun = (c.flux!=null) ? c.flux : (c.baseKwh||meanBase);
     // Low-sun / poor-ROI flag. A square is "low sun" if ANY of:
     //   • its normalized flux is in the bottom band of the roof's 5–95 ramp (the original test), OR
     //   • its RAW flux is below the absolute deep-shade floor (catches mid-shade that the percentile ramp
@@ -8821,9 +8838,11 @@ function buildGridCandidates(){
 // sensible system and tweaks from there. Falls back to all non-shaded squares, then all squares.
 function gridDefaultSelection(cand){
   const sp=LASTB.solarPotential;
-  // rank by kWh (best ROI first); never auto-select a clearly low-sun square unless we'd have nothing.
-  const ranked=cand.slice().sort((a,b)=>(b.kwh||0)-(a.kwh||0));
-  const good=ranked.filter(c=>!c.lowSun);
+  // rank by the UNIFIED SUN metric (best-sun first) — the SAME number that drives the orange low-sun tint,
+  // so the selection order tracks the displayed heatmap. (Was c.kwh, which decoupled from the painted sun on
+  // Google's raw path → blue panels landed on orange roof while brighter slots stayed empty.)
+  const ranked=cand.slice().sort((a,b)=>(b.sun||0)-(a.sun||0));
+  const good=ranked.filter(c=>!c.lowSun);                 // non-low-sun pool, already sun-descending
   // bug #2: the modal's DEFAULT array must be RIGHT-SIZED — same target the headline tier uses — so the
   // headline "Recommended" === the modal's opening selection (no headline-vs-modal mismatch), and so a
   // single home no longer opens the grid pre-filled with ~99 panels. Target the residential default
@@ -8839,9 +8858,15 @@ function gridDefaultSelection(cand){
     } else { recN=defaultPanelTarget().panels; }
   }catch(_){ try{ recN=defaultPanelTarget().panels; }catch(__){ recN=window.__renderedPanels||poolMax; } }
   recN=Math.max(1,Math.min(poolMax||cand.length,recN));
-  const pool=(good.length>=Math.min(recN,4))?good:ranked;
-  const sel=new Set(); for(const c of pool){ if(sel.size>=recN) break; sel.add(c.id); }
-  if(!sel.size){ for(const c of ranked){ sel.add(c.id); if(sel.size>=recN) break; } }
+  // HARD RULE (fix E): NEVER pre-select a low-sun panel while a brighter non-low-sun slot is still empty.
+  // Fill ENTIRELY from the non-low-sun pool (`good`, already sun-descending) first; only if it's exhausted
+  // before we hit recN do we top up from the remaining low-sun candidates (also sun-descending). This
+  // removes the old `pool=(good>=…)?good:ranked` fallback that let a low-sun square get picked over a
+  // brighter empty one.
+  const sel=new Set();
+  for(const c of good){ if(sel.size>=recN) break; sel.add(c.id); }
+  if(sel.size<recN){ for(const c of ranked){ if(sel.size>=recN) break; if(!sel.has(c.id)) sel.add(c.id); } }   // top-up: brightest low-sun next
+  if(!sel.size){ for(const c of ranked){ sel.add(c.id); if(sel.size>=recN) break; } }   // ultimate safety (all flux null)
   return sel;
 }
 // ── Project the grid's UTM bbox onto the canvas (contain-fit, north-up) and cache px corners.
@@ -9357,6 +9382,16 @@ window.__enterSolar3D=enterSolar3D;
 window.__exitSolar3D=exitSolar3D;
 window.__openSolarGrid=openSolarGrid;
 window.__gridSelectionMetrics=gridSelectionMetrics;
+// headless-verify: read-only snapshot of the panel SELECTION-vs-SUN state, to prove the stage-2 fix —
+// every selected (blue) panel must be on good sun, and no low-sun panel may be selected while a brighter
+// non-low-sun slot is left empty. Returns per-panel {on,low,sun,flux,fluxT,kwh} plus the violation count.
+window.__sgAudit=()=>{ if(!SG_STATE) return {err:"no SG_STATE"}; const sel=SG_STATE.sel, P=SG_STATE.panels;
+  const rows=P.map(c=>({ id:c.id, on:sel.has(c.id), low:!!c.lowSun, sun:(c.sun!=null?+c.sun.toFixed(0):null), flux:(c.flux!=null?+c.flux.toFixed(0):null), fluxT:(c.fluxT!=null?+c.fluxT.toFixed(2):null), kwh:(c.kwh!=null?+c.kwh.toFixed(0):null) }));
+  let selected=0, selLow=0, emptyGood=0, maxEmptyGoodSun=-Infinity;
+  for(const r of rows){ if(r.on){ selected++; if(r.low) selLow++; } else { if(!r.low) emptyGood++; if(!r.low && r.sun!=null && r.sun>maxEmptyGoodSun) maxEmptyGoodSun=r.sun; } }
+  const vrows=[]; for(const r of rows){ if(r.on && r.low && r.sun!=null && isFinite(maxEmptyGoodSun) && r.sun<maxEmptyGoodSun) vrows.push(r); }
+  return { total:rows.length, selected, selLow, emptyGood, haveFlux:!!SG_STATE.haveFlux,
+           maxEmptyGoodSun:(isFinite(maxEmptyGoodSun)?maxEmptyGoodSun:null), violations:vrows.length, vrows:vrows.slice(0,8) }; };
 // headless-verify + debug: read the live solar tier ladder, the default tier index, and the roofing-squares
 // reconciliation so QA can confirm headline==modal and desktop==mobile numbers without DOM scraping.
 window.__solarDebug=()=>{ try{ return {
