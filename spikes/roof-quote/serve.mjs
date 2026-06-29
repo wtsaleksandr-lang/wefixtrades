@@ -486,7 +486,7 @@ async function msftBuildingsBbox(bs,bw,bn,be){
 // FREE public anonymous S3 GeoParquet partitioned by ISO3 country, queried at request-time with DuckDB
 // (no download — bbox row-group pruning). Fills coverage gaps (ZA/AU) where OSM + MS are empty. NEVER
 // throws into the request path — any failure logs + returns []. ISO3 derived from the bbox centroid.
-const VIDA_FOOTPRINT_BUDGET_MS=7000;
+const VIDA_FOOTPRINT_BUDGET_MS=10000;   // duckdb S3 parquet read is ~9s COLD; 7s cut off genuine cold first requests
 const VIDA_S3="s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
 const COUNTRY_BOXES=[
   { iso3:"ZAF", w:16.0, s:-35.0, e:33.0, n:-22.0 },
@@ -1343,4 +1343,15 @@ http.createServer(async (req,res)=>{
   if(process.env.RQ_FORCE_NO_CHROMIUM!=="1"){
     getBrowser().then(()=>console.log("[capture] browser pre-warmed")).catch(e=>console.warn("[capture] browser pre-warm skipped:",e&&e.message||e));
   }
+  // Pre-warm VIDA off the critical path: the duckdb httpfs range-cache + spatial/httpfs extensions are
+  // ~9s cold, so the FIRST real ZA/AU request would otherwise blow the budget and return 0 neighbours.
+  // Fire-and-forget a tiny-bbox query per common gap country to warm the connection + range cache.
+  (async()=>{
+    try{
+      const warm=[ {iso3:"ZAF", s:-26.1700, w:28.1300, n:-26.1690, e:28.1310},   // Bedfordview, JHB
+                   {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100} ]; // Sydney
+      for(const b of warm){ await vidaBuildingsBbox(b.s,b.w,b.n,b.e,b.iso3).catch(()=>{}); }
+      console.log("[vida] prewarm done");
+    }catch(e){ console.warn("[vida] prewarm failed:",e&&e.message||e); }
+  })();
 });

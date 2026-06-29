@@ -1065,6 +1065,11 @@ app.use((req, res, next) => {
     () => {
       log(`serving on port ${port}`);
       initScheduler();
+      // Fire-and-forget VIDA pre-warm: the duckdb httpfs range-cache + extensions are ~9s cold, so the
+      // first real ZA/AU roof request would otherwise blow the per-request budget and return 0 neighbours.
+      import("./services/roofQuote/roofQuoteService")
+        .then((m) => m.prewarmVida())
+        .catch((e) => console.warn("[vida] prewarm import failed:", (e as Error)?.message || e));
     },
   );
 
