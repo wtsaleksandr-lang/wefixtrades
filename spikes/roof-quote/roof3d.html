@@ -9897,6 +9897,28 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
   for(const pn of (seedPanels||[])){ if(!pn.center) continue; const k=pn.segmentIndex; if(!seedBySeg.has(k)) seedBySeg.set(k,[]); seedBySeg.get(k).push(pn); }
   const occlCtx=buildOcclCtx(seedPanels&&seedPanels.length?seedPanels:(sp.solarPanels||[]),segs,zone);
   const out=[];   // PURELY engineered panels — every one is grid-aligned + setback-clipped to its facet polygon
+  // ── SHARED GLOBAL LATTICE (defect: flat-roof scattered/staggered columns) ───────────────────────
+  // In bbox-fallback mode the roof is a set of CO-PLANAR segment rectangles. Giving each its OWN axis +
+  // origin + midline-centred phase made sibling grids stagger — columns didn't line up across facet
+  // boundaries and the array read as scattered clusters with gaps. For these co-planar facets we lay ONE
+  // global lattice: a single axis (longest edge across ALL hulls), a single origin (mean facet centroid),
+  // one shared orientation, and a global column/row phase anchored at that origin. Every facet then drops
+  // its panels onto the SAME lattice → the whole array reads as one clean, aligned grid. Analytic (pitched)
+  // roofs never set _bboxMode, so their genuinely-independent planes keep per-facet grids untouched.
+  // Co-planar when bbox-fallback OR the whole roof is near-flat (all facet planes ~horizontal ⇒ effectively
+  // ONE plane, even though analytic extraction split it into 2-3 facets — MV-style flat building). A genuinely
+  // pitched roof (gable/hip, pitch ≥ 12°) keeps per-facet grids because those planes really are independent.
+  let _coplanar=_bboxMode;
+  if(!_coplanar && facets.length>1){ let mx=0; for(const f of facets){ const pd=Math.abs((f.seg&&f.seg.pitchDegrees)||0); if(pd>mx) mx=pd; } _coplanar=(mx<12); }
+  let _gShared=null;
+  if(_coplanar){
+    let bL=-1,gax=1,gan=0, sE=0,sN=0,nC=0;
+    for(const f of facets){ const rEN=(f.hull||[]).map(([lng,lat])=>wgs84ToUTM(lat,lng,zone)); if(rEN.length<3) continue;
+      let fcE=0,fcN=0; for(const[E,N]of rEN){ fcE+=E; fcN+=N; } fcE/=rEN.length; fcN/=rEN.length; sE+=fcE; sN+=fcN; nC++;
+      for(let i=0;i<rEN.length;i++){ const A=rEN[i],B=rEN[(i+1)%rEN.length]; const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bL){ bL=L; const n=Math.sqrt(L)||1; gax=dx/n; gan=dy/n; } } }
+    let l=0,tot=0; for(const pn of (seedPanels||[])){ if(!pn.orientation) continue; tot++; if(pn.orientation==="LANDSCAPE") l++; }
+    if(nC) _gShared={ ax:gax, an:gan, E:sE/nC, N:sN/nC, land:(tot>0 && l*2>=tot) };
+  }
   for(const f of facets){
     const seg=f.seg; const si=segIndexOf(seg); if(si<0) continue;
     let _kept=0, _tried=0, _occl=0, _setb=0; const _occlBy={};
@@ -9913,9 +9935,10 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     { let bestL=-1; for(let i=0;i<ringEN.length;i++){ const A=ringEN[i],B=ringEN[(i+1)%ringEN.length];
         const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bestL){ bestL=L; const n=Math.sqrt(L)||1; _gax=dx/n; _gan=dy/n; } } }
     if(_gax==null){ const Az=(seg.azimuthDegrees||0)*Math.PI/180; _gax=Math.cos(Az); _gan=-Math.sin(Az); }
-    const ax=_gax, an=_gan, fx=-_gan, fn=_gax;   // across (u, along eave) / perpendicular (v) axes in (E,N)
+    const ax=_gShared?_gShared.ax:_gax, an=_gShared?_gShared.an:_gan, fx=-(_gShared?_gShared.an:_gan), fn=(_gShared?_gShared.ax:_gax);   // across (u, along eave) / perpendicular (v) axes in (E,N)
     // centroid + project ring to facet frame (u=across/eave-parallel, v=perpendicular)
     let cE=0,cN=0; for(const [E,N] of ringEN){ cE+=E; cN+=N; } cE/=ringEN.length; cN/=ringEN.length;
+    if(_gShared){ cE=_gShared.E; cN=_gShared.N; }   // shared origin so (u,v) is comparable across all co-planar facets
     const toUV=([E,N])=>[ (E-cE)*ax+(N-cN)*an, (E-cE)*fx+(N-cN)*fn ];
     const fromUV=(u,v)=>[ cE+u*ax+v*fx, cN+u*an+v*fn ];
     const ringUV=ringEN.map(toUV);
@@ -9955,6 +9978,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     // Flip to the orientation that fits MORE rows in this facet's depth (ties keep the seed orientation), so a
     // shallow strip packs landscape rows instead of losing them to a too-tall portrait panel.
     if(rowsFor(altDown)>rowsFor(seedDown)) land=!land;
+    if(_gShared) land=_gShared.land;   // one shared orientation so every co-planar facet uses the SAME cell pitch → lattice lines up
     const aw=(land?ph:pw), ah=(land?pw:ph);      // across-width, down-slope-height of one panel (slope metres)
     const ahP=ah*cosP;                            // down-slope panel length projected into the plan frame
     const cw=aw+PANEL_GAP_M, ch=ahP+PANEL_GAP_M;  // cell pitch (across, plan-down-slope)
@@ -9967,10 +9991,12 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     const uUse=Math.max(0,(uMax-uMin)-2*(hw+sb));
     const cols=Math.max(1,Math.floor(uUse/cw)+1);
     let u0=(uMin+uMax)/2 - ((cols-1)/2)*cw;        // centre `cols` columns about the facet's u-midline (eave-parallel)
+    if(_gShared) u0=0;   // global column phase: lattice {k·cw} anchored at the shared origin → all facets' columns align
     // v-band usable after the per-corner setback (panel half-height hh + setback off each edge)
     const vUse=Math.max(0,(vMax-vMin)-2*(hh+sb));
     const rows=Math.max(1,Math.floor(vUse/ch)+1);
     let v0=(vMin+vMax)/2 - ((rows-1)/2)*ch;   // centre `rows` rows about the facet's v-midline
+    if(_gShared) v0=0;   // global row phase: lattice {k·ch} anchored at the shared origin → all facets' rows align
     const nU=Math.ceil((uMax-uMin)/cw)+2, nV=Math.ceil((vMax-vMin)/ch)+2;
     if(nU*nV>1500) continue;   // pathological huge facet → skip (commercial; quote handles it)
     const kStartU=Math.round((uMin-u0)/cw)-1, kEndU=Math.round((uMax-u0)/cw)+1;
@@ -11226,12 +11252,12 @@ function _traceMaskRing(mask, lat, lng){
         let xy=R.map(([E,N])=>[E-oE,N-oN]);
         const aBefore=polyArea2(xy);
         const axis=polyOrientation(xy,2.0);                    // dominant axis from edges ≥2 m
-        let snapped=regularizePoly(xy,axis,0.6,/*allow45=*/true);
+        let snapped=regularizePoly(xy,axis,0.75,/*allow45=*/true);   // (edge-crisp) firmer axis-snap so eave/rake edges go truly straight, not stair-stepped
         if(!Array.isArray(snapped)||snapped.length<4) return ren;
-        snapped=cleanFootprintRing(snapped,axis,{ minLen:0.8, mergeDeg:7, rectTol:0.05, maxVerts:12 });
+        snapped=cleanFootprintRing(snapped,axis,{ minLen:1.0, mergeDeg:8, rectTol:0.06, maxVerts:12 });   // (edge-crisp) merge sub-1 m notches + near-collinear jogs the Moore staircase leaves behind
         if(!Array.isArray(snapped)||snapped.length<4) return ren;
         const aAfter=polyArea2(snapped);
-        if(!(aAfter>0)||Math.abs(aAfter-aBefore)/Math.max(1,aBefore)>0.12) return ren;   // shape distorted → keep raw trace
+        if(!(aAfter>0)||Math.abs(aAfter-aBefore)/Math.max(1,aBefore)>0.15) return ren;   // shape distorted → keep raw trace (relaxed 0.12→0.15 so the crisper outline is kept, not reverted to the jagged trace)
         return snapped.map(([x,y])=>[x+oE,y+oN]);
       }catch(_){ return ren; }
     }
@@ -11301,7 +11327,13 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     const det=(__srBuildings||[]).find(b=>b&&b.detected);
     if(!det || !_srOutlineNeedsTrace(det)) { window.__srUpgrade.applied=false; window.__srUpgrade.reason="not-eligible-detected"; return; }
     if(!traced){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="trace-degenerate"; return; }
-    if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat])){ window.__srUpgrade.applied=false; window.__srUpgrade.reason="never-worse-gate"; return; }
+    if(!_maskRingPassesGate(traced, det.ring, g.lat, [g.lng,g.lat])){
+      // diagnostic: record the sub-metrics so audits can tell a too-strict gate from a genuinely-bad trace
+      try{ const aT=_ringAreaM2(traced,g.lat), aC=_ringAreaM2(det.ring,g.lat), cT=_ringCentroid(traced),
+        mLng=111320*Math.cos((g.lat||43)*Math.PI/180), drift=Math.hypot((cT[0]-g.lng)*mLng,(cT[1]-g.lat)*111320);
+        window.__srUpgrade.gate={ aT:Math.round(aT), aC:Math.round(aC), ratio:+(aT/Math.max(1,aC)).toFixed(2),
+          drift:+drift.toFixed(1), selfX:_ringSelfIntersects(traced) }; }catch(_){}
+      window.__srUpgrade.applied=false; window.__srUpgrade.reason="never-worse-gate"; return; }
     // ── SWAP: redraw the detected building's polygon + stripe with the traced roofline ──
     const path=traced.map(([lng,lat])=>({lat,lng}));
     try{ if(det.poly) det.poly.setPaths(path); }catch(_){}
