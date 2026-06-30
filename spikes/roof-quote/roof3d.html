@@ -8183,7 +8183,7 @@ const RoofDots=(function(){
         '<div class="dh-stats">'+
           '<div class="dh-stat"><div class="dh-v" id="dotSq">0</div><div class="dh-l">squares</div></div>'+
           '<div class="dh-stat"><div class="dh-v" id="dotPerim">0</div><div class="dh-l">perimeter ft</div></div>'+
-          '<div class="dh-stat dh-price"><div class="dh-v" id="dotPrice">—</div><div class="dh-l">est. roof</div></div>'+
+          /* (Alex) est-roof PRICE removed from step 3 — a rate here is premature (before the trade choice + Estimate step); the live measurements stay, the $ shows at Estimate. */
         '</div>'+
         // pitch-class selector — Flat / Sloped / Steep / Very-steep. Defaults to the auto-detected pitch;
         // picking a class overrides the per-facet mix for the simple-tier estimate (area + price update live).
@@ -8213,6 +8213,8 @@ const RoofDots=(function(){
     // (#4) "Details" toggle — expands the slim bar to show squares/perimeter/price + pitch + per-facet chips.
     $("dotMore").onclick=()=>{ const open=hud.classList.toggle("dh-open"); const b=$("dotMore");
       if(b){ b.classList.toggle("on",open); b.setAttribute("aria-expanded",open?"true":"false"); } };
+    // (Alex) Card UNFOLDED by default — roof details (squares / perimeter / pitch / per-section ft²) show live as the dots move.
+    hud.classList.add("dh-open"); { const _dm=$("dotMore"); if(_dm){ _dm.classList.add("on"); _dm.setAttribute("aria-expanded","true"); } }
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
       const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
