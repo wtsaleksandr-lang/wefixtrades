@@ -498,10 +498,7 @@ const COUNTRY_BOXES=[
   { iso3:"ZAF", w:16.0, s:-35.0, e:33.0, n:-22.0 },
   { iso3:"AUS", w:112.0, s:-44.0, e:154.0, n:-10.0 },
   { iso3:"NZL", w:166.0, s:-47.5, e:179.0, n:-34.0 },
-  { iso3:"CAN", w:-141.0, s:41.0, e:-52.0, n:84.0 },   // Canada (overlaps USA across the border band)
-  { iso3:"USA", w:-125.0, s:24.0, e:-66.0, n:50.0 },   // USA contiguous (overlaps CAN across the border band)
-  { iso3:"USA", w:-170.0, s:51.0, e:-129.0, n:72.0 },  // USA Alaska
-  { iso3:"USA", w:-161.0, s:18.0, e:-154.0, n:23.0 },  // USA Hawaii
+  { iso3:"CAN", w:-141.0, s:41.0, e:-52.0, n:84.0 },   // Canada (USA box DROPPED — USA.parquet too large, ~121s cold read timed out & poisoned border/US VIDA queries; US relies on OSM/MS)
   { iso3:"IRL", w:-10.6, s:51.3, e:-5.9, n:55.5 },     // Ireland (overlaps GBR — both queried in the band)
   { iso3:"GBR", w:-8.7, s:49.8, e:1.9, n:60.9 },       // United Kingdom
 ];
@@ -1378,8 +1375,7 @@ http.createServer(async (req,res)=>{
     try{
       const warm=[ {iso3:"ZAF", s:-26.1700, w:28.1300, n:-26.1690, e:28.1310},   // Bedfordview, JHB
                    {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100},  // Sydney
-                   {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710},    // Hamilton, ON (primary CA market)
-                   {iso3:"USA", s:38.5810, w:-121.4940, n:38.5820, e:-121.4930} ]; // Sacramento, CA
+                   {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710} ];   // Hamilton, ON (primary CA market)
       for(const b of warm){ await vidaBuildingsBbox(b.s,b.w,b.n,b.e,[b.iso3]).catch(()=>{}); }
       console.log("[vida] prewarm done");
     }catch(e){ console.warn("[vida] prewarm failed:",e&&e.message||e); }
