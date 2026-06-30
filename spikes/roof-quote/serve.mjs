@@ -486,17 +486,30 @@ async function msftBuildingsBbox(bs,bw,bn,be){
 // FREE public anonymous S3 GeoParquet partitioned by ISO3 country, queried at request-time with DuckDB
 // (no download — bbox row-group pruning). Fills coverage gaps (ZA/AU) where OSM + MS are empty. NEVER
 // throws into the request path — any failure logs + returns []. ISO3 derived from the bbox centroid.
-const VIDA_FOOTPRINT_BUDGET_MS=10000;   // duckdb S3 parquet read is ~9s COLD; 7s cut off genuine cold first requests
+const VIDA_FOOTPRINT_BUDGET_MS=14000;   // duckdb S3 parquet read is ~9s COLD; border-band points query TWO country parquets (CAN+USA), so allow for two cold reads. Prewarm keeps the warm path <1s.
 const VIDA_S3="s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
+// Approximate country bounding rectangles → which VIDA country parquet(s) to query. The boxes only SELECT
+// candidates; a wrong guess just yields no rows and falls back gracefully. The US/Canada Great-Lakes border
+// is genuinely unsplittable by rectangle (e.g. Windsor ON and Detroit MI sit at the same lng, <0.02° apart in
+// lat), so the USA and CAN boxes deliberately OVERLAP across the border band and iso3CandidatesFromBbox
+// returns BOTH for a point inside both — vidaBuildingsBbox queries each parquet and unions, so the right
+// country's buildings always come back regardless of which side of the line the point is on.
 const COUNTRY_BOXES=[
   { iso3:"ZAF", w:16.0, s:-35.0, e:33.0, n:-22.0 },
   { iso3:"AUS", w:112.0, s:-44.0, e:154.0, n:-10.0 },
   { iso3:"NZL", w:166.0, s:-47.5, e:179.0, n:-34.0 },
+  { iso3:"CAN", w:-141.0, s:41.0, e:-52.0, n:84.0 },   // Canada (overlaps USA across the border band)
+  { iso3:"USA", w:-125.0, s:24.0, e:-66.0, n:50.0 },   // USA contiguous (overlaps CAN across the border band)
+  { iso3:"USA", w:-170.0, s:51.0, e:-129.0, n:72.0 },  // USA Alaska
+  { iso3:"USA", w:-161.0, s:18.0, e:-154.0, n:23.0 },  // USA Hawaii
+  { iso3:"IRL", w:-10.6, s:51.3, e:-5.9, n:55.5 },     // Ireland (overlaps GBR — both queried in the band)
+  { iso3:"GBR", w:-8.7, s:49.8, e:1.9, n:60.9 },       // United Kingdom
 ];
-function iso3FromBbox(bs,bw,bn,be){
-  const lat=(bs+bn)/2, lng=(bw+be)/2;
-  for(const b of COUNTRY_BOXES) if(lng>=b.w&&lng<=b.e&&lat>=b.s&&lat<=b.n) return b.iso3;
-  return null;
+// Every distinct ISO3 whose box contains the bbox centroid, in COUNTRY_BOXES order. Empty → VIDA skipped.
+function iso3CandidatesFromBbox(bs,bw,bn,be){
+  const lat=(bs+bn)/2, lng=(bw+be)/2, out=[];
+  for(const b of COUNTRY_BOXES) if(lng>=b.w&&lng<=b.e&&lat>=b.s&&lat<=b.n&&!out.includes(b.iso3)) out.push(b.iso3);
+  return out;
 }
 function wktOuterRing(wkt){
   if(!wkt) return null;
@@ -526,29 +539,36 @@ async function vidaConn(){
   }catch(e){ console.warn("[vida] duckdb init failed — VIDA disabled:", e&&e.message); _duckdbConn=null; }
   return _duckdbConn;
 }
-async function vidaBuildingsBbox(bs,bw,bn,be,iso3){
-  if(!iso3) return [];
-  try{
-    const conn=await vidaConn();
-    if(!conn) return [];
-    const file=`${VIDA_S3}/country_iso=${iso3}/${iso3}.parquet`;
-    const sql=
-      "SELECT ST_AsText(geometry) AS wkt, bf_source, confidence, area_in_meters "+
-      `FROM read_parquet('${file.replace(/'/g,"''")}') `+
-      `WHERE bbox.xmin <= ${be} AND bbox.xmax >= ${bw} AND bbox.ymin <= ${bn} AND bbox.ymax >= ${bs} `+
-      "LIMIT 600;";
-    const rows=await new Promise((resolve,reject)=>conn.all(sql,(e,r)=>e?reject(e):resolve(r||[])));
-    const lat0=(bs+bn)/2, out=[];
-    for(const row of rows){
-      const ring=wktOuterRing(String(row.wkt||""));
-      if(!ring) continue;
-      if(ringAreaLL(ring,lat0)<8) continue;
-      const c=ringCentroidLL(ring);
-      if(c[1]<bs||c[1]>bn||c[0]<bw||c[0]>be) continue;
-      out.push({ id:"vida/"+c[0].toFixed(6)+","+c[1].toFixed(6), ring, centroid:c, area:ringAreaLL(ring,lat0), source:"vida" });
-    }
-    return out;
-  }catch(e){ console.warn("[vida] bbox query failed — skipping:", iso3, e&&e.message); return []; }
+async function vidaBuildingsBbox(bs,bw,bn,be,iso3s){
+  if(!iso3s||!iso3s.length) return [];
+  const conn=await vidaConn();
+  if(!conn) return [];
+  const lat0=(bs+bn)/2, out=[], seen=new Set();
+  // Query each candidate country's parquet; union (border points legitimately match 2 countries — only one
+  // parquet actually has the buildings, the other returns 0). Each query is independently guarded.
+  for(const iso3 of iso3s){
+    try{
+      const file=`${VIDA_S3}/country_iso=${iso3}/${iso3}.parquet`;
+      const sql=
+        "SELECT ST_AsText(geometry) AS wkt, bf_source, confidence, area_in_meters "+
+        `FROM read_parquet('${file.replace(/'/g,"''")}') `+
+        `WHERE bbox.xmin <= ${be} AND bbox.xmax >= ${bw} AND bbox.ymin <= ${bn} AND bbox.ymax >= ${bs} `+
+        "LIMIT 600;";
+      const rows=await new Promise((resolve,reject)=>conn.all(sql,(e,r)=>e?reject(e):resolve(r||[])));
+      for(const row of rows){
+        const ring=wktOuterRing(String(row.wkt||""));
+        if(!ring) continue;
+        if(ringAreaLL(ring,lat0)<8) continue;
+        const c=ringCentroidLL(ring);
+        if(c[1]<bs||c[1]>bn||c[0]<bw||c[0]>be) continue;
+        const id="vida/"+c[0].toFixed(6)+","+c[1].toFixed(6);
+        if(seen.has(id)) continue;
+        seen.add(id);
+        out.push({ id, ring, centroid:c, area:ringAreaLL(ring,lat0), source:"vida" });
+      }
+    }catch(e){ console.warn("[vida] bbox query failed — skipping country:", iso3, e&&e.message); }
+  }
+  return out;
 }
 async function buildingsInBbox(bs,bw,bn,be){
   [bs,bw,bn,be]=_bboxClamp(bs,bw,bn,be);
@@ -559,11 +579,11 @@ async function buildingsInBbox(bs,bw,bn,be){
   // tile WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is warm
   // for the immediate retry). Both are time-boxed independently, so total wait ≈ max(budget), NOT the sum.
   // 3rd source: VIDA Open Buildings (ISO3 from bbox centroid), time-boxed; vidaBuildingsBbox never throws.
-  const iso3=iso3FromBbox(bs,bw,bn,be);
+  const iso3s=iso3CandidatesFromBbox(bs,bw,bn,be);
   const [osm,msft,vida]=await Promise.all([
     timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
     timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null),
-    timeboxResolve(vidaBuildingsBbox(bs,bw,bn,be,iso3),VIDA_FOOTPRINT_BUDGET_MS,[]),
+    timeboxResolve(vidaBuildingsBbox(bs,bw,bn,be,iso3s),VIDA_FOOTPRINT_BUDGET_MS,[]),
   ]);
   // UNIVERSAL COVERAGE ("not all roofs are being detected, in any region"): UNION OSM + Microsoft instead of
   // OSM-winner-take-all. Previously, if OSM had ANY building the MS layer was ignored — so buildings OSM was
@@ -1357,8 +1377,10 @@ http.createServer(async (req,res)=>{
   (async()=>{
     try{
       const warm=[ {iso3:"ZAF", s:-26.1700, w:28.1300, n:-26.1690, e:28.1310},   // Bedfordview, JHB
-                   {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100} ]; // Sydney
-      for(const b of warm){ await vidaBuildingsBbox(b.s,b.w,b.n,b.e,b.iso3).catch(()=>{}); }
+                   {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100},  // Sydney
+                   {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710},    // Hamilton, ON (primary CA market)
+                   {iso3:"USA", s:38.5810, w:-121.4940, n:38.5820, e:-121.4930} ]; // Sacramento, CA
+      for(const b of warm){ await vidaBuildingsBbox(b.s,b.w,b.n,b.e,[b.iso3]).catch(()=>{}); }
       console.log("[vida] prewarm done");
     }catch(e){ console.warn("[vida] prewarm failed:",e&&e.message||e); }
   })();
