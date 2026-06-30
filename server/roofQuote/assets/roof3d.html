@@ -1009,12 +1009,82 @@
   #roofDesign .rd-uploadprompt{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:6;max-width:min(420px,86vw);display:flex;align-items:center;gap:9px;background:rgba(11,18,32,.92);color:#fff;font:700 11.5px/1.35 "Satoshi",system-ui,sans-serif;text-align:left;padding:10px 15px;border-radius:14px;border:1px solid rgba(120,160,255,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.34)}
   #roofDesign .rd-uploadprompt svg{flex:0 0 auto;width:18px;height:18px;fill:none;stroke:#dbe4ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #roofDesign .rd-uploadprompt:hover{border-color:rgba(120,160,255,.85)}
+  /* SHOWROOM (Part 1): subtle "Example home" badge — shown only while a standard pre-rendered house is the preview */
+  .rd-example-badge{position:absolute;z-index:33;top:max(64px,calc(env(safe-area-inset-top) + 52px));left:14px;display:none;background:rgba(11,18,32,.62);color:rgba(255,255,255,.92);font:700 10px/1 "Satoshi",system-ui,sans-serif;letter-spacing:.02em;text-transform:uppercase;padding:6px 9px;border-radius:8px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none}
+  /* ─── "SEE THE ROOF ON YOUR OWN HOUSE" MODAL (Part 2) ─────────────────────────────────────────── */
+  #seeModal{position:fixed;inset:0;z-index:64;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:18px;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  #seeModal.on{display:flex}
+  #seeModal .sm-card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:var(--card-shadow);display:flex;flex-direction:column}
+  #seeModal .sm-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:16px 18px 12px;background:var(--panel);border-bottom:1px solid var(--line);border-radius:18px 18px 0 0}
+  #seeModal .sm-h{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.01em;margin:0;flex:1}
+  #seeModal .sm-h small{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px}
+  #seeModal .sm-x{flex:0 0 auto;width:32px;height:32px;border:0;border-radius:9px;background:#f7f9fc;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+  #seeModal .sm-x:hover{background:#eef1f6}
+  #seeModal .sm-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:14px}
+  #seeModal .sm-sec-lab{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:8px}
+  #seeModal .sm-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  #seeModal .sm-mats::-webkit-scrollbar{display:none}
+  #seeModal .sm-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:92px;border:1px solid var(--line);border-radius:12px;padding:7px 8px 8px;background:#fff;cursor:pointer;text-align:left}
+  #seeModal .sm-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.16)}
+  #seeModal .sm-mat .smm-tex{width:100%;height:28px;border-radius:7px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08)}
+  #seeModal .sm-mat .smm-nm{font-size:11px;font-weight:800;color:var(--ink);line-height:1.1}
+  #seeModal .sm-cols{display:flex;gap:9px;overflow-x:auto;padding:1px 0 3px;scrollbar-width:none}
+  #seeModal .sm-cols::-webkit-scrollbar{display:none}
+  #seeModal .sm-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:52px}
+  #seeModal .sm-col .smc-chip{width:38px;height:38px;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #seeModal .sm-col.on .smc-chip{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.18),inset 0 0 0 1px rgba(0,0,0,.10)}
+  #seeModal .sm-col .smc-nm{font-size:9px;font-weight:700;color:var(--muted);text-align:center;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+  #seeModal .sm-col.on .smc-nm{color:var(--ink)}
+  #seeModal .sm-srcs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #seeModal .sm-src{display:flex;flex-direction:column;align-items:center;gap:7px;border:1px solid var(--line);border-radius:14px;padding:14px 10px;background:#fff;cursor:pointer;text-align:center;font-family:inherit}
+  #seeModal .sm-src.on{border-color:var(--blue);background:rgba(13,60,252,.045);box-shadow:0 0 0 2px rgba(13,60,252,.14)}
+  #seeModal .sm-src svg{width:26px;height:26px;fill:none;stroke:var(--blue);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #seeModal .sm-src .sms-t{font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.15}
+  #seeModal .sm-src .sms-d{font-size:10.5px;font-weight:600;color:var(--muted);line-height:1.3}
+  #seeModal .sm-addr{display:none;flex-direction:column;gap:5px}
+  #seeModal .sm-addr.on{display:flex}
+  #seeModal .sm-addr label{font-size:11px;font-weight:700;color:var(--muted)}
+  #seeModal .sm-addr input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit;color:var(--ink);background:#fff}
+  #seeModal .sm-filewrap{display:none}
+  #seeModal .sm-filewrap.on{display:block}
+  #seeModal .sm-file{display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line);border-radius:12px;padding:13px;cursor:pointer;font:700 12.5px/1 "Satoshi",system-ui,sans-serif;color:var(--blue);background:rgba(13,60,252,.035)}
+  #seeModal .sm-file svg{width:18px;height:18px;fill:none;stroke:var(--blue);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #seeModal .sm-filename{font-size:11px;font-weight:600;color:var(--muted);margin-top:5px;text-align:center}
+  #seeModal .sm-start{width:100%;background:#0d3cfc;border:0;color:#fff;border-radius:12px;padding:14px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--btn-shadow)}
+  #seeModal .sm-start:disabled{opacity:.55;cursor:default}
+  #seeModal .sm-stage{position:relative;width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#eef1f6;border:1px solid var(--line);display:none}
+  #seeModal .sm-stage.on{display:block}
+  #seeModal .sm-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+  #seeModal .sm-stage img.show{display:block}
+  #seeModal .sm-baline{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.18);transform:translateX(-1px);display:none;cursor:ew-resize;z-index:3}
+  #seeModal .sm-baline.on{display:block}
+  #seeModal .sm-baknob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#0d3cfc}
+  #seeModal .sm-baknob svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  #seeModal .sm-spin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:rgba(11,18,32,.74);color:#fff;text-align:center;padding:18px}
+  #seeModal .sm-spin.on{display:flex}
+  #seeModal .sm-spin .sp-ring{width:34px;height:34px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .9s linear infinite}
+  #seeModal .sm-spin .sp-t{font-size:13px;font-weight:700;max-width:260px;line-height:1.4}
+  #seeModal .sm-tag{position:absolute;top:8px;font:700 9.5px/1 "Satoshi",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#fff;background:rgba(11,18,32,.62);padding:5px 8px;border-radius:7px;z-index:2}
+  #seeModal .sm-tag.a{right:8px}#seeModal .sm-tag.b{left:8px}
+  #seeModal .sm-result-cta{display:none;gap:8px;margin-top:2px}
+  #seeModal .sm-result-cta.on{display:flex}
+  #seeModal .sm-retry{flex:1;background:rgba(13,60,252,.08);border:1px solid rgba(13,60,252,.25);color:var(--blue);border-radius:11px;padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
+  #seeModal .sm-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:11px;padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
+  #seeModal .sm-err{display:none;font-size:11.5px;font-weight:600;color:#b42318;background:rgba(180,35,24,.07);border:1px solid rgba(180,35,24,.2);border-radius:10px;padding:9px 11px;line-height:1.35}
+  #seeModal .sm-err.on{display:block}
+  /* trigger button in the roofing-designer rail */
+  #roofDesign .rd-seebtn{margin-left:0;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px;cursor:pointer}
+  #roofDesign .rd-seebtn svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   @media (max-width:430px){
     #roofDesign .rd-mat{width:88px}
     #roofDesign .rd-price .rdp-v{font-size:19px}
     #roofDesign .rd-info{gap:8px}
     #roofDesign .rd-ai{padding:9px 11px}
     #roofDesign .rd-feats li{font-size:10.5px}
+    #seeModal{padding:0;align-items:stretch}
+    #seeModal .sm-card{max-width:none;max-height:100vh;height:100vh;border-radius:0}
+    #seeModal .sm-head{border-radius:0}
+    #seeModal .sm-srcs{grid-template-columns:1fr}
   }
 </style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
@@ -1209,6 +1279,60 @@
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
   <div id="infoModal"><div class="im-card"><button class="im-x" onclick="window.__closeInfo()" aria-label="Close">&times;</button><div id="imBody"></div></div></div>
+  <!-- "SEE THE ROOF ON YOUR OWN HOUSE" MODAL (Part 2): pick roof → choose source (Google-Earth aerial or
+       photo upload) → render → before/after. Built so a render NEVER spends until "Start your preview". -->
+  <div id="seeModal" role="dialog" aria-modal="true" aria-labelledby="smHead">
+    <div class="sm-card">
+      <div class="sm-head">
+        <h3 class="sm-h" id="smHead">See it on your house<small>Pick a roof, then choose your photo source</small></h3>
+        <button class="sm-x" id="smClose" type="button" aria-label="Close">&times;</button>
+      </div>
+      <div class="sm-body">
+        <div class="sm-step">
+          <div class="sm-sec-lab">1 · Pick the roof</div>
+          <div class="sm-mats" id="smMats"></div>
+          <div class="sm-cols" id="smCols"></div>
+        </div>
+        <div class="sm-step">
+          <div class="sm-sec-lab">2 · Choose your photo</div>
+          <div class="sm-srcs">
+            <button class="sm-src" id="smSrcEarth" type="button">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+              <span class="sms-t">Use my Google Earth image</span>
+              <span class="sms-d">We use your address — no photo needed</span>
+            </button>
+            <button class="sm-src" id="smSrcUpload" type="button">
+              <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+              <span class="sms-t">Upload a photo</span>
+              <span class="sms-d">A clear front-of-house shot works best</span>
+            </button>
+          </div>
+          <div class="sm-addr" id="smAddrWrap">
+            <label for="smAddr">Your address</label>
+            <input id="smAddr" type="text" placeholder="123 Main St, City, State" autocomplete="street-address">
+          </div>
+          <div class="sm-filewrap" id="smFileWrap">
+            <label class="sm-file" id="smFileLabel" for="smFileInput"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span id="smFileLabelT">Choose a photo of your house</span><input id="smFileInput" type="file" accept="image/*" style="display:none"></label>
+            <div class="sm-filename" id="smFileName"></div>
+          </div>
+        </div>
+        <div class="sm-err" id="smErr"></div>
+        <button class="sm-start" id="smStart" type="button" disabled>Start your preview</button>
+        <div class="sm-stage" id="smStage">
+          <img id="smAfter" alt="Your roof rendered onto your home">
+          <img id="smBefore" alt="Your home before">
+          <span class="sm-tag a" id="smTagA" style="display:none">After</span>
+          <span class="sm-tag b" id="smTagB" style="display:none">Before</span>
+          <div class="sm-baline" id="smBaLine"><div class="sm-baknob"><svg viewBox="0 0 24 24"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
+          <div class="sm-spin" id="smSpin"><div class="sp-ring"></div><div class="sp-t" id="smSpinT">Applying your roof…</div></div>
+        </div>
+        <div class="sm-result-cta" id="smResultCta">
+          <button class="sm-retry" id="smRetry" type="button">Try another material</button>
+          <button class="sm-done" id="smDone" type="button">Looks great — close</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- INTERACTIVE SOLAR PANEL GRID overlay — tap squares over the sun heatmap to add/remove panels; live metrics + bill before/after -->
   <div id="solarGrid">
     <div class="sg-head">
@@ -1258,11 +1382,13 @@
     <div class="rd-head">
       <button class="rd-back" id="rdBack" type="button" aria-label="Back to Solar or Roofing choice"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
       <div class="rd-title">Design your new roof<small id="rdSub">Tap a material &amp; colour — your home shown live</small></div>
-      <button class="rd-ai" id="rdAi" type="button"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span id="rdAiLbl">See it on my house</span></button>
-      <!-- ToS-clean source: customer uploads their OWN house photo as the render base. No auto roof-mask is
-           derivable from an arbitrary oblique upload, so this path uses prompt-preservation (not the hard
-           top-down mask) — the top-down satellite "See it on my house" above is the roof-ONLY-guaranteed one. -->
-      <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" aria-label="Upload a photo of your roof" style="display:none"></label>
+      <!-- PRIMARY (Part 2): the modal flow consolidates BOTH on-your-house sources (Google-Earth aerial +
+           photo upload) behind one clear button → pick roof → choose source → render → before/after. -->
+      <button class="rd-ai rd-seebtn" id="rdSeeBtn" type="button"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>See it on your house</span></button>
+      <!-- Legacy inline quick-paths kept in the DOM (hidden) so existing wiring/tests that reference them
+           don't break; the modal is the discoverable entry point now. -->
+      <button class="rd-ai" id="rdAi" type="button" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span id="rdAiLbl">See it on my house</span></button>
+      <label class="rd-ai rd-upload" id="rdUpload" title="Upload your own house photo (yours — no usage limits)" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span>Upload photo</span><input id="rdUploadInput" type="file" accept="image/*" aria-label="Upload a photo of your roof" style="display:none"></label>
     </div>
     <div class="rd-stagehint" id="rdStageHint"><span class="mini"></span><span id="rdStageHintT">Rendering your home…</span></div>
     <!-- CANOPY FALLBACK (Problem B): shown when the accurate top-down aerial render can't be produced (no
@@ -10247,6 +10373,79 @@ function rdCommitSel(){
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0];
   window.__roofSel={matId:m.id,matLabel:m.label,colorName:c.n}; tradeMode="roof"; window.__trade="roof";
 }
+/* ─── SHOWROOM: pre-rendered photoreal "example home" swatches ────────────────────────────────────
+   Part 1. A parallel pipeline renders one STANDARD house once per material/colour (identical house,
+   only the roof changes) and ships them under RQ_BASE + "/showroom/". The manifest maps catalogue
+   keys → file names: { materials: { <ROOF_CATALOG.id>: { <colour name>: "<file>.jpg" } } }.
+   We fetch the manifest ONCE on entering the roofing designer and, on every material/colour pick,
+   paint the matching pre-rendered image INSTANTLY into #aiPhoto (no AI wait, no spend). If the
+   manifest or the image is missing (assets not shipped yet, or a key with no render) we fall through
+   to the live 3D colour-tint exactly as before — nothing breaks before the assets land. */
+window.__showroomManifest=undefined;   // undefined=not fetched, null=fetched-but-absent, {}=loaded
+window.__showroomFetching=false;
+// Resolve the showroom file URL for the current selection, or null if not available.
+function rdShowroomUrl(m,c){
+  try{
+    const man=window.__showroomManifest;
+    if(!man||!man.materials) return null;
+    const byMat=man.materials[m&&m.id]; if(!byMat) return null;
+    const file=byMat[c&&c.n]; if(!file||typeof file!=="string") return null;
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    return RB+"/showroom/"+file;
+  }catch(_){ return null; }
+}
+// Fetch the manifest once. Resolves to the manifest object or null (absent). Cached on window.
+async function rdLoadShowroom(){
+  if(window.__showroomManifest!==undefined) return window.__showroomManifest;
+  if(window.__showroomFetching) return null;   // a fetch is already in flight; caller falls back to tint meanwhile
+  window.__showroomFetching=true;
+  try{
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    const r=await fetch(RB+"/showroom/manifest.json",{cache:"no-store"});
+    if(!r.ok){ window.__showroomManifest=null; return null; }
+    const j=await r.json();
+    window.__showroomManifest=(j&&j.materials)?j:null;
+    return window.__showroomManifest;
+  }catch(e){
+    console.warn("[showroom] manifest unavailable → 3D-tint fallback",e&&e.message||e);
+    window.__showroomManifest=null;   // mark absent so we don't refetch every pick
+    return null;
+  }finally{ window.__showroomFetching=false; }
+}
+// Paint the pre-rendered showroom image for the current selection over the stage (instant swap).
+// Returns true if a showroom image was applied, false if none → caller keeps the live tint.
+function rdApplyShowroom(){
+  try{
+    const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0];
+    const url=rdShowroomUrl(m,c);
+    const img=$("aiPhoto"); if(!img) return false;
+    if(!url){
+      // no pre-render for this exact pick → drop any prior showroom image so the live 3D tint shows through
+      if(img.dataset && img.dataset.showroom==="1"){ img.style.display="none"; img.src=""; delete img.dataset.showroom; }
+      rdSetExampleBadge(false);
+      return false;
+    }
+    // before/after + AI render must not be stomped: if a real on-your-house render is live, leave it.
+    if(window.__baActive || (img.dataset && img.dataset.aireal==="1")) return false;
+    img.onload=function onl(){ img.removeEventListener("load",onl); if(img.naturalWidth===0){ img.style.display="none"; rdSetExampleBadge(false); } };
+    img.src=url; img.style.display="block"; img.style.zIndex="16";
+    if(img.dataset) img.dataset.showroom="1";
+    rdSetExampleBadge(true);   // subtle "example home" label — this is a standard house, not the customer's
+    return true;
+  }catch(e){ console.warn("[showroom] apply failed → tint",e&&e.message||e); return false; }
+}
+// subtle "example home" badge shown only while a showroom (standard-house) image is the preview.
+function rdSetExampleBadge(on){
+  try{
+    let b=$("rdExampleBadge");
+    if(!b){
+      if(!on) return;
+      b=document.createElement("div"); b.id="rdExampleBadge"; b.className="rd-example-badge";
+      b.textContent="Example home"; const app=$("app"); if(app) app.appendChild(b);
+    }
+    b.style.display=(on&&window.__rdOpen)?"block":"none";
+  }catch(_){}
+}
 // repaint the live house preview for the current selection: tint the 3D photoreal facets to the chosen
 // colour (always works, no credits) and — if the AI on-house render is already cached for this colour —
 // drop it onto #aiPhoto. AI is opt-in via the header button so we never auto-spend on a credit-gated render.
@@ -10264,11 +10463,18 @@ function rdReflectOnHouse(){
   if(mode==="photoreal" && !greyMode){
     try{ if(gmap&&typeof buildRoofMaterial==="function") buildRoofMaterial(); }catch(_){}
   }
-  // if a real AI render for this exact colour is already cached, show it instantly (free — no new spend)
+  // PRIORITY of the stage preview:
+  //  1) a REAL on-your-house render already cached for this colour → it's the customer's actual home, always wins.
+  //  2) the pre-rendered SHOWROOM image (standard "example home", instant, free) → photoreal swap, no AI wait.
+  //  3) the live 3D colour-tint (already applied to the model facets above) → graceful fallback before assets land.
   try{
     const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], key=(typeof colorKey==="function")?colorKey(m,c):null;
     if(key && window.__matRenders && window.__matRenders[key] && typeof showAnalysis==="function"){
-      const img=$("aiPhoto"); if(img){ img.src=window.__matRenders[key]; img.style.display="block"; img.style.zIndex="16"; }
+      const img=$("aiPhoto"); if(img){ img.src=window.__matRenders[key]; img.style.display="block"; img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
+      rdSetExampleBadge(false);   // their real house — not an example
+    } else {
+      // no real render cached → try the instant pre-rendered showroom swap (falls through to the tint if absent)
+      rdApplyShowroom();
     }
   }catch(_){}
 }
@@ -10336,7 +10542,8 @@ async function rdAiOnHouse(){
     try{ const pr=$("rdUploadPrompt"); if(pr) pr.style.display="none"; }catch(_){}
     try{ if(typeof colorKey==="function"){ window.__matRenders=window.__matRenders||{}; window.__matRenders[colorKey(m,c)]=url; } }catch(_){}
     const img=$("aiPhoto");
-    if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(url,addr,matPrompt); else { img.src=url; img.style.display="block"; } img.style.zIndex="16"; }
+    if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(url,addr,matPrompt); else { img.src=url; img.style.display="block"; } img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
+    try{ rdSetExampleBadge(false); }catch(_){}   // their real home now — not the example house
     // before/after slider: the "before" is the ORIGINAL satellite (roof-only path) so the slider proves
     // only the roof changed. window.__baBeforeSrc overrides activateBA's default before-source.
     if(beforeUrl){ window.__baBeforeSrc=beforeUrl; const bb=$("baBefore"); if(bb){ bb.src=beforeUrl; } }
@@ -10400,7 +10607,8 @@ async function rdUploadOnHouse(file){
       body:JSON.stringify({ image:dataUri, material:(c?c.p:m.label) }) });
     const j=await r.json();
     if(j&&j.url){ window.__aiDown=false; window.__baBeforeSrc=null;
-      const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,$("addr").value.trim(),c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; }
+      const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,$("addr").value.trim(),c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
+      try{ rdSetExampleBadge(false); }catch(_){}
       // before = the user's ORIGINAL upload (so the slider compares against their own photo)
       const bb=$("baBefore"); if(bb){ bb.src=dataUri; } window.__baBeforeSrc=dataUri;
       $("aiMat") && ($("aiMat").textContent=label+" — your photo");
@@ -10509,7 +10717,10 @@ async function openRoofDesign(){
     // Materials lens. Hide the floating Materials-lens AI button (#aiBtn) here so the two never double-show
     // over each other, and make sure the rail button is visible + enabled on every open.
     try{ const ab=$("aiBtn"); if(ab) ab.style.display="none"; }catch(_){}
-    try{ const ra=$("rdAi"); if(ra){ ra.style.display=""; ra.disabled=false; const rl=$("rdAiLbl"); if(rl) rl.textContent="See it on my house"; } }catch(_){}
+    // The MODAL trigger (#rdSeeBtn) is the discoverable on-your-house entry now; keep the legacy inline
+    // #rdAi hidden (its handler still exists for back-compat) and make sure the modal button is visible/enabled.
+    try{ const ra=$("rdAi"); if(ra){ ra.style.display="none"; ra.disabled=false; const rl=$("rdAiLbl"); if(rl) rl.textContent="See it on my house"; } }catch(_){}
+    try{ const sb=$("rdSeeBtn"); if(sb){ sb.style.display=""; sb.disabled=false; } }catch(_){}
     if(typeof clearLabels==="function") clearLabels();
     if(typeof clearRoofMeas==="function") clearRoofMeas();
     // (BUG 1) Coming from the Measure / Materials top-down lens leaves the 2D #matCanvas diagram
@@ -10523,6 +10734,12 @@ async function openRoofDesign(){
   // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
   rdBuildMats(); rdBuildCols(); rdRenderInfo();
   $("roofDesign").style.display="flex"; window.__rdOpen=true;
+  // SHOWROOM (Part 1): fetch the pre-rendered "example home" manifest ONCE (no await — the picker is already
+  // live). When it lands, re-reflect so the current selection swaps to its instant photoreal image. If the
+  // manifest is absent (assets not shipped yet) this is a graceful no-op and the 3D tint stays.
+  if(window.__showroomManifest===undefined){
+    rdLoadShowroom().then(man=>{ if(man && window.__rdOpen){ try{ rdReflectOnHouse(); }catch(_){} } }).catch(()=>{});
+  }
   // CANOPY FALLBACK (Problem B): start each designer session with the upload prompt hidden (a stale prompt
   // from a prior address must not carry over); it re-shows only if THIS address has no aerial roof mask.
   try{ const pr=$("rdUploadPrompt"); if(pr) pr.style.display="none"; }catch(_){}
@@ -10595,7 +10812,8 @@ function closeRoofDesign(){
   // restore the lens rail + clear the roofing body tag → solar/editor context regains its full controls
   const ct=$("ctrls"); if(ct && ct.dataset.rdPrev!=null) ct.style.display=ct.dataset.rdPrev;
   try{ document.body.classList.remove("rd-open"); }catch(_){}
-  const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; }
+  try{ rdSetExampleBadge(false); }catch(_){}
+  const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; if(ai.dataset){ delete ai.dataset.showroom; delete ai.dataset.aireal; } }
   try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
   try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
   // drop the roofing-skin texture off the model facets so it doesn't bleed into the solar/measure lenses
@@ -10627,6 +10845,195 @@ function closeRoofDesign(){
 window.__openRoofDesign=openRoofDesign;
 window.__closeRoofDesign=closeRoofDesign;
 window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify hooks (deterministic selection)
+/* ════════ "SEE THE ROOF ON YOUR OWN HOUSE" MODAL (Part 2) ════════════════════════════════════════
+   A self-contained overlay flow. Steps:
+     1) Pick the roof  — reuses the catalogue swatches; pre-selects whatever the user last viewed (selMat/selCol).
+     2) Choose the source — "Use my Google Earth image" (address → /airender-topdown, masked roof-only; if no
+        footprint → /airender Street-View) OR "Upload a photo" (file → /airender-upload {image,material}).
+     3) Start — stepped spinner copy for the 30–60s render (mirrors rdAiOnHouse's stages + ~72s backstop).
+     4) Result — the rendered image with a before/after wipe slider; "try another material" re-renders; close.
+   No render fires until Start, so a live render only costs when the buyer explicitly asks for it. */
+(function wireSeeModal(){
+  let smMat=0, smCol=0, smSource=null, smFile=null, smBeforeUrl=null, smRendering=false;
+  const SM_STAGES=[
+    "Analyzing your roof…",
+    "Applying your new roof…",
+    "Painting on the new material…",
+    "This usually takes up to a minute…",
+    "Finishing your photoreal preview…"
+  ];
+  const el=id=>document.getElementById(id);
+  function smClassToggle(node,on){ if(node){ node.classList.toggle("on",!!on); } }
+  // Build the material chips (same procedural texture thumbs the designer uses).
+  function smBuildMats(){
+    const wrap=el("smMats"); if(!wrap) return; wrap.innerHTML="";
+    ROOF_CATALOG.forEach((m,i)=>{
+      const b=document.createElement("button"); b.type="button"; b.className="sm-mat"+(i===smMat?" on":"");
+      let tex=""; try{ tex=matThumb(m); }catch(_){}
+      b.innerHTML='<div class="smm-tex" style="background-image:url('+tex+')"></div><div class="smm-nm">'+esc(m.label)+'</div>';
+      b.onclick=()=>{ smMat=i; smCol=0; smBuildMats(); smBuildCols(); };
+      wrap.appendChild(b);
+    });
+  }
+  function smBuildCols(){
+    const m=ROOF_CATALOG[smMat]||ROOF_CATALOG[0], wrap=el("smCols"); if(!wrap) return; wrap.innerHTML="";
+    m.colors.forEach((c,i)=>{
+      const d=document.createElement("button"); d.type="button"; d.className="sm-col"+(i===smCol?" on":"");
+      let bg=c.base; try{ bg="center/cover url("+makeShingleCanvas(c.base,m.type).toDataURL()+")"; }catch(_){}
+      d.innerHTML='<div class="smc-chip" style="background:'+bg+'"></div><div class="smc-nm">'+esc(c.n)+'</div>';
+      d.onclick=()=>{ smCol=i; smBuildCols(); };
+      wrap.appendChild(d);
+    });
+  }
+  function smSelMatPrompt(){ const m=ROOF_CATALOG[smMat]||ROOF_CATALOG[0], c=m.colors[smCol]||m.colors[0]; return c?c.p:m.label; }
+  function smSelLabel(){ const m=ROOF_CATALOG[smMat]||ROOF_CATALOG[0], c=m.colors[smCol]||m.colors[0]; return m.label+" · "+(c?c.n:""); }
+  function smSetErr(msg){ const e=el("smErr"); if(!e) return; if(msg){ e.textContent=msg; e.classList.add("on"); } else { e.textContent=""; e.classList.remove("on"); } }
+  // enable Start only when a source is chosen AND its requirement is met (address for earth, file for upload)
+  function smRefreshStart(){
+    const btn=el("smStart"); if(!btn) return;
+    let ok=false;
+    if(smSource==="earth"){ ok=!!(el("smAddr")&&el("smAddr").value.trim()); }
+    else if(smSource==="upload"){ ok=!!smFile; }
+    btn.disabled=!ok || smRendering;
+  }
+  function smPickSource(src){
+    smSource=src;
+    smClassToggle(el("smSrcEarth"), src==="earth");
+    smClassToggle(el("smSrcUpload"), src==="upload");
+    // Earth needs an address — prefill from the funnel address; only show the field if we don't have one.
+    const addrWrap=el("smAddrWrap"), addrIn=el("smAddr"), fileWrap=el("smFileWrap");
+    const known=($("addr")&&$("addr").value||"").trim();
+    if(src==="earth"){
+      if(addrIn && !addrIn.value && known) addrIn.value=known;
+      smClassToggle(addrWrap, !((addrIn&&addrIn.value.trim())));   // hide if we already have one
+      if(fileWrap) fileWrap.classList.remove("on");
+    } else if(src==="upload"){
+      if(addrWrap) addrWrap.classList.remove("on");
+      if(fileWrap) fileWrap.classList.add("on");
+    }
+    smSetErr(""); smRefreshStart();
+  }
+  // ── before/after wipe over the modal stage ──
+  let smBaPos=55;
+  function smSetBaPos(pct){ smBaPos=Math.max(0,Math.min(100,pct)); const a=el("smAfter"), line=el("smBaLine");
+    if(a) a.style.clipPath="inset(0 0 0 "+smBaPos+"%)";   // reveal "after" to the RIGHT of the handle, "before" to the left
+    if(line) line.style.left=smBaPos+"%"; }
+  function smShowBA(afterUrl,beforeUrl){
+    const stage=el("smStage"), after=el("smAfter"), before=el("smBefore");
+    if(!stage||!after) return;
+    stage.classList.add("on");
+    after.src=afterUrl; after.classList.add("show");
+    if(beforeUrl){
+      before.onload=()=>{ if(before.naturalWidth>0){ before.classList.add("show"); ["smBaLine","smTagA","smTagB"].forEach(id=>{ const e=el(id); if(e){ e.style.display="block"; e.classList.add("on"); } }); smSetBaPos(55); } };
+      before.onerror=()=>{ before.classList.remove("show"); ["smBaLine","smTagA","smTagB"].forEach(id=>{ const e=el(id); if(e) e.style.display="none"; }); };
+      before.src=beforeUrl;
+    } else {
+      before.classList.remove("show"); ["smBaLine","smTagA","smTagB"].forEach(id=>{ const e=el(id); if(e) e.style.display="none"; });
+    }
+  }
+  (function wireBaDrag(){
+    const line=el("smBaLine"); if(!line) return; let drag=false;
+    const stageRect=()=>el("smStage").getBoundingClientRect();
+    const move=cx=>{ const r=stageRect(); if(r.width) smSetBaPos((cx-r.left)/r.width*100); };
+    line.addEventListener("pointerdown",e=>{ drag=true; e.preventDefault(); try{ line.setPointerCapture(e.pointerId); }catch(_){} });
+    window.addEventListener("pointermove",e=>{ if(drag) move(e.clientX); });
+    window.addEventListener("pointerup",()=>{ drag=false; });
+  })();
+  function smSpin(on,txt){ const s=el("smSpin"); if(!s) return; if(on){ if(el("smSpinT")&&txt) el("smSpinT").textContent=txt; s.classList.add("on"); el("smStage").classList.add("on"); } else s.classList.remove("on"); }
+  // run the render for the current source. Mirrors rdAiOnHouse's stepped copy + 72s backstop.
+  async function smStartRender(){
+    if(smRendering) return;
+    const matPrompt=smSelMatPrompt(), label=smSelLabel();
+    smSetErr("");
+    // hide any prior result CTA while we re-render
+    const cta=el("smResultCta"); if(cta) cta.classList.remove("on");
+    smRendering=true; smRefreshStart();
+    let stageIdx=0; smSpin(true, SM_STAGES[0]);
+    const stageTimer=setInterval(()=>{ stageIdx=Math.min(stageIdx+1,SM_STAGES.length-1); if(el("smSpinT")) el("smSpinT").textContent=SM_STAGES[stageIdx]; }, 9000);
+    let timedOut=false;
+    const backstop=setTimeout(()=>{ timedOut=true; clearInterval(stageTimer); smSpin(false); smRendering=false; smRefreshStart();
+      smSetErr("This is taking longer than usual — please try again in a moment."); }, 72000);
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    const done=(afterUrl,beforeUrl)=>{
+      if(timedOut) return; clearTimeout(backstop); clearInterval(stageTimer);
+      smSpin(false); smRendering=false; smRefreshStart();
+      smShowBA(afterUrl, beforeUrl);
+      if(cta) cta.classList.add("on");
+    };
+    const fail=msg=>{ if(timedOut) return; clearTimeout(backstop); clearInterval(stageTimer); smSpin(false); smRendering=false; smRefreshStart(); smSetErr(msg); };
+    try{
+      if(smSource==="upload"){
+        if(!smFile){ fail("Choose a photo first."); return; }
+        const dataUri=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(smFile); });
+        const r=await fetch(RB+"/airender-upload",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ image:dataUri, material:matPrompt }) });
+        const j=await r.json();
+        if(j&&j.url){ done((j.url.charCodeAt(0)===47?RB:"")+j.url, dataUri); }   // root-relative → prefix RB; data: URI stays as-is. before = their own uploaded photo
+        else { fail("Couldn't render that photo — try a clearer front-of-house shot."); }
+      } else {
+        // GOOGLE EARTH source: roof-only masked top-down first; fall back to Street-View Kontext if no footprint.
+        const addr=(el("smAddr")&&el("smAddr").value.trim())||($("addr")&&$("addr").value.trim())||"";
+        if(!addr){ fail("Enter your address to use your Google Earth image."); return; }
+        const r=await fetch(RB+"/airender-topdown?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
+        const j=await r.json();
+        if(j&&j.url&&j.roofOnly){ done(RB+j.url, j.base?(RB+j.base):null); }
+        else {
+          // no roof mask (canopy/no footprint) OR transient error → Street-View repaint at the resolved address
+          const r2=await fetch(RB+"/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
+          const j2=await r2.json();
+          if(j2&&j2.url){ done(j2.url, null); }
+          else { fail(j2&&j2.error==="no_streetview" ? "No clear imagery here yet — try uploading a photo instead." : "Preview unavailable right now — try uploading a photo instead."); }
+        }
+      }
+    }catch(e){ console.warn("[seeModal] render failed",e&&e.message||e); fail("Something went wrong — please try again."); }
+  }
+  // ── open / close ──
+  let smLastFocus=null;
+  function smOpen(){
+    // pre-select whatever the user last viewed in the designer
+    smMat=(typeof selMat==="number"?selMat:0); smCol=(typeof selCol==="number"?selCol:0);
+    smSource=null; smFile=null; smBeforeUrl=null; smRendering=false;
+    smBuildMats(); smBuildCols();
+    smClassToggle(el("smSrcEarth"),false); smClassToggle(el("smSrcUpload"),false);
+    el("smAddrWrap")&&el("smAddrWrap").classList.remove("on");
+    el("smFileWrap")&&el("smFileWrap").classList.remove("on");
+    el("smStage")&&el("smStage").classList.remove("on");
+    el("smResultCta")&&el("smResultCta").classList.remove("on");
+    el("smFileName")&&(el("smFileName").textContent="");
+    ["smAfter","smBefore"].forEach(id=>{ const e=el(id); if(e){ e.classList.remove("show"); e.src=""; } });
+    smSetErr(""); smRefreshStart();
+    smLastFocus=document.activeElement;
+    const m=el("seeModal"); if(m){ m.classList.add("on"); }
+    const x=el("smClose"); if(x) setTimeout(()=>{ try{ x.focus(); }catch(_){} },30);
+  }
+  function smCloseFn(){ const m=el("seeModal"); if(m) m.classList.remove("on"); try{ if(smLastFocus&&smLastFocus.focus) smLastFocus.focus(); }catch(_){} }
+  window.__openSeeModal=smOpen;   // headless-verify hook
+  window.__closeSeeModal=smCloseFn;
+  // ── wire controls (deferred so the elements exist) ──
+  (function bind(){
+    const trig=el("rdSeeBtn"); if(trig) trig.onclick=smOpen;
+    const x=el("smClose"); if(x) x.onclick=smCloseFn;
+    const modal=el("seeModal"); if(modal) modal.addEventListener("click",e=>{ if(e.target===modal) smCloseFn(); });
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape" && modal && modal.classList.contains("on")) smCloseFn(); });
+    // simple focus trap inside the card while open
+    if(modal) modal.addEventListener("keydown",e=>{
+      if(e.key!=="Tab" || !modal.classList.contains("on")) return;
+      const f=modal.querySelectorAll('button,input,[tabindex]:not([tabindex="-1"])');
+      const vis=[...f].filter(n=>n.offsetParent!==null && !n.disabled);
+      if(!vis.length) return; const first=vis[0], last=vis[vis.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    });
+    const se=el("smSrcEarth"); if(se) se.onclick=()=>smPickSource("earth");
+    const su=el("smSrcUpload"); if(su) su.onclick=()=>smPickSource("upload");
+    const addr=el("smAddr"); if(addr) addr.addEventListener("input",smRefreshStart);
+    const fileIn=el("smFileInput"); if(fileIn) fileIn.onchange=e=>{ const f=e.target.files&&e.target.files[0]; smFile=f||null;
+      const nm=el("smFileName"); if(nm) nm.textContent=f?("Selected: "+f.name):""; smRefreshStart(); };
+    const start=el("smStart"); if(start) start.onclick=smStartRender;
+    const retry=el("smRetry"); if(retry) retry.onclick=()=>{ // re-render with the (possibly newly-picked) material, same source
+      const cta=el("smResultCta"); if(cta) cta.classList.remove("on"); smStartRender(); };
+    const dn=el("smDone"); if(dn) dn.onclick=smCloseFn;
+  })();
+})();
 /* ── ENGINEERED PANEL LAYOUT (max-fit, installer-style) ───────────────────────
    ROOT CAUSE this fixes: Google's solarPanels[] under-fills the roof — on a big
    multi-facet house it returns a single tight cluster (e.g. 34 panels on the

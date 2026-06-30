@@ -321,6 +321,48 @@ export function registerRoofQuoteRoutes(app: Express) {
     }
   });
 
+  /* ─── SHOWROOM (Part 1): pre-rendered "example home" photoreal swatches ───
+   * A parallel pipeline renders one STANDARD house per material/colour (identical house, only the
+   * roof changes) into server/roofQuote/assets/showroom/. The widget fetches the manifest
+   * (window.RQ_BASE + "/showroom/manifest.json") then paints window.RQ_BASE + "/showroom/<file>"
+   * instantly on each material/colour pick. A missing file/manifest 404s and the widget falls back
+   * to the live 3D colour-tint — so this route is safe to ship before the assets land. Bare-filename
+   * only — no path traversal. */
+  app.get("/api/roofquote/showroom/:name", (req: Request, res: Response) => {
+    const name = path.basename(String(req.params.name || ""));
+    if (!/^[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(name)) {
+      return res.status(404).send("not found");
+    }
+    const fp = path.join(ASSET_DIR, "showroom", name);
+    if (!existsSync(fp)) {
+      // graceful: the widget treats 404 as "assets not shipped yet" → 3D-tint fallback
+      return res.status(404).send("not found");
+    }
+    try {
+      const buf = readFileSync(fp);
+      const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+      const ct =
+        ext === "json"
+          ? "application/json; charset=utf-8"
+          : ext === "png"
+            ? "image/png"
+            : ext === "webp"
+              ? "image/webp"
+              : "image/jpeg";
+      res.setHeader("Content-Type", ct);
+      // manifest must stay fresh (new renders added); images are immutable + cacheable
+      res.setHeader(
+        "Cache-Control",
+        ext === "json" ? "no-store, must-revalidate" : "public, max-age=604800",
+      );
+      res.setHeader("Content-Length", buf.length);
+      return res.end(buf);
+    } catch (err) {
+      log.error("showroom asset serve failed", { err: (err as Error).message });
+      return res.status(500).send("showroom error");
+    }
+  });
+
   /* ─── Server-side geocode (key hidden; no referrer) ─── */
   app.get("/api/roofquote/geocode", async (req: Request, res: Response) => {
     try {
