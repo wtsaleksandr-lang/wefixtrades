@@ -11960,7 +11960,7 @@ function _addNeighbourBuildings(g, neighbours, seq){
     (__srBuildings||[]).forEach(b=>{ try{ if(b&&Array.isArray(b.centroid)&&b.centroid.length===2) seen.push(b.centroid); }catch(_){} });
     const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
       return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
-    const NB_MAX_M=80, NB_MAX_N=12;
+    const NB_MAX_M=150, NB_MAX_N=40;   // show the whole block (a few dozen), matching competitors — not just the nearest few
     const cands=[];
     for(const nb of neighbours){
       const ring0=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring0) continue;
@@ -11992,7 +11992,7 @@ function _addNeighbourBuildings(g, neighbours, seq){
     // re-fit bounds to include the home + the nearby (≤55 m) neighbours now on the map
     if(detectedRing){
       const bnd=new google.maps.LatLngBounds(); detectedRing.forEach(([lng,lat])=>bnd.extend({lat,lng}));
-      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=55){ bb.ring.forEach(([lng,lat])=>bnd.extend({lat,lng})); } }catch(_){} });
+      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=110){ bb.ring.forEach(([lng,lat])=>bnd.extend({lat,lng})); } }catch(_){} });
       __srMap.fitBounds(bnd,{top:70,right:70,bottom:70,left:70});
     }
     // flip the single-detect hint to the multi-building string now that neighbours are tappable
