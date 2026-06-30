@@ -617,6 +617,10 @@
   /* ROOFING DESIGNER OPEN = zero solar (Alex hard rule): hard-hide the lens rail + the Solar/Roofing quote
      card no matter what inline display any later renderQuoteCard()/applyTradeMode() sets. !important wins. */
   body.rd-open #ctrls,body.rd-open #card{display:none!important}
+  /* (FIX 2) ROOFLINE-EDIT step (before the Solar/Roofing trade choice) = the #card (Solar/Roofing tabs +
+     "Lock in my rate") must NEVER appear. Belt-and-suspenders CSS so no stray renderQuoteCard()/inline
+     display:block can leak it before the branch screen. Cleared the moment a trade is chosen. */
+  body.meas-editing #card{display:none!important}
   /* DOT-EDITING (Alex flag "why are there buttons behind this card?"): while the dot editor card (#dotHud)
      owns the bottom of the editor, hard-hide the lens rail so no buttons peek out behind/around the card.
      The editor card is the only control surface visible at the bottom during editing. */
@@ -677,6 +681,19 @@
   #measToggle{position:absolute;top:62px;left:12px;z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
   #measToggle button.on{background:rgba(13,60,252,0.06);border:1px solid #0d3cfc;color:#0f172a}
+  /* ── CUT-3D (owner: "no need to use 3d") — hide every user-facing 3D entry point so the widget is 2D-only.
+     The underlying 3D functions stay dormant (a fast-follow may rebuild 3D) but are unreachable from the UI.
+     1) Roofline-edit Top-down/3D pill → hide the "3D" button (top-down is the only edit lens).
+     2) Solar base "3D model / Satellite" pill (#viewToggle) → removed entirely (the 3D model rendered a void).
+     3) Solar grid 2D/3D pill → hide "3D" (#sgView3d); 2D flux/grid is the only solar designer surface.
+     4) Sun-map Top-down/3D pill → hide "3D". */
+  #measToggle button[data-v="3d"]{display:none!important}
+  #viewToggle{display:none!important}
+  #sgViewToggle #sgView3d{display:none!important}
+  #sunHeatToggle button[data-v="3d"]{display:none!important}
+  /* a single remaining option in a pill looks like dead chrome → flatten the lone "Top-down" so the pill
+     reads as a plain status label, not an interactive toggle. */
+  #measToggle button[data-v="diagram"]{cursor:default}
   /* ── ROOF-OUTLINE DOT EDITOR (Roofr/Sky-Quote style) ── */
   #dotEditor{cursor:crosshair}
   /* magnifier / loupe — a small zoomed close-up of the dot being dragged, so the user can place it
@@ -1856,7 +1873,9 @@ async function pvwattsFallback(ll){ try{ const kw=6;
   if(!j||!j.annualKwh) return false;
   setRegion(); refreshLiveRate();
   const prod=j.annualKwh, save=Math.round(prod*REGION.rate/12), lo=Math.round(kw*1000*2.5/100)*100, hi=Math.round(kw*1000*3.1/100)*100;
-  const card=$("card"); card.style.display="block";
+  const card=$("card");
+  if(window.__measEditing){ card.style.display="none"; return false; }   // (FIX 2) no card before the trade choice
+  card.style.display="block";
   // PER-TRADE GATE (P0): this no-3D solar fallback also prints a price + "saves ~$X/mo" — mask both when
   // solar is gated + no lead yet so no real figure leaks. Reveal normally after lead submit.
   const _fbGated=(typeof window.__priceGated==="function") && window.__priceGated("solar");
@@ -2704,6 +2723,7 @@ function showGracefulDegrade(){
     const card=$("card"); if(!card) return;
     if(typeof window.__leaveHero==="function") window.__leaveHero();
     setStatus("");                       // clear any prior raw status chip
+    if(window.__measEditing){ card.style.display="none"; return; }   // (FIX 2) no card before the trade choice
     card.style.display="block";
     document.body.classList.add("lc-fallback");   // same clean centered fallback presentation as the low-confidence path
     card.innerHTML='<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — we couldn’t get a confident read</div>'+
@@ -2865,7 +2885,14 @@ function wireSheetGrab(card){
   h.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setCardPeek(!cardPeek); } });
 }
 function renderQuoteCard(){
-  if(!QUOTE) return; setRegion(); refreshLiveRate(); refreshSunHours(); const card=$("card"); card.style.display="block";
+  if(!QUOTE) return; setRegion(); refreshLiveRate(); refreshSunHours(); const card=$("card");
+  // (FIX 2) The quote #card carries the Solar/Roofing TAB pair + the "Lock in my rate →" CTA. It must NEVER
+  // appear before the buyer has chosen a trade on the dedicated branch screen. window.__measEditing is true
+  // throughout select-roof → roofline-edit (set false only once bcSolar/bcRoof/bcCommercial fires). So while
+  // editing, force the card hidden and bail — no premature tabs / lock-rate leak in/around the edit state.
+  // (The roofing designer's own __rdOpen hide is handled separately by rdSyncCardHidden.)
+  if(window.__measEditing){ card.style.display="none"; return; }
+  card.style.display="block";
   // (polish: mobile-first-load) the FIRST time the quote sheet appears on a phone, default it to PEEK so
   // the 3D model owns the upper viewport; the buyer drags the handle up for the full quote. One-shot.
   if(!window.__sheetPeekInit){ window.__sheetPeekInit=true; if(isMobileSheet()){ cardPeek=true; } }
@@ -3302,6 +3329,14 @@ async function applyTradeMode(){
     // mount the proper roofing designer (openRoofDesign) uses: bring up our textured 3D model (or the
     // photoreal house fallback), keep panels OFF (ZERO solar), and skin the roof with the picked material.
     panelsVisible=false; $("bPanels").classList.remove("on"); clearPanels();
+    // (CUT-3D + FIX 3) Roofing tab is 2D-only and carries ZERO solar artifacts: clear the flux heatmap +
+    // panels and mount the clean 2D satellite roof. No Three.js scene, no blue panel grid, no flux overlay.
+    if(window.__no3D){
+      try{ clearHeat(); }catch(_){}
+      try{ if(window.__roofReady) mount2DBase(); }catch(_){}
+      if(typeof syncViewToggle==="function") syncViewToggle();
+      return;
+    }
     if(window.__roofReady){
       try{
         const haveModel = (window.__modelQuality!==false);
@@ -4313,6 +4348,27 @@ function applyModelGate(){
    numeric quote (roof size + local sun) still shows in the bottom sheet, so the buyer sees their roof
    AND a clear explanation — never an unexplained blank. */
 const AERIAL_FB_MSG="Detailed sun analysis isn’t available for this location yet — here’s your roof. Your estimate is based on roof size & local sun data.";
+// ── CUT-3D kill switch (owner: "no need to use 3d") ──────────────────────────
+// When true, every base surface routes to the clean 2D top-down aerial (the satellite ortho the quote was
+// measured from) instead of the Three.js massing model (blank void) or Google photoreal tiles (403 → infinite
+// "Loading photoreal 3D…"). The 3D builders stay defined but are never entered from the UI. A fast-follow can
+// flip this to false to re-enable 3D once the photoreal-tiles/void issues are fixed.
+window.__no3D = true;
+// Paint the clean 2D satellite base with NO scary empty-state note — this is the intended default surface now,
+// not a degraded fallback. Reuses the aerial <img> + hides the live 3D/photoreal canvases.
+function mount2DBase(){
+  try{
+    const img=$("aerialFb");
+    const src=(window.QUOTE&&QUOTE.hero)||(typeof QUOTE!=="undefined"&&QUOTE&&QUOTE.hero)||"";
+    if(img && src){ img.src=src; img.style.display="block"; }
+    else if(img){ img.style.display="none"; }
+    try{ const sc=$("scene"); if(sc) sc.style.display="none"; }catch(_){}
+    try{ const gw=$("gmapWrap"); if(gw) gw.style.display="none"; }catch(_){}
+    const note=$("aerialNote"); if(note) note.style.display="none";   // clean roof — no degraded-state note
+    window.__aerialFallback=true;
+    try{ setStatus(""); }catch(_){}
+  }catch(_){ /* best-effort, never throw */ }
+}
 function showAerialFallback(msg){
   try{
     const img=$("aerialFb"); const note=$("aerialNote");
@@ -4348,6 +4404,21 @@ async function enterModelDefault(isInitial){
   // that first call window.__roofReady is still false, so the internal __roofReady-gated steps read this
   // flag instead. On every later toggle isInitial is undefined → the live window.__roofReady gates apply.
   const ready = isInitial || window.__roofReady;
+  // (CUT-3D) 2D-only: this is the single base-surface chokepoint for the Solar context + every "restore the
+  // default preview" path. Instead of mounting the Three.js massing model (void) or photoreal tiles (403),
+  // paint the clean 2D top-down satellite. The engineered panel count / quote still derive from the same data;
+  // only the rendering surface changes. Keep the quote card in sync, then return — no 3D scene is mounted.
+  if(window.__no3D){
+    try{ mount2DBase(); }catch(_){}
+    sunMode=false; matMode=false; labelsVisible=false; panelsVisible=false;
+    try{ $("bSun").classList.remove("on"); $("bRoof").classList.remove("on"); $("bLabels").classList.remove("on"); $("bPanels").classList.remove("on"); $("bModel").classList.remove("on"); }catch(_){}
+    try{ if(typeof stopSunPlay==="function") stopSunPlay(); if(typeof exitRealShade==="function") exitRealShade(); }catch(_){}
+    try{ clearLabels(); clearHeat(); if(typeof clearMat==="function") clearMat(); if(typeof clearRoofMeas==="function") clearRoofMeas(); }catch(_){}
+    try{ $("matHint").style.display="none"; $("sunbar").style.display="none"; }catch(_){}
+    if(typeof renderQuoteCard==="function" && ready){ try{ renderQuoteCard(); }catch(_){} }
+    if(typeof syncViewToggle==="function") syncViewToggle();
+    return;
+  }
   // DEBUG (verification only): ?nocov=1 simulates an address with NO Google 3D/photoreal coverage —
   // forces the fragmented-massing + photoreal-unavailable path so the aerial empty-state fallback can be
   // exercised deterministically (Google's real coverage is intermittent). No effect without the flag.
@@ -4405,6 +4476,7 @@ function syncViewToggle(){
 async function run(addr){
   if(typeof window.__leaveHero==="function") window.__leaveHero();   // dismiss the landing hero once a quote starts
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
+  try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // (FIX 2) fresh address → reset the edit-step gate cleanly
   window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false; try{ if(typeof RoofDots!=="undefined"){ RoofDots.hide(); RoofDots.reset(); } window.__editTotals=null; window.__dotsAuto=null; }catch(_){}   // (dots) new address → drop the previous roof's edited outline + editor state   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     // If this run was launched by picking an autocomplete suggestion whose text matches what we're
@@ -7472,11 +7544,16 @@ const RoofDots=(function(){
     const mc=$("matCanvas"); const box=mc?(mc.parentElement||mc).getBoundingClientRect():null;
     if(!box||!box.width||!box.height){ return; }
     const W=box.width, H=box.height;
-    // the contain-fit content occupies [offX..offX+cw*sc] inside the box; transform scales the WHOLE box about
-    // 0,0 → visible box top-left = vp.tx, size = W*vp.scale (×H). Keep ≥40% of the box on each axis on-screen.
-    const vw=W*vp.scale, vh=H*vp.scale, marginX=Math.min(vw,W)*0.4, marginY=Math.min(vh,H)*0.4;
-    const txMax=W-marginX, txMin=marginX-vw;
-    const tyMax=H-marginY, tyMin=marginY-vh;
+    // (FIX 4) COVER clamp — the satellite raster (#matCanvas) fills the box at vp.scale=1 (object-fit:contain),
+    // and the whole element is CSS-scaled about 0,0 → the visible content spans [vp.tx .. vp.tx + W*vp.scale].
+    // To NEVER expose a blank/white edge on drag, the content must always COVER the box [0..W] (×H):
+    //   left edge covered  ⇒ vp.tx ≤ 0
+    //   right edge covered ⇒ vp.tx + W*vp.scale ≥ W  ⇒  vp.tx ≥ W - W*vp.scale  (= W*(1-scale), ≤ 0)
+    // So tx ∈ [W-vw, 0] (and ty ∈ [H-vh, 0]). At scale=1, vw=W ⇒ the range collapses to {0} (pan locked, the
+    // raster exactly fills the viewport). This replaces the old 40%-margin clamp that let ~60% drag off-frame.
+    const vw=W*vp.scale, vh=H*vp.scale;
+    const txMax=0, txMin=Math.min(0, W-vw);
+    const tyMax=0, tyMin=Math.min(0, H-vh);
     vp.tx=Math.max(txMin,Math.min(txMax,vp.tx));
     vp.ty=Math.max(tyMin,Math.min(tyMax,vp.ty));
   }
@@ -8370,7 +8447,7 @@ window.RoofDots=RoofDots;
 window.__editRoofOutline=()=>RoofDots.show();
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
-    try{ document.body.classList.remove("meas-3d"); window.__measEditing=false; }catch(_){}   // leaving the 3D roofline view → restore the normal rail + allow panels again
+    try{ document.body.classList.remove("meas-3d"); }catch(_){}   // top-down is the only roofline-edit lens now (3D cut). __measEditing stays TRUE through the whole edit step (cleared only on trade choice) so the #card/Lock-rate never leaks here (FIX 2)
     try{ hideMeas3DCard(); }catch(_){}   // 3D-only HUD: hide on the top-down view
     try{ for(const l of (photoLabels||[])){ l.remove&&l.remove(); } photoLabels=[]; window.__photoLabels=0; }catch(_){}   // drop any on-mesh roofline when leaving 3D
     setMeas3DVisible(false);
@@ -8388,7 +8465,7 @@ function showMeasDiagram(on){
     $("matCanvas").style.display="none"; $("measMini").style.display="none";
     for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[];
     try{ renderMeas3DCard(); }catch(_){}   // Part A: always-correct measurement readout on the 3D view (independent of line registration)
-    try{ window.__measEditing=true; panelsVisible=false; if(typeof setModelPanelsVisible==="function") setModelPanelsVisible(false); }catch(_){}
+    try{ window.__measEditing=true; document.body.classList.add("meas-editing"); panelsVisible=false; if(typeof setModelPanelsVisible==="function") setModelPanelsVisible(false); }catch(_){}
     try{ document.body.classList.add("meas-3d"); }catch(_){}
     const _mountSchematic=()=>{ try{
       $("gmapWrap").style.display="none"; $("scene").style.display="block";
@@ -8438,7 +8515,7 @@ function showMeasDiagram(on){
 }
 // 3D (Three.js massing) — the dot overlay maps onto #matCanvas (2D), which is hidden here, so the
 // editor can't be mounted on the 3D scene. Hide the dots; the 3D scene carries its own coloured edges.
-$("measToggle").querySelector('[data-v="3d"]').onclick=()=>{ try{ RoofDots.hide(); }catch(_){} showMeasDiagram(false); };
+$("measToggle").querySelector('[data-v="3d"]').onclick=()=>{ if(window.__no3D) return; try{ RoofDots.hide(); }catch(_){} showMeasDiagram(false); };   // (CUT-3D) 3D edit lens disabled — top-down only
 // Top-down is the EDIT surface — editing is ALWAYS ON here (no separate "Edit outline" mode). Mount the
 // diagram then auto-launch the draggable-dot editor on the next frame (so __diagXform is ready first).
 $("measToggle").querySelector('[data-v="diagram"]').onclick=()=>{ showMeasDiagram(true); };
@@ -9501,6 +9578,7 @@ function sgCommitSelection(){
   }
 }
 async function enterSolar3D(){
+  if(window.__no3D) return;   // (CUT-3D) photoreal solar 3D disabled — 2D flux grid is the only designer surface
   if(!SG_STATE) return;
   sgCommitSelection();
   sgSetViewButtons(true);
@@ -10098,6 +10176,16 @@ async function openRoofDesign(){
   // renderQuoteCard()/applyTradeMode() on the bcRoof entry path (the card-hide above was being undone there).
   try{ document.body.classList.add("rd-open"); }catch(_){}
   try{
+    // (CUT-3D) ROOFING is 2D-only now: show a clean 2D top-down satellite roof behind the materials picker
+    // (NOT the wood-textured toy 3D slab). The picker overlay (#roofDesign) is transparent, so the satellite
+    // roof reads through it. NO solar panels / flux heatmap here (those are cleared above in the lens teardown).
+    if(window.__no3D){
+      try{ mount2DBase(); }catch(_){}
+      try{ const mc=$("matCanvas"); if(mc) mc.style.display="none"; }catch(_){}   // drop any stale 2D measure/material diagram
+      showLoad(false);
+      if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+      return;
+    }
     showLoad("Loading your home in 3D…");
     // RENDER SURFACE for the style preview: our OWN textured 3D MODEL is the premium, reliable surface —
     // it follows the real roof pitch/facets, tiles the material at a true course scale, is NEVER canopy-
@@ -10716,6 +10804,18 @@ function teardownPhotoreal(){
   try{ if(gmap && gmap.stopCameraAnimation) gmap.stopCameraAnimation(); }catch(_){}
 }
 async function setMode(mo){
+  // (CUT-3D) 2D-only: setMode is the chokepoint for EVERY photoreal/schematic entry. Some internal fallback
+  // paths still call setMode("photoreal")/("schematic") directly (not via a hidden toggle). Short-circuit them
+  // to the clean 2D satellite base so the user can never land on the photoreal-403 spinner or the grey void.
+  // enterSolar3D opts out (window.__solar3dActive) — but its 3D entry button is hidden, so it never fires.
+  if(window.__no3D && !window.__solar3dActive){
+    mode="schematic"; window.__mode=mode;
+    try{ mount2DBase(); }catch(_){}
+    try{ if(typeof RoofDots!=="undefined") RoofDots.hide(); }catch(_){}
+    try{ $("sunbar").style.display="none"; }catch(_){}
+    if(typeof syncViewToggle==="function") syncViewToggle();
+    return;
+  }
   const wasPhoto=(mode==="photoreal");
   // (fix8 P0 RACE) monotonic base-view generation. Every base switch bumps it; an async builder
   // (buildPhotoPanels) captures it on entry and refuses to publish its results if the generation has
@@ -12160,6 +12260,11 @@ function __whenRoofReady(cb,tries){
 // Mount the Edit-outline editor for house i and show the per-house nav.
 async function openHouseEditor(i){
   const q=window.__houseQueue||[]; const n=q.length;
+  // (FIX 2) Mark the roofline-EDIT step active for its WHOLE duration. This is the canonical entry to the
+  // edit step (select-roof → here → branch choice). While true, renderQuoteCard() suppresses the #card
+  // (Solar/Roofing tabs + "Lock in my rate") so neither leaks before the buyer picks a trade. It's cleared
+  // only when a trade is chosen (bcSolar/bcRoof/bcCommercial) or the flow restarts.
+  try{ window.__measEditing=true; document.body.classList.add("meas-editing"); }catch(_){}
   // Switch the quote into the Measure context + launch the draggable-dot editor (reuses the existing path).
   try{ if(tradeMode!=="solar"){ tradeMode="solar"; } }catch(_){}
   // Enter the Measure lens AND re-measure THIS house. House 2+ is the bug: bLabels.onclick only re-runs
@@ -12274,7 +12379,7 @@ function showBranchChoice(){
 // Commercial gate → the lead-capture / commercial-quote request (same action as the quote-card footer CTA).
 $("bcCommercial").onclick=()=>{
   $("branchChoice").style.display="none";
-  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
+  try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // left step 3 (chose a trade) → panels allowed again + #card may show (FIX 2)
   window.__houseLoopActive=false;
   $("bar").style.display="flex";
   try{ if(typeof window.__openCapture==="function") window.__openCapture(); }catch(_){}
@@ -12283,7 +12388,7 @@ $("bcCommercial").onclick=()=>{
 $("bcSolar").onclick=()=>{
   if($("bcSolar").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
-  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
+  try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // left step 3 (chose a trade) → panels allowed again + #card may show (FIX 2)
   window.__houseLoopActive=false;
   $("bar").style.display="flex";
   try{ tradeMode="solar"; window.__trade="solar"; }catch(_){}
@@ -12299,7 +12404,7 @@ $("bcSolar").onclick=()=>{
 $("bcRoof").onclick=()=>{
   if($("bcRoof").disabled) return;   // FIX 2b: inert on a large/commercial roof
   $("branchChoice").style.display="none";
-  try{ window.__measEditing=false; }catch(_){}   // left step 3 (chose a trade) → panels allowed again
+  try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // left step 3 (chose a trade) → panels allowed again + #card may show (FIX 2)
   window.__houseLoopActive=false;
   $("bar").style.display="none";   // the design step owns the screen; its own header carries Back + the AI CTA
   try{ tradeMode="roof"; window.__trade="roof"; }catch(_){}
@@ -12483,7 +12588,7 @@ async function applySunView(){
   showLoad(false);
 }
 // Top-down ↔ 3D heatmap toggle (only in the Sun "map" sub-view). Mirrors the Measure lens's #measToggle.
-function setSunMapDim(dim){ window.__sunMapDim=(dim==="3d")?"3d":"2d"; if(sunMode && window.__sunView==="map"){ applySunView(); } else { setSunbarMode("map"); } }
+function setSunMapDim(dim){ if(window.__no3D) dim="2d";   /* (CUT-3D) sun map is 2D top-down only */ window.__sunMapDim=(dim==="3d")?"3d":"2d"; if(sunMode && window.__sunView==="map"){ applySunView(); } else { setSunbarMode("map"); } }
 $("sunHeatToggle").querySelector('[data-v="3d"]').onclick=()=>setSunMapDim("3d");
 $("sunHeatToggle").querySelector('[data-v="2d"]').onclick=()=>setSunMapDim("2d");
 // Toggle the Sun sub-view. Switching map → shadows needs the grey "Model" 3D base (the shadow
