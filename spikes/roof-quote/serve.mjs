@@ -1060,6 +1060,22 @@ http.createServer(async (req,res)=>{
     catch(e){ res.statusCode=404; res.end("poster not found"); }
     return;
   }
+  // SHOWROOM (Part 1): pre-rendered "example home" swatches. manifest.json + images live in ./showroom/.
+  // 404 when absent → the widget falls back to the live 3D colour-tint. Bare-filename only (no traversal).
+  if(u.pathname.startsWith("/showroom/")){
+    const name=path.basename(u.pathname);
+    if(!/^[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(name)){ res.statusCode=404; res.end("not found"); return; }
+    const fp=path.join(import.meta.dirname,"showroom",name);
+    try{
+      const buf=readFileSync(fp);
+      const ext=name.slice(name.lastIndexOf(".")+1).toLowerCase();
+      const ct=ext==="json"?"application/json":ext==="png"?"image/png":ext==="webp"?"image/webp":"image/jpeg";
+      res.setHeader("Content-Type",ct);
+      res.setHeader("Cache-Control",ext==="json"?"no-store, must-revalidate":"public,max-age=604800");
+      res.setHeader("Content-Length",buf.length); res.end(buf);
+    }catch(e){ res.statusCode=404; res.end("not found"); }
+    return;
+  }
   if(u.pathname.startsWith("/assets/hero/") && u.pathname.endsWith(".mp4")){
     const name=path.basename(u.pathname);
     const fp=path.join(import.meta.dirname,"assets","hero",name);
