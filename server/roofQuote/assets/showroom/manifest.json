@@ -1,0 +1,60 @@
+{
+  "materials": {
+    "arch": {
+      "Weathered Wood": "arch__weathered-wood.jpg",
+      "Charcoal": "arch__charcoal.jpg",
+      "Pewter Gray": "arch__pewter-gray.jpg",
+      "Barkwood": "arch__barkwood.jpg",
+      "Driftwood": "arch__driftwood.jpg",
+      "Estate Gray": "arch__estate-gray.jpg",
+      "Hickory": "arch__hickory.jpg",
+      "Slate Blend": "arch__slate-blend.jpg",
+      "Onyx Black": "arch__onyx-black.jpg",
+      "Hunter Green": "arch__hunter-green.jpg"
+    },
+    "3tab": {
+      "Charcoal": "3tab__charcoal.jpg",
+      "Weathered Wood": "3tab__weathered-wood.jpg",
+      "Driftwood": "3tab__driftwood.jpg",
+      "Silver Gray": "3tab__silver-gray.jpg",
+      "Autumn Brown": "3tab__autumn-brown.jpg",
+      "Slate Gray": "3tab__slate-gray.jpg"
+    },
+    "metal": {
+      "Matte Black": "metal__matte-black.jpg",
+      "Charcoal": "metal__charcoal.jpg",
+      "Slate Gray": "metal__slate-gray.jpg",
+      "Dark Bronze": "metal__dark-bronze.jpg",
+      "Galvalume": "metal__galvalume.jpg",
+      "Regal Blue": "metal__regal-blue.jpg",
+      "Forest Green": "metal__forest-green.jpg",
+      "Colonial Red": "metal__colonial-red.jpg",
+      "Copper": "metal__copper.jpg"
+    },
+    "clay": {
+      "Natural Red": "clay__natural-red.jpg",
+      "Sand": "clay__sand.jpg",
+      "Brown Blend": "clay__brown-blend.jpg",
+      "Tobacco": "clay__tobacco.jpg",
+      "Burgundy": "clay__burgundy.jpg",
+      "Aged Mission": "clay__aged-mission.jpg"
+    },
+    "slate": {
+      "Gray": "slate__gray.jpg",
+      "Black": "slate__black.jpg",
+      "Purple": "slate__purple.jpg",
+      "Green": "slate__green.jpg",
+      "Red": "slate__red.jpg",
+      "Mottled": "slate__mottled.jpg"
+    },
+    "cedar": {
+      "New Cedar": "cedar__new-cedar.jpg",
+      "Honey": "cedar__honey.jpg",
+      "Light Brown": "cedar__light-brown.jpg",
+      "Chocolate": "cedar__chocolate.jpg",
+      "Weathered Gray": "cedar__weathered-gray.jpg"
+    }
+  },
+  "baseHouseLabel": "Single-story gable home (AI showroom)",
+  "generatedAt": "2026-06-30T00:00:00Z"
+}
