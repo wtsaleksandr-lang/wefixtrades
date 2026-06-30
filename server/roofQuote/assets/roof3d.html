@@ -11577,7 +11577,7 @@ function _applyPolyStyle(b){
   if(b.selected && b._refining){
     b.poly.setOptions({ strokeColor:"#cfe0ff", strokeOpacity:0.55, strokeWeight:2, fillColor:"#0d3cfc", fillOpacity:0.04, zIndex:b.detected?20:15 });
     try{ if(b.stripe && typeof b.stripe.setSelected==="function") b.stripe.setSelected(false); }catch(_){}
-    try{ if(b.check){ b.check.setMap(null); b.check=null; } }catch(_){}
+    _applyCheck(b);   // suppresses the pin during the refining hold (does NOT destroy the marker)
     return;
   }
   if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.18, zIndex:b.detected?20:15 }); }
@@ -11587,48 +11587,70 @@ function _applyPolyStyle(b){
   else { b.poly.setOptions({ strokeColor:"#ffffff", strokeOpacity:0.92, strokeWeight:2, fillColor:"#0d3cfc", fillOpacity:0.10, zIndex:8 }); }
   // #4 striped solar-grid: every roof gets stripes; the selected roof's are a touch more prominent.
   if(b.stripe && typeof b.stripe.setSelected==="function") b.stripe.setSelected(!!b.selected);
-  // #3 checkmark: only on selected buildings.
+  // HOUSE-PIN: every building gets a centroid pin marker (neutral when unselected, blue ✓ when selected).
   _applyCheck(b);
 }
-// #3 — a circular check-badge marker at the building centroid, present only while selected.
-const _CHECK_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+// #3 / HOUSE-PIN — a circular pin marker centred on EVERY detected building (the home + each neighbour),
+// matching the competitor's clear multi-house selection affordance. TWO states on the SAME marker:
+//   • SELECTED  = brand-blue circle + white checkmark (the legacy selected-roof badge look).
+//   • UNSELECTED= a clean neutral pin — white circle, subtle drop shadow, a brand-blue "+" glyph — so the
+//     buyer can SEE every house is tappable. The pin is ADDITIVE: the subtle outline + striped solar grid
+//     stay exactly as they were; this just adds the obvious tap target on top.
+// The marker is clickable and wired to the SAME _toggleBuilding as the polygon, and swaps icon on toggle.
+const _PIN_SEL_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">'
   + '<circle cx="15" cy="15" r="13" fill="#0d3cfc" stroke="#ffffff" stroke-width="2.5"/>'
   + '<path d="M9 15.5l4 4 8-8.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
   + '</svg>');
-// ITEM A: the selected-roof checkmark must stay proportionate to the building. A Marker icon is fixed in
-// SCREEN px, so at a fixed 30px it dwarfs the footprint when you zoom OUT (building shrinks, check doesn't).
-// Fix: derive the icon px from the current zoom (the reference map opens at zoom 20 → 30px) and HALVE it
-// per zoom step out (~matches the footprint's on-screen shrink), clamped, and re-apply on zoom_changed.
+const _PIN_UNSEL_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">'
+  + '<defs><filter id="ps" x="-30%" y="-30%" width="160%" height="160%">'
+  + '<feDropShadow dx="0" dy="0.7" stdDeviation="1.1" flood-color="#000000" flood-opacity="0.45"/></filter></defs>'
+  + '<circle cx="15" cy="15" r="12.2" fill="#ffffff" stroke="#0d3cfc" stroke-width="1.6" filter="url(#ps)"/>'
+  + '<path d="M15 9.5v11M9.5 15h11" fill="none" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round"/>'
+  + '</svg>');
+// Back-compat alias: older code paths reference _CHECK_ICON_URL for the selected badge.
+const _CHECK_ICON_URL = _PIN_SEL_URL;
+// ITEM A: the pin must stay proportionate to the building. A Marker icon is fixed in SCREEN px, so at a
+// fixed 30px it dwarfs the footprint when you zoom OUT (building shrinks, pin doesn't). Fix: derive the icon
+// px from the current zoom (the reference map opens at zoom 20 → 30px) and HALVE it per zoom step out
+// (~matches the footprint's on-screen shrink), clamped, and re-apply on zoom_changed.
 function _checkSizeForZoom(z){
   if(typeof z!=="number") z=20;
-  // 30px at zoom 20; each level out halves the on-screen footprint, so halve the icon too. Clamp 9..40.
+  // 30px at zoom 20; each level out halves the on-screen footprint, so halve the icon too. Clamp 11..40.
   const px=30*Math.pow(2,(z-20));
-  return Math.max(9,Math.min(40,Math.round(px)));
+  return Math.max(11,Math.min(40,Math.round(px)));
 }
-function _setCheckIcon(b){
-  if(!b||!b.check) return;
+// Apply the correct icon (selected ↔ unselected) at the current-zoom size to a building's pin marker.
+function _setPinIcon(b){
+  if(!b||!b.pin) return;
   try{
     const z=(__srMap&&typeof __srMap.getZoom==="function")?__srMap.getZoom():20;
     const s=_checkSizeForZoom(z), h=Math.round(s/2);
-    b.check.setIcon({ url:_CHECK_ICON_URL, scaledSize:new google.maps.Size(s,s), anchor:new google.maps.Point(h,h) });
+    const url=b.selected?_PIN_SEL_URL:_PIN_UNSEL_URL;
+    b.pin.setIcon({ url, scaledSize:new google.maps.Size(s,s), anchor:new google.maps.Point(h,h) });
+    b.pin.setZIndex(b.selected?60:40);
   }catch(_){}
 }
-// Re-size every visible check whenever the map zoom changes so each stays proportionate to its footprint.
-function _refreshAllChecks(){ try{ (__srBuildings||[]).forEach(b=>{ if(b&&b.check&&b.selected) _setCheckIcon(b); }); }catch(_){} }
+// Re-size every pin whenever the map zoom changes so each stays proportionate to its footprint.
+function _refreshAllChecks(){ try{ (__srBuildings||[]).forEach(b=>{ if(b&&b.pin) _setPinIcon(b); }); }catch(_){} }
+// Ensure a building has its centroid pin marker, in the correct state. The pin is ALWAYS present (both
+// states) and clickable → tapping it toggles selection exactly like tapping the polygon. While a detected
+// home is in the transient "refining" hold, suppress the pin (the outline-only refining look owns the view).
 function _applyCheck(b){
   if(!b) return;
   try{
-    if(b.selected){
-      if(!b.check){
-        const c=b.centroid&&b.centroid.length===2?{lat:b.centroid[1],lng:b.centroid[0]}:null; if(!c) return;
-        b.check=new google.maps.Marker({ position:c, map:__srMap, clickable:false, zIndex:60,
-          icon:{ url:_CHECK_ICON_URL, scaledSize:new google.maps.Size(30,30), anchor:new google.maps.Point(15,15) } });
-        _setCheckIcon(b);   // size to the CURRENT zoom on first paint
-        // arm the zoom listener once — re-scales all checks as the buyer zooms in/out
-        if(__srMap && !__srMap.__checkZoomWired){ __srMap.__checkZoomWired=true; __srMap.addListener("zoom_changed",_refreshAllChecks); }
-      } else { b.check.setMap(__srMap); _setCheckIcon(b); }
-    } else if(b.check){ b.check.setMap(null); }
+    if(b._refining){ if(b.pin){ b.pin.setMap(null); } return; }   // suppressed during the coarse→precise hold
+    const c=b.centroid&&b.centroid.length===2?{lat:b.centroid[1],lng:b.centroid[0]}:null; if(!c) return;
+    if(!b.pin){
+      b.pin=new google.maps.Marker({ position:c, map:__srMap, clickable:true, cursor:"pointer", zIndex:40,
+        icon:{ url:_PIN_UNSEL_URL, scaledSize:new google.maps.Size(30,30), anchor:new google.maps.Point(15,15) } });
+      b.pin.addListener("click",()=>_toggleBuilding(b));   // tap the PIN toggles, same as tapping the roof
+      // arm the zoom listener once — re-scales all pins as the buyer zooms in/out
+      if(__srMap && !__srMap.__checkZoomWired){ __srMap.__checkZoomWired=true; __srMap.addListener("zoom_changed",_refreshAllChecks); }
+    } else { b.pin.setMap(__srMap); b.pin.setPosition(c); }
+    b.check=b.pin;   // back-compat: legacy code reads/clears b.check (now an alias for the pin)
+    _setPinIcon(b);  // size + correct state icon for the CURRENT zoom
   }catch(_){}
 }
 function _toggleBuilding(b){ if(!b) return; b.selected=!b.selected; _applyPolyStyle(b); syncSelection(); }
@@ -11901,8 +11923,8 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     // rebuild the striped solar-grid overlay clipped to the NEW ring (gentle: remove old, add new)
     try{ if(det.stripe) det.stripe.setMap(null); }catch(_){}
     const stripe=_makeStripeOverlay(traced); if(stripe){ stripe.setMap(__srMap); det.stripe=stripe; if(typeof stripe.setSelected==="function") stripe.setSelected(!!det.selected); }
-    // move the checkmark to the new centroid
-    try{ if(det.check){ det.check.setMap(null); det.check=null; } }catch(_){}
+    // move the pin/checkmark to the new centroid (clear both refs so _applyCheck re-anchors it)
+    try{ if(det.pin){ det.pin.setMap(null); det.pin=null; } det.check=null; }catch(_){}
     det._refining=false;                                        // FIX B: clear the hold so the FINAL (precise) outline reveals prominently
     _applyPolyStyle(det);                                       // re-asserts style + check at the new centroid
     syncSelection();                                            // count chip / __srPrimary / Continue track the new ring
@@ -11961,7 +11983,7 @@ function _addNeighbourBuildings(g, neighbours, seq){
       const path=item.ring.map(([lng,lat])=>({lat,lng}));
       const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
       const stripe=_makeStripeOverlay(item.ring); if(stripe) stripe.setMap(__srMap);
-      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, check:null };
+      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, pin:null, check:null };
       _applyPolyStyle(b);
       poly.addListener("click",()=>_toggleBuilding(b));
       __srBuildings.push(b);
@@ -11994,7 +12016,7 @@ async function renderSelectRoofMap(g, fp, neighbours){
       window.__srMap=__srMap;   // expose for headless verification
     } else { __srMap.setCenter(center); __srMap.setZoom(20); }
     // clear any prior overlays (second address / re-render)
-    __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); if(b.check) b.check.setMap(null); if(b.stripe) b.stripe.setMap(null); }catch(_){} });
+    __srBuildings.forEach(b=>{ try{ if(b.poly) b.poly.setMap(null); if(b.pin) b.pin.setMap(null); if(b.stripe) b.stripe.setMap(null); }catch(_){} });
     __srBuildings=[];
     // Build the candidate list: the DETECTED home (fp) + all NEIGHBOUR rings, de-duped by overlap.
     // DEBUG (verification only): ?forceApprox=1 simulates an address whose footprint resolver MISSED
@@ -12025,7 +12047,7 @@ async function renderSelectRoofMap(g, fp, neighbours){
       const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
       // #4 striped solar-grid overlay clipped to this footprint (every roof gets one).
       const stripe=_makeStripeOverlay(item.ring); if(stripe) stripe.setMap(__srMap);
-      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, check:null };
+      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, pin:null, check:null };
       _applyPolyStyle(b);
       poly.addListener("click",()=>_toggleBuilding(b));     // tap toggles selected ⇄ unselected
       __srBuildings.push(b);
