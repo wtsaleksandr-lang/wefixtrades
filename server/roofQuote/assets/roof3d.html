@@ -661,6 +661,18 @@
   #roofReport .rr-row b{color:#0f172a;font-weight:700}
   #roofReport .rr-row i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
   @media (max-width:560px){ #roofReport{top:60px;right:8px;width:170px;padding:10px 12px} #roofReport .rr-big{font-size:18px} }
+  /* 3D-view measurement HUD — ALWAYS-correct readout (sourced from Google segment totals, never the
+     DSM-derived lines). Shown only on the 3D measure view (top-right, the free slot — #card is bottom-left,
+     #measToggle is top-left). Theme-aware glass card. Hidden on top-down + on clearRoofMeas. */
+  #meas3dCard{position:absolute;top:62px;right:12px;z-index:22;background:rgba(255,255,255,0.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:13px;padding:13px 15px;width:212px;display:none;font-size:12px;box-shadow:var(--card-shadow)}
+  #meas3dCard .m3-h{font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  #meas3dCard .m3-big{font-size:22px;font-weight:800;color:var(--ink);line-height:1}
+  #meas3dCard .m3-sub{font-size:11px;color:var(--blue);font-weight:700;margin:3px 0 10px}
+  #meas3dCard .m3-row{display:flex;justify-content:space-between;align-items:center;margin:5px 0;color:var(--muted)}
+  #meas3dCard .m3-row b{color:var(--ink);font-weight:700}
+  #meas3dCard .m3-row i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
+  #meas3dCard .m3-note{color:var(--muted);font-size:11px;line-height:1.35;display:block;margin-top:2px}
+  @media (max-width:560px){ #meas3dCard{top:60px;right:8px;width:176px;padding:10px 12px} #meas3dCard .m3-big{font-size:18px} }
   /* Editor view toggle (Top-down / 3D) — Alex flag: flush TOP-LEFT corner, consistent placement. */
   #measToggle{position:absolute;top:62px;left:12px;z-index:22;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
   #measToggle button{background:transparent;border:none;color:var(--muted);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer}
@@ -990,6 +1002,7 @@
   <button id="aiBtn" style="display:none">See it on my house</button>
   <div id="aiBar" style="display:none"><button id="aiToggle" style="display:none">Before</button><span id="aiMat"></span><button id="aiBack">Top-down</button></div>
   <div id="roofReport"></div>
+  <div id="meas3dCard" role="status" aria-label="Roof measurements"></div>
   <div id="measToggle" role="group" aria-label="Measure view: Top-down or 3D"><button data-v="diagram" class="on" aria-pressed="true">Top-down</button><button data-v="3d" aria-pressed="false">3D</button></div>
   <!-- BASE VIEW switch: our premium 3D model (DEFAULT) ↔ Google satellite/photoreal (opt-in). Shown once a roof is ready. -->
   <div id="viewToggle" role="group" aria-label="Base view: 3D model or Satellite">
@@ -6679,7 +6692,7 @@ function extractFacetPolysLegacy(margin){
 /* ===== EagleView-grade roof geometry (roofgeo.mjs) + measurement visualization ===== */
 let roofMeas=[];
 const EDGE_COLORS={ ridge:"#ff453a", hip:"#ff9f0a", valley:"#2e90ff", eave:"#32d74b", rake:"#bf5af2" };
-function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none";
+function clearRoofMeas(){ for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[]; const r=$("roofReport"); if(r) r.style.display="none"; try{ hideMeas3DCard(); }catch(_){} const t=$("measToggle"); if(t) t.style.display="none"; const mm=$("measMini"); if(mm) mm.style.display="none"; const mc=$("matCanvas"); if(mc&&window.__analysis!=="material") mc.style.display="none";
   // (#7) The dot editor + its sheet/loupe must NOT leak onto the solar-panel / photoreal house views.
   // clearRoofMeas() fires from every lens that REPLACES Measure (Panels, Sun, Satellite, enterSolar3D),
   // so tearing the always-on editor down here keeps the "panels on your real house" payoff unobstructed.
@@ -8359,6 +8372,8 @@ window.__editRoofOutline=()=>RoofDots.show();
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
     try{ document.body.classList.remove("meas-3d"); window.__measEditing=false; }catch(_){}   // leaving the 3D roofline view → restore the normal rail + allow panels again
+    try{ hideMeas3DCard(); }catch(_){}   // 3D-only HUD: hide on the top-down view
+    try{ for(const l of (photoLabels||[])){ l.remove&&l.remove(); } photoLabels=[]; window.__photoLabels=0; }catch(_){}   // drop any on-mesh roofline when leaving 3D
     setMeas3DVisible(false);
     // EDITING IS ALWAYS ON in the Top-down view (no separate "Edit outline" step). Auto-mount the
     // draggable-dot editor on the next frame, once __diagXform is rendered. RoofDots.show() suppresses
@@ -8373,6 +8388,7 @@ function showMeasDiagram(on){
     // floated). If an address has NO photoreal coverage, fall back to the clean grey schematic.
     $("matCanvas").style.display="none"; $("measMini").style.display="none";
     for(const l of roofMeas){ try{ l.remove&&l.remove(); }catch(_){} } roofMeas=[];
+    try{ renderMeas3DCard(); }catch(_){}   // Part A: always-correct measurement readout on the 3D view (independent of line registration)
     try{ window.__measEditing=true; panelsVisible=false; if(typeof setModelPanelsVisible==="function") setModelPanelsVisible(false); }catch(_){}
     try{ document.body.classList.add("meas-3d"); }catch(_){}
     const _mountSchematic=()=>{ try{
@@ -8401,10 +8417,15 @@ function showMeasDiagram(on){
               try{ const ga=(typeof photoGroundAlt==="function")?photoGroundAlt():null; if(ga!=null) ctr.altitude=ga; }catch(_){}
               gmap.flyCameraTo({ endCamera:{ center:ctr, range:rng, tilt:52, heading:15 }, durationMillis:650 });
             } }catch(_){}
-            // No roofline overlay here: our roof geometry does NOT reliably register to Google's photoreal mesh
-            // (aligns on simple roofs, OFFSET on complex ones — verified 2026-06-29), so any overlay is unreliable.
-            // Step-3 3D shows the CLEAN real house; precise roofline/corner editing lives in the Top-down view.
-            try{ for(const l of (photoLabels||[])){ l.remove&&l.remove(); } photoLabels=[]; window.__photoLabels=0; }catch(_){}
+            // Part B: attempt an ALIGNED on-mesh roofline. Our DSM-derived geometry has a horizontal offset
+            // vs Google's photoreal mesh (aligns on simple roofs, drifts on complex ones — 2026-06-29). We
+            // estimate that offset (centroid-align the DSM outline to the mesh-registered __footprintWGS) and
+            // GATE on the residual fit: tight → draw perimeter + offset-corrected interior lines; still drifting
+            // (complex multi-wing) → draw NOTHING and rely on the Part-A measurement HUD. A through-the-house
+            // graphic is worse than none. Re-render the HUD after photoreal settles so it carries final totals.
+            try{ renderMeas3DCard(); }catch(_){}
+            try{ await tryMeasRoofline3D(); }catch(_){}
+            if(myGen!==window.__measGen) return;   // user toggled away mid-draw → don't leave stale lines mounted
             return;
           }
         }
@@ -8433,6 +8454,32 @@ function showRoofReport(t){ t=reconcileTotals(t); window.__roofTotals=t; const r
         row(EDGE_COLORS.rake,"Rake",f(t.rakeFt)+"′"));
   rp.style.display="none";   // the quote card now carries measurements contextually → avoid duplicate HUD
 }
+// ── 3D-VIEW MEASUREMENT HUD (Part A) ─────────────────────────────────────────────────────────────
+// The 3D photoreal measure view shows the buyer's real house; the on-mesh ROOFLINE overlay is
+// unreliable on complex roofs (DSM↔mesh horizontal drift). This HUD guarantees the 3D view ALWAYS
+// carries the correct measurements regardless of line registration — total ft², squares, facets,
+// pitch, and ridge/hip/valley/eave/rake — sourced from the SAME reconciled Google-segment totals the
+// quote card uses (window.__roofTotals / showRoofReport). Shown only on the 3D measure view.
+function renderMeas3DCard(){
+  const el=$("meas3dCard"); if(!el) return;
+  let t=window.__roofTotals;
+  if(!t && typeof getRoofTotals==="function"){ try{ t=getRoofTotals(); }catch(_){} }
+  if(!t){ el.style.display="none"; return; }
+  t=reconcileTotals(t);
+  const f=n=>Math.round(n||0).toLocaleString();
+  const row=(c,l,v)=>'<div class="m3-row"><span>'+(c?'<i style="background:'+c+'"></i>':'')+l+'</span><b>'+v+'</b></div>';
+  el.innerHTML='<div class="m3-h">Roof measurements</div>'+
+    '<div class="m3-big">'+f(t.roofAreaSqFt)+' ft²</div>'+
+    '<div class="m3-sub">'+(t.squares||0).toFixed(1)+' squares · '+(t.facetCount||0)+' facets · '+(t.predominantPitchX12||0)+'/12 pitch</div>'+
+    (edgesUntrustworthy(t)
+      ? '<span class="m3-note">Ridge, hip &amp; valley details are confirmed during your free on-site assessment for this complex roof.</span>'
+      : row(EDGE_COLORS.ridge,"Ridge",f(t.ridgeFt)+"′")+row(EDGE_COLORS.hip,"Hip",f(t.hipFt)+"′")+
+        row(EDGE_COLORS.valley,"Valley",f(t.valleyFt)+"′")+row(EDGE_COLORS.eave,"Eave",f(t.eaveFt)+"′")+
+        row(EDGE_COLORS.rake,"Rake",f(t.rakeFt)+"′"));
+  el.style.display="block";
+}
+function hideMeas3DCard(){ const el=$("meas3dCard"); if(el) el.style.display="none"; }
+window.__renderMeas3DCard=renderMeas3DCard;
 async function buildPhotoLabels(){
   if(!LASTB||!gmap) return;
   if(overlaySuppressed){ for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0; setOverlayNote(true); return; }
@@ -8471,6 +8518,101 @@ async function buildPhotoLabels(){
   }
   window.__photoLabels=photoLabels.length;
 }
+// ── PART B: ALIGNED ON-MESH ROOFLINE (gated) ─────────────────────────────────────────────────────
+// The disabled buildPhotoLabels path drew DSM-derived facet polygons directly on the photoreal mesh;
+// they MIS-REGISTER on complex roofs because our facet geometry comes from Google's Solar DSM, which
+// has a horizontal (X/Y) offset vs Google's photoreal 3D mesh. window.__footprintWGS (the select-roof
+// footprint, registered to the mesh) is the reliable anchor.
+//
+// FIX: estimate the DSM↔footprint horizontal offset (a 2D translation) by aligning the DSM facet
+// outline (facets.__footprintLL) centroid to __footprintWGS centroid, then translate every facet
+// hull by it. Then MEASURE the residual: if the offset-corrected DSM outline still doesn't fit
+// __footprintWGS well (i.e. the drift isn't a pure translation — typical on complex multi-wing
+// roofs), it would still cut through the house → GATE THE LINES OFF and fall back to the HUD only.
+// On a simple roof the residual is small → draw the building perimeter (from the accurate footprint)
+// + the offset-corrected interior facet lines. Shipping a through-the-house graphic is worse than none.
+function _llCentroid(ring){ let sx=0,sy=0,n=0; for(const p of ring){ if(!p)continue; sx+=p[0]; sy+=p[1]; n++; } return n?[sx/n,sy/n]:null; }
+// Hausdorff-style fit: max nearest-edge distance (metres) from each corrected-DSM vertex to the
+// footprint ring, normalised so it's translation-invariant (centroids already aligned). Lower = tighter.
+function _ringFitResidualM(corrLL, footLL){
+  if(!Array.isArray(corrLL)||corrLL.length<3||!Array.isArray(footLL)||footLL.length<3) return Infinity;
+  const lat0=footLL[0][1], mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
+  const toM=p=>[p[0]*mLng,p[1]*mLat];
+  const F=footLL.map(toM);
+  const distToSeg=(p,a,b)=>{ const dx=b[0]-a[0],dy=b[1]-a[1], L2=dx*dx+dy*dy; if(L2<1e-9) return Math.hypot(p[0]-a[0],p[1]-a[1]); let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2; t=Math.max(0,Math.min(1,t)); return Math.hypot(p[0]-(a[0]+t*dx),p[1]-(a[1]+t*dy)); };
+  let resid=[];
+  for(const cp of corrLL){ const p=toM(cp); let best=Infinity; for(let i=0;i<F.length;i++){ const d=distToSeg(p,F[i],F[(i+1)%F.length]); if(d<best)best=d; } resid.push(best); }
+  resid.sort((a,b)=>a-b);
+  return resid[Math.floor(resid.length*0.9)]||Infinity;   // P90 residual — robust to a couple of outlier verts
+}
+// Returns {dLng,dLat,residM,aligned} — the offset to apply + whether it fits tight enough to draw lines.
+const ROOFLINE_FIT_M=0.5;   // P90 corrected-vertex residual must be ≤ this (metres) to trust on-mesh lines.
+// TIGHTENED to 0.5 m (was 1.0): only show on-roof LINES where they're genuinely tight. Verified simple
+// gable ≈0.46 m → draws; complex multi-hip (8829 Spanish Ridge, Las Vegas) ≈0.62 m → falls back to the
+// Part-A HUD only (no lines). The user was burned by mis-registered lines; show the always-correct
+// readout otherwise. A through-the-house graphic is worse than none (Alex, hard rule).
+function computeRooflineOffset(facets){
+  try{
+    const dsmLL=facets&&facets.__footprintLL;
+    const footLL=window.__footprintWGS;
+    if(!Array.isArray(dsmLL)||dsmLL.length<3||!Array.isArray(footLL)||footLL.length<3) return {dLng:0,dLat:0,residM:Infinity,aligned:false,reason:"no-outline"};
+    const cD=_llCentroid(dsmLL), cF=_llCentroid(footLL);
+    if(!cD||!cF) return {dLng:0,dLat:0,residM:Infinity,aligned:false,reason:"no-centroid"};
+    const dLng=cF[0]-cD[0], dLat=cF[1]-cD[1];
+    const corr=dsmLL.map(([lng,lat])=>[lng+dLng,lat+dLat]);
+    const residM=_ringFitResidualM(corr, footLL);
+    const aligned=isFinite(residM) && residM<=ROOFLINE_FIT_M;
+    return {dLng,dLat,residM:isFinite(residM)?+residM.toFixed(2):null,aligned,reason:aligned?"ok":"residual-too-high"};
+  }catch(e){ return {dLng:0,dLat:0,residM:Infinity,aligned:false,reason:"err:"+(e&&e.message||e)}; }
+}
+window.__computeRooflineOffset=computeRooflineOffset;
+// Draw the aligned roofline on the photoreal mesh. ONLY call when the offset passed the fit gate.
+// Building PERIMETER comes from __footprintWGS (registers to the mesh as-is, no offset). Interior facet
+// hull outlines are the DSM facets translated by the computed offset.
+// IMPROVEMENT 2 — MINIMAL LABELS: in 3D we draw the roofline OUTLINE only; NO per-facet SQFT/length
+// markers (they cluttered the photoreal view). The #meas3dCard HUD carries the full per-type breakdown.
+async function buildAlignedRoofline3D(facets, off){
+  if(!gmap) return;
+  const { Polygon3DElement, Polyline3DElement, AltitudeMode }=await google.maps.importLibrary("maps3d");
+  for(const l of photoLabels){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[];
+  const dLng=off.dLng||0, dLat=off.dLat||0;
+  // 1) building PERIMETER from the accurate footprint (no offset — it already registers to the mesh)
+  try{
+    const foot=window.__footprintWGS;
+    if(Array.isArray(foot)&&foot.length>=3){
+      const ring=new Polyline3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, strokeColor:"rgba(34,211,238,0.98)", strokeWidth:3, drawsOccludedSegments:false });
+      ring.coordinates=foot.concat([foot[0]]).map(([lng,lat])=>({lat,lng,altitude:0.6}));
+      gmap.append(ring); photoLabels.push(ring);
+    }
+  }catch(e){ errors.push("perimeter:"+(e&&e.message||e)); }
+  // 2) interior facet outlines — DSM hulls translated by the computed offset (NO labels, minimal clutter)
+  for(const f of facets){
+    try{
+      const hull=f.hull.map(([lng,lat])=>[lng+dLng,lat+dLat]);
+      const poly=new Polygon3DElement({ altitudeMode:AltitudeMode.RELATIVE_TO_MESH, fillColor:"rgba(34,211,238,0.12)", strokeColor:"rgba(34,211,238,0.92)", strokeWidth:2, extruded:false, drawsOccludedSegments:false });
+      poly.outerCoordinates=hull.map(([lng,lat])=>({lat,lng,altitude:0.55})); gmap.append(poly); photoLabels.push(poly);
+    }catch(e){ errors.push("aligned-facet:"+(e&&e.message||e)); }
+  }
+  window.__photoLabels=photoLabels.length;
+}
+// Top-level: try the aligned overlay on the 3D measure view, gate on fit. Sets window.__rooflineGate.
+async function tryMeasRoofline3D(){
+  try{
+    if(!LASTB||!gmap){ window.__rooflineGate={drawn:false,reason:"no-data"}; return; }
+    if(overlaySuppressed){ for(const l of (photoLabels||[])){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0; window.__rooflineGate={drawn:false,reason:"overlay-suppressed"}; return; }
+    const facets=extractFacetPolys();
+    if(!facets||!facets.length){ window.__rooflineGate={drawn:false,reason:"no-facets"}; return; }
+    const off=computeRooflineOffset(facets);
+    window.__rooflineGate={drawn:off.aligned,residM:off.residM,reason:off.reason,offsetM:Math.round(Math.hypot((off.dLng||0)*111320*Math.cos((SITE.lat||0)*Math.PI/180),(off.dLat||0)*111320)*100)/100};
+    if(!off.aligned){
+      // residual too high → lines would still cut through the house on this (complex) roof. Don't draw them.
+      for(const l of (photoLabels||[])){ try{ l.remove&&l.remove(); }catch(_){} } photoLabels=[]; window.__photoLabels=0;
+      return;
+    }
+    await buildAlignedRoofline3D(facets, off);
+  }catch(e){ window.__rooflineGate={drawn:false,reason:"err:"+(e&&e.message||e)}; try{ for(const l of (photoLabels||[])){ l.remove&&l.remove(); } photoLabels=[]; }catch(_){} }
+}
+window.__tryMeasRoofline3D=tryMeasRoofline3D;
 /* full roof sun/shade heat-map: flux raster drawn as roof-clamped colored cells */
 let heatCells=[];
 function clearHeat(){ for(const c of heatCells){ try{ c.remove&&c.remove(); }catch(_){} } heatCells=[]; window.__heatCells=0; if(typeof clearSunHeat3D==="function") clearSunHeat3D(); }   // also drop the 3D per-facet sun overlay wherever heat is cleared
