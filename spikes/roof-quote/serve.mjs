@@ -482,6 +482,15 @@ async function msftBuildingsBbox(bs,bw,bn,be){
   try{ return await scanMsftTileBbox(fs.createReadStream(tileFile),bs,bw,bn,be); }
   catch(_){ return null; }
 }
+// True iff Microsoft HAS a footprint tile covering this bbox's quadkey. Used to disambiguate the two meanings
+// of a `null` msft result: (a) NO MS COVERAGE here (no tile in the index) → a `null` is COMPLETE, nothing more
+// is coming; vs (b) the tile exists but was still downloading at the budget → `null` is TRANSIENT/incomplete.
+// Without this, markets with no MS tiles at all (e.g. ZA/AU, where VIDA is the only source) were flagged
+// `_incomplete` FOREVER (msft===null always) and their vida-only result NEVER cached → every call re-queried.
+async function msftHasTile(bs,bw,bn,be){
+  try{ const lat=(bs+bn)/2, lng=(bw+be)/2; const idx=await loadMsftIndex(); return !!idx[lngLatToQuadkey(lat,lng,9)]; }
+  catch(_){ return false; }
+}
 // ─── VIDA Google–Microsoft–OSM Open Buildings (3rd footprint source — mirrors roofQuoteService.ts) ───
 // FREE public anonymous S3 GeoParquet partitioned by ISO3 country, queried at request-time with DuckDB
 // (no download — bbox row-group pruning). Fills coverage gaps (ZA/AU) where OSM + MS are empty. NEVER
@@ -521,51 +530,136 @@ function wktOuterRing(wkt){
   const open=openRingLL(ring);
   return open.length>=3?open:null;
 }
-let _duckdbConn=null,_duckdbInit=false;
-async function vidaConn(){
-  if(_duckdbInit) return _duckdbConn;
-  _duckdbInit=true;
-  try{
-    const duckdb=_require("duckdb");
-    const db=new duckdb.Database(":memory:");
-    const conn=db.connect();
-    const run=(sql)=>new Promise((resolve,reject)=>conn.run(sql,(e)=>e?reject(e):resolve()));
-    await run("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial;");
-    await run("SET s3_region='us-west-2'; SET s3_url_style='path'; SET s3_endpoint='s3.us-west-2.amazonaws.com';");
-    _duckdbConn=conn;
-  }catch(e){ console.warn("[vida] duckdb init failed — VIDA disabled:", e&&e.message); _duckdbConn=null; }
-  return _duckdbConn;
+// ── RELIABILITY REBUILD (feat/reliable-footprints) ───────────────────────────────────────────────
+// The cold path used to FLAKE because of three bugs the diagnosis surfaced:
+//   1. RACE: vidaConn() set `_duckdbInit=true` synchronously, THEN awaited ~4s of INSTALL/LOAD. Any caller
+//      arriving in that 4s window saw `_duckdbInit===true` and got `_duckdbConn` while it was STILL null →
+//      vida returned [] instantly (no neighbours), and (with bug 3) that empty got cached forever.
+//   2. CACHE-POISON: the route's `_incomplete` guard only checked `msft===null`. A vida-EXPECTED-but-empty
+//      union (e.g. the prewarm race, or a query abandoned at the budget) was cached as COMPLETE → permanent
+//      fail until the 7-day TTL. In ZA/AU (vida is the ONLY source) this cached a hard 0 neighbours.
+//   3. ABANDONED COLD QUERY: timeboxResolve stops WAITING at the budget but, unlike the MS tile (which keeps
+//      downloading + writes its .gz to disk so the next request is instant), the vida query result was just
+//      DISCARDED. So every cold miss re-paid the full ~7.6s and nothing ever self-healed.
+// Diagnosed in-process timings (node duckdb): connect+db 277ms · INSTALL/LOAD+SET 3967ms (paid ONCE per
+// process) · cold S3 query 3398ms · warm query 0.7–1.2s. The S3 path is plenty fast; the flakiness was the
+// bugs above, not the data source. Fixes: (1) memoize the connection as a single shared PROMISE so no caller
+// ever sees a half-built conn; (2) run the vida query to COMPLETION in the background and cache its rows by
+// rounded bbox so a cold miss self-heals on the next call; (3) include vida in the `_incomplete` signal.
+
+let _duckdbConnP=null;
+// Single shared connection PROMISE — every caller awaits the SAME in-flight init, so a request landing during
+// the ~4s INSTALL/LOAD can NEVER get a null/half-built connection (the old race). Resolves to the conn or null.
+function vidaConn(){
+  if(_duckdbConnP) return _duckdbConnP;
+  _duckdbConnP=(async()=>{
+    try{
+      const duckdb=_require("duckdb");
+      const db=new duckdb.Database(":memory:");
+      const conn=db.connect();
+      const run=(sql)=>new Promise((resolve,reject)=>conn.run(sql,(e)=>e?reject(e):resolve()));
+      // Run the one-time extension install + S3 config ONCE on this persistent connection; every query reuses it.
+      await run("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial;");
+      await run("SET s3_region='us-west-2'; SET s3_url_style='path'; SET s3_endpoint='s3.us-west-2.amazonaws.com';");
+      return conn;
+    }catch(e){ console.warn("[vida] duckdb init failed — VIDA disabled:", e&&e.message); return null; }
+  })();
+  return _duckdbConnP;
 }
-async function vidaBuildingsBbox(bs,bw,bn,be,iso3s){
+// ── Query serializer (CRITICAL for cold reliability) ─────────────────────────────────────────────────
+// DIAGNOSED: duckdb serializes work on the in-memory DB, so concurrent S3 reads CONTEND — a CAN query that's
+// ~3.4s alone balloons to ~18s when 3 prewarm queries run alongside it. The old "fire all prewarms at once"
+// therefore actively SLOWED the first real request. Fix: run every vida query through a single-flight queue so
+// only ONE S3 read is in flight at a time (no contention), and give REAL requests PRIORITY over prewarm —
+// a real query jumps ahead of any still-queued prewarm, so the worst it waits is the one in-flight query.
+let _vidaChain=Promise.resolve();
+const _vidaPrioQ=[];   // queued REAL (priority) jobs waiting to jump ahead of prewarm
+let _vidaBusy=false;
+function _vidaPump(){
+  if(_vidaBusy) return;
+  const job=_vidaPrioQ.shift(); if(!job) return;
+  _vidaBusy=true;
+  Promise.resolve().then(job.fn).then(job.resolve,job.reject).finally(()=>{ _vidaBusy=false; _vidaPump(); });
+}
+// Run `fn` (returns a promise) serialized. priority=true → REAL request: jumps the prewarm queue. priority=
+// false → prewarm: chained after everything, never blocks a real request for more than the one in-flight read.
+function vidaRun(fn,priority){
+  if(priority){
+    return new Promise((resolve,reject)=>{ _vidaPrioQ.push({fn,resolve,reject}); _vidaPump(); });
+  }
+  const p=_vidaChain.then(()=>{
+    // before each prewarm step, drain any pending priority jobs so real traffic is never starved behind prewarm
+    return new Promise((res)=>{ const tick=()=>{ if(_vidaPrioQ.length||_vidaBusy){ setTimeout(tick,40); } else res(); }; tick(); });
+  }).then(fn).catch(()=>{});
+  _vidaChain=p.catch(()=>{});
+  return p;
+}
+// Query ONE country parquet for the bbox. Own try/catch so one slow/failing country can't sink the others.
+// `priority` is threaded to vidaRun so real requests preempt prewarm on the shared (serialized) connection.
+async function vidaQueryCountry(conn,iso3,bs,bw,bn,be,priority){
+  const lat0=(bs+bn)/2, out=[];
+  try{
+    const file=`${VIDA_S3}/country_iso=${iso3}/${iso3}.parquet`;
+    const sql=
+      "SELECT ST_AsText(geometry) AS wkt, bf_source, confidence, area_in_meters "+
+      `FROM read_parquet('${file.replace(/'/g,"''")}') `+
+      `WHERE bbox.xmin <= ${be} AND bbox.xmax >= ${bw} AND bbox.ymin <= ${bn} AND bbox.ymax >= ${bs} `+
+      "LIMIT 600;";
+    const rows=await vidaRun(()=>new Promise((resolve,reject)=>conn.all(sql,(e,r)=>e?reject(e):resolve(r||[]))),priority);
+    for(const row of rows){
+      const ring=wktOuterRing(String(row.wkt||""));
+      if(!ring) continue;
+      if(ringAreaLL(ring,lat0)<8) continue;
+      const c=ringCentroidLL(ring);
+      if(c[1]<bs||c[1]>bn||c[0]<bw||c[0]>be) continue;
+      out.push({ id:"vida/"+c[0].toFixed(6)+","+c[1].toFixed(6), ring, centroid:c, area:ringAreaLL(ring,lat0), source:"vida" });
+    }
+  }catch(e){ console.warn("[vida] bbox query failed — skipping country:", iso3, e&&e.message); }
+  return out;
+}
+// Raw multi-country query: candidates run in PARALLEL (one slow country can't block another) on the shared
+// persistent connection, then unioned + deduped. Throws never — returns [] on any failure.
+async function vidaBuildingsBbox(bs,bw,bn,be,iso3s,priority){
   if(!iso3s||!iso3s.length) return [];
   const conn=await vidaConn();
   if(!conn) return [];
-  const lat0=(bs+bn)/2, out=[], seen=new Set();
-  // Query each candidate country's parquet; union (border points legitimately match 2 countries — only one
-  // parquet actually has the buildings, the other returns 0). Each query is independently guarded.
-  for(const iso3 of iso3s){
-    try{
-      const file=`${VIDA_S3}/country_iso=${iso3}/${iso3}.parquet`;
-      const sql=
-        "SELECT ST_AsText(geometry) AS wkt, bf_source, confidence, area_in_meters "+
-        `FROM read_parquet('${file.replace(/'/g,"''")}') `+
-        `WHERE bbox.xmin <= ${be} AND bbox.xmax >= ${bw} AND bbox.ymin <= ${bn} AND bbox.ymax >= ${bs} `+
-        "LIMIT 600;";
-      const rows=await new Promise((resolve,reject)=>conn.all(sql,(e,r)=>e?reject(e):resolve(r||[])));
-      for(const row of rows){
-        const ring=wktOuterRing(String(row.wkt||""));
-        if(!ring) continue;
-        if(ringAreaLL(ring,lat0)<8) continue;
-        const c=ringCentroidLL(ring);
-        if(c[1]<bs||c[1]>bn||c[0]<bw||c[0]>be) continue;
-        const id="vida/"+c[0].toFixed(6)+","+c[1].toFixed(6);
-        if(seen.has(id)) continue;
-        seen.add(id);
-        out.push({ id, ring, centroid:c, area:ringAreaLL(ring,lat0), source:"vida" });
-      }
-    }catch(e){ console.warn("[vida] bbox query failed — skipping country:", iso3, e&&e.message); }
-  }
+  const seen=new Set(), out=[];
+  const per=await Promise.all(iso3s.map(iso3=>vidaQueryCountry(conn,iso3,bs,bw,bn,be,priority)));
+  for(const list of per) for(const b of list){ if(seen.has(b.id)) continue; seen.add(b.id); out.push(b); }
   return out;
+}
+
+// ── Background completion + self-healing cache (mirrors the MS-tile "keep running past the budget" model) ──
+// A cold vida query is kicked off and RUNS TO COMPLETION even after the request stops waiting at its budget.
+// Its rows are stored in this in-memory cache keyed by rounded bbox, so the NEXT call (or the client's
+// background retry) gets the full neighbour set instantly — a cold miss self-heals, never permanently fails.
+const VIDA_BBOX_TTL_MS=7*864e5;                 // neighbourhoods don't change fast
+const _vidaResultCache=new Map();               // bboxKey → { rows, t }
+const _vidaInflight=new Map();                  // bboxKey → Promise<rows>  (in-flight dedup; concurrent callers share it)
+function _vidaKey(bs,bw,bn,be){ return [bs,bw,bn,be].map(n=>n.toFixed(4)).join(","); }
+// Returns the FULL vida rows for the bbox, started/continued in the background. The promise runs to completion
+// (and caches) regardless of whether any individual caller is still waiting on it.
+function vidaBuildingsComplete(bs,bw,bn,be,iso3s){
+  if(!iso3s||!iso3s.length) return Promise.resolve([]);
+  const key=_vidaKey(bs,bw,bn,be);
+  const cached=_vidaResultCache.get(key);
+  if(cached && (Date.now()-cached.t)<VIDA_BBOX_TTL_MS) return Promise.resolve(cached.rows);
+  const inflight=_vidaInflight.get(key);
+  if(inflight) return inflight;
+  // priority=true: this is a REAL request → its country queries preempt prewarm on the serialized connection.
+  const p=vidaBuildingsBbox(bs,bw,bn,be,iso3s,true)
+    .then(rows=>{ if(Array.isArray(rows)&&rows.length){ _vidaResultCache.set(key,{rows,t:Date.now()}); } return rows||[]; })
+    .catch(e=>{ console.warn("[vida] complete failed:",e&&e.message||e); return []; })
+    .finally(()=>{ _vidaInflight.delete(key); });
+  _vidaInflight.set(key,p);
+  return p;
+}
+// True iff a bbox expected vida (had ISO3 candidates) but we don't yet hold a non-empty cached vida result —
+// i.e. the vida layer for this union is still INCOMPLETE and the union must NOT be cached as final.
+function vidaPending(bs,bw,bn,be,iso3s){
+  if(!iso3s||!iso3s.length) return false;       // no supported market → vida not expected → not pending
+  const cached=_vidaResultCache.get(_vidaKey(bs,bw,bn,be));
+  return !(cached && (Date.now()-cached.t)<VIDA_BBOX_TTL_MS && cached.rows.length);
 }
 async function buildingsInBbox(bs,bw,bn,be){
   [bs,bw,bn,be]=_bboxClamp(bs,bw,bn,be);
@@ -575,13 +669,22 @@ async function buildingsInBbox(bs,bw,bn,be){
   // house. Now we RACE both sources concurrently (mirrors footprintCandidates): MS starts downloading its
   // tile WHILE OSM runs, so on an OSM failure the MS footprints are already in hand (or the tile is warm
   // for the immediate retry). Both are time-boxed independently, so total wait ≈ max(budget), NOT the sum.
-  // 3rd source: VIDA Open Buildings (ISO3 from bbox centroid), time-boxed; vidaBuildingsBbox never throws.
+  // 3rd source: VIDA Open Buildings (ISO3 from bbox centroid). We kick off vidaBuildingsComplete() which runs
+  // the duckdb S3 query to COMPLETION in the background (and caches its rows by rounded bbox) regardless of the
+  // request budget — exactly like the MS tile keeps downloading past its budget. The request only WAITS up to
+  // VIDA_FOOTPRINT_BUDGET_MS; if the cold query isn't done yet it falls back to [] for THIS response, but the
+  // query finishes + caches so the very next call returns the full neighbour set instantly (self-heal). The
+  // `vidaPending` check below then flags the union `_incomplete` so the partial (vida-less) answer is NOT cached.
   const iso3s=iso3CandidatesFromBbox(bs,bw,bn,be);
-  const [osm,msft,vida]=await Promise.all([
+  const [osm,msft,vida,msftExpected]=await Promise.all([
     timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
     timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null),
-    timeboxResolve(vidaBuildingsBbox(bs,bw,bn,be,iso3s),VIDA_FOOTPRINT_BUDGET_MS,[]),
+    timeboxResolve(vidaBuildingsComplete(bs,bw,bn,be,iso3s),VIDA_FOOTPRINT_BUDGET_MS,[]),
+    msftHasTile(bs,bw,bn,be),   // does MS even HAVE a tile here? distinguishes "still warming" from "no coverage"
   ]);
+  // `msft===null` is only TRANSIENT (incomplete) if MS actually HAS a tile here that was still downloading.
+  // If MS has no tile at all (msftExpected=false, e.g. ZA/AU), a null is COMPLETE — don't taint the union.
+  const msPending = (msft===null) && msftExpected;
   // UNIVERSAL COVERAGE ("not all roofs are being detected, in any region"): UNION OSM + Microsoft instead of
   // OSM-winner-take-all. Previously, if OSM had ANY building the MS layer was ignored — so buildings OSM was
   // MISSING (but Microsoft HAS) showed no outline (the "some detected, some not" gap, e.g. Scone UK). Now OSM
@@ -609,7 +712,12 @@ async function buildingsInBbox(bs,bw,bn,be){
     // and neighbours never appeared on any later visit. Mark it `_incomplete` so the route does NOT cache it;
     // the next load re-runs live with the warm MS tile and returns the full neighbour set. (OSM flaky →
     // osm===null but MS present is already complete, so only msft===null taints the union.)
-    const _incomplete = (msft===null);
+    // VIDA EXTENSION (reliability rebuild): the union is ALSO incomplete if this bbox EXPECTED vida (a supported
+    // market) but we don't yet hold its non-empty cached result — e.g. the cold S3 query was still running when
+    // the budget expired. Caching that vida-less union would shadow the now-completing query forever (the exact
+    // ZA/AU permanent-empty bug). vidaPending() flags it so the route skips the cache and the next call (after
+    // the background query finishes + caches) returns the full set.
+    const _incomplete = msPending || vidaPending(bs,bw,bn,be,iso3s);
     return { buildings:merged, source, attribution, _incomplete };
   }
   // Nothing usable. `_incomplete` marks WHY: MS was still downloading its cold tile (msft===null) when the
@@ -617,7 +725,9 @@ async function buildingsInBbox(bs,bw,bn,be){
   // will have it. The /buildings route uses this flag to NOT persist the empty result to disk, so the
   // retry re-runs live instead of being shadowed by a cached 0. (osm===null with msft===[] is a genuine
   // empty area — MS truly has nothing here — and is safe to cache.)
-  const _incomplete = (msft===null);
+  // VIDA EXTENSION: a TRUE empty in a supported market is almost always the cold vida query not-yet-done — flag
+  // incomplete so the route doesn't cache a 0 that the background query is about to fill (ZA/AU self-heal).
+  const _incomplete = msPending || vidaPending(bs,bw,bn,be,iso3s);
   return { buildings:[], source:"none", _incomplete };
 }
 
@@ -1368,16 +1478,30 @@ http.createServer(async (req,res)=>{
   if(process.env.RQ_FORCE_NO_CHROMIUM!=="1"){
     getBrowser().then(()=>console.log("[capture] browser pre-warmed")).catch(e=>console.warn("[capture] browser pre-warm skipped:",e&&e.message||e));
   }
-  // Pre-warm VIDA off the critical path: the duckdb httpfs range-cache + spatial/httpfs extensions are
-  // ~9s cold, so the FIRST real ZA/AU request would otherwise blow the budget and return 0 neighbours.
-  // Fire-and-forget a tiny-bbox query per common gap country to warm the connection + range cache.
+  // Pre-warm VIDA off the critical path (fire-and-forget — NEVER blocks startup, all errors swallowed). Two
+  // jobs: (1) build the persistent duckdb connection ONCE (the ~4s INSTALL/LOAD+S3-config) so no real request
+  // ever pays it; (2) touch EACH supported market's parquet metadata/row-group index with a tiny query so the
+  // first real warm query in that country is <1s. Each market runs independently (Promise.allSettled) so one
+  // slow country can't delay the others. Uses vidaBuildingsBbox directly (metadata warm), NOT the bbox cache —
+  // these throwaway tiny boxes shouldn't pollute the result cache.
   (async()=>{
     try{
-      const warm=[ {iso3:"ZAF", s:-26.1700, w:28.1300, n:-26.1690, e:28.1310},   // Bedfordview, JHB
-                   {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100},  // Sydney
-                   {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710} ];   // Hamilton, ON (primary CA market)
-      for(const b of warm){ await vidaBuildingsBbox(b.s,b.w,b.n,b.e,[b.iso3]).catch(()=>{}); }
-      console.log("[vida] prewarm done");
+      const t0=Date.now();
+      const conn=await vidaConn();   // pay INSTALL/LOAD+S3 config once, up front
+      if(!conn){ console.warn("[vida] prewarm: no duckdb conn — VIDA disabled"); return; }
+      console.log("[vida] connection warmed in",(Date.now()-t0),"ms");
+      // One tiny bbox per supported market → warms that parquet's footer/row-group index in the httpfs cache.
+      const warm=[
+        {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710},   // Hamilton, ON (primary CA market)
+        {iso3:"ZAF", s:-26.1700, w:28.1300,  n:-26.1690, e:28.1310},  // Bedfordview, JHB
+        {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100}, // Sydney
+        {iso3:"GBR", s:51.5070,  w:-0.1280,  n:51.5080,  e:-0.1270},  // London
+        {iso3:"IRL", s:53.3490,  w:-6.2610,  n:53.3500,  e:-6.2600},  // Dublin
+        {iso3:"NZL", s:-36.8490, w:174.7630, n:-36.8480, e:174.7640}, // Auckland
+      ];
+      const t1=Date.now();
+      await Promise.allSettled(warm.map(b=>vidaBuildingsBbox(b.s,b.w,b.n,b.e,[b.iso3]).catch(()=>{})));
+      console.log("[vida] prewarm done — 6 markets in",(Date.now()-t1),"ms");
     }catch(e){ console.warn("[vida] prewarm failed:",e&&e.message||e); }
   })();
 });
