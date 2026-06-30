@@ -27,6 +27,7 @@ import { chromium, type Browser } from "playwright";
 import { createLogger } from "../../lib/logger";
 import { noisyCatch } from "../../lib/silentFailureGuard";
 import { detectRoofFeatures } from "../../roofQuote/assets/rooffeatures.mjs";
+import { buildRoofMask, compositeThroughMask } from "./roofMask";
 
 const log = createLogger("RoofQuote");
 
@@ -34,6 +35,10 @@ const log = createLogger("RoofQuote");
 const solarKey = (): string =>
   process.env.ROOFQUOTE_SOLAR_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
 const replicateKey = (): string => process.env.REPLICATE_API_TOKEN || "";
+// Static-Maps tiles key for the top-down satellite base (spike's TILES). Mirrors the
+// route layer's tiles-key resolution so the roof-only path uses the same billed key.
+const tilesKey = (): string =>
+  process.env.ROOFQUOTE_TILES_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
 const geminiKey = (): string => process.env.GEMINI_API_KEY || "";
 const falKey = (): string => process.env.FAL_KEY || "";
 const openaiKey = (): string => process.env.OPENAI_API_KEY || "";
@@ -279,9 +284,15 @@ async function renderFal(dataUri: string, material: string, pkg: string, view: B
 }
 
 type RenderFn = (dataUri: string, material: string, pkg: string, view?: BaseView) => Promise<string>;
+// Provider order: REPLICATE FIRST. OpenAI is at a hard billing limit and Gemini/fal are
+// depleted; Replicate (REPLICATE_API_TOKEN) is the one funded, alive provider, so it leads
+// the chain — heading with a guaranteed-failing OpenAI call would just add a wasted request +
+// its latency before the real render. The full failover is preserved (openai/gemini/fal remain
+// as fallbacks for if/when they are funded again), only reordered. The `aiRender` browse-tier
+// filter still drops openai (the pricey gpt-image-1) regardless of position.
 const RENDER_CHAIN: Array<[string, RenderFn]> = [
-  ["openai", renderOpenAI],
   ["replicate", renderReplicate],
+  ["openai", renderOpenAI],
   ["gemini", renderGemini],
   ["fal", renderFal],
 ];
@@ -1753,6 +1764,195 @@ export async function aiRender(
     } catch (e) {
       tried.push(name + ":" + (e as Error).message);
       log.error("render fail", { provider: name, err: (e as Error).message });
+    }
+  }
+  return { error: "all_providers_failed", tried };
+}
+
+// ── ROOF-ONLY top-down masked re-render (ported from spikes/roof-quote/serve.mjs) ──
+// The GUARANTEED roof-only path (vs the Kontext img2img above, which can edit cars/yard):
+//  1. Static-Maps SATELLITE (top-down, exact Web Mercator).
+//  2. Building-footprint ring → roof MASK in the SAME pixel space (alignment by construction).
+//  3. Flux Fill inpaint — only the masked (roof) pixels can be repainted.
+//  4. POST-COMPOSITE the result back through the mask onto the ORIGINAL bytes → every non-roof
+//     pixel is provably the original (Flux Fill bleeds outside the mask on its own ~33 meanDiff,
+//     so the composite is REQUIRED, not optional).
+const TD_ZOOM = 20, TD_SIZE = 640, TD_SCALE = 2; // → 1280×1280 static-map satellite
+
+async function topDownSatellite(lat: number, lng: number): Promise<Buffer> {
+  const TILES = tilesKey();
+  const url =
+    "https://maps.googleapis.com/maps/api/staticmap?center=" + lat + "," + lng +
+    "&zoom=" + TD_ZOOM + "&size=" + TD_SIZE + "x" + TD_SIZE + "&scale=" + TD_SCALE +
+    "&maptype=satellite&key=" + TILES;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("staticmap_" + r.status);
+  return Buffer.from(await r.arrayBuffer());
+}
+
+// Flux Fill Pro inpaint via Replicate: repaint ONLY the white-mask (roof) pixels.
+// guidance≈3 (a Flux guidance scale, NOT a 0-100 %); 60 washed the colour out in testing.
+async function fluxFillInpaint(satBuf: Buffer, maskBuf: Buffer, material: string): Promise<Buffer> {
+  const REPLICATE = replicateKey();
+  if (!REPLICATE) throw new Error("no_replicate_key");
+  const prompt =
+    "Aerial top-down photo of a house roof. The masked roof is now covered entirely in " + material +
+    ". Photorealistic shingle texture, the whole roof surface this exact colour, sharp, with shadows and lighting matching the surrounding aerial photo. Keep the exact same roof shape, ridges, hips and outline.";
+  const body = {
+    input: {
+      image: "data:image/png;base64," + satBuf.toString("base64"),
+      mask: "data:image/png;base64," + maskBuf.toString("base64"),
+      prompt,
+      steps: 50,
+      guidance: 3,
+      output_format: "png",
+      safety_tolerance: 2,
+    },
+  };
+  const rr = await fetch(
+    "https://api.replicate.com/v1/models/black-forest-labs/flux-fill-pro/predictions",
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer " + REPLICATE, "Content-Type": "application/json", Prefer: "wait" },
+      body: JSON.stringify(body),
+    },
+  );
+  let j = (await rr.json()) as {
+    status?: string; error?: string; output?: string | string[]; urls?: { get: string };
+  };
+  let tries = 0;
+  while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 60) {
+    await new Promise((s) => setTimeout(s, 1500));
+    j = (await fetch(j.urls!.get, { headers: { Authorization: "Bearer " + REPLICATE } }).then((r) =>
+      r.json(),
+    )) as typeof j;
+    tries++;
+  }
+  if (j.status !== "succeeded") throw new Error("flux_fill_" + (j.error || j.status || "failed"));
+  const out = Array.isArray(j.output) ? j.output[0] : j.output;
+  if (!out) throw new Error("flux_fill_no_output");
+  const ab = await fetch(out).then((r) => r.arrayBuffer());
+  return Buffer.from(new Uint8Array(ab));
+}
+
+// Full roof-only render for an address+material. Throws a TYPED error the route turns into a
+// graceful client signal: "no_footprint" → the client gates to the customer-photo upload path
+// (presenting Street View's possibly-wrong house is a trust killer), any other error → the
+// client's Kontext fallback.
+async function renderRoofOnlyTopDown(
+  address: string,
+  material: string,
+): Promise<{ buf: Buffer; base: Buffer; whiteFrac: number; footprintSource?: string; attribution?: string }> {
+  // 1) geocode
+  const g = await geocode(address);
+  if (!("lat" in g) || typeof g.lat !== "number" || typeof g.lng !== "number") {
+    throw new Error("geocode_failed");
+  }
+  const lat = g.lat, lng = g.lng;
+  // 2) footprint ring (OSM→MS→cache) — the mask source. No ring → no roof-only guarantee → caller falls back.
+  const fp = await buildingFootprint(String(lat), String(lng));
+  if (!fp.ring || fp.ring.length < 3) throw new Error("no_footprint");
+  // 3) satellite (cache the base per-address so material flips reuse it)
+  let sat = diskGetBuf("tdsat", address);
+  if (!sat) {
+    sat = await topDownSatellite(lat, lng);
+    diskSetBuf("tdsat", address, sat);
+  }
+  const W = TD_SIZE * TD_SCALE, H = TD_SIZE * TD_SCALE;
+  // 4) mask (feather 4px so eave edges are covered; stays roof-only). fp.ring is [lng,lat] GeoJSON order.
+  const m = buildRoofMask(fp.ring, lat, lng, TD_ZOOM, W, H, TD_SCALE, 4);
+  if (!(m.whiteFrac > 0.002)) throw new Error("mask_empty:" + m.whiteFrac.toFixed(4)); // footprint off-frame → bail
+  // 5) inpaint + 6) composite passthrough (guarantees non-roof == original)
+  const raw = await fluxFillInpaint(sat, m.buf, material);
+  const comp = compositeThroughMask(sat, raw, m.png);
+  return { buf: comp.buf, base: sat, whiteFrac: m.whiteFrac, footprintSource: fp.source, attribution: fp.attribution };
+}
+
+// Route-facing result for the top-down roof-only render. `url`/`base` are BARE root-relative
+// paths (no /api/roofquote prefix) — the client prepends RQ_BASE (see roof3d.html rdAiOnHouse,
+// `RB+j.url`). Mirrors the spike's /airender-topdown response shape exactly.
+export interface TopDownResult {
+  url?: string;
+  base?: string;
+  footprintSource?: string;
+  attribution?: string;
+  whiteFrac?: number;
+  roofOnly?: boolean;
+  cached?: boolean;
+  error?: string;
+}
+
+// Cache key shared by aiRenderTopDown + the image/base streamers.
+function topDownCacheKey(address: string, material: string): string {
+  return "td|" + address + "|" + material + "|v1";
+}
+
+/**
+ * Top-down roof-only render entrypoint for the route layer. Returns the spike's
+ * { url, base, roofOnly:true } shape on success (the client paints the composited
+ * "after" + the original satellite "before"), or { error } on failure (the client
+ * keeps its swatch-tint / Kontext fallbacks). Disk-cached per (address|material).
+ */
+export async function aiRenderTopDown(address: string, material: string): Promise<TopDownResult> {
+  if (!address) return { error: "no_address" };
+  const ck = topDownCacheKey(address, material);
+  const cached = diskGetJSON<TopDownResult>("tdmeta", ck);
+  if (cached && diskGetBuf("tdimg", ck)) return { cached: true, ...cached };
+  try {
+    const r = await renderRoofOnlyTopDown(address, material);
+    diskSetBuf("tdimg", ck, r.buf); // composited (after) image
+    diskSetBuf("tdbase", address, r.base); // original satellite (before) image — per-address
+    const meta: TopDownResult = {
+      url: "/airender-topdown-img?key=" + encodeURIComponent(ck),
+      base: "/airender-topdown-base?address=" + encodeURIComponent(address),
+      footprintSource: r.footprintSource,
+      attribution: r.attribution,
+      whiteFrac: r.whiteFrac,
+      roofOnly: true,
+    };
+    diskSetJSON("tdmeta", ck, meta);
+    return meta;
+  } catch (e) {
+    // Honest typed failure so the client can keep its fallbacks (the client special-cases
+    // "no_footprint" to gate to the customer-photo upload path; any other error → Kontext).
+    const msg = (e as Error)?.message || String(e);
+    log.warn("airender-topdown failed (client falls back)", { err: msg });
+    return { error: msg };
+  }
+}
+
+// Byte readers for the top-down streaming routes (server/routes layer).
+export function readTopDownImage(address: string, material: string): Buffer | null {
+  return diskGetBuf("tdimg", topDownCacheKey(address, material));
+}
+export function readTopDownImageByKey(ck: string): Buffer | null {
+  return diskGetBuf("tdimg", ck);
+}
+export function readTopDownBase(address: string): Buffer | null {
+  return diskGetBuf("tdbase", address);
+}
+
+/**
+ * Customer-photo upload render. The user uploads THEIR OWN house photo → we repaint the roof
+ * material onto it. An arbitrary oblique upload has no exact roof mask, so this uses the
+ * prompt-preservation Kontext chain (street-view prompt variant), NOT the hard top-down mask —
+ * a documented limitation; the top-down satellite path is the roof-only-guaranteed one.
+ * Returns { url } on success or { error } on failure. (Ported from spike /airender-upload.)
+ */
+export async function aiRenderUpload(dataUri: string, material: string): Promise<{ url?: string; provider?: string; source?: string; error?: string; tried?: string[] }> {
+  if (!dataUri || !dataUri.startsWith("data:image/")) return { error: "no_image" };
+  const tried: string[] = [];
+  for (const [name, fn] of RENDER_CHAIN) {
+    try {
+      const rawUrl = await fn(dataUri, material, "", "street");
+      // Re-host the (possibly ephemeral) provider url so the <img> never 404s later. The cache
+      // key is the posted-image hash + material so identical re-uploads hit the byte cache.
+      const ck = "upload|" + houseSeed(dataUri) + "|" + material + "|v1";
+      const stable = await rehostRenderedImage(ck, rawUrl);
+      return { url: stable || rawUrl, provider: name, source: "upload" };
+    } catch (e) {
+      tried.push(name + ":" + (e as Error).message);
+      log.error("upload render fail", { provider: name, err: (e as Error).message });
     }
   }
   return { error: "all_providers_failed", tried };

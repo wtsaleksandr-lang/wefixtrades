@@ -36,6 +36,8 @@ import {
 } from "../services/rateLimiter";
 import {
   aiRender,
+  aiRenderTopDown,
+  aiRenderUpload,
   buildingFootprint,
   buildingsInBbox,
   captureOblique,
@@ -49,6 +51,8 @@ import {
   markObliqueDown,
   pvwattsProduction,
   readRehostedImage,
+  readTopDownBase,
+  readTopDownImageByKey,
   roofFeatures,
   solarInsights,
   streetView,
@@ -700,6 +704,123 @@ export function registerRoofQuoteRoutes(app: Express) {
     } catch (err) {
       log.error("airender-image failed", { err: (err as Error).message });
       return res.status(502).type("text/plain").send("airender_image_failed");
+    }
+  });
+
+  /* ─── ROOF-ONLY top-down render (ported from spike serve.mjs /airender-topdown ~L1466) ───
+   * Satellite base + footprint mask → Flux Fill inpaint → composite passthrough. Returns the
+   * spike's { url, base, roofOnly:true } shape (url=composited PNG where non-roof == original by
+   * construction; base=the original satellite "before"), or { error:"no_footprint" } / { error }
+   * — the client (roof3d.html rdAiOnHouse) special-cases no_footprint to gate to the customer-photo
+   * upload path and any other error to its Kontext fallback. url/base are BARE root-relative paths;
+   * the client prepends RQ_BASE (RB+j.url). Cost-gated by the SAME per-IP/per-calc limiter the
+   * /airender path uses — each uncached render is a real ~$0.04 Replicate Flux-Fill call. */
+  app.get("/api/roofquote/airender-topdown", async (req: Request, res: Response) => {
+    try {
+      const ip = getClientIp(req);
+      const calcParam = String(req.query.calc || "").trim();
+      const slugParam = String(req.query.slug || "").trim();
+      let calcId: number | null = null;
+      if (calcParam && /^\d+$/.test(calcParam)) {
+        calcId = Number(calcParam);
+      } else if (slugParam) {
+        try {
+          const calc = await storage.getCalculatorBySlug(slugParam);
+          calcId = calc?.id ?? null;
+        } catch (lookupErr) {
+          log.warn("airender-topdown calc lookup failed (skipping per-calc cap)", {
+            err: (lookupErr as Error).message,
+          });
+        }
+      }
+      const gate = await evaluateAiRenderGate(aiRenderGateLimiters, { ip, calcId });
+      if (!gate.allowed) {
+        res.setHeader("Retry-After", String(gate.retryAfter));
+        return res.status(429).json({ error: "rate_limited", code: "rate_limited" });
+      }
+
+      const address = String(req.query.address || "");
+      const material = String(req.query.material || "new architectural asphalt shingles");
+      if (!address) return res.json({ error: "no_address" });
+      return res.json(await aiRenderTopDown(address, material));
+    } catch (err) {
+      log.error("airender-topdown failed", { err: (err as Error).message });
+      return res.json({ error: String((err as Error).message || err) });
+    }
+  });
+
+  /* ─── Top-down composited (after) image streamer (spike /airender-topdown-img ~L1489) ───
+   * Serves the on-disk composited PNG by the cache key the topdown meta returned. Pure disk read
+   * (no Google money) → outside the rate gate; a missing key 404s and the widget re-renders. */
+  app.get("/api/roofquote/airender-topdown-img", (req: Request, res: Response) => {
+    try {
+      const key = String(req.query.key || "");
+      if (!key) return res.status(400).type("text/plain").send("missing key");
+      const buf = readTopDownImageByKey(key);
+      if (!buf) return res.status(404).type("text/plain").send("not_found");
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.send(buf);
+    } catch (err) {
+      log.error("airender-topdown-img failed", { err: (err as Error).message });
+      return res.status(502).type("text/plain").send("airender_topdown_img_failed");
+    }
+  });
+
+  /* ─── Top-down original satellite (before) image streamer (spike /airender-topdown-base ~L1494) ───
+   * The before/after slider's "before" — the untouched satellite, per-address. Pure disk read. */
+  app.get("/api/roofquote/airender-topdown-base", (req: Request, res: Response) => {
+    try {
+      const address = String(req.query.address || "");
+      if (!address) return res.status(400).type("text/plain").send("missing address");
+      const buf = readTopDownBase(address);
+      if (!buf) return res.status(404).type("text/plain").send("not_found");
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.send(buf);
+    } catch (err) {
+      log.error("airender-topdown-base failed", { err: (err as Error).message });
+      return res.status(502).type("text/plain").send("airender_topdown_base_failed");
+    }
+  });
+
+  /* ─── Customer-photo upload render (ported from spike /airender-upload ~L1503) ───
+   * The customer uploads THEIR OWN house photo (roof3d.html rdUploadOnHouse posts { image, material })
+   * → we repaint the chosen roof material onto it via the prompt-preservation Kontext chain (no exact
+   * roof mask for an arbitrary oblique upload — documented limitation; the top-down satellite path is
+   * the roof-only-guaranteed one). Returns { url }. Body limit raised for the dataURI in bodyLimits.ts.
+   * Cost-gated by the same per-IP/per-calc limiter — each render is a real ~$0.04 Replicate call. */
+  app.post("/api/roofquote/airender-upload", async (req: Request, res: Response) => {
+    try {
+      const ip = getClientIp(req);
+      const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, any>;
+      const calcParam = String(req.query.calc || body.calc || "").trim();
+      const slugParam = String(req.query.slug || body.slug || "").trim();
+      let calcId: number | null = null;
+      if (calcParam && /^\d+$/.test(calcParam)) {
+        calcId = Number(calcParam);
+      } else if (slugParam) {
+        try {
+          const calc = await storage.getCalculatorBySlug(slugParam);
+          calcId = calc?.id ?? null;
+        } catch (lookupErr) {
+          log.warn("airender-upload calc lookup failed (skipping per-calc cap)", {
+            err: (lookupErr as Error).message,
+          });
+        }
+      }
+      const gate = await evaluateAiRenderGate(aiRenderGateLimiters, { ip, calcId });
+      if (!gate.allowed) {
+        res.setHeader("Retry-After", String(gate.retryAfter));
+        return res.status(429).json({ error: "rate_limited", code: "rate_limited" });
+      }
+
+      const dataUri = typeof body.image === "string" ? body.image : "";
+      const material = (typeof body.material === "string" && body.material) || "new architectural asphalt shingles";
+      return res.json(await aiRenderUpload(dataUri, material));
+    } catch (err) {
+      log.error("airender-upload failed", { err: (err as Error).message });
+      return res.json({ error: String((err as Error).message || err) });
     }
   });
 
