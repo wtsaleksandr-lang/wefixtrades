@@ -11989,12 +11989,8 @@ function _addNeighbourBuildings(g, neighbours, seq){
       __srBuildings.push(b);
     }
     window.__srBuildings=__srBuildings;
-    // re-fit bounds to include the home + the nearby (≤55 m) neighbours now on the map
-    if(detectedRing){
-      const bnd=new google.maps.LatLngBounds(); detectedRing.forEach(([lng,lat])=>bnd.extend({lat,lng}));
-      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=110){ bb.ring.forEach(([lng,lat])=>bnd.extend({lat,lng})); } }catch(_){} });
-      __srMap.fitBounds(bnd,{top:70,right:70,bottom:70,left:70});
-    }
+    // NO re-fit: the map is framed at block level on the FIRST paint (renderSelectRoofMap), so neighbours appear
+    // IN-FRAME as they load WITHOUT the map ever moving on its own — the prior auto-zoom-out was jarring (Alex).
     // flip the single-detect hint to the multi-building string now that neighbours are tappable
     if(__srBuildings.length>1){ const ht=$("srHintT"); if(ht) ht.textContent="Tap buildings to add or remove them from your quote."; }
     syncSelection();
@@ -12054,11 +12050,14 @@ async function renderSelectRoofMap(g, fp, neighbours){
     }
     window.__srBuildings=__srBuildings;   // expose the live list (debug / headless verification / next-task per-house loop)
     if(detectedRing){
-      // Frame the detected home. fitBounds over just the home ring for the first paint; _addNeighbourBuildings
-      // re-fits to include neighbours when they arrive (warm: immediately below; cold: seconds later).
+      // Frame at BLOCK level from the FIRST paint (home centroid ± ~120 m) so the buyer sees their whole block and
+      // neighbours appear IN-FRAME as they load. The map must NEVER auto-move/zoom after this (no re-fit anywhere).
       const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:detectedRing;
-      const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng}));
-      __srMap.fitBounds(b,{top:70,right:70,bottom:70,left:70});
+      const hc=_ringCentroid(frameRing);
+      const mLngF=(111320*Math.cos((g.lat||43)*Math.PI/180))||1, RAD=120;
+      const b=new google.maps.LatLngBounds();
+      b.extend({lat:hc[1]-RAD/111320, lng:hc[0]-RAD/mLngF}); b.extend({lat:hc[1]+RAD/111320, lng:hc[0]+RAD/mLngF});
+      __srMap.fitBounds(b,{top:40,right:40,bottom:40,left:40});
       $("srHintT").textContent="This is the roof we detected. Not your building? Tap the correct one.";
       // If neighbours are already in hand (warm /buildings call), inject them now — flips the hint + re-fits.
       try{ _addNeighbourBuildings(g, neighbours, (typeof __srReqSeq==="number"?__srReqSeq:undefined)); }catch(_){}
@@ -12169,10 +12168,16 @@ async function enterSelectRoof(addr, placeId){
     // home. Fetch the footprint first, paint it, THEN load neighbours in the background (no tight timeout —
     // fetchJSON has no AbortController, so a slow cold call is allowed to finish) and inject them when they
     // resolve. __srReqSeq guards against a superseded address injecting stale neighbours.
-    const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
+    // Fetch footprint AND neighbours in PARALLEL; cap the neighbour wait at ~1.5s so on a WARM area the outlines
+    // paint WITH the home (no pop-in). Cold/slow → cap returns null, the background loop below catches them; the
+    // home paint is never delayed past the footprint it already waits on.
+    const [fp, warmNbr]=await Promise.all([
+      fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null),
+      Promise.race([ fetchNeighbours(g.lat,g.lng).catch(()=>[]), new Promise(r=>setTimeout(()=>r(null),1500)) ])
+    ]);
     if(seq!==__srReqSeq) return;
     const cand=fp&&Array.isArray(fp.candidates)&&fp.candidates[0]?fp.candidates[0]:(fp&&fp.ring?fp:null);
-    await renderSelectRoofMap(g, cand, /* neighbours */ null);    // home paints now; neighbours come in below
+    await renderSelectRoofMap(g, cand, (Array.isArray(warmNbr)&&warmNbr.length)?warmNbr:null);  // warm: neighbours paint WITH the home
     if(seq!==__srReqSeq) return;
     // Background neighbour load — fire-and-forget. Even if this resolves several seconds later (cold server),
     // _addNeighbourBuildings pops the white-outlined roofs in, re-fits bounds, and flips the hint. Guarded by
