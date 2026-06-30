@@ -709,6 +709,23 @@
   #dotEditor{cursor:default}
   #dotEditor.dh-grab{cursor:grab}
   #dotEditor.dh-grabbing{cursor:grabbing}
+  /* ── SHARED MAP ZOOM CONTROL (+/−) — every map/satellite/roof canvas surface gets a visible, tappable
+     +/− stack wired to the SAME zoom the wheel/pinch uses (Alex: "each map, on each step, must have zoom
+     in/out AND +/− option"). Bottom-right of its map surface, subtle, theme-aware tokens (no hardcoded
+     hex), stacked vertically. Tap target ≥40px on mobile. z-index sits above the canvas but below the
+     loupe; pointer-events auto so taps don't fall through to pan/dot-edit. */
+  .zoomctl{position:absolute;right:12px;bottom:12px;z-index:24;display:flex;flex-direction:column;
+    border-radius:11px;overflow:hidden;background:var(--panel);border:1px solid var(--line);
+    box-shadow:var(--card-shadow);pointer-events:auto;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .zoomctl button{width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+    background:transparent;border:0;color:var(--ink);font-family:inherit;font-size:21px;font-weight:600;
+    line-height:1;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .14s ease}
+  .zoomctl button:first-child{border-bottom:1px solid var(--line)}
+  .zoomctl button:hover{background:var(--accent-tint)}
+  .zoomctl button:active{background:var(--accent-soft)}
+  .zoomctl button svg{width:17px;height:17px;stroke:var(--ink);stroke-width:2.4;stroke-linecap:round;fill:none}
+  @media (max-width:560px){ .zoomctl{right:10px;bottom:10px}
+    .zoomctl button{width:42px;height:42px;font-size:23px} }
   /* (#4) COMPACT slim editor bar — must NOT cover the roof being edited. Pinned bottom-centre, narrow,
      low padding; the full stats/pitch/facet detail collapses behind a "Details" expander so the default
      state is a slim prompt + the live area + the actions. Translucent so the roof reads behind it. */
@@ -1204,6 +1221,12 @@
     </div>
     <div class="sg-stage"><canvas id="sgCanvas"></canvas>
       <div class="sg-hint" id="sgHint"><span class="sg-leg"><i style="background:#0d3cfc"></i>panel</span><span class="sg-leg"><i style="background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)"></i>empty</span><span class="sg-leg" id="sgLegLow" style="display:none"><i style="background:#f59e0b"></i>low sun</span></div>
+      <!-- +/− zoom control for the solar panel-designer canvas. Wired to the SAME viewport (SG_STATE.vp /
+           sgZoomAt) the wheel + pinch use → zooms about the canvas centre, clamped to [1,SG_VP_MAX]. -->
+      <div class="zoomctl" id="sgZoom">
+        <button id="sgZoomIn" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button id="sgZoomOut" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      </div>
     </div>
     <div class="sg-panel">
       <div class="sg-metrics">
@@ -7508,6 +7531,7 @@ const RoofDots=(function(){
   // facet to this class's slope multiplier (sloped = plan × classMult) for the simple-tier estimate.
   let pitchClass=null;     // null | "flat" | "sloped" | "steep" | "vsteep"
   let cv=null, hud=null, started=false;
+  let edZoomCtl=null;            // the +/− zoom control element (shown only while the editor is on)
   let loupeWrap=null, loupeCv=null;        // magnifier window + its canvas (close-up of the dragged dot)
   const LOUPE_ZOOM=2.8;                     // magnification of the close-up (2.5–3× reads well on a roof edge)
   // class slope multipliers (sloped-area ÷ plan-area = 1/cos(pitch)). Representative residential pitches:
@@ -7869,6 +7893,21 @@ const RoofDots=(function(){
     cv.style.width=r.width+"px"; cv.style.height=r.height+"px";
     cv.style.left=(r.left-($("app").getBoundingClientRect().left))+"px";
     cv.style.top=(r.top-($("app").getBoundingClientRect().top))+"px";
+    // Pin the +/− zoom control to the BOTTOM-RIGHT of the editor's map box (tracks resize/relayout). It's a
+    // sibling of cv under #app, so we position it in #app-relative coords against the same box rect r. The
+    // editor's bottom bar (#dotHud) is bottom-CENTRE → no collision with this right-edge control.
+    if(edZoomCtl){ const ar=$("app").getBoundingClientRect();
+      // Anchor by RIGHT + BOTTOM offsets against #app so the control's own (content-sized) height is never
+      // part of the position math — avoids a translateY(-100%) circular-collapse when first measured.
+      edZoomCtl.style.left=""; edZoomCtl.style.top=""; edZoomCtl.style.transform="";
+      edZoomCtl.style.right=(ar.right-r.right+12)+"px";
+      // On NARROW viewports the #dotHud is a near-full-width bottom sheet → a bottom-right control would sit
+      // UNDER it (clicks blocked, control hidden). Lift the control to just ABOVE the hud's top edge there.
+      // On desktop the hud is a centred 360px card, so the bottom-right corner is clear → anchor to box bottom.
+      let bottomGap=(ar.bottom-r.bottom+12);
+      try{ if(window.innerWidth<560 && hud && hud.style.display!=="none"){
+        const hr=hud.getBoundingClientRect(); if(hr&&hr.height>0) bottomGap=Math.max(bottomGap,(ar.bottom-hr.top)+10); } }catch(_){}
+      edZoomCtl.style.bottom=bottomGap+"px"; }
     const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height);
     // ring → local overlay px (relative to the canvas element top-left)
     const pts=ringM.map(([xm,ym])=>{ const s=modelToScreen(xm,ym); return s?[s[0]-r.left,s[1]-r.top]:null; });
@@ -8239,6 +8278,22 @@ const RoofDots=(function(){
     loupeWrap=document.createElement("div"); loupeWrap.id="dotLoupe";
     loupeCv=document.createElement("canvas");
     loupeWrap.appendChild(loupeCv); $("app").appendChild(loupeWrap);
+    // ── +/− ZOOM CONTROL for the roofline editor. Wired to the SAME viewport (vp/zoomAt) the wheel + pinch
+    // use, so a button press zooms about the CANVAS CENTRE, clamped to the identical [1,ED_VP_MAX] limits.
+    // Additive: it only triggers the existing zoom — it never touches pan/dot-drag/Split. zedZoom() reads
+    // the live box so it stays correct after resize. (Alex's "+/− on every map" requirement, step 3.)
+    edZoomCtl=document.createElement("div"); edZoomCtl.id="dotZoom"; edZoomCtl.className="zoomctl";
+    edZoomCtl.style.display="none";
+    edZoomCtl.innerHTML=
+      '<button id="dotZoomIn" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>'+
+      '<button id="dotZoomOut" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>';
+    $("app").appendChild(edZoomCtl);
+    // zoom about the centre of the editor's box; STEP factor matches a comfortable wheel notch.
+    const zedZoom=(factor)=>{ if(!on) return; const b=boxRect();
+      const W=(b&&b.width)||(cv?cv.clientWidth:0), H=(b&&b.height)||(cv?cv.clientHeight:0);
+      zoomAt(W/2, H/2, factor); };
+    $("dotZoomIn").onclick=()=>zedZoom(1.35);
+    $("dotZoomOut").onclick=()=>zedZoom(1/1.35);
     $("dotUndo").onclick=undo; $("dotRedo").onclick=redo;
     // (#4) "Details" toggle — expands the slim bar to show squares/perimeter/price + pitch + per-facet chips.
     $("dotMore").onclick=()=>{ const open=hud.classList.toggle("dh-open"); const b=$("dotMore");
@@ -8409,6 +8464,7 @@ const RoofDots=(function(){
     if(!ringM && !initFromModel()) return false;
     resetVp();                          // enter the editor framed-to-fit (scale=1, no pan) every time
     on=true; cv.style.display="block"; hud.style.display="block";
+    if(edZoomCtl) edZoomCtl.style.display="flex";   // reveal the +/− zoom control with the editor
     // C3: while the dot-editor bottom sheet is up, suppress the quote #card's mobile bottom sheet so the
     // two sheets don't stack/collide at 375px — only ONE bottom sheet (the editor) shows.
     try{ document.body.classList.add("dot-editing"); }catch(_){}
@@ -8421,7 +8477,7 @@ const RoofDots=(function(){
     window.addEventListener("resize",layout);
     return true;
   }
-  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; try{ hideLoupe(); }catch(_){} try{ document.body.classList.remove("dot-editing"); }catch(_){}
+  function hide(){ on=false; if(cv) cv.style.display="none"; if(hud) hud.style.display="none"; if(edZoomCtl) edZoomCtl.style.display="none"; try{ hideLoupe(); }catch(_){} try{ document.body.classList.remove("dot-editing"); }catch(_){}
     // clear the satellite's CSS transform + reset the viewport so a CONFIRMED/closed diagram (and any later
     // static renderRoofDiagram repaint) shows the roof framed, not stuck at a prior zoom/pan.
     try{ resetVp(); }catch(_){} window.removeEventListener("resize",layout); }
@@ -8478,6 +8534,7 @@ const RoofDots=(function(){
     init:initFromModel,
     reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; try{ resetVp(); }catch(_){} try{ if(window.__RoofSplit) window.__RoofSplit.reset(); }catch(_){} },
     _state:()=>({on,confirmed,n:ringM&&ringM.length,topo:topoOn}),
+    vpScale:()=>vp.scale,   // current editor zoom level (1=fit … ED_VP_MAX) — for verification/tests
     // ── SPLIT-FEATURE BRIDGE ─────────────────────────────────────────────────
     // Minimal, additive surface the "Split your roof" feature (window.__RoofSplit) uses to clip the
     // outer ring against a divider half-plane and let the EXISTING quote pipeline recompute for the
@@ -9990,6 +10047,7 @@ window.__sgToggleN=(n,turnOn)=>{ if(!SG_STATE) return 0; let c=0; const ids=SG_S
 // viewport state read-out (for pan/zoom verification): the current {tx,ty,scale} + a hash-free proof handle.
 window.__sgViewport=()=>{ if(!SG_STATE||!SG_STATE.vp) return null; const v=SG_STATE.vp; return { tx:+v.tx.toFixed(2), ty:+v.ty.toFixed(2), scale:+v.scale.toFixed(4) }; };
 window.__sgResetVp=()=>{ if(!SG_STATE) return false; SG_STATE.vp={tx:0,ty:0,scale:1}; sgLayout(); sgDraw(); return true; };
+window.__sgVpScale=()=>(SG_STATE&&SG_STATE.vp?SG_STATE.vp.scale:null);   // current solar-grid zoom — for verification/tests
 window.__sgHoverId=()=>SG_STATE?SG_STATE.hoverId:null;
 // CSS-px centroid of the first SELECTED panel (for a real-pointer-tap verification).
 window.__sgFirstSelectedCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return null; const dpr=SG_STATE.proj.dpr;
@@ -10074,6 +10132,10 @@ window.__sgFirstSelectedVisibleCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return
     const d=toDev(e); const factor=Math.exp(-e.deltaY*0.0015);   // smooth, direction-correct (up = zoom in)
     sgZoomAt(d.x,d.y,factor);
   },{passive:false});
+  // +/− ZOOM BUTTONS → same sgZoomAt() the wheel/pinch use, anchored at the canvas CENTRE (device px =
+  // cv.width/2, cv.height/2). Clamped to [1,SG_VP_MAX] inside sgZoomAt. Additive — never touches selection.
+  const zIn=$("sgZoomIn"); if(zIn) zIn.onclick=()=>{ if(SG_STATE&&SG_STATE.proj) sgZoomAt(cv.width/2, cv.height/2, 1.35); };
+  const zOut=$("sgZoomOut"); if(zOut) zOut.onclick=()=>{ if(SG_STATE&&SG_STATE.proj) sgZoomAt(cv.width/2, cv.height/2, 1/1.35); };
   const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
   const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); SG_STATE.vp={tx:0,ty:0,scale:1}; sgClampVp(); sgLayout(); sgDraw(); sgUpdateMetrics(); } };
   // PER-TRADE GATE (solar): "Use this system" reveals the estimate. If solar is gated and no
