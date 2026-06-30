@@ -750,6 +750,19 @@
   #dotHud .dh-btn.dh-primary{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.25}
   #dotHud .dh-btn.dh-more-btn{flex:.85;color:#475569}
   #dotHud .dh-btn.dh-more-btn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07)}
+  /* SPLIT control — subtle by default (detached users ignore it); lit when Split mode is on. */
+  #dotHud .dh-btn.dh-split-btn{flex:.9;color:#475569;font-size:11px;white-space:nowrap}
+  #dotHud .dh-btn.dh-split-btn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07)}
+  /* SPLIT toolbar — the instruction + Apply/Remove row that appears below the actions in Split mode. */
+  #dotHud .dh-splitbar{display:none;margin-top:8px;border-top:1px solid #eef1f6;padding-top:8px}
+  #dotHud.dh-splitting .dh-splitbar{display:block}
+  #dotHud .dh-splitbar .dh-sb-hint{font-size:10.5px;font-weight:700;color:#475569;margin:0 0 7px;line-height:1.35;text-align:left}
+  #dotHud .dh-splitbar .dh-sb-hint b{color:#0d3cfc}
+  #dotHud .dh-splitbar .dh-sb-row{display:flex;gap:5px}
+  #dotHud .dh-splitbar .dh-sb-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:9px;padding:8px 5px;font-size:11.5px;font-weight:700;cursor:pointer}
+  #dotHud .dh-splitbar .dh-sb-btn:disabled{opacity:.4;cursor:default}
+  #dotHud .dh-splitbar .dh-sb-btn.dh-sb-apply{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.2}
+  #dotHud .dh-splitbar .dh-sb-btn.dh-sb-remove{color:#b91c1c;border-color:#f1d4d4}
   @media (max-width:560px){ #dotHud{bottom:12px;padding:7px 9px;width:min(340px,calc(100vw - 16px))} #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px} }
   /* Base view switch — "3D model" (our premium own Three.js model, the DEFAULT first impression) ↔ "Satellite" (Google photoreal tiles, opt-in).
      Mirrors the #measToggle pill look; sits top-centre under the search bar. Shown only when a roof is ready and no other sub-view toggle owns the slot. */
@@ -7962,6 +7975,8 @@ const RoofDots=(function(){
         ctx.beginPath(); ctx.arc(px,py,1.5,0,7); ctx.fillStyle=BRAND_BLUE; ctx.fill();   // blue centre pip = ridge point
       }
     }
+    // SPLIT overlay (divider line + A/B handles + side shading) — only paints while Split mode is active.
+    try{ if(window.__RoofSplit && window.__RoofSplit.active()) window.__RoofSplit.drawOverlay(ctx, r); }catch(_){}
   }
 
   // PERF: request at most ONE draw() per animation frame. Multiple pointermoves in the same frame collapse
@@ -8075,6 +8090,9 @@ const RoofDots=(function(){
   const boxRect=()=>{ const mc=$("matCanvas"); return (mc&&(mc.parentElement||mc).getBoundingClientRect())||{left:0,top:0}; };
   const toBox=e=>{ const b=boxRect(); return { x:e.clientX-b.left, y:e.clientY-b.top }; };
   function onDown(e){ if(!on) return;
+    // SPLIT mode owns the pointer first (drag divider endpoints/line, or tap a side). It returns true when
+    // it consumed the event so the normal dot-drag/pan path below never runs in split mode.
+    try{ if(window.__RoofSplit && window.__RoofSplit.active() && window.__RoofSplit.onDown(e)){ e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){} return; } }catch(_){}
     const sx=e.clientX, sy=e.clientY; const h=hit(sx,sy);
     // ── DOT GRAB takes absolute priority — existing behaviour, untouched. ──
     if(h){
@@ -8114,6 +8132,7 @@ const RoofDots=(function(){
     ringM[dragIdx]=[mm[0],mm[1]];
   }
   function onMove(e){ if(!on) return;
+    try{ if(window.__RoofSplit && window.__RoofSplit.active() && window.__RoofSplit.onMove(e)){ e.preventDefault(); return; } }catch(_){}
     // ── PINCH / PAN on empty canvas (only when NOT dot-dragging). ──
     if(dragIdx<0 && edPtrs.has(e.pointerId)){
       e.preventDefault(); edPtrs.set(e.pointerId,toBox(e));
@@ -8137,6 +8156,7 @@ const RoofDots=(function(){
     // visual draw() + loupe re-sample are rAF-coalesced to once/frame. pointer-UP (onUp) force-flushes both.
     if(mm&&isFinite(mm[0])&&isFinite(mm[1])){ applyDrag(mm); afterEdit({coalesce:true}); scheduleLoupe(); } }
   function onUp(e){
+    try{ if(window.__RoofSplit && window.__RoofSplit.active() && window.__RoofSplit.onUp(e)){ try{ cv.releasePointerCapture(e.pointerId); }catch(_){} return; } }catch(_){}
     // ── release a PAN / PINCH pointer (empty-canvas gesture). ──
     if(edPtrs.has(e.pointerId)){
       edPtrs.delete(e.pointerId);
@@ -8202,8 +8222,18 @@ const RoofDots=(function(){
         '<button id="dotMore" class="dh-btn dh-more-btn" title="Show squares, pitch & per-facet detail" aria-expanded="false">Details</button>'+
         '<button id="dotUndo" class="dh-btn" title="Undo" aria-label="Undo">↶</button>'+
         '<button id="dotRedo" class="dh-btn" title="Redo" aria-label="Redo">↷</button>'+
+        '<button id="dotSplit" class="dh-btn dh-split-btn" title="Semi-detached, townhome or rowhouse? Quote only your unit">⊟ Split</button>'+
         '<button id="dotReset" class="dh-btn" title="Reset to auto outline">Reset</button>'+
         '<button id="dotDone" class="dh-btn dh-primary">Done</button>'+
+      '</div>'+
+      // SPLIT toolbar — hidden until Split mode is entered (body+hud get .dh-splitting). The hint text is
+      // updated live by RoofSplit ("Drag the line…" → "Tap your side" → "Quoting your side").
+      '<div class="dh-splitbar" id="dotSplitBar">'+
+        '<p class="dh-sb-hint" id="dotSplitHint">Drag the line to the shared wall, then tap <b>your</b> side.</p>'+
+        '<div class="dh-sb-row">'+
+          '<button id="dotSplitRemove" class="dh-sb-btn dh-sb-remove" type="button">Use whole roof</button>'+
+          '<button id="dotSplitApply" class="dh-sb-btn dh-sb-apply" type="button" disabled>Quote my side</button>'+
+        '</div>'+
       '</div>';
     $("app").appendChild(hud);
     // magnifier / loupe — a small canvas that shows a zoomed close-up centred on the dot being dragged.
@@ -8219,7 +8249,12 @@ const RoofDots=(function(){
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
       const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
+    // SPLIT (semi-detached / townhome / rowhouse): toggle Split mode. Entering arms the divider overlay;
+    // it does NOT clip anything until the user taps a side + Apply (handled inside RoofSplit). Re-clicking
+    // (or Apply/Remove inside the split toolbar) exits the mode. Off by default → detached flow untouched.
+    $("dotSplit").onclick=()=>{ try{ if(window.__RoofSplit) window.__RoofSplit.toggle(); }catch(_){} };
     $("dotReset").onclick=()=>{ if(!window.__dotsAuto) return; snapshot();
+      try{ if(window.__RoofSplit) window.__RoofSplit.reset(); }catch(_){}   // Reset also clears any active split
       // restore the full shared-vertex pool (interior + boundary) when topoOn, and the outer ring.
       if(topoOn && vertsAuto){ verts=vertsAuto.map(v=>[v[0],v[1]]);
         if(boundaryLinked) syncRingFromTopology(); else { ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); buildNearestRingVI(); } }
@@ -8442,12 +8477,274 @@ const RoofDots=(function(){
       zoom:LOUPE_ZOOM }; }catch(_){ return {mounted:false,visible:false}; } },
     onDiagramRendered:()=>{ if(on) requestAnimationFrame(draw); },   // keep dots aligned after a re-render
     init:initFromModel,
-    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; try{ resetVp(); }catch(_){} },
-    _state:()=>({on,confirmed,n:ringM&&ringM.length,topo:topoOn})
+    reset:()=>{ ringM=null; window.__dotsAuto=null; confirmed=false; topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; vertsAuto=null; try{ resetVp(); }catch(_){} try{ if(window.__RoofSplit) window.__RoofSplit.reset(); }catch(_){} },
+    _state:()=>({on,confirmed,n:ringM&&ringM.length,topo:topoOn}),
+    // ── SPLIT-FEATURE BRIDGE ─────────────────────────────────────────────────
+    // Minimal, additive surface the "Split your roof" feature (window.__RoofSplit) uses to clip the
+    // outer ring against a divider half-plane and let the EXISTING quote pipeline recompute for the
+    // half. Nothing here changes the normal (detached) flow — it is only ever called from Split mode.
+    __split:{
+      ring:()=>ringM?ringM.map(p=>[p[0],p[1]]):null,        // current outer ring (model metres), a copy
+      autoRing:()=>window.__dotsAuto?window.__dotsAuto.map(p=>[p[0],p[1]]):(ringM?ringM.map(p=>[p[0],p[1]]):null),
+      // replace the outer ring with a clipped polygon + recompute everything via the SAME pipeline.
+      // disableTopo:true tears down the interior welded topology so measure() uses the PHASE-1b plan-area
+      // ratio (clippedPlan ÷ autoPlan) — that scales every facet's sloped area + price to the half cleanly.
+      setRing:(poly,disableTopo)=>{ if(!Array.isArray(poly)||poly.length<3) return false;
+        snapshot();
+        if(disableTopo){ topoOn=false; boundaryLinked=false; verts=[]; facetVI=[]; vertDeg=[]; vertOuter=[]; ringVI=[]; }
+        ringM=poly.map(p=>[p[0],p[1]]); afterEdit(); return true; },
+      // restore the full auto outline (undo split) — rebuilds the per-facet topology from scratch.
+      restoreFull:()=>{ snapshot(); try{ initFromModel(); }catch(_){ if(window.__dotsAuto) ringM=window.__dotsAuto.map(p=>[p[0],p[1]]); } afterEdit(); },
+      modelToScreen, screenToModel,
+      requestDraw:()=>{ try{ draw(); }catch(_){} },
+      editing:()=>on
+    }
   };
 })();
 window.RoofDots=RoofDots;
 window.__editRoofOutline=()=>RoofDots.show();
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════
+//  ROOF SPLIT — "Semi-detached? Split" (additive, OFF BY DEFAULT)
+//  Lets a user on a semi-detached / townhome / rowhouse isolate THEIR unit: drag a divider line to the
+//  party wall, tap their side, Apply → the roof outline is CLIPPED to that half and the EXISTING quote
+//  pipeline (RoofDots.measure/afterEdit) recomputes area/squares/perimeter/facets/price for the half.
+//  Detached users never enter Split mode, so the normal flow is 100% unchanged. All geometry is in the
+//  editor's MODEL-LOCAL metres; we project to screen for drawing via the RoofDots.__split bridge, so the
+//  divider stays locked to the roof at any pan/zoom exactly like the dots.
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════
+const RoofSplit=(function(){
+  const B=()=>RoofDots.__split;                  // bridge into RoofDots internals
+  let mode=false;                                // Split mode entered?
+  let A=null, Bp=null;                            // divider endpoints (model metres) — the infinite line A→B splits the roof
+  let selectedSide=null;                          // 0 | 1 — which half-plane the user picked (sign of cross product)
+  let applied=false;                              // has the clip been committed?
+  let dragKind=null, pid=null;                    // "A" | "B" | "line"
+  let dragOff=null;                               // for line-translate: offset of grab point from A
+  let preSplitRing=null;                          // the outline BEFORE clipping (for the un-applied preview math)
+
+  // ── geometry (model metres) ──────────────────────────────────────────────
+  function centroid(r){ let x=0,y=0; for(const p of r){ x+=p[0]; y+=p[1]; } return [x/r.length,y/r.length]; }
+  // signed side of point p relative to the directed line A→B (>0 left, <0 right, 0 on the line)
+  function sideOf(p,a,b){ return (b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]); }
+  // longest edge of the ring → its direction (the roof's main axis); divider runs PERPENDICULAR to it.
+  function longestEdgeDir(r){ let best=0,bd=-1; for(let i=0;i<r.length;i++){ const a=r[i],c=r[(i+1)%r.length];
+    const d=Math.hypot(c[0]-a[0],c[1]-a[1]); if(d>bd){ bd=d; best=i; } }
+    const a=r[best],c=r[(best+1)%r.length]; const L=Math.hypot(c[0]-a[0],c[1]-a[1])||1; return [(c[0]-a[0])/L,(c[1]-a[1])/L]; }
+  function bboxDiag(r){ let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9; for(const p of r){ mnx=Math.min(mnx,p[0]); mny=Math.min(mny,p[1]); mxx=Math.max(mxx,p[0]); mxy=Math.max(mxy,p[1]); }
+    return Math.hypot(mxx-mnx,mxy-mny)||10; }
+  // segment-vs-infinite-line intersection: where edge p1→p2 crosses the line through a,b. Returns point or null.
+  function segLineX(p1,p2,a,b){ const s1=sideOf(p1,a,b), s2=sideOf(p2,a,b);
+    if((s1>0&&s2>0)||(s1<0&&s2<0)) return null;     // both same side → no crossing
+    const denom=(s1-s2); if(Math.abs(denom)<1e-9) return null; const t=s1/denom;
+    return [p1[0]+t*(p2[0]-p1[0]), p1[1]+t*(p2[1]-p1[1])]; }
+  // Sutherland–Hodgman: clip polygon r to the half-plane where sideOf(p,a,b) has the same sign as `keepSign`.
+  function clipHalf(r,a,b,keepSign){
+    const out=[]; const n=r.length;
+    const inside=(p)=>{ const s=sideOf(p,a,b); return keepSign>=0 ? s>=-1e-9 : s<=1e-9; };
+    for(let i=0;i<n;i++){ const cur=r[i], nxt=r[(i+1)%n]; const ci=inside(cur), ni=inside(nxt);
+      if(ci) out.push(cur);
+      if(ci!==ni){ const x=segLineX(cur,nxt,a,b); if(x) out.push(x); } }
+    return out.length>=3?out:null;
+  }
+  // plan area (m²) — to validate a half is non-degenerate
+  function areaM2(r){ let s=0; for(let i=0;i<r.length;i++){ const a=r[i],b=r[(i+1)%r.length]; s+=a[0]*b[1]-b[0]*a[1]; } return Math.abs(s)/2; }
+
+  // ── default divider placement (auto-assist or centroid+perpendicular) ─────
+  function autoAssistEdge(ring){
+    // Try to find an attached neighbour in __srBuildings whose footprint shares an edge with the detected
+    // home; map that shared edge into model metres and place the divider ALONG it. Geo rings are [lng,lat];
+    // model is ENU metres centred on SITE.lat/lng (toLocal in facetsToRoofModel). Returns {a,b} or null.
+    try{
+      const bs=window.__srBuildings||[]; if(bs.length<2) return null;
+      const det=bs.find(x=>x&&x.detected) || bs.find(x=>x&&x.selected); if(!det||!Array.isArray(det.ring)) return null;
+      const lat0=(typeof SITE!=="undefined"&&SITE)?SITE.lat:det.centroid[1];
+      const lng0=(typeof SITE!=="undefined"&&SITE)?SITE.lng:det.centroid[0];
+      const mLat=111320, mLng=111320*Math.cos(lat0*Math.PI/180);
+      const toLocal=(lng,lat)=>[(lng-lng0)*mLng,(lat-lat0)*mLat];
+      const detM=det.ring.map(([lng,lat])=>toLocal(lng,lat));
+      // candidate party-wall edges: a detected-home edge that runs near-parallel & close to ANY neighbour edge
+      let best=null, bestScore=1e9;
+      for(const nb of bs){ if(nb===det||!nb||!Array.isArray(nb.ring)) continue;
+        const nbM=nb.ring.map(([lng,lat])=>toLocal(lng,lat));
+        for(let i=0;i<detM.length;i++){ const a=detM[i], b=detM[(i+1)%detM.length];
+          const ed=Math.hypot(b[0]-a[0],b[1]-a[1]); if(ed<2) continue;
+          const da=[(b[0]-a[0])/ed,(b[1]-a[1])/ed]; const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+          for(let j=0;j<nbM.length;j++){ const c=nbM[j], d2=nbM[(j+1)%nbM.length];
+            const ned=Math.hypot(d2[0]-c[0],d2[1]-c[1]); if(ned<2) continue;
+            const dn=[(d2[0]-c[0])/ned,(d2[1]-c[1])/ned];
+            const par=Math.abs(da[0]*dn[0]+da[1]*dn[1]); if(par<0.94) continue;   // ~parallel only
+            // perpendicular distance from the detected edge's midpoint to the neighbour edge's line
+            const dist=Math.abs((mid[0]-c[0])*(-dn[1])+(mid[1]-c[1])*dn[0]);
+            if(dist<1.2){ const score=dist+(1-par)*4; if(score<bestScore){ bestScore=score; best={a:a.slice(),b:b.slice()}; } }
+          }
+        }
+      }
+      if(!best) return null;
+      // extend the shared edge well beyond the roof bbox so the infinite line cleanly splits the outline
+      const diag=bboxDiag(ring); const a=best.a, b=best.b; const L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;
+      const dx=(b[0]-a[0])/L, dy=(b[1]-a[1])/L; const cen=centroid(ring);
+      // re-centre the extended line on the roof centroid projected onto the edge direction (keeps it on-roof)
+      const t=(cen[0]-a[0])*dx+(cen[1]-a[1])*dy; const px=a[0]+dx*t, py=a[1]+dy*t;
+      const ext=diag*0.75;
+      return { a:[px-dx*ext,py-dy*ext], b:[px+dx*ext,py+dy*ext], auto:true };
+    }catch(_){ return null; }
+  }
+  // does this divider split the outline into two MEANINGFUL halves (each ≥15% of the area)? A divider that
+  // sits at/outside the footprint boundary (e.g. Google already returned just one unit) leaves one side empty
+  // → not a usable default. We only keep auto-assist when it genuinely bisects; else centroid fallback.
+  function bisectsWell(ring,a,b){
+    const full=areaM2(ring); if(full<=0) return false;
+    const hp=clipHalf(ring,a,b,1), hn=clipHalf(ring,a,b,-1);
+    const ap=hp?areaM2(hp):0, an=hn?areaM2(hn):0;
+    return Math.min(ap,an) >= full*0.15;
+  }
+  function centroidDivider(ring){
+    // through the centroid, PERPENDICULAR to the roof's longest edge (splits into two plausible halves)
+    const cen=centroid(ring); const dir=longestEdgeDir(ring); const perp=[-dir[1],dir[0]];
+    const ext=bboxDiag(ring)*0.75;
+    return { a:[cen[0]-perp[0]*ext,cen[1]-perp[1]*ext], b:[cen[0]+perp[0]*ext,cen[1]+perp[1]*ext], auto:false };
+  }
+  function defaultDivider(ring){
+    const aa=autoAssistEdge(ring);
+    if(aa && bisectsWell(ring,aa.a,aa.b)){ return aa; }   // keep auto-assist only if it really bisects
+    return centroidDivider(ring);                          // else: always-bisecting centroid default
+  }
+
+  // ── HUD wiring ────────────────────────────────────────────────────────────
+  function setHint(html){ const h=$("dotSplitHint"); if(h) h.innerHTML=html; }
+  function refreshApply(){ const ap=$("dotSplitApply"); if(ap) ap.disabled=(selectedSide==null||applied); }
+  function setSplittingClass(onF){ try{ const hud=$("dotHud"); if(hud) hud.classList.toggle("dh-splitting",onF);
+      const sb=$("dotSplit"); if(sb) sb.classList.toggle("on",onF); document.body.classList.toggle("dot-splitting",onF); }catch(_){} }
+
+  // ── enter / exit ──────────────────────────────────────────────────────────
+  function toggle(){ if(mode) exit(); else enter(); }
+  function enter(){
+    const ring=B().ring(); if(!ring||ring.length<3) return;
+    mode=true; applied=false; selectedSide=null; dragKind=null;
+    preSplitRing=B().autoRing()||ring;
+    const d=defaultDivider(preSplitRing); A=d.a; Bp=d.b;
+    setSplittingClass(true);
+    setHint(d.auto ? 'We lined the divider up with the shared wall. Tap <b>your</b> side, then Quote my side.'
+                   : 'Drag the line to the shared wall, then tap <b>your</b> side.');
+    refreshApply();
+    wireSplitButtons();
+    B().requestDraw();
+  }
+  function exit(){ mode=false; dragKind=null; selectedSide=null; applied=false; setSplittingClass(false); B().requestDraw(); }
+  // reset() — called by RoofDots.reset()/Reset button: drop split state AND restore the full outline if clipped.
+  function reset(){ if(applied){ try{ B().restoreFull(); }catch(_){} } mode=false; applied=false; selectedSide=null; dragKind=null; A=Bp=null; setSplittingClass(false); }
+
+  let _wired=false;
+  function wireSplitButtons(){ if(_wired) return; _wired=true;
+    const ap=$("dotSplitApply"), rm=$("dotSplitRemove");
+    if(ap) ap.onclick=()=>apply();
+    if(rm) rm.onclick=()=>removeSplit();
+  }
+
+  // ── apply / remove ─────────────────────────────────────────────────────────
+  function apply(){
+    if(selectedSide==null||applied||!A||!Bp) return;
+    const ring=preSplitRing||B().ring(); if(!ring) return;
+    const keepSign=(selectedSide===1)?1:-1;
+    const half=clipHalf(ring,A,Bp,keepSign);
+    if(!half || areaM2(half)<2){ setHint('That side is too small to quote — drag the line so your unit is on the picked side.'); return; }
+    // hand the clipped half to the EXISTING pipeline; disableTopo so measure() uses the plan-area ratio → all
+    // numbers (area/squares/perimeter/facets/price) recompute for the half automatically.
+    if(B().setRing(half,true)){
+      applied=true;
+      setHint('Quoting <b>your</b> side only. The estimate now covers this half — drag the dots to fine-tune, or Use whole roof to undo.');
+      refreshApply();
+      B().requestDraw();
+    }
+  }
+  function removeSplit(){
+    if(applied){ try{ B().restoreFull(); }catch(_){} }
+    // restore the un-clipped divider so the user can re-pick, OR exit entirely. We exit Split mode for clarity.
+    applied=false; selectedSide=null; A=Bp=null; exit();
+  }
+
+  // ── pointer handling (model-space hit tests via the bridge's screen↔model maps) ──
+  const HANDLE_GRAB=26;                          // generous CSS-px grab radius (mobile-friendly)
+  function endpointScreens(){ const sa=B().modelToScreen(A[0],A[1]), sb=B().modelToScreen(Bp[0],Bp[1]); return [sa,sb]; }
+  function onDown(e){ if(!mode||applied||!A||!Bp) return false;
+    const sx=e.clientX, sy=e.clientY; const [sa,sb]=endpointScreens(); if(!sa||!sb) return false;
+    if(Math.hypot(sa[0]-sx,sa[1]-sy)<=HANDLE_GRAB){ dragKind="A"; pid=e.pointerId; return true; }
+    if(Math.hypot(sb[0]-sx,sb[1]-sy)<=HANDLE_GRAB){ dragKind="B"; pid=e.pointerId; return true; }
+    // near the line body (between the handles) → translate the whole line
+    const d=distToSeg(sx,sy,sa,sb);
+    if(d<=18){ dragKind="line"; pid=e.pointerId; const mm=B().screenToModel(sx,sy); dragOff=mm?[mm[0]-A[0],mm[1]-A[1]]:[0,0]; return true; }
+    // otherwise: a TAP to pick a side. Resolve which half-plane the tap fell in.
+    const mm=B().screenToModel(sx,sy); if(mm){ pickSideAt(mm); pid=e.pointerId; dragKind="tap"; return true; }
+    return false;
+  }
+  function onMove(e){ if(!mode||applied||dragKind==null||e.pointerId!==pid) return false;
+    if(dragKind==="tap") return true;            // a tap doesn't drag
+    const mm=B().screenToModel(e.clientX,e.clientY); if(!mm) return true;
+    if(dragKind==="A"){ A=[mm[0],mm[1]]; }
+    else if(dragKind==="B"){ Bp=[mm[0],mm[1]]; }
+    else if(dragKind==="line"){ const nb=[mm[0]-dragOff[0],mm[1]-dragOff[1]]; const dx=nb[0]-A[0],dy=nb[1]-A[1]; A=[A[0]+dx,A[1]+dy]; Bp=[Bp[0]+dx,Bp[1]+dy]; }
+    // moving the divider invalidates a prior side pick only if the pick is now ambiguous — keep it but redraw.
+    B().requestDraw(); return true;
+  }
+  function onUp(e){ if(!mode||dragKind==null) return false; const wasTap=(dragKind==="tap"); dragKind=null; pid=null; dragOff=null;
+    if(!wasTap) B().requestDraw(); return true; }
+  function distToSeg(px,py,a,b){ const vx=b[0]-a[0], vy=b[1]-a[1]; const wx=px-a[0], wy=py-a[1];
+    const c1=vx*wx+vy*wy; if(c1<=0) return Math.hypot(px-a[0],py-a[1]);
+    const c2=vx*vx+vy*vy; if(c2<=c1) return Math.hypot(px-b[0],py-b[1]);
+    const t=c1/c2; return Math.hypot(px-(a[0]+t*vx),py-(a[1]+t*vy)); }
+  function pickSideAt(mm){ const s=sideOf(mm,A,Bp); selectedSide=(s>=0)?1:0;
+    setHint('Selected your side. Tap the other side to switch, or <b>Quote my side</b> to apply.'); refreshApply(); B().requestDraw(); }
+
+  // ── overlay draw (called from RoofDots.draw with its ctx + element rect) ──
+  function drawOverlay(ctx,r){
+    if(!mode||applied||!A||!Bp) return;
+    const ring=preSplitRing||B().ring(); if(!ring) return;
+    const sa=B().modelToScreen(A[0],A[1]), sb=B().modelToScreen(Bp[0],Bp[1]); if(!sa||!sb) return;
+    const toLocal=(s)=>[s[0]-r.left,s[1]-r.top];
+    // shade each half of the ROOF polygon. selected side = solid-ish blue, other = dimmed grey veil.
+    for(const sign of [1,-1]){
+      const half=clipHalf(ring,A,Bp,sign); if(!half||half.length<3) continue;
+      const pts=half.map(p=>{ const s=B().modelToScreen(p[0],p[1]); return s?toLocal(s):null; }); if(pts.some(p=>!p)) continue;
+      ctx.beginPath(); pts.forEach((p,i)=>{ i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.closePath();
+      const isSel=(selectedSide!=null) && ((sign>=0?1:0)===selectedSide);
+      if(selectedSide==null){ ctx.fillStyle = sign>0 ? "rgba(13,60,252,0.16)" : "rgba(15,23,42,0.30)"; }
+      else { ctx.fillStyle = isSel ? "rgba(13,60,252,0.22)" : "rgba(15,23,42,0.42)"; }
+      ctx.fill();
+      // centroid label
+      let cx=0,cy=0; for(const p of pts){ cx+=p[0]; cy+=p[1]; } cx/=pts.length; cy/=pts.length;
+      if(selectedSide!=null && isSel){ const t="Quoting your side";
+        ctx.font="700 11px system-ui,Segoe UI,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.lineWidth=3; ctx.strokeStyle="rgba(13,20,34,0.78)"; ctx.lineJoin="round"; ctx.strokeText(t,cx,cy);
+        ctx.fillStyle="#fff"; ctx.fillText(t,cx,cy); }
+    }
+    // divider line (white casing + brand blue), drawn over the shading.
+    const la=toLocal(sa), lb=toLocal(sb);
+    ctx.lineJoin="round"; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(la[0],la[1]); ctx.lineTo(lb[0],lb[1]);
+    ctx.strokeStyle="rgba(255,255,255,0.9)"; ctx.lineWidth=5; ctx.stroke();
+    ctx.strokeStyle="#0d3cfc"; ctx.setLineDash([9,6]); ctx.lineWidth=2.4; ctx.stroke(); ctx.setLineDash([]);
+    // A / B endpoint handles — large grabbable pucks beyond the roof bbox.
+    for(const lp of [la,lb]){
+      ctx.beginPath(); ctx.arc(lp[0],lp[1],9,0,7); ctx.fillStyle="#fff"; ctx.fill();
+      ctx.lineWidth=2.4; ctx.strokeStyle="#0d3cfc"; ctx.stroke();
+      ctx.beginPath(); ctx.arc(lp[0],lp[1],3,0,7); ctx.fillStyle="#0d3cfc"; ctx.fill();
+    }
+  }
+
+  return { toggle, enter, exit, reset, onDown, onMove, onUp, drawOverlay,
+    active:()=>mode, applied:()=>applied,
+    // test/verification hooks
+    _state:()=>({mode,applied,selectedSide,A:A&&A.slice(),B:Bp&&Bp.slice()}),
+    pickSide:(s)=>{ selectedSide=s; refreshApply(); B().requestDraw(); },
+    // m² of each half-plane for the current divider (verification): {pos, neg, full}
+    sideAreas:()=>{ const ring=preSplitRing||B().ring(); if(!ring||!A||!Bp) return null;
+      const hp=clipHalf(ring,A,Bp,1), hn=clipHalf(ring,A,Bp,-1);
+      return { full:areaM2(ring), pos:hp?areaM2(hp):0, neg:hn?areaM2(hn):0 }; },
+    apply, removeSplit,
+    handlesScreen:()=>{ if(!A||!Bp) return null; return { A:B().modelToScreen(A[0],A[1]), B:B().modelToScreen(Bp[0],Bp[1]) }; } };
+})();
+window.__RoofSplit=RoofSplit;
 function showMeasDiagram(on){
   if(on){ if(!renderRoofDiagram()) return; $("gmapWrap").style.display="none"; $("scene").style.display="none"; $("matCanvas").style.display="block"; $("measMini").style.display="block";
     try{ document.body.classList.remove("meas-3d"); }catch(_){}   // top-down is the only roofline-edit lens now (3D cut). __measEditing stays TRUE through the whole edit step (cleared only on trade choice) so the #card/Lock-rate never leaks here (FIX 2)
