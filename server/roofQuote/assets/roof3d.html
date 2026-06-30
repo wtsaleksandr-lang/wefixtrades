@@ -12056,10 +12056,11 @@ async function renderSelectRoofMap(g, fp, neighbours){
       // neighbours appear IN-FRAME as they load. The map must NEVER auto-move/zoom after this (no re-fit anywhere).
       const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:detectedRing;
       const hc=_ringCentroid(frameRing);
-      const mLngF=(111320*Math.cos((g.lat||43)*Math.PI/180))||1, RAD=120;
-      const b=new google.maps.LatLngBounds();
-      b.extend({lat:hc[1]-RAD/111320, lng:hc[0]-RAD/mLngF}); b.extend({lat:hc[1]+RAD/111320, lng:hc[0]+RAD/mLngF});
-      __srMap.fitBounds(b,{top:40,right:40,bottom:40,left:40});
+      // (Alex) DEFAULT view = the home CENTRED + just its 3-5 immediate neighbours. Fixed zoom centred on the home,
+      // viewport-aware (a wide desktop fits more houses per zoom level than a narrow phone, so desktop goes one step
+      // closer). Set ONCE — the map never auto-moves/zooms after this (no re-fit on later neighbour load).
+      __srMap.setCenter({lat:hc[1], lng:hc[0]});
+      __srMap.setZoom((typeof window!=="undefined" && window.innerWidth<560) ? 20 : 21);
       $("srHintT").textContent="This is the roof we detected. Not your building? Tap the correct one.";
       // If neighbours are already in hand (warm /buildings call), inject them now — flips the hint + re-fits.
       try{ _addNeighbourBuildings(g, neighbours, (typeof __srReqSeq==="number"?__srReqSeq:undefined)); }catch(_){}
