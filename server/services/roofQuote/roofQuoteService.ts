@@ -1297,7 +1297,7 @@ export function prewarmVida(): void {
         { iso3: "ZAF", s: -26.1700, w: 28.1300, n: -26.1690, e: 28.1310 }, // Bedfordview, JHB
         { iso3: "AUS", s: -33.8690, w: 151.2090, n: -33.8680, e: 151.2100 }, // Sydney
       ];
-      for (const b of warm) { await vidaBuildingsBbox(b.s, b.w, b.n, b.e, b.iso3).catch(() => {}); }
+      for (const b of warm) { await vidaBuildingsBbox(b.s, b.w, b.n, b.e, b.iso3).catch((err) => { console.warn("[vida] prewarm bbox failed (", b.iso3, "):", (err as Error)?.message || err); }); }
       console.log("[vida] prewarm done");
     } catch (e) { console.warn("[vida] prewarm failed:", (e as Error)?.message || e); }
   })();
