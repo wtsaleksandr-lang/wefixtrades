@@ -17,6 +17,8 @@ cp "$SRC_DIR/rooffeatures.mjs" "$DST_DIR/rooffeatures.mjs"
 if [ -d "$SRC_DIR/assets/hero" ]; then
   mkdir -p "$DST_DIR/hero"
   cp "$SRC_DIR/assets/hero/"*.mp4 "$DST_DIR/hero/"
+  # Poster still(s) — instant-start placeholder painted before the first clip can decode.
+  cp "$SRC_DIR/assets/hero/"*.jpg "$DST_DIR/hero/" 2>/dev/null || true
 fi
 
 # Widget HTML: copy then re-base backend calls under /api/roofquote.

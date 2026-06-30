@@ -1052,6 +1052,14 @@ http.createServer(async (req,res)=>{
   // Landing-hero aerial background clips — self-hosted, web-compressed H.264 (assets/hero/hero1.mp4 …).
   // The widget references them at /assets/hero/* (dev) or RQ_BASE+/assets/hero/* (prod Express). Supports
   // HTTP Range so the browser can seek/buffer the loop. Bare-filename only (no path traversal).
+  // Hero poster still (first frame of hero1) — covers the <1s decode gap so the loop never shows a blank/black frame on load.
+  if(u.pathname.startsWith("/assets/hero/") && u.pathname.endsWith(".jpg")){
+    const name=path.basename(u.pathname);
+    const fp=path.join(import.meta.dirname,"assets","hero",name);
+    try{ const buf=readFileSync(fp); res.setHeader("Content-Type","image/jpeg"); res.setHeader("Cache-Control","public,max-age=604800"); res.setHeader("Content-Length",buf.length); res.end(buf); }
+    catch(e){ res.statusCode=404; res.end("poster not found"); }
+    return;
+  }
   if(u.pathname.startsWith("/assets/hero/") && u.pathname.endsWith(".mp4")){
     const name=path.basename(u.pathname);
     const fp=path.join(import.meta.dirname,"assets","hero",name);
