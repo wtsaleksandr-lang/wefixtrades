@@ -93,6 +93,11 @@ export const RAISED_BODY_LIMITS: readonly RaisedBodyLimit[] = [
     limit: "3mb",
     why: "quotequickAiChatRoutes.ts — chat message may carry a base64 image (schema max 2,000,000 chars)",
   },
+  {
+    path: "/api/roofquote/airender-upload",
+    limit: "12mb",
+    why: "roofQuoteRoutes.ts — customer-photo roof re-render upload (image dataURI), ~8 MB decoded photo → ~11 MB base64 JSON (mirrors the spike's 12 MB body cap)",
+  },
 ];
 
 /**
