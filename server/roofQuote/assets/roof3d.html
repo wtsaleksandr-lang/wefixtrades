@@ -11470,6 +11470,16 @@ function syncSelection(){
 // legacy single-detected look). Unselected = thin subtle outline that's clearly tappable.
 function _applyPolyStyle(b){
   if(!b||!b.poly) return;
+  // FIX B (coarse→precise flash): while a coarse detected home is awaiting its mask-trace upgrade, render a
+  // SUBTLE "refining" state — outline-only, low-opacity, NO solid fill — so the buyer never sees a prominent
+  // mis-aligned outline that then snaps. The prominent (solid-blue) style is revealed only once the upgrade
+  // resolves OR a short cap fires (see _settleDetectedHome). Stripe + checkmark are suppressed while refining.
+  if(b.selected && b._refining){
+    b.poly.setOptions({ strokeColor:"#cfe0ff", strokeOpacity:0.55, strokeWeight:2, fillColor:"#0d3cfc", fillOpacity:0.04, zIndex:b.detected?20:15 });
+    try{ if(b.stripe && typeof b.stripe.setSelected==="function") b.stripe.setSelected(false); }catch(_){}
+    try{ if(b.check){ b.check.setMap(null); b.check=null; } }catch(_){}
+    return;
+  }
   if(b.selected){ b.poly.setOptions({ strokeColor:"#0d3cfc", strokeOpacity:1, strokeWeight:3, fillColor:"#0d3cfc", fillOpacity:0.18, zIndex:b.detected?20:15 }); }
   // Unselected NEIGHBOUR: a clearly-visible-but-secondary outline so the buyer can SEE there are other
   // tappable roofs (a multi-building quote). Brighter dashed-feel stroke + a faint white wash fill that
@@ -11737,6 +11747,19 @@ function _maskRingPassesGate(traced, coarseRing, lat0, markerLngLat, coarseIsPla
 // Background-upgrade the detected building's outline from the Solar mask. Coarse sources only; non-blocking;
 // bounded; swaps gently (one redraw of poly + stripe, no flicker) and re-runs syncSelection so the count
 // chip / checkmark / Continue all track the new ring. Caches dl+mask on window.__srMaskCache for run().
+// FIX B (coarse→precise flash): reveal the detected home in its PROMINENT (final) style — clears the
+// "refining" hold and re-asserts the solid-blue selected look + stripe + checkmark. Called when the
+// mask-trace upgrade resolves (any outcome) or when the ~1.8s cap fires. Idempotent: a no-op once settled.
+let __srRefineCap=null;
+function _settleDetectedHome(){
+  try{
+    if(__srRefineCap){ clearTimeout(__srRefineCap); __srRefineCap=null; }
+    const det=(__srBuildings||[]).find(b=>b&&b.detected);
+    if(!det || !det._refining) return;
+    det._refining=false;
+    _applyPolyStyle(det);   // prominent style + re-creates the suppressed checkmark/stripe selection
+  }catch(_){}
+}
 async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
   try{
     if(!g||!isFinite(g.lat)||!isFinite(g.lng)) return;
@@ -11780,11 +11803,81 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     const stripe=_makeStripeOverlay(traced); if(stripe){ stripe.setMap(__srMap); det.stripe=stripe; if(typeof stripe.setSelected==="function") stripe.setSelected(!!det.selected); }
     // move the checkmark to the new centroid
     try{ if(det.check){ det.check.setMap(null); det.check=null; } }catch(_){}
+    det._refining=false;                                        // FIX B: clear the hold so the FINAL (precise) outline reveals prominently
     _applyPolyStyle(det);                                       // re-asserts style + check at the new centroid
     syncSelection();                                            // count chip / __srPrimary / Continue track the new ring
     window.__srUpgrade.applied=true;
     window.__srUpgrade.ms=Math.round(performance.now()-window.__srUpgrade.started);
   }catch(_){ /* any failure: keep the coarse outline (already on screen) */ }
+  finally{
+    // FIX B: whatever the outcome (swap, gate-reject, timeout, degenerate), reveal the detected home in its
+    // prominent style now — but ONLY if this run is still current (a superseded address manages its own hold).
+    try{ if(typeof seq!=="number" || seq===__srReqSeq) _settleDetectedHome(); }catch(_){}
+  }
+}
+
+// FIX A (cold-flash): add neighbour buildings to an ALREADY-rendered detected home. Extracted from
+// renderSelectRoofMap so it can run BOTH inline (warm /buildings) AND as a deferred background add when a
+// COLD /buildings call resolves several seconds after the first paint. Filters to the nearest few (≤80 m,
+// top 12), draws each as a clickable white-outlined polygon + stripe, re-fits bounds to include the new
+// neighbours, and flips the single-detect hint to the multi-building string. Skips rings already drawn
+// (so a warm inline call + a late background call can't double-draw). Guarded by `seq` so a superseded
+// address never injects stale neighbours. Idempotent + safe to call with [].
+function _addNeighbourBuildings(g, neighbours, seq){
+  try{
+    if(typeof seq==="number" && seq!==__srReqSeq) return 0;       // a newer address superseded this run
+    if(!__srMap || !window.google || !google.maps) return 0;
+    if(!Array.isArray(neighbours) || !neighbours.length) return 0;
+    const det=(__srBuildings||[]).find(b=>b&&b.detected);
+    const detectedRing = det && Array.isArray(det.ring) && det.ring.length>=3 ? det.ring : null;
+    const homeC = detectedRing ? _ringCentroid(detectedRing) : [g.lng,g.lat];
+    const mLngF=111320*Math.cos((g.lat||43)*Math.PI/180);
+    const distM=(c)=>Math.hypot((c[0]-homeC[0])*mLngF,(c[1]-homeC[1])*111320);
+    // seed the de-dup set with the home centroid + every building ALREADY on the map (home + any prior add)
+    const seen=[homeC];
+    (__srBuildings||[]).forEach(b=>{ try{ if(b&&Array.isArray(b.centroid)&&b.centroid.length===2) seen.push(b.centroid); }catch(_){} });
+    const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
+      return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
+    const NB_MAX_M=80, NB_MAX_N=12;
+    const cands=[];
+    for(const nb of neighbours){
+      const ring0=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring0) continue;
+      const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring0);
+      if(near(c,seen,6)) continue;                          // de-dup the home / repeats / already-drawn
+      seen.push(c);
+      const d=distM(c); if(d>NB_MAX_M) continue;             // skip far-suburb footprints
+      cands.push({ nb, ring0, c, d });
+    }
+    cands.sort((a,b)=>a.d-b.d);                              // nearest first
+    // keep the TOTAL drawn neighbour count ≤ NB_MAX_N across inline + background adds
+    const already=(__srBuildings||[]).filter(b=>b&&!b.detected).length;
+    const room=Math.max(0, NB_MAX_N-already);
+    const add=cands.slice(0,room);
+    if(!add.length) return 0;
+    if(typeof seq==="number" && seq!==__srReqSeq) return 0;       // re-check after the (sync) filter
+    for(const cd of add){
+      const ring=_regularizeSelectRoofRing(cd.ring0, g.lat);
+      const item={ id:cd.nb.id||("nb/"+cd.c[0].toFixed(6)+","+cd.c[1].toFixed(6)), ring, centroid:_ringCentroid(ring), source:cd.nb.source||"osm", detected:false, selected:false };
+      const path=item.ring.map(([lng,lat])=>({lat,lng}));
+      const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
+      const stripe=_makeStripeOverlay(item.ring); if(stripe) stripe.setMap(__srMap);
+      const b={ ...item, area:_ringAreaM2(item.ring,g.lat), poly, stripe, check:null };
+      _applyPolyStyle(b);
+      poly.addListener("click",()=>_toggleBuilding(b));
+      __srBuildings.push(b);
+    }
+    window.__srBuildings=__srBuildings;
+    // re-fit bounds to include the home + the nearby (≤55 m) neighbours now on the map
+    if(detectedRing){
+      const bnd=new google.maps.LatLngBounds(); detectedRing.forEach(([lng,lat])=>bnd.extend({lat,lng}));
+      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=55){ bb.ring.forEach(([lng,lat])=>bnd.extend({lat,lng})); } }catch(_){} });
+      __srMap.fitBounds(bnd,{top:70,right:70,bottom:70,left:70});
+    }
+    // flip the single-detect hint to the multi-building string now that neighbours are tappable
+    if(__srBuildings.length>1){ const ht=$("srHintT"); if(ht) ht.textContent="Tap buildings to add or remove them from your quote."; }
+    syncSelection();
+    return add.length;
+  }catch(_){ return 0; }
 }
 
 async function renderSelectRoofMap(g, fp, neighbours){
@@ -11821,31 +11914,12 @@ async function renderSelectRoofMap(g, fp, neighbours){
     // helper gates itself and returns the raw ring on any degeneracy (never a worse polygon than today).
     if(detectedRing){ const r=_regularizeSelectRoofRing(detectedRing, g.lat); list.push({ id:"detected", ring:r, centroid:_ringCentroid(r), source:(fp&&fp.source)||"osm", detected:true, selected:true }); }
     else if(usedApprox){ const r=_defaultHomeRing(g.lng,g.lat,7); list.push({ id:"approx", ring:r, centroid:_ringCentroid(r), source:"approx", detected:true, selected:true }); }
-    // Neighbours: skip any whose centroid is within ~6 m of the detected home (that's the same building).
-    const seen=detectedRing?[detectedC]:[];
     const homeC=detectedRing?detectedC:[g.lng,g.lat];
     const mLngF=111320*Math.cos((g.lat||43)*Math.PI/180);
     const distM=(c)=>Math.hypot((c[0]-homeC[0])*mLngF,(c[1]-homeC[1])*111320);
-    const near=(c,arr,thresh)=>{ const mLng=111320*Math.cos(g.lat*Math.PI/180);
-      return arr.some(p=>Math.hypot((p[0]-c[0])*mLng,(p[1]-c[1])*111320)<thresh); };
-    // Gather candidate neighbours, then keep only the NEAREST few so the map shows the home + its immediate
-    // neighbours (a 2-3 roof pick), not the whole suburb (84 footprints = clutter). Cap: within ~80 m, top 12.
-    const NB_MAX_M=80, NB_MAX_N=12;
-    const cands=[];
-    for(const nb of (neighbours||[])){
-      const ring0=nb&&Array.isArray(nb.ring)&&nb.ring.length>=3?nb.ring:null; if(!ring0) continue;
-      const c=nb.centroid&&nb.centroid.length===2?nb.centroid:_ringCentroid(ring0);
-      if(near(c,seen,6)) continue;                          // de-dup the detected home / repeats
-      seen.push(c);
-      const d=distM(c); if(d>NB_MAX_M) continue;             // skip far-suburb footprints
-      cands.push({ nb, ring0, c, d });
-    }
-    cands.sort((a,b)=>a.d-b.d);                              // nearest first
-    for(const cd of cands.slice(0,NB_MAX_N)){
-      const ring=_regularizeSelectRoofRing(cd.ring0, g.lat); // same architectural cleanup as the detected home
-      list.push({ id:cd.nb.id||("nb/"+cd.c[0].toFixed(6)+","+cd.c[1].toFixed(6)), ring, centroid:_ringCentroid(ring), source:cd.nb.source||"osm", detected:false, selected:false });
-    }
-    // Draw each as a clickable polygon and wire the per-building toggle.
+    // FIX A (cold-flash): draw ONLY the detected/approx HOME inline so the first paint is never gated on the
+    // /buildings (neighbours) call. Neighbours — whether passed warm here, or fetched in the background by
+    // enterSelectRoof on a COLD call — are injected via _addNeighbourBuildings AFTER the home is on screen.
     for(const item of list){
       const path=item.ring.map(([lng,lat])=>({lat,lng}));
       const poly=new google.maps.Polygon({ paths:path, clickable:true, map:__srMap });
@@ -11858,16 +11932,14 @@ async function renderSelectRoofMap(g, fp, neighbours){
     }
     window.__srBuildings=__srBuildings;   // expose the live list (debug / headless verification / next-task per-house loop)
     if(detectedRing){
-      // Frame the detected home PLUS its drawn neighbours so the buyer SEES the other tappable roofs.
-      // Fit-bounds over the home ring + every neighbour ring within ~55 m of the home (the immediate few),
-      // so the home stays comfortably large while 3-6 neighbours come into frame. Cap the included
-      // neighbours' distance so one stray far footprint can't zoom the whole map out.
+      // Frame the detected home. fitBounds over just the home ring for the first paint; _addNeighbourBuildings
+      // re-fits to include neighbours when they arrive (warm: immediately below; cold: seconds later).
       const frameRing=(list[0]&&Array.isArray(list[0].ring)&&list[0].ring.length>=3)?list[0].ring:detectedRing;
       const b=new google.maps.LatLngBounds(); frameRing.forEach(([lng,lat])=>b.extend({lat,lng}));
-      __srBuildings.forEach(bb=>{ try{ if(bb&&!bb.detected&&Array.isArray(bb.ring)&&distM(bb.centroid)<=55){ bb.ring.forEach(([lng,lat])=>b.extend({lat,lng})); } }catch(_){} });
       __srMap.fitBounds(b,{top:70,right:70,bottom:70,left:70});
-      const hasNb=__srBuildings.length>1;
-      $("srHintT").textContent = hasNb ? "Tap buildings to add or remove them from your quote." : "This is the roof we detected. Not your building? Tap the correct one.";
+      $("srHintT").textContent="This is the roof we detected. Not your building? Tap the correct one.";
+      // If neighbours are already in hand (warm /buildings call), inject them now — flips the hint + re-fits.
+      try{ _addNeighbourBuildings(g, neighbours, (typeof __srReqSeq==="number"?__srReqSeq:undefined)); }catch(_){}
     } else if(usedApprox){
       // CANOPY FALLBACK (Problem A): no aerial footprint (heavy tree canopy / gated estate), but we geocoded
       // the home → an approximate home rectangle is auto-selected at the marker (checkmark + stripes drawn
@@ -11888,7 +11960,17 @@ async function renderSelectRoofMap(g, fp, neighbours){
     // — it NEVER blocks this render or Continue, and silently keeps the coarse outline on any slow/fail/reject.
     try{
       const detB=(__srBuildings||[]).find(b=>b&&b.detected);
-      if(detB && _srOutlineNeedsTrace(detB)){ _upgradeSelectRoofFromMask(g, detB.source, __srReqSeq); }
+      if(detB && _srOutlineNeedsTrace(detB)){
+        // FIX B (coarse→precise flash): hold the detected outline in the subtle "refining" state until the
+        // mask-trace upgrade resolves (it re-asserts the prominent style on the FINAL ring) OR a short cap
+        // (~1.8s) reveals the coarse outline prominently if the upgrade is slow. So the first PROMINENT
+        // outline the buyer sees is already the precise one (or coarse only after the cap). Guarded by seq.
+        const upgSeq=__srReqSeq;
+        detB._refining=true; _applyPolyStyle(detB);
+        if(__srRefineCap){ clearTimeout(__srRefineCap); }
+        __srRefineCap=setTimeout(()=>{ try{ if(upgSeq===__srReqSeq) _settleDetectedHome(); }catch(_){} },1800);
+        _upgradeSelectRoofFromMask(g, detB.source, upgSeq);
+      }
       else { window.__srUpgrade={ fired:false, reason:detB?("clean-source:"+detB.source):"no-detected" }; }
     }catch(_){}
     // FALLBACK re-pick: clicking the bare satellite (NOT a building polygon) re-targets that point and
@@ -11959,15 +12041,43 @@ async function enterSelectRoof(addr, placeId){
     window.__srGeo={lat:g.lat,lng:g.lng,formatted:g.formatted||v};
     if(g.formatted){ $("srAddr").textContent=g.formatted; $("addr").value=g.formatted; }
     $("srLoadT").textContent="Detecting your roof…";
-    // Fetch the detected footprint AND the neighbouring buildings in parallel. Neighbours are best-effort:
-    // a miss/empty just degrades to single-building (renderSelectRoofMap handles []).
-    const [fp, nbr]=await Promise.all([
-      fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null),
-      fetchNeighbours(g.lat,g.lng).catch(()=>[]),
-    ]);
+    // FIX A (cold-flash): render the detected HOME immediately — DON'T gate the first paint on the
+    // neighbours (/buildings) call. On a COLD /buildings (first visit to an area; Microsoft data still
+    // warming) that call can return [] / lose the race, which previously left only the single detected
+    // home. Fetch the footprint first, paint it, THEN load neighbours in the background (no tight timeout —
+    // fetchJSON has no AbortController, so a slow cold call is allowed to finish) and inject them when they
+    // resolve. __srReqSeq guards against a superseded address injecting stale neighbours.
+    const fp=await fetchJSON("/footprint?lat="+g.lat+"&lng="+g.lng,"footprint").catch(()=>null);
     if(seq!==__srReqSeq) return;
     const cand=fp&&Array.isArray(fp.candidates)&&fp.candidates[0]?fp.candidates[0]:(fp&&fp.ring?fp:null);
-    await renderSelectRoofMap(g, cand, nbr);
+    await renderSelectRoofMap(g, cand, /* neighbours */ null);    // home paints now; neighbours come in below
+    if(seq!==__srReqSeq) return;
+    // Background neighbour load — fire-and-forget. Even if this resolves several seconds later (cold server),
+    // _addNeighbourBuildings pops the white-outlined roofs in, re-fits bounds, and flips the hint. Guarded by
+    // seq so a newer address can't inject stale neighbours. Never blocks Continue (already enabled below).
+    //
+    // COLD self-heal: on a genuine FIRST-EVER visit to an area, the server's Microsoft tile is still warming
+    // when /buildings' ~6.5s budget expires, so that first call returns the OSM-only partial (often just the
+    // home). The tile keeps downloading server-side; a moment later /buildings returns the FULL set. So if the
+    // first background fetch lands NO neighbours, retry a couple of times (a few seconds apart) to catch the
+    // now-warm tile — this is what makes neighbours reliably POP IN on the cold first visit, not the next one.
+    (async()=>{
+      // Inter-attempt GAPS (ms). The server's Microsoft tile is a large (~30 MB) per-area download that can
+      // take 20-30 s to warm on a brand-new area, so keep retrying out to ~35 s. fetchNeighbours itself is
+      // cheap once the tile is on disk (a local re-scan), and each retry is a no-op once neighbours are shown
+      // (we stop on the first non-empty result). On a warm area the very first attempt returns the full set.
+      const gaps=[0, 3000, 4000, 5000, 6000, 7000, 8000];
+      for(let i=0;i<gaps.length;i++){
+        if(gaps[i]) await new Promise(r=>setTimeout(r,gaps[i]));
+        if(seq!==__srReqSeq) return;                       // superseded address
+        const nbr=await fetchNeighbours(g.lat,g.lng).catch(()=>[]);
+        if(seq!==__srReqSeq) return;
+        let added=0; if(Array.isArray(nbr)&&nbr.length){ try{ added=_addNeighbourBuildings(g, nbr, seq)||0; }catch(_){} }
+        // stop as soon as we actually have neighbours on the map (added now, or from a prior pass)
+        const haveNb=(window.__srBuildings||[]).some(b=>b&&!b.detected);
+        if(haveNb || added>0) return;
+      }
+    })();
   } else {
     // geocode failed — show the step with a notice; Continue will surface the real geocode error via run()
     window.__srGeo=null;

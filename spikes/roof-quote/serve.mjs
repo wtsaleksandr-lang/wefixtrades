@@ -585,7 +585,15 @@ async function buildingsInBbox(bs,bw,bn,be){
     const source = [haveO?"osm":null, haveM?"msft":null, haveV?"vida":null].filter(Boolean).join("+");
     let attribution="© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)";
     if(haveV) attribution+=" · © Google–Microsoft–OSM Open Buildings / VIDA (CC-BY-4.0)";
-    return { buildings:merged, source, attribution };
+    // COLD-FLASH server fix: if Microsoft was still WARMING its tile (msft===null) when its budget expired,
+    // this UNION is PARTIAL — it has OSM (and/or VIDA) but is MISSING every building only Microsoft covers
+    // (the bulk of the neighbours in many areas). Previously this partial got CACHED (non-empty + no
+    // incomplete flag), so the very first cold visit's OSM-only result shadowed the now-warm MS tile FOREVER
+    // and neighbours never appeared on any later visit. Mark it `_incomplete` so the route does NOT cache it;
+    // the next load re-runs live with the warm MS tile and returns the full neighbour set. (OSM flaky →
+    // osm===null but MS present is already complete, so only msft===null taints the union.)
+    const _incomplete = (msft===null);
+    return { buildings:merged, source, attribution, _incomplete };
   }
   // Nothing usable. `_incomplete` marks WHY: MS was still downloading its cold tile (msft===null) when the
   // budget expired, so this empty answer is TRANSIENT — the tile warms in the background and the next load
