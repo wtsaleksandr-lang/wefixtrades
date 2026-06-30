@@ -1274,7 +1274,15 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
     const source: BuildingsResult["source"] = haveO ? "osm" : haveM ? "msft" : "vida";
     let attribution = "© OpenStreetMap contributors · © Microsoft Building Footprints (ODbL/CDLA)";
     if (haveV) attribution += " · © Google–Microsoft–OSM Open Buildings / VIDA (CC-BY-4.0)";
-    out = { buildings: merged, source, attribution };
+    // COLD-FLASH fix: if Microsoft was still WARMING its (~30 MB per-area) tile when its budget expired
+    // (msft === null), this UNION is PARTIAL — it carries OSM (and/or VIDA) but is MISSING every building
+    // only Microsoft covers (the bulk of the neighbours in many suburbs). Previously this partial was CACHED
+    // (non-empty + no _incomplete flag), so the very first cold visit's OSM-only result shadowed the now-warm
+    // MS tile for the full 7-day TTL and neighbours never appeared on ANY later visit. Flag it `_incomplete`
+    // so the cache write below skips it; the next load re-runs live with the warm tile and returns the full
+    // neighbour set. (OSM is flaky, but osm === null with MS present is still complete — only msft === null
+    // taints the union, because that's the source whose absence is transient.)
+    out = { buildings: merged, source, attribution, _incomplete: msft === null };
   } else {
     // `_incomplete` = MS was still downloading its cold tile (msft===null) when the budget expired → this
     // empty answer is TRANSIENT (tile warms in bg, next load has it). Don't cache it so the retry self-heals.
