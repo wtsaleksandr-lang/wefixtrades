@@ -13696,7 +13696,7 @@ try{
   // Asset base: dev serve.mjs serves /assets/hero/*; the prod Express widget serves under window.RQ_BASE
   // (/api/roofquote) — see server/routes/roofQuoteRoutes.ts. Resolve both so the same HTML works in either host.
   var BASE=(window.RQ_BASE||"")+"/assets/hero/";
-  var CLIPS=[BASE+"hero1.mp4", BASE+"hero2.mp4"];   // hero1 = pond suburb (lead), hero2 = canadian suburb
+  var CLIPS=[BASE+"hero1.mp4", BASE+"hero2.mp4", BASE+"hero3.mp4"];   // hero1 = pond suburb (lead), hero2 = canadian suburb, hero3 = aerial roofing job (trades)
   var clipIdx=0;        // which clip the CURRENTLY-VISIBLE layer is playing
   var cur=0;            // index into `layers` of the visible layer
   var userPaused=false, switching=false;
@@ -13776,12 +13776,20 @@ try{
   setInterval(syncVisibility, 1500);
 
   // ---- boot: prime the lead clip on layer A, fade it in ----
+  // INSTANT-START: give layer A a poster (first frame of hero1) and make it visible IMMEDIATELY,
+  // so the hero shows imagery the instant it mounts — the poster covers the sub-second decode/buffer
+  // gap and there's never a black/blank frame before the loop runs. The grade (#heroVideo filter +
+  // #heroGrade overlay) applies to the poster too, so it reads identically to the moving footage.
+  try{ A.setAttribute("poster", BASE+"hero1-poster.jpg"); }catch(_){}
+  A.classList.add("show");   // paint the poster now (opacity:0 -> 1) before the video can decode
   if(reduce){
     // reduced motion: show the lead clip's first frame only, no autoplay/rotation.
     userPaused=true; setPaused(true);
-    prime(A, 0, function(){ A.classList.add("show"); });
+    prime(A, 0, function(){ /* poster already visible; first frame paints over it */ });
   } else {
-    prime(A, 0, function(){ A.classList.add("show"); tryPlay(A); });
+    // kick playback as early as possible; prime() resolves once a frame can render, then ensure play.
+    prime(A, 0, function(){ tryPlay(A); });
+    tryPlay(A);   // also attempt immediately — autoplay+muted lets the browser start without the canplay wait
   }
 
   // ---- brand wordmark + white-label: surface the tenant's business name if injected (default copy otherwise) ----

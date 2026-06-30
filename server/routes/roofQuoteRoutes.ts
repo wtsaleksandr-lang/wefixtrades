@@ -272,12 +272,27 @@ export function registerRoofQuoteRoutes(app: Express) {
    * the browser can buffer/seek the loop. Bare-filename only — no path traversal. */
   app.get("/api/roofquote/assets/hero/:name", (req: Request, res: Response) => {
     const name = path.basename(String(req.params.name || ""));
-    if (!/^[\w.-]+\.mp4$/.test(name)) {
+    if (!/^[\w.-]+\.(mp4|jpg)$/.test(name)) {
       return res.status(404).send("not found");
     }
+    const isJpg = name.endsWith(".jpg");
     const fp = path.join(ASSET_DIR, "hero", name);
     if (!existsSync(fp)) {
       return res.status(404).send("video not found");
+    }
+    // Hero poster still (hero1-poster.jpg) — small image served plainly (no Range) so the
+    // video poster paints instantly and the loop never flashes a blank/black frame on load.
+    if (isJpg) {
+      try {
+        const buf = readFileSync(fp);
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader("Cache-Control", "public, max-age=604800");
+        res.setHeader("Content-Length", buf.length);
+        return res.end(buf);
+      } catch (err) {
+        log.error("hero poster serve failed", { err: (err as Error).message });
+        return res.status(500).send("poster error");
+      }
     }
     try {
       const size = statSync(fp).size;
