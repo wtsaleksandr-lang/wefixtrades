@@ -207,17 +207,20 @@ async function renderReplicate(dataUri: string, material: string, pkg: string, v
       let j = (await rr.json()) as {
         status?: string;
         error?: string;
+        detail?: string;
         output?: string | string[];
         urls?: { get: string };
       };
       let tries = 0;
       while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 40) {
+        const pollUrl = j.urls?.get;
+        if (!pollUrl) break; // error body (billing/rate-limit) or sync response w/o poll url → handled below
         await new Promise((s) => setTimeout(s, 1500));
-        const pr = await fetch(j.urls!.get, { headers: { Authorization: "Bearer " + REPLICATE } });
+        const pr = await fetch(pollUrl, { headers: { Authorization: "Bearer " + REPLICATE } });
         j = (await pr.json()) as typeof j;
         tries++;
       }
-      if (j.status !== "succeeded") throw new Error("replicate_" + (j.error || j.status || "failed"));
+      if (j.status !== "succeeded") throw new Error("replicate_" + (j.error || j.detail || j.status || "failed"));
       const out = Array.isArray(j.output) ? j.output[0] : j.output;
       if (!out) throw new Error("replicate_no_output");
       return out;
@@ -1818,17 +1821,19 @@ async function fluxFillInpaint(satBuf: Buffer, maskBuf: Buffer, material: string
     },
   );
   let j = (await rr.json()) as {
-    status?: string; error?: string; output?: string | string[]; urls?: { get: string };
+    status?: string; error?: string; detail?: string; output?: string | string[]; urls?: { get: string };
   };
   let tries = 0;
   while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 60) {
+    const pollUrl = j.urls?.get;
+    if (!pollUrl) break; // error body (billing/rate-limit) or sync response w/o poll url → handled below
     await new Promise((s) => setTimeout(s, 1500));
-    j = (await fetch(j.urls!.get, { headers: { Authorization: "Bearer " + REPLICATE } }).then((r) =>
+    j = (await fetch(pollUrl, { headers: { Authorization: "Bearer " + REPLICATE } }).then((r) =>
       r.json(),
     )) as typeof j;
     tries++;
   }
-  if (j.status !== "succeeded") throw new Error("flux_fill_" + (j.error || j.status || "failed"));
+  if (j.status !== "succeeded") throw new Error("flux_fill_" + (j.error || j.detail || j.status || "failed"));
   const out = Array.isArray(j.output) ? j.output[0] : j.output;
   if (!out) throw new Error("flux_fill_no_output");
   const ab = await fetch(out).then((r) => r.arrayBuffer());
