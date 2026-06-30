@@ -495,7 +495,8 @@ async function msftHasTile(bs,bw,bn,be){
 // FREE public anonymous S3 GeoParquet partitioned by ISO3 country, queried at request-time with DuckDB
 // (no download — bbox row-group pruning). Fills coverage gaps (ZA/AU) where OSM + MS are empty. NEVER
 // throws into the request path — any failure logs + returns []. ISO3 derived from the bbox centroid.
-const VIDA_FOOTPRINT_BUDGET_MS=14000;   // duckdb S3 parquet read is ~9s COLD; border-band points query TWO country parquets (CAN+USA), so allow for two cold reads. Prewarm keeps the warm path <1s.
+const VIDA_FOOTPRINT_BUDGET_MS=12000;   // How long the REQUEST waits for VIDA inline. Set just above the warm VIDA query time (~5-7s) so the first cold hit usually CATCHES VIDA, while bounding the wait so a slow read can't dominate latency. vidaBuildingsComplete keeps running to COMPLETION in the background past this budget and caches its rows by bbox, so even if this inline wait expires the next call gets the full VIDA set instantly (self-heal). After the startup prewarm a warm US bbox query is ~5-7s and lands within this window.
+const VIDA_SECOND_CHANCE_MS=12000;      // Extra inline wait granted ONLY when nothing else covered the bbox (OSM down + no MS) so the cold FIRST hit returns the reliable VIDA floor instead of 0. Re-awaits the same in-flight query (no extra work). Worst-case first-hit wait ≈ VIDA_FOOTPRINT_BUDGET_MS + this only on the empty path; every later call is cached.
 const VIDA_S3="s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
 // Approximate country bounding rectangles → which VIDA country parquet(s) to query. The boxes only SELECT
 // candidates; a wrong guess just yields no rows and falls back gracefully. The US/Canada Great-Lakes border
@@ -507,7 +508,15 @@ const COUNTRY_BOXES=[
   { iso3:"ZAF", w:16.0, s:-35.0, e:33.0, n:-22.0 },
   { iso3:"AUS", w:112.0, s:-44.0, e:154.0, n:-10.0 },
   { iso3:"NZL", w:166.0, s:-47.5, e:179.0, n:-34.0 },
-  { iso3:"CAN", w:-141.0, s:41.0, e:-52.0, n:84.0 },   // Canada (USA box DROPPED — USA.parquet too large, ~121s cold read timed out & poisoned border/US VIDA queries; US relies on OSM/MS)
+  { iso3:"CAN", w:-141.0, s:41.0, e:-52.0, n:84.0 },   // Canada (overlaps USA across the border band — both queried + unioned)
+  // USA RE-ADDED (feat/us-footprints): the single USA.parquet (153.6M rows / 30,720 row-groups) was dropped
+  // because its giant FOOTER cold-read timed out (~121s) UNDER concurrency. The reliability rebuild's single-
+  // flight serializer removes that contention, and a dedicated US STARTUP PREWARM (see prewarm list) reads the
+  // footer ONCE so real US requests land warm. MEASURED (cold node process): footer prewarm ~12s once, then a
+  // 220m bbox is ~5-7s (Phoenix 5.7s/9 · Sacramento 7.0s/13 · Houston 6.8s/43), stable & non-zero; TRUE cold
+  // with NO prewarm is still only ~10s and returns rows (never the 41↔0 Overpass oscillation). Box = CONUS+AK+HI;
+  // overlaps CAN at the border ON PURPOSE — iso3CandidatesFromBbox returns BOTH there and vidaBuildingsBbox unions.
+  { iso3:"USA", w:-179.2, s:18.5, e:-66.9, n:71.5 },   // United States (CONUS + Alaska + Hawaii)
   { iso3:"IRL", w:-10.6, s:51.3, e:-5.9, n:55.5 },     // Ireland (overlaps GBR — both queried in the band)
   { iso3:"GBR", w:-8.7, s:49.8, e:1.9, n:60.9 },       // United Kingdom
 ];
@@ -676,12 +685,23 @@ async function buildingsInBbox(bs,bw,bn,be){
   // query finishes + caches so the very next call returns the full neighbour set instantly (self-heal). The
   // `vidaPending` check below then flags the union `_incomplete` so the partial (vida-less) answer is NOT cached.
   const iso3s=iso3CandidatesFromBbox(bs,bw,bn,be);
-  const [osm,msft,vida,msftExpected]=await Promise.all([
+  let [osm,msft,vida,msftExpected]=await Promise.all([
     timeboxResolve(overpassBuildingsBbox(bs,bw,bn,be).catch(()=>null),OSM_FOOTPRINT_BUDGET_MS,null),
     timeboxResolve(msftBuildingsBbox(bs,bw,bn,be).catch(()=>null),MS_FOOTPRINT_BUDGET_MS,null),
     timeboxResolve(vidaBuildingsComplete(bs,bw,bn,be,iso3s),VIDA_FOOTPRINT_BUDGET_MS,[]),
     msftHasTile(bs,bw,bn,be),   // does MS even HAVE a tile here? distinguishes "still warming" from "no coverage"
   ]);
+  // SECOND-CHANCE for the COLD FIRST HIT (feat/us-footprints): if the primary pass produced NOTHING usable —
+  // OSM flapped down AND MS gave nothing yet — but this is a VIDA market and the VIDA query is still in flight
+  // (its footer is warming, ~12s the first time), returning [] here would be the "0 neighbours on the very first
+  // visit" the bar forbids. VIDA is the DETERMINISTIC source, so wait for its in-flight background-complete a
+  // little longer (it shares the same promise, so this just re-awaits the already-running query — no new work).
+  // This converts the only remaining cold-edge (first hit, OSM down, footer not yet warm) from a 0 into the
+  // reliable VIDA floor. Bounded by VIDA_SECOND_CHANCE_MS so a truly stuck read still can't hang the request.
+  const noPrimaryCoverage = !(Array.isArray(osm)&&osm.length) && !(Array.isArray(msft)&&msft.length);
+  if(noPrimaryCoverage && iso3s.length && !(Array.isArray(vida)&&vida.length)){
+    vida = await timeboxResolve(vidaBuildingsComplete(bs,bw,bn,be,iso3s),VIDA_SECOND_CHANCE_MS,vida||[]);
+  }
   // `msft===null` is only TRANSIENT (incomplete) if MS actually HAS a tile here that was still downloading.
   // If MS has no tile at all (msftExpected=false, e.g. ZA/AU), a null is COMPLETE — don't taint the union.
   const msPending = (msft===null) && msftExpected;
@@ -717,7 +737,28 @@ async function buildingsInBbox(bs,bw,bn,be){
     // the budget expired. Caching that vida-less union would shadow the now-completing query forever (the exact
     // ZA/AU permanent-empty bug). vidaPending() flags it so the route skips the cache and the next call (after
     // the background query finishes + caches) returns the full set.
-    const _incomplete = msPending || vidaPending(bs,bw,bn,be,iso3s);
+    const vPending = vidaPending(bs,bw,bn,be,iso3s);
+    // US RELIABILITY (feat/us-footprints): in the US, OSM (Overpass) FLAPS — it answers ~half the time and times
+    // out the rest — so the union count yo-yos (e.g. 9 with OSM ↔ 4 VIDA-only ↔ 0). Worse, the old guard kept the
+    // union `_incomplete` while EITHER MS warmed OR VIDA was still loading, so NO good result ever cached → every
+    // visit re-raced flaky Overpass and oscillated (incl. to 0). The dataset facts: OSM and MS are RICH in the US
+    // (either alone is a solid neighbour set); VIDA is the dependable supplementary floor + the only source for
+    // pure-VIDA markets (ZA/AU). So the correct cache rule is: a union that ALREADY has OSM or MS coverage is
+    // good enough to LOCK IN now — pending VIDA/MS would only ADD gap-fills, not fix an empty answer. Only when
+    // we have NEITHER OSM NOR MS (a pure-VIDA market still loading) do we keep it `_incomplete` so VIDA self-heals.
+    // This makes the FIRST call with any real coverage stick (cache HIT thereafter) and ends the oscillation.
+    //
+    // We normally honour `msPending` (MS HAS a tile here but it was mid-download): MS adds the BULK of neighbours
+    // in many suburbs, so caching an MS-less partial would shadow it (the original cold-flash bug, e.g. Scone UK).
+    // EXCEPTION proven by Phoenix/Houston: in much of the US, MS reports a tile (msftHasTile=true) but the tile
+    // then returns EMPTY/slow indefinitely, so `msPending` stays true FOREVER — which (with the old guard) blocked
+    // the cache permanently and the count kept yo-yoing with flaky OSM (4 VIDA-only ↔ 11 osm+vida ↔ 0). Measured:
+    // VIDA lands by ~t=12s and is a STABLE non-zero floor from then on. So once VIDA coverage is actually in hand
+    // (haveReliableVida), the union is dependable and MUST cache even if MS is still "pending" — MS plainly isn't
+    // coming. We also cache any non-empty OSM/MS union once MS is no longer pending. Only a result with neither a
+    // reliable VIDA floor nor settled OSM/MS coverage stays `_incomplete` to self-heal.
+    const haveReliableVida = haveV && !vPending;   // VIDA delivered its dependable floor for this bbox
+    const _incomplete = haveReliableVida ? false : (msPending || vPending);
     return { buildings:merged, source, attribution, _incomplete };
   }
   // Nothing usable. `_incomplete` marks WHY: MS was still downloading its cold tile (msft===null) when the
@@ -1492,7 +1533,10 @@ http.createServer(async (req,res)=>{
       console.log("[vida] connection warmed in",(Date.now()-t0),"ms");
       // One tiny bbox per supported market → warms that parquet's footer/row-group index in the httpfs cache.
       const warm=[
+        // CAN first (primary live market — keep its warm path fast), then USA whose big footer (30,720
+        // row-groups, ~12s) is warmed early so real US requests land at ~5-7s instead of paying it on first hit.
         {iso3:"CAN", s:43.2540, w:-79.8720, n:43.2550, e:-79.8710},   // Hamilton, ON (primary CA market)
+        {iso3:"USA", s:38.8970, w:-77.0370, n:38.8980, e:-77.0360},   // Washington, DC (warms USA.parquet footer)
         {iso3:"ZAF", s:-26.1700, w:28.1300,  n:-26.1690, e:28.1310},  // Bedfordview, JHB
         {iso3:"AUS", s:-33.8690, w:151.2090, n:-33.8680, e:151.2100}, // Sydney
         {iso3:"GBR", s:51.5070,  w:-0.1280,  n:51.5080,  e:-0.1270},  // London
@@ -1501,7 +1545,7 @@ http.createServer(async (req,res)=>{
       ];
       const t1=Date.now();
       await Promise.allSettled(warm.map(b=>vidaBuildingsBbox(b.s,b.w,b.n,b.e,[b.iso3]).catch(()=>{})));
-      console.log("[vida] prewarm done — 6 markets in",(Date.now()-t1),"ms");
+      console.log("[vida] prewarm done — 7 markets in",(Date.now()-t1),"ms");
     }catch(e){ console.warn("[vida] prewarm failed:",e&&e.message||e); }
   })();
 });
