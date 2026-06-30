@@ -135,14 +135,51 @@ async function fluxFillInpaint(imgPngB64, maskPngB64, material) {
   return Buffer.from(new Uint8Array(ab));
 }
 
+// ── Flux-Kontext-pro FULL-FRAME repaint (true img2img, STRONG recolor). Gable-bleed is fine —
+// we discard every out-of-mask pixel via compositeThroughMask afterwards. Mirrors the street
+// prompt in showroom-render.mjs / roofPrompt(view:"street").
+async function kontextRepaint(imgPngB64, material) {
+  const prompt =
+    "Edit THIS exact photo of a house. Replace ONLY the visible roof covering (the sloped roof " +
+    "surfaces) of the main house with " + material + ", covering the whole visible roof. Keep the " +
+    "IDENTICAL same house from the input photo — same siding, stone accents, windows, doors, porch, " +
+    "columns, garage doors, gutters, fence, lawn, driveway, shrubs, trees, sky, camera angle and " +
+    "lighting. Do NOT generate a new or different house, building or scene; preserve every other " +
+    "pixel exactly. Photorealistic, sharp, natural realistic roof colour, the roof clearly this exact material.";
+  const body = { input: { prompt, input_image: "data:image/png;base64," + imgPngB64, output_format: "png", safety_tolerance: 2 } };
+  const rr = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions", {
+    method: "POST", headers: { Authorization: "Bearer " + REPLICATE, "Content-Type": "application/json", Prefer: "wait" }, body: JSON.stringify(body),
+  });
+  let j = await rr.json();
+  let tries = 0;
+  while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 60) {
+    if (!j.urls || !j.urls.get) throw new Error("kontext_no_poll_url:" + (j.error || j.status || "?"));
+    await new Promise((s) => setTimeout(s, 1500));
+    j = await (await fetch(j.urls.get, { headers: { Authorization: "Bearer " + REPLICATE } })).json();
+    tries++;
+  }
+  if (j.status !== "succeeded") throw new Error("kontext_" + (j.error || j.status || "failed"));
+  const out = Array.isArray(j.output) ? j.output[0] : j.output;
+  if (!out) throw new Error("kontext_no_output");
+  const ab = await fetch(out).then((r) => r.arrayBuffer());
+  return Buffer.from(new Uint8Array(ab));
+}
+
 const baseBuf = readFileSync(BASE);
 const maskBuf = readFileSync(MASK);
 const maskPng = PNG.sync.read(maskBuf);
 const imgB64 = baseBuf.toString("base64");
 const maskB64 = maskBuf.toString("base64");
+// ENGINE: "kontext" (default, NEW technique = strong full-frame recolor → composite through mask)
+// or "fill" (Flux-Fill masked inpaint — weak on sunlit/dark materials).
+const ENGINE = (process.env.ENGINE || "kontext").toLowerCase();
+const SAVE_RAW = process.env.SAVE_RAW === "1"; // also dump the pre-composite repaint for inspection
 
 async function renderOne(material, outPng) {
-  const raw = await fluxFillInpaint(imgB64, maskB64, material);
+  const raw = ENGINE === "fill"
+    ? await fluxFillInpaint(imgB64, maskB64, material)
+    : await kontextRepaint(imgB64, material);
+  if (SAVE_RAW) writeFileSync(outPng.replace(/\.png$/, "__raw.png"), raw);
   const comp = compositeThroughMask(baseBuf, raw, maskPng);
   writeFileSync(outPng, comp.buf);
   const diff = outsideDiff(baseBuf, comp.buf, maskPng);
