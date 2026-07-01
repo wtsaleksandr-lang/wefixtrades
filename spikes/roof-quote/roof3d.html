@@ -1026,16 +1026,16 @@
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   #roofDesign .rd-mats::-webkit-scrollbar{display:none}
   /* #3 rounded-square material tile: square real-texture thumbnail on top + name below. #7b premium hover. */
-  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:104px;border:1px solid var(--line);border-radius:14px;padding:8px 8px 9px;background:var(--panel);cursor:pointer;text-align:left;transition:transform .16s cubic-bezier(.22,.61,.36,1),box-shadow .16s ease,border-color .14s ease}
+  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:104px;border:1px solid var(--line);border-radius:14px;padding:8px 8px 9px;background:var(--panel);cursor:pointer;text-align:left;transition:background-color .24s ease,border-color .24s ease,transform .32s cubic-bezier(.22,1,.36,1)}
   /* selected = OUTLINE, not a bright fill (hard UI rule) */
   #roofDesign .rd-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.22)}
-  /* #7b premium lift + soft shadow + sheen on hover (tasteful Apple/Stripe-class first pass) */
+  /* #7b hover = WeFixTrades /templates card effect: lift -2px + light blue-grey tint + border darken (ease-out cubic-bezier(.22,1,.36,1)); the texture recedes slightly for depth. No glow/sheen. */
   @media (hover:hover){
-    #roofDesign .rd-mat:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.10);border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
-    #roofDesign .rd-mat:hover .rdm-tex::after{opacity:1}
+    #roofDesign .rd-mat:hover{transform:translateY(-2px);background:color-mix(in srgb,var(--blue) 9%,var(--panel));border-color:color-mix(in srgb,var(--ink) 16%,var(--line))}
+    #roofDesign .rd-mat:hover .rdm-tex{transform:scale(.965)}
     #roofDesign .rd-mat:hover .rdm-loupe{opacity:1;transform:scale(1)}
   }
-  #roofDesign .rd-mat .rdm-tex{position:relative;width:100%;aspect-ratio:1/1;height:auto;border-radius:10px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08);overflow:hidden;cursor:zoom-in}
+  #roofDesign .rd-mat .rdm-tex{position:relative;width:100%;aspect-ratio:1/1;height:auto;border-radius:10px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08);overflow:hidden;cursor:zoom-in;transition:transform .46s cubic-bezier(.22,1,.36,1)}
   /* sheen highlight that appears on hover */
   #roofDesign .rd-mat .rdm-tex::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.34),rgba(255,255,255,0) 42%);opacity:0;transition:opacity .16s ease;pointer-events:none}
   /* #6 loupe/magnifier affordance — a small zoom glyph that fades in on hover; also the click-to-zoom hit-area */
