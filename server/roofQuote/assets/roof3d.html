@@ -117,13 +117,13 @@
   #hero #addrHero{width:100%;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:0 16px;height:54px;color:#f4f7ff;font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
   #hero #addrHero::placeholder{color:rgba(226,232,245,.45)}
   #hero #addrHero:focus{border-color:#5a82ff;background:rgba(255,255,255,.10);box-shadow:0 0 0 3px rgba(13,60,252,.34)}
-  /* primary CTA — rounded-full pill, our blue #0d3cfc (matches reference "Explore demo" shape) */
-  #hero #goHero{width:100%;display:flex;align-items:center;justify-content:center;background:#0d3cfc;border:0;border-radius:99px;padding:0 26px;height:52px;font-weight:700;color:#fff;font-size:15.5px;cursor:pointer;box-shadow:0 10px 26px rgba(13,60,252,.42);font-family:inherit;white-space:nowrap;transition:filter .15s,transform .05s}
+  /* primary CTA — SAME SHAPE as the address input (14px radius, matched height), our blue #0d3cfc */
+  #hero #goHero{width:100%;display:flex;align-items:center;justify-content:center;background:#0d3cfc;border:0;border-radius:14px;padding:0 26px;height:54px;font-weight:700;color:#fff;font-size:15.5px;cursor:pointer;box-shadow:0 10px 26px rgba(13,60,252,.42);font-family:inherit;white-space:nowrap;transition:filter .15s,transform .05s}
   #hero #goHero:hover{filter:brightness(1.08)}
   #hero #goHero:active{transform:translateY(1px)}
-  /* secondary GHOST pill (matches reference "API" ghost button) */
-  #hero .hero-sample{width:100%;display:flex;align-items:center;justify-content:center;margin:12px 0 0;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:9px 18px;color:rgba(232,237,248,.86);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s}
-  #hero .hero-sample:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.34)}
+  /* secondary — plain TEXT link, left-aligned, no pill/container */
+  #hero .hero-sample{display:inline-flex;align-items:center;margin:12px 0 0;background:none;border:0;border-radius:0;padding:6px 0;color:rgba(232,237,248,.86);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:color .15s}
+  #hero .hero-sample:hover{color:#fff;text-decoration:underline}
   /* white-label "powered by" line — hidden unless a tenant brand is injected */
   #hero .hero-poweredby{display:none;margin:14px 0 0;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:rgba(226,232,245,.5)}
   #hero .hero-poweredby b{color:rgba(232,237,248,.8);font-weight:700}
@@ -225,7 +225,7 @@
     #hero .hc-body{margin-top:12px;font-size:14.5px;max-width:none}
     #hero .hero-field{margin-top:18px}
     #hero .hero-bar{gap:11px}
-    #hero #goHero{height:50px;width:100%}     /* full-width — matches input + secondary CTA, no ragged right edge */
+    #hero #goHero{height:52px;width:100%}     /* full-width + same height/shape as the input field */
     #hero #addrHero{height:52px}
     #heroBrand{height:54px}
     #heroBrand .hb-name{font-size:15px}
