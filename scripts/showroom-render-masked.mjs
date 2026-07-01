@@ -24,28 +24,32 @@ function pngToJpg(pngPath, jpgPath, q = Number(process.env.JPG_Q || 3)) {
 const MODE = process.argv[2], BASE = process.argv[3], MASK = process.argv[4], OUT = process.argv[5];
 if (!MODE || !BASE || !MASK || !OUT) { console.error("usage: <mode> <basePng> <maskPng> <outDir> [matId colorIdx]"); process.exit(1); }
 const REPLICATE = process.env.REPLICATE_API_TOKEN || "";
-if (!REPLICATE) { console.error("no REPLICATE_API_TOKEN"); process.exit(1); }
+// REPLICATE only required for kontext/fill/clarity engines; the openai engine (gpt-image-1) uses
+// OPENAI_API_KEY instead. Defer the missing-token error to the replicate call paths.
+if (!REPLICATE && (process.env.ENGINE || "kontext").toLowerCase() !== "openai") {
+  console.error("no REPLICATE_API_TOKEN"); process.exit(1);
+}
 
 // ── ROOF_CATALOG mirror (id + per-color AI prompt) — must match roof3d.html ~L4735-4783.
 const ROOF_CATALOG = [
   { id: "arch", colors: [
-    { n: "Weathered Wood", p: "weathered-wood architectural asphalt shingles, warm light gray-brown wood-shake tone" },
-    { n: "Charcoal", p: "charcoal-black architectural asphalt shingles" },
-    { n: "Pewter Gray", p: "pewter light-gray architectural asphalt shingles" },
-    { n: "Barkwood", p: "barkwood dark natural-brown architectural asphalt shingles" },
-    { n: "Driftwood", p: "driftwood weathered gray-brown architectural asphalt shingles" },
-    { n: "Estate Gray", p: "medium estate-gray architectural asphalt shingles" },
-    { n: "Hickory", p: "hickory rich walnut-brown architectural asphalt shingles" },
-    { n: "Slate Blend", p: "blue-gray slate-blend architectural asphalt shingles" },
-    { n: "Onyx Black", p: "true onyx-black architectural asphalt shingles" },
-    { n: "Hunter Green", p: "deep hunter-green architectural asphalt shingles" } ] },
+    { n: "Weathered Wood", p: "weathered-wood-tone architectural ASPHALT shingle roof, granular asphalt-shingle texture in a warm light gray-brown wood-shake color, NOT wood planks, NOT wood boards" },
+    { n: "Charcoal", p: "charcoal-black architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Pewter Gray", p: "pewter light-gray architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Barkwood", p: "barkwood dark natural-brown architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Driftwood", p: "driftwood weathered gray-brown architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Estate Gray", p: "medium estate-gray architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Hickory", p: "hickory rich walnut-brown architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Slate Blend", p: "blue-gray slate-blend architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Onyx Black", p: "true onyx-black architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Hunter Green", p: "deep hunter-green architectural ASPHALT shingle roof, granular asphalt texture, NOT wood planks" } ] },
   { id: "3tab", colors: [
-    { n: "Charcoal", p: "charcoal-gray 3-tab asphalt shingles" },
-    { n: "Weathered Wood", p: "weathered-wood 3-tab asphalt shingles" },
-    { n: "Driftwood", p: "driftwood gray-brown 3-tab asphalt shingles" },
-    { n: "Silver Gray", p: "silver-gray 3-tab asphalt shingles" },
-    { n: "Autumn Brown", p: "autumn-brown 3-tab asphalt shingles" },
-    { n: "Slate Gray", p: "slate-gray 3-tab asphalt shingles" } ] },
+    { n: "Charcoal", p: "charcoal-gray 3-tab ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Weathered Wood", p: "weathered-wood-tone 3-tab ASPHALT shingle roof, granular asphalt-shingle texture in a gray-brown color, NOT wood planks, NOT wood boards" },
+    { n: "Driftwood", p: "driftwood gray-brown 3-tab ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Silver Gray", p: "silver-gray 3-tab ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Autumn Brown", p: "autumn-brown 3-tab ASPHALT shingle roof, granular asphalt texture, NOT wood planks" },
+    { n: "Slate Gray", p: "slate-gray 3-tab ASPHALT shingle roof, granular asphalt texture, NOT wood planks" } ] },
   { id: "metal", colors: [
     { n: "Matte Black", p: "matte black standing-seam metal roof" },
     { n: "Charcoal", p: "charcoal-gray standing-seam metal roof" },
@@ -306,12 +310,70 @@ async function clarityUpscale(imgPngB64, creativityOverride) {
   return Buffer.from(new Uint8Array(ab));
 }
 
+// ── gpt-image-1 edit-mask: OpenAI /images/edits edits ONLY the fully-transparent (alpha=0)
+// pixels of the mask, keeping everything else. Our roofMask (roof=WHITE=opaque) is the inverse,
+// so build an RGBA PNG where roof pixels are transparent and everything else is opaque. Same
+// dimensions as the roof mask so it lines up with the base we upload.
+function buildOpenAIEditMask(roofMaskPng) {
+  const w = roofMaskPng.width, h = roofMaskPng.height;
+  const out = new PNG({ width: w, height: h, colorType: 6 });
+  for (let p = 0; p < w * h; p++) {
+    const i = p << 2;
+    const roof = roofMaskPng.data[i] > 127; // white = roof = edit
+    out.data[i] = out.data[i + 1] = out.data[i + 2] = 0;
+    out.data[i + 3] = roof ? 0 : 255; // transparent where we edit, opaque to keep
+  }
+  return PNG.sync.write(out);
+}
+
+// ── gpt-image-1 uniform whole-roof recolor via /images/edits with an RGBA edit-mask (roof
+// transparent). PROVEN fix for the plane-mixing defect: the model recolors the ENTIRE masked
+// roof region uniformly (every slope/gable/dormer/garage) in ONE pass, keeping the exact same
+// house outside the mask. We still finish with compositeThroughMask so only roof pixels change
+// (outsideMax=0). Returns a PNG buffer at the OpenAI output size (compositeThroughMask resamples
+// it back onto the base grid).
+const OPENAI_KEY = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "";
+// COST CONTROL (Alex got a surprise bill): default to 1024x1024 + medium quality (~$0.04-0.06/img,
+// plenty for the ~900px showroom display). compositeThroughMask resamples the square result back
+// onto the 1216x832 base grid, so a square output composites correctly. Override via env if needed.
+const OPENAI_SIZE = process.env.OPENAI_SIZE || "1024x1024";
+const OPENAI_QUALITY = process.env.OPENAI_QUALITY || "medium"; // gpt-image-1: low|medium|high
+async function openaiEdit(baseBuffer, editMaskBuffer, material) {
+  if (!OPENAI_KEY) throw new Error("no OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY");
+  const prompt =
+    "Recolor the ENTIRE roof uniformly to " + material + ", every slope, gable, dormer and garage " +
+    "roof plane the same exact colour, material and texture with no leftover original grey plane " +
+    "anywhere. Photorealistic roofing with shadows and lighting matching the photo. Keep everything " +
+    "else in the image identical — same house, siding, windows, doors, garage, trees, lawn, sky, " +
+    "camera angle and lighting.";
+  const form = new FormData();
+  form.append("model", "gpt-image-1");
+  form.append("prompt", prompt);
+  form.append("size", OPENAI_SIZE);
+  form.append("quality", OPENAI_QUALITY);
+  form.append("n", "1");
+  form.append("image", new Blob([baseBuffer], { type: "image/png" }), "base.png");
+  form.append("mask", new Blob([editMaskBuffer], { type: "image/png" }), "mask.png");
+  const rr = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + OPENAI_KEY },
+    body: form,
+  });
+  const j = await rr.json();
+  if (!rr.ok) throw new Error("openai_" + rr.status + ":" + JSON.stringify(j.error || j).slice(0, 200));
+  const b64 = j.data && j.data[0] && j.data[0].b64_json;
+  if (!b64) throw new Error("openai_no_output:" + JSON.stringify(j).slice(0, 200));
+  return Buffer.from(b64, "base64");
+}
+
 const baseBuf = readFileSync(BASE);
 const maskBuf = readFileSync(MASK);
 const maskPng = PNG.sync.read(maskBuf);
 const imgB64 = baseBuf.toString("base64");
 const maskB64 = maskBuf.toString("base64");
-// ENGINE: "kontext" (default, NEW technique = strong full-frame recolor → composite through mask)
+const openaiEditMaskBuf = buildOpenAIEditMask(maskPng); // RGBA edit-mask (roof transparent) for gpt-image-1
+// ENGINE: "openai" (PROVEN fix — gpt-image-1 /images/edits uniform whole-roof recolor with RGBA
+// edit-mask → composite through the roof mask), "kontext" (full-frame flux recolor → composite),
 // or "fill" (Flux-Fill masked inpaint — weak on sunlit/dark materials).
 const ENGINE = (process.env.ENGINE || "kontext").toLowerCase();
 const SAVE_RAW = process.env.SAVE_RAW === "1"; // also dump the pre-composite repaint for inspection
@@ -340,8 +402,9 @@ function clarityCreativityFor(matId) {
 }
 
 async function renderOne(material, outPng, matId) {
-  let raw = ENGINE === "fill"
-    ? await fluxFillInpaint(imgB64, maskB64, material)
+  let raw =
+    ENGINE === "openai" ? await openaiEdit(baseBuf, openaiEditMaskBuf, material)
+    : ENGINE === "fill" ? await fluxFillInpaint(imgB64, maskB64, material)
     : await kontextRepaint(imgB64, material);
   if (SAVE_RAW) writeFileSync(outPng.replace(/\.png$/, "__raw.png"), raw);
 
