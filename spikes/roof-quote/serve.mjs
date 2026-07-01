@@ -1177,7 +1177,7 @@ http.createServer(async (req,res)=>{
   // 404 when absent → the widget falls back to the live 3D colour-tint. Bare-filename only (no traversal).
   if(u.pathname.startsWith("/showroom/")){
     const rel=u.pathname.slice("/showroom/".length);
-    if(!/^(thumbs\/)?[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)){ res.statusCode=404; res.end("not found"); return; }
+    if(!/^(thumbs\/)?[\w.@-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)){ res.statusCode=404; res.end("not found"); return; }
     const name=path.basename(rel);
     const fp=path.join(import.meta.dirname,"showroom",rel);
     try{

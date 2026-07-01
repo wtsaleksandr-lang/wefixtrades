@@ -331,7 +331,7 @@ export function registerRoofQuoteRoutes(app: Express) {
   app.get(/^\/api\/roofquote\/showroom\/(.+)$/, (req: Request, res: Response) => {
     // Allow an optional "thumbs/" subdir (material thumbnails) but nothing else — no path traversal.
     const rel = String((req.params as Record<string, string>)[0] || "");
-    if (!/^(thumbs\/)?[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)) {
+    if (!/^(thumbs\/)?[\w.@-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)) {
       return res.status(404).send("not found");
     }
     const name = path.basename(rel);
