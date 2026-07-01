@@ -328,12 +328,14 @@ export function registerRoofQuoteRoutes(app: Express) {
    * instantly on each material/colour pick. A missing file/manifest 404s and the widget falls back
    * to the live 3D colour-tint — so this route is safe to ship before the assets land. Bare-filename
    * only — no path traversal. */
-  app.get("/api/roofquote/showroom/:name", (req: Request, res: Response) => {
-    const name = path.basename(String(req.params.name || ""));
-    if (!/^[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(name)) {
+  app.get(/^\/api\/roofquote\/showroom\/(.+)$/, (req: Request, res: Response) => {
+    // Allow an optional "thumbs/" subdir (material thumbnails) but nothing else — no path traversal.
+    const rel = String((req.params as Record<string, string>)[0] || "");
+    if (!/^(thumbs\/)?[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)) {
       return res.status(404).send("not found");
     }
-    const fp = path.join(ASSET_DIR, "showroom", name);
+    const name = path.basename(rel);
+    const fp = path.join(ASSET_DIR, "showroom", rel);
     if (!existsSync(fp)) {
       // graceful: the widget treats 404 as "assets not shipped yet" → 3D-tint fallback
       return res.status(404).send("not found");

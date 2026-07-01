@@ -1176,9 +1176,10 @@ http.createServer(async (req,res)=>{
   // SHOWROOM (Part 1): pre-rendered "example home" swatches. manifest.json + images live in ./showroom/.
   // 404 when absent → the widget falls back to the live 3D colour-tint. Bare-filename only (no traversal).
   if(u.pathname.startsWith("/showroom/")){
-    const name=path.basename(u.pathname);
-    if(!/^[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(name)){ res.statusCode=404; res.end("not found"); return; }
-    const fp=path.join(import.meta.dirname,"showroom",name);
+    const rel=u.pathname.slice("/showroom/".length);
+    if(!/^(thumbs\/)?[\w.-]+\.(json|jpg|jpeg|png|webp)$/.test(rel)){ res.statusCode=404; res.end("not found"); return; }
+    const name=path.basename(rel);
+    const fp=path.join(import.meta.dirname,"showroom",rel);
     try{
       const buf=readFileSync(fp);
       const ext=name.slice(name.lastIndexOf(".")+1).toLowerCase();
