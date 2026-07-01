@@ -6,3 +6,6 @@ serve*.log
 
 cache/
 leads.jsonl
+# Local preview copy of the showroom assets (canonical source: server/roofQuote/assets/showroom/).
+# Copied in for the PORT=5180 preview server via `cp -r ../../server/roofQuote/assets/showroom .`
+showroom/

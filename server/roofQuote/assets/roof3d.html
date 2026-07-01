@@ -1025,18 +1025,34 @@
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   #roofDesign .rd-mats::-webkit-scrollbar{display:none}
-  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:96px;border:1px solid var(--line);border-radius:12px;padding:7px 8px 8px;background:#fff;cursor:pointer;text-align:left;transition:border-color .14s ease,box-shadow .14s ease}
-  #roofDesign .rd-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.16)}
-  #roofDesign .rd-mat .rdm-tex{width:100%;height:30px;border-radius:7px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08)}
+  /* #3 rounded-square material tile: square real-texture thumbnail on top + name below. #7b premium hover. */
+  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:104px;border:1px solid var(--line);border-radius:14px;padding:8px 8px 9px;background:var(--panel);cursor:pointer;text-align:left;transition:transform .16s cubic-bezier(.22,.61,.36,1),box-shadow .16s ease,border-color .14s ease}
+  /* selected = OUTLINE, not a bright fill (hard UI rule) */
+  #roofDesign .rd-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.22)}
+  /* #7b premium lift + soft shadow + sheen on hover (tasteful Apple/Stripe-class first pass) */
+  @media (hover:hover){
+    #roofDesign .rd-mat:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.10);border-color:color-mix(in srgb,var(--blue) 45%,var(--line))}
+    #roofDesign .rd-mat:hover .rdm-tex::after{opacity:1}
+    #roofDesign .rd-mat:hover .rdm-loupe{opacity:1;transform:scale(1)}
+  }
+  #roofDesign .rd-mat .rdm-tex{position:relative;width:100%;aspect-ratio:1/1;height:auto;border-radius:10px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08);overflow:hidden;cursor:zoom-in}
+  /* sheen highlight that appears on hover */
+  #roofDesign .rd-mat .rdm-tex::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.34),rgba(255,255,255,0) 42%);opacity:0;transition:opacity .16s ease;pointer-events:none}
+  /* #6 loupe/magnifier affordance — a small zoom glyph that fades in on hover; also the click-to-zoom hit-area */
+  #roofDesign .rd-mat .rdm-loupe{position:absolute;top:6px;right:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:color-mix(in srgb,var(--panel) 62%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 2px 6px rgba(15,23,42,.22);opacity:0;transform:scale(.82);transition:opacity .14s ease,transform .14s ease;cursor:zoom-in}
+  #roofDesign .rd-mat .rdm-loupe svg{width:14px;height:14px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #roofDesign .rd-mat .rdm-nm{font-size:11.5px;font-weight:800;color:var(--ink);line-height:1.1;letter-spacing:-.01em}
   #roofDesign .rd-mat .rdm-tier{font-size:9.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.02em}
   /* colour swatches */
-  #roofDesign .rd-cols{display:flex;gap:9px;overflow-x:auto;padding:1px 0 3px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  /* #4 colour selectors: rounded-square chip pills that size to their FULL name — no truncation. */
+  #roofDesign .rd-cols{display:flex;flex-wrap:wrap;gap:8px;padding:1px 0 3px}
   #roofDesign .rd-cols::-webkit-scrollbar{display:none}
-  #roofDesign .rd-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:54px}
-  #roofDesign .rd-col .rdc-chip{width:40px;height:40px;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
-  #roofDesign .rd-col.on .rdc-chip{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.18),inset 0 0 0 1px rgba(0,0,0,.10)}
-  #roofDesign .rd-col .rdc-nm{font-size:9.5px;font-weight:700;color:var(--muted);line-height:1.05;text-align:center;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+  #roofDesign .rd-col{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:6px 11px 6px 6px;background:var(--panel);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
+  @media (hover:hover){ #roofDesign .rd-col:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,23,42,.10);border-color:color-mix(in srgb,var(--blue) 35%,var(--line))} }
+  #roofDesign .rd-col .rdc-chip{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #roofDesign .rd-col.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.20)}
+  #roofDesign .rd-col.on .rdc-chip{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #roofDesign .rd-col .rdc-nm{font-size:11px;font-weight:700;color:var(--muted);line-height:1.1;white-space:nowrap}
   #roofDesign .rd-col.on .rdc-nm{color:var(--ink)}
   /* price + features row */
   #roofDesign .rd-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
@@ -1073,16 +1089,18 @@
   #seeModal .sm-sec-lab{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:8px}
   #seeModal .sm-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
   #seeModal .sm-mats::-webkit-scrollbar{display:none}
-  #seeModal .sm-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:92px;border:1px solid var(--line);border-radius:12px;padding:7px 8px 8px;background:#fff;cursor:pointer;text-align:left}
-  #seeModal .sm-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.16)}
-  #seeModal .sm-mat .smm-tex{width:100%;height:28px;border-radius:7px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08)}
+  #seeModal .sm-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:5px;width:96px;border:1px solid var(--line);border-radius:13px;padding:8px;background:var(--panel);cursor:pointer;text-align:left;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
+  @media (hover:hover){ #seeModal .sm-mat:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,23,42,.12);border-color:color-mix(in srgb,var(--blue) 40%,var(--line))} }
+  #seeModal .sm-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.20)}
+  #seeModal .sm-mat .smm-tex{width:100%;aspect-ratio:1/1;height:auto;border-radius:9px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08)}
   #seeModal .sm-mat .smm-nm{font-size:11px;font-weight:800;color:var(--ink);line-height:1.1}
-  #seeModal .sm-cols{display:flex;gap:9px;overflow-x:auto;padding:1px 0 3px;scrollbar-width:none}
+  #seeModal .sm-cols{display:flex;flex-wrap:wrap;gap:8px;padding:1px 0 3px}
   #seeModal .sm-cols::-webkit-scrollbar{display:none}
-  #seeModal .sm-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:52px}
-  #seeModal .sm-col .smc-chip{width:38px;height:38px;border-radius:10px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
-  #seeModal .sm-col.on .smc-chip{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.18),inset 0 0 0 1px rgba(0,0,0,.10)}
-  #seeModal .sm-col .smc-nm{font-size:9px;font-weight:700;color:var(--muted);text-align:center;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+  #seeModal .sm-col{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:5px 11px 5px 5px;background:var(--panel)}
+  #seeModal .sm-col .smc-chip{flex:0 0 auto;width:28px;height:28px;border-radius:8px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #seeModal .sm-col.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.20)}
+  #seeModal .sm-col.on .smc-chip{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  #seeModal .sm-col .smc-nm{font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap}
   #seeModal .sm-col.on .smc-nm{color:var(--ink)}
   #seeModal .sm-srcs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   #seeModal .sm-src{display:flex;flex-direction:column;align-items:center;gap:7px;border:1px solid var(--line);border-radius:14px;padding:14px 10px;background:#fff;cursor:pointer;text-align:center;font-family:inherit}
@@ -1124,8 +1142,26 @@
   /* trigger button in the roofing-designer rail */
   #roofDesign .rd-seebtn{margin-left:0;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px;cursor:pointer}
   #roofDesign .rd-seebtn svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* #6 CLOSEUP MODAL — Apple frosted glass (translucent + blur+saturate), rounded, closes on backdrop/Esc/X */
+  #rdZoom{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:22px;background:color-mix(in srgb,var(--ink) 34%,transparent);-webkit-backdrop-filter:blur(10px) saturate(150%);backdrop-filter:blur(10px) saturate(150%)}
+  #rdZoom.on{display:flex}
+  #rdZoom .rz-card{position:relative;width:100%;max-width:440px;border-radius:22px;overflow:clip;background:color-mix(in srgb,var(--panel) 78%,transparent);-webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);border:1px solid color-mix(in srgb,var(--line) 70%,transparent);box-shadow:0 30px 80px rgba(15,23,42,.34)}
+  #rdZoom .rz-img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:color-mix(in srgb,var(--ink) 6%,transparent)}
+  #rdZoom .rz-foot{display:flex;align-items:center;gap:10px;padding:14px 16px}
+  #rdZoom .rz-t{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;line-height:1.15}
+  #rdZoom .rz-s{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px}
+  #rdZoom .rz-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 60%,transparent);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  @media (hover:hover){ #rdZoom .rz-x:hover{color:var(--ink);border-color:color-mix(in srgb,var(--blue) 40%,var(--line))} }
+  /* #7a WHITE-BORDER HOVER on primary CTAs — a crisp white ring appears on hover (theme-aware, subtle, premium) */
+  @media (hover:hover){
+    #hero #goHero:hover,
+    #roofDesign .rd-cta .rd-done:hover,
+    #roofDesign .rd-seebtn:hover,
+    #seeModal .sm-start:hover,
+    #seeModal .sm-done:hover{box-shadow:0 0 0 2px #fff,0 0 0 3px color-mix(in srgb,var(--ink) 12%,transparent),0 10px 26px rgba(13,60,252,.34)}
+  }
   @media (max-width:430px){
-    #roofDesign .rd-mat{width:88px}
+    #roofDesign .rd-mat{width:92px}
     #roofDesign .rd-price .rdp-v{font-size:19px}
     #roofDesign .rd-info{gap:8px}
     #roofDesign .rd-ai{padding:9px 11px}
@@ -1155,13 +1191,14 @@
   <canvas id="matCanvas" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:15;touch-action:none"></canvas>
   <div id="measMini"><canvas id="measMiniCv"></canvas><div class="mm-ring"></div></div>
   <div id="matHint">Top-down material preview · obstructions kept</div>
-  <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:16">
+  <!-- Full-house display: contain (not cover) so the WHOLE premium 3:2 house render is visible, never top-cropped. -->
+  <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:16">
   <!-- AERIAL EMPTY-STATE FALLBACK — shown when neither our 3D model nor Google photoreal can render
        (e.g. addresses with no Google Solar coverage). Paints the real satellite/aerial ortho of the
        roof (QUOTE.hero) full-bleed with an honest on-brand note, so the preview is NEVER a blank void. -->
   <img id="aerialFb" alt="Aerial view of your roof" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:14">
   <div id="aerialNote" style="display:none"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg><span id="aerialNoteText"></span></div>
-  <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#eef1f6;display:none;z-index:17">
+  <img id="baBefore" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#eef1f6;display:none;z-index:17">
   <div id="baHandle" style="display:none"><div class="ba-knob"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></svg></div></div>
   <span class="ba-tag" id="baTagA" style="display:none">After</span><span class="ba-tag" id="baTagB" style="display:none">Before</span>
   <div id="aiRendering"><span class="mini"></span><span>Rendering photo…</span></div>
@@ -1328,6 +1365,17 @@
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
   <div id="infoModal"><div class="im-card"><button class="im-x" onclick="window.__closeInfo()" aria-label="Close">&times;</button><div id="imBody"></div></div></div>
+  <!-- #6 MATERIAL CLOSEUP MODAL — Apple frosted glass; hi-res @2x macro texture so the homeowner sees the
+       exact grain. Opens from the loupe/zoom affordance on a material tile; closes on backdrop / Esc / X. -->
+  <div id="rdZoom" role="dialog" aria-modal="true" aria-label="Material texture closeup" onclick="if(event.target===this)rdCloseZoom()">
+    <div class="rz-card">
+      <img id="rdZoomImg" class="rz-img" alt="Roof material texture closeup">
+      <div class="rz-foot">
+        <div><span class="rz-t" id="rdZoomT">Material</span><span class="rz-s" id="rdZoomS">Real material texture</span></div>
+        <button class="rz-x" type="button" aria-label="Close" onclick="rdCloseZoom()">&times;</button>
+      </div>
+    </div>
+  </div>
   <!-- "SEE THE ROOF ON YOUR OWN HOUSE" MODAL (Part 2): pick roof → choose source (Google-Earth aerial or
        photo upload) → render → before/after. Built so a render NEVER spends until "Start your preview". -->
   <div id="seeModal" role="dialog" aria-modal="true" aria-labelledby="smHead">
@@ -10460,12 +10508,40 @@ function rdBuildMats(){
   const wrap=$("rdMats"); if(!wrap) return; wrap.innerHTML="";
   ROOF_CATALOG.forEach((m,i)=>{
     const b=document.createElement("button"); b.type="button"; b.className="rd-mat"+(i===selMat?" on":"");
-    let tex=""; try{ tex=matThumb(m); }catch(_){}
-    b.innerHTML='<div class="rdm-tex" style="background-image:url('+tex+')"></div><div class="rdm-tier">'+esc(m.tier||"")+'</div><div class="rdm-nm">'+esc(m.label)+'</div>';
-    b.onclick=()=>rdPickMat(i);
+    // #3 real premium macro-swatch thumbnail from the manifest; graceful fall-back to the procedural swatch.
+    const real=rdThumbUrl(m.id,false);
+    let tex=""; if(!real){ try{ tex=matThumb(m); }catch(_){} }
+    const bg=real?("url("+real+")"):("url("+tex+")");
+    // #6 loupe/magnifier affordance overlay (desktop hover) + click-to-zoom → frosted closeup modal.
+    b.innerHTML='<div class="rdm-tex" style="background-image:'+bg+'">'
+      +'<span class="rdm-loupe" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2M11 8v6M8 11h6"/></svg></span>'
+      +'</div>'
+      +'<div class="rdm-tier">'+esc(m.tier||"")+'</div><div class="rdm-nm">'+esc(m.label)+'</div>';
+    b.onclick=(ev)=>{
+      // Click the loupe → open the closeup modal WITHOUT changing the picked material; the rest of the tile picks.
+      if(ev && ev.target && ev.target.closest && ev.target.closest(".rdm-loupe")){ ev.stopPropagation(); rdOpenZoom(m); return; }
+      rdPickMat(i);
+    };
     wrap.appendChild(b);
   });
 }
+// #6 CLOSEUP: open a frosted-glass modal showing the hi-res @2x macro texture for a material so the
+// homeowner sees the exact grain. Reuses the Apple frosted pattern (backdrop-filter blur+saturate).
+function rdOpenZoom(m){
+  try{
+    const modal=$("rdZoom"); if(!modal) return;
+    const hi=rdThumbUrl(m.id,true)||rdThumbUrl(m.id,false);
+    const img=$("rdZoomImg"), t=$("rdZoomT"), s=$("rdZoomS");
+    if(!hi){ // no real closeup available → fall back to the procedural swatch so the modal is never empty
+      let tex=""; try{ tex=matThumb(m); }catch(_){} if(img) img.src=tex;
+    } else if(img){ img.src=hi; }
+    if(t) t.textContent=m.label; if(s) s.textContent=(m.tier?m.tier+" · ":"")+"Real material texture";
+    modal.classList.add("on");
+    document.addEventListener("keydown",rdZoomEsc);
+  }catch(_){}
+}
+function rdCloseZoom(){ const modal=$("rdZoom"); if(modal) modal.classList.remove("on"); document.removeEventListener("keydown",rdZoomEsc); }
+function rdZoomEsc(e){ if(e.key==="Escape") rdCloseZoom(); }
 // build the colour swatch row for the selected material
 function rdBuildCols(){
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], wrap=$("rdCols"); if(!wrap) return; wrap.innerHTML="";
@@ -10499,6 +10575,21 @@ function rdShowroomUrl(m,c){
     if(!man||!man.materials) return null;
     const byMat=man.materials[m&&m.id]; if(!byMat) return null;
     const file=byMat[c&&c.n]; if(!file||typeof file!=="string") return null;
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    return RB+"/showroom/"+file;
+  }catch(_){ return null; }
+}
+// Resolve the premium REAL-photo macro-swatch thumbnail URL for a material id from the manifest
+// `thumbs` map. `hi` picks the hi-res @2x closeup (for the loupe/modal); otherwise the tile thumb.
+// Returns null when the manifest is absent or the material has no thumb (caller falls back to the
+// procedural makeShingleCanvas swatch so nothing breaks before assets land).
+function rdThumbUrl(matId,hi){
+  try{
+    const man=window.__showroomManifest;
+    if(!man||!man.thumbs) return null;
+    const t=man.thumbs[matId]; if(!t) return null;
+    const file=hi?(t.thumb2x||t.thumb):(t.thumb||t.thumb2x);
+    if(!file||typeof file!=="string") return null;
     const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
     return RB+"/showroom/"+file;
   }catch(_){ return null; }
@@ -10853,8 +10944,8 @@ async function openRoofDesign(){
   // live). When it lands, re-reflect so the current selection swaps to its instant photoreal image. If the
   // manifest is absent (assets not shipped yet) this is a graceful no-op and the 3D tint stays.
   if(window.__showroomManifest===undefined){
-    rdLoadShowroom().then(man=>{ if(man && window.__rdOpen){ try{ rdReflectOnHouse(); }catch(_){} } }).catch(()=>{});
-  }
+    rdLoadShowroom().then(man=>{ if(man && window.__rdOpen){ try{ rdBuildMats(); rdReflectOnHouse(); }catch(_){} } }).catch(()=>{});
+  } else if(window.__showroomManifest){ try{ rdBuildMats(); }catch(_){} }
   // CANOPY FALLBACK (Problem B): start each designer session with the upload prompt hidden (a stale prompt
   // from a prior address must not carry over); it re-shows only if THIS address has no aerial roof mask.
   try{ const pr=$("rdUploadPrompt"); if(pr) pr.style.display="none"; }catch(_){}
@@ -10984,8 +11075,10 @@ window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify
     const wrap=el("smMats"); if(!wrap) return; wrap.innerHTML="";
     ROOF_CATALOG.forEach((m,i)=>{
       const b=document.createElement("button"); b.type="button"; b.className="sm-mat"+(i===smMat?" on":"");
-      let tex=""; try{ tex=matThumb(m); }catch(_){}
-      b.innerHTML='<div class="smm-tex" style="background-image:url('+tex+')"></div><div class="smm-nm">'+esc(m.label)+'</div>';
+      const real=(typeof rdThumbUrl==="function")?rdThumbUrl(m.id,false):null;
+      let tex=""; if(!real){ try{ tex=matThumb(m); }catch(_){} }
+      const bg=real?("url("+real+")"):("url("+tex+")");
+      b.innerHTML='<div class="smm-tex" style="background-image:'+bg+'"></div><div class="smm-nm">'+esc(m.label)+'</div>';
       b.onclick=()=>{ smMat=i; smCol=0; smBuildMats(); smBuildCols(); };
       wrap.appendChild(b);
     });
