@@ -55,6 +55,32 @@
       "Weathered Gray": "cedar__weathered-gray.jpg"
     }
   },
-  "baseHouseLabel": "Single-story gable home (AI showroom)",
-  "generatedAt": "2026-06-30T00:00:00Z"
+  "thumbs": {
+    "arch": {
+      "thumb": "thumbs/arch.jpg",
+      "thumb2x": "thumbs/arch@2x.jpg"
+    },
+    "3tab": {
+      "thumb": "thumbs/3tab.jpg",
+      "thumb2x": "thumbs/3tab@2x.jpg"
+    },
+    "metal": {
+      "thumb": "thumbs/metal.jpg",
+      "thumb2x": "thumbs/metal@2x.jpg"
+    },
+    "clay": {
+      "thumb": "thumbs/clay.jpg",
+      "thumb2x": "thumbs/clay@2x.jpg"
+    },
+    "slate": {
+      "thumb": "thumbs/slate.jpg",
+      "thumb2x": "thumbs/slate@2x.jpg"
+    },
+    "cedar": {
+      "thumb": "thumbs/cedar.jpg",
+      "thumb2x": "thumbs/cedar@2x.jpg"
+    }
+  },
+  "baseHouseLabel": "Single-story home (AI showroom)",
+  "generatedAt": "2026-07-01T00:00:00Z"
 }
