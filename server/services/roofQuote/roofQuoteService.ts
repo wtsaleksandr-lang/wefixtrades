@@ -1840,6 +1840,76 @@ async function fluxFillInpaint(satBuf: Buffer, maskBuf: Buffer, material: string
   return Buffer.from(new Uint8Array(ab));
 }
 
+// STRONG top-down roof recolor via Flux-KONTEXT-pro (the same engine `aiRender`/`renderReplicate`
+// uses). Flux-FILL inpaint recolours WEAKLY — it will not darken a sunlit roof, so metal/black and
+// deep terracotta wash out. Kontext, run FULL-FRAME as true img2img, recolours the roof strongly and
+// uniformly. We then composite ONLY the footprint-mask region of this result back onto the original
+// satellite (see renderRoofOnlyTopDown step 6), so the strong colour lands INSIDE the mask and every
+// off-roof pixel stays byte-identical (outsideMax==0 preserved by the mask, exactly as with Fill).
+//
+// Alignment: Kontext is img2img with a fixed per-image seed → it keeps the frame registered to the
+// input, so the roof stays aligned to the footprint mask (which lives in the base's pixel space).
+// Output is requested as PNG so compositeThroughMask (pngjs, no JPEG decoder in this build) can read
+// the bytes directly. Returns a PNG Buffer aligned to `satBuf`, or throws for the Fill fallback.
+async function kontextTopDownRecolor(satBuf: Buffer, material: string): Promise<Buffer> {
+  const REPLICATE = replicateKey();
+  if (!REPLICATE) throw new Error("no_replicate_key");
+  const dataUri = "data:image/png;base64," + satBuf.toString("base64");
+  const seed = houseSeed(dataUri); // fixed per-house → stable, keeps the frame registered to the base
+  const prompt =
+    "Edit THIS exact aerial top-down satellite photo. Recolour the ENTIRE roof of the main house in " +
+    "the centre — every slope, plane and facet — fully and uniformly in " + material + ", covering the " +
+    "whole roof surface. Leave NO original roof colour showing; the whole roof must read clearly as " +
+    material + " even where it is sunlit. Photorealistic roofing texture with shadows and lighting " +
+    "matching the aerial. Keep the IDENTICAL house, roof shape, ridges, hips and outline, and every " +
+    "other pixel — walls, yard, driveway, trees, vehicles and neighbouring houses — exactly the same. " +
+    "Do NOT generate a new or different house or scene; same camera angle, same framing, same lighting.";
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const rr = await fetch(
+        "https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions",
+        {
+          method: "POST",
+          headers: { Authorization: "Bearer " + REPLICATE, "Content-Type": "application/json", Prefer: "wait" },
+          body: JSON.stringify({
+            input: {
+              prompt,
+              input_image: dataUri,
+              output_format: "png", // PNG so compositeThroughMask can read the bytes (no JPEG decoder here)
+              safety_tolerance: 2,
+              seed,
+            },
+          }),
+        },
+      );
+      let j = (await rr.json()) as {
+        status?: string; error?: string; detail?: string; output?: string | string[]; urls?: { get: string };
+      };
+      let tries = 0;
+      while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 40) {
+        const pollUrl = j.urls?.get; // main 93ce4dcb: guard the poll url so error bodies degrade cleanly
+        if (!pollUrl) break;
+        await new Promise((s) => setTimeout(s, 1500));
+        const pr = await fetch(pollUrl, { headers: { Authorization: "Bearer " + REPLICATE } });
+        j = (await pr.json()) as typeof j;
+        tries++;
+      }
+      if (j.status !== "succeeded") throw new Error("kontext_" + (j.error || j.detail || j.status || "failed"));
+      const out = Array.isArray(j.output) ? j.output[0] : j.output;
+      if (!out) throw new Error("kontext_no_output");
+      const ab = await fetch(out).then((r) => r.arrayBuffer());
+      const buf = Buffer.from(new Uint8Array(ab));
+      if (!buf.length) throw new Error("kontext_empty");
+      return buf;
+    } catch (e) {
+      lastErr = e;
+      await new Promise((s) => setTimeout(s, 1800));
+    }
+  }
+  throw lastErr;
+}
+
 // Full roof-only render for an address+material. Throws a TYPED error the route turns into a
 // graceful client signal: "no_footprint" → the client gates to the customer-photo upload path
 // (presenting Street View's possibly-wrong house is a trust killer), any other error → the
@@ -1867,8 +1937,19 @@ async function renderRoofOnlyTopDown(
   // 4) mask (feather 4px so eave edges are covered; stays roof-only). fp.ring is [lng,lat] GeoJSON order.
   const m = buildRoofMask(fp.ring, lat, lng, TD_ZOOM, W, H, TD_SCALE, 4);
   if (!(m.whiteFrac > 0.002)) throw new Error("mask_empty:" + m.whiteFrac.toFixed(4)); // footprint off-frame → bail
-  // 5) inpaint + 6) composite passthrough (guarantees non-roof == original)
-  const raw = await fluxFillInpaint(sat, m.buf, material);
+  // 5) recolor. STRONG Flux-KONTEXT full-frame recolor FIRST (Flux-Fill inpaint recolours too weakly —
+  //    metal/black won't darken a sunlit roof); fall back to Flux-Fill inpaint only if Kontext throws.
+  //    6) composite passthrough through the footprint mask GUARANTEES every non-roof pixel == original
+  //    (outsideMax==0) for BOTH engines — the strong colour lands only inside the roof mask.
+  let raw: Buffer;
+  try {
+    raw = await kontextTopDownRecolor(sat, material);
+  } catch (e) {
+    log.warn("kontext top-down recolor failed, falling back to flux-fill inpaint", {
+      err: (e as Error)?.message || String(e),
+    });
+    raw = await fluxFillInpaint(sat, m.buf, material);
+  }
   const comp = compositeThroughMask(sat, raw, m.png);
   return { buf: comp.buf, base: sat, whiteFrac: m.whiteFrac, footprintSource: fp.source, attribution: fp.attribution };
 }
