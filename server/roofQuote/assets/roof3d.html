@@ -729,10 +729,20 @@
   /* (#4) COMPACT slim editor bar — must NOT cover the roof being edited. Pinned bottom-centre, narrow,
      low padding; the full stats/pitch/facet detail collapses behind a "Details" expander so the default
      state is a slim prompt + the live area + the actions. Translucent so the roof reads behind it. */
+  /* Apple-style FROSTED sheet: translucent panel + heavy blur+saturate so the roof reads through it. */
   #dotHud{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:30;display:none;
-    background:rgba(255,255,255,0.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-    border:1px solid #e1e7ef;border-radius:13px;padding:7px 9px;box-shadow:var(--card-shadow);
-    width:min(360px,calc(100vw - 20px));text-align:center}
+    background:color-mix(in srgb, var(--panel) 72%, transparent);
+    backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--line);border-radius:18px;padding:7px 9px;
+    box-shadow:0 -8px 30px rgba(15,23,42,.14),var(--card-shadow);
+    width:min(360px,calc(100vw - 20px));text-align:center;overflow:clip}
+  /* thin top hairline for the frosted-glass edge */
+  #dotHud::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:rgba(255,255,255,.5);pointer-events:none}
+  /* GRAB HANDLE — centred pill; mobile-only drag/tap target folded in below. */
+  #dotHud .dh-grab{display:none;position:absolute;top:0;left:0;right:0;height:20px;align-items:center;justify-content:center;cursor:grab;touch-action:none;z-index:5}
+  #dotHud .dh-grab::before{content:"";width:36px;height:5px;border-radius:99px;background:#cbd5e1}
+  #dotHud.sheet-peek .dh-grab::before{background:#94a3b8}
+  #dotHud .dh-grab:active{cursor:grabbing}
   /* slim top row: prompt on the left, the live area read-out on the right */
   #dotHud .dh-prompt{font-size:11px;font-weight:700;color:#0f172a;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
   #dotHud .dh-prompt .dh-area{font-weight:800;color:#0d3cfc;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -780,7 +790,22 @@
   #dotHud .dh-splitbar .dh-sb-btn:disabled{opacity:.4;cursor:default}
   #dotHud .dh-splitbar .dh-sb-btn.dh-sb-apply{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.2}
   #dotHud .dh-splitbar .dh-sb-btn.dh-sb-remove{color:#b91c1c;border-color:#f1d4d4}
-  @media (max-width:560px){ #dotHud{bottom:12px;padding:7px 9px;width:min(340px,calc(100vw - 16px))} #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px} }
+  @media (max-width:560px){
+    /* full-width bottom sheet on mobile; capped ~70vh so the top of the roof preview always stays visible */
+    #dotHud{left:2px;right:2px;bottom:8px;transform:none;width:auto;max-height:70vh;overflow-y:auto;padding:20px 10px 9px;border-radius:18px 18px 0 0}
+    #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px}
+    #dotHud .dh-grab{display:flex}
+    /* PEEK (default): handle + the single squares/area line + Done editing only. The .dh-more detail and
+       the secondary action buttons collapse away so the roof preview is clearly visible. */
+    #dotHud.sheet-peek{max-height:none}
+    #dotHud.sheet-peek .dh-more{display:none!important}
+    #dotHud.sheet-peek #dotUndo,#dotHud.sheet-peek #dotRedo,#dotHud.sheet-peek #dotSplit,
+    #dotHud.sheet-peek #dotReset,#dotHud.sheet-peek #dotMore{display:none!important}
+    #dotHud.sheet-peek .dh-splitbar{display:none!important}
+    /* FULL: natural height, detail + all actions revealed (the drag/tap expands into this). The grab handle
+       now owns the fold, so the redundant "Details" button is hidden on mobile in BOTH states. */
+    #dotHud #dotMore{display:none!important}
+  }
   /* Base view switch — "3D model" (our premium own Three.js model, the DEFAULT first impression) ↔ "Satellite" (Google photoreal tiles, opt-in).
      Mirrors the #measToggle pill look; sits top-centre under the search bar. Shown only when a roof is ready and no other sub-view toggle owns the slot. */
   #viewToggle{position:absolute;top:62px;left:50%;transform:translateX(-50%);z-index:21;display:none;gap:2px;background:#ffffff;border:1px solid #e1e7ef;border-radius:11px;padding:3px;box-shadow:var(--card-shadow)}
@@ -972,7 +997,31 @@
   #roofDesign .rd-upload svg{stroke:#dbe4ff}
   #roofDesign .rd-ai svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   /* premium glass picker panel docked at the bottom */
-  #roofDesign .rd-panel{margin-top:auto;position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -14px 44px rgba(15,23,42,.22);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;pointer-events:auto;border-radius:18px 18px 0 0}
+  /* Apple-style FROSTED sheet: translucent surface + heavy blur+saturate so the house reads through the panel. */
+  #roofDesign .rd-panel{margin-top:auto;position:relative;z-index:4;background:color-mix(in srgb, var(--panel) 74%, transparent);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--line);box-shadow:0 -14px 44px rgba(15,23,42,.22);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;pointer-events:auto;border-radius:18px 18px 0 0;overflow:clip}
+  /* thin top hairline for the frosted-glass edge */
+  #roofDesign .rd-panel::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:rgba(255,255,255,.5);pointer-events:none}
+  /* GRAB HANDLE — centred grabber pill; mobile drag/tap target (PEEK↔FULL). Desktop hides it. */
+  #roofDesign .rd-grab{display:none;position:absolute;top:0;left:0;right:0;height:20px;align-items:center;justify-content:center;cursor:grab;touch-action:none;z-index:6}
+  #roofDesign .rd-grab::before{content:"";width:36px;height:5px;border-radius:99px;background:#cbd5e1}
+  #roofDesign.sheet-peek .rd-grab::before{background:#94a3b8}
+  #roofDesign .rd-grab:active{cursor:grabbing}
+  /* PEEK-only material name line — hidden by default, revealed only when the sheet is collapsed on mobile */
+  #roofDesign .rd-peekmat{display:none;font-size:12.5px;font-weight:800;color:var(--ink);text-align:center;letter-spacing:-.01em;margin-top:2px}
+  @media (max-width:560px){
+    /* the frosted picker becomes a foldable bottom sheet; cap FULL at ~70vh so the top of the house preview
+       always stays visible, internal scroll for any overflow */
+    #roofDesign .rd-panel{max-height:70vh;overflow-y:auto;padding-top:20px}
+    #roofDesign .rd-grab{display:flex}
+    /* PEEK (default on mobile): handle + selected material + INSTALLED ESTIMATE price + "Use this roof" only.
+       Everything else (material scroller, colours, benefits) folds away so the house preview is clearly visible. */
+    #roofDesign.sheet-peek .rd-panel{max-height:none}
+    #roofDesign.sheet-peek .rd-peekmat{display:block}
+    #roofDesign.sheet-peek .rd-mats,
+    #roofDesign.sheet-peek .rd-cols,
+    #roofDesign.sheet-peek .rd-feats{display:none!important}
+    #roofDesign.sheet-peek .rd-info{grid-template-columns:1fr}
+  }
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   #roofDesign .rd-mats::-webkit-scrollbar{display:none}
@@ -1400,6 +1449,10 @@
       <span id="rdUploadPromptT">We couldn't get a clear aerial of your roof. Upload a photo of your house to see it with your new roof.</span>
     </button>
     <div class="rd-panel">
+      <div class="rd-grab" role="button" tabindex="0" aria-label="Drag to expand or collapse the roof designer"></div>
+      <!-- PEEK-only summary line: selected material name (the single most important line). Shown only when the
+           sheet is collapsed on mobile so the house preview stays visible; hidden in FULL / on desktop. -->
+      <div class="rd-peekmat" id="rdPeekMat" aria-hidden="true">Architectural</div>
       <div class="rd-mats" id="rdMats"></div>
       <div class="rd-cols" id="rdCols"></div>
       <div class="rd-info">
@@ -3026,6 +3079,50 @@ function setCardPeek(peek){
   try{ if(labelsVisible && $("matCanvas") && $("matCanvas").style.display!=="none") renderRoofDiagram(); }catch(_){}
 }
 (function wireCardFold(){ const p=$("cardFold"); if(p) p.onclick=()=>{ cardPeek=false; setCardFold(false); }; })();
+// ── Generic frosted bottom-sheet grab handle (shared by #dotHud + #roofDesign). Two snap points on mobile:
+//    PEEK (compact — handle + key line + primary CTA) and FULL (natural height, ≤70vh). Drag the handle up
+//    past a threshold → springs to FULL; drag down → PEEK; a quick flick snaps; a tap toggles. Per the wizard
+//    scroll-model rule we track the pointer directly and let CSS transition the settle (no rAF drag loop).
+//    `sheetEl` toggles the `.sheet-peek` class (PEEK) / removes it (FULL). Idempotent per element.
+function setSheetState(sheetEl, peek){
+  if(!sheetEl) return;
+  const isPeek = !!peek && isMobileSheet();
+  sheetEl.classList.toggle("sheet-peek", isPeek);
+  if(!isPeek) sheetEl.scrollTop=0;   // expanding → show the headline/detail from the top
+}
+function wireSheetHandle(sheetEl, handleSel, opts){
+  opts=opts||{};
+  const h = sheetEl.querySelector(handleSel);
+  if(!h || h.__sheetWired) return; h.__sheetWired=true;
+  const isPeek=()=>sheetEl.classList.contains("sheet-peek");
+  let startY=0,lastY=0,dragging=false,moved=false;
+  const onDown=e=>{ if(!isMobileSheet()) return; dragging=true; moved=false;
+    startY=lastY=(e.touches?e.touches[0].clientY:e.clientY);
+    try{ h.setPointerCapture && e.pointerId!=null && h.setPointerCapture(e.pointerId); }catch(_){}
+  };
+  const onMove=e=>{ if(!dragging) return; lastY=(e.touches?e.touches[0].clientY:e.clientY);
+    if(Math.abs(lastY-startY)>6) moved=true; if(e.cancelable) e.preventDefault(); };
+  const onUp=()=>{ if(!dragging) return; dragging=false;
+    const dy=lastY-startY;   // +down / -up
+    if(!moved){ setSheetState(sheetEl,!isPeek()); }        // tap → toggle
+    else if(dy<-26){ setSheetState(sheetEl,false); }       // dragged UP → FULL
+    else if(dy>26){ setSheetState(sheetEl,true); }          // dragged DOWN → PEEK
+    if(opts.onSnap){ try{ opts.onSnap(isPeek()); }catch(_){} }
+  };
+  h.addEventListener("pointerdown",onDown); window.addEventListener("pointermove",onMove,{passive:false});
+  window.addEventListener("pointerup",onUp); window.addEventListener("pointercancel",onUp);
+  h.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setSheetState(sheetEl,!isPeek()); if(opts.onSnap){ try{ opts.onSnap(isPeek()); }catch(_){} } } });
+}
+// #dotHud (step-3 roofline editor) wiring: default PEEK on mobile so the roof shows on load; FULL on desktop.
+function wireDotSheet(hud){
+  if(!hud) return;
+  wireSheetHandle(hud, ".dh-grab", { onSnap(peek){
+    // reframe the editor for the new available bottom band each snap (canvas viewport unchanged, just repaint)
+    try{ if(window.RoofDots && RoofDots.editing && RoofDots.editing()){} }catch(_){}
+  }});
+  // default state: PEEK on mobile (preview is the point), FULL on desktop (never peeks)
+  setSheetState(hud, isMobileSheet());
+}
 // ── Mobile sheet grab handle: drag UP to expand the quote, DOWN to peek, further DOWN to fold.
 //    A simple tap toggles peek↔expanded. Bound (idempotently) after every card re-render.
 function wireSheetGrab(card){
@@ -8360,6 +8457,7 @@ const RoofDots=(function(){
     // HUD: prompt + live stats + undo/redo + done
     hud=document.createElement("div"); hud.id="dotHud";
     hud.innerHTML=
+      '<div class="dh-grab" role="button" tabindex="0" aria-label="Drag to expand or collapse the roof editor"></div>'+
       // per-house banner — only shown (display:flex via openHouseEditor) while the multi-house loop iterates
       '<div id="dotHouse"><button class="dhb-prev" id="dotHousePrev" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button><span class="dhb-of" id="dotHouseOf">House 1 of 1</span></div>'+
       // (#4) slim top row — prompt + the live roof area inline (the full stat grid lives in .dh-more)
@@ -8427,6 +8525,11 @@ const RoofDots=(function(){
       if(b){ b.classList.toggle("on",open); b.setAttribute("aria-expanded",open?"true":"false"); } };
     // (Alex) Card UNFOLDED by default — roof details (squares / perimeter / pitch / per-section ft²) show live as the dots move.
     hud.classList.add("dh-open"); { const _dm=$("dotMore"); if(_dm){ _dm.classList.add("on"); _dm.setAttribute("aria-expanded","true"); } }
+    // ── FROSTED SHEET (Apple): PEEK↔FULL model on mobile. PEEK shows just the handle + squares/area line +
+    //    Done editing so the roof preview stays visible; FULL reveals the .dh-more detail + all actions.
+    //    The old "Details"/dh-open fold is folded IN here — on mobile the grab handle owns the fold; dh-open
+    //    stays on so FULL always shows the detail. Desktop keeps the dotMore button + never peeks.
+    wireDotSheet(hud);
     // pitch-class selector: "auto" clears the override (back to the per-facet mix); a class forces that slope.
     $("dotPitchRow").querySelectorAll(".dh-pbtn").forEach(b=>{ b.onclick=()=>{
       const pc=b.getAttribute("data-pc"); pitchClass=(pc==="auto")?null:pc; afterEdit(); }; });
@@ -8591,6 +8694,8 @@ const RoofDots=(function(){
     if(!ringM && !initFromModel()) return false;
     resetVp();                          // enter the editor framed-to-fit (scale=1, no pan) every time
     on=true; cv.style.display="block"; hud.style.display="block";
+    // FROSTED SHEET: default to PEEK on mobile each time editing opens so the roof preview is visible on entry.
+    try{ if(typeof setSheetState==="function") setSheetState(hud, (typeof isMobileSheet==="function")&&isMobileSheet()); }catch(_){}
     if(edZoomCtl) edZoomCtl.style.display="flex";   // reveal the +/− zoom control with the editor
     // C3: while the dot-editor bottom sheet is up, suppress the quote #card's mobile bottom sheet so the
     // two sheets don't stack/collide at 375px — only ONE bottom sheet (the editor) shows.
@@ -10337,6 +10442,7 @@ function rdRenderInfo(){
     sub.textContent = sqs>0 ? ("on your "+sqs.toFixed(1)+" sq roof"+(wastePct>0?(" + "+wastePct+"% waste"):"")+", installed") : "on your measured roof";
   } }
   const fh=$("rdFeatH"); if(fh) fh.textContent=m.label;
+  const pm=$("rdPeekMat"); if(pm) pm.textContent=m.label;   // PEEK-line selected-material name (frosted sheet)
   const spec=ROOF_SPEC[m.id]||{}, info=MAT_INFO[m.id]||{};
   // features = lifespan + warranty (from ROOF_SPEC) then the top product benefits (from MAT_INFO) — capped to keep the card tight
   const feats=[];
@@ -10734,6 +10840,12 @@ async function openRoofDesign(){
   // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
   rdBuildMats(); rdBuildCols(); rdRenderInfo();
   $("roofDesign").style.display="flex"; window.__rdOpen=true;
+  // FROSTED SHEET: wire the grab handle (idempotent) + default to PEEK on mobile so the house preview owns
+  // the viewport on open; the buyer drags/taps the handle up for the full material picker. Desktop = FULL.
+  try{ const rd=$("roofDesign");
+    wireSheetHandle(rd, ".rd-grab");   // toggles .sheet-peek on #roofDesign; handle is queried within it
+    setSheetState(rd, isMobileSheet());
+  }catch(_){}
   // SHOWROOM (Part 1): fetch the pre-rendered "example home" manifest ONCE (no await — the picker is already
   // live). When it lands, re-reflect so the current selection swaps to its instant photoreal image. If the
   // manifest is absent (assets not shipped yet) this is a graceful no-op and the 3D tint stays.
