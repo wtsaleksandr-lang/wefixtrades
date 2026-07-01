@@ -260,6 +260,52 @@ async function kontextRepaint(imgPngB64, material, seed) {
   return Buffer.from(new Uint8Array(ab));
 }
 
+// ── Clarity upscaler (Replicate philz1337x/clarity-upscaler). Runs on the RAW pre-composite
+// recolor to add photoreal roof-texture detail (shingle granules, tile seams, standing-seam ribs),
+// then we composite THAT through the mask onto the ORIGINAL base — so only roof pixels gain the
+// clarity boost and every non-roof pixel stays byte-identical (outsideMax=0 preserved). We size the
+// upscale so the returned image is re-alignable to the base grid (compositeThroughMask already
+// samples the result at any resolution). SCALE 2 at low creativity keeps the house identical while
+// sharpening texture. Env: CLARITY=1 to enable, CLARITY_SCALE(2), CLARITY_CREATIVITY(0.25),
+// CLARITY_RESEMBLANCE(1.5), CLARITY_STEPS(28).
+async function clarityUpscale(imgPngB64, creativityOverride) {
+  const version = process.env.CLARITY_VERSION ||
+    "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e"; // philz1337x/clarity-upscaler
+  const creativity = creativityOverride != null
+    ? creativityOverride
+    : Number(process.env.CLARITY_CREATIVITY || 0.25);
+  const input = {
+    image: "data:image/png;base64," + imgPngB64,
+    scale_factor: Number(process.env.CLARITY_SCALE || 2),
+    creativity,
+    resemblance: Number(process.env.CLARITY_RESEMBLANCE || 1.5),
+    dynamic: 6,
+    sharpen: Number(process.env.CLARITY_SHARPEN || 1),
+    num_inference_steps: Number(process.env.CLARITY_STEPS || 28),
+    output_format: "png",
+    prompt: process.env.CLARITY_PROMPT ||
+      "high resolution photo of a house, crisp sharp realistic roof texture, fine detailed roofing material, natural daylight",
+  };
+  const rr = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + REPLICATE, "Content-Type": "application/json", Prefer: "wait" },
+    body: JSON.stringify({ version, input }),
+  });
+  let j = await rr.json();
+  let tries = 0;
+  while (j.status && !["succeeded", "failed", "canceled"].includes(j.status) && tries < 120) {
+    if (!j.urls || !j.urls.get) throw new Error("clarity_no_poll_url:" + (j.error || j.status || "?"));
+    await new Promise((s) => setTimeout(s, 2000));
+    j = await (await fetch(j.urls.get, { headers: { Authorization: "Bearer " + REPLICATE } })).json();
+    tries++;
+  }
+  if (j.status !== "succeeded") throw new Error("clarity_" + (j.error || j.status || "failed"));
+  const out = Array.isArray(j.output) ? j.output[0] : j.output;
+  if (!out) throw new Error("clarity_no_output");
+  const ab = await fetch(out).then((r) => r.arrayBuffer());
+  return Buffer.from(new Uint8Array(ab));
+}
+
 const baseBuf = readFileSync(BASE);
 const maskBuf = readFileSync(MASK);
 const maskPng = PNG.sync.read(maskBuf);
@@ -281,8 +327,19 @@ const GAP_FRAC_OK = Number(process.env.GAP_FRAC_OK || 0.02);
 const GAP_PASSES = Number(process.env.GAP_PASSES || 0);
 const GAP_DILATE = Number(process.env.GAP_DILATE || 8);
 const MIN_GAP_PX = Number(process.env.MIN_GAP_PX || 1200);
+const CLARITY = process.env.CLARITY === "1"; // run clarity-upscaler on raw before composite
+// Per-family clarity creativity. Asphalt (arch, 3tab) needs a LOWER creativity so the upscaler
+// keeps granular shingle texture instead of drifting into plank/wood-grain streaks. Textured
+// materials (metal/clay/slate/cedar) keep the stronger default. Env overrides:
+// CLARITY_CREATIVITY_ASPHALT (0.15), CLARITY_CREATIVITY (0.25 default for the rest).
+const ASPHALT_IDS = new Set(["arch", "3tab"]);
+const CLARITY_CREATIVITY_ASPHALT = Number(process.env.CLARITY_CREATIVITY_ASPHALT || 0.15);
+function clarityCreativityFor(matId) {
+  if (matId && ASPHALT_IDS.has(matId)) return CLARITY_CREATIVITY_ASPHALT;
+  return undefined; // fall back to CLARITY_CREATIVITY env / 0.25 default inside clarityUpscale
+}
 
-async function renderOne(material, outPng) {
+async function renderOne(material, outPng, matId) {
   let raw = ENGINE === "fill"
     ? await fluxFillInpaint(imgB64, maskB64, material)
     : await kontextRepaint(imgB64, material);
@@ -311,6 +368,15 @@ async function renderOne(material, outPng) {
   const gapFracFinal = gapInfo.gapFrac;
   if (SAVE_RAW && passes > 0) writeFileSync(outPng.replace(/\.png$/, "__filled.png"), raw);
 
+  // ── Clarity upscale for MAX texture detail. Runs on the raw recolor; compositeThroughMask then
+  // samples this higher-res result back onto the base grid so only roof pixels sharpen (outsideMax=0).
+  if (CLARITY) {
+    const cr = clarityCreativityFor(matId);
+    process.stdout.write(`[clarity${cr != null ? " cr=" + cr : ""}] `);
+    raw = await clarityUpscale(raw.toString("base64"), cr);
+    if (SAVE_RAW) writeFileSync(outPng.replace(/\.png$/, "__clarity.png"), raw);
+  }
+
   const comp = compositeThroughMask(baseBuf, raw, maskPng);
   writeFileSync(outPng, comp.buf);
   const diff = outsideDiff(baseBuf, comp.buf, maskPng);
@@ -326,7 +392,7 @@ async function main() {
       const outPng = path.join(OUT, `hero-${m.id}.png`);
       process.stdout.write(`render hero ${m.id} (${hero.n})... `);
       try {
-        const s = await renderOne(hero.p, outPng);
+        const s = await renderOne(hero.p, outPng, m.id);
         console.log(`OK changed=${(s.changedFrac * 100).toFixed(1)}% gap=${(s.gapFrac * 100).toFixed(2)}%(${s.gapPasses}p,medSat=${s.medSat.toFixed(2)}) outsideMean=${s.outsideMean.toFixed(3)} outsideMax=${s.outsideMax} -> ${path.basename(outPng)}`);
       } catch (e) { console.log("FAIL", e.message); }
     }
@@ -335,14 +401,21 @@ async function main() {
     const m = ROOF_CATALOG.find((x) => x.id === matId), c = m.colors[ci];
     const outPng = path.join(OUT, `${matId}__${c.n}.png`);
     process.stdout.write(`render ${matId}/${c.n}... `);
-    const s = await renderOne(c.p, outPng);
+    const s = await renderOne(c.p, outPng, matId);
     console.log(`OK changed=${(s.changedFrac * 100).toFixed(1)}% gap=${(s.gapFrac * 100).toFixed(2)}%(${s.gapPasses}p,medSat=${s.medSat.toFixed(2)}) outsideMean=${s.outsideMean.toFixed(3)} outsideMax=${s.outsideMax}`);
   } else if (MODE === "full") {
     const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
     // generatedAt MUST be passed in (committed manifest must not embed a wall-clock Date.now()).
     const generatedAt = process.env.GENERATED_AT;
     if (!generatedAt) { console.error("set GENERATED_AT (ISO timestamp) for full mode"); process.exit(1); }
-    const manifest = { materials: {}, baseHouseLabel: process.env.BASE_LABEL || "Single-story gable home (AI showroom)", generatedAt };
+    const manifest = { materials: {}, thumbs: {}, baseHouseLabel: process.env.BASE_LABEL || "Single-story gable home (AI showroom)", generatedAt };
+    // thumbs map: only include the ones actually present on disk under OUT/thumbs/.
+    for (const m of ROOF_CATALOG) {
+      const t1 = `thumbs/${m.id}.jpg`, t2 = `thumbs/${m.id}@2x.jpg`;
+      if (existsSync(path.join(OUT, t1))) {
+        manifest.thumbs[m.id] = { thumb: t1, ...(existsSync(path.join(OUT, t2)) ? { thumb2x: t2 } : {}) };
+      }
+    }
     let ok = 0, fail = 0;
     for (const m of ROOF_CATALOG) {
       manifest.materials[m.id] = manifest.materials[m.id] || {};
@@ -355,7 +428,7 @@ async function main() {
         // the manifest is always rebuilt from what exists, so partial runs accumulate to the full set).
         if (existsSync(outJpg)) { manifest.materials[m.id][c.n] = fname; console.log("SKIP exists"); ok++; continue; }
         try {
-          const s = await renderOne(c.p, outPng);
+          const s = await renderOne(c.p, outPng, m.id);
           pngToJpg(outPng, outJpg);
           rmSync(outPng, { force: true });
           manifest.materials[m.id][c.n] = fname;
