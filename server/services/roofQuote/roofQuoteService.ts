@@ -913,37 +913,107 @@ async function loadMsftIndex(): Promise<Record<string, string>> {
   })();
   try { return await _msftIndexInflight; } finally { _msftIndexInflight = null; }
 }
-function scanMsftTile(srcStream: NodeJS.ReadableStream, lat: number, lng: number): Promise<LngLat[] | null> {
+/* ─── PARSED per-cell spatial index (perf lever; mirrors spikes/roof-quote/serve.mjs) ───
+   The z9 tile has ~400k buildings; re-parsing the whole 30-45 MB .gz on EVERY lookup (the old scanMsftTile /
+   scanMsftTileBbox) cost ~1.5-5 s each and up to ~40 s for dense metros. A roof quote only needs the buildings
+   in the ADDRESS NEIGHBOURHOOD, so we stream the .gz ONCE, keep only buildings whose centroid lands in a CELL
+   (z13 quadkey ≈ ~3 km, padded) around the query, and cache that SMALL per-cell set (a few hundred buildings) to
+   disk + memory. Both the point lookup (msftFootprint) and the bbox lookup (msftBuildingsBbox) read the cell, so
+   the second lookup for an address is INSTANT. A cheap STRING pre-filter (coordinate 2-decimal prefixes) skips
+   JSON.parse on the ~99% of lines nowhere near the cell — turning the one-time full-tile parse from ~40 s into a
+   fast substring scan that only parses the few hundred candidate lines. Correctness is identical: the post-parse
+   centroid-in-cell test still gates every kept building; the pre-filter only drops PROVABLY-out-of-cell lines. */
+interface MsftCellBuilding { ring: LngLat[]; c: LngLat; a: number; bb: [number, number, number, number]; }
+const MSFT_CELL_Z = 13;                          // ~3 km cell — comfortably covers the Select-Your-Roof map view
+const _msftCellMem = new Map<string, { buildings: MsftCellBuilding[]; t: number }>();
+const MSFT_CELL_MEM_MAX = 24;
+const _msftCellInflight = new Map<string, Promise<MsftCellBuilding[] | null>>();
+function _msftCellMemGet(k: string): MsftCellBuilding[] | null {
+  const e = _msftCellMem.get(k); if (e) { _msftCellMem.delete(k); _msftCellMem.set(k, e); return e.buildings; } return null;
+}
+function _msftCellMemSet(k: string, buildings: MsftCellBuilding[]): void {
+  _msftCellMem.set(k, { buildings, t: Date.now() });
+  while (_msftCellMem.size > MSFT_CELL_MEM_MAX) { const kk = _msftCellMem.keys().next().value as string; _msftCellMem.delete(kk); }
+}
+// Padded lat/lng bounds of the z13 cell containing (lat,lng), with ~600 m pad so an edge query still captures
+// neighbour buildings just across the cell boundary.
+function _msftCellBounds(lat: number, lng: number): { s: number; w: number; n: number; e: number } {
+  const n = Math.pow(2, MSFT_CELL_Z);
+  const sinLat = Math.sin(Math.max(-85.05, Math.min(85.05, lat)) * Math.PI / 180);
+  const tx = Math.floor((lng + 180) / 360 * n), ty = Math.floor((0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * n);
+  const lngW = tx / n * 360 - 180, lngE = (tx + 1) / n * 360 - 180;
+  const yN = ty / n, yS = (ty + 1) / n;
+  const latN = Math.atan(Math.sinh(Math.PI * (1 - 2 * yN))) * 180 / Math.PI, latS = Math.atan(Math.sinh(Math.PI * (1 - 2 * yS))) * 180 / Math.PI;
+  const pad = 0.006;
+  return { s: Math.min(latN, latS) - pad, w: lngW - pad, n: Math.max(latN, latS) + pad, e: lngE + pad };
+}
+// 2-decimal coordinate prefixes ("-96.60", "33.24", …) that any coordinate inside [lo,hi] must contain as a
+// substring in the GeoJSON line — the cheap pre-filter that lets us skip JSON.parse on far-away lines.
+function _coordPrefixes(lo: number, hi: number): string[] {
+  const out: string[] = []; const a = Math.floor((lo - 0.01) * 100), b = Math.floor((hi + 0.01) * 100);
+  for (let k = a; k <= b; k++) out.push((k / 100).toFixed(2));
+  return out;
+}
+// Stream the .gz ONCE, keep only buildings whose centroid lands in [s,w,n,e]. Compact {ring,c,a,bb}.
+function _scanMsftCell(srcStream: NodeJS.ReadableStream, s: number, w: number, n: number, e: number): Promise<MsftCellBuilding[]> {
   return new Promise((resolve) => {
-    const { mLat, mLng } = fpMetres(lat);
-    let found: LngLat[] | null = null, best: LngLat[] | null = null, bestD = Infinity, done = false;
+    const out: MsftCellBuilding[] = []; let done = false;
+    const lngPfx = _coordPrefixes(w, e), latPfx = _coordPrefixes(s, n);
     const gun = zlib.createGunzip();
     const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
-    const finish = (val: LngLat[] | null) => {
-      if (done) return; done = true;
-      try { rl.close(); } catch { /* already closed */ }
-      try { (srcStream as any).destroy?.(); } catch { /* best-effort */ }
-      resolve(val);
-    };
-    srcStream.on("error", () => finish(null));
-    gun.on("error", () => finish(null));
+    const finish = () => { if (done) return; done = true; try { rl.close(); } catch { /* closed */ } try { (srcStream as any).destroy?.(); } catch { /* noop */ } resolve(out); };
+    srcStream.on("error", finish); gun.on("error", finish);
     rl.on("line", (line) => {
       if (done || !line) return;
+      // CHEAP string pre-filter: require BOTH an in-range lng prefix AND lat prefix before paying for JSON.parse.
+      let hasLng = false; for (const p of lngPfx) { if (line.indexOf(p) >= 0) { hasLng = true; break; } }
+      if (!hasLng) return;
+      let hasLat = false; for (const p of latPfx) { if (line.indexOf(p) >= 0) { hasLat = true; break; } }
+      if (!hasLat) return;
       let f: any; try { f = JSON.parse(line); } catch { return; }
       const g = f && f.geometry; if (!g) return;
       const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
       if (!raw || raw.length < 4) return;
+      const p0 = raw[0]; if (p0[0] < w - 0.002 || p0[0] > e + 0.002 || p0[1] < s - 0.002 || p0[1] > n + 0.002) return;
       const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
       if (open.length < 3) return;
-      if (fpRingArea(open, lat) < 8) return;
-      if (fpPointInRing([lng, lat], open)) { found = open; finish(open); return; }
+      let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+      for (const q of open) { if (q[0] < minx) minx = q[0]; if (q[0] > maxx) maxx = q[0]; if (q[1] < miny) miny = q[1]; if (q[1] > maxy) maxy = q[1]; }
+      const lat0 = (miny + maxy) / 2;
+      const area = fpRingArea(open, lat0);
+      if (area < 8) return;
       const c = fpCentroid(open);
-      let dEdge = Infinity; for (const p of open) { const dv = Math.hypot((p[0] - lng) * mLng, (p[1] - lat) * mLat); if (dv < dEdge) dEdge = dv; }
-      const d = Math.min(Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat), dEdge);
-      if (d < bestD) { bestD = d; best = open; }
+      if (c[1] < s || c[1] > n || c[0] < w || c[0] > e) return;
+      out.push({ ring: open, c, a: area, bb: [minx, miny, maxx, maxy] });
     });
-    rl.on("close", () => { if (done) return; finish(found || (best && bestD <= 60 ? best : null)); });
+    rl.on("close", finish);
   });
+}
+// mem → disk → (download tile once + scan the cell once). [] for a genuinely empty cell, null if the tile
+// couldn't be obtained. Keeps the raw .gz on disk so OTHER cells in the same z9 tile reuse it.
+async function msftCellBuildings(lat: number, lng: number): Promise<MsftCellBuilding[] | null> {
+  const idx = await loadMsftIndex();
+  const qk = lngLatToQuadkey(lat, lng, 9);
+  const url = idx[qk];
+  if (!url) return null;
+  const cellKey = lngLatToQuadkey(lat, lng, MSFT_CELL_Z);
+  const mem = _msftCellMemGet(cellKey); if (mem) return mem;
+  const inflight = _msftCellInflight.get(cellKey); if (inflight) return inflight;
+  const p = (async (): Promise<MsftCellBuilding[] | null> => {
+    const disk = diskGetJSON<{ b: MsftCellBuilding[]; _t: number }>("msftcell", cellKey);
+    if (disk && Array.isArray(disk.b)) { _msftCellMemSet(cellKey, disk.b); return disk.b; }
+    const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
+    if (!existsSync(tileFile)) { const ok = await downloadMsftTile(url, tileFile); if (!ok) return null; }
+    const b = _msftCellBounds(lat, lng);
+    let buildings: MsftCellBuilding[];
+    try { buildings = await _scanMsftCell(createReadStream(tileFile), b.s, b.w, b.n, b.e); }
+    catch { try { unlinkSync(tileFile); } catch { /* noop */ } return null; }
+    diskSetJSON("msftcell", cellKey, { b: buildings, _t: Date.now() });
+    _msftCellMemSet(cellKey, buildings);
+    return buildings;
+  })().finally(() => { _msftCellInflight.delete(cellKey); });
+  _msftCellInflight.set(cellKey, p);
+  return p;
 }
 function downloadMsftTile(url: string, tileFile: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -966,26 +1036,23 @@ function downloadMsftTile(url: string, tileFile: string): Promise<string | null>
   });
 }
 async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
-  const idx = await loadMsftIndex();
-  const qk = lngLatToQuadkey(lat, lng, 9);
-  const url = idx[qk];
-  if (!url) return null;
-  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
-  if (!existsSync(tileFile)) {
-    const ok = await downloadMsftTile(url, tileFile);
-    if (!ok) return null;
+  const buildings = await msftCellBuildings(lat, lng);
+  if (!buildings) return null;   // no tile / download-parse failed → cascade falls through
+  // Point lookup over the small cell set: containing building wins; else nearest centroid/edge within ~60 m.
+  const { mLat, mLng } = fpMetres(lat);
+  let best: LngLat[] | null = null, bestD = Infinity;
+  for (const b of buildings) {
+    const bb = b.bb;
+    if (lng >= bb[0] && lng <= bb[2] && lat >= bb[1] && lat <= bb[3] && fpPointInRing([lng, lat], b.ring)) return b.ring;
+    let dEdge = Infinity; for (const p of b.ring) { const dv = Math.hypot((p[0] - lng) * mLng, (p[1] - lat) * mLat); if (dv < dEdge) dEdge = dv; }
+    const d = Math.min(Math.hypot((b.c[0] - lng) * mLng, (b.c[1] - lat) * mLat), dEdge);
+    if (d < bestD) { bestD = d; best = b.ring; }
   }
-  try {
-    const ring = await scanMsftTile(createReadStream(tileFile), lat, lng);
-    if (ring && ring.length >= 3) return ring;
-  } catch {
-    try { unlinkSync(tileFile); } catch { /* noop */ }
-  }
-  return null;
+  return best && bestD <= 60 ? best : null;
 }
 
 export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "cache"; attribution: string; }
-export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; }
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; incomplete?: boolean; }
 
 // (fix6 latency) How long the route will WAIT for the Microsoft tile before responding with whatever
 // it has (OSM). The msftFootprint promise is NOT aborted past this budget — Node keeps it running so
@@ -994,6 +1061,23 @@ export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "ca
 // cost 15-25 s cold; that no longer stalls the caller.
 const MS_FOOTPRINT_BUDGET_MS = 6500;
 const OSM_FOOTPRINT_BUDGET_MS = 8000;   // overall route ceiling: even if Overpass stalls (its [timeout:25] is too long), bail at 8s → route ≤~8s
+// Fast-first-paint budget: if OSM returns a usable ring within this window, respond immediately (OSM-only, MS
+// backgrounded) rather than blocking on the full MS budget. Delivers the <~2s main-outline target where OSM has
+// coverage; MS still finishes + caches for the instant refetch/next load.
+const FOOTPRINT_FAST_PAINT_MS = 2200;
+// After the fast-paint window, if MS already has a ring, wait at most this long for OSM (cleaner rings) before
+// responding — so a hung Overpass can't block a response we could already give from the warm MS cell.
+const FOOTPRINT_OSM_GRACE_MS = 1500;
+// How long an INCOMPLETE footprint (OSM-only, MS still warming) is served from cache before we re-run to upgrade
+// to the complete OSM+MS set. Short so it never shadows the complete set for long; makes rapid warm reloads instant.
+const FOOTPRINT_INCOMPLETE_TTL_MS = 90 * 1000;
+// Same idea for the neighbour layer: an incomplete-but-non-empty union (OSM/MS in hand, VIDA/MS still filling) is
+// served instantly for a short window, then re-runs to upgrade to the complete (VIDA/MS-filled) set.
+const BUILDINGS_INCOMPLETE_TTL_MS = 90 * 1000;
+// Tighter OSM ceiling for the NEIGHBOUR layer: with the MS cell instant once warm, a flaky Overpass should not
+// hold the whole /buildings response for the full two-mirror timeout. MS+VIDA background-complete + cache, so a
+// short inline OSM wait never drops data. Set just above one mirror try (OVERPASS_PER_TRY_MS=3.5s) plus slack.
+const BUILDINGS_OSM_BUDGET_MS = 4200;
 // Resolve `live` to its value if it settles within `ms`, else `fallback`. Does NOT abort `live` — it
 // keeps running so any in-flight download finishes + caches in the background; we just stop waiting.
 function timeboxResolve<T>(live: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -1021,19 +1105,47 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
   const la = +lat, ln = +lng;
   if (!isFinite(la) || !isFinite(ln)) return { source: "none", error: "bad_coords", candidates: [] };
   const key = la.toFixed(5) + "," + ln.toFixed(5);
-  const cached = diskGetJSON<{ body: FootprintResult; _t: number }>("footprint", key);
-  if (cached && cached._t && Date.now() - cached._t < 30 * 864e5) return cached.body;
-  // (fix4 #1) Fetch OSM AND Microsoft in PARALLEL and return EVERY candidate, so the CLIENT can register
-  // each to Google's roof reference and keep the best-aligned one — instead of "first source wins", which
-  // on 4521 T St took the 16.9 m-off Microsoft ring over the 0.19 m OSM ring. overpassFootprint /
-  // msftFootprint each swallow their own network/parse errors (return null), so no outer .catch() is
-  // needed (no-silent-catch guard). Cascade order (OSM>MS>cache) is preserved in the top-level fields.
-  // (fix6) MS is TIME-BOXED via timeboxMsft so a slow cold tile can't block the response: in time → it's
-  // a candidate (best-aligned selection intact); slow → respond with OSM now, MS finishes + caches in bg.
-  const [osm, msft] = await Promise.all([
-    timeboxResolve<LngLat[] | null>(overpassFootprint(la, ln), OSM_FOOTPRINT_BUDGET_MS, null),
-    timeboxMsft(la, ln),
-  ]);
+  // Cache read: a COMPLETE entry is served for 30d; an INCOMPLETE entry (OSM-only, MS still warming when the
+  // first cold request responded) is served for a SHORT window so a warm reload is INSTANT, then treated as a
+  // MISS so the next call re-runs, finds the now-parsed MS cell, and upgrades to the complete set. This kills
+  // the old "warm == cold == 5-8s" defeat (the incomplete result used to NEVER cache). Determinism preserved:
+  // the wire still carries `incomplete:true`, so the client refetches the complete set before pinning measurement.
+  const cached = diskGetJSON<{ body: FootprintResult; _t: number; incomplete?: boolean }>("footprint", key);
+  if (cached && cached._t) {
+    const ttl = cached.incomplete ? FOOTPRINT_INCOMPLETE_TTL_MS : 30 * 864e5;
+    if (Date.now() - cached._t < ttl) return cached.body;
+  }
+  // (fix4 #1) Fetch OSM AND Microsoft in PARALLEL and return EVERY candidate, so the CLIENT can register each to
+  // Google's roof reference and keep the best-aligned one (instead of "first source wins"). MS keeps running past
+  // its budget (finishes + caches its tile/cell in the background), so we never abort it — we only decide how long
+  // to WAIT. overpassFootprint / msftFootprint each swallow their own errors (return null) — no outer .catch().
+  const osmP = timeboxResolve<LngLat[] | null>(overpassFootprint(la, ln), OSM_FOOTPRINT_BUDGET_MS, null);
+  const msftP = timeboxMsft(la, ln);
+  // FAST FIRST PAINT: if OSM returns a usable ring within a SHORT budget, respond NOW with OSM-only and let MS
+  // finish + cache in the background — instead of blocking on the 6.5s MS budget when we already have a paintable
+  // outline. Marked incomplete so the client paints instantly and refetches the complete OSM+MS set (served from
+  // the now-warm cache in ms) before pinning the measurement — determinism preserved, latency slashed.
+  const fastOsm = await Promise.race([osmP, new Promise<null>((r) => setTimeout(() => r(null), FOOTPRINT_FAST_PAINT_MS))]);
+  if (fastOsm && Array.isArray(fastOsm) && fastOsm.length >= 3) {
+    const msftNow = await Promise.race([msftP, Promise.resolve<"pending">("pending")]);
+    const candidates: FootprintCandidate[] = [{ ring: fastOsm, source: "osm", attribution: "© OpenStreetMap contributors" }];
+    let msPending = true;
+    if (msftNow && msftNow !== "pending" && Array.isArray(msftNow) && msftNow.length >= 3) { candidates.push({ ring: msftNow, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" }); msPending = false; }
+    const out: FootprintResult = { ring: candidates[0].ring, source: candidates[0].source, attribution: candidates[0].attribution, candidates, incomplete: msPending };
+    diskSetJSON("footprint", key, { body: out, _t: Date.now(), incomplete: msPending });
+    return out;
+  }
+  // OSM was slow/absent past the fast-paint window. Don't blindly wait OSM's full 8s budget if MS is already in
+  // hand (the common case once the tile+cell are warm): resolve MS first, and if it has a ring grant OSM only a
+  // SHORT grace (cleaner rings when it lands) before responding. Stops the "MS ready in ms but response blocked
+  // 8s on a hung Overpass" stall.
+  const msft = await msftP;
+  let osm: LngLat[] | null;
+  if (msft && msft.length >= 3) {
+    osm = await Promise.race([osmP, new Promise<null>((r) => setTimeout(() => r(null), FOOTPRINT_OSM_GRACE_MS))]);
+  } else {
+    osm = await osmP;
+  }
   const candidates: FootprintCandidate[] = [];
   if (osm && osm.length >= 3) candidates.push({ ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" });
   if (msft && msft.length >= 3) candidates.push({ ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" });
@@ -1041,15 +1153,14 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
     const c = cacheFootprint(la, ln);
     if (c && c.length >= 3) candidates.push({ ring: c, source: "cache", attribution: "© Microsoft / national building footprints" });
   }
-  // msPending: MS was still warming when the budget expired, so this set is INCOMPLETE (missing MS).
-  // We DON'T persist an OSM-only set in that case — a cache hit would permanently shadow the MS tile
-  // caching in the background; instead the next request re-runs, finds the warm tile, and caches then.
+  // msPending: MS was still warming when the budget expired → INCOMPLETE (missing MS).
   const msPending = !msft;
   if (!candidates.length) return { source: "none", candidates: [] };
   const primary = candidates[0];
-  const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates };
-  // Only cache when a real source (OSM/MS) hit AND the candidate set is COMPLETE (MS not still pending).
-  if (!msPending && candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now() });
+  const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates, incomplete: msPending };
+  // Persist ANY real-source hit immediately (kills the warm==cold defeat). Complete → 30d TTL; OSM-only
+  // (MS pending) → short incomplete-TTL so the warm reload is instant yet upgrades to the complete set shortly.
+  if (candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now(), incomplete: msPending });
   return out;
 }
 
@@ -1079,10 +1190,11 @@ function ringsFromOverpassEls(elements: any[], lat0: number): BboxBuilding[] {
   }
   return out;
 }
-// Per-endpoint hard timeout so a single hung/rate-limited Overpass mirror can't eat the whole route
-// budget and starve the retry. Tight (the [timeout:7] server hint matches) → quick first attempt + quick
-// retry on the second mirror, all inside OSM_FOOTPRINT_BUDGET_MS.
-const OVERPASS_PER_TRY_MS = 6000;
+// Per-endpoint hard timeout so a single hung/rate-limited Overpass mirror can't eat the whole route budget and
+// starve the retry. Tightened 6s→3.5s (2×3.5=7s < 8s budget): with the Microsoft parsed-cell index now instant,
+// OSM is no longer the sole neighbour source, so a slow/flaky Overpass mirror should yield FAST to MS/VIDA rather
+// than burning the budget (the sparse-area 12s stall).
+const OVERPASS_PER_TRY_MS = 3500;
 async function overpassBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
   const body = "data=" + encodeURIComponent('[out:json][timeout:7];way["building"](' + bs + "," + bw + "," + bn + "," + be + ");out geom;");
   const headers = { "Content-Type": "application/x-www-form-urlencoded",
@@ -1099,40 +1211,20 @@ async function overpassBuildingsBbox(bs: number, bw: number, bn: number, be: num
   }
   return null; // both mirrors unreachable/failed (NOT a valid empty)
 }
-function scanMsftTileBbox(srcStream: NodeJS.ReadableStream, bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[]> {
-  return new Promise((resolve) => {
-    const out: BboxBuilding[] = [], lat0 = (bs + bn) / 2; let done = false;
-    const gun = zlib.createGunzip();
-    const rl = readline.createInterface({ input: srcStream.pipe(gun), crlfDelay: Infinity });
-    const finish = () => { if (done) return; done = true; try { rl.close(); } catch { /* closed */ } try { (srcStream as any).destroy?.(); } catch { /* noop */ } resolve(out); };
-    srcStream.on("error", finish); gun.on("error", finish);
-    rl.on("line", (line) => {
-      if (done || !line) return;
-      if (out.length >= 400) { finish(); return; }
-      let f: any; try { f = JSON.parse(line); } catch { return; }
-      const g = f && f.geometry; if (!g) return;
-      const raw = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
-      if (!raw || raw.length < 4) return;
-      const open = fpOpenRing((raw as number[][]).map((c) => [c[0], c[1]] as LngLat));
-      if (open.length < 3) return;
-      if (fpRingArea(open, lat0) < 8) return;
-      const c = fpCentroid(open);
-      if (c[1] < bs || c[1] > bn || c[0] < bw || c[0] > be) return;
-      out.push({ id: "msft/" + c[0].toFixed(6) + "," + c[1].toFixed(6), ring: open, centroid: c, area: fpRingArea(open, lat0), source: "msft" });
-    });
-    rl.on("close", finish);
-  });
-}
+// Collect Microsoft buildings whose centroid lands inside the bbox, from the SMALL per-cell index
+// (msftCellBuildings) — an in-memory filter, no per-request re-parse of the 30-45 MB .gz once the cell is warm.
 async function msftBuildingsBbox(bs: number, bw: number, bn: number, be: number): Promise<BboxBuilding[] | null> {
   const lat = (bs + bn) / 2, lng = (bw + be) / 2;
-  const idx = await loadMsftIndex();
-  const qk = lngLatToQuadkey(lat, lng, 9);
-  const url = idx[qk];
-  if (!url) return null;
-  const tileFile = path.join(cacheDir(), "msfttile-" + qk + ".gz");
-  if (!existsSync(tileFile)) { const ok = await downloadMsftTile(url, tileFile); if (!ok) return null; }
-  try { return await scanMsftTileBbox(createReadStream(tileFile), bs, bw, bn, be); }
-  catch { return null; }
+  const buildings = await msftCellBuildings(lat, lng);
+  if (!buildings) return null;
+  const out: BboxBuilding[] = [];
+  for (const b of buildings) {
+    const c = b.c;
+    if (c[1] < bs || c[1] > bn || c[0] < bw || c[0] > be) continue;
+    out.push({ id: "msft/" + c[0].toFixed(6) + "," + c[1].toFixed(6), ring: b.ring, centroid: c, area: b.a, source: "msft" });
+    if (out.length >= 400) break;
+  }
+  return out;
 }
 // True iff Microsoft HAS a footprint tile covering this bbox's quadkey. Disambiguates the two meanings of a
 // `null` msft result: (a) NO MS COVERAGE here (no tile in the index) → `null` is COMPLETE; vs (b) the tile
@@ -1149,8 +1241,14 @@ async function msftHasTile(bs: number, bw: number, bn: number, be: number): Prom
    coverage gap where OSM + Microsoft both return nothing (e.g. South Africa, Australia). Purely
    additive: ANY failure (duckdb missing, S3 unreachable, unknown country, timeout) logs + returns [],
    so the OSM→MS→approx union proceeds exactly as before. Mirrors spikes/roof-quote/serve.mjs. */
-const VIDA_FOOTPRINT_BUDGET_MS = 12000;   // How long the REQUEST waits for VIDA inline. Set just above the warm VIDA query time (~5-7s) so the first cold hit usually CATCHES VIDA, while bounding the wait so a slow read can't dominate latency. vidaBuildingsComplete keeps running to COMPLETION in the background past this budget and caches its rows by bbox, so even if this inline wait expires the next call gets the full VIDA set instantly (self-heal). After the startup prewarm a warm US bbox query is ~5-7s and lands within this window.
-const VIDA_SECOND_CHANCE_MS = 12000;      // Extra inline wait granted ONLY when nothing else covered the bbox (OSM down + no MS) so the cold FIRST hit returns the reliable VIDA floor instead of 0. Re-awaits the same in-flight query (no extra work). Worst-case first-hit wait ≈ VIDA_FOOTPRINT_BUDGET_MS + this only on the empty path; every later call is cached.
+// (perf) VIDA NEVER blocks first paint. It runs to COMPLETION in the background (vidaBuildingsComplete) and
+// self-heals via the bbox cache, so the request waits only a SHORT inline slice for an already-warm/cached VIDA
+// result; if it isn't ready we paint OSM/MS now and the next (cached) load has the VIDA-filled set. The old 12s
+// inline budget was the bulk of the "30-40s neighbours" latency on VIDA-dependent addresses.
+const VIDA_FOOTPRINT_BUDGET_MS = 2500;
+// Extra inline wait granted ONLY when NOTHING else covered the bbox (OSM down + no MS) — the reliability floor
+// for pure-VIDA markets (ZA/AU) on the very first hit. Bounded so even that worst case can't reach 30-40s.
+const VIDA_SECOND_CHANCE_MS = 5000;
 const VIDA_S3 = "s3://us-west-2.opendata.source.coop/vida/google-microsoft-osm-open-buildings/geoparquet/by_country";
 // Coarse ISO2/ISO3 lookup for the countries we expect coverage-gap roofs in. VIDA only needs the
 // 3-letter ISO to pick the country file; we derive it from the bbox centroid (the /buildings route
@@ -1341,8 +1439,17 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   if (parts.length !== 4 || parts.some((n) => !isFinite(n))) return { buildings: [], source: "none", error: "bad_bbox" };
   let [bs, bw, bn, be] = bboxClamp(parts[0], parts[1], parts[2], parts[3]);
   const gk = [bs, bw, bn, be].map((n) => n.toFixed(4)).join(",");
-  const cached = diskGetJSON<{ body: BuildingsResult; _t: number }>("buildings", gk);
-  if (cached && cached.body && cached._t && Date.now() - cached._t < 7 * 864e5) return cached.body;
+  // Cache read: a COMPLETE non-empty result is served for 7d; a NON-EMPTY but INCOMPLETE result (OSM/MS in hand,
+  // VIDA still loading OR MS tile still warming) is served for a SHORT window so a warm reload is INSTANT instead
+  // of re-paying the full race, then a MISS so the next call upgrades to the complete set. This is the key fix for
+  // "30-40s neighbours, every time": an incomplete union used to NEVER cache, so every visit re-raced flaky
+  // Overpass (12s) + waited the VIDA budget. We still NEVER cache an incomplete EMPTY (a cached 0 would shadow a
+  // warming tile). The `_incomplete` flag persisted alongside distinguishes the two on read.
+  const cached = diskGetJSON<{ body: BuildingsResult; _t: number; incomplete?: boolean }>("buildings", gk);
+  if (cached && cached.body && cached._t) {
+    const ttl = cached.incomplete ? BUILDINGS_INCOMPLETE_TTL_MS : 7 * 864e5;
+    if (Date.now() - cached._t < ttl) return cached.body;
+  }
   // Reliability fix (mirrors spikes/roof-quote/serve.mjs): RACE OSM + MS concurrently instead of the old
   // sequential cascade. The public Overpass mirrors intermittently time out / 429 / 502; under the old
   // cascade that returned an empty list AND only began warming the MS tile AFTER OSM's full budget, so a
@@ -1358,8 +1465,12 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
   // for THIS response, but the query finishes + caches so the next call returns the full set instantly. The
   // vidaPending() check below then flags the partial union `_incomplete` so it is NOT cached.
   const iso3s = iso3CandidatesFromBbox(bs, bw, bn, be);
+  // OSM gets a TIGHTER ceiling here (BUILDINGS_OSM_BUDGET_MS) than the footprint route: with the Microsoft cell
+  // instant once warm, a slow/flaky Overpass must yield quickly to MS+VIDA rather than holding the whole neighbour
+  // response at ~7s (two 3.5s mirror tries). MS + VIDA keep running past their budgets and cache in the background,
+  // so a tighter inline wait never loses data — the next load self-heals.
   let [osm, msft, vida, msftExpected] = await Promise.all([
-    timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), OSM_FOOTPRINT_BUDGET_MS, null),
+    timeboxResolve<BboxBuilding[] | null>(overpassBuildingsBbox(bs, bw, bn, be), BUILDINGS_OSM_BUDGET_MS, null),
     timeboxResolve<BboxBuilding[] | null>(msftBuildingsBbox(bs, bw, bn, be), MS_FOOTPRINT_BUDGET_MS, null),
     timeboxResolve<BboxBuilding[]>(vidaBuildingsComplete(bs, bw, bn, be, iso3s), VIDA_FOOTPRINT_BUDGET_MS, []),
     msftHasTile(bs, bw, bn, be), // does MS even HAVE a tile here? distinguishes "still warming" from "no coverage"
@@ -1449,9 +1560,10 @@ export async function buildingsInBbox(bboxStr: string): Promise<BuildingsResult>
     // flag incomplete so we don't cache a 0 the background query is about to fill (ZA/AU self-heal).
     out = { buildings: [], source: "none", _incomplete: msPending || vidaPending(bs, bw, bn, be, iso3s) };
   }
-  // Persist only NON-empty, COMPLETE results. Empty-but-complete (genuine sparse area) and incomplete
-  // (transient failure) both skip the cache → next load retries live instead of being shadowed by a 0.
-  if (out.buildings.length && !out._incomplete) diskSetJSON("buildings", gk, { body: out, _t: Date.now() });
+  // COMPLETE non-empty → long TTL. INCOMPLETE non-empty → short TTL (instant warm reload, upgrades soon via the
+  // background self-heal). Incomplete EMPTY and complete-empty both skip the cache (the empty stays live so a
+  // warming tile / VIDA self-heal fills it). The `_incomplete` flag is persisted so the read path picks the TTL.
+  if (out.buildings.length) diskSetJSON("buildings", gk, { body: out, _t: Date.now(), incomplete: !!out._incomplete });
   return out;
 }
 
