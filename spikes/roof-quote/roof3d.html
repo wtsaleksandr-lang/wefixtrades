@@ -10104,16 +10104,25 @@ function sgDraw(){
       grad.addColorStop(0,bodyTop); grad.addColorStop(1,"rgb(8,10,15)");
       ctx.fillStyle=grad; ctx.fill();
       ctx.save(); ctx.clip();
-      // (C) HALF-CUT CELL GRID — 6 columns across the short edge; cells stacked along the long edge with the
-      //     defining dark CENTRE BUSBAR SPLIT. Detail scales with on-screen size so a small module stays
-      //     clean (just the split) and a zoomed-in module shows the full lattice — never aliased noise.
+      // (C) CELL GRID — subtle but ALWAYS-VISIBLE monocrystalline lattice so the module reads as a SOLAR
+      //     PANEL even from far out (from a distance a plain black rect looks like nothing). Light premium
+      //     hairlines over the near-black body + a slightly stronger CENTRE BUSBAR SPLIT (the half-cut
+      //     signature). Cell counts adapt to on-screen size (≥~3px per cell) so it stays crisp — never
+      //     dense aliased noise when small, real cell detail when zoomed in.
       ctx.lineCap="butt";
-      if(shortPx>16){ ctx.lineWidth=Math.max(0.5,0.6*pr.dpr); ctx.strokeStyle="rgba(0,0,0,0.5)";
-        for(let i=1;i<6;i++){ const f=i/6, a=P(0,f),b=P(1,f); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } }
-      if(longPx>64){ ctx.lineWidth=Math.max(0.5,0.55*pr.dpr); ctx.strokeStyle="rgba(0,0,0,0.42)";
-        for(let k=1;k<20;k++){ if(k===10) continue; const f=k/20, a=P(f,0),b=P(f,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } }
-      if(longPx>10){ ctx.lineWidth=Math.max(1,1.4*pr.dpr); ctx.strokeStyle="rgba(2,3,7,0.9)";   // the half-cut centre split
-        const a=P(0.5,0),b=P(0.5,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      let nCols = shortPx>=13 ? 6 : (shortPx>=7 ? 3 : 2);
+      while(nCols>2 && shortPx/nCols < 3) nCols--;                  // keep ≥3px per column
+      const cellW = shortPx/nCols;
+      let nRows = Math.max(2, Math.round(longPx/cellW));
+      nRows = Math.min(nRows, 20, Math.max(2, Math.floor(longPx/3)));   // ≥3px per row, cap 20
+      if(nRows%2) nRows++;                                          // even → clean centre split
+      const gline = Math.max(0.6, 0.7*pr.dpr);
+      ctx.lineWidth=gline; ctx.strokeStyle="rgba(202,216,238,0.17)";
+      for(let i=1;i<nCols;i++){ const f=i/nCols, a=P(0,f),b=P(1,f); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      for(let k=1;k<nRows;k++){ if(k===nRows/2) continue; const f=k/nRows, a=P(f,0),b=P(f,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      // centre busbar split — a touch stronger so the half-cut signature always reads
+      ctx.lineWidth=Math.max(0.8,1.0*pr.dpr); ctx.strokeStyle="rgba(216,227,245,0.30)";
+      { const a=P(0.5,0),b=P(0.5,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
       // (D) SKY SHEEN — faint diagonal reflection off the top-left (px0) corner. Premium glass.
       const sg=ctx.createLinearGradient(c.px[0].x,c.px[0].y, c.px[0].x+ux*0.55+vx*0.55, c.px[0].y+uy*0.55+vy*0.55);
       sg.addColorStop(0,"rgba(150,180,220,0.16)"); sg.addColorStop(0.5,"rgba(150,180,220,0.04)"); sg.addColorStop(1,"rgba(150,180,220,0)");
@@ -10132,9 +10141,13 @@ function sgDraw(){
         ctx.strokeStyle="rgba(0,0,0,0.5)";          // shadowed chamfer (edges meeting at px2)
         ctx.beginPath(); ctx.moveTo(c.px[1].x,c.px[1].y); ctx.lineTo(c.px[2].x,c.px[2].y); ctx.lineTo(c.px[3].x,c.px[3].y); ctx.stroke();
       }
-      // resting look is a clean framed module; show a clear remove × only on hover
-      if(hot){ const r=sz*0.16; ctx.lineWidth=Math.max(1.2,1.5*pr.dpr); ctx.strokeStyle="rgba(244,249,255,0.96)";
-        ctx.beginPath(); ctx.moveTo(cx-r,cy-r); ctx.lineTo(cx+r,cy+r); ctx.moveTo(cx+r,cy-r); ctx.lineTo(cx-r,cy+r); ctx.stroke(); }
+      // REMOVE affordance — a subtle WHITE ✕, ALWAYS visible (brighter on hover). Size is clamped to a
+      // stable screen size (floor 3.2px, ceil 7px, never overflow the module) so it never balloons on
+      // zoom-in nor grows on zoom-out — it stays a small, premium control at every zoom.
+      { let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.4);
+        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.15*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)";
+        ctx.beginPath(); ctx.moveTo(cx-icoR,cy-icoR); ctx.lineTo(cx+icoR,cy+icoR); ctx.moveTo(cx+icoR,cy-icoR); ctx.lineTo(cx-icoR,cy+icoR); ctx.stroke(); }
     } else {
       // ── EMPTY SLOT — a SEE-THROUGH open square: the flux shows THROUGH it (opposite of the opaque module,
       //    so placed-vs-empty is unmistakable). Only a whisper of scrim for legibility on bright orange,
@@ -10155,9 +10168,12 @@ function sgDraw(){
       ctx.lineWidth=Math.max(1,(hot?1.5:1.1)*pr.dpr);
       ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.8)" : (hot ? "rgba(214,232,255,0.98)" : "rgba(176,206,255,0.78)");
       ctx.stroke();
-      // centred "+" glyph (add-a-panel affordance)
-      const r=sz*0.15; ctx.lineWidth=Math.max(1.1,1.4*pr.dpr); ctx.strokeStyle = hot ? "rgba(244,249,255,0.98)" : "rgba(198,221,255,0.82)";
-      ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
+      // centred "+" (add-a-panel) — simple WHITE, same stable clamped size as the remove ✕ (floor 3.2px,
+      // ceil 7px, never overflow the slot) so it stays a small premium control that doesn't grow on zoom.
+      { const es=Math.min(sz,ez); let icoR=Math.min(Math.max(es*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, es*0.4);
+        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.2*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.68)";
+        ctx.beginPath(); ctx.moveTo(cx-icoR,cy); ctx.lineTo(cx+icoR,cy); ctx.moveTo(cx,cy-icoR); ctx.lineTo(cx,cy+icoR); ctx.stroke(); }
     }
   }
   window.__sgDrawn=SG_STATE.panels.length;
