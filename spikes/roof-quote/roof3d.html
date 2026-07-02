@@ -10157,13 +10157,14 @@ function sgDraw(){
         ctx.strokeStyle="rgba(0,0,0,0.5)";          // shadowed chamfer (edges meeting at px2)
         ctx.beginPath(); ctx.moveTo(c.px[1].x,c.px[1].y); ctx.lineTo(c.px[2].x,c.px[2].y); ctx.lineTo(c.px[3].x,c.px[3].y); ctx.stroke();
       }
-      // REMOVE affordance — a subtle WHITE ✕, ALWAYS visible (brighter on hover). Size is clamped to a
-      // stable screen size (floor 3.2px, ceil 7px, never overflow the module) so it never balloons on
-      // zoom-in nor grows on zoom-out — it stays a small, premium control at every zoom.
+      // REMOVE affordance — a subtle WHITE MINUS (−), ALWAYS visible (brighter on hover). Minus (not ✕) so
+      // it's clearly distinct from the empty-slot "+" (add) — a plain +/− pair reads instantly. Size is
+      // clamped to a stable screen size (floor 3.2px, ceil 7px, never overflow the module) so it never
+      // balloons on zoom-in nor grows on zoom-out — a small premium control at every zoom.
       { let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.4);
-        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.15*pr.dpr);
+        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.2*pr.dpr);
         ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)";
-        ctx.beginPath(); ctx.moveTo(cx-icoR,cy-icoR); ctx.lineTo(cx+icoR,cy+icoR); ctx.moveTo(cx+icoR,cy-icoR); ctx.lineTo(cx-icoR,cy+icoR); ctx.stroke(); }
+        ctx.beginPath(); ctx.moveTo(cx-icoR,cy); ctx.lineTo(cx+icoR,cy); ctx.stroke(); }
     } else {
       // ── EMPTY SLOT — a SEE-THROUGH open square: the flux shows THROUGH it (opposite of the opaque module,
       //    so placed-vs-empty is unmistakable). Only a whisper of scrim for legibility on bright orange,
