@@ -1079,7 +1079,7 @@
   /* #4/#5 colour selectors: a SINGLE horizontal scroll strip (swipeable on mobile) — never a wrapping
      multi-row block. flex-nowrap + overflow-x:auto + momentum scroll; scrollbar hidden. Chips keep their
      FULL colour name (no truncation) and rounded-square shape. */
-  #roofDesign .rd-cols{display:flex;flex-wrap:nowrap;gap:8px;padding:1px 0 3px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain}
+  #roofDesign .rd-cols{display:flex;flex-wrap:nowrap;gap:8px;padding:1px 0 3px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;cursor:grab}
   #roofDesign .rd-cols::-webkit-scrollbar{display:none}
   #roofDesign .rd-col{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:6px 11px 6px 6px;background:var(--panel);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
   @media (hover:hover){ #roofDesign .rd-col:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,23,42,.10);border-color:color-mix(in srgb,var(--blue) 35%,var(--line))} }
@@ -11039,6 +11039,15 @@ async function openRoofDesign(){
     // (#2) translate the .rd-panel live (not the full-screen #roofDesign wrapper); the peek material line
     // is a safe (non-interactive) extra drag zone so the whole peek header grabs, not just the pill.
     wireSheetHandle(rd, ".rd-grab", { moveSel:".rd-panel", dragZones:[".rd-peekmat"] });
+    // colour strip: grab-and-drag to scroll — native swipe on touch; explicit click-drag on mouse (desktop).
+    (function(cols){ if(!cols||cols.__dragScroll) return; cols.__dragScroll=true;
+      let down=false,sx=0,sl=0,moved=false;
+      cols.addEventListener("pointerdown",e=>{ if(e.pointerType!=="mouse") return; down=true;moved=false;sx=e.clientX;sl=cols.scrollLeft; try{cols.setPointerCapture(e.pointerId);}catch(_){} cols.style.cursor="grabbing"; });
+      cols.addEventListener("pointermove",e=>{ if(!down) return; const dx=e.clientX-sx; if(Math.abs(dx)>3)moved=true; cols.scrollLeft=sl-dx; });
+      const end=e=>{ if(!down)return; down=false; cols.style.cursor="grab"; try{cols.releasePointerCapture&&cols.releasePointerCapture(e.pointerId);}catch(_){} };
+      cols.addEventListener("pointerup",end); cols.addEventListener("pointercancel",end);
+      cols.addEventListener("click",e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } },true);   // a drag isn't a chip-select
+    })($("rdCols"));
     setSheetState(rd, isMobileSheet());
   }catch(_){}
   // SHOWROOM (Part 1): fetch the pre-rendered "example home" manifest ONCE (no await — the picker is already
