@@ -11802,39 +11802,50 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     let _vShift=0,_uShift=0,_rescueGain=0;
     if(!_grp){
       let base=_phasePass(u0,v0);
-      // v-phase: outer rows (min/max kv holding any center-in-poly candidate). If both qualify (rare),
-      // take the one with more rescuable misses — one shift can't help both sides.
-      const _kvs=[...base.rowCand.keys()];
-      if(_kvs.length){
-        const kvLo=Math.min(..._kvs), kvHi=Math.max(..._kvs);
+      // v-phase: the OUTER rows of the NOMINAL centred lattice are kv=0 (eave-most) and kv=rows-1
+      // (ridge-most) — v0 was centred so exactly `rows` rows fit the inset band. (Stray kv beyond that
+      // range can hold the odd center-in-poly cell on a skewed edge; those are not lattice rows and
+      // must not steal the outer-row test from the real collapsed row.) If both outer rows qualify
+      // (rare), take the one with more rescuable misses — one shift can't help both sides.
+      {
         let pick=null;
-        for(const [kv,sign] of (kvLo===kvHi?[[kvLo,+1]]:[[kvLo,+1],[kvHi,-1]])){
+        for(const [kv,sign] of (rows<2?[[0,+1]]:[[0,+1],[rows-1,-1]])){
           const cand=base.rowCand.get(kv)||0, miss=(base.rowMiss.get(kv)||[]);
           if(cand>0 && miss.length>cand/3 && (!pick||miss.length>pick.miss.length)) pick={k:kv,sign,miss};
         }
         if(pick){
-          const dv=pick.sign*(Math.min(RESCUE_MAX_DEFICIT,Math.max(...pick.miss))+RESCUE_EPS);
-          const trial=_phasePass(u0,v0+dv);
-          if((trial.rowPass.get(pick.k)||0)>(base.rowPass.get(pick.k)||0) && trial.total>base.total){
-            _rescueGain+=trial.total-base.total; v0+=dv; _vShift=dv; base=trial;
+          // The misses ramp when the offending edge is linearly skewed (Angus: 0.02→0.12 m across the
+          // row), so the MAX deficit can overshoot the opposite row's centering slack and lose more than
+          // it wins. Try each observed deficit as a candidate shift (bounded: ≤ cells-per-row cheap
+          // passes, deterministic order) and keep the one with the best strict net gain; ties → the
+          // SMALLEST shift (least disturbance to the centred layout).
+          let best=null;
+          for(const d of [...new Set(pick.miss.map(x=>+Math.min(RESCUE_MAX_DEFICIT,x).toFixed(4)))].sort((a,b)=>a-b)){
+            const dv=pick.sign*(d+RESCUE_EPS);
+            const trial=_phasePass(u0,v0+dv);
+            if((trial.rowPass.get(pick.k)||0)>(base.rowPass.get(pick.k)||0) && trial.total>base.total &&
+               (!best || trial.total>best.trial.total)) best={dv,trial};
           }
+          if(best){ _rescueGain+=best.trial.total-base.total; v0+=best.dv; _vShift=best.dv; base=best.trial; }
         }
       }
-      // u-phase (row-END columns): symmetric, evaluated on the possibly v-shifted lattice.
-      const _kus=[...base.colCand.keys()];
-      if(_kus.length){
-        const kuLo=Math.min(..._kus), kuHi=Math.max(..._kus);
+      // u-phase (row-END columns of the nominal lattice: ku=0 and ku=cols-1): symmetric, one
+      // iteration, evaluated on the possibly v-shifted lattice.
+      {
         let pick=null;
-        for(const [ku,sign] of (kuLo===kuHi?[[kuLo,+1]]:[[kuLo,+1],[kuHi,-1]])){
+        for(const [ku,sign] of (cols<2?[[0,+1]]:[[0,+1],[cols-1,-1]])){
           const cand=base.colCand.get(ku)||0, miss=(base.colMiss.get(ku)||[]);
           if(cand>0 && miss.length>cand/3 && (!pick||miss.length>pick.miss.length)) pick={k:ku,sign,miss};
         }
         if(pick){
-          const duS=pick.sign*(Math.min(RESCUE_MAX_DEFICIT,Math.max(...pick.miss))+RESCUE_EPS);
-          const trial=_phasePass(u0+duS,v0);
-          if((trial.colPass.get(pick.k)||0)>(base.colPass.get(pick.k)||0) && trial.total>base.total){
-            _rescueGain+=trial.total-base.total; u0+=duS; _uShift=duS;
+          let best=null;
+          for(const d of [...new Set(pick.miss.map(x=>+Math.min(RESCUE_MAX_DEFICIT,x).toFixed(4)))].sort((a,b)=>a-b)){
+            const duS=pick.sign*(d+RESCUE_EPS);
+            const trial=_phasePass(u0+duS,v0);
+            if((trial.colPass.get(pick.k)||0)>(base.colPass.get(pick.k)||0) && trial.total>base.total &&
+               (!best || trial.total>best.trial.total)) best={duS,trial};
           }
+          if(best){ _rescueGain+=best.trial.total-base.total; u0+=best.duS; _uShift=best.duS; }
         }
       }
     }
