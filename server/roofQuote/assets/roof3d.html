@@ -696,19 +696,17 @@
      The underlying 3D functions stay dormant (a fast-follow may rebuild 3D) but are unreachable from the UI.
      1) Roofline-edit Top-down/3D pill → hide the "3D" button (top-down is the only edit lens).
      2) Solar base "3D model / Satellite" pill (#viewToggle) → removed entirely (the 3D model rendered a void).
-     3) Solar grid 2D/3D pill → hide "3D" (#sgView3d); 2D flux/grid is the only solar designer surface.
+     3) Solar grid 2D/3D pill → removed from the DOM entirely (2D flux/grid is the only solar designer surface).
      4) Sun-map Top-down/3D pill → hide "3D". */
   #measToggle button[data-v="3d"]{display:none!important}
   #viewToggle{display:none!important}
-  #sgViewToggle #sgView3d{display:none!important}
   #sunHeatToggle button[data-v="3d"]{display:none!important}
   /* (CUT-3D follow-up) With the "3D" option hidden, each of these pills is left showing a single
      option — a lone toggle button is dead chrome (toggles nothing). Alex flag: remove the useless
-     pills entirely on the roofline-edit, sun-map, and solar-grid surfaces. The 3D re-entry code stays
+     pills entirely on the roofline-edit + sun-map surfaces. The 3D re-entry code stays
      dormant; if 3D is ever rebuilt, drop these rules and the display:none on the [data-v="3d"] buttons. */
   #measToggle{display:none!important}
   #sunHeatToggle{display:none!important}
-  #sgViewToggle{display:none!important}
   /* ── ROOF-OUTLINE DOT EDITOR (Roofr/Sky-Quote style) ── */
   #dotEditor{cursor:crosshair}
   /* magnifier / loupe — a small zoomed close-up of the dot being dragged, so the user can place it
@@ -925,12 +923,7 @@
   #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
   #solarGrid .sg-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  /* 2D ⇄ 3D segmented control — sits in the solar grid header; 2D (grid+flux, default) ⇄ 3D (real photoreal house + panels) */
-  #solarGrid .sg-vt{margin-left:auto;flex:0 0 auto;display:inline-flex;gap:2px;padding:2px;border-radius:99px;border:1px solid rgba(255,255,255,.20);background:rgba(255,255,255,.08)}
-  #solarGrid .sg-vt button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.66);font:800 12px/1 inherit;letter-spacing:.01em;padding:7px 14px;border-radius:99px;cursor:pointer;transition:background .15s ease,color .15s ease}
-  #solarGrid .sg-vt button.on{background:#fff;color:#0b1220;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-  #solarGrid .sg-vt + .sg-x{margin-left:10px}
-  /* floating "2D" return chip overlaid on the photoreal 3D solar view */
+  /* floating "2D" return chip overlaid on the photoreal 3D solar view (dormant CUT-3D re-entry path) */
   #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
   #solar3dBack svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
@@ -947,7 +940,7 @@
   #solarGrid .sg-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
   /* live-metrics + bill panel — sits over the bottom of the heatmap, premium glass card */
   #solarGrid .sg-panel{position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -12px 40px rgba(15,23,42,.18);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:11px}
-  #solarGrid .sg-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  #solarGrid .sg-metrics{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}   /* auto-fits 3 or 4 tiles evenly — Bill-offset tile appears only after a bill is entered */
   #solarGrid .sg-m{background:#f7f9fc;border:1px solid var(--line);border-radius:11px;padding:8px 6px;text-align:center;min-width:0}
   #solarGrid .sg-m .v{font-size:17px;font-weight:900;color:var(--ink);line-height:1.05;letter-spacing:-.01em}
   #solarGrid .sg-m .v small{font-size:11px;font-weight:700;color:var(--muted)}
@@ -1470,10 +1463,7 @@
   <div id="solarGrid">
     <div class="sg-head">
       <div><div class="sg-title">Design your solar system<small id="sgSubtitle">Tap the squares to add or remove panels</small></div></div>
-      <div class="sg-vt" id="sgViewToggle" role="group" aria-label="2D or 3D view">
-        <button id="sgView2d" class="on" type="button" aria-pressed="true">2D</button>
-        <button id="sgView3d" type="button" aria-pressed="false">3D</button>
-      </div>
+      <!-- (CUT-3D) the 2D/3D pill was hidden but left as dead chrome + live handlers; removed. 2D flux grid is the only solar designer surface. -->
       <button class="sg-x" id="sgClose" type="button" aria-label="Close panel designer">&times;</button>
     </div>
     <div class="sg-stage"><canvas id="sgCanvas"></canvas>
@@ -1490,7 +1480,7 @@
         <div class="sg-m"><div class="v" id="sgPanels">0</div><div class="l">Panels</div></div>
         <div class="sg-m"><div class="v" id="sgKw">0<small> kW</small></div><div class="l">System</div></div>
         <div class="sg-m"><div class="v" id="sgKwh">0</div><div class="l">kWh/yr</div></div>
-        <div class="sg-m"><div class="v" id="sgOffset">—</div><div class="l">Bill offset</div></div>
+        <div class="sg-m" id="sgOffsetTile" style="display:none"><div class="v" id="sgOffset">—</div><div class="l">Bill offset</div></div>
       </div>
       <div class="sg-price"><span class="pv" id="sgPrice">$0</span><span class="pmo" id="sgMonthly"></span><span class="psub" id="sgPriceSub">est. installed after incentives</span></div>
       <div class="sg-bill">
@@ -10173,7 +10163,7 @@ function gridSelectionMetrics(){
   let lo=Math.round(kw*1000*2.5/100)*100*pTier.mult, hi=Math.round(kw*1000*3.1/100)*100*pTier.mult;   // same $/W band + quality multiplier as the card
   const sMid=(lo+hi)/2;
   const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));    // post-ITC, same as the card
-  const fin=TENANT.financing, mo=Math.round(monthly(netCost, fin.solarApr, fin.solarYears));
+  const fin=TENANT.financing, mo=Math.round(monthly(netCost, fin.solarApr, solarTermYears()));   // sanitized term — never 0-yr / divide-by-zero (mirrors the quote card)
   const monthlySave=Math.round(kwhAc*REGION.rate/12);                  // bill savings at the live rate (same as solarTiersFrom.monthly)
   return { panels, kw, kwhAc, lo:Math.round(lo), hi:Math.round(hi), sMid:Math.round(sMid), netCost, itcAmt, mo, monthlySave, total:SG_STATE.panels.length };
 }
@@ -10205,6 +10195,7 @@ function sgUpdateMetrics(){
     const save=Math.max(0,bill-newBill);
     const offsetPct=Math.min(140,Math.round(m.kwhAc/Math.max(1,usageKwh)*100));
     $("sgOffset").textContent=offsetPct+'%';
+    const offTile=$("sgOffsetTile"); if(offTile) offTile.style.display="";   // reveal the Bill-offset tile once a real % can be computed
     ba.style.display="flex";
     $("sgBillBefore").textContent='$'+bill;
     $("sgBillAfter").textContent='$'+newBill;
@@ -10214,6 +10205,7 @@ function sgUpdateMetrics(){
     $("sgBillSave").textContent=save>0?('You save ~$'+save+'/mo · ~$'+Math.round(save*12).toLocaleString()+'/yr'):'Add more panels to cut your bill';
   } else {
     $("sgOffset").textContent='—';
+    const offTile=$("sgOffsetTile"); if(offTile) offTile.style.display="none";   // no bill yet → hide the tile rather than show a bare dash
     ba.style.display="none";
   }
   // keep the subtitle + legend honest about ROI flagging: only mention amber/low-sun when at least one
@@ -10528,8 +10520,6 @@ window.__sgFirstSelectedVisibleCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return
     const reveal=()=>closeSolarGrid(true);
     if(typeof window.__gateThenReveal==="function") window.__gateThenReveal("solar", reveal); else reveal();
   };
-  const v2=$("sgView2d"); if(v2) v2.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
-  const v3=$("sgView3d"); if(v3) v3.onclick=()=>{ if(!window.__solar3dActive) enterSolar3D(); };
   const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
