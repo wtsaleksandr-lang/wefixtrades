@@ -496,6 +496,12 @@
   #card .assume-line{margin-top:10px;font-size:9.5px;color:var(--faint);line-height:1.4;border-top:1px solid var(--line);padding-top:8px}
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
   #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
+  /* roofing KPI secondary line (energy + install time) — subtle, demoted under the 4 headline tiles */
+  #card .rkpi-note{display:flex;flex-wrap:wrap;gap:5px 12px;margin:2px 0 6px;font-size:10px;font-weight:600;color:var(--muted);line-height:1.35}
+  #card .rkpi-note span{display:inline-flex;align-items:center;gap:4px}
+  #card .rkpi-note b{color:var(--ink);font-weight:800}
+  #card .rkpi-note .rkpi-cool b{color:var(--green-text)}
+  #card .rkpi-foot{font-size:9px;color:var(--faint);margin:0 0 6px;line-height:1.35}
   /* ROOF-SELECTION ANCHOR — carries the material the buyer just chose into the estimate so the
      card reads as "the roof I picked", not a bare satellite. Real showroom thumbnail (outline-selected
      per the hard UI rule) + label + a prominent "See it on your house" affordance. */
@@ -3965,10 +3971,40 @@ function renderQuoteCard(){
       const _seeCta=(typeof window.__openSeeModal==="function")
           ? '<button type="button" class="qroof-see" data-seehouse><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>See it on your house</span></button>'
           : '';
+      // ── ROOFING KPI CARD (parity with the solar KPI card) — 4 headline tiles, all derived from the
+      // SELECTED material so they re-derive live on every material/colour/option change. Roofing is a
+      // ONE-TIME replacement → different KPIs than solar: NO payback / free-electricity / offset.
+      //   1) Installed price  2) Warranty (material)  3) Home value (recouped% at resale)  4) Lifespan.
+      // Every money-bearing tile (price, home-value $) lives ONLY in the ungated branch, exactly like the
+      // solar card, so the roofing lead-gate mask never leaks a dollar figure.
+      const _rk=(typeof ROOF_KPI!=="undefined"?ROOF_KPI[sel.matId]:null)||{};
+      const _mid=Math.round((lo+hi)/2);
+      const _addVal=_rk.roiPct?Math.round(_mid*_rk.roiPct/100)*100:0;      // recouped% × installed mid, $100-rounded
+      const _roiHdr=_rk.roiPct?('~'+Math.round(_rk.roiPct*100)+'%'):'—';
+      // (1) installed price + financed/mo
+      const _kPrice='<div class="ktile" data-kv="'+_mid+'"><div class="ktv" data-money style="font-size:14.5px;white-space:normal;line-height:1.1">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div>'+
+        '<div class="ktl">Installed'+HCUE("roof")+'</div><div class="ktsub">tear-off + new roof'+(rFin>0?' · or '+fmtMoney(rFin)+'/mo financed':'')+'</div></div>';
+      // (2) warranty (material-specific, no $ — gate-safe but kept here for visual parity)
+      const _kWarr='<div class="ktile"><div class="ktv" style="font-size:15px;white-space:normal;line-height:1.1">'+(spec?esc(spec.warranty):'—')+'</div>'+
+        '<div class="ktl">Warranty</div><div class="ktsub">manufacturer + workmanship</div></div>';
+      // (3) home value — recouped% headline (never implies 100%), + $ added value sub
+      const _kValue='<div class="ktile" data-kv="'+_addVal+'"><div class="ktv" data-money style="font-size:15px;white-space:normal;line-height:1.1">Recoups '+_roiHdr+'</div>'+
+        '<div class="ktl">Home value'+(_rk.roiEst?' (est.)':'')+'</div><div class="ktsub">'+(_addVal>0?'≈ +'+fmtMoney(_addVal)+' added at resale*':'added value at resale')+'</div></div>';
+      // (4) lifespan (selected material)
+      const _kLife='<div class="ktile"><div class="ktv" style="font-size:15px;white-space:normal;line-height:1.1">'+(_rk.lifeShort||(spec?esc(spec.life):'—'))+'</div>'+
+        '<div class="ktl">Lifespan</div><div class="ktsub">before next replacement</div></div>';
+      const _roofTiles='<div class="ktiles">'+_kPrice+_kWarr+_kValue+_kLife+'</div>';
+      // secondary line (not a tile): cool-roof energy note (reflective/light colours only) + install time
+      const _selBase=(_matObj&&_matObj.colors)?((_matObj.colors.find(c=>c.n===sel.colorName)||_matObj.colors[selCol]||_matObj.colors[0])||{}).base:null;
+      const _isCool=(typeof roofColorReflective==="function")&&roofColorReflective(sel.matId,_selBase)&&_rk.coolPct;
+      const _coolNote=_isCool?'<span class="rkpi-cool">❄ Reflective — cuts cooling ~<b>'+_rk.coolPct+'</b>†</span>':'';
+      const _instNote=_rk.installDays?'<span>🔨 Installed in ~<b>'+_rk.installDays+'</b></span>':'';
+      const _roofNote=(_coolNote||_instNote)?'<div class="rkpi-note">'+_coolNote+_instNote+'</div>':'';
+      const _roofFoot=(_rk.roiPct?'<div class="rkpi-foot">*Cost recouped at resale — Remodeling "Cost vs. Value" report'+(_rk.roiEst?' (premium-material estimate)':'')+'.'+(_isCool?' †DOE / ENERGY STAR cool-roof cooling-energy savings.':'')+'</div>':(_isCool?'<div class="rkpi-foot">†DOE / ENERGY STAR cool-roof cooling-energy savings.</div>':''));
       body=_anchor+specLine+
         (_roofGated
           ? quoteCardMaskHtml("roof")
-          : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,rTerm+'-yr @ '+TENANT.financing.roofApr+'%')+_seeCta+custToggle+detail)
+          : _roofTiles+_roofNote+_roofFoot+finLine(rFin,rTerm+'-yr @ '+TENANT.financing.roofApr+'%')+_seeCta+custToggle+detail)
         +stats+discLine("roof");
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
@@ -5629,6 +5665,45 @@ const ROOF_SPEC={
   slate:{life:"75–150 yr", warranty:"50–100 yr", note:"Natural slate — the longest-lasting, highest-end roof"},
   cedar:{life:"25–40 yr", warranty:"30-yr", note:"Cedar shake — natural wood look, needs periodic maintenance"},
 };
+// ── ROOFING KPI DATA — cited resale-ROI, "one-line" lifespan, install time, cool-roof energy ────────────
+// Roofing is a ONE-TIME replacement, not a savings-over-time investment, so its KPIs differ from solar:
+// no payback / free-electricity / offset. Headline numbers are cost-recouped-at-resale, warranty, home-value
+// add (= recouped% × installed mid), and lifespan. All figures below are CITED, conservative constants:
+//
+//  • Resale cost-recouped % (roiPct) — Remodeling "Cost vs. Value" report (national), summarised by Opendoor
+//    (updated 2026-05-19): asphalt shingle roof recoups ~60–68%; metal (standing-seam) ~48–60%. We use the
+//    conservative low end so the "home value" tile never over-promises: asphalt 0.60, metal 0.50. Premium
+//    tile/slate/cedar are not broken out nationally by Remodeling; we tag them ~0.55 as a labelled estimate
+//    (durable premium materials, resale-positive but data-thin) — honest mid, never implies 100% return.
+//      Sources: opendoor.com/articles/does-a-new-roof-increase-home-value... ; remodeling.hw.net/cost-vs-value
+//      (roofing-replacement-asphalt-shingles → jlconline.com/cost-vs-value) ; jlconline.com/cost-vs-value/2025
+//  • Lifespan "before next replacement" (lifeShort) — condensed from ROOF_SPEC.life. Sources: This Old House,
+//    ServPro, Cenvar/Amstill roofing lifespan guides (3-tab 15–20yr, arch 25–30, metal 40–70, clay 50–100,
+//    slate 75–150, cedar 25–40).
+//  • Install time (installDays) — 1–3 days typical for an average home (asphalt 1–2d; metal 2–7d; tile/slate
+//    up to 1–2 weeks). Source: AboveRoofing / Bondoc / FirstAmerican roofing timeline guides (2024–25).
+//  • Cool-roof energy (coolPct, reflective materials only) — DOE/ENERGY STAR "Cool Roofs": a reflective roof
+//    can cut air-conditioning energy up to ~15% on a single-story home; ENERGY STAR/LBNL peak-cooling cut
+//    11–27%. We show a conservative "~7–15%" cooling note, reflective materials + light colours only.
+//      Sources: energy.gov/cmei/femp/purchasing-energy-efficient-cool-roof-products ; energystar.gov/products/cool-roofs ;
+//      eesi.org/papers/view/fact-sheet-cool-roofs ; heatisland.lbl.gov cool_roof_fact_sheet
+const ROOF_KPI={
+  arch: {roiPct:0.60, roiEst:false, lifeShort:"25–30 yrs", installDays:"1–2 days", reflective:false},
+  "3tab":{roiPct:0.60, roiEst:false, lifeShort:"15–20 yrs", installDays:"1–2 days", reflective:false},
+  metal:{roiPct:0.50, roiEst:false, lifeShort:"40–70 yrs", installDays:"2–5 days", reflective:true,  coolPct:"7–15%"},
+  clay: {roiPct:0.55, roiEst:true,  lifeShort:"50–100 yrs", installDays:"1–2 weeks", reflective:true, coolPct:"7–15%"},
+  slate:{roiPct:0.55, roiEst:true,  lifeShort:"75–150 yrs", installDays:"1–2 weeks", reflective:false},
+  cedar:{roiPct:0.55, roiEst:true,  lifeShort:"25–40 yrs", installDays:"2–4 days", reflective:false},
+};
+// A colour counts as "reflective / cool" when the material is reflective-capable AND the finish is light
+// (mean RGB ≥ ~150 → light metal like Galvalume/light gray, or light clay). Dark colours don't earn the note.
+function roofColorReflective(matId, colorBase){
+  const k=ROOF_KPI[matId]; if(!k||!k.reflective) return false;
+  const m=String(colorBase||"").match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if(!m) return false; const lum=(+m[1]+ +m[2]+ +m[3])/3;
+  // metal earns the note even at mid-tone (all metal panels carry a reflective coating); tile needs to be light.
+  return matId==="metal" ? lum>=90 : lum>=150;
+}
 // rich per-material content for the help-cue modal
 const MAT_INFO={
   arch:{ desc:"Architectural (dimensional) asphalt shingles — the most popular roof in North America. Multi-layer laminated shingles that add depth and mimic wood shake or slate.", features:["Laminated multi-layer build for a dimensional look","Wind-rated up to 130 mph","Class A fire rating","Algae-resistant granules"], benefits:["Best balance of price, looks and durability","Lifetime limited warranty","Widest colour selection","Affordable to repair"] },
