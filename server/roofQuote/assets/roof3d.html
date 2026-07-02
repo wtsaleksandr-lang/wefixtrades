@@ -10168,13 +10168,19 @@ function sgDraw(){
         ctx.strokeStyle="rgba(0,0,0,0.5)";          // shadowed chamfer (edges meeting at px2)
         ctx.beginPath(); ctx.moveTo(c.px[1].x,c.px[1].y); ctx.lineTo(c.px[2].x,c.px[2].y); ctx.lineTo(c.px[3].x,c.px[3].y); ctx.stroke();
       }
-      // REMOVE affordance — a subtle WHITE MINUS (−), ALWAYS visible (brighter on hover). Minus (not ✕) so
-      // it's clearly distinct from the empty-slot "+" (add) — a plain +/− pair reads instantly. Size is
-      // clamped to a stable screen size (floor 3.2px, ceil 7px, never overflow the module) so it never
-      // balloons on zoom-in nor grows on zoom-out — a small premium control at every zoom.
-      { let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.4);
-        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.2*pr.dpr);
-        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)";
+      // REMOVE affordance — a subtle circled WHITE MINUS (−) badge, ALWAYS visible (brighter on hover).
+      // The circle container makes it read instantly as a "remove" control (Alex's circled +/− example),
+      // not a stray line. Minus (not ✕) pairs with the empty-slot circled "+". Size is clamped to a stable
+      // screen size (floor 3.2px, ceil 7px, never overflow the module) so it never balloons on zoom.
+      { let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.32);
+        const cR=icoR*1.8;
+        ctx.lineCap="round";
+        ctx.beginPath(); ctx.arc(cx,cy,cR,0,Math.PI*2);
+        ctx.fillStyle = hot ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0.28)"; ctx.fill();       // soft scrim disc
+        ctx.lineWidth=Math.max(0.8,1*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)"; ctx.stroke();   // thin ring
+        ctx.lineWidth=Math.max(1,1.2*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.75)";
         ctx.beginPath(); ctx.moveTo(cx-icoR,cy); ctx.lineTo(cx+icoR,cy); ctx.stroke(); }
     } else {
       // ── EMPTY SLOT — a SEE-THROUGH open square: the flux shows THROUGH it (opposite of the opaque module,
@@ -10196,11 +10202,17 @@ function sgDraw(){
       ctx.lineWidth=Math.max(1,(hot?1.5:1.1)*pr.dpr);
       ctx.strokeStyle = c.lowSun ? "rgba(245,158,11,0.8)" : (hot ? "rgba(214,232,255,0.98)" : "rgba(176,206,255,0.78)");
       ctx.stroke();
-      // centred "+" (add-a-panel) — simple WHITE, same stable clamped size as the remove ✕ (floor 3.2px,
-      // ceil 7px, never overflow the slot) so it stays a small premium control that doesn't grow on zoom.
-      { const es=Math.min(sz,ez); let icoR=Math.min(Math.max(es*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, es*0.4);
-        ctx.lineCap="round"; ctx.lineWidth=Math.max(1,1.2*pr.dpr);
-        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.68)";
+      // centred circled "+" (add-a-panel) badge — same circle container + stable clamped size as the
+      // placed-panel circled "−", so the +/− pair reads instantly as add/remove controls at every zoom.
+      { const es=Math.min(sz,ez); let icoR=Math.min(Math.max(es*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, es*0.32);
+        const cR=icoR*1.8;
+        ctx.lineCap="round";
+        ctx.beginPath(); ctx.arc(cx,cy,cR,0,Math.PI*2);
+        ctx.fillStyle = hot ? "rgba(0,0,0,0.42)" : "rgba(8,16,32,0.28)"; ctx.fill();      // soft scrim disc (legible on orange flux)
+        ctx.lineWidth=Math.max(0.8,1*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)"; ctx.stroke();   // thin ring
+        ctx.lineWidth=Math.max(1,1.2*pr.dpr);
+        ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.8)";
         ctx.beginPath(); ctx.moveTo(cx-icoR,cy); ctx.lineTo(cx+icoR,cy); ctx.moveTo(cx,cy-icoR); ctx.lineTo(cx,cy+icoR); ctx.stroke(); }
     }
   }
