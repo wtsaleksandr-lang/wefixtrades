@@ -10284,6 +10284,11 @@ function closeSolarGrid(commit){
     Promise.resolve().then(()=>enterModelDefault()).catch(()=>{});
   }
   if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+  // FUNNEL: "Use this system" commits the designed solar system and surfaces the live quote card —
+  // that IS the Estimate step. setFunnelStep early-returned (no-op) while the grid was open (__sgOpen),
+  // leaving the stepper stuck on "Options"; now that the grid is closed and the priced card is the active
+  // surface, advance the progress bar to step 4 "Estimate". Only on a real commit (Done), not a plain close.
+  if(commit && window.__funnelActive && typeof setFunnelStep==="function"){ try{ setFunnelStep("estimate"); }catch(_){} }
 }
 // ── 2D ⇄ 3D in the solar step ────────────────────────────────────────────────
 // 2D = the top-down tappable grid over the flux heatmap (default). 3D = Google's
