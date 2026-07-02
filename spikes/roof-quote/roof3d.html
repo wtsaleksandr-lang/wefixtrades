@@ -810,7 +810,7 @@
   #dotHud .dh-splitbar .dh-sb-btn.dh-sb-remove{color:#b91c1c;border-color:#f1d4d4}
   @media (max-width:560px){
     /* full-width bottom sheet on mobile; capped ~70vh so the top of the roof preview always stays visible */
-    #dotHud{left:2px;right:2px;bottom:8px;transform:none;width:auto;max-height:70vh;overflow-y:auto;padding:30px 10px 9px;border-radius:18px 18px 0 0;transition:transform .26s cubic-bezier(.4,0,.2,1)}
+    #dotHud{left:2px;right:2px;bottom:8px;transform:none;width:auto;max-height:70vh;overflow-y:auto;padding:30px 10px 9px;border-radius:18px 18px 0 0;transition:transform .16s cubic-bezier(.4,0,.2,1)}
     #dotHud.sheet-dragging{transition:none!important}
     #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px}
     #dotHud .dh-grab{display:flex}
@@ -1037,7 +1037,7 @@
   @media (max-width:560px){
     /* the frosted picker becomes a foldable bottom sheet; cap FULL at ~70vh so the top of the house preview
        always stays visible, internal scroll for any overflow */
-    #roofDesign .rd-panel{max-height:70vh;overflow-y:auto;padding-top:30px;transition:transform .26s cubic-bezier(.4,0,.2,1)}
+    #roofDesign .rd-panel{max-height:70vh;overflow-y:auto;padding-top:30px;transition:transform .16s cubic-bezier(.4,0,.2,1)}
     #roofDesign .rd-panel.sheet-dragging{transition:none!important}
     #roofDesign .rd-grab{display:flex}
     /* (#3a) On the narrow phone header the title was crushed to ~89px between Back and the See-it button,
@@ -3217,9 +3217,11 @@ function wireSheetHandle(sheetEl, handleSel, opts){
     moveEl.classList.remove("sheet-dragging"); clearTf();
     try{ capEl && capEl.releasePointerCapture && capEl.releasePointerCapture(1); }catch(_){}
     const dy=lastY-startY;   // +down / -up
-    if(!moved){ setSheetState(sheetEl,!isPeek()); }        // tap → toggle
-    else if(dy<-24){ setSheetState(sheetEl,false); }       // dragged UP → FULL
-    else if(dy>24){ setSheetState(sheetEl,true); }          // dragged DOWN → PEEK
+    // No dead zone (the old 4-24px gap made taps-with-jitter do nothing → felt unresponsive):
+    // a tap OR tiny nudge (<14px net) toggles; any real drag snaps by DIRECTION.
+    if(Math.abs(dy)<14){ setSheetState(sheetEl,!isPeek()); }   // tap/tiny → toggle
+    else if(dy<0){ setSheetState(sheetEl,false); }             // dragged UP → FULL
+    else { setSheetState(sheetEl,true); }                      // dragged DOWN → PEEK
     if(opts.onSnap){ try{ opts.onSnap(isPeek()); }catch(_){} }
   };
   const bindStart=el=>{ el.addEventListener("pointerdown",e=>onDown(e,el)); };
