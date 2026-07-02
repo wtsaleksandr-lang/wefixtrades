@@ -437,6 +437,17 @@
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
   #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
+  /* ROOF-SELECTION ANCHOR — carries the material the buyer just chose into the estimate so the
+     card reads as "the roof I picked", not a bare satellite. Real showroom thumbnail (outline-selected
+     per the hard UI rule) + label + a prominent "See it on your house" affordance. */
+  #card .qroof-anchor{display:flex;align-items:center;gap:10px;margin:0 0 9px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--accent-tint)}
+  #card .qroof-swatch{flex:0 0 auto;width:52px;height:52px;border-radius:10px;background-size:cover;background-position:center;border:2px solid var(--blue);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+  #card .qroof-meta{flex:1 1 auto;min-width:0}
+  #card .qroof-meta .qra-mat{font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #card .qroof-meta .qra-col{font-size:11px;font-weight:600;color:var(--muted);margin-top:1px}
+  #card .qroof-see{display:inline-flex;align-items:center;gap:6px;margin:0 0 9px;width:100%;justify-content:center;background:var(--accent-tint);border:1px solid var(--blue);border-radius:11px;padding:9px 12px;font-size:12.5px;font-weight:800;color:var(--blue);cursor:pointer;font-family:inherit;line-height:1}
+  #card .qroof-see:hover{background:rgba(13,60,252,.1)}
+  #card .qroof-see svg{width:15px;height:15px;flex:0 0 auto;stroke:var(--blue);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   #card .cmp{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
   #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
@@ -2091,7 +2102,7 @@ window.__shadeMonth=null;   // which month index (0-11) LASTSHADE holds, for ver
 let QUOTE=null, solarTiers=[], selTier=0, tradeMode="solar";
 const fmtMoney=n=>"$"+Math.round(n).toLocaleString();
 /* monthly loan payment: P principal, apr %, years term */
-function loanPayment(P,apr,years){ const r=apr/100/12, n=years*12; if(!P||r<=0) return Math.round((P||0)/n); return Math.round(P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)); }
+function loanPayment(P,apr,years){ const y=(Number.isFinite(Math.round(Number(years)))&&Math.round(Number(years))>0)?Math.round(Number(years)):15, r=apr/100/12, n=y*12; if(!P||r<=0) return Math.round((P||0)/n); return Math.round(P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)); }
 /* ── Localized utility rates + solar incentives (approx; "typical for your area") ── */
 const REGIONS={
   CA:{n:"California",rate:0.31,credit:0,note:"CA NEM 3.0 / SGIP battery rebate + net metering"},
@@ -2517,8 +2528,16 @@ function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.gutters && t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60, g=ef*13+ds; lo+=g; hi+=g; }  // new gutters ~$13/lf eave + downspouts (symmetric add keeps the band tight)
   return [lo, hi];
 }
-// monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable
-function monthly(principal, aprPct, years){ const r=aprPct/100/12, n=years*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
+// Sanitize a configured loan term to a positive integer number of years. A host/tenant config that
+// omits the term, or delivers 0 / null / NaN, must NEVER render "0 yr" or divide-by-zero the monthly
+// math (n=0 → principal*r/0 → Infinity). Fall back to a sensible default term per trade. Default roof
+// term is 15 yr (industry-typical for a roof-replacement loan); solar defaults to 25 yr.
+function finTermYears(years, fallback){ const n=Math.round(Number(years)); return (Number.isFinite(n) && n>0) ? n : fallback; }
+function roofTermYears(){ return finTermYears(TENANT.financing.roofYears, 15); }
+function solarTermYears(){ return finTermYears(TENANT.financing.solarYears, 25); }
+// monthly loan payment (standard amortization) — the conversion lever: makes the price feel affordable.
+// years is sanitized to a positive term first, so a bad config can never yield an Infinity/NaN payment.
+function monthly(principal, aprPct, years){ const y=finTermYears(years,15), r=aprPct/100/12, n=y*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
 // Compliance disclaimer footnote — muted, always-visible short line + (i) cue → full legal text.
 // kind: "solar" (price + ITC tax-credit + financing claims) or "roof" (financing-only).
@@ -3367,7 +3386,7 @@ function renderQuoteCard(){
     const totPanels=panels+(evAdd.panels||0), totKw=+(sysKw+(evAdd.kw||0)).toFixed(1), totKwh=sysKwh+(evAdd.kwh||0);
     const sMid=(lo+hi)/2;
     const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));   // net price after the 30% federal ITC (US); feeds payback + financing
-    const fin=TENANT.financing, sFin=monthly(netCost, fin.solarApr, fin.solarYears);   // owned-system loan (config-driven APR/term), financed on the post-ITC net cost
+    const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);   // owned-system loan (config-driven APR/sanitized-term), financed on the post-ITC net cost
     const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(totKwh);
     const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
@@ -3409,7 +3428,7 @@ function renderQuoteCard(){
     const payRow='<div class="opt-row" style="margin-top:7px"><span class="opt-l">Pay with</span>'+payOpts.map(o=>'<button class="pm'+(payMode===o.id?' on':'')+'" data-pm="'+o.id+'">'+o.label+'</button>').join('')+'</div>';
     const finDisplay = payMode==="cash" ? '<div class="qfin"><b>'+fmtMoney(Math.round(sMid))+'</b> cash price · '+creditTxt()+'</div>'
       : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA'+TCUE("ppa")+' · incentives kept by the installer &amp; passed through as a lower rate')
-      : finLine(sFin, fin.solarYears+'-yr @ '+fin.solarApr+'%, '+creditTxt());
+      : finLine(sFin, sTerm+'-yr @ '+fin.solarApr+'%, '+creditTxt());
     const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits'+TCUE("srec")+' — on top of bill savings.</div>':'';
     // ── MONEY STORY (surfaced UPFRONT, before the email wall) ──
     // 1) the 30% federal ITC as a line that REDUCES the price (hedged: "est." + tax-pro cue)
@@ -3486,7 +3505,8 @@ function renderQuoteCard(){
       const optsRow='<div class="opt-row"><span class="opt-l">Layers'+ACUE("roof")+'</span>'+ob('layers',1,'1',roofOpts.layers===1)+ob('layers',2,'2',roofOpts.layers===2)+ob('ridgeVent',null,'Ridge vent',roofOpts.ridgeVent)+ob('gutters',null,'New gutters',roofOpts.gutters)+ob('steep',null,'Steep / 2-story',roofOpts.steep)+'</div>';
       const breakdown=t ? '<div class="tk-h">Price breakdown</div><div class="takeoff">'+roofCostBreakdown(sel,sqs,wf,t,lo,hi)+'</div>' : '';
       const takeoff=t ? breakdown+'<div class="tk-h">Materials takeoff</div><div class="takeoff">'+roofTakeoff(t,wastePct)+'</div>'+detectedSummary()+'<div class="tk-note">Estimate from aerial measurements (±'+confidencePct(t)+'%) — confirm on site before ordering.</div>' : '';
-      const rFin=monthly((lo+hi)/2, TENANT.financing.roofApr, TENANT.financing.roofYears);
+      const rTerm=roofTermYears();   // sanitized positive term — never 0 (bad host config guard)
+      const rFin=monthly((lo+hi)/2, TENANT.financing.roofApr, rTerm);
       // keep the default surface clean; waste/options/takeoff live behind a Customize expander
       const spec=ROOF_SPEC[sel.matId];
       const specLine=spec?'<div class="qspec">'+spec.warranty+' warranty · '+spec.life+' lifespan</div>':'';
@@ -3498,10 +3518,27 @@ function renderQuoteCard(){
       // `detail` behind the Customize expander — also omit it while gated. Keep the material/colour pick,
       // spec line, and roof stats (no $). After lead submit priceGated→false → the full body renders.
       const _roofGated=(typeof window.__priceGated==="function") && window.__priceGated("roof");
-      body='<div class="qpick">'+sel.matLabel+' · '+sel.colorName+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div>'+specLine+
+      // ROOF-SELECTION ANCHOR (issue #2): visualise the material the buyer just picked so the estimate
+      // reads as "the roof I chose", not a bare satellite. Real showroom swatch (falls back to the
+      // procedural texture if the thumbnail asset isn't shipped), the material + colour, an "i" help-cue,
+      // and a prominent "See it on your house" affordance that opens the photoreal preview pre-seeded to
+      // this exact selection (window.__openSeeModal reads selMat/selCol). Selected = 2px outline swatch.
+      const _matObj=(typeof ROOF_CATALOG!=="undefined") ? ROOF_CATALOG.find(m=>m.id===sel.matId) : null;
+      let _swatchBg="";
+      try{ const _u=(typeof rdThumbUrl==="function")?rdThumbUrl(sel.matId,false):null; if(_u){ _swatchBg="url('"+_u+"')"; } else if(_matObj){ _swatchBg="url('"+matThumb(_matObj)+"')"; } }catch(_){ if(_matObj){ try{ _swatchBg="url('"+matThumb(_matObj)+"')"; }catch(__){} } }
+      const _anchor='<div class="qroof-anchor">'+
+          (_swatchBg?'<div class="qroof-swatch" style="background-image:'+_swatchBg+'"></div>':'')+
+          '<div class="qroof-meta"><div class="qra-mat">'+esc(sel.matLabel)+'<span class="helpcue" data-matinfo="'+sel.matId+'" title="About this material">i</span></div><div class="qra-col">'+esc(sel.colorName)+'</div></div>'+
+        '</div>';
+      // "See it on your house" sits AFTER the price so the $ headline stays the hero (issue #3 hierarchy),
+      // then the visualiser affordance follows as the natural next step for the roof they just chose.
+      const _seeCta=(typeof window.__openSeeModal==="function")
+          ? '<button type="button" class="qroof-see" data-seehouse><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>See it on your house</span></button>'
+          : '';
+      body=_anchor+specLine+
         (_roofGated
           ? quoteCardMaskHtml("roof")
-          : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,TENANT.financing.roofYears+'-yr @ '+TENANT.financing.roofApr+'%')+custToggle+detail)
+          : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · tear-off + new roof'+HCUE("roof")+'</div>'+finLine(rFin,rTerm+'-yr @ '+TENANT.financing.roofApr+'%')+_seeCta+custToggle+detail)
         +stats+discLine("roof");
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
@@ -3583,6 +3620,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-opengrid]").forEach(b=>b.onclick=()=>{ if(typeof openSolarGrid==="function") openSolarGrid(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
+  card.querySelectorAll("[data-seehouse]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); try{ if(typeof window.__openSeeModal==="function") window.__openSeeModal(); }catch(_){} });   // issue #2: photoreal "see the chosen roof on your house" from the estimate card
   card.querySelectorAll("[data-compinfo]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); openInfoModal(componentModal(b.dataset.compinfo)); });
   card.querySelectorAll("[data-datainfo]").forEach(b=>b.onclick=()=>openInfoModal(dataModal(b.dataset.datainfo)));
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
@@ -12022,7 +12060,7 @@ function openReport(){
          <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
          <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
      ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${TENANT.financing.solarYears} yr, roofing ${TENANT.financing.roofApr}% / ${TENANT.financing.roofYears} yr. Soft-pull pre-qualification, no credit impact. ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact. ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -12243,7 +12281,7 @@ function leadQuoteFields(trade){
     const sqs=(typeof roofingSquares==="function")?roofingSquares():0;
     const out={ material:sel.matLabel, matId:sel.matId, color:sel.colorName, squares:sqs?+sqs.toFixed(2):null };
     if(band){ out.priceLo=band.lo; out.priceHi=band.hi;
-      try{ out.financeMo=Math.round(monthly((band.lo+band.hi)/2, TENANT.financing.roofApr, TENANT.financing.roofYears)); out.financeTerms=TENANT.financing.roofYears+"-yr @ "+TENANT.financing.roofApr+"%"; }catch(_){}
+      try{ const _rt=roofTermYears(); out.financeMo=Math.round(monthly((band.lo+band.hi)/2, TENANT.financing.roofApr, _rt)); out.financeTerms=_rt+"-yr @ "+TENANT.financing.roofApr+"%"; }catch(_){}
     }
     return out;
   }
