@@ -10124,14 +10124,20 @@ function sgDraw(){
       ctx.lineWidth=Math.max(0.8,1.0*pr.dpr); ctx.strokeStyle="rgba(216,227,245,0.30)";
       { const a=P(0.5,0),b=P(0.5,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
       // (D) SKY SHEEN — faint diagonal reflection off the top-left (px0) corner. Premium glass.
+      //     Rebuild the panel path first: the grid/busbar strokes above left the current path on a cell
+      //     line, so a plain fill() here would fill nothing.
+      roundQuad(c.px,rad);
       const sg=ctx.createLinearGradient(c.px[0].x,c.px[0].y, c.px[0].x+ux*0.55+vx*0.55, c.px[0].y+uy*0.55+vy*0.55);
       sg.addColorStop(0,"rgba(150,180,220,0.16)"); sg.addColorStop(0.5,"rgba(150,180,220,0.04)"); sg.addColorStop(1,"rgba(150,180,220,0)");
       ctx.fillStyle=sg; ctx.fill();
       if(hot){ ctx.fillStyle="rgba(150,190,255,0.10)"; ctx.fill(); }
       ctx.restore();
       // (E) FRAME — black-anodised bevel: slim dark rim with a lit top/left chamfer + shadowed bottom/right.
-      //     Low-sun panels keep an amber rim as a warning cue.
+      //     Low-sun panels keep an amber RIM (around the perimeter) as a warning cue. Rebuild the perimeter
+      //     path first — otherwise this stroke lands on the leftover busbar line (an amber line down the
+      //     MIDDLE) instead of the rim.
       ctx.lineCap="round";
+      roundQuad(c.px,rad);
       ctx.lineWidth=Math.max(1.4,1.8*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : "#171a21";
       ctx.stroke();
       if(!c.lowSun){
