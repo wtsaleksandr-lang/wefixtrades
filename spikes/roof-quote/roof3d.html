@@ -938,6 +938,9 @@
   #solarGrid .sg-hint b{color:#fff}
   #solarGrid .sg-leg{display:inline-flex;align-items:center;gap:5px}
   #solarGrid .sg-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  /* sun-intensity scale key: the roof heatmap ramp (Project-Sunroof magma), so a yellow roof reads as
+     MORE sun, not less. Prevents confusing the high-sun yellow roof with the amber low-sun panel marker. */
+  #solarGrid .sg-leg i.sg-grad{width:36px;height:8px;border-radius:99px;background:linear-gradient(90deg,#3b0f50,#781c6d,#b73754,#dd603a,#f19028,#fac426,#fcef78)}
   /* live-metrics + bill panel — sits over the bottom of the heatmap, premium glass card */
   #solarGrid .sg-panel{position:relative;z-index:4;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -12px 40px rgba(15,23,42,.18);padding:12px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:11px}
   #solarGrid .sg-metrics{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}   /* auto-fits 3 or 4 tiles evenly — Bill-offset tile appears only after a bill is entered */
@@ -1467,7 +1470,7 @@
       <button class="sg-x" id="sgClose" type="button" aria-label="Close panel designer">&times;</button>
     </div>
     <div class="sg-stage"><canvas id="sgCanvas"></canvas>
-      <div class="sg-hint" id="sgHint"><span class="sg-leg"><i style="background:#0d3cfc"></i>panel</span><span class="sg-leg"><i style="background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)"></i>empty</span><span class="sg-leg" id="sgLegLow" style="display:none"><i style="background:#f59e0b"></i>low sun</span></div>
+      <div class="sg-hint" id="sgHint"><span class="sg-leg"><b>Sun</b><i class="sg-grad"></i>less&nbsp;→&nbsp;more</span><span class="sg-leg"><i style="background:#0d1017;box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)"></i>panel</span><span class="sg-leg"><i style="background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)"></i>empty</span><span class="sg-leg" id="sgLegLow" style="display:none"><i style="background:transparent;box-shadow:inset 0 0 0 2px #f59e0b"></i>low-sun panel</span></div>
       <!-- +/− zoom control for the solar panel-designer canvas. Wired to the SAME viewport (SG_STATE.vp /
            sgZoomAt) the wheel + pinch use → zooms about the canvas centre, clamped to [1,SG_VP_MAX]. -->
       <div class="zoomctl" id="sgZoom">
@@ -9680,7 +9683,12 @@ const SG_IRON_STOPS=[[0,0,10],[145,0,156],[230,70,22],[254,180,0],[255,255,246]]
 function fluxIronColor(t){ t=Math.max(0,Math.min(1,t));
   const n=SG_IRON_STOPS.length-1, idx=t*n, seg=Math.min(n-1,Math.floor(idx)), f=idx-seg, a=SG_IRON_STOPS[seg],b=SG_IRON_STOPS[seg+1];
   return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
-const SG_LOWSUN_FRAC=0.45;   // a panel whose normalized flux < this of the roof's best square is flagged "low sun" (shaded / poor ROI)
+const SG_LOWSUN_FRAC=0.45;   // (legacy, relative) a panel whose normalized flux < this of the roof's best square
+const SG_LOWSUN_ABS=0.5;     // ABSOLUTE low-sun floor: flag "low sun" only when a panel's annual flux is below this
+                             // fraction of the strong-sun reference SG_FLUX_MAX (the SAME fixed scale the heatmap is
+                             // painted on). So a uniformly good (yellow, t≈0.75) roof shows NO amber; only genuinely
+                             // shaded squares (red→purple→black, t<0.5 on the ramp) are flagged. Not relative to the
+                             // roof's own best → a great roof never flags its still-good panels.
 // Absolute deep-shade floor: a square whose RAW annual flux is below this fraction of the roof's BEST square
 // is genuinely shaded, regardless of where the 5–95 percentile ramp lands. On a roof with a very bright max,
 // mid-shade squares can normalize ABOVE SG_LOWSUN_FRAC and slip through; this catches the near-black cells the
@@ -9833,10 +9841,12 @@ function buildGridCandidates(){
     //     square on a measurable roof is suspect (roof edge / occluded), so don't lead with it.
     // On a roof with no flux raster at all (fg absent → every flux null) we can't distinguish, so nothing is
     // flagged — preserving the old graceful-degradation behaviour.
-    const deepFloor = (fluxBest>0) ? fluxBest*SG_DEEPSHADE_FRAC : 0;
-    c.lowSun = (c.fluxT!=null)
-      ? ((c.fluxT < SG_LOWSUN_FRAC) || (deepFloor>0 && c.flux!=null && c.flux < deepFloor))
-      : (!!fg);   // null flux on a measured roof → treat as low-sun; on an unmeasured roof → not flagged
+    // ABSOLUTE test: flag only when the panel's raw annual flux is genuinely poor vs the strong-sun
+    // reference SG_FLUX_MAX (same fixed scale the heatmap paints on). A uniformly good roof → no amber.
+    const absT = (c.flux!=null) ? (c.flux/SG_FLUX_MAX) : null;
+    c.lowSun = (absT!=null)
+      ? (absT < SG_LOWSUN_ABS)
+      : (!!fg);   // null flux on a measured roof → suspect (edge/occluded), still flag; unmeasured roof → not flagged
   }
   return { panels:cand, bbox:[minE,minN,maxE,maxN], clipBoxes, zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
 }
@@ -10246,7 +10256,7 @@ function sgUpdateMetrics(){
   // visible square is actually flagged. On a fully-sunny roof there are no amber cells, so leading with
   // "where's the amber?" copy/legend reads as a phantom — show neutral copy and hide the amber chip.
   const anyLow=SG_STATE.panels.some(c=>c.lowSun);
-  $("sgSubtitle").textContent = anyLow ? 'Amber squares get little sun — lower payoff' : 'Tap the squares to add or remove panels';
+  $("sgSubtitle").textContent = anyLow ? 'Amber-ringed panels get the least sun — lower payoff' : 'Tap the squares to add or remove panels';
   const legLow=$("sgLegLow"); if(legLow) legLow.style.display = anyLow ? '' : 'none';
 }
 // ── Pick the panel quad under a canvas-px point (exact polygon, else nearest centroid). No state change.
