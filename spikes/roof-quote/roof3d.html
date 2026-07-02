@@ -10004,10 +10004,14 @@ function sgLayout(){
 //    roof can never be smaller than framed) and clamps the pan so the roof centroid stays on-screen (the roof
 //    can't be flung fully off the canvas). All maths in DEVICE px against the stashed fit projection.
 const SG_VP_MAX=4;
+const SG_VP_MIN=0.5;   // allow zooming OUT past the fit view (0.5× = the roof at half size, more neighbourhood
+                       // context). Alex 2026-07-02: "−" did nothing at the default view because the old floor
+                       // was 1 (= fit). The ortho photo window (~80 m) is larger than the fit frame, so the
+                       // extra context is real imagery; beyond it the soft-slate fallback fills.
 function sgClampVp(){
   const pr=SG_STATE&&SG_STATE.proj; if(!pr) return;
   const vp=SG_STATE.vp;
-  vp.scale=Math.max(1,Math.min(SG_VP_MAX,vp.scale));
+  vp.scale=Math.max(SG_VP_MIN,Math.min(SG_VP_MAX,vp.scale));
   // roof bbox in screen px at the current viewport (top-left + size of the fit-framed roof, scaled+translated)
   const rw=pr.spanE*pr.fitScale*vp.scale, rh=pr.spanN*pr.fitScale*vp.scale;
   const rx=vp.tx+vp.scale*pr.fitOffX, ry=vp.ty+vp.scale*pr.fitOffY;
@@ -10023,7 +10027,7 @@ function sgClampVp(){
 function sgZoomAt(ax,ay,factor){
   if(!SG_STATE||!SG_STATE.proj) return;
   const vp=SG_STATE.vp, old=vp.scale;
-  let next=Math.max(1,Math.min(SG_VP_MAX,old*factor));
+  let next=Math.max(SG_VP_MIN,Math.min(SG_VP_MAX,old*factor));
   if(next===old) return;
   // screen = vp.t + vp.scale*(fitOff + world*fitScale). Holding the world point under (ax,ay) fixed:
   //   (ax - newT) / newScale_total == (ax - oldT) / oldScale_total  → solve newT.
@@ -10447,6 +10451,15 @@ function closeSolarGrid(commit){
       window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw };
       const bill=+(($("sgBill").value)||0); if(bill>0){ solarBill=bill; }
     }
+  }
+  // FUNNEL ✕ (close WITHOUT committing): go BACK to the branch-choice step the user came from — NOT the
+  // legacy Options/3D-model surface. Landing on that old surface after ✕ read as "a previous version of
+  // the widget" (Alex, 2026-07-02): different chrome, different controls, no obvious way back. Dismissing
+  // the designer = "I don't want this design" → return to Solar-vs-Roofing choice, funnel intact.
+  if(!commit && window.__funnelActive && typeof showBranchChoice==="function" && !window.__rdOpen){
+    try{ showBranchChoice(); }catch(_){}
+    if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
+    return;
   }
   // (bug — Hamilton blank void) The grid designer was a full-screen overlay; closing it returned to the
   // MAIN Options view whose base preview surface (#scene) could be left display:none (e.g. it was never
