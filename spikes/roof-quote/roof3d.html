@@ -446,6 +446,9 @@
   #card .ktile .ktl{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;display:flex;align-items:center;gap:3px}
   #card .ktile .ktsub{font-size:9.5px;color:var(--muted);margin-top:3px;line-height:1.25}
   #card .ktile .ktsub s{color:var(--faint);opacity:.85}
+  #card .cash-hint{display:block;width:100%;margin:4px 0 0;padding:5px 0 0;background:none;border:0;text-align:left;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  #card .cash-hint b{color:var(--blue);font-weight:800}
+  #card .cash-hint:hover b{text-decoration:underline}
   /* hero chart */
   #card .kchart-wrap{position:relative;margin:8px 0 2px;border:1px solid var(--line);border-radius:11px;background:#fbfcfe;padding:6px 6px 2px;overflow:visible}
   #card .kpi-chart{display:block;width:100%;height:108px;cursor:crosshair}
@@ -2366,17 +2369,21 @@ function kpiChartSvg(m, mobile){
   const savePath=savePts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const areaPath=savePath+' L'+X(H).toFixed(1)+' '+(padT+ih).toFixed(1)+' L'+padL.toFixed(1)+' '+(padT+ih).toFixed(1)+' Z';
   const costPath=costPts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-  const pb=m.payback;
+  const pb=m.payback, isLoan=(m.payMode==="loan");
+  const term=Math.max(1, m.term||H);
   // breakeven geometry (interpolated). savedAt = cumulative savings value at payback year.
   const savAt=t=>{ if(t<=1) return cum[0]; if(t>=H) return cum[H-1]; const i=Math.floor(t)-1; return cum[i]+(cum[i+1]-cum[i])*(t-Math.floor(t)); };
   const bx=pb>0?X(pb):0, bv=pb>0?savAt(pb):0, by=pb>0?Y(bv):0;
-  // shaded "free electricity" gap: between savings and cost curve, right of breakeven
-  let gapPath='';
-  if(pb>0){
-    const start=Math.ceil(pb);
-    const top=[], bot=[];
-    top.push([bx,by]); bot.push([bx,by]);
-    for(let t=start;t<=H;t++){ top.push([X(t),Y(cum[t-1])]); bot.push([X(t),Y(cost[t-1])]); }
+  // ── CASH: shade the "free electricity" gap (savings ABOVE the flat cost) right of the true breakeven.
+  //    LOAN: do NOT shade a "free" region during the loan — payments run the whole term. Only shade the
+  //    genuinely-free region AFTER the loan term ends (if term < horizon); if term==horizon there is none.
+  let gapPath='', freeStart=0;
+  if(!isLoan && pb>0){ freeStart=Math.ceil(pb); }
+  else if(isLoan && term<H){ freeStart=Math.ceil(term); }   // loan paid off → power is free only after term
+  if(freeStart>0 && freeStart<=H){
+    const sx=X(freeStart), sy=Y(cum[freeStart-1]);
+    const top=[[sx,sy]], bot=[[sx, isLoan?Y(cost[Math.min(H,term)-1]):Y(cost[freeStart-1])]];
+    for(let t=freeStart;t<=H;t++){ top.push([X(t),Y(cum[t-1])]); bot.push([X(t),Y(cost[t-1])]); }
     gapPath='M'+top.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')+' L'+bot.reverse().map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')+' Z';
   }
   // x-axis ticks at 5/10/15/20/25
@@ -2385,18 +2392,46 @@ function kpiChartSvg(m, mobile){
   const yTop='<text x="'+padL+'" y="'+(padT-4)+'" font-size="8" fill="var(--faint)">'+kAbbr(maxV)+'</text>';
   const term25='<text x="'+(W-padR)+'" y="'+(Y(cum[H-1])-3).toFixed(1)+'" text-anchor="end" font-size="9.5" font-weight="800" fill="var(--green-text)">'+kAbbr(cum[H-1])+'</text>';
   // cost label
-  const costLab='<text x="'+(W-padR)+'" y="'+(Y(cost[H-1])+10).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--muted)">'+(m.payMode==="loan"?'payments':'system cost')+'</text>';
-  // free-electricity floating label near yr ~21
-  const freeLab=(pb>0 && m.net25>0)? '<text x="'+X(21).toFixed(1)+'" y="'+(Y(cum[20])+ (mobile?26:20)).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--green-text)">+'+kAbbr(m.net25)+' free power</text>' : '';
-  // breakeven pill
-  const pillW=64, pillH=15, pillX=Math.min(W-padR-pillW, Math.max(padL, bx-pillW/2)), pillY=Math.max(2, by-pillH-8);
-  const breakUi = pb>0 ? (
-    (gapPath?'<path d="'+gapPath+'" fill="rgba(21,128,61,0.13)"/>':'')+
-    '<line x1="'+bx.toFixed(1)+'" y1="'+by.toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(padT+ih).toFixed(1)+'" stroke="var(--green-text)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'+
-    '<g class="kpi-be-pill"><rect x="'+pillX.toFixed(1)+'" y="'+pillY.toFixed(1)+'" width="'+pillW+'" height="'+pillH+'" rx="7.5" fill="var(--green-text)"/>'+
-      '<text x="'+(pillX+pillW/2).toFixed(1)+'" y="'+(pillY+10.5).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">Paid off · Yr '+Math.round(pb)+'</text></g>'+
-    '<circle class="kpi-be-dot" cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="4" fill="var(--green-text)" stroke="#fff" stroke-width="1.6"/>'
-  ) : '';
+  const costLab='<text x="'+(W-padR)+'" y="'+(Y(cost[H-1])+10).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--muted)">'+(isLoan?'payments':'system cost')+'</text>';
+  // Floating label. CASH: "+$X free power" near yr 21. LOAN: only if there's a real post-term free window
+  // do we say "free"; otherwise state the honest 25-yr net, no "free" wording during the loan.
+  let freeLab='';
+  if(!isLoan && pb>0 && m.net25>0){
+    freeLab='<text x="'+X(21).toFixed(1)+'" y="'+(Y(cum[20])+(mobile?26:20)).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--green-text)">+'+kAbbr(m.net25)+' free power</text>';
+  } else if(isLoan && term<H){
+    freeLab='<text x="'+X(Math.min(H-1,term+2)).toFixed(1)+'" y="'+(Y(cum[Math.min(H,term+1)-1])+(mobile?24:18)).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--green-text)">loan paid off — power is free</text>';
+  } else if(isLoan && m.net25>0){
+    freeLab='<text x="'+X(mobile?18:19).toFixed(1)+'" y="'+(Y(cum[(mobile?18:19)-1])+(mobile?24:18)).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--green-text)">'+kAbbr(m.net25)+' saved over '+H+' yrs</text>';
+  }
+  // ── PILL. CASH: "Paid off · Yr N" at the true breakeven dot + drop-line (the asset breakeven).
+  //    LOAN: NEVER "Paid off" during the term. If savings ≥ payments from yr1 → subtle "Ahead every year"
+  //    pill top-left (no drop-line drama). Otherwise mark the flip year where savings overtake payments.
+  let breakUi='';
+  if(!isLoan && pb>0){
+    const pillW=64, pillH=15, pillX=Math.min(W-padR-pillW, Math.max(padL, bx-pillW/2)), pillY=Math.max(2, by-pillH-8);
+    breakUi=(gapPath?'<path d="'+gapPath+'" fill="rgba(21,128,61,0.13)"/>':'')+
+      '<line x1="'+bx.toFixed(1)+'" y1="'+by.toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(padT+ih).toFixed(1)+'" stroke="var(--green-text)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'+
+      '<g class="kpi-be-pill"><rect x="'+pillX.toFixed(1)+'" y="'+pillY.toFixed(1)+'" width="'+pillW+'" height="'+pillH+'" rx="7.5" fill="var(--green-text)"/>'+
+        '<text x="'+(pillX+pillW/2).toFixed(1)+'" y="'+(pillY+10.5).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">Paid off · Yr '+Math.round(pb)+'</text></g>'+
+      '<circle class="kpi-be-dot" cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="4" fill="var(--green-text)" stroke="#fff" stroke-width="1.6"/>';
+  } else if(isLoan){
+    // "ahead every year" when yr-1 savings already ≥ yr-1 payments; else find the flip year
+    const aheadY1 = cum[0] >= cost[0];
+    let flip=0; for(let t=1;t<=H;t++){ if(cum[t-1]>=cost[t-1]){ flip=t; break; } }
+    const gap=gapPath?'<path d="'+gapPath+'" fill="rgba(21,128,61,0.13)"/>':'';
+    if(aheadY1){
+      const pw=78, px=padL+2, py=2;
+      breakUi=gap+'<g class="kpi-be-pill"><rect x="'+px+'" y="'+py+'" width="'+pw+'" height="14" rx="7" fill="var(--green-text)"/>'+
+        '<text x="'+(px+pw/2)+'" y="'+(py+10)+'" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">Ahead every year</text></g>';
+    } else if(flip>0){
+      const fx=X(flip), fy=Y(cum[flip-1]);
+      const pw=70, px=Math.min(W-padR-pw,Math.max(padL,fx-pw/2)), py=Math.max(2,fy-22);
+      breakUi=gap+'<line x1="'+fx.toFixed(1)+'" y1="'+fy.toFixed(1)+'" x2="'+fx.toFixed(1)+'" y2="'+(padT+ih).toFixed(1)+'" stroke="var(--green-text)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>'+
+        '<g class="kpi-be-pill"><rect x="'+px+'" y="'+py+'" width="'+pw+'" height="14" rx="7" fill="var(--green-text)"/>'+
+        '<text x="'+(px+pw/2)+'" y="'+(py+10)+'" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">Ahead · Yr '+flip+'</text></g>'+
+        '<circle class="kpi-be-dot" cx="'+fx.toFixed(1)+'" cy="'+fy.toFixed(1)+'" r="4" fill="var(--green-text)" stroke="#fff" stroke-width="1.6"/>';
+    } else { breakUi=gap; }
+  }
   return '<svg class="kpi-chart" viewBox="0 0 '+W+' '+VH+'" width="100%" preserveAspectRatio="none" '+
       'data-w="'+W+'" data-padl="'+padL+'" data-iw="'+iw+'" data-h="'+H+'" data-max="'+maxV.toFixed(2)+'" data-padt="'+padT+'" data-ih="'+ih+'" '+
       'data-cum="'+cum.map(v=>Math.round(v)).join(',')+'" data-cost="'+cost.map(v=>Math.round(v)).join(',')+'">'+
@@ -3745,17 +3780,45 @@ function renderQuoteCard(){
       kpiMonthly = '<div class="ktile" data-kv="'+v+'"><div class="ktv" data-money>'+fmtMoney(v)+'<span class="ktu">/mo</span></div>'+
         '<div class="ktl">'+(payMode==="cash"?'Solar value':'Payment')+'</div><div class="ktsub">'+(payMode==="cash"?'power you no longer buy':(payMode==="lease"?'$0-down lease':sTerm+'-yr @ '+fin.solarApr+'%'))+'</div></div>';
     }
-    // (c) PAYS FOR ITSELF tile ---------------------------------------------------------------
-    const remYrs = ms&&ms.payback>0 ? Math.max(0,Math.round(FIN_ASSUME.horizon-ms.payback)) : 0;
-    const kpiPayback = (payMode==="lease")
-      ? '<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Positive from</div><div class="ktsub">$0 down · save from the first bill</div></div>'
-      : (ms&&ms.payback>0
+    // (c) KPI #3 — MODE-AWARE + HONEST -------------------------------------------------------
+    //   CASH: true asset breakeven ("pays for itself · Year 8.2 · then free electricity for ~17 yrs").
+    //   LOAN: you pay for the full term, so power is NEVER "free" during it — frame as CASH-FLOW,
+    //         not payback. Day-one monthly saving = monthlySolarValue − loan payment. If that's
+    //         negative today (payment > production value now), find the year it flips positive as
+    //         escalating savings overtake the fixed payment (KM.save is the annual escalated value).
+    let kpiPayback;
+    if(payMode==="lease"){
+      kpiPayback='<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Positive from</div><div class="ktsub">$0 down · save from the first bill</div></div>';
+    } else if(payMode==="loan"){
+      const dayOneSave = Math.round(KM.monthlySolarValue - sFin);   // month-1 net (solar value − fixed payment)
+      const annualPay = sFin*12;
+      // first year the ANNUAL escalated production value exceeds the fixed annual loan payment
+      let flipYr=0; for(let n=0;n<KM.save.length;n++){ const prod=KM.save[n]-(n<10?srecYr:0); if((prod||KM.save[n])>=annualPay){ flipYr=n+1; break; } }
+      if(dayOneSave>=0){
+        kpiPayback='<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Ahead from</div>'+
+          '<div class="ktsub">you save ~'+fmtMoney(dayOneSave)+'/mo from month one — growing every year as rates rise</div></div>';
+      } else {
+        const byMo = flipYr? Math.round((KM.save[flipYr-1]/12)-sFin):0;
+        kpiPayback='<div class="ktile"><div class="ktv">'+(flipYr?('Year '+flipYr):'—')+'</div><div class="ktl">Ahead from</div>'+
+          '<div class="ktsub">'+(flipYr?('≈'+fmtMoney(Math.max(0,byMo))+'/mo ahead by year '+flipYr+' as rates rise'):'savings overtake the payment as utility rates rise')+'</div></div>';
+      }
+    } else { // CASH — true asset breakeven (unchanged, correct)
+      const remYrs = ms&&ms.payback>0 ? Math.max(0,Math.round(FIN_ASSUME.horizon-ms.payback)) : 0;
+      kpiPayback = (ms&&ms.payback>0)
         ? '<div class="ktile"><div class="ktv">Year '+ms.payback.toFixed(1)+'</div><div class="ktl">Pays for itself</div><div class="ktsub">then free electricity for ~'+remYrs+' more years</div></div>'
-        : '<div class="ktile"><div class="ktv">25 yr+</div><div class="ktl">Pays for itself</div><div class="ktsub">long-horizon payback at this rate</div></div>');
+        : '<div class="ktile"><div class="ktv">25 yr+</div><div class="ktl">Pays for itself</div><div class="ktsub">long-horizon payback at this rate</div></div>';
+    }
     // (d) 25-YEAR SAVINGS tile ---------------------------------------------------------------
     const kpi25 = ms ? '<div class="ktile" data-kv="'+Math.max(0,ms.net)+'"><div class="ktv" data-money>'+fmtMoney(Math.max(0,ms.net))+'</div>'+
       '<div class="ktl">25-year savings'+TCUE("lifetime")+'</div><div class="ktsub">vs. staying with the utility</div></div>' : '';
     const kpiTiles = totKwh ? '<div class="ktiles">'+kpiNet+kpiMonthly+kpiPayback+kpi25+'</div>' : '';
+    // Loan is the default and its story is cash-flow, not payback — offer a subtle one-tap hint to the
+    // TRUE asset breakeven (cash-mode payback), so a buyer who wants "when is it paid off?" can see it.
+    let cashHint='';
+    if(totKwh && payMode==="loan"){
+      const cashM=solarFinModel({ kwhY1:totKwh, netCost:netCost, srecYr:srecYr, payMode:"cash", term:sTerm, annualConsumptionKwh:annualUse, oldBill:solarBill });
+      if(cashM.payback>0) cashHint='<button class="cash-hint" data-pm-cash type="button">See cash payback: <b>Year '+Math.round(cashM.payback)+'</b> →</button>';
+    }
     // ── HERO CHART: cumulative savings vs cost, 25 yrs ──
     const heroChart = (totKwh && KM.cum && KM.cum.length) ? '<div class="kchart-wrap">'+kpiChartSvg(KM, false)+'</div>' : '';
     // ── BILL BEFORE / AFTER BARS ──
@@ -3827,6 +3890,7 @@ function renderQuoteCard(){
         ? quoteCardMaskHtml("solar")+identitySub+sectionBanner
         : '<div class="qhead">Your solar estimate'+HCUE("solar")+'</div>'+identitySub+sectionBanner+
       kpiTiles+
+      cashHint+
       heroChart+
       billBars+
       offsetRing+
@@ -4009,6 +4073,7 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
   card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; if(addCharger && window.__addons) window.__addons.ev=false; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
+  card.querySelectorAll("[data-pm-cash]").forEach(b=>b.onclick=()=>{ payMode="cash"; renderQuoteCard(); });   // "See cash payback" hint → switch to cash mode
   card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; window.__selPanels=null; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } }; });   // the size slider overrides a custom grid design
   const reSection=async()=>{ window.__sizePct=1; window.__selPanels=null; SG_STATE=null; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } };
   card.querySelectorAll("[data-sect]").forEach(b=>b.onclick=()=>{ window.__sectionMode=b.dataset.sect; reSection(); });
