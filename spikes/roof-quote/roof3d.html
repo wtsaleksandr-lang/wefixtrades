@@ -6330,6 +6330,41 @@ function extractFacetPolysAnalytic(margin){
     for(const nb of [right,down]){ if(nb>=0&&nb!==o&&viableSet.has(nb)){ const k=Math.min(o,nb),m=Math.max(o,nb); adj.set(k+","+m,(adj.get(k+","+m)||0)+1); } }
   }
   const ADJ_MIN=6;
+  // ── STRAIGHTEN NEAR-PARALLEL CREASES (slot-loss root cause, 30 Angus Rd) ─────────────────────────
+  // A gable ridge is parallel to its eave BY CONSTRUCTION, but the analytic plane-intersection line
+  // carries a small angular error from DSM noise (Angus: 0.21 m skew over 13.6 m ≈ 0.9°). That skew
+  // tilts the facet's ridge edge, and downstream the whole ridge-side panel row misses the setback
+  // test by 1-2 cm → ~20% of roof capacity silently lost. Fix: if a crease line is within 3° of
+  // parallel to the footprint's dominant (longest) edge — the eave — SNAP it exactly parallel,
+  // rotating about the crease's midpoint inside the footprint (position kept, only the angle
+  // corrected). Hip/valley creases run ~30-60° off the eave, so the tight 3° guard never touches them.
+  let _eaveDir=null;
+  { let bl=-1; for(let i=0;i<footprint.length;i++){ const A=footprint[i],B=footprint[(i+1)%footprint.length];
+      const dx=B[0]-A[0],dy=B[1]-A[1],L=dx*dx+dy*dy; if(L>bl){ bl=L; const n=Math.sqrt(L)||1; _eaveDir=[dx/n,dy/n]; } } }
+  let _creaseSnaps=0;
+  const snapCrease=(line)=>{
+    if(!line||!_eaveDir) return line;
+    const dl=Math.hypot(line.dir[0],line.dir[1])||1; const dx=line.dir[0]/dl, dy=line.dir[1]/dl;
+    const dot=dx*_eaveDir[0]+dy*_eaveDir[1];
+    const delta=Math.acos(Math.min(1,Math.abs(dot)))*180/Math.PI;   // angle to parallel, 0..90°
+    if(!(delta>1e-6 && delta<=3)) return line;   // already exact, or a genuine hip/valley angle → untouched
+    // crease segment inside the footprint → rotate about ITS midpoint (not the arbitrary line anchor,
+    // which planeIntersectLine puts near the UTM origin — rotating there would translate the crease).
+    const ts=[];
+    for(let i=0;i<footprint.length;i++){ const A=footprint[i],B=footprint[(i+1)%footprint.length];
+      const ex=B[0]-A[0], ey=B[1]-A[1];
+      const den=dx*ey-dy*ex; if(Math.abs(den)<1e-12) continue;   // edge parallel to the crease
+      const wx=A[0]-line.p[0], wy=A[1]-line.p[1];
+      const t=(wx*ey-wy*ex)/den;        // param along the crease line
+      const s=(wx*dy-wy*dx)/den;        // param along the footprint edge
+      if(s>=-1e-9 && s<=1+1e-9) ts.push(t);
+    }
+    let pivot=line.p;
+    if(ts.length>=2){ const tm=(Math.min(...ts)+Math.max(...ts))/2; pivot=[line.p[0]+tm*dx, line.p[1]+tm*dy]; }
+    const sgn=(dot>=0)?1:-1;   // keep the direction sense of the original line
+    _creaseSnaps++;
+    return { p:pivot, dir:[sgn*_eaveDir[0], sgn*_eaveDir[1]] };
+  };
   const neighbours=new Map();   // i → [{j, line, partnerCenter}]
   for(const p of viable) neighbours.set(p.i,[]);
   for(const [key,cnt] of adj){ if(cnt<ADJ_MIN) continue;
@@ -6337,10 +6372,11 @@ function extractFacetPolysAnalytic(margin){
     const pk=planesA[k], pm=planesA[m];
     // parallel/coplanar adjacent planes (same gradient) → no crease; skip (visually one facet)
     if(Math.abs(pk.a-pm.a)<1e-4 && Math.abs(pk.b-pm.b)<1e-4) continue;
-    const line=planeIntersectLine(pk,pm); if(!line) continue;
+    const line=snapCrease(planeIntersectLine(pk,pm)); if(!line) continue;
     neighbours.get(k).push({ j:m, line });
     neighbours.get(m).push({ j:k, line });
   }
+  try{ window.__creaseSnaps=_creaseSnaps; }catch(_){}
 
   // ── (audit-8 P3) convex hull (Andrew's monotone chain) of a plane's OWN classified
   //    cell centres [[E,N],...], then inflate it outward by `padM` metres about its
@@ -11729,6 +11765,78 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     if(nU*nV>1500) continue;   // pathological huge facet → skip (commercial; quote handles it)
     const kStartU=Math.round((uMin-u0)/cw)-1, kEndU=Math.round((uMax-u0)/cw)+1;
     const kStartV=Math.round((vMin-v0)/ch)-1, kEndV=Math.round((vMax-v0)/ch)+1;
+    // ── LATTICE PHASE RESCUE (slot-loss fix, 30 Angus Rd) ─────────────────────────────────────────
+    // The acceptance test below is hard-binary (every corner ≥ sb from every edge), so when residual
+    // crease noise skews one facet edge by a few cm, an entire OUTER row can miss the setback by
+    // 1-2 cm (30 Angus: ridge row 7→2 slots, deficit 0.01-0.02 m) — ~20% of capacity silently lost.
+    // Rescue: run a cheap poly+setback pre-pass; if an OUTER row (or row-END column) lost more than
+    // 1/3 of its candidate cells to NEAR-MISS failures (all 4 corners inside the facet, deficit
+    // sb−minCornerEdgeDist < 0.10 m), slide the whole lattice phase by the max deficit toward the
+    // passing side and re-test. Accept the shifted lattice ONLY if the rescued line gains cells AND
+    // the facet's total setback-passing count STRICTLY increases — a shift can never trade away more
+    // than it wins, so regression is impossible by construction. One deterministic iteration per
+    // axis (v then u), no randomness. `sb` itself is untouched: every kept panel still clears the
+    // full setback after the shift (we move the lattice, not the clearance). Skipped on shared
+    // lattices (_grp): their phase is anchored at the group origin so co-facing facets stay aligned.
+    const RESCUE_MAX_DEFICIT=0.10, RESCUE_EPS=0.001;
+    const _phasePass=(u0c,v0c)=>{
+      const rowPass=new Map(), colPass=new Map(), rowCand=new Map(), colCand=new Map();
+      const rowMiss=new Map(), colMiss=new Map();   // kv/ku → [deficit,...] of near-miss setback failures
+      let total=0;
+      for(let kv=kStartV;kv<=kEndV;kv++){ for(let ku=kStartU;ku<=kEndU;ku++){
+        const u=u0c+ku*cw, v=v0c+kv*ch;
+        if(!pointInPoly2([u,v],ringUV)) continue;
+        rowCand.set(kv,(rowCand.get(kv)||0)+1); colCand.set(ku,(colCand.get(ku)||0)+1);
+        let allIn=true, minD=Infinity;
+        for(const [su,sv] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const px=u+su*hw, py=v+sv*hh;
+          if(!pointInPoly2([px,py],ringUV)) allIn=false;
+          const d=edgeDist(px,py); if(d<minD) minD=d; }
+        if(allIn && minD>=sb){ total++; rowPass.set(kv,(rowPass.get(kv)||0)+1); colPass.set(ku,(colPass.get(ku)||0)+1); }
+        else if(allIn && (sb-minD)>0 && (sb-minD)<RESCUE_MAX_DEFICIT){
+          if(!rowMiss.has(kv)) rowMiss.set(kv,[]); rowMiss.get(kv).push(sb-minD);
+          if(!colMiss.has(ku)) colMiss.set(ku,[]); colMiss.get(ku).push(sb-minD); }
+      } }
+      return {total,rowPass,colPass,rowCand,colCand,rowMiss,colMiss};
+    };
+    let _vShift=0,_uShift=0,_rescueGain=0;
+    if(!_grp){
+      let base=_phasePass(u0,v0);
+      // v-phase: outer rows (min/max kv holding any center-in-poly candidate). If both qualify (rare),
+      // take the one with more rescuable misses — one shift can't help both sides.
+      const _kvs=[...base.rowCand.keys()];
+      if(_kvs.length){
+        const kvLo=Math.min(..._kvs), kvHi=Math.max(..._kvs);
+        let pick=null;
+        for(const [kv,sign] of (kvLo===kvHi?[[kvLo,+1]]:[[kvLo,+1],[kvHi,-1]])){
+          const cand=base.rowCand.get(kv)||0, miss=(base.rowMiss.get(kv)||[]);
+          if(cand>0 && miss.length>cand/3 && (!pick||miss.length>pick.miss.length)) pick={k:kv,sign,miss};
+        }
+        if(pick){
+          const dv=pick.sign*(Math.min(RESCUE_MAX_DEFICIT,Math.max(...pick.miss))+RESCUE_EPS);
+          const trial=_phasePass(u0,v0+dv);
+          if((trial.rowPass.get(pick.k)||0)>(base.rowPass.get(pick.k)||0) && trial.total>base.total){
+            _rescueGain+=trial.total-base.total; v0+=dv; _vShift=dv; base=trial;
+          }
+        }
+      }
+      // u-phase (row-END columns): symmetric, evaluated on the possibly v-shifted lattice.
+      const _kus=[...base.colCand.keys()];
+      if(_kus.length){
+        const kuLo=Math.min(..._kus), kuHi=Math.max(..._kus);
+        let pick=null;
+        for(const [ku,sign] of (kuLo===kuHi?[[kuLo,+1]]:[[kuLo,+1],[kuHi,-1]])){
+          const cand=base.colCand.get(ku)||0, miss=(base.colMiss.get(ku)||[]);
+          if(cand>0 && miss.length>cand/3 && (!pick||miss.length>pick.miss.length)) pick={k:ku,sign,miss};
+        }
+        if(pick){
+          const duS=pick.sign*(Math.min(RESCUE_MAX_DEFICIT,Math.max(...pick.miss))+RESCUE_EPS);
+          const trial=_phasePass(u0+duS,v0);
+          if((trial.colPass.get(pick.k)||0)>(base.colPass.get(pick.k)||0) && trial.total>base.total){
+            _rescueGain+=trial.total-base.total; u0+=duS; _uShift=duS;
+          }
+        }
+      }
+    }
     // Project this facet's Google SEED panels (already flux/shade-vetted by Google) into (u,v). A grid cell
     // that lands on a seed is TRUSTED as clear — we emit it on the clean grid (proper alignment + setback)
     // WITHOUT re-running our occlusion test. Our DSM/flux crop is noisy on complex roofs (ridge caps / DSM
@@ -11804,7 +11912,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     // a usable face). Facets with >=2 panels always pass (a real row).
     if(facetPanels.length===1 && seedHere.length===0){ /* drop the lone stamp */ }
     else { for(const pn of facetPanels){ out.push(pn); _kept++; } }
-    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), sb:+sb.toFixed(2), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb});
+    _dbg.perFacet.push({si, az:Math.round(seg.azimuthDegrees||0), pitch:Math.round(seg.pitchDegrees||0), land, du:+(uMax-uMin).toFixed(1), dv:+(vMax-vMin).toFixed(1), sb:+sb.toFixed(2), rows, cols, seeds:seedHere.length, tried:_tried, kept:_kept, occl:_occl, occlBy:_occlBy, setb:_setb, vShift:+_vShift.toFixed(3), uShift:+_uShift.toFixed(3), rescueGain:_rescueGain});
   }
   // BBOX-FALLBACK dedupe + quote-cap: sibling flat-roof bboxes overlap, so two facets can stamp a panel
   // at the ~same spot. Drop panels closer than ~half a panel to an already-kept one, then cap the total to
