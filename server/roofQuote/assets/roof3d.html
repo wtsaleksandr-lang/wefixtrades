@@ -435,6 +435,62 @@
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
   #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
+  /* ── REDESIGNED SOLAR KPI CARD ─────────────────────────────────────────── */
+  #card .qhead{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;display:flex;align-items:center;gap:4px}
+  #card .qident{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  #card .qident-tag{font-size:9.5px;font-weight:800;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:1px 7px;letter-spacing:.01em}
+  #card .ktiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 4px}
+  #card .ktile{background:#f7f9fc;border:1px solid var(--line);border-radius:11px;padding:8px 9px;min-width:0}
+  #card .ktile .ktv{font-size:17px;font-weight:800;color:var(--ink);line-height:1.05;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #card .ktile .ktu{font-size:10px;font-weight:700;color:var(--muted);margin-left:1px}
+  #card .ktile .ktl{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;display:flex;align-items:center;gap:3px}
+  #card .ktile .ktsub{font-size:9.5px;color:var(--muted);margin-top:3px;line-height:1.25}
+  #card .ktile .ktsub s{color:var(--faint);opacity:.85}
+  /* hero chart */
+  #card .kchart-wrap{position:relative;margin:8px 0 2px;border:1px solid var(--line);border-radius:11px;background:#fbfcfe;padding:6px 6px 2px;overflow:visible}
+  #card .kpi-chart{display:block;width:100%;height:108px;cursor:crosshair}
+  #card .kpi-chart text{font-family:inherit}
+  #card .kpi-chart path,#card .kpi-chart text,#card .kpi-chart line,#card .kpi-chart circle,#card .kpi-chart g{pointer-events:none}
+  #card .kpi-be-pill{transform-box:fill-box}
+  #card .kpi-be-dot{transition:cx .3s cubic-bezier(.4,0,.2,1),cy .3s cubic-bezier(.4,0,.2,1)}
+  #card .kpi-be-dot.pulse{animation:kpiPulse 1.1s ease-out 1}
+  @keyframes kpiPulse{0%{r:4}45%{r:7}100%{r:4}}
+  #card .kpi-tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:9.5px;font-weight:700;padding:3px 6px;border-radius:6px;white-space:nowrap;transform:translate(-50%,0);z-index:3;line-height:1.3}
+  /* bill before/after bars */
+  #card .billbars{margin:9px 0 2px}
+  #card .bb-est{font-size:9px;color:var(--faint);margin-bottom:5px;line-height:1.3}
+  #card .bb-line{display:flex;align-items:center;gap:7px;margin:4px 0}
+  #card .bb-lab{flex:0 0 52px;font-size:10px;font-weight:700;color:var(--muted)}
+  #card .bb-track{flex:1 1 auto;height:14px;background:#eef1f6;border-radius:5px;overflow:hidden;position:relative}
+  #card .bb-fill{display:flex;height:100%;border-radius:5px;overflow:hidden;transition:width .35s cubic-bezier(.4,0,.2,1)}
+  #card .bb-today{width:100%;background:#c3ccd8}
+  #card .bb-seg{display:block;height:100%}
+  #card .bb-solar{background:var(--green-text)}
+  #card .bb-util{background:#c3ccd8}
+  #card .bb-loan{background:var(--blue)}
+  #card .bb-val{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--ink);white-space:nowrap}
+  #card .bb-chip{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:800;color:var(--green-text);background:#f0faf4;border:1px solid #d6efe0;border-radius:99px;padding:2px 8px}
+  #card .bb-key{display:flex;gap:12px;margin-top:5px;font-size:9px;color:var(--muted)}
+  #card .bb-key span{display:inline-flex;align-items:center;gap:4px}
+  #card .bb-key i{width:8px;height:8px;border-radius:2px;display:inline-block}
+  #card .bb-key i.bb-util{background:#c3ccd8}
+  #card .bb-key i.bb-loan{background:var(--blue)}
+  /* offset ring */
+  #card .offring{display:flex;align-items:center;gap:10px;margin:9px 0 2px;background:#fbfcfe;border:1px solid var(--line);border-radius:11px;padding:8px 10px}
+  #card .or-ring{flex:0 0 auto;width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--green-text) calc(var(--p)*1%),#e6ebf3 0);display:flex;align-items:center;justify-content:center;position:relative}
+  #card .or-ring::before{content:"";position:absolute;inset:4px;background:#fbfcfe;border-radius:50%}
+  #card .or-ring span{position:relative;font-size:10px;font-weight:800;color:var(--green-text)}
+  #card .or-txt b{display:block;font-size:12px;font-weight:800;color:var(--ink);line-height:1.15}
+  #card .or-txt small{display:block;font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.25}
+  /* add-on chips active-delta */
+  #card .aoc .aoc-d{display:block;font-size:8.5px;font-weight:700;color:var(--muted);margin-top:1px}
+  #card .aoc.on .aoc-d{color:var(--blue)}
+  #card .aoc-row .aoc{text-align:left;line-height:1.15}
+  /* details sub-expander (legacy add-ons) */
+  #card .cust-subtoggle{display:flex;width:100%;align-items:center;justify-content:space-between;background:#fbfcfe;border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-top:6px;color:var(--ink);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  #card .cust-subtoggle .cs-chev{color:var(--blue);font-weight:800}
+  #card .cust-subbody{margin-top:4px}
+  #card .assume-line{margin-top:10px;font-size:9.5px;color:var(--faint);line-height:1.4;border-top:1px solid var(--line);padding-top:8px}
   #card .qpick{font-size:12px;font-weight:700;color:#0d3cfc;margin:0 0 2px}
   #card .qspec{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 6px}
   /* ROOF-SELECTION ANCHOR — carries the material the buyer just chose into the estimate so the
@@ -882,7 +938,12 @@
   /* (polish: mobile-first-load) the EXPANDED sheet caps at 38vh; the DEFAULT (peek) state shows just the
      headline price + a drag handle (~31vh) so the 3D model — the hero — owns the upper ~2/3 of the phone
      on first load. Drag the handle UP (or tap it) to expand to the full quote; drag DOWN past peek to fold. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;padding-top:30px} #card.sheet-dragging{transition:none!important} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important}
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;overflow-x:hidden;padding-top:30px} #card.sheet-dragging{transition:none!important} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important}
+    #card .ktiles{grid-template-columns:1fr 1fr}
+    #card .ktile .ktv{font-size:16px}
+    #card .kpi-chart{height:150px}
+    #card .kchart-wrap,#card .billbars,#card .offring,#card .ktiles{max-width:100%}
+    #card .bb-lab{flex-basis:46px}
     /* C3: only one bottom sheet at a time on mobile — when the dot editor sheet (#dotHud) is up, hide the
        quote card's mobile bottom sheet so they don't stack/collide. Desktop card is a side panel (no collision). */
     body.dot-editing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
@@ -2217,6 +2278,139 @@ function savingsModel(kwhAc, netCost){
     '<text x="'+(W-pad)+'" y="'+(H-2)+'" text-anchor="end" font-size="10" fill="#8493a6">yr 25</text></svg>';
   return { svg, net:Math.round(cum-netCost), payback };
 }
+/* ─────────────────────────────────────────────────────────────────────────────
+   KPI FINANCIAL MODEL — single source of truth for the redesigned solar card.
+   Tesla/Google-Sunroof-standard assumptions: utility escalation +3%/yr, panel
+   degradation −0.5%/yr, 25-yr horizon. EVERYTHING on the card (KPI tiles, hero
+   chart, bill bars, offset ring, payback pill) derives from solarFinModel() so
+   the pill year and the chart intersection can never disagree.
+   ───────────────────────────────────────────────────────────────────────────── */
+const FIN_ASSUME={esc:0.03, degr:0.005, horizon:25};
+/* Interpolated crossover year where cumulative savings S(T) first meets `cost(T)`.
+   cost is a function of year (flat netCost for cash; cumulative payments for loan).
+   Returns a fractional year (e.g. 8.3) or 0 if never reached within the horizon. */
+function _crossYear(cum, costAt){
+  for(let n=1;n<=cum.length;n++){
+    const s=cum[n-1], c=costAt(n);
+    if(s>=c){
+      if(n===1) return 1;
+      const sPrev=cum[n-2], cPrev=costAt(n-1);
+      const num=(cPrev-sPrev), den=((s-sPrev)-(c-cPrev));   // solve sPrev+Δs·f = cPrev+Δc·f
+      const f=den!==0?Math.min(1,Math.max(0,num/den)):0;
+      return +( (n-1)+f ).toFixed(2);
+    }
+  }
+  return 0;
+}
+/* The model. Inputs come straight from renderQuoteCard's in-scope vars.
+   payMode: "cash" | "loan" | "lease".  All money is post-ITC (netCost already net).
+   annualConsumptionKwh may be 0 (bill not entered) → bill-dependent fields return null. */
+function solarFinModel(o){
+  const kwhY1=Math.max(0,o.kwhY1||0), netCost=Math.max(0,o.netCost||0), rate=(REGION.rate||0.165);
+  const srecYr=Math.max(0,o.srecYr||0), payMode=o.payMode||"cash";
+  const loanMo=Math.max(0,o.loanMo||0), leaseMo=Math.max(0,o.leaseMo||0), term=Math.max(1,o.term||25);
+  const esc=FIN_ASSUME.esc, degr=FIN_ASSUME.degr, H=FIN_ASSUME.horizon;
+  // yearly production value + SREC (SRECs assumed first 10 yrs), and running cumulative
+  const save=[], cum=[]; let run=0;
+  for(let t=1;t<=H;t++){
+    const kWh=kwhY1*Math.pow(1-degr,t-1);
+    const r=rate*Math.pow(1+esc,t-1);
+    const yr=kWh*r + (t<=10?srecYr:0);
+    save.push(yr); run+=yr; cum.push(run);
+  }
+  // cost curve: flat post-ITC for cash; cumulative loan payments (capped at term) for loan
+  const costAt = payMode==="loan"
+    ? (T)=> loanMo*12*Math.min(T,term)
+    : (T)=> netCost;   // lease → treat like cash-cost=0 handled separately below
+  // lease has no capital cost; "payback" is immediate (day-one positive cashflow) → payback=0 sentinel
+  let payback = payMode==="lease" ? 0 : _crossYear(cum, costAt);
+  // 25-yr net savings
+  const totalCost = payMode==="loan" ? loanMo*12*term : (payMode==="lease" ? leaseMo*12*Math.min(term,H) : netCost);
+  const net25 = Math.round(cum[H-1] - totalCost);
+  // day-one monthly value of solar (year-1 production ÷ 12) — for bill-after math
+  const monthlySolarValue = Math.round(kwhY1*rate/12);
+  // annual consumption / offset / bill-after.
+  //   • If the homeowner entered a bill/usage → use it (exact).
+  //   • Otherwise ASSUME the system is sized to cover the home (offset≈100%) and take the system's own
+  //     monthly production value as the implied "today's bill" so the before/after bars + offset ring
+  //     always render with an honest, clearly-derived baseline (estimated=true → copy hedges).
+  const estimated = !(o.annualConsumptionKwh>0 || o.oldBill>0);
+  const annualUse = o.annualConsumptionKwh>0 ? o.annualConsumptionKwh : kwhY1;   // fall back to the system's year-1 production
+  const offsetPct = annualUse>0 ? Math.round(kwhY1/annualUse*100) : null;
+  const oldBill = o.oldBill>0 ? o.oldBill : (annualUse>0 ? Math.round(annualUse*rate/12) : null);
+  let newBill=null, remainUtility=null;
+  if(oldBill!=null){
+    remainUtility = Math.max(0, oldBill - monthlySolarValue);
+    newBill = remainUtility + (payMode==="loan"?loanMo:(payMode==="lease"?leaseMo:0));
+  }
+  return {
+    save, cum, payback, net25, monthlySolarValue, monthlySave: (oldBill!=null?Math.max(0,oldBill-newBill):null),
+    annualUse, offsetPct, oldBill, newBill, remainUtility, estimated,
+    loanMo, leaseMo, term, netCost, payMode, horizon:H, costAt
+  };
+}
+/* Abbreviate dollars for chart axes / labels: 1200→$1.2k, 42000→$42k, 480→$480 */
+function kAbbr(v){ v=Math.round(v||0); if(Math.abs(v)>=1000){ const k=v/1000; return '$'+(k>=10?Math.round(k):k.toFixed(1))+'k'; } return '$'+v; }
+/* HERO cumulative-savings SVG. Pure/closed-form — no libs. Emits a scrub-ready <svg> with
+   data-* geometry so the pointer handler (wireKpiChart) can map x→year and show a tooltip.
+   Green area = cumulative savings; dashed neutral line = cost (flat cash / stepped loan);
+   breakeven dot + drop-line + pill; shaded "free electricity" gap right of breakeven. */
+function kpiChartSvg(m, mobile){
+  const H=m.horizon, cum=m.cum, W=236, VH=mobile?150:108, padL=6, padR=8, padT=14, padB=16;
+  const iw=W-padL-padR, ih=VH-padT-padB;
+  const cost=[]; for(let t=1;t<=H;t++) cost.push(m.costAt(t));
+  const maxV=Math.max(cum[H-1], cost[H-1], m.netCost)*1.06||1;
+  const X=t=> padL + (t-1)/(H-1)*iw;
+  const Y=v=> padT + ih - (v/maxV)*ih;
+  const savePts=cum.map((v,i)=>[X(i+1),Y(v)]);
+  const costPts=cost.map((v,i)=>[X(i+1),Y(v)]);
+  const savePath=savePts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const areaPath=savePath+' L'+X(H).toFixed(1)+' '+(padT+ih).toFixed(1)+' L'+padL.toFixed(1)+' '+(padT+ih).toFixed(1)+' Z';
+  const costPath=costPts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const pb=m.payback;
+  // breakeven geometry (interpolated). savedAt = cumulative savings value at payback year.
+  const savAt=t=>{ if(t<=1) return cum[0]; if(t>=H) return cum[H-1]; const i=Math.floor(t)-1; return cum[i]+(cum[i+1]-cum[i])*(t-Math.floor(t)); };
+  const bx=pb>0?X(pb):0, bv=pb>0?savAt(pb):0, by=pb>0?Y(bv):0;
+  // shaded "free electricity" gap: between savings and cost curve, right of breakeven
+  let gapPath='';
+  if(pb>0){
+    const start=Math.ceil(pb);
+    const top=[], bot=[];
+    top.push([bx,by]); bot.push([bx,by]);
+    for(let t=start;t<=H;t++){ top.push([X(t),Y(cum[t-1])]); bot.push([X(t),Y(cost[t-1])]); }
+    gapPath='M'+top.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')+' L'+bot.reverse().map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')+' Z';
+  }
+  // x-axis ticks at 5/10/15/20/25
+  let ticks=''; [5,10,15,20,25].forEach(t=>{ ticks+='<text x="'+X(t).toFixed(1)+'" y="'+(VH-4)+'" text-anchor="middle" font-size="8" fill="var(--faint)">'+t+'</text>'; });
+  // y guide labels (start / max abbreviated) — light
+  const yTop='<text x="'+padL+'" y="'+(padT-4)+'" font-size="8" fill="var(--faint)">'+kAbbr(maxV)+'</text>';
+  const term25='<text x="'+(W-padR)+'" y="'+(Y(cum[H-1])-3).toFixed(1)+'" text-anchor="end" font-size="9.5" font-weight="800" fill="var(--green-text)">'+kAbbr(cum[H-1])+'</text>';
+  // cost label
+  const costLab='<text x="'+(W-padR)+'" y="'+(Y(cost[H-1])+10).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--muted)">'+(m.payMode==="loan"?'payments':'system cost')+'</text>';
+  // free-electricity floating label near yr ~21
+  const freeLab=(pb>0 && m.net25>0)? '<text x="'+X(21).toFixed(1)+'" y="'+(Y(cum[20])+ (mobile?26:20)).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--green-text)">+'+kAbbr(m.net25)+' free power</text>' : '';
+  // breakeven pill
+  const pillW=64, pillH=15, pillX=Math.min(W-padR-pillW, Math.max(padL, bx-pillW/2)), pillY=Math.max(2, by-pillH-8);
+  const breakUi = pb>0 ? (
+    (gapPath?'<path d="'+gapPath+'" fill="rgba(21,128,61,0.13)"/>':'')+
+    '<line x1="'+bx.toFixed(1)+'" y1="'+by.toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(padT+ih).toFixed(1)+'" stroke="var(--green-text)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'+
+    '<g class="kpi-be-pill"><rect x="'+pillX.toFixed(1)+'" y="'+pillY.toFixed(1)+'" width="'+pillW+'" height="'+pillH+'" rx="7.5" fill="var(--green-text)"/>'+
+      '<text x="'+(pillX+pillW/2).toFixed(1)+'" y="'+(pillY+10.5).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="800" fill="#fff">Paid off · Yr '+Math.round(pb)+'</text></g>'+
+    '<circle class="kpi-be-dot" cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="4" fill="var(--green-text)" stroke="#fff" stroke-width="1.6"/>'
+  ) : '';
+  return '<svg class="kpi-chart" viewBox="0 0 '+W+' '+VH+'" width="100%" preserveAspectRatio="none" '+
+      'data-w="'+W+'" data-padl="'+padL+'" data-iw="'+iw+'" data-h="'+H+'" data-max="'+maxV.toFixed(2)+'" data-padt="'+padT+'" data-ih="'+ih+'" '+
+      'data-cum="'+cum.map(v=>Math.round(v)).join(',')+'" data-cost="'+cost.map(v=>Math.round(v)).join(',')+'">'+
+    '<path d="'+areaPath+'" fill="rgba(21,128,61,0.18)"/>'+
+    breakUi+
+    '<path d="'+costPath+'" fill="none" stroke="#9aa7b8" stroke-width="1.4" stroke-dasharray="4 3"/>'+
+    '<path d="'+savePath+'" fill="none" stroke="var(--green-text)" stroke-width="2"/>'+
+    ticks+yTop+term25+costLab+freeLab+
+    '<line class="kpi-scrub-line" x1="0" y1="'+padT+'" x2="0" y2="'+(padT+ih).toFixed(1)+'" stroke="var(--ink)" stroke-width="0.8" opacity="0"/>'+
+    '<circle class="kpi-scrub-dot" r="3" fill="var(--green-text)" stroke="#fff" stroke-width="1.4" opacity="0"/>'+
+  '</svg>'+
+  '<div class="kpi-tip" style="display:none"></div>';
+}
 /* 3 Good/Better/Best solar tiers from Google's panel configs + a ballpark installed price + monthly */
 function solarTiersFrom(spv){
   const cfgs=spv.solarPanelConfigs||[]; if(!cfgs.length) return [];
@@ -3496,9 +3690,15 @@ function renderQuoteCard(){
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
     // quick ADD-ON toggle chips (Battery backup / EV charger) — outline-selected, no $ in the chip (gate-safe);
     // each chip honours the same tenant feature flag as its legacy accordion counterpart
-    const aoBatChip=TENANT.features.battery?('<button class="aoc'+(ao.battery?' on':'')+'" data-ao="battery" type="button">'+(ao.battery?'✓ ':'')+ADDON_PRICES.battery.label+'</button>'):'';
-    const aoEvChip=TENANT.features.ev?('<button class="aoc'+(ao.ev?' on':'')+'" data-ao="ev" type="button">'+(ao.ev?'✓ ':'')+ADDON_PRICES.ev.label+'</button>'):'';
-    const aoRow=(aoBatChip||aoEvChip)?('<div class="opt-row" style="margin-top:6px"><span class="opt-l ico">'+CAT_ICON.battery+'Add-ons'+ACUE("qaddons")+'</span>'+aoBatChip+aoEvChip+'</div>'):'';
+    // ADD-ON CHIPS (primary surface): when active, each shows its price delta + payback impact inline.
+    // Battery is ITC-eligible; the payback drag is estimated as (added net cost) ÷ (year-1 savings).
+    const _yr1Save = Math.max(1, (totKwh*REGION.rate));   // ~year-1 production value, for payback-delta estimate
+    const _addDelta=(lo,hi,itcElig)=>{ const mid=(lo+hi)/2, netAdd=itcElig?mid*(1-itcR):mid; return Math.max(0, netAdd/_yr1Save); };
+    const batDeltaTxt = ao.battery ? ' <span class="aoc-d">+'+fmtMoney(ADDON_PRICES.battery.lo)+'–'+kAbbr(ADDON_PRICES.battery.hi).replace('$','$')+' · payback +'+_addDelta(ADDON_PRICES.battery.lo,ADDON_PRICES.battery.hi,itcR>0).toFixed(1)+' yrs</span>' : '';
+    const evDeltaTxt = ao.ev ? ' <span class="aoc-d">+'+fmtMoney(ADDON_PRICES.ev.lo)+'–'+kAbbr(ADDON_PRICES.ev.hi).replace('$','$')+'</span>' : '';
+    const aoBatChip=TENANT.features.battery?('<button class="aoc'+(ao.battery?' on':'')+'" data-ao="battery" type="button">'+(ao.battery?'✓ ':'')+ADDON_PRICES.battery.label+batDeltaTxt+'</button>'):'';
+    const aoEvChip=TENANT.features.ev?('<button class="aoc'+(ao.ev?' on':'')+'" data-ao="ev" type="button">'+(ao.ev?'✓ ':'')+ADDON_PRICES.ev.label+evDeltaTxt+'</button>'):'';
+    const aoRow=(aoBatChip||aoEvChip)?('<div class="opt-row aoc-row" style="margin-top:6px"><span class="opt-l ico">'+CAT_ICON.battery+'Add-ons'+ACUE("qaddons")+'</span>'+aoBatChip+aoEvChip+'</div>'):'';
     // active add-ons surface as small "incl. …" line items directly under the price (ungated branch only)
     const addonLines=(ao.battery?'<div class="qfin" style="margin-top:2px">incl. '+ADDON_PRICES.battery.label+' +'+fmtMoney(ADDON_PRICES.battery.lo)+'–'+ADDON_PRICES.battery.hi.toLocaleString()+(itcR>0?' (tax-credit eligible)':'')+'</div>':'')+
       (ao.ev?'<div class="qfin" style="margin-top:2px">incl. '+ADDON_PRICES.ev.label+' +'+fmtMoney(ADDON_PRICES.ev.lo)+'–'+ADDON_PRICES.ev.hi.toLocaleString()+'</div>':'');
@@ -3518,21 +3718,97 @@ function renderQuoteCard(){
     // 1) the 30% federal ITC as a line that REDUCES the price (hedged: "est." + tax-pro cue)
     // 2) payback period + 25-yr lifetime savings, computed from the post-ITC net cost
     const itcLine=(itcR>0&&itcAmt>0)?'<div class="itc-line">−<span class="itc-amt">'+fmtMoney(itcAmt)+'</span> est. 30% federal tax credit (ITC)'+TCUE("itc")+'</div>':'';
-    const ms=totKwh?savingsModel(totKwh, netCost):null;   // payback + 25-yr cumulative net savings, on the post-ITC net price
-    const moneyStory=ms?('<div class="ms-pair">'+
-      (ms.payback?'<div class="ms-cell"><div class="msv">~'+ms.payback+' yrs</div><div class="msl">pays for itself in</div></div>':'')+
-      '<div class="ms-cell"><div class="msv">'+fmtMoney(ms.net)+'</div><div class="msl">est. 25-yr savings'+TCUE("lifetime")+'</div></div>'+
-      '</div>'):'';
-    // clean default: price, savings, financing, tiers; everything else behind a Customize expander, organized into
-    // a "Your system" section + contained "Add-ons" cards so it reads as tidy groups, not one long list.
+    // ── KPI FINANCIAL MODEL (single source of truth for tiles + chart + bars + ring) ──
+    // Drives every headline number below from the ESCALATED cumulative-savings series, so the
+    // payback pill and the chart intersection can never disagree (crude cost÷year1 is never shown).
+    const annualUse = usage>0 ? usage : 0;   // implied annual kWh from the entered bill (0 if none)
+    const KM = solarFinModel({ kwhY1:totKwh, netCost:netCost, srecYr:srecYr, payMode:payMode,
+      loanMo:sFin, leaseMo:leaseMo, term:sTerm, annualConsumptionKwh:annualUse, oldBill:solarBill });
+    // 25-yr net savings label + payback (escalated-series truth)
+    const ms = totKwh ? { net:KM.net25, payback:KM.payback } : null;
+    // headline gross (pre-ITC mid) for the strike-through under Net cost
+    const grossMid = Math.round(sMid);
+    // (a) NET COST tile ------------------------------------------------------------------
+    const kpiNet = '<div class="ktile" data-kv="'+netCost+'"><div class="ktv" data-money>'+fmtMoney(netCost)+'</div>'+
+      '<div class="ktl">Net cost'+TCUE("itc")+'</div>'+
+      '<div class="ktsub">'+(itcR>0&&itcAmt>0?'after '+fmtMoney(itcAmt)+' federal tax credit ('+Math.round(itcR*100)+'%)':'installed price')+
+      (grossMid>netCost?' · <s>'+fmtMoney(grossMid)+'</s>':'')+'</div></div>';
+    // (b) NEW MONTHLY tile — honest: loan mode includes the loan payment ---------------------
+    let kpiMonthly;
+    if(KM.newBill!=null){
+      const wasSub = KM.oldBill!=null ? (KM.estimated?'est. was ':'was ')+fmtMoney(KM.oldBill) : '';
+      const saveSub = (KM.oldBill!=null && KM.oldBill>KM.newBill) ? ' · save '+fmtMoney(KM.oldBill-KM.newBill)+'/mo' : '';
+      kpiMonthly = '<div class="ktile" data-kv="'+KM.newBill+'"><div class="ktv" data-money>'+fmtMoney(KM.newBill)+'<span class="ktu">/mo</span></div>'+
+        '<div class="ktl">New monthly</div><div class="ktsub">'+wasSub+saveSub+(payMode==="loan"?' · incl. loan':'')+'</div></div>';
+    } else {
+      // no bill entered → show the monthly solar VALUE (cash) or the payment (loan/lease), no fabricated "was"
+      const v = payMode==="loan"?Math.round(sFin):(payMode==="lease"?leaseMo:KM.monthlySolarValue);
+      kpiMonthly = '<div class="ktile" data-kv="'+v+'"><div class="ktv" data-money>'+fmtMoney(v)+'<span class="ktu">/mo</span></div>'+
+        '<div class="ktl">'+(payMode==="cash"?'Solar value':'Payment')+'</div><div class="ktsub">'+(payMode==="cash"?'power you no longer buy':(payMode==="lease"?'$0-down lease':sTerm+'-yr @ '+fin.solarApr+'%'))+'</div></div>';
+    }
+    // (c) PAYS FOR ITSELF tile ---------------------------------------------------------------
+    const remYrs = ms&&ms.payback>0 ? Math.max(0,Math.round(FIN_ASSUME.horizon-ms.payback)) : 0;
+    const kpiPayback = (payMode==="lease")
+      ? '<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Positive from</div><div class="ktsub">$0 down · save from the first bill</div></div>'
+      : (ms&&ms.payback>0
+        ? '<div class="ktile"><div class="ktv">Year '+ms.payback.toFixed(1)+'</div><div class="ktl">Pays for itself</div><div class="ktsub">then free electricity for ~'+remYrs+' more years</div></div>'
+        : '<div class="ktile"><div class="ktv">25 yr+</div><div class="ktl">Pays for itself</div><div class="ktsub">long-horizon payback at this rate</div></div>');
+    // (d) 25-YEAR SAVINGS tile ---------------------------------------------------------------
+    const kpi25 = ms ? '<div class="ktile" data-kv="'+Math.max(0,ms.net)+'"><div class="ktv" data-money>'+fmtMoney(Math.max(0,ms.net))+'</div>'+
+      '<div class="ktl">25-year savings'+TCUE("lifetime")+'</div><div class="ktsub">vs. staying with the utility</div></div>' : '';
+    const kpiTiles = totKwh ? '<div class="ktiles">'+kpiNet+kpiMonthly+kpiPayback+kpi25+'</div>' : '';
+    // ── HERO CHART: cumulative savings vs cost, 25 yrs ──
+    const heroChart = (totKwh && KM.cum && KM.cum.length) ? '<div class="kchart-wrap">'+kpiChartSvg(KM, false)+'</div>' : '';
+    // ── BILL BEFORE / AFTER BARS ──
+    let billBars='';
+    if(KM.oldBill!=null && KM.newBill!=null && KM.oldBill>0){
+      const pct = Math.round(KM.newBill/Math.max(1,KM.oldBill)*100);
+      const dropPct = Math.max(0, 100-pct);
+      const afterW = Math.max(6, Math.min(100, pct));
+      // loan mode → stacked remaining-utility + loan-payment segments (labelled)
+      let afterInner;
+      if(payMode==="loan" && KM.remainUtility!=null){
+        const utilW = KM.newBill>0?Math.round(KM.remainUtility/KM.newBill*100):0;
+        afterInner='<span class="bb-seg bb-util" style="width:'+utilW+'%"></span><span class="bb-seg bb-loan" style="width:'+(100-utilW)+'%"></span>';
+      } else { afterInner='<span class="bb-seg bb-solar" style="width:100%"></span>'; }
+      billBars='<div class="billbars">'+
+        (KM.estimated?'<div class="bb-est">Estimated from your system size — enter your bill in Details for exact numbers.</div>':'')+
+        '<div class="bb-line"><span class="bb-lab">Today</span><div class="bb-track"><span class="bb-fill bb-today" style="width:100%"></span></div><span class="bb-val">'+fmtMoney(KM.oldBill)+'/mo</span></div>'+
+        '<div class="bb-line"><span class="bb-lab">With solar</span><div class="bb-track"><span class="bb-fill" style="width:'+afterW+'%">'+afterInner+'</span></div><span class="bb-val">'+fmtMoney(KM.newBill)+'/mo</span></div>'+
+        (dropPct>0?'<div class="bb-chip">−'+dropPct+'% every month</div>':'')+
+        (payMode==="loan"?'<div class="bb-key"><span><i class="bb-util"></i>utility</span><span><i class="bb-loan"></i>loan payment</span></div>':'')+
+      '</div>';
+    }
+    // ── OFFSET RING (covers X% of your electricity) ──
+    let offsetRing='';
+    if(KM.offsetPct!=null){
+      const disp = KM.offsetPct>=100?'100%+':KM.offsetPct+'%';
+      const gpct = Math.min(100,KM.offsetPct);
+      offsetRing='<div class="offring"><div class="or-ring" style="--p:'+gpct+'"><span>'+disp+'</span></div>'+
+        '<div class="or-txt"><b>'+(KM.estimated?'Sized to cover your home':'Covers '+disp+' of your electricity')+'</b><small>'+(KM.estimated?'Produces ~'+(totKwh?totKwh.toLocaleString():'—')+' kWh/yr — about what a home this size uses. Enter your bill to refine.':(KM.offsetPct>=100?'Produces as much as your home uses in a year.':'The rest is topped up from the grid, at retail rate.'))+'</small></div></div>';
+    }
+    // clean default: price, savings, financing, tiers; everything else behind a Details expander, organized into
+    // a "Your system" section + contained legacy add-on cards under an "Advanced add-on options" sub-expander.
     const batCard=batToggle?'<div class="addon-card">'+batToggle+batNote+'</div>':'';
     const evCard=evToggle?'<div class="addon-card">'+evToggle+evNote+'</div>':'';
-    const addonsSec=(batCard||evCard)?'<div class="cust-sec">Add-ons</div>'+batCard+evCard:'';
+    const legacyAddons=(batCard||evCard)?(()=>{ const open=window.__advAddonOpen;
+      return '<button class="cust-subtoggle" data-advaddon type="button"><span>Advanced add-on options</span><span class="cs-chev">'+(open?'▴':'▾')+'</span></button>'+
+        (open?('<div class="cust-subbody">'+batCard+evCard+'</div>'):''); })():'';
+    // one-line assumptions disclosure (Tesla/Google parity)
+    const assumeLine='<div class="assume-line">Assumes electricity prices rise '+Math.round(FIN_ASSUME.esc*100)+'%/yr and panels degrade '+(FIN_ASSUME.degr*100).toFixed(1).replace(/\.0$/,'')+'%/yr — the same assumptions Tesla and Google use.</div>';
+    // price lo–hi range (demoted into Details), size slider, panel tier, bill input, SREC + assumptions
+    const priceRangeRow='<div class="opt-row"><span class="opt-l">Price range</span><span class="szval" style="font-size:11px">'+fmtMoney(lo)+' – '+fmtMoney(hi)+' installed</span></div>';
+    const srecLineDetail=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits'+TCUE("srec")+' — included above.</div>':'';
     const solDetail=window.__solarExpanded?'<div class="cust">'+
-      '<div class="cust-sec">Your system</div>'+sectionRow+sizeRow+panelRow+panelNote+aoRow+billRow+coverLine+
-      addonsSec+'</div>':'';
-    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
-    const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Customize.</div>':'';
+      '<div class="cust-sec">Your system</div>'+sectionRow+priceRangeRow+sizeRow+panelRow+panelNote+billRow+coverLine+
+      srecLineDetail+
+      (legacyAddons?'<div class="cust-sec">Add-ons</div>'+legacyAddons:'')+
+      assumeLine+'</div>':'';
+    const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide details &amp; options ▴':'Details &amp; options ▾')+'</button>';
+    const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Details.</div>':'';
+    // identity subtitle — "7.2 kW · 18 panels · Most popular" (Best tier = "Most popular")
+    const _isBest=(selTier===solarTiers.length-1) && !window.__quoteFromGrid;
+    const identitySub='<div class="qident">'+totKw+' kW · '+totPanels+' panels'+(_isBest?' · <span class="qident-tag">Most popular</span>':'')+'</div>';
     // ── INTERACTIVE PANEL-GRID launcher ──────────────────────────────────────
     // Offer the tappable "design your system" grid whenever we have a real solar read (panels/configs)
     // and the roof isn't an attached owner's section (the grid renders the whole-building array). The
@@ -3547,12 +3823,18 @@ function renderQuoteCard(){
     // sun/CO₂ lines — none carry $). After lead submit priceGated→false → the block below renders.
     const _solGated=(typeof window.__priceGated==="function") && window.__priceGated("solar");
     body=(_solGated
-        ? quoteCardMaskHtml("solar")+sectionBanner
-        : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+addonLines+sectionBanner+
-      itcLine+finDisplay+payRow+
-      moneyStory+kpiStrip+srecLine)+
+        // GATED: no dollar figure, no bill, no chart, no tiles — mask only. Chips carry no $ in their
+        // idle state, but active-state deltas DO carry $, so suppress add-ons entirely while gated.
+        ? quoteCardMaskHtml("solar")+identitySub+sectionBanner
+        : '<div class="qhead">Your solar estimate'+HCUE("solar")+'</div>'+identitySub+sectionBanner+
+      kpiTiles+
+      heroChart+
+      billBars+
+      offsetRing+
+      aoRow+
+      payRow+finDisplay)+
       gridOpenBtn+
-      '<div class="qchips">'+chips+'</div>'+solToggle+solDetail+
+      '<div class="qchips">'+chips+'</div>'+(_solGated?'':solToggle+solDetail)+
       '<div class="grid"><div class="stat"><div class="v">'+totPanels+(evAdd.panels?'<span class="stx">+'+evAdd.panels+' EV</span>':'')+'</div><div class="l">Recommended panels</div></div>'+
       '<div class="stat"><div class="v">'+totKw+'</div><div class="l">kW'+TCUE("kw")+'</div></div>'+
       '<div class="stat"><div class="v">'+(totKwh?totKwh.toLocaleString():'—')+'</div><div class="l">kWh/yr'+TCUE("kwhyr")+'</div></div></div>'+
@@ -3702,6 +3984,7 @@ function renderQuoteCard(){
   card.querySelectorAll(".ob").forEach(b=>b.onclick=()=>{ const o=b.dataset.o; if(b.dataset.v!=null){ roofOpts[o]=+b.dataset.v; } else { roofOpts[o]=!roofOpts[o]; } window.__optsAuto=true; renderQuoteCard(); });
   card.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{ window.__roofExpanded=!window.__roofExpanded; renderQuoteCard(); });
   card.querySelectorAll("[data-sexp]").forEach(b=>b.onclick=()=>{ window.__solarExpanded=!window.__solarExpanded; renderQuoteCard(); });
+  card.querySelectorAll("[data-advaddon]").forEach(b=>b.onclick=()=>{ window.__advAddonOpen=!window.__advAddonOpen; renderQuoteCard(); });
   card.querySelectorAll("[data-opengrid]").forEach(b=>b.onclick=()=>{ if(typeof openSolarGrid==="function") openSolarGrid(); });
   card.querySelectorAll("[data-matinfo]").forEach(b=>b.onclick=()=>openInfoModal(materialModal(b.dataset.matinfo)));
   card.querySelectorAll("[data-seehouse]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); try{ if(typeof window.__openSeeModal==="function") window.__openSeeModal(); }catch(_){} });   // issue #2: photoreal "see the chosen roof on your house" from the estimate card
@@ -3735,6 +4018,64 @@ function renderQuoteCard(){
   card.querySelectorAll(".cmp-row,.mat-card").forEach(b=>b.onclick=()=>{ const idx=ROOF_CATALOG.findIndex(m=>m.id===b.dataset.mat); if(idx<0) return;
     selMat=idx; selCol=0; const m=ROOF_CATALOG[idx]; window.__roofSel={matId:m.id,matLabel:m.label,colorName:m.colors[0].n}; window.__wasteAuto=false; window.__optsAuto=false;
     if(matMode){ if(typeof renderCols==="function") renderCols(); renderColor(true); } renderQuoteCard(); });
+  // REDESIGNED SOLAR CARD — post-render behaviours: count-up money tweens + hero-chart scrub.
+  try{ kpiCountUp(card); }catch(_){}
+  try{ wireKpiChart(card); }catch(_){}
+}
+/* Count-up tween (~250ms) for every [data-money] node whose value changed since the last render.
+   Prev values are stashed on window.__kpiPrev keyed by the tile's data label so layout never shifts
+   (we only animate the number text; the node's box is unchanged). */
+function kpiCountUp(card){
+  const prev=window.__kpiPrev||(window.__kpiPrev={});
+  const nodes=card.querySelectorAll("#card .ktile [data-money]");
+  const next={};
+  nodes.forEach((el,i)=>{
+    const tile=el.closest(".ktile"); const key=(tile&&tile.querySelector(".ktl"))?tile.querySelector(".ktl").textContent.trim():("k"+i);
+    const target=tile&&tile.dataset.kv!=null?+tile.dataset.kv:NaN;
+    if(!isFinite(target)){ return; }
+    next[key]=target;
+    const unit=el.querySelector(".ktu"); const unitHtml=unit?unit.outerHTML:"";
+    const from=(prev[key]!=null&&isFinite(prev[key]))?prev[key]:target;
+    if(from===target){ return; }   // no change → leave the rendered value as-is
+    const t0=performance.now(), dur=250;
+    const step=(now)=>{ const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3), v=Math.round(from+(target-from)*e);
+      el.innerHTML=fmtMoney(v)+unitHtml; if(p<1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+  // carry non-money tiles (payback year) implicitly; only money keys are tracked
+  window.__kpiPrev=Object.assign({}, prev, next);
+  // one-time breakeven-dot pulse when the payback year changed
+  const dot=card.querySelector(".kpi-be-dot");
+  if(dot){ const pbNow=card.querySelector(".kpi-chart")?card.querySelector(".kpi-chart").getAttribute("data-cum"):"";
+    if(window.__kpiPrevPb!==pbNow){ dot.classList.add("pulse"); setTimeout(()=>dot.classList.remove("pulse"),1200); window.__kpiPrevPb=pbNow; } }
+}
+/* Hero-chart scrub: pointer/touch → hairline + moving dot + "Year N · $X saved" tooltip.
+   Reads the geometry + data-cum series off the <svg> data-* attributes (closed-form, no state). */
+function wireKpiChart(card){
+  const svg=card.querySelector(".kpi-chart"); if(!svg) return;
+  const wrap=svg.closest(".kchart-wrap"); const tip=wrap?wrap.querySelector(".kpi-tip"):null;
+  const line=svg.querySelector(".kpi-scrub-line"), sdot=svg.querySelector(".kpi-scrub-dot");
+  const W=+svg.dataset.w, padL=+svg.dataset.padl, iw=+svg.dataset.iw, H=+svg.dataset.h, max=+svg.dataset.max, padT=+svg.dataset.padt, ih=+svg.dataset.ih;
+  const cum=(svg.dataset.cum||"").split(",").map(Number);
+  const Yv=v=> padT + ih - (v/max)*ih;
+  const at=(pos)=>{
+    const rect=svg.getBoundingClientRect();
+    const xView=Math.min(W-padL, Math.max(padL, (pos-rect.left)/rect.width*W));
+    const yr=Math.min(H, Math.max(1, (xView-padL)/iw*(H-1)+1));
+    const i=Math.min(H-1,Math.max(0,Math.round(yr)-1));
+    const saved=cum[i]||0; const xv=padL+(Math.round(yr)-1)/(H-1)*iw;
+    line.setAttribute("x1",xv); line.setAttribute("x2",xv); line.setAttribute("opacity","0.55");
+    sdot.setAttribute("cx",xv); sdot.setAttribute("cy",Yv(saved)); sdot.setAttribute("opacity","1");
+    if(tip){ tip.style.display="block"; tip.textContent="Year "+Math.round(yr)+" · "+fmtMoney(saved)+" saved";
+      const px=(xv/W)*(svg.getBoundingClientRect().width); tip.style.left=px+"px"; tip.style.top="0px"; }
+  };
+  const clear=()=>{ line.setAttribute("opacity","0"); sdot.setAttribute("opacity","0"); if(tip) tip.style.display="none"; };
+  svg.style.touchAction="none";
+  const move=e=>at(e.clientX!=null?e.clientX:(e.touches&&e.touches[0]?e.touches[0].clientX:0));
+  svg.onpointermove=move; svg.onmousemove=move;   // pointer + mouse fallback (synthetic drivers vary)
+  svg.onpointerdown=e=>{ try{ svg.setPointerCapture(e.pointerId); }catch(_){} move(e); };
+  svg.ontouchmove=e=>{ move(e); };
+  svg.onpointerup=svg.onpointerleave=svg.onpointercancel=svg.onmouseleave=clear;
 }
 async function applyTradeMode(){
   window.__trade=tradeMode;
