@@ -362,8 +362,8 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
-  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on,#card .sm.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm,#card .aoc{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on,#card .sm.on,#card .aoc.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .sectban{margin-top:6px;font-size:11px;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:9px;padding:6px 9px;line-height:1.4}
   #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:22px;cursor:pointer}
   #card .szval{flex:0 0 auto;font-size:10px;color:var(--muted);font-weight:700;white-space:nowrap}
@@ -919,7 +919,11 @@
      A top-down panel grid drawn over the annual-flux sun heatmap. Selected = a real panel (premium),
      unselected = an empty slot, low-sun panels flagged. Live metrics + bill before/after update on every tap. */
   #solarGrid{position:absolute;inset:0;z-index:34;display:none;flex-direction:column;background:#0b1220}
-  #solarGrid .sg-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,.55) 70%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #solarGrid .sg-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,.62) 78%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  /* panel-quality tier TABS — equal thirds, ellipsis-safe at 375px; selected = OUTLINE emphasis (hard rule: never a bright fill) */
+  #solarGrid .sg-tiers{flex-basis:100%;display:flex;gap:6px;margin-top:2px}
+  #solarGrid .sg-tier{flex:1 1 0;min-width:0;padding:7px 4px;border-radius:99px;border:1px solid rgba(255,255,255,.26);background:rgba(11,18,32,.45);color:rgba(255,255,255,.82);font:700 11.5px/1.1 "Satoshi",system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  #solarGrid .sg-tier.on{border-color:#7ea6ff;color:#fff;background:rgba(126,166,255,.08);box-shadow:0 0 0 1.5px #7ea6ff inset,0 0 0 3px rgba(126,166,255,.16)}
   #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
   #solarGrid .sg-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -1468,6 +1472,9 @@
       <div><div class="sg-title">Design your solar system<small id="sgSubtitle">Tap the squares to add or remove panels</small></div></div>
       <!-- (CUT-3D) the 2D/3D pill was hidden but left as dead chrome + live handlers; removed. 2D flux grid is the only solar designer surface. -->
       <button class="sg-x" id="sgClose" type="button" aria-label="Close panel designer">&times;</button>
+      <!-- PANEL-QUALITY TIER TABS — Budget / Most popular / Premium. Populated from PANEL_TIERS at wire-up
+           (single source of truth for labels); switching re-prices + re-skins the placed modules live. -->
+      <div class="sg-tiers" id="sgTiers" role="tablist" aria-label="Panel quality"></div>
     </div>
     <div class="sg-stage"><canvas id="sgCanvas"></canvas>
       <div class="sg-hint" id="sgHint"><span class="sg-leg"><b>Sun</b><i class="sg-grad"></i>less&nbsp;→&nbsp;more</span><span class="sg-leg"><i style="background:#0d1017;box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)"></i>panel</span><span class="sg-leg"><i style="background:rgba(255,255,255,.28);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)"></i>empty</span><span class="sg-leg" id="sgLegLow" style="display:none"><i style="background:transparent;box-shadow:inset 0 0 0 2px #f59e0b"></i>low-sun panel</span></div>
@@ -2530,13 +2537,20 @@ function evSizing(t){ if(!addEV||!t||!t.kwhAc||!t.kw) return {kw:0,panels:0,kwh:
   return {kw,panels,kwh}; }
 // "size to your bill" (Sunroof-style): pick a monthly bill → auto-size the system to offset it
 const BILL_OPTS=[100,150,200,300,400]; let solarBill=0;
-// solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped, adjusts price + warranty/efficiency
+// solar PANEL quality tiers (separate from the system-SIZE tiers) — brand-mapped. Each tier carries its
+// REAL nameplate wattage (drives kW + kWh/yr — physical panel DIMENSIONS never change across tiers), a
+// price multiplier on the solar system only (never add-ons), and a `look` skin for the designer canvas.
+const KWH_REF_WATT=400;   // Google's per-panel kWh assumes a ~400 W nameplate — tier watts scale energy off this reference
 const PANEL_TIERS=[
-  {id:"std",  label:"Standard", brand:"Q CELLS / REC-class", mult:1.00, warranty:"25-yr", eff:"~21%",  note:"High-value Tier-1 monocrystalline panels — the market sweet spot most homes get."},
-  {id:"prem", label:"Premium",  brand:"REC Alpha / Panasonic-class", mult:1.18, warranty:"25–30-yr", eff:"~21.7%", note:"Higher efficiency and a longer product warranty — more power from the same roof."},
-  {id:"premp",label:"Premium+", brand:"SunPower / Maxeon-class", mult:1.25, warranty:"40-yr", eff:"22%+", note:"Top efficiency-per-square-foot and a 40-year warranty — the best long-term performance."},
+  {id:"budget", label:"Budget",       brand:"Value Tier-1 class",    mult:0.90, watt:390, warranty:"25-yr", eff:"~20%",   look:"blue"},
+  {id:"pop",    label:"Most popular", brand:"Q CELLS / REC-class",   mult:1.00, watt:420, warranty:"25-yr", eff:"~21.5%", look:"black"},
+  {id:"prem",   label:"Premium",      brand:"SunPower Maxeon-class", mult:1.25, watt:440, warranty:"40-yr", eff:"~22.5%", look:"sleek"},
 ];
-let selPanel=0, payMode="loan";   // payMode: cash | loan | lease (lease shown only if TENANT.financing.leaseEnabled)
+let selPanel=1, payMode="loan";   // selPanel default = "Most popular" · payMode: cash | loan | lease (lease shown only if TENANT.financing.leaseEnabled)
+// QUICK ADD-ONS (quote-card chips): battery backup (ITC-eligible) + Level-2 EV charger (flat — NOT in the
+// ITC base). Installed lo–hi bands added on top of the solar system; the tier `mult` never applies to them.
+const ADDON_PRICES={ battery:{lo:9500,hi:12000,label:"Battery backup"}, ev:{lo:1200,hi:1800,label:"EV charger"} };
+window.__addons={battery:false,ev:false};
 function applyRoofOpts(lo, hi, sqs, t){
   if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
@@ -3434,12 +3448,20 @@ function renderQuoteCard(){
     const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
     if(addEV && evS.kw){ const evCost=Math.round(evS.kw*1000*2.8); lo+=evCost; hi+=Math.round(evCost*1.1); }   // extra solar to cover EV charging (~$2.8/W)
     if(addCharger){ lo+=CHARGER_COST; hi+=Math.round(CHARGER_COST*1.15); }   // Level-2 EV charger install
+    // ── QUICK ADD-ON CHIPS (Battery backup / EV charger) — flat installed lo–hi bands ADDED AFTER the
+    //    tier multiplier (mult applies to the solar system only, never add-ons). Battery is ITC-ELIGIBLE
+    //    (stays in the credit base); the EV charger is NOT — its mid-price is carved out of the ITC base
+    //    below via evcMid. Mutually exclusive with the legacy accordion battery/charger (handlers enforce).
+    const ao=window.__addons||(window.__addons={battery:false,ev:false});
+    if(ao.battery){ lo+=ADDON_PRICES.battery.lo; hi+=ADDON_PRICES.battery.hi; }
+    if(ao.ev){ lo+=ADDON_PRICES.ev.lo; hi+=ADDON_PRICES.ev.hi; }
+    const evcMid=ao.ev?Math.round((ADDON_PRICES.ev.lo+ADDON_PRICES.ev.hi)/2):0;   // EV-charger portion excluded from the ITC base
     // EV adds real panels to the roof — the headline system (panels/kW/production) and SREC must reflect them,
     // not just the price. Otherwise the customer pays for panels the system summary never shows.
     const evAdd=(addEV&&evS.kw)?evS:{panels:0,kw:0,kwh:0};
     const totPanels=panels+(evAdd.panels||0), totKw=+(sysKw+(evAdd.kw||0)).toFixed(1), totKwh=sysKwh+(evAdd.kwh||0);
     const sMid=(lo+hi)/2;
-    const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));   // net price after the 30% federal ITC (US); feeds payback + financing
+    const itcR=itcRate(), itcAmt=itcAmount(sMid-evcMid), netCost=Math.round((sMid-evcMid)*(1-itcR))+evcMid;   // net price after the 30% federal ITC (US) — EV charger stays OUTSIDE the credit base; feeds payback + financing
     const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);   // owned-system loan (config-driven APR/sanitized-term), financed on the post-ITC net cost
     const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(totKwh);
@@ -3472,6 +3494,14 @@ function renderQuoteCard(){
         '</div>'; })():'';
     const panelRow='<div class="opt-row"><span class="opt-l ico">'+CAT_ICON.panels+'Panels'+ACUE("panels")+'</span>'+PANEL_TIERS.map((pt,i)=>'<button class="pb'+(selPanel===i?' on':'')+'" data-panel="'+i+'">'+pt.label+'</button>').join('')+'</div>';
     const panelNote='<div class="qfin" style="margin-top:4px">'+pTier.brand+' · '+pTier.eff+' efficiency · '+pTier.warranty+' warranty</div>';
+    // quick ADD-ON toggle chips (Battery backup / EV charger) — outline-selected, no $ in the chip (gate-safe);
+    // each chip honours the same tenant feature flag as its legacy accordion counterpart
+    const aoBatChip=TENANT.features.battery?('<button class="aoc'+(ao.battery?' on':'')+'" data-ao="battery" type="button">'+(ao.battery?'✓ ':'')+ADDON_PRICES.battery.label+'</button>'):'';
+    const aoEvChip=TENANT.features.ev?('<button class="aoc'+(ao.ev?' on':'')+'" data-ao="ev" type="button">'+(ao.ev?'✓ ':'')+ADDON_PRICES.ev.label+'</button>'):'';
+    const aoRow=(aoBatChip||aoEvChip)?('<div class="opt-row" style="margin-top:6px"><span class="opt-l ico">'+CAT_ICON.battery+'Add-ons'+ACUE("qaddons")+'</span>'+aoBatChip+aoEvChip+'</div>'):'';
+    // active add-ons surface as small "incl. …" line items directly under the price (ungated branch only)
+    const addonLines=(ao.battery?'<div class="qfin" style="margin-top:2px">incl. '+ADDON_PRICES.battery.label+' +'+fmtMoney(ADDON_PRICES.battery.lo)+'–'+ADDON_PRICES.battery.hi.toLocaleString()+(itcR>0?' (tax-credit eligible)':'')+'</div>':'')+
+      (ao.ev?'<div class="qfin" style="margin-top:2px">incl. '+ADDON_PRICES.ev.label+' +'+fmtMoney(ADDON_PRICES.ev.lo)+'–'+ADDON_PRICES.ev.hi.toLocaleString()+'</div>':'');
     // system-size slider — add/remove panels (Tesla-style "size your system")
     const sizeRow=TENANT.features.sizeSlider?'<div class="opt-row" style="margin-top:6px"><span class="opt-l">System size</span><input class="szrange" type="range" min="40" max="120" step="5" value="'+Math.round(sizePct*100)+'" data-size><span class="szval">'+panels+' panels · '+sysKw+' kW</span></div>':'';
     // attached-home (townhouse / semi-detached): let the owner pick just their section vs the whole building
@@ -3499,7 +3529,7 @@ function renderQuoteCard(){
     const evCard=evToggle?'<div class="addon-card">'+evToggle+evNote+'</div>':'';
     const addonsSec=(batCard||evCard)?'<div class="cust-sec">Add-ons</div>'+batCard+evCard:'';
     const solDetail=window.__solarExpanded?'<div class="cust">'+
-      '<div class="cust-sec">Your system</div>'+sectionRow+sizeRow+panelRow+panelNote+billRow+coverLine+
+      '<div class="cust-sec">Your system</div>'+sectionRow+sizeRow+panelRow+panelNote+aoRow+billRow+coverLine+
       addonsSec+'</div>':'';
     const solToggle='<button class="cust-toggle" data-sexp>'+(window.__solarExpanded?'Hide options ▴':'Customize · size, battery &amp; EV ▾')+'</button>';
     const sectionBanner=(window.__attached&&window.__sectionMode!=="whole")?'<div class="sectban">⌂ Attached home — this quote covers <b>your section</b>, not the whole building. Tune it under Customize.</div>':'';
@@ -3518,7 +3548,7 @@ function renderQuoteCard(){
     const _solGated=(typeof window.__priceGated==="function") && window.__priceGated("solar");
     body=(_solGated
         ? quoteCardMaskHtml("solar")+sectionBanner
-        : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+sectionBanner+
+        : '<div class="qprice">'+fmtMoney(lo)+'–'+fmtMoney(hi)+'</div><div class="qsub">est. installed · saves ~'+fmtMoney(sysMonthly)+'/mo on power*'+HCUE("solar")+'</div>'+addonLines+sectionBanner+
       itcLine+finDisplay+payRow+
       moneyStory+kpiStrip+srecLine)+
       gridOpenBtn+
@@ -3682,14 +3712,20 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-disc]").forEach(b=>{ const open=e=>{ e.stopPropagation(); openInfoModal(DISC_FULL[b.dataset.disc]||DISC_FULL.solar); }; b.onclick=open; b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(e); } }; });
   card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
-  card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; window.__addonOpen=addBattery?"battery":(window.__addonOpen==="battery"?null:window.__addonOpen); renderQuoteCard(); });
+  // QUICK ADD-ON chips (Battery backup / EV charger) — flat lo–hi bands; mutually exclusive with the
+  // legacy accordion battery/charger so an add-on is never double-counted in the price.
+  card.querySelectorAll(".aoc").forEach(b=>b.onclick=()=>{ const k=b.dataset.ao, ao=window.__addons||(window.__addons={battery:false,ev:false}); if(!(k in ao)) return; ao[k]=!ao[k];
+    if(k==="battery" && ao.battery && addBattery){ addBattery=false; window.__addonOpen=(window.__addonOpen==="battery")?null:window.__addonOpen; }
+    if(k==="ev" && ao.ev && addCharger){ addCharger=false; }
+    renderQuoteCard(); });
+  card.querySelectorAll("[data-bat]").forEach(b=>b.onclick=()=>{ addBattery=!addBattery; if(addBattery && window.__addons) window.__addons.battery=false; window.__addonOpen=addBattery?"battery":(window.__addonOpen==="battery"?null:window.__addonOpen); renderQuoteCard(); });
   card.querySelectorAll("[data-aopen]").forEach(b=>b.onclick=()=>{ const k=b.dataset.aopen; window.__addonOpen=(window.__addonOpen===k?null:k); renderQuoteCard(); });
   card.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{ const id=b.dataset.load; if(selLoads.has(id)) selLoads.delete(id); else selLoads.add(id); renderQuoteCard(); });
   card.querySelectorAll("[data-bdays]").forEach(b=>b.onclick=()=>{ backupDays=+b.dataset.bdays; renderQuoteCard(); });
   card.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{ addEV=!addEV; window.__addonOpen=addEV?"ev":(window.__addonOpen==="ev"?null:window.__addonOpen); renderQuoteCard(); });
   card.querySelectorAll("[data-evt]").forEach(b=>b.onclick=()=>{ selEV=+b.dataset.evt; renderQuoteCard(); });
   card.querySelectorAll("[data-evm]").forEach(b=>b.onclick=()=>{ evMiles=+b.dataset.evm; renderQuoteCard(); });
-  card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; renderQuoteCard(); });
+  card.querySelectorAll("[data-charger]").forEach(b=>b.onclick=()=>{ addCharger=!addCharger; if(addCharger && window.__addons) window.__addons.ev=false; renderQuoteCard(); });
   card.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>{ payMode=b.dataset.pm; renderQuoteCard(); });
   card.querySelectorAll("[data-size]").forEach(s=>{ s.onchange=async()=>{ window.__sizePct=(+s.value)/100; window.__selPanels=null; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } }; });   // the size slider overrides a custom grid design
   const reSection=async()=>{ window.__sizePct=1; window.__selPanels=null; SG_STATE=null; rebuildSolarTiers(); renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false); } else { syncModelPanelsToCard(); } };
@@ -4880,7 +4916,7 @@ async function run(addr){
   if(typeof window.__leaveHero==="function") window.__leaveHero();   // dismiss the landing hero once a quote starts
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
   try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // (FIX 2) fresh address → reset the edit-step gate cleanly
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=0; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false; try{ if(typeof RoofDots!=="undefined"){ RoofDots.hide(); RoofDots.reset(); } window.__editTotals=null; window.__dotsAuto=null; }catch(_){}   // (dots) new address → drop the previous roof's edited outline + editor state   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=1; window.__addons={battery:false,ev:false}; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false; try{ if(typeof RoofDots!=="undefined"){ RoofDots.hide(); RoofDots.reset(); } window.__editTotals=null; window.__dotsAuto=null; }catch(_){}   // (dots) new address → drop the previous roof's edited outline + editor state   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     // If this run was launched by picking an autocomplete suggestion whose text matches what we're
     // geocoding, use that suggestion's place_id for an EXACT-parcel resolve (no street drift). The
@@ -5011,7 +5047,7 @@ async function run(addr){
     window.__committedFlatSqFt=null; window.__committedSlopedSqFt=null;   // NEW address/roof → drop any committed edited flat+sloped area from a prior run (no stale leak across addresses)
     setRegion();
     window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached footprint → OFFER the owner's-section toggle (quote still defaults to the whole roof below)
-    window.__selPanels=null; SG_STATE=null;   // a NEW roof invalidates any custom panel-grid design from a prior address
+    window.__selPanels=null; SG_STATE=null; window.__addons={battery:false,ev:false};   // a NEW roof invalidates any custom panel-grid design + quick add-ons from a prior address
     if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="whole"; if(!window.__sectionShare) window.__sectionShare=Math.max(0.5,+(1/estUnits(spv)).toFixed(2)); }   // correctness-by-default: quote the WHOLE confirmed roof; "My section" is user-opt-in via the toggle. Share floored at 0.5 (a residential unit is at least half a duplex) for when the user DOES opt in.
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
@@ -10087,6 +10123,12 @@ function sgDraw(){
   let _kMin=Infinity,_kMax=-Infinity;
   for(const c of SG_STATE.panels){ const k=c.kwh||0; if(k>0){ if(k<_kMin)_kMin=k; if(k>_kMax)_kMax=k; } }
   const _kRange=(_kMax>_kMin)?(_kMax-_kMin):1;
+  // per-TIER module skin (subtle — shadow/sheen/bevel/badges/amber-rim identical across tiers):
+  //   "blue"  (Budget)       → faint deep-blue body cast + classic SILVER frame (value-panel look)
+  //   "black" (Most popular) → the current premium all-black rendering, unchanged
+  //   "sleek" (Premium)      → deeper uniform black, NO column hairlines / centre busbar split
+  //                            (Maxeon back-contact); whisper cell grid only at very high zoom
+  const _look=((PANEL_TIERS[selPanel]||PANEL_TIERS[1]).look)||"black";
   for(const c of SG_STATE.panels){
     if(!c.px) continue;
     const on=sel.has(c.id), hot=(c.id===hoverId);
@@ -10117,12 +10159,19 @@ function sgDraw(){
       ctx.fillStyle="#05070c"; ctx.fill();
       ctx.restore();
       // (B) BODY — near-black silicon, subtle vertical gradient, brightened + faintly warmed by irradiance.
+      //     Tier skins: "blue" shifts the body ~+0/+4/+14 toward navy (classic value-panel cast);
+      //     "sleek" flattens the vertical gradient into a deeper uniform black (Maxeon look).
       const ft=(c.kwh>0)?Math.max(0,Math.min(1,(c.kwh-_kMin)/_kRange)):0.5;   // 0 = shaded, 1 = best sun
       const lift=Math.round(ft*11);
-      const bodyTop = hot ? `rgb(${26+lift},${31+lift},${41+lift})` : `rgb(${16+lift+Math.round(ft*4)},${19+lift},${27+lift})`;
+      const bodyTop = _look==="blue"
+        ? (hot ? `rgb(${26+lift},${35+lift},${55+lift})` : `rgb(${16+lift+Math.round(ft*4)},${23+lift},${41+lift})`)
+        : _look==="sleek"
+        ? (hot ? `rgb(${18+lift},${21+lift},${28+lift})` : `rgb(${10+lift},${12+lift},${17+lift})`)
+        : (hot ? `rgb(${26+lift},${31+lift},${41+lift})` : `rgb(${16+lift+Math.round(ft*4)},${19+lift},${27+lift})`);
       const gy0=Math.min(c.px[0].y,c.px[1].y,c.px[2].y,c.px[3].y), gy1=Math.max(c.px[0].y,c.px[1].y,c.px[2].y,c.px[3].y);
       const grad=ctx.createLinearGradient(cx,gy0,cx,gy1);
-      grad.addColorStop(0,bodyTop); grad.addColorStop(1,"rgb(8,10,15)");
+      grad.addColorStop(0,bodyTop);
+      grad.addColorStop(1, _look==="sleek" ? bodyTop : (_look==="blue" ? "rgb(8,12,22)" : "rgb(8,10,15)"));   // sleek = FLAT (both stops equal)
       ctx.fillStyle=grad; ctx.fill();
       ctx.save(); ctx.clip();
       // (C) CELL GRID — subtle but ALWAYS-VISIBLE monocrystalline lattice so the module reads as a SOLAR
@@ -10138,12 +10187,22 @@ function sgDraw(){
       nRows = Math.min(nRows, 20, Math.max(2, Math.floor(longPx/3)));   // ≥3px per row, cap 20
       if(nRows%2) nRows++;                                          // even → clean centre split
       const gline = Math.max(0.6, 0.7*pr.dpr);
-      ctx.lineWidth=gline; ctx.strokeStyle="rgba(202,216,238,0.17)";
-      for(let i=1;i<nCols;i++){ const f=i/nCols, a=P(0,f),b=P(1,f); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
-      for(let k=1;k<nRows;k++){ if(k===nRows/2) continue; const f=k/nRows, a=P(f,0),b=P(f,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
-      // centre busbar split — a touch stronger so the half-cut signature always reads
-      ctx.lineWidth=Math.max(0.8,1.0*pr.dpr); ctx.strokeStyle="rgba(216,227,245,0.30)";
-      { const a=P(0.5,0),b=P(0.5,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      if(_look==="sleek"){
+        // Premium (Maxeon back-contact) — NO visible busbars: no column hairlines, no centre split.
+        // Only a whisper cell grid at very high zoom so a close look still reads "solar", not vinyl.
+        if(longPx>90){
+          ctx.lineWidth=gline; ctx.strokeStyle="rgba(202,216,238,0.07)";
+          for(let i=1;i<nCols;i++){ const f=i/nCols, a=P(0,f),b=P(1,f); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+          for(let k=1;k<nRows;k++){ const f=k/nRows, a=P(f,0),b=P(f,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+        }
+      } else {
+        ctx.lineWidth=gline; ctx.strokeStyle="rgba(202,216,238,0.17)";
+        for(let i=1;i<nCols;i++){ const f=i/nCols, a=P(0,f),b=P(1,f); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+        for(let k=1;k<nRows;k++){ if(k===nRows/2) continue; const f=k/nRows, a=P(f,0),b=P(f,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+        // centre busbar split — a touch stronger so the half-cut signature always reads
+        ctx.lineWidth=Math.max(0.8,1.0*pr.dpr); ctx.strokeStyle="rgba(216,227,245,0.30)";
+        { const a=P(0.5,0),b=P(0.5,1); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      }
       // (D) SKY SHEEN — faint diagonal reflection off the top-left (px0) corner. Premium glass.
       //     Rebuild the panel path first: the grid/busbar strokes above left the current path on a cell
       //     line, so a plain fill() here would fill nothing.
@@ -10159,7 +10218,8 @@ function sgDraw(){
       //     MIDDLE) instead of the rim.
       ctx.lineCap="round";
       roundQuad(c.px,rad);
-      ctx.lineWidth=Math.max(1.4,1.8*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : "#171a21";
+      // Budget ("blue") keeps a classic SILVER (mill-anodised) frame; other tiers stay black-anodised.
+      ctx.lineWidth=Math.max(1.4,1.8*pr.dpr); ctx.strokeStyle = c.lowSun ? "rgba(251,191,36,0.95)" : (_look==="blue" ? "rgba(205,214,228,0.9)" : "#171a21");
       ctx.stroke();
       if(!c.lowSun){
         ctx.lineWidth=Math.max(0.7,0.9*pr.dpr);
@@ -10222,12 +10282,16 @@ function sgDraw(){
 // 2.5–3.1, panel-quality multiplier, ITC, monthly() financing) so the grid never forks the cost model.
 function gridSelectionMetrics(){
   if(!SG_STATE) return null;
-  const sel=SG_STATE.sel, w=SG_STATE.wattsPerPanel;
+  const pTier=PANEL_TIERS[selPanel]||PANEL_TIERS[1];
+  // TIER WATTAGE drives the numbers: kW uses the selected tier's real nameplate; per-panel energy scales
+  // by tierWatt / the class reference (Google's per-panel kWh assumes ~KWH_REF_WATT nameplate; commercial
+  // class carries its own 500 W reference in wattsPerPanel). Count/layout NEVER change with the tier.
+  const sel=SG_STATE.sel, w=pTier.watt||SG_STATE.wattsPerPanel;
+  const eScale=w/(SG_STATE.wattsPerPanel||KWH_REF_WATT);
   let panels=0, kwhDc=0;
-  for(const c of SG_STATE.panels){ if(sel.has(c.id)){ panels++; kwhDc+=(c.kwh||0); } }
+  for(const c of SG_STATE.panels){ if(sel.has(c.id)){ panels++; kwhDc+=(c.kwh||0)*eScale; } }
   const kw=+(panels*w/1000).toFixed(2);
   const kwhAc=Math.round(kwhDc*0.85);                                   // DC→AC derate, same factor as solarTiersFrom
-  const pTier=PANEL_TIERS[selPanel]||PANEL_TIERS[0];
   let lo=Math.round(kw*1000*2.5/100)*100*pTier.mult, hi=Math.round(kw*1000*3.1/100)*100*pTier.mult;   // same $/W band + quality multiplier as the card
   const sMid=(lo+hi)/2;
   const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));    // post-ITC, same as the card
@@ -10306,6 +10370,12 @@ function sgHover(px,py){
   if(id!==SG_STATE.hoverId){ SG_STATE.hoverId=id; sgDraw();
     const cv=$("sgCanvas"); if(cv) cv.style.cursor=(id!=null)?"pointer":"default"; }
 }
+// ── Panel-quality tier tabs: reflect the CURRENT selPanel (the estimate card's .pb buttons share the
+//    same state, so the designer must re-sync its tabs every open + on every tab click).
+function sgSyncTierTabs(){
+  const t=$("sgTiers"); if(!t) return;
+  t.querySelectorAll(".sg-tier").forEach(b=>{ const on=(+b.dataset.tier)===selPanel; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); });
+}
 // ── Open / close the interactive grid overlay.
 function openSolarGrid(){
   const cand=buildGridCandidates(); if(!cand){ return; }
@@ -10313,6 +10383,7 @@ function openSolarGrid(){
   // seed the bill input from any earlier card selection so the two surfaces stay in sync
   if(solarBill>0 && !$("sgBill").value) $("sgBill").value=solarBill;
   $("solarGrid").style.display="flex";
+  sgSyncTierTabs();   // tier tabs mirror the card's current panel-quality selection
   // hide funnel/search chrome so the immersive designer owns the screen; restored on close
   const fb=$("funnelBar"); if(fb) fb.dataset.sgPrev=fb.style.display; if(fb) fb.style.display="none";
   // always open on the 2D grid (the owner-mandated default); reset the toggle + hide the 3D back chip
@@ -10584,6 +10655,22 @@ window.__sgFirstSelectedVisibleCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return
   const zIn=$("sgZoomIn"); if(zIn) zIn.onclick=()=>{ if(SG_STATE&&SG_STATE.proj) sgZoomAt(cv.width/2, cv.height/2, 1.35); };
   const zOut=$("sgZoomOut"); if(zOut) zOut.onclick=()=>{ if(SG_STATE&&SG_STATE.proj) sgZoomAt(cv.width/2, cv.height/2, 1/1.35); };
   const close=$("sgClose"); if(close) close.onclick=()=>closeSolarGrid(false);
+  // ── PANEL-QUALITY TIER TABS (Budget / Most popular / Premium) — labels come from PANEL_TIERS (single
+  //    source of truth, same array the card's .pb row renders). Switching a tab re-prices (watt + mult)
+  //    and re-SKINS the placed modules; panel COUNT and grid layout never change. The quote card reads
+  //    selPanel on its next render, and a live custom design (__selPanels) is refreshed at the new watt
+  //    so the card headline stays in sync even before the designer closes.
+  const tiersEl=$("sgTiers");
+  if(tiersEl){
+    tiersEl.innerHTML=PANEL_TIERS.map((pt,i)=>'<button class="sg-tier'+(i===selPanel?' on':'')+'" type="button" role="tab" aria-selected="'+(i===selPanel)+'" data-tier="'+i+'" title="'+pt.brand+' · '+pt.eff+' · '+pt.warranty+' warranty">'+pt.label+'</button>').join('');
+    tiersEl.querySelectorAll(".sg-tier").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.tier; if(!(PANEL_TIERS[i])||i===selPanel) return;
+      selPanel=i; sgSyncTierTabs();
+      if(SG_STATE){ sgDraw(); sgUpdateMetrics(); }
+      if(window.__selPanels && window.__selPanels.panels>0){ const m=gridSelectionMetrics(); if(m && m.panels>0) window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw }; }
+      try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){}
+    });
+  }
   const reset=$("sgResetBtn"); if(reset) reset.onclick=()=>{ if(SG_STATE){ SG_STATE.sel=gridDefaultSelection(SG_STATE.panels); SG_STATE.vp={tx:0,ty:0,scale:1}; sgClampVp(); sgLayout(); sgDraw(); sgUpdateMetrics(); } };
   // PER-TRADE GATE (solar): "Use this system" reveals the estimate. If solar is gated and no
   // lead yet, collect contact FIRST, then close the grid + reveal. closeSolarGrid(true) commits
@@ -12537,10 +12624,14 @@ const ADD_INFO={
     {n:"New gutters", d:"Replace gutters & downspouts while roof access is already set up — protects your fascia and foundation. ~$9–15 per foot of eave."},
     {n:"Steep / 2-story", d:"A steep pitch (9/12+) or a two-storey home needs extra fall-protection and slower, safer work — about +12% on labour."},
   ]},
-  panels:{ title:"Solar panel quality", sub:"Standard / Premium / Premium+", items:[
-    {n:"Standard", d:"High-value Tier-1 monocrystalline panels (Q CELLS / REC-class), ~21% efficient, 25-year warranty — what most homes get."},
-    {n:"Premium (~+18%)", d:"REC Alpha / Panasonic-class — higher efficiency and a longer 25–30-year warranty, so you get more power from the same roof area."},
-    {n:"Premium+ (~+25%)", d:"SunPower / Maxeon-class — the top efficiency-per-square-foot and a 40-year warranty for the best long-term performance and resale."},
+  panels:{ title:"Solar panel quality", sub:"Budget / Most popular / Premium", items:[
+    {n:"Budget (~−10%)", d:"Value Tier-1 class 390 W panels, ~20% efficient, 25-year warranty — a solid classic-look panel at the lowest price."},
+    {n:"Most popular", d:"Q CELLS / REC-class all-black 420 W panels, ~21.5% efficient, 25-year warranty — the market sweet spot most homes get."},
+    {n:"Premium (~+25%)", d:"SunPower Maxeon-class 440 W panels — the top efficiency-per-square-foot (~22.5%) and a 40-year warranty for the best long-term performance and resale."},
+  ]},
+  qaddons:{ title:"Add-ons", sub:"Battery backup & EV charger", items:[
+    {n:"Battery backup (+$9,500–12,000 installed)", d:"Stores solar power so your essentials keep running during a grid outage and lets you use more of your own solar at night. A solar-charged battery qualifies for the 30% federal tax credit — we include it in the credit estimate."},
+    {n:"EV charger (+$1,200–1,800 installed)", d:"A Level-2 (240V) home charger charges 5–7× faster than a standard outlet. Price includes the charger and a typical installation; it isn't part of the federal solar tax credit."},
   ]},
   battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
