@@ -9679,6 +9679,10 @@ let SG_STATE=null;   // { panels:[{id,pn,seg,flux,fluxT,kwh,corners,px:[{x,y}]}]
    roof's genuine high/low-sun spread still reads across the ramp. Defined here (before sgDraw) because
    `const` is not hoisted. */
 const SG_FLUX_MAX=1800;                                    // Google annualFlux normalization max (kWh/kW/yr)
+const SG_STRETCH_MIN=800;   // if a roof's REAL p5–p95 flux spread ≥ this (genuine pitch/orientation signal, not
+                            // flat-roof noise), the heatmap stretches to that per-roof range so the sunny vs shady
+                            // sides read across the full palette. Below it → keep the fixed [0..SG_FLUX_MAX] scale
+                            // (flat roof stays one honest wash, no manufactured banding). Same floor as ABS_MIN_RANGE.
 const SG_IRON_STOPS=[[0,0,10],[145,0,156],[230,70,22],[254,180,0],[255,255,246]];   // ironPalette hex → rgb
 function fluxIronColor(t){ t=Math.max(0,Math.min(1,t));
   const n=SG_IRON_STOPS.length-1, idx=t*n, seg=Math.min(n-1,Math.floor(idx)), f=idx-seg, a=SG_IRON_STOPS[seg],b=SG_IRON_STOPS[seg+1];
@@ -9804,8 +9808,9 @@ function buildGridCandidates(){
     }
   }catch(_){}
   // robust flux ramp: 5th–95th percentile so a hot/cold outlier doesn't flatten the colours (matches the heatmap intent)
-  let fmin=0, fmax=1;
+  let fmin=0, fmax=1, fluxSpread=0;
   if(fluxVals.length>=4){ fluxVals.sort((a,b)=>a-b); fmin=fluxVals[Math.floor(fluxVals.length*0.05)]; fmax=fluxVals[Math.floor(fluxVals.length*0.95)]; if(fmax<=fmin) fmax=fmin+1;
+    fluxSpread = fmax - fmin;   // TRUE p5–p95 spread, captured BEFORE the anti-banding floor expands a flat roof to ABS_MIN_RANGE
     // HONEST DYNAMIC-RANGE FLOOR. On a large, FLAT, uniformly-lit roof the 5–95 flux values cluster in a
     // tiny band (e.g. Hamilton ~540 kWh/m²/yr p5–p95), so the narrow fmin/fmax stretches sensor-noise-level
     // differences across the WHOLE magma ramp → fake contour BANDING on a physically near-uniform roof. We
@@ -9848,7 +9853,7 @@ function buildGridCandidates(){
       ? (absT < SG_LOWSUN_ABS)
       : (!!fg);   // null flux on a measured roof → suspect (edge/occluded), still flag; unmeasured roof → not flagged
   }
-  return { panels:cand, bbox:[minE,minN,maxE,maxN], clipBoxes, zone, wattsPerPanel, fmin, fmax, fluxBest, engineered:eng, haveFlux:!!fg };
+  return { panels:cand, bbox:[minE,minN,maxE,maxN], clipBoxes, zone, wattsPerPanel, fmin, fmax, fluxSpread, fluxBest, engineered:eng, haveFlux:!!fg };
 }
 // Default selection = Google's recommended config count (best squares first), so the user opens onto a
 // sensible system and tweaks from there. Falls back to all non-shaded squares, then all squares.
@@ -9981,13 +9986,18 @@ function sgDraw(){
     return [bl(rgR),bl(rgG),bl(rgB)]; };
   {
     // GOOGLE PROJECT-SUNROOF flux colorization (matches googlemaps-samples/js-solar-potential).
-    //   • normalize annual flux over the FIXED documented range [0 .. SG_FLUX_MAX] kWh/kW/yr, NOT this roof's
-    //     5–95 percentile. The percentile stretch manufactured contour BANDING on a physically near-uniform
-    //     flat roof (Hamilton) because it blew a tiny sensor-noise band across the whole ramp. A fixed range
-    //     reads a flat roof as one smooth wash and still shows a pitched roof's real high/low-sun spread,
-    //     exactly like Google Sunroof's own graphic. (Per-roof fmin/fmax is kept ONLY for kWh/lowSun ranking.)
+    //   • GUARDED PER-ROOF CONTRAST STRETCH. Default = the FIXED documented range [0 .. SG_FLUX_MAX] kWh/kW/yr.
+    //     A blind per-roof 5–95 stretch once manufactured contour BANDING on a physically near-uniform flat roof
+    //     (Hamilton) — it blew a tiny sensor-noise band across the whole ramp. So we ONLY stretch to the roof's
+    //     real [fmin..fmax] when its TRUE p5–p95 spread (fluxSpread, captured before the anti-banding floor) is
+    //     genuinely wide (≥ SG_STRETCH_MIN) — i.e. real pitch/orientation signal (e.g. a gabled roof: sunny plane
+    //     vs steep-north plane). Flat/evenly-lit roofs (spread below the floor) keep the fixed scale and stay one
+    //     honest wash — no banding, by construction. This makes the sunny-vs-shady side legible where it exists.
     //   • colorize with Google's "iron" palette via fluxIronColor().
-    const range=SG_FLUX_MAX, fmin0=0;                      // fixed Google normalization: normalize(v, max=SG_FLUX_MAX, min=0)
+    let range=SG_FLUX_MAX, fmin0=0;                       // default: fixed Google normalization [0..SG_FLUX_MAX]
+    if((SG_STATE.fluxSpread||0)>=SG_STRETCH_MIN && SG_STATE.fmax>SG_STATE.fmin){
+      fmin0=SG_STATE.fmin; range=(SG_STATE.fmax-SG_STATE.fmin);   // wide, real spread → stretch to this roof's p5–p95
+    }
     const SS=2;                                           // device px per low-res sample. FIXED at 2 (was max(2,round(2*dpr))=4 on a 2× display):
                                                           // a finer buffer + the multi-pass blur below removes the stair-stepping a 4×-downsampled
                                                           // buffer left visible on a large, frame-filling FLAT roof. 2px is still cheap; GPU upscales.
@@ -10286,7 +10296,7 @@ function sgHover(px,py){
 // ── Open / close the interactive grid overlay.
 function openSolarGrid(){
   const cand=buildGridCandidates(); if(!cand){ return; }
-  SG_STATE={ panels:cand.panels, bbox:cand.bbox, clipBoxes:cand.clipBoxes, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels), hoverId:null, vp:{tx:0,ty:0,scale:1} };
+  SG_STATE={ panels:cand.panels, bbox:cand.bbox, clipBoxes:cand.clipBoxes, zone:cand.zone, wattsPerPanel:cand.wattsPerPanel, fmin:cand.fmin, fmax:cand.fmax, fluxSpread:cand.fluxSpread, fluxBest:cand.fluxBest, haveFlux:cand.haveFlux, engineered:cand.engineered, sel:gridDefaultSelection(cand.panels), hoverId:null, vp:{tx:0,ty:0,scale:1} };
   // seed the bill input from any earlier card selection so the two surfaces stay in sync
   if(solarBill>0 && !$("sgBill").value) $("sgBill").value=solarBill;
   $("solarGrid").style.display="flex";
