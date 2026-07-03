@@ -13212,6 +13212,21 @@ function measurementReport(t, sqs, kind){
   const baseSq=repSq;   // waste % applies to the MEASURED (pitch-adjusted) sloped squares shown in stats/takeoff — not the flat footprint, or the table contradicts the rest of the report
   const wasteCells=WASTE_OPTS.map((p,i)=>{ const sq=(baseSq*(1+p/100)); return '<td class="'+(i===rec?'rec':'')+'"><div class="wp">'+p+'%'+(i===rec?' ✓':'')+'</div><b>'+sq.toFixed(1)+'</b> sq</td>'; }).join('');
   const tk=roofTakeoff(t, WASTE_OPTS[rec]);
+  // SOLAR-KIND: a solar quote must carry NO roofing-remodel takeoff vocabulary. Show only what informs
+  // panel layout / production — total roof AREA (ft²), predominant PITCH, and the FACET (plane) count +
+  // the aerial diagram. Suppress the "Squares" unit stat, the Eaves/Rakes/Ridges/Hips/Valleys Length
+  // Report, the Waste calculator, and the Materials takeoff (all pure roofing-remodel takeoff).
+  if(_solarOnly){
+    return '<div class="sec mr"><h2>Your roof (for solar)</h2>'+
+      '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+t.facetCount+'</b><span>planes</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
+      (diag?'<img class="mr-diag" src="'+diag+'" alt="Aerial view of your roof">':'')+
+      '<div class="mr-cols"><div><div class="mr-h2">Roof &amp; sun</div>'+
+        '<div class="mr-row"><span>Usable roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div>'+
+        '<div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div>'+
+        '<div class="mr-row"><span>Roof planes</span><b>'+t.facetCount+'</b></div></div></div>'+
+      '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirmed during your free on-site solar assessment.</div>'+
+      footprintCreditLine()+'</div>';
+  }
   return '<div class="sec mr"><h2>Roof measurement report</h2>'+
     '<div class="mr-stats"><div><b>'+f(t.roofAreaSqFt)+'</b><span>ft²</span></div><div><b>'+repSq.toFixed(1)+'</b><span>squares</span></div><div><b>'+t.facetCount+'</b><span>facets</span></div><div><b>'+t.predominantPitchX12+'/12</b><span>pitch</span></div></div>'+
     (diag?'<img class="mr-diag" src="'+diag+'" alt="Roof measurement diagram">':'')+
@@ -13221,10 +13236,9 @@ function measurementReport(t, sqs, kind){
         : lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
           '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div>')+'</div>'+
       '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+repSq.toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
-    (_solarOnly ? '' :
-      '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
-      '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>')+
-    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site'+(_solarOnly?'.':' before ordering materials.')+'</div>'+
+    '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
+    '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
+    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div>'+
     footprintCreditLine()+'</div>';
 }
 // Data-source attribution for the outer building footprint (the EVEN-roofline source).
@@ -13376,7 +13390,7 @@ function openReport(){
      <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR SOLAR QUOTE'}</div><h1>Your solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*${finConfigured()?'':' — estimate only, not an offer of credit'}</div></div></div>
      ${measurementReport(_rt, sqs, "solar")}
      <div class="sec"><h2>The plan at a glance</h2>
-       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} facets) of usable area, measured from aerial + elevation data.</div></div>
+       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> of usable area across ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} roof planes, measured from aerial + elevation data.</div></div>
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
