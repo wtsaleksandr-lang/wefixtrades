@@ -11445,6 +11445,63 @@ async function rdLoadShowroom(){
     return null;
   }finally{ window.__showroomFetching=false; }
 }
+// WIRE-42: the 42 verified reference-house renders (one per ROOF_CATALOG material/colour) are now the
+// material-BROWSER preview. Picking a swatch swaps the matching pre-rendered image instantly — no AI
+// call, no Google call. The runtime-AI browse path (renderOne's /airender?tier=browse + scheduleFinal's
+// tier=final) is gated OFF behind this flag (code kept for rollback). The EXPLICIT "See it on my house"
+// personalized paths (rdAiOnHouse / rdUploadOnHouse / #aiBtn) are untouched — those are user-initiated.
+const RD_BROWSE_AI_DISABLED=true;
+// Preview fit: showroom renders are full-house compositions → object-fit CONTAIN so the whole house is
+// always visible (never cropped). Real on-your-house AI renders keep the legacy cover crop. baBefore
+// mirrors the fit so the before/after wipe stays pixel-aligned.
+function rdSetPreviewFit(contain){
+  try{
+    const fit=contain?"contain":"cover", pos=contain?"center":"center top";
+    ["aiPhoto","baBefore","aiPhotoFade"].forEach(id=>{ const e=$(id); if(e){ e.style.objectFit=fit; e.style.objectPosition=pos; } });
+  }catch(_){}
+}
+// Fast cross-fade: snapshot the CURRENT showroom frame into an overlay <img> that fades out over the
+// newly-swapped render. The new render is fully preloaded before the swap so there is never a blank flash.
+function rdCrossfade(img){
+  try{
+    if(!(img.src && img.style.display!=="none" && img.dataset && img.dataset.showroom==="1")) return;
+    let f=$("aiPhotoFade");
+    if(!f){
+      f=document.createElement("img"); f.id="aiPhotoFade"; f.alt="";
+      f.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;display:none;z-index:16;pointer-events:none;transition:opacity .22s ease";
+      img.parentNode.insertBefore(f,img.nextSibling);
+    }
+    f.src=img.src; f.style.display="block"; f.style.opacity="1";
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ f.style.opacity="0"; }); });
+    clearTimeout(window.__srFadeT); window.__srFadeT=setTimeout(()=>{ f.style.display="none"; f.src=""; },300);
+  }catch(_){}
+}
+// Preload the neighbouring renders (adjacent colours of the current material + the lead colour of the
+// adjacent materials) so the next pick is instant even on cold cache.
+function rdPreloadNeighbors(){
+  try{
+    const man=window.__showroomManifest; if(!man||!man.materials) return;
+    const urls=[], push=(mm,cc)=>{ const u=mm&&cc&&rdShowroomUrl(mm,cc); if(u) urls.push(u); };
+    const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], n=m.colors.length, M=ROOF_CATALOG.length;
+    push(m,m.colors[(selCol+1)%n]); push(m,m.colors[(selCol-1+n)%n]);
+    push(ROOF_CATALOG[(selMat+1)%M],ROOF_CATALOG[(selMat+1)%M].colors[0]);
+    push(ROOF_CATALOG[(selMat-1+M)%M],ROOF_CATALOG[(selMat-1+M)%M].colors[0]);
+    urls.forEach(u=>{ const im=new Image(); im.src=u; });
+  }catch(_){}
+}
+// Before/after for the showroom browser: the "before" is the ORIGINAL reference-house photo (the exact
+// source frame every render was generated from), shipped in the manifest as `before` — so the wipe is
+// pixel-aligned proof that only the roof changed. Marks the source so a later PERSONALIZED render
+// (paintAiPhoto) knows to drop it and pair against the customer's own base instead.
+function rdShowroomBA(){
+  try{
+    const man=window.__showroomManifest; if(!man||!man.before) return;
+    const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
+    window.__baBeforeSrc=RB+"/showroom/"+man.before; window.__baBeforeIsShowroom=true;
+    if(!window.__baPos) window.__baPos=78;   // default mostly-"after" while browsing materials
+    if(typeof activateBA==="function") activateBA();
+  }catch(_){}
+}
 // Paint the pre-rendered showroom image for the current selection over the stage (instant swap).
 // Returns true if a showroom image was applied, false if none → caller keeps the live tint.
 function rdApplyShowroom(){
@@ -11458,12 +11515,27 @@ function rdApplyShowroom(){
       rdSetExampleBadge(false);
       return false;
     }
-    // before/after + AI render must not be stomped: if a real on-your-house render is live, leave it.
-    if(window.__baActive || (img.dataset && img.dataset.aireal==="1")) return false;
-    img.onload=function onl(){ img.removeEventListener("load",onl); if(img.naturalWidth===0){ img.style.display="none"; rdSetExampleBadge(false); } };
-    img.src=url; img.style.display="block"; img.style.zIndex="16";
-    if(img.dataset) img.dataset.showroom="1";
-    rdSetExampleBadge(true);   // subtle "example home" label — this is a standard house, not the customer's
+    if(window.__baActive) return false;
+    // preload fully, THEN swap with a cross-fade — no blank flash, and a failed load never blanks the stage.
+    // (rdReflectOnHouse gives a cached REAL on-your-house render priority for its colour; a NEW pick with
+    //  no real render must replace a stale previous-colour AI photo, so showroom applies over aireal here.)
+    const pre=new Image();
+    pre.onload=()=>{
+      try{
+        const mNow=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], cNow=mNow.colors[selCol]||mNow.colors[0];
+        if(rdShowroomUrl(mNow,cNow)!==url) return;   // they moved on while this loaded → don't stomp the newer pick
+        rdCrossfade(img);
+        img.onload=null; img.onerror=null;   // drop any stale paintAiPhoto heal() handler — it re-fetches /airender
+        rdSetPreviewFit(true);   // whole house visible (contain), never cropped
+        img.src=url; img.style.display="block"; img.style.zIndex="16";
+        if(img.dataset){ img.dataset.showroom="1"; delete img.dataset.aireal; }
+        rdSetExampleBadge(true);   // subtle "example home" label — this is the reference house, not the customer's
+        rdShowroomBA();            // before/after wipe vs the original reference-house photo
+        rdPreloadNeighbors();      // adjacent picks land instantly
+      }catch(_){}
+    };
+    pre.onerror=()=>{ try{ if(img.dataset && img.dataset.showroom==="1"){ img.style.display="none"; img.src=""; delete img.dataset.showroom; } rdSetExampleBadge(false); }catch(_){} };
+    pre.src=url;
     return true;
   }catch(e){ console.warn("[showroom] apply failed → tint",e&&e.message||e); return false; }
 }
@@ -11476,7 +11548,7 @@ function rdSetExampleBadge(on){
       b=document.createElement("div"); b.id="rdExampleBadge"; b.className="rd-example-badge";
       b.textContent="Example home"; const app=$("app"); if(app) app.appendChild(b);
     }
-    b.style.display=(on&&window.__rdOpen)?"block":"none";
+    b.style.display=(on&&(window.__rdOpen||(typeof matMode!=="undefined"&&matMode)))?"block":"none";   // reference-house renders show in the roofing designer AND the legacy materials lens
   }catch(_){}
 }
 // repaint the live house preview for the current selection: tint the 3D photoreal facets to the chosen
@@ -11503,7 +11575,7 @@ function rdReflectOnHouse(){
   try{
     const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c=m.colors[selCol]||m.colors[0], key=(typeof colorKey==="function")?colorKey(m,c):null;
     if(key && window.__matRenders && window.__matRenders[key] && typeof showAnalysis==="function"){
-      const img=$("aiPhoto"); if(img){ img.src=window.__matRenders[key]; img.style.display="block"; img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
+      const img=$("aiPhoto"); if(img){ if(typeof rdSetPreviewFit==="function") rdSetPreviewFit(false); img.src=window.__matRenders[key]; img.style.display="block"; img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
       rdSetExampleBadge(false);   // their real house — not an example
     } else {
       // no real render cached → try the instant pre-rendered showroom swap (falls through to the tint if absent)
@@ -11526,6 +11598,11 @@ function rdPickCol(i){
   rdRenderInfo(); rdReflectOnHouse();
   rdSyncCardHidden();
 }
+// WIRE-42: module scope hides the designer's pick handlers from page-level tooling; expose a compact
+// driver (same pattern as window.__roofingSquares / window.__openMaterials) so live verification can
+// enter the material browser + pick swatches exactly like a real click does.
+window.__rdDrive={ open:()=>openRoofDesign(), pickMat:i=>rdPickMat(i), pickCol:i=>rdPickCol(i),
+  legacyPick:(m,c)=>{ matMode=true; selMat=m; selCol=c; return renderColor(true); } };
 // AI "see it on my house": ROOF-ONLY top-down render is the PRIMARY path — Static-Maps satellite +
 // footprint mask → Flux Fill inpaint → composite passthrough, so EVERY non-roof pixel (cars, yard,
 // driveway, neighbour roofs) is provably the original. Falls back to the legacy Kontext /airender ONLY
@@ -15323,6 +15400,19 @@ function matPriceStr(){
 function showMatImg(key,label){ const img=$("aiPhoto"); img.src=window.__matRenders[key]; img.style.display="block"; matLoading(false);
   clearInstantTint();   // real photoreal image is now on screen → drop the instant swatch placeholder + spinner
   const pr=matPriceStr(); $("aiMat").innerHTML=(label||"")+(pr?' <b class="ai-price">'+pr+'</b>':''); $("aiBar").style.display="flex"; activateBA(); }
+// WIRE-42: legacy-catalogue counterpart of the roofing designer's showroom swap — paint the matching
+// pre-rendered reference-house image (instant, free) + the browse bar label/price. Never fetches /airender.
+async function rdShowMatShowroom(m,c,label){
+  try{
+    if(window.__showroomManifest===undefined) await rdLoadShowroom();
+    if(!rdShowroomUrl(m,c)) return false;
+    if(!rdApplyShowroom()) return false;
+    clearInstantTint(); matLoading(false);
+    const pr=matPriceStr(); const am=$("aiMat"); if(am) am.innerHTML=(label||"")+(pr?' <b class="ai-price">'+pr+'</b>':'');
+    const bar=$("aiBar"); if(bar) bar.style.display="flex";
+    return true;
+  }catch(_){ return false; }
+}
 function markColReady(key){ const m=ROOF_CATALOG[selMat]; if(!m) return; const idx=m.colors.findIndex(c=>colorKey(m,c)===key); const wrap=$("matCols"); if(idx>=0&&wrap&&wrap.children[idx]) wrap.children[idx].classList.add("ready"); }
 async function renderOne(m,c,show){
   const key=colorKey(m,c), addr=$("addr").value.trim(), label=m.label+" · "+c.n;
@@ -15331,8 +15421,17 @@ async function renderOne(m,c,show){
     // Tint the 3D photoreal roof overlay to the SELECTED colour too (it reads selMat/selCol, already set by the
     // catalogue click before renderOne runs). Without this the 3D facet polygons never refreshed on a switch.
     if(mode==="photoreal"&&gmap){ try{ buildRoofMaterial(); }catch(_){} }
-    scheduleFinal(m,c,key,label); }   // upgrade to crisp gpt-image-1 only if they settle on this colour
+    if(!RD_BROWSE_AI_DISABLED) scheduleFinal(m,c,key,label); }   // (WIRE-42 gate) settle-upgrade is an AI spend — browse picks never call it
   if(window.__matRenders[key]){ if(show) showMatImg(key,label); return window.__matRenders[key]; }
+  // WIRE-42: browse picks show the matching pre-rendered reference-house image INSTANTLY — the legacy
+  // /airender?tier=browse fetch + tier=final settle-upgrade below are unreachable while the gate is on.
+  if(RD_BROWSE_AI_DISABLED){
+    if(show){
+      const ok=await rdShowMatShowroom(m,c,label);
+      if(!ok){ showInstantTint(m,c); const r=$("aiRendering"); if(r) r.style.display="none"; matLoading(false); }   // no render for this pick (shouldn't happen — all 42 mapped) → approximate tint, no spinner
+    }
+    return null;
+  }
   // INSTANT swatch tint + spinner the moment they pick this colour — no waiting on the ~30s AI render.
   // (Shown for both the inflight-await and the fresh-fetch paths; the real photo replaces it via showMatImg.)
   if(show){ showInstantTint(m,c); }
@@ -15427,6 +15526,10 @@ function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="
 // /airender ONCE with a cache-bust so a poisoned/stale cache entry self-heals. Non-looping (single retry).
 function paintAiPhoto(url,addr,material){
   const img=$("aiPhoto"); if(!img) return; let healed=false;
+  // A PERSONALIZED render is landing: restore the legacy cover crop and drop a showroom-owned
+  // before-source so the wipe never pairs the customer's render against the reference house.
+  try{ if(typeof rdSetPreviewFit==="function") rdSetPreviewFit(false);
+    if(window.__baBeforeIsShowroom){ window.__baBeforeSrc=null; window.__baBeforeIsShowroom=false; } }catch(_){}
   const heal=()=>{ if(healed) return; healed=true;
     fetch(RQ_BASE+"/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(material)+"&_cb="+Date.now())
       .then(r=>r.json()).then(j=>{ if(j&&j.url){ img.src=j.url; } }).catch(()=>{});
