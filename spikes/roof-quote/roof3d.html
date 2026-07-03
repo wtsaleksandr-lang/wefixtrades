@@ -1466,7 +1466,7 @@
         <div class="lq-row"><button type="button" class="lqp" data-p="Lower my bill">Lower my bill</button><button type="button" class="lqp" data-p="Backup power">Backup power</button><button type="button" class="lqp" data-p="Go green">Go green</button><button type="button" class="lqp" data-p="Best price">Best price</button></div>
       </div>
     </div>
-    <p class="lead-consent" id="leadConsent">By submitting, you agree to share these details with <span id="leadConsentCo">this business</span> and WeFixTrades to prepare your quote. See our <a href="https://wefixtrades.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
+    <p class="lead-consent" id="leadConsent">By submitting, you agree to share these details with <span id="leadConsentCo">this business</span> and WeFixTrades to prepare your quote, and agree to be contacted about your quote by phone, text, or email. See our <a href="https://wefixtrades.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
     <button id="lgo">See my full quote</button>
     <div class="lead-x" onclick="window.__closeCapture()">Maybe later</div>
   </div></div>
@@ -1644,7 +1644,7 @@ const PLAN=(new URLSearchParams(location.search).get("plan")||"free").toLowerCas
 // Privacy/consent notice version stamped on every lead the widget submits. Bump
 // when the lead-consent wording (above the submit button) materially changes so
 // the stored consent record reflects which text the homeowner actually saw.
-const LEAD_CONSENT_VERSION="roofwidget-2026-06-23";
+const LEAD_CONSENT_VERSION="roofwidget-2026-07-03";
 const errors=[]; window.__getErrors=()=>errors;
 window.addEventListener("error",e=>errors.push("err:"+(e.message||e)));
 window.addEventListener("unhandledrejection",e=>errors.push("rej:"+(e.reason&&e.reason.message||e.reason)));
@@ -2718,7 +2718,14 @@ let TENANT={
     roofWarranty:"",       // e.g. "25-yr" → "Licensed & insured · 25-yr workmanship warranty" trust line on roof quotes
     solarWarranty:"",      // e.g. "25-yr" → workmanship-warranty trust line on solar quotes
   },
-  financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, leaseEnabled:true, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
+  // `configured:false` = the tenant has NOT entered their real lender's terms yet. Until they do,
+  // customer-visible financing lines hide the specific APR/term and carry "estimate only — not an
+  // offer of credit" wording (Reg Z §1026.24 trigger-term hygiene: advertised payment+term must be
+  // actually available from a real lender). The loan math still runs off the illustrative defaults.
+  // `leaseEnabled:false` by default — third-party ownership (lease/PPA) is not legal/available in
+  // every state and the $/kW/mo rate is provider-specific; the tenant opts in with their TPO
+  // partner's real rate.
+  financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, configured:false, leaseEnabled:false, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
   features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true,
     // PER-TRADE LEAD-GATE (Sky-Quote/Roofr pattern). When a trade's gate is ON the homeowner
     // must enter contact details BEFORE the estimate is revealed (collect-first). When OFF
@@ -2727,12 +2734,16 @@ let TENANT={
     gateSolar:false, gateRoof:false },
 };
 // Solar Renewable Energy Credit value by state ($/MWh produced ≈ $ per SREC). Real programs; approx 2026 — installer tunes per market.
+// NOTE: MA's 60 is the SMART tariff (a per-kWh payment from the utility), not a tradable SREC —
+// same $/MWh math, but the UI labels it "SMART tariff" so we never misname the program.
 const SREC_VALUE={ DC:350, NJ:85, MA:60, MD:55, IL:70, DE:40, PA:35, OH:5 };
 function srecIncome(kwhAc){ const v=SREC_VALUE[window.__regionCode]; return (TENANT.features.srec && v && kwhAc) ? Math.round(kwhAc/1000*v) : 0; }
+// display label for the production-incentive line — MA's program is the SMART tariff, not an SREC market
+function srecLabel(){ const c=window.__regionCode; return c==="MA" ? "MA SMART tariff payments" : c+" SREC credits"; }
 const BATTERIES=[
-  {id:"pw3",      label:"Powerwall 3", kwh:13.5, cost:11500},
-  {id:"franklin", label:"FranklinWH",  kwh:15,   cost:14500},
-  {id:"enphase",  label:"Enphase 5P",  kwh:5,    cost:8500},
+  {id:"pw3",      label:"Powerwall 3", kwh:13.5, cost:13200},
+  {id:"franklin", label:"FranklinWH",  kwh:15,   cost:16700},
+  {id:"enphase",  label:"Enphase 5P",  kwh:5,    cost:9800},
 ]; let selBattery=0, addBattery=false;
 function curBat(){ return BATTERIES[selBattery]||BATTERIES[0]; }
 // appliance-first backup sizing — the homeowner picks what to keep running; we hide all the watt/kWh math
@@ -2783,10 +2794,10 @@ const PANEL_TIERS=[
 let selPanel=1, payMode="loan";   // selPanel default = "Most popular" · payMode: cash | loan | lease (lease shown only if TENANT.financing.leaseEnabled)
 // QUICK ADD-ONS (quote-card chips): battery backup (ITC-eligible) + Level-2 EV charger (flat — NOT in the
 // ITC base). Installed lo–hi bands added on top of the solar system; the tier `mult` never applies to them.
-const ADDON_PRICES={ battery:{lo:9500,hi:12000,label:"Battery backup"}, ev:{lo:1200,hi:1800,label:"EV charger"} };
+const ADDON_PRICES={ battery:{lo:12000,hi:16000,label:"Battery backup"}, ev:{lo:1200,hi:1800,label:"EV charger"} };   // battery band verified 2026 installed (Powerwall 3 ~$12k–16.5k, clustering $13k–16k)
 window.__addons={battery:false,ev:false};
 function applyRoofOpts(lo, hi, sqs, t){
-  if(roofOpts.layers>1){ const tear=sqs*28; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$25-30/sq (was $90 — 3-4x too high; HomeGuide layer-2 ~$22/sq)
+  if(roofOpts.layers>1){ const tear=sqs*50; lo+=tear; hi+=tear; }            // 2nd-layer tear-off ~$50/sq incremental (verified 2026: 2-layer jobs run ~$150-250/sq vs ~$100-175 single-layer; $28 was low)
   if(roofOpts.ridgeVent && t){ const rv=(t.ridgeFt||0)*11; lo+=rv; hi+=rv; } // ridge vent ~$11/lf
   if(roofOpts.steep){ lo*=1.30; hi*=1.30; }                                  // steep (9/12+) / 2-story labour premium ~+30% — applied as a POINT multiplier so it shifts the band, not widens it (a 1.20-1.45 range re-inflated the spread)
   const c=window.__roofFeatures&&window.__roofFeatures.counts;               // flashing/boots for detected penetrations (symmetric add)
@@ -2805,6 +2816,16 @@ function solarTermYears(){ return finTermYears(TENANT.financing.solarYears, 25);
 // years is sanitized to a positive term first, so a bad config can never yield an Infinity/NaN payment.
 function monthly(principal, aprPct, years){ const y=finTermYears(years,15), r=aprPct/100/12, n=y*12; return r<=0 ? principal/n : principal*r/(1-Math.pow(1+r,-n)); }
 function finLine(mo, terms){ return '<div class="qfin">or <b>'+fmtMoney(Math.round(mo))+'/mo</b> financed* · '+terms+'</div>'; }
+// Reg Z §1026.24 trigger-term hygiene (P1-5): a specific payment + repayment period/APR is a
+// "triggering term" that must reflect terms ACTUALLY available from a real lender. Until the tenant
+// enters their lender's real terms (TENANT.financing.configured), the customer-visible line carries
+// NO specific APR/term — just a hedged "estimate only — not an offer of credit" note.
+function finConfigured(){ return !!(TENANT.financing && TENANT.financing.configured); }
+const FIN_UNCONFIGURED_NOTE='estimate only — not an offer of credit; financing available for well-qualified buyers';
+function loanTermsTxt(termYears, apr, extra){
+  if(!finConfigured()) return (extra?extra+' · ':'')+FIN_UNCONFIGURED_NOTE;
+  return termYears+'-yr @ '+apr+'%'+(extra?', '+extra:'');
+}
 // Compliance disclaimer footnote — muted, always-visible short line + (i) cue → full legal text.
 // kind: "solar" (price + ITC tax-credit + financing claims) or "roof" (financing-only).
 function discLine(kind){
@@ -2814,8 +2835,8 @@ function discLine(kind){
   return '<div class="qdisc">'+lead+'<i class="qdisc-i" data-disc="'+kind+'" title="Estimate &amp; eligibility disclaimer" role="button" tabindex="0">i</i></div>';
 }
 const DISC_FULL={
-  solar:'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates from aerial imagery and Google Solar data; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>',
-  roof:'<h3 style="margin:0 0 8px">Estimate &amp; financing</h3><p style="margin:0;color:var(--muted);line-height:1.5">The price range is an estimate from aerial measurements; your final price is confirmed after a free on-site assessment. Financing shown is illustrative; actual terms are subject to credit approval.</p>'
+  solar:'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates from aerial imagery and Google Solar data; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Any financing figures shown are estimates only and are not an offer of credit or a commitment to lend; actual rates, terms and payments are set by the lender, are subject to credit approval, and are typically available to well-qualified buyers.</p>',
+  roof:'<h3 style="margin:0 0 8px">Estimate &amp; financing</h3><p style="margin:0;color:var(--muted);line-height:1.5">The price range is an estimate from aerial measurements; your final price is confirmed after a free on-site assessment. Any financing figures shown are estimates only and are not an offer of credit or a commitment to lend; actual rates, terms and payments are set by the lender, are subject to credit approval, and are typically available to well-qualified buyers.</p>'
 };
 // Trust + timeline strip shown ON the quote card, before the email gate. A buyer's two open
 // questions — "how long does this take?" and "why trust you?" — answered up front.
@@ -3350,7 +3371,7 @@ function roofCostBreakdown(sel, sqs, wf, t, lo, hi){
   const psq=ROOF_PSQ[sel.matId]||[450,700], mid=(psq[0]+psq[1])/2;
   const r=(l,v)=>'<div class="tk-row"><span>'+l+'</span><b>'+fmtMoney(Math.round(v/50)*50)+'</b></div>';
   let rows=r((sqs*wf).toFixed(1)+' sq '+sel.matLabel.toLowerCase()+' — material + install', sqs*wf*mid);
-  if(roofOpts.layers>1) rows+=r('Tear-off existing layer', sqs*28);
+  if(roofOpts.layers>1) rows+=r('Tear-off existing layer', sqs*50);   // MUST match the applyRoofOpts adder ($50/sq)
   if(roofOpts.ridgeVent&&t&&(t.ridgeFt||0)>3) rows+=r('Ridge vent', (t.ridgeFt||0)*11);
   const c=window.__roofFeatures&&window.__roofFeatures.counts; if(c){ const pen=(c.chimneys||0)*150+(c.vents||0)*35+(c.skylights||0)*160; if(pen) rows+=r('Flashing &amp; penetrations', pen); }
   if(roofOpts.gutters&&t){ const ef=(t.eaveFt||0), ds=Math.max(2,Math.round(ef/35))*60; rows+=r('New gutters + downspouts', ef*13+ds); }
@@ -3752,8 +3773,8 @@ function renderQuoteCard(){
     const payRow='<div class="opt-row" style="margin-top:7px"><span class="opt-l">Pay with</span>'+payOpts.map(o=>'<button class="pm'+(payMode===o.id?' on':'')+'" data-pm="'+o.id+'">'+o.label+'</button>').join('')+'</div>';
     const finDisplay = payMode==="cash" ? '<div class="qfin"><b>'+fmtMoney(Math.round(sMid))+'</b> cash price · '+creditTxt()+'</div>'
       : payMode==="lease" ? finLine(leaseMo, '$0 down lease / PPA'+TCUE("ppa")+' · incentives kept by the installer &amp; passed through as a lower rate')
-      : finLine(sFin, sTerm+'-yr @ '+fin.solarApr+'%, '+creditTxt());
-    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits'+TCUE("srec")+' — on top of bill savings.</div>':'';
+      : finLine(sFin, loanTermsTxt(sTerm, fin.solarApr, creditTxt()));
+    const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+srecLabel()+TCUE("srec")+' — on top of bill savings.</div>':'';
     // ── MONEY STORY (surfaced UPFRONT, before the email wall) ──
     // 1) the 30% federal ITC as a line that REDUCES the price (hedged: "est." + tax-pro cue)
     // 2) payback period + 25-yr lifetime savings, computed from the post-ITC net cost
@@ -3784,7 +3805,7 @@ function renderQuoteCard(){
       // no bill entered → show the monthly solar VALUE (cash) or the payment (loan/lease), no fabricated "was"
       const v = payMode==="loan"?Math.round(sFin):(payMode==="lease"?leaseMo:KM.monthlySolarValue);
       kpiMonthly = '<div class="ktile" data-kv="'+v+'"><div class="ktv" data-money>'+fmtMoney(v)+'<span class="ktu">/mo</span></div>'+
-        '<div class="ktl">'+(payMode==="cash"?'Solar value':'Payment')+'</div><div class="ktsub">'+(payMode==="cash"?'power you no longer buy':(payMode==="lease"?'$0-down lease':sTerm+'-yr @ '+fin.solarApr+'%'))+'</div></div>';
+        '<div class="ktl">'+(payMode==="cash"?'Solar value':'Payment')+'</div><div class="ktsub">'+(payMode==="cash"?'power you no longer buy':(payMode==="lease"?'$0-down lease':loanTermsTxt(sTerm, fin.solarApr)))+'</div></div>';
     }
     // (c) KPI #3 — MODE-AWARE + HONEST -------------------------------------------------------
     //   CASH: true asset breakeven ("pays for itself · Year 8.2 · then free electricity for ~17 yrs").
@@ -3866,7 +3887,7 @@ function renderQuoteCard(){
     const assumeLine='<div class="assume-line">Assumes electricity prices rise '+Math.round(FIN_ASSUME.esc*100)+'%/yr and panels degrade '+(FIN_ASSUME.degr*100).toFixed(1).replace(/\.0$/,'')+'%/yr — the same assumptions Tesla and Google use.</div>';
     // price lo–hi range (demoted into Details), size slider, panel tier, bill input, SREC + assumptions
     const priceRangeRow='<div class="opt-row"><span class="opt-l">Price range</span><span class="szval" style="font-size:11px">'+fmtMoney(lo)+' – '+fmtMoney(hi)+' installed</span></div>';
-    const srecLineDetail=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+window.__regionCode+' SREC credits'+TCUE("srec")+' — included above.</div>':'';
+    const srecLineDetail=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+srecLabel()+TCUE("srec")+' — included above.</div>':'';
     const solDetail=window.__solarExpanded?'<div class="cust">'+
       '<div class="cust-sec">Your system</div>'+sectionRow+priceRangeRow+sizeRow+panelRow+panelNote+billRow+coverLine+
       srecLineDetail+
@@ -4003,7 +4024,7 @@ function renderQuoteCard(){
       body=_anchor+specLine+
         (_roofGated
           ? quoteCardMaskHtml("roof")
-          : _roofTiles+_roofNote+_roofFoot+finLine(rFin,rTerm+'-yr @ '+TENANT.financing.roofApr+'%')+_seeCta+custToggle+detail)
+          : _roofTiles+_roofNote+_roofFoot+finLine(rFin, loanTermsTxt(rTerm, TENANT.financing.roofApr))+_seeCta+custToggle+detail)
         +stats+discLine("roof");
     } else {
       // comparison picker — a HORIZONTAL-SCROLL catalogue of material cards, each with a realistic texture
@@ -5654,7 +5675,7 @@ const ROOF_MATS=ROOF_CATALOG[0].colors.map(c=>({...c,type:ROOF_CATALOG[0].type})
 // Installed $/square as a TIGHT ±12% band (~1.26x low–high) around a realistic midpoint — matches what credible
 // instant-quote tools show (EnergySage/InstantRoofer ~±12-15%), not a 1.6-2x cost-guide spread. On-site confirms final.
 // Midpoints: arch $5.2/sqft, metal $11/sqft, slate $22/sqft, etc. (validated vs 2024-25 sources).
-const ROOF_PSQ={ arch:[460,580], "3tab":[355,445], metal:[970,1230], clay:[1320,1680], slate:[1940,2460], cedar:[840,1060] };
+const ROOF_PSQ={ arch:[460,580], "3tab":[355,445], metal:[1050,1600], clay:[1500,2200], slate:[1940,2460], cedar:[840,1060] };   // metal/clay raised to mid-range of verified 2026 installed costs (metal ~$1,000-2,450/sq, clay ~$1,500-3,000/sq) — old bands sat at the bottom and under-quoted some regions >20%
 // trademark-safe material specs (typical industry figures) — helps the buying decision like a real product page
 const ROOF_SPEC={
   arch:{life:"25–30 yr", warranty:"Lifetime limited", note:"Architectural asphalt — wind-rated to 130 mph, the popular choice"},
@@ -12894,7 +12915,7 @@ function openReport(){
          <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
          <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
      ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact. ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">${finConfigured()?`Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact.`:`Financing estimate only — not an offer of credit; financing available for well-qualified buyers.`} ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -13031,6 +13052,9 @@ function applyConsentCompany(){ const el=$("leadConsentCo"); if(el) el.textConte
 function applyTenant(){
   // Feature gates that toggle DOM at runtime.
   const lq=$("lqual"); if(lq) lq.style.display=TENANT.features.leadQual?"":"none";
+  // Lease is tenant-opt-in (default OFF). If a live config change disables it while the homeowner
+  // is sitting in lease mode, fall back to loan so the card never renders a mode with no button.
+  try{ if(payMode==="lease" && !(TENANT.financing.leaseEnabled && TENANT.features.leasePPA)) payMode="loan"; }catch(_){}
   applyConsentCompany();
   applyAccent();
   renderHeroBrand();   // P1: re-surface the hero brand line from the merged TENANT.brand (runtime re-brand)
@@ -13276,7 +13300,7 @@ const TERM_INFO={
   kwhyr:{ t:"kWh per year", s:"Yearly electricity", d:"How many units of electricity (kWh) your solar panels are estimated to make in a full year. A typical home uses about 10,000–11,000 kWh a year." },
   nem:{ t:"Net metering / NEM 3.0", s:"Crediting extra solar", d:"When your panels make more power than you're using, the extra goes to the grid and your utility credits you for it. NEM 3.0 is California's current version of those rules — the credit is smaller than it used to be, which is why a battery often pays off there." },
   sgip:{ t:"SGIP", s:"California battery rebate", d:"The Self-Generation Incentive Program — a California rebate that helps pay for a home battery. Amounts vary by utility and household; we confirm what you qualify for on site." },
-  srec:{ t:"SREC / SREC-II", s:"Solar credit you can sell", d:"In some states your system earns a certificate for the clean energy it makes (one per ~1,000 kWh) that you can sell for cash — income on top of your bill savings. SREC-II is New Jersey's current version of the program." },
+  srec:{ t:"SREC / SREC-II", s:"Solar credit you can sell", d:"In some states your system earns a certificate for the clean energy it makes (one per ~1,000 kWh) that you can sell for cash — income on top of your bill savings. SREC-II is New Jersey's current version of the program. In Massachusetts the equivalent incentive is the SMART tariff — a payment from your utility for each kWh your system makes, rather than a tradable certificate." },
   itc:{ t:"Federal tax credit (ITC)", s:"30% off your taxes", d:"The federal Investment Tax Credit lets you claim 30% of your solar system's cost back on your federal income taxes (currently available through 2032). It's an estimate shown here — the exact amount depends on your tax situation, so consult a tax professional." },
   netmeter:{ t:"Net metering", s:"Credit for extra power", d:"Credit from your utility for the extra solar power you send back to the grid — it spins your meter backward, lowering your bill." },
   ppa:{ t:"PPA / lease", s:"$0-down solar", d:"A Power Purchase Agreement (or lease) means a company installs the panels at no upfront cost and you simply pay a lower rate for the power they make — instead of buying the system yourself." },
