@@ -538,3 +538,29 @@ export const roofQuoteGooglePerMinLimiter = new RateLimiter(
   envInt("ROOFQUOTE_GOOGLE_PER_MIN", 30),
   ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS,
 );
+
+/** (P1-T3) Per-IP per-DAY cap for the same Google-billed group. The per-minute
+ *  bucket alone lets ONE IP sustain 30/min × 1440 = 43,200 billed calls/day
+ *  (≈$430–$3,240/day at Solar/dataLayers SKUs) by rotating coords to defeat the
+ *  5-dp cache keys. A real session fires ~8–12 group calls, so 300/day/IP is
+ *  ~25 generous sessions from one IP while capping a scripted loop at <1% of
+ *  the uncapped burn. */
+export const roofQuoteGooglePerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_GOOGLE_PER_DAY", 300),
+  DAY_MS,
+);
+
+/** (P1-T3) GLOBAL daily circuit breaker for the Google-billed group — ONE
+ *  shared bucket across ALL IPs (the gate keys it on a constant). The per-IP
+ *  caps bound a single abuser; this bounds a botnet / distributed scrape at a
+ *  hard daily spend ceiling for the whole deployment (~5,000 calls ≈
+ *  low-hundreds of $ worst-case at the dataLayers SKU). When tripped, the
+ *  routes serve the same rate-limited JSON they already do (the widget's
+ *  cached/estimate degrade paths take over) until the day window rolls.
+ *  Env-tunable without a redeploy. */
+export const roofQuoteGoogleGlobalPerDayLimiter = new RateLimiter(
+  defaultStore,
+  envInt("ROOFQUOTE_DAILY_GLOBAL_CAP", 5000),
+  DAY_MS,
+);

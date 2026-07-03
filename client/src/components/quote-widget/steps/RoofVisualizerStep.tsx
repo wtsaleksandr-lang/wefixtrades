@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { eff, stepTitleStyle, stepSubtitleStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 
 interface RoofVisualizerStepProps {
   step: StepDefinition;
   accentColor?: string;
+  /** Published calculator id (P0-T1) — appended to the iframe src as `?calc=`
+   *  so the widget's durable `/api/roofquote/lead` fallback can ATTRIBUTE (and
+   *  therefore persist + notify) its leads. Without it the server acks
+   *  `{ok:true, persisted:false}` and the widget's retry queue drains the lead
+   *  as delivered — silent lead loss. Preview/draft ids (negative / undefined)
+   *  stay param-less, same convention as RoofVisualizerEmbed. */
+  calculatorId?: string | number;
 }
 
 /**
@@ -27,8 +34,23 @@ interface RoofVisualizerStepProps {
  * surrounding calculator. The widget merges only known branches, so an
  * accent-only patch is safe and leaves every other field at its default.
  */
-export default function RoofVisualizerStep({ step, accentColor }: RoofVisualizerStepProps) {
+export default function RoofVisualizerStep({ step, accentColor, calculatorId }: RoofVisualizerStepProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // Published path (mirrors AdvancedCalculator's RoofVisualizerEmbed): a
+  // positive integer id means a live, persisted calculator → append ?calc=<id>
+  // so the widget's own /api/roofquote/lead sink resolves the calculator and
+  // persists + notifies + fires the CRM webhook. Preview/draft → param-less.
+  const publishedCalcId = useMemo(() => {
+    const n = typeof calculatorId === 'number'
+      ? calculatorId
+      : typeof calculatorId === 'string' && /^\d+$/.test(calculatorId)
+        ? Number(calculatorId)
+        : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }, [calculatorId]);
+  const iframeSrc = publishedCalcId
+    ? `/api/roofquote/widget?calc=${publishedCalcId}`
+    : '/api/roofquote/widget';
   const postTenant = useCallback(() => {
     const win = iframeRef.current?.contentWindow;
     if (!win || !accentColor) return;
@@ -49,7 +71,7 @@ export default function RoofVisualizerStep({ step, accentColor }: RoofVisualizer
       <iframe
         ref={iframeRef}
         onLoad={postTenant}
-        src="/api/roofquote/widget"
+        src={iframeSrc}
         title="Roof & Solar visualizer"
         allow="accelerometer; gyroscope; fullscreen"
         className="roof-visualizer-frame"

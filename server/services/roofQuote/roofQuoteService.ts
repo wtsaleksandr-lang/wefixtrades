@@ -2139,13 +2139,24 @@ export function readTopDownBase(address: string): Buffer | null {
  */
 export async function aiRenderUpload(dataUri: string, material: string): Promise<{ url?: string; provider?: string; source?: string; error?: string; tried?: string[] }> {
   if (!dataUri || !dataUri.startsWith("data:image/")) return { error: "no_image" };
+  // (P2-T4) CACHE FIRST — the key depends only on the posted image bytes + material, so it is
+  // computable BEFORE the provider loop. Previously it was computed after the paid render, so
+  // every identical re-upload was a fresh ~$0.04 Replicate call despite the "identical
+  // re-uploads hit the byte cache" intent — the re-hosted bytes were written but never read.
+  const ck = "upload|" + houseSeed(dataUri) + "|" + material + "|v1";
+  if (readRehostedImage(ck)) {
+    return {
+      url: "/api/roofquote/airender-image?key=" + encodeURIComponent(ck),
+      provider: "cache",
+      source: "upload",
+    };
+  }
   const tried: string[] = [];
   for (const [name, fn] of RENDER_CHAIN) {
     try {
       const rawUrl = await fn(dataUri, material, "", "street");
-      // Re-host the (possibly ephemeral) provider url so the <img> never 404s later. The cache
-      // key is the posted-image hash + material so identical re-uploads hit the byte cache.
-      const ck = "upload|" + houseSeed(dataUri) + "|" + material + "|v1";
+      // Re-host the (possibly ephemeral) provider url so the <img> never 404s later — and so the
+      // cache-first check above serves later identical re-uploads without a paid render.
       const stable = await rehostRenderedImage(ck, rawUrl);
       return { url: stable || rawUrl, provider: name, source: "upload" };
     } catch (e) {

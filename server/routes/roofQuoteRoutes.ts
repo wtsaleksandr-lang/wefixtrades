@@ -29,6 +29,8 @@ import {
   roofQuoteAiRenderPerDayLimiter,
   roofQuoteAiRenderPerCalcPerDayLimiter,
   roofQuoteGooglePerMinLimiter,
+  roofQuoteGooglePerDayLimiter,
+  roofQuoteGoogleGlobalPerDayLimiter,
   ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS,
   leadsSubmissionRateLimiter,
   leadsIpRateLimiter,
@@ -85,12 +87,59 @@ function getClientIp(req: Request): string {
  */
 async function googleRateBlocked(req: Request, res: Response): Promise<boolean> {
   const ip = getClientIp(req);
-  const ok = await roofQuoteGooglePerMinLimiter.check(`roofquote:google:${ip}`);
-  if (ok) return false;
-  res.setHeader("Retry-After", String(Math.ceil(ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS / 1000)));
+  const verdict = await evaluateGoogleGate(googleGateLimiters, ip);
+  if (verdict.allowed) return false;
+  // The GLOBAL breaker tripping is an ops event (abuse in progress or organic
+  // growth outrunning ROOFQUOTE_DAILY_GLOBAL_CAP) — log it loudly, but at most
+  // once per 5 min so a botnet can't turn the breaker into a log-flood.
+  if (verdict.scope === "global_day" && Date.now() - _lastGlobalTripLogAt > 5 * 60_000) {
+    _lastGlobalTripLogAt = Date.now();
+    log.error("roofquote GLOBAL daily Google-call breaker TRIPPED — serving 429s until the day window rolls (investigate abuse or raise ROOFQUOTE_DAILY_GLOBAL_CAP)", { ip });
+  }
+  res.setHeader("Retry-After", String(verdict.retryAfter));
   res.status(429).json({ error: "rate_limited", code: "rate_limited" });
   return true;
 }
+let _lastGlobalTripLogAt = 0;
+
+/** Limiter bundle for the Google-billed read gate (DI-friendly, mirrors
+ *  AiRenderGateLimiters so the cost-gating regression test can inject fresh
+ *  in-memory instances). */
+export interface GoogleGateLimiters {
+  perMin: RateLimiterLike;
+  perDay: RateLimiterLike;
+  globalPerDay: RateLimiterLike;
+}
+
+/**
+ * (P1-T3) PURE gate decision for the Google-billed roofquote reads. Three
+ * ceilings, cheapest-recovery first:
+ *   1. per-IP per-minute (burst)     → Retry-After 60
+ *   2. per-IP per-day (sustained IP) → Retry-After 3600
+ *   3. GLOBAL per-day breaker (whole deployment, all IPs) → Retry-After 3600
+ * The global bucket is keyed on a constant so every request across every IP
+ * draws from one shared daily budget — the hard spend ceiling a botnet can't
+ * route around. Exported for check:roofquote-cost-gating.
+ */
+export async function evaluateGoogleGate(
+  limiters: GoogleGateLimiters,
+  ip: string,
+): Promise<{ allowed: true } | { allowed: false; retryAfter: number; scope: "minute" | "ip_day" | "global_day" }> {
+  const minOk = await limiters.perMin.check(`roofquote:google:${ip}`);
+  if (!minOk) return { allowed: false, retryAfter: Math.ceil(ROOFQUOTE_GOOGLE_RATE_LIMIT_WINDOW_MS / 1000), scope: "minute" };
+  const dayOk = await limiters.perDay.check(`roofquote:google:day:${ip}`);
+  if (!dayOk) return { allowed: false, retryAfter: 3600, scope: "ip_day" };
+  const globalOk = await limiters.globalPerDay.check("roofquote:google:global");
+  if (!globalOk) return { allowed: false, retryAfter: 3600, scope: "global_day" };
+  return { allowed: true };
+}
+
+/** The production limiter bundle for the Google-read gate. */
+const googleGateLimiters: GoogleGateLimiters = {
+  perMin: roofQuoteGooglePerMinLimiter,
+  perDay: roofQuoteGooglePerDayLimiter,
+  globalPerDay: roofQuoteGoogleGlobalPerDayLimiter,
+};
 
 /** Minimal limiter shape the gate helpers depend on — `RateLimiter` satisfies
  *  it, and the regression test injects fresh in-memory instances. */
@@ -975,6 +1024,35 @@ export function registerRoofQuoteRoutes(app: Express) {
       const priceHi = Number(body.priceHi);
       const quoteAmount = Number.isFinite(priceHi) && priceHi > 0 ? Math.round(priceHi) : null;
 
+      // (P0-2) TRADE-SPECIFIC QUOTE PAYLOAD — the widget attaches the full quote flat on the
+      // body: roofing sends material/matId/color/squares/financeMo/financeTerms (+ commercial
+      // marker); solar sends panels/kwhYr/monthlyPay/payMode/panelTier/battery/EV/solarBill.
+      // The old allowlist above silently dropped ALL of them — a roofing lead landed with no
+      // material and no size in squares, the two fields a roofer prices a callback with.
+      // Persist them under answers.quote via a size-capped, type-checked WHITELIST: known keys
+      // only, scalars only (string/finite-number/boolean — objects/arrays dropped), per-string
+      // cap 160 chars, whole-object JSON cap 4 KB. Top-level answers keys stay unchanged for
+      // downstream compatibility (CRM columns, email "Key inputs", inputs_summary).
+      const QUOTE_FIELD_KEYS = [
+        // roofing quote
+        "material", "matId", "color", "squares", "financeMo", "financeTerms",
+        // commercial-refusal marker (large roof — no invented residential price)
+        "commercial",
+        // solar configuration
+        "panels", "kwhYr", "monthlyPay", "payMode", "panelTier",
+        "battery", "batteryModel", "batteryCount", "backupLoads",
+        "ev", "evCharger", "solarBill",
+      ];
+      const quote: Record<string, string | number | boolean> = {};
+      for (const k of QUOTE_FIELD_KEYS) {
+        const v = (body as Record<string, unknown>)[k];
+        if (typeof v === "boolean") quote[k] = v;
+        else if (typeof v === "number" && Number.isFinite(v)) quote[k] = v;
+        else if (typeof v === "string") { const s = cleanStr(v, 160); if (s) quote[k] = s; }
+        // anything else (object/array/NaN/null/undefined) is dropped — scalars only, 1 level deep
+      }
+      const hasQuote = Object.keys(quote).length > 0 && JSON.stringify(quote).length <= 4096;
+
       const answers: Record<string, any> = {
         source: "roof_visualizer",
         address: body.address ?? null,
@@ -988,6 +1066,7 @@ export function registerRoofQuoteRoutes(app: Express) {
         priorities: Array.isArray(body.priorities) ? body.priorities : null,
         leadScore: body.leadScore ?? null,
         intent: body.intent ?? null,
+        ...(hasQuote ? { quote } : {}),
       };
 
       // DEDUP: a single homeowner submission can arrive via BOTH the host bridge

@@ -184,6 +184,67 @@ await check("Google shared limiter — a normal session of ~9 reads passes; a 31
   assert.equal(tripped, true, "a >30/min cross-endpoint loop must trip the shared cap");
 });
 
+/* ═══ 6b. (P1-T3) Google gate — per-IP day cap + GLOBAL daily breaker ═ */
+
+await check("Google gate — per-IP DAY cap bounds a slow loop the minute cap misses", async () => {
+  const { evaluateGoogleGate } = await import("./roofQuoteRoutes");
+  // Generous minute cap so only the DAY bucket can trip; tiny day cap for the test.
+  const lim = {
+    perMin: new RateLimiter(new MemoryRateLimitStore(), 1000, 60_000),
+    perDay: new RateLimiter(new MemoryRateLimitStore(), 12, DAY_MS),
+    globalPerDay: new RateLimiter(new MemoryRateLimitStore(), 1000000, DAY_MS),
+  };
+  // One real session (~12 group reads) passes in full…
+  for (let i = 0; i < 12; i++) {
+    assert.equal((await evaluateGoogleGate(lim, IP)).allowed, true, `session read #${i + 1} must pass`);
+  }
+  // …then the sustained-loop 13th call trips the DAY bucket with a 3600s retry.
+  const over = await evaluateGoogleGate(lim, IP);
+  assert.equal(over.allowed, false, "per-IP day cap must bound a sustained loop");
+  if (over.allowed) throw new Error("unreachable");
+  assert.equal(over.retryAfter, 3600);
+  assert.equal(over.scope, "ip_day");
+});
+
+await check("Google gate — GLOBAL daily breaker trips across DIFFERENT IPs (botnet can't route around it)", async () => {
+  const { evaluateGoogleGate } = await import("./roofQuoteRoutes");
+  const lim = {
+    perMin: new RateLimiter(new MemoryRateLimitStore(), 1000, 60_000),
+    perDay: new RateLimiter(new MemoryRateLimitStore(), 1000, DAY_MS),
+    globalPerDay: new RateLimiter(new MemoryRateLimitStore(), 5, DAY_MS),
+  };
+  // 5 calls from 5 distinct IPs — each far under its own per-IP caps — drain the shared budget…
+  for (let i = 0; i < 5; i++) {
+    assert.equal((await evaluateGoogleGate(lim, `198.51.100.${i}`)).allowed, true);
+  }
+  // …so a FRESH 6th IP is refused by the global breaker.
+  const fresh = await evaluateGoogleGate(lim, "198.51.100.99");
+  assert.equal(fresh.allowed, false, "a fresh IP must be refused once the global budget is spent");
+  if (fresh.allowed) throw new Error("unreachable");
+  assert.equal(fresh.scope, "global_day");
+});
+
+await check("DELIBERATE-FAILURE fixture — a per-IP-only Google gate (no global bucket) leaks a botnet", async () => {
+  // The regression: a gate that only consults per-IP buckets. 6 IPs × under-cap
+  // calls all pass — the real gate's guarantee (the shared budget refuses the
+  // 6th) MUST fail red against it, proving the test catches a missing breaker.
+  const perMin = new RateLimiter(new MemoryRateLimitStore(), 1000, 60_000);
+  const perDay = new RateLimiter(new MemoryRateLimitStore(), 1000, DAY_MS);
+  const regressedGate = async (ip: string) => {
+    const ok = (await perMin.check(`g:${ip}`)) && (await perDay.check(`gd:${ip}`));
+    return ok ? { allowed: true as const } : { allowed: false as const };
+  };
+  for (let i = 0; i < 5; i++) await regressedGate(`198.51.100.${i}`);
+  const fresh = await regressedGate("198.51.100.99");
+  let caught: unknown = null;
+  try {
+    assert.equal(fresh.allowed, false);
+  } catch (err) {
+    caught = err;
+  }
+  assert.ok(caught, "global-breaker assertion must fail red against a per-IP-only gate");
+});
+
 /* ═══ 7. Production thresholds sanity ═════════════════════════════════ */
 
 await check("production limiter thresholds bound abuse without breaking a real session", async () => {

@@ -3743,6 +3743,11 @@ function renderQuoteCard(){
     const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);   // owned-system loan (config-driven APR/sanitized-term), financed on the post-incentive net cost
     const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(totKwh);
+    // (P1-1) LEAD SNAPSHOT — capture the exact system this card is showing (panels/kW/kWh incl. EV
+    // sizing, and the loan/lease payment on the post-ITC net cost) so leadQuoteFields() can attach
+    // what the homeowner actually configured, not just the raw tier band. Refreshed on every re-render.
+    window.__solarQuoteSnap={ panels:totPanels, kw:totKw, kwhYr:totKwh,
+      monthlyPay:(payMode==="loan"?Math.round(sFin):(payMode==="lease"?leaseMo:0))||null };
     const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
     // BATTERY add-on (accordion)
     const batConfig=addBattery?('<div class="opt-row" style="margin-top:6px"><span class="opt-l">Keep running'+ACUE("backup")+'</span>'+BACKUP_LOADS.map(l=>'<button class="ld'+(selLoads.has(l.id)?' on':'')+'" data-load="'+l.id+'">'+l.label+'</button>').join('')+'</div>'+
@@ -13172,8 +13177,31 @@ function leadQuoteFields(trade){
     }
     return out;
   }
+  // SOLAR (P1-1): send the FULL configured system, not just the tier band. Everything below is
+  // already known in-session — panels/energy/payment from the card snapshot (__solarQuoteSnap,
+  // refreshed on every render) plus every config the homeowner touched (pay mode, panel quality,
+  // battery, EV, bill). These are the qualifiers a contractor prices a callback with; dropping
+  // them made a "Premium + Powerwall + EV, $300/mo bill" lead indistinguishable from "7.2 kW".
+  // One flat object, scalars only — the server persists it under answers.quote via a whitelist.
   const t=solarTiers[selTier]||{};
-  return { tier:t.label, kw:t.kw, priceLo:t.lo, priceHi:t.hi, roofSqft:QUOTE&&Math.round(QUOTE.roofSqft) };
+  const out={ tier:t.label, kw:t.kw, priceLo:t.lo, priceHi:t.hi, roofSqft:QUOTE&&Math.round(QUOTE.roofSqft) };
+  try{
+    const snap=window.__solarQuoteSnap||{};
+    if(snap.kw) out.kw=snap.kw;                                    // configured size (slider/grid/EV extras) beats the raw tier kW
+    out.panels=snap.panels||t.panels||null;                        // headline panel count the customer saw
+    out.kwhYr=snap.kwhYr||t.kwhAc||null;                           // annual production
+    out.payMode=payMode;                                           // cash | loan | lease
+    if(snap.monthlyPay) out.monthlyPay=snap.monthlyPay;            // loan/lease $/mo (post-ITC net cost)
+    const pq=PANEL_TIERS[selPanel]; if(pq) out.panelTier=pq.label; // Budget / Most popular / Premium
+    const ao=window.__addons||{};
+    if(addBattery){ sizeBattery(); out.battery=true; out.batteryModel=curBat().label; out.batteryCount=batCount;
+      if(selLoads&&selLoads.size) out.backupLoads=[...selLoads].join(","); }   // configured backup (model × count + loads)
+    else if(ao.battery){ out.battery=true; }                       // quick-chip battery (no model chosen)
+    if(addEV) out.ev=true;                                         // charging an EV with extra panels
+    if(addCharger||ao.ev) out.evCharger=true;                      // Level-2 charger install
+    if(solarBill>0) out.solarBill=solarBill;                       // homeowner's entered bill — the #1 qualifier
+  }catch(_){/* lead still sends the base tier fields */}
+  return out;
 }
 $("lgo").onclick=async()=>{
   const name=sanitizeLeadName($("lname").value), email=$("lemail").value.trim(), phone=$("lphone").value.trim();
