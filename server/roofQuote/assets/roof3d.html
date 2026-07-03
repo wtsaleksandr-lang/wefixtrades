@@ -551,8 +551,13 @@
   /* ===== quote report (PDF / web) ===== */
   #report{position:fixed;inset:0;z-index:50;background:#fff;color:#0f172a;overflow:auto;display:none;font:14px/1.55 "Satoshi","Satoshi Variable",system-ui,sans-serif}
   #report .rbar{position:sticky;top:0;background:#ffffff;border-bottom:1px solid #e1e7ef;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;z-index:2}
-  #report .rbar button{background:#0d3cfc;border:0;border-radius:var(--btn-radius);padding:8px 15px;font-weight:700;color:#ffffff;cursor:pointer;font-size:13px;box-shadow:var(--btn-shadow)}
+  #report .rbar button{background:#0d3cfc;border:0;border-radius:var(--btn-radius);padding:8px 15px;font-weight:700;color:#ffffff;cursor:pointer;font-size:13px;box-shadow:var(--btn-shadow);transition:transform .15s ease,box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
   #report .rbar button.ghost{background:#f7f9fc;border:1px solid #e1e7ef;color:#0f172a;box-shadow:none}
+  /* (FIX 5) proposal hover states — consistent lift + emphasis on every interactive element */
+  @media (hover:hover){
+    #report .rbar button:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(13,60,252,.28)}
+    #report .rbar button.ghost:hover{background:#eef2f8;border-color:#0d3cfc;box-shadow:none;transform:translateY(-1px)}
+  }
   #report .rwrap{max-width:740px;margin:0 auto;padding-bottom:50px}
   /* white-label report: trade header + placeholders */
   #report .ph{color:#0d3cfc;background:rgba(13,60,252,.07);border:1px dashed rgba(13,60,252,.4);border-radius:5px;padding:0 5px;font-style:italic;font-size:.93em}
@@ -560,6 +565,11 @@
   #report .th-logo{width:72px;height:72px;border-radius:12px;object-fit:contain;flex:0 0 auto;background:#f7f9fc}
   #report .th-logo.ph-box{display:flex;align-items:center;justify-content:center;text-align:center;border:1px dashed #c3ccd8;color:#94a3b8;font-size:11px;font-weight:700;line-height:1.2}
   #report .th-name{font-size:18px;font-weight:800;color:#0f172a}
+  /* (FIX 3) accurate default WeFixTrades brand mark (icon + wordmark) when no tenant logo is set */
+  #report .th-wft{display:inline-flex;align-items:center;gap:10px;flex:0 0 auto}
+  #report .th-wft-ic{width:38px;height:38px;flex:0 0 auto}
+  #report .th-wft-wm{font-size:21px;font-weight:800;letter-spacing:-.025em;color:#0f172a;white-space:nowrap}
+  #report .th-wft-fix{color:#0d3cfc}
   #report .th-meta{font-size:12px;color:#5b6573;margin-top:2px}
   /* measurement report */
   #report .mr-stats{display:flex;gap:10px;margin:4px 0 14px}
@@ -610,7 +620,8 @@
   #report .pricebig{font-size:30px;font-weight:800}
   #report .muted{color:var(--muted);font-size:12px}
   #report .signbox{text-align:center;color:#94a3b8;margin-top:10px;font-size:12px}
-  #report .rcta{width:100%;background:#0d3cfc;border:0;border-radius:12px;padding:15px 0;font-size:16px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow)}
+  #report .rcta{width:100%;background:#0d3cfc;border:0;border-radius:12px;padding:15px 0;font-size:16px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow);transition:transform .15s ease,box-shadow .15s ease}
+  @media (hover:hover){ #report .rcta:not(.done):hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(13,60,252,.34)} }
   #report .rcta.done{background:#16a34a;color:#fff;cursor:default;box-shadow:none}
   #report .rbadge{text-align:center;padding:8px 14px 22px;font-size:11px;color:#94a3b8}
   #report .rbadge b{color:#0d3cfc;font-weight:800}
@@ -618,7 +629,8 @@
   /* ── ROOFING-PROPOSAL blocks (KPI tiles, itemized cost, material visual) — scoped copies of the
      #card equivalents so the roofing proposal matches the widget's tokens/typography ── */
   #report .rp-ktiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
-  #report .rp-ktiles .ktile{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--tile-radius);padding:11px 12px;min-width:0}
+  #report .rp-ktiles .ktile{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--tile-radius);padding:11px 12px;min-width:0;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+  @media (hover:hover){ #report .rp-ktiles .ktile:hover{transform:translateY(-1px);border-color:color-mix(in srgb,#0d3cfc 30%,#e1e7ef);box-shadow:0 6px 16px rgba(15,23,42,.08)} }
   #report .rp-ktiles .ktv{font-size:17px;font-weight:800;color:#0f172a;line-height:1.1;white-space:normal}
   #report .rp-ktiles .ktl{font-size:9.5px;font-weight:700;color:#5b6573;text-transform:uppercase;letter-spacing:.03em;margin-top:4px}
   #report .rp-ktiles .ktsub{font-size:10.5px;color:#5b6573;margin-top:3px;line-height:1.3}
@@ -1100,6 +1112,15 @@
      panel docked at the bottom — so the real house shows through the middle while the buyer
      clicks materials/colours and watches the price + features update. Mirrors #solarGrid styling. */
   #roofDesign{position:absolute;inset:0;z-index:34;display:none;flex-direction:column;pointer-events:none}
+  /* (FIX 1 — GLOBAL, all breakpoints) The roofing material browser is the REFERENCE ("example home") house.
+     The customer's-house 3D scene, Google photoreal map, 2D top-down measure/material canvas and aerial
+     fallback must NEVER read through behind the reference render (a race, or a not-yet-loaded showroom image,
+     would otherwise flash a satellite / top-down). Hide every customer-house surface while the browser is
+     open — at desktop AND mobile — so only the reference render (or the neutral placeholder) is ever visible. */
+  body.rd-open #scene,body.rd-open #gmapWrap,body.rd-open #matCanvas,body.rd-open #aerialFb{display:none!important}
+  /* (FIX 1 — GLOBAL) neutral premium placeholder behind the reference render. Full-viewport by default
+     (mobile); the desktop media query insets it to the right pane. z-13 sits under #aiPhotoBackdrop (z-15). */
+  body.rd-open #app::before{content:"";position:fixed;left:0;top:0;right:0;bottom:0;z-index:13;pointer-events:none;background:radial-gradient(120% 90% at 50% 30%,#16233b 0%,#0b1220 70%)}
   /* (#3a) The header is a DECORATIVE gradient band; with pointer-events:auto across the full width it was
      covering / intercepting taps on the house-stage controls beneath it. Make the band itself transparent
      to pointer events and re-enable them only on its actual buttons, so nothing under the header is "covered". */
@@ -1107,8 +1128,13 @@
   #roofDesign .rd-head button,#roofDesign .rd-head label,#roofDesign .rd-head .rd-ai{pointer-events:auto}
   #roofDesign .rd-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #roofDesign .rd-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
-  #roofDesign .rd-back{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px 9px 10px;cursor:pointer}
+  #roofDesign .rd-back{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px 9px 10px;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,transform .15s ease}
   #roofDesign .rd-back svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* (FIX 5) Back + See-it CTA hover feedback in the designer header */
+  @media (hover:hover){
+    #roofDesign .rd-back:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.4);transform:translateX(-1px)}
+    #roofDesign .rd-ai:hover:not(:disabled){transform:translateY(-1px);background:rgba(13,60,252,1);box-shadow:0 8px 24px rgba(13,60,252,.44)}
+  }
   /* the "see it on my house" CTA chip lives in the header, right-aligned */
   #roofDesign .rd-ai{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.28);background:rgba(13,60,252,.92);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 14px;cursor:pointer;box-shadow:0 6px 20px rgba(13,60,252,.32)}
   #roofDesign .rd-ai:disabled{opacity:.6;cursor:default}
@@ -1169,13 +1195,21 @@
       width:calc(100vw - var(--rd-left))!important;height:calc(100vh - var(--rd-headh))!important;
     }
     /* the showroom / before-after renders are full-house compositions → CONTAIN + centred with padding
-       so the sky above and lawn below always read; a gentle backdrop fills the letterbox area cleanly. */
+       so the sky above and lawn below always read; a gentle backdrop fills the letterbox area cleanly.
+       (Refinement B) A soft edge-feather mask melts the contained image's border into the blurred backdrop so
+       there is NO hard letterbox seam that reads as a "gap" — the sharp house fades seamlessly into its own blur. */
     body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade{
       object-fit:contain!important;object-position:center!important;padding:22px;
       background:transparent!important;
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
+      -webkit-mask-composite:source-in;mask-composite:intersect;
+      mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
     }
     /* backdrop fills the whole right pane (behind the contained render) so no dead grey bars show */
     body.rd-open #aiPhotoBackdrop{background-color:#0b1220!important}
+    /* (FIX 1) desktop: inset the neutral placeholder to the right preview pane (base rule near #roofDesign
+       defines the gradient; here we just clip it to the pane so it never underlaps the left material panel). */
+    body.rd-open #app::before{left:var(--rd-left);top:var(--rd-headh)}
     /* example-home badge + stage hints re-anchor into the right preview region, clear of the left panel */
     body.rd-open .rd-example-badge{left:calc(var(--rd-left) + 16px)}
     #roofDesign .rd-stagehint,#roofDesign .rd-uploadprompt{left:calc(var(--rd-left) + (100% - var(--rd-left))/2)}
@@ -1197,6 +1231,7 @@
     #roofDesign.sheet-peek .rd-peekmat{display:block}
     #roofDesign.sheet-peek .rd-mats,
     #roofDesign.sheet-peek .rd-cols,
+    #roofDesign.sheet-peek .rd-kpis,
     #roofDesign.sheet-peek .rd-feats{display:none!important}
     #roofDesign.sheet-peek .rd-info{grid-template-columns:1fr}
     /* FULL-HOUSE ON MOBILE: the showroom/before-after render is a whole-house composition, so contain it
@@ -1207,12 +1242,19 @@
       top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
       width:100vw!important;height:calc(100vh - 56px - 216px)!important;
       padding:8px 10px;background:transparent!important;
+      /* (Refinement B) same seamless edge-feather on mobile so the contained house melts into its blurred backdrop */
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
+      -webkit-mask-composite:source-in;mask-composite:intersect;
+      mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
     }
-    /* mobile: blurred backdrop occupies the same preview band as the contained render */
+    /* mobile: blurred backdrop occupies the same preview band as the contained render (edge-to-edge fill, no gaps) */
     body.rd-open #aiPhotoBackdrop{
       top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
       width:100vw!important;height:calc(100vh - 56px - 216px)!important;background-color:#0b1220!important;
     }
+    /* (FIX 1) mobile neutral placeholder: the desktop --rd-left inset doesn't apply here, so paint the
+       dark gradient across the full-width preview band (below the header) behind the reference render. */
+    body.rd-open #app::before{left:0;top:56px;right:0;bottom:0}
   }
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -1257,6 +1299,15 @@
   #roofDesign .rd-col.on .rdc-chip{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
   #roofDesign .rd-col .rdc-nm{font-size:11px;font-weight:700;color:var(--muted);line-height:1.1;white-space:nowrap}
   #roofDesign .rd-col.on .rdc-nm{color:var(--ink)}
+  /* (FIX 2) roofing KPI tiles at the design step — 2-col grid, kept tight for the ~420px panel */
+  #roofDesign .rd-kpis{margin:0 0 2px}
+  #roofDesign .rd-kpis .ktiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0}
+  #roofDesign .rd-kpis .ktile{background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 9px;min-width:0;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+  #roofDesign .rd-kpis .ktv{font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  #roofDesign .rd-kpis .ktl{font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px}
+  #roofDesign .rd-kpis .ktsub{font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.25}
+  #roofDesign .rd-kpi-note{margin-top:6px;font-size:10.5px;font-weight:700;color:var(--muted)}
+  @media (hover:hover){ #roofDesign .rd-kpis .ktile:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--blue) 28%,var(--line));box-shadow:0 4px 12px rgba(15,23,42,.08)} }
   /* price + features row */
   #roofDesign .rd-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
   #roofDesign .rd-price{background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
@@ -1357,10 +1408,6 @@
   @media (hover:hover){ #rdZoom .rz-x:hover{color:var(--ink);border-color:color-mix(in srgb,var(--blue) 40%,var(--line))} }
   /* Fix 4 — hover loupe magnifier over the house preview (desktop only). A circular lens follows the cursor
      showing a ~2.5× zoomed crop of the render so buyers can inspect shingle texture. Positioned/sized by JS. */
-  #rdLoupe{position:fixed;z-index:60;width:140px;height:140px;border-radius:50%;border:2px solid rgba(255,255,255,.9);box-shadow:0 10px 30px rgba(15,23,42,.4),0 0 0 1px rgba(15,23,42,.18);background-repeat:no-repeat;pointer-events:none;display:none;opacity:0;transition:opacity .12s ease;will-change:transform,background-position}
-  #rdLoupe.on{display:block;opacity:1}
-  #rdLoupe::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 22px rgba(15,23,42,.22);pointer-events:none}
-  @media (hover:none){ #rdLoupe{display:none!important} }
   /* #7a WHITE-BORDER HOVER on primary CTAs — a crisp white ring appears on hover (theme-aware, subtle, premium) */
   @media (hover:hover){
     #hero #goHero:hover,
@@ -1407,7 +1454,6 @@
        object-fit:contain #aiPhoto so the letterbox sides softly extend the render (no dead grey bars). -->
   <div id="aiPhotoBackdrop" aria-hidden="true" style="position:absolute;inset:0;display:none;z-index:15;background-position:center;background-size:cover;filter:blur(24px) brightness(.9);transform:scale(1.1);pointer-events:none;transition:opacity .22s ease;opacity:0"></div>
   <!-- Fix 4 — hover magnifier loupe over the roof preview (desktop only; JS positions + fills it) -->
-  <div id="rdLoupe" aria-hidden="true"></div>
   <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;background:#0b1220;display:none;z-index:16">
   <!-- AERIAL EMPTY-STATE FALLBACK — shown when neither our 3D model nor Google photoreal can render
        (e.g. addresses with no Google Solar coverage). Paints the real satellite/aerial ortho of the
@@ -1694,7 +1740,7 @@
   <div id="roofDesign">
     <div class="rd-head">
       <button class="rd-back" id="rdBack" type="button" aria-label="Back to Solar or Roofing choice"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
-      <div class="rd-title">Design your new roof<small id="rdSub">Tap a material &amp; colour — your home shown live</small></div>
+      <div class="rd-title">Design your new roof<small id="rdSub">Tap a material &amp; colour — preview on a model home, then see it on yours</small></div>
       <!-- PRIMARY (Part 2): the modal flow consolidates BOTH on-your-house sources (Google-Earth aerial +
            photo upload) behind one clear button → pick roof → choose source → render → before/after. -->
       <button class="rd-ai rd-seebtn" id="rdSeeBtn" type="button"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg><span>See it on your house</span></button>
@@ -1719,6 +1765,10 @@
       <div class="rd-peekmat" id="rdPeekMat" aria-hidden="true">Architectural</div>
       <div class="rd-mats" id="rdMats"></div>
       <div class="rd-cols" id="rdCols"></div>
+      <!-- (FIX 2) roofing KPI tiles — same data/format as the quote card + proposal (installed price /
+           warranty / home-value recoup% / lifespan) — so the buyer sees the headline stats right here at the
+           "Design your roof" step. Re-rendered on every material/colour change by rdRenderInfo(). -->
+      <div class="rd-kpis" id="rdKpis"></div>
       <div class="rd-info">
         <div class="rd-price">
           <div class="rdp-lab">Installed estimate</div>
@@ -11418,6 +11468,32 @@ function rdPriceBand(){
   let [lo,hi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, (typeof getRoofTotals==="function"?getRoofTotals():null));
   return { lo:Math.round(lo/50)*50, hi:Math.round(hi/50)*50 };
 }
+// (FIX 2) Build the 4 roofing KPI tiles for a material id + installed lo/hi band — the SAME data + format as
+// the quote card (L~4141) and proposal (L~13214): Installed price / Warranty / Home value (recoup%) / Lifespan,
+// plus the "installed in ~N days" note. Reused so all three surfaces stay in lockstep. `masked` suppresses any
+// $ figure (lead-gate parity) while roofing is gated + no lead captured.
+function roofKpiTilesHtml(matId, lo, hi, masked){
+  try{
+    const spec=(typeof ROOF_SPEC!=="undefined")?ROOF_SPEC[matId]:null;
+    const rk=(typeof ROOF_KPI!=="undefined"?ROOF_KPI[matId]:null)||{};
+    const mid=Math.round(((lo||0)+(hi||0))/2);
+    const addVal=rk.roiPct?Math.round(mid*rk.roiPct/100)*100:0;
+    const roiHdr=rk.roiPct?('~'+Math.round(rk.roiPct*100)+'%'):'—';
+    const money=v=>(typeof fmtMoney==="function")?fmtMoney(v):('$'+Math.round(v||0).toLocaleString());
+    // gate-safe: while masked, the price + home-value $ tiles are locked (no dollar string emitted)
+    const priceTile=masked
+      ? '<div class="ktile"><div class="ktv" style="font-size:14px">🔒 Unlock</div><div class="ktl">Installed</div><div class="ktsub">enter your details</div></div>'
+      : '<div class="ktile"><div class="ktv" style="font-size:14px;white-space:normal;line-height:1.1">'+money(lo)+'–'+money(hi)+'</div><div class="ktl">Installed</div><div class="ktsub">tear-off + new roof</div></div>';
+    const warrTile='<div class="ktile"><div class="ktv" style="font-size:14px;white-space:normal;line-height:1.1">'+(spec?esc(spec.warranty):'—')+'</div><div class="ktl">Warranty</div><div class="ktsub">manufacturer + workmanship</div></div>';
+    const valueTile=masked
+      ? '<div class="ktile"><div class="ktv" style="font-size:14px;white-space:normal;line-height:1.1">Recoups '+roiHdr+'</div><div class="ktl">Home value'+(rk.roiEst?' (est.)':'')+'</div><div class="ktsub">added value at resale</div></div>'
+      : '<div class="ktile"><div class="ktv" style="font-size:14px;white-space:normal;line-height:1.1">Recoups '+roiHdr+'</div><div class="ktl">Home value'+(rk.roiEst?' (est.)':'')+'</div><div class="ktsub">'+(addVal>0?'≈ +'+money(addVal)+' added*':'added value at resale')+'</div></div>';
+    const lifeTile='<div class="ktile"><div class="ktv" style="font-size:14px;white-space:normal;line-height:1.1">'+(rk.lifeShort||(spec?esc(spec.life):'—'))+'</div><div class="ktl">Lifespan</div><div class="ktsub">before next replacement</div></div>';
+    const tiles='<div class="ktiles">'+priceTile+warrTile+valueTile+lifeTile+'</div>';
+    const instNote=rk.installDays?'<div class="rd-kpi-note">🔨 Installed in ~'+esc(rk.installDays)+'</div>':'';
+    return tiles+instNote;
+  }catch(_){ return ''; }
+}
 // render the price card + per-material features list for the current selection
 function rdRenderInfo(){
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0];
@@ -11445,6 +11521,8 @@ function rdRenderInfo(){
   (info.benefits||info.features||[]).slice(0, feats.length>=2?2:3).forEach(b=>feats.push(b));
   const CHK='<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>';
   const ul=$("rdFeats"); if(ul) ul.innerHTML=feats.slice(0,4).map(f=>'<li>'+CHK+'<span>'+esc(f)+'</span></li>').join('');
+  // (FIX 2) roofing KPI tiles at the design step — same data/format as the card + proposal, live on every pick.
+  const kw=$("rdKpis"); if(kw){ kw.innerHTML=roofKpiTilesHtml(m.id, band?band.lo:0, band?band.hi:0, _rdMasked); }
 }
 // build the horizontal material/style chip row (real shingle texture thumbnail per material)
 function rdBuildMats(){
@@ -11485,16 +11563,23 @@ function rdOpenZoom(m){
 }
 function rdCloseZoom(){ const modal=$("rdZoom"); if(modal) modal.classList.remove("on"); document.removeEventListener("keydown",rdZoomEsc); }
 function rdZoomEsc(e){ if(e.key==="Escape") rdCloseZoom(); }
-// build the colour swatch row for the selected material
+// build the colour swatch row for the selected material — renders EVERY colour in that material's catalog
+// entry (arch 10 / 3tab 6 / metal 9 / clay 6 / slate 6 / cedar 5). Rebuilt in full on every material switch.
 function rdBuildCols(){
   const m=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], wrap=$("rdCols"); if(!wrap) return; wrap.innerHTML="";
-  m.colors.forEach((c,i)=>{
+  (m.colors||[]).forEach((c,i)=>{
     const d=document.createElement("button"); d.type="button"; d.className="rd-col"+(i===selCol?" on":"");
-    let bg=c.base; try{ bg="center/cover url("+makeShingleCanvas(c.base,m.type).toDataURL()+")"; }catch(_){}
+    // (FIX 4) always resolve a VISIBLE swatch: the realistic shingle texture when it renders, otherwise the
+    // solid catalog base colour — never an empty `url()` that would blank the chip.
+    let bg=c.base||"rgb(120,120,120)";
+    try{ const tex=makeShingleCanvas(c.base,m.type).toDataURL(); if(tex && tex.length>32) bg="center/cover url("+tex+"), "+(c.base||"#888"); }catch(_){}
     d.innerHTML='<div class="rdc-chip" style="background:'+bg+'"></div><div class="rdc-nm">'+esc(c.n)+'</div>';
     d.onclick=()=>rdPickCol(i);
     wrap.appendChild(d);
   });
+  // (FIX 4) fresh strip → reset horizontal scroll to the start and re-evaluate the scroll-affordance arrows so
+  // the newly-built colour set reads from its first chip (a stale scrollLeft could hide the first colours).
+  try{ wrap.scrollLeft=0; if(wrap.__scrollArrowsUpd) requestAnimationFrame(wrap.__scrollArrowsUpd); }catch(_){}
 }
 // commit the current selMat/selCol into window.__roofSel (the canonical selection the card/report read)
 function rdCommitSel(){
@@ -11555,6 +11640,18 @@ async function rdLoadShowroom(){
     return null;
   }finally{ window.__showroomFetching=false; }
 }
+// (FIX 1) PRELOAD the showroom manifest early — well before the buyer opens the roofing designer — so the
+// reference render for the first material is already cached and paints SYNCHRONOUSLY on open (no async race
+// where the customer's-house top-down could flash through). Fires once, on idle, after the module has run.
+(function rdPrewarmShowroom(){
+  try{
+    const kick=()=>{ try{ if(window.__showroomManifest===undefined) rdLoadShowroom().then(man=>{
+      // warm the lead render of the default material so the very first open is instant
+      try{ if(man){ const m=ROOF_CATALOG[0], c=m&&m.colors&&m.colors[0]; const u=rdShowroomUrl(m,c); if(u){ const im=new Image(); im.src=u; } } }catch(_){}
+    }).catch(()=>{}); }catch(_){} };
+    if(typeof requestIdleCallback==="function") requestIdleCallback(kick,{timeout:2500}); else setTimeout(kick,600);
+  }catch(_){}
+})();
 // WIRE-42: the 42 verified reference-house renders (one per ROOF_CATALOG material/colour) are now the
 // material-BROWSER preview. Picking a swatch swaps the matching pre-rendered image instantly — no AI
 // call, no Google call. The runtime-AI browse path (renderOne's /airender?tier=browse + scheduleFinal's
@@ -11603,52 +11700,11 @@ function rdAttachScrollArrows(sc){
     sc.__scrollArrowsUpd=upd; requestAnimationFrame(upd); setTimeout(upd,120);
   }catch(_){}
 }
-// Fix 4 — hover magnifier loupe over the #aiPhoto roof preview (desktop pointer only). Shows a ~2.5×
-// zoomed crop of the render under the cursor in a circular lens. rAF-throttled + transform-based so it
-// stays smooth. Correctly accounts for object-fit (contain letterboxing vs cover) so the crop is aligned.
-function rdWireLoupe(){
-  try{
-    const img=$("aiPhoto"), lp=$("rdLoupe"); if(!img||!lp||img.__loupeWired) return; img.__loupeWired=true;
-    const ZOOM=2.5, R=70;                 // lens radius 70 → 140px diameter (matches CSS)
-    const fine = window.matchMedia && window.matchMedia("(hover:hover) and (pointer:fine)").matches;
-    let raf=0, lastX=0, lastY=0, active=false;
-    // visible image rect inside the element box, honouring object-fit
-    function imgRect(){
-      const box=img.getBoundingClientRect();
-      const nw=img.naturalWidth||1, nh=img.naturalHeight||1;
-      const fit=getComputedStyle(img).objectFit;
-      // account for CSS padding (contain preview has padding:22px) — object-fit box is the content box
-      const cs=getComputedStyle(img);
-      const pl=parseFloat(cs.paddingLeft)||0, pr=parseFloat(cs.paddingRight)||0;
-      const pt=parseFloat(cs.paddingTop)||0, pb=parseFloat(cs.paddingBottom)||0;
-      const cw=box.width-pl-pr, ch=box.height-pt-pb, cx0=box.left+pl, cy0=box.top+pt;
-      const ar=nw/nh, br=cw/ch; let w,h;
-      if(fit==="contain"){ if(ar>br){ w=cw; h=cw/ar; } else { h=ch; w=ch*ar; } }
-      else { if(ar>br){ h=ch; w=ch*ar; } else { w=cw; h=cw/ar; } }   // cover
-      const x=cx0+(cw-w)/2, y=cy0+(ch-h)/2;
-      return {x,y,w,h,box};
-    }
-    function draw(){
-      raf=0; if(!active) return;
-      const r=imgRect();
-      // cursor position relative to the visible image
-      const rx=lastX-r.x, ry=lastY-r.y;
-      if(rx<0||ry<0||rx>r.w||ry>r.h){ lp.classList.remove("on"); return; }
-      lp.classList.add("on");
-      lp.style.backgroundImage="url('"+img.src.replace(/'/g,"%27")+"')";
-      lp.style.backgroundSize=(r.w*ZOOM)+"px "+(r.h*ZOOM)+"px";
-      const bgx=-(rx*ZOOM-R), bgy=-(ry*ZOOM-R);
-      lp.style.backgroundPosition=bgx+"px "+bgy+"px";
-      lp.style.transform="translate("+(lastX-R)+"px,"+(lastY-R)+"px)";
-    }
-    function onMove(e){ if(!fine) return; lastX=e.clientX; lastY=e.clientY; active=true; if(!raf) raf=requestAnimationFrame(draw); }
-    function onLeave(){ active=false; lp.classList.remove("on"); }
-    img.addEventListener("pointermove",e=>{ if(e.pointerType==="touch") return; onMove(e); });
-    img.addEventListener("pointerenter",e=>{ if(e.pointerType==="touch") return; if(img.src && img.style.display!=="none") onMove(e); });
-    img.addEventListener("pointerleave",onLeave);
-    img.addEventListener("pointerdown",onLeave);   // don't fight the before/after wipe drag
-  }catch(_){}
-}
+// (Refinement A) rdWireLoupe() — the hover magnifier lens over #aiPhoto — was REMOVED. The showroom renders
+// are 1248×832 JPEGs, so a 2.5× lens showed soft/pixelated shingles (verified with a real-GPU screenshot over
+// the roof); a blurry magnifier cheapens the premium preview, and re-rendering higher-res wasn't warranted. The
+// #rdLoupe element + its CSS were deleted too. (The small per-tile "loupe" ICON that opens the hi-res closeup
+// modal is a SEPARATE feature — rdOpenZoom/.rdm-loupe — and is unaffected.)
 // Preview fit: showroom renders are full-house compositions → object-fit CONTAIN so the whole house is
 // always visible (never cropped). Real on-your-house AI renders keep the legacy cover crop. baBefore
 // mirrors the fit so the before/after wipe stays pixel-aligned.
@@ -12043,6 +12099,29 @@ async function openRoofDesign(){
   // surface the overlay + paint the picker FIRST (instant), then mount the photoreal house behind it
   rdBuildMats(); rdBuildCols(); rdRenderInfo();
   $("roofDesign").style.display="flex"; window.__rdOpen=true;
+  try{ document.body.classList.add("rd-open"); }catch(_){}   // (FIX 1) set the body flag NOW so the CSS hides the customer-house surfaces before any of them can paint through
+  // (FIX 1) belt-and-suspenders: force every customer-house surface hidden in JS too (the CSS !important rule
+  // already does this, but hiding inline guarantees no surface is ever left display:block behind the reference
+  // render at any breakpoint — even if a later function re-shows one, this is the deterministic entry state).
+  try{ ["scene","gmapWrap","matCanvas","aerialFb"].forEach(id=>{ const e=$(id); if(e) e.style.display="none"; }); }catch(_){}
+  // (FIX 1) IMMEDIATELY paint #aiPhoto with the current material+colour's REFERENCE render. If the manifest is
+  // already cached (we prewarm it on load) this resolves the URL synchronously and the browser paints it from
+  // cache with no flash; if the render is still loading, the neutral dark-gradient placeholder (CSS #app::before)
+  // shows behind it — NEVER the customer's top-down/satellite. rdApplyShowroom preloads-then-crossfades safely.
+  try{
+    const m0=ROOF_CATALOG[selMat]||ROOF_CATALOG[0], c0=m0.colors[selCol]||m0.colors[0];
+    const u0=(typeof rdShowroomUrl==="function")?rdShowroomUrl(m0,c0):null;
+    const ai0=$("aiPhoto");
+    if(u0 && ai0){
+      // synchronous src set → paints from cache instantly; rdApplyShowroom() below still runs the polished crossfade path
+      if(typeof rdSetPreviewFit==="function") rdSetPreviewFit(true);
+      ai0.src=u0; ai0.style.display="block"; ai0.style.zIndex="16"; if(ai0.dataset){ ai0.dataset.showroom="1"; delete ai0.dataset.aireal; }
+    } else if(ai0){
+      // no cached manifest yet → hide any stale render so only the neutral placeholder shows (never a top-down)
+      ai0.style.display="none"; ai0.src=""; if(ai0.dataset){ delete ai0.dataset.showroom; delete ai0.dataset.aireal; }
+    }
+    if(typeof rdApplyShowroom==="function") rdApplyShowroom();
+  }catch(_){}
   // FROSTED SHEET: wire the grab handle (idempotent) + default to PEEK on mobile so the house preview owns
   // the viewport on open; the buyer drags/taps the handle up for the full material picker. Desktop = FULL.
   try{ const rd=$("roofDesign");
@@ -12060,8 +12139,9 @@ async function openRoofDesign(){
     })($("rdCols"));
     // Fix 3 — subtle scroll-affordance chevrons on the colour + material rows (only appear when they overflow).
     try{ if(typeof rdAttachScrollArrows==="function"){ rdAttachScrollArrows($("rdCols")); rdAttachScrollArrows($("rdMats")); } }catch(_){}
-    // Fix 4 — hover magnifier loupe over the house preview (desktop only).
-    try{ if(typeof rdWireLoupe==="function") rdWireLoupe(); }catch(_){}
+    // (Refinement A) The hover-magnifier loupe was REMOVED: the showroom renders are 1248×832 JPEGs, so at
+    // 2.5× the magnified roof read soft/pixelated — a blurry magnifier cheapens the premium preview rather than
+    // enhancing it, and re-rendering higher-res isn't warranted. rdWireLoupe / #rdLoupe / its CSS were deleted.
     // The roofing designer switches to the DESKTOP two-column layout at ≥861px (its CSS breakpoint), so its
     // bottom-sheet PEEK/FULL behaviour applies below that — a wider threshold than the shared 560px sheet used
     // by the step-3 dot editor. Default to PEEK on mobile/tablet so the house preview owns the viewport on open.
@@ -13079,10 +13159,23 @@ function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 // Only allow http(s) or inline data:image logo URLs as an <img src>; reject anything
 // else (javascript:, data:text/html, etc.) so a logo string can't smuggle script.
 function safeLogoUrl(u){ const s=String(u??'').trim(); return (/^https?:\/\//i.test(s)||/^data:image\//i.test(s))?s:''; }
+// (FIX 3) Accurate default WeFixTrades brand mark — the canonical logo from client/src/components/primitives/
+// Logo.tsx: an open-checkbox icon (box with the top-right corner open + a brand-blue check exiting it) beside
+// the "WeFixTrades" wordmark where "Fix" is brand blue (#0d3cfc). Inlined as SVG/HTML so it embeds cross-origin
+// in the widget/proposal with no asset fetch. Used as-is per the brand-lock rule (no restyle of the official mark).
+function wftBrandMark(){
+  return '<div class="th-wft" aria-label="WeFixTrades">'
+    +'<svg class="th-wft-ic" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+      +'<path d="M12 7 H4 V20 H17 V12.5" stroke="#0f172a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>'
+      +'<path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+    +'</svg>'
+    +'<span class="th-wft-wm">We<span class="th-wft-fix">Fix</span>Trades</span>'
+  +'</div>';
+}
 function tradeHeader(){ const tr=TENANT.trade||{};
   const logoUrl=safeLogoUrl(tr.logo);
-  // No tenant logo → show the WeFixTrades wordmark, never an empty "Your logo" box.
-  const logo=logoUrl?'<img class="th-logo" src="'+esc(logoUrl)+'" alt="">':'<div class="th-name">'+esc(TENANT.brand||"WeFixTrades")+'</div>';
+  // No tenant logo → show the accurate WeFixTrades brand mark (icon + wordmark), never plain text or an empty box.
+  const logo=logoUrl?'<img class="th-logo" src="'+esc(logoUrl)+'" alt="">':wftBrandMark();
   // Unset fields hide gracefully (Roofr-style placeholders only ever showed in the wizard editor; a homeowner must never see "[Your Company Name]").
   const company=tr.company?'<div class="th-name">'+esc(tr.company)+'</div>':'';
   const contactStr=[tr.phone,tr.email,tr.web].filter(Boolean).map(esc).join(' · ');
