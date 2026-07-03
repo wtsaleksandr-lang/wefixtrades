@@ -615,6 +615,30 @@
   #report .rbadge{text-align:center;padding:8px 14px 22px;font-size:11px;color:#94a3b8}
   #report .rbadge b{color:#0d3cfc;font-weight:800}
   #report .foot{padding:18px 30px;color:#94a3b8;font-size:10.5px;line-height:1.5}
+  /* ── ROOFING-PROPOSAL blocks (KPI tiles, itemized cost, material visual) — scoped copies of the
+     #card equivalents so the roofing proposal matches the widget's tokens/typography ── */
+  #report .rp-ktiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+  #report .rp-ktiles .ktile{background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--tile-radius);padding:11px 12px;min-width:0}
+  #report .rp-ktiles .ktv{font-size:17px;font-weight:800;color:#0f172a;line-height:1.1;white-space:normal}
+  #report .rp-ktiles .ktl{font-size:9.5px;font-weight:700;color:#5b6573;text-transform:uppercase;letter-spacing:.03em;margin-top:4px}
+  #report .rp-ktiles .ktsub{font-size:10.5px;color:#5b6573;margin-top:3px;line-height:1.3}
+  #report .rp-takeoff{display:flex;flex-direction:column;gap:5px}
+  #report .rp-takeoff .tk-row{display:flex;justify-content:space-between;font-size:13px;gap:10px}
+  #report .rp-takeoff .tk-row span{color:#5b6573}
+  #report .rp-takeoff .tk-row b{color:#0f172a;font-weight:700;white-space:nowrap}
+  #report .rp-takeoff .tk-tot{border-top:1px solid #e1e7ef;margin-top:5px;padding-top:7px}
+  #report .rp-takeoff .tk-tot span,#report .rp-takeoff .tk-tot b{color:#0f172a;font-weight:800;font-size:14px}
+  #report .rp-takeoff .ccue{display:none}
+  #report .rp-matrow{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+  #report .rp-matvis{width:88px;height:88px;flex:0 0 auto;border-radius:var(--tile-radius);border:1px solid #e1e7ef;background-size:cover;background-position:center}
+  #report .rp-matmeta{min-width:0}
+  #report .rp-matname{font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px}
+  @media (max-width:420px){
+    #report .rp-ktiles{grid-template-columns:1fr 1fr}
+    #report .rp-matvis{width:70px;height:70px}
+    #report .hero{height:200px}
+    #report .hero h1{font-size:21px}
+  }
   @media print{
     /* (BUG 1) the screen layout clamps the page to one viewport: html,body{height:100%;overflow:hidden}
        (~L16) + #app{position:fixed;inset:0} (~L17) are never reset for print, so window.print() only
@@ -12138,13 +12162,19 @@ function closeRoofDesign(){
   // Upload-photo button. Hide the prompt once they act on it.
   const upPrompt=$("rdUploadPrompt"); if(upPrompt) upPrompt.onclick=()=>{ upPrompt.style.display="none"; const inp=$("rdUploadInput"); if(inp) inp.click(); };
   const done=$("rdDone"); if(done) done.onclick=()=>{
-    // commit the chosen roof and drop the buyer onto the quote card (estimate) for this material
+    // commit the chosen roof and open the polished PROPOSAL (#report) for this material — NOT the old
+    // map+quote-card view (Alex flagged that as inconsistent). We still commit the selection + set trade
+    // mode so the report (and the card behind it, if the buyer closes back) reflect the chosen roof.
     const reveal=()=>{
       rdCommitSel(); closeRoofDesign();
+      // keep the card behind the proposal in sync (buyer may Close → lands on the designer, or on the card)
       $("bar").style.display="flex";
       if(typeof applyTradeMode==="function"){ try{ applyTradeMode(); }catch(_){} }
       if(typeof renderQuoteCard==="function"){ try{ renderQuoteCard(); }catch(_){} }
       if(typeof setFunnelStep==="function") setFunnelStep("estimate");
+      // Close from THIS proposal returns to the designer (not a dead end / not the bare map).
+      window.__reportBack="designer";
+      if(typeof openReport==="function"){ try{ openReport(); }catch(_){} }
     };
     // PER-TRADE GATE (roof): if roofing is gated and no lead yet, collect contact FIRST then
     // reveal; ungated → reveal immediately. The form sits over the design step; the price/quote
@@ -13161,6 +13191,70 @@ function openReport(){
     document.body.classList.add("report-open");
     return;
   }
+  // ── ROOFING-FIRST PROPOSAL ──────────────────────────────────────────────────────────────────────
+  // When the buyer arrives from the ROOFING designer CTA (tradeMode==="roof" + a selected material), the
+  // proposal must lead with ROOFING content — not solar tiers/25-yr-savings. Alex flagged the old route
+  // (back to the map+quote-card) as inconsistent; this renders the polished #report shell with the roofing
+  // KPIs (installed price / warranty / home-value / lifespan — parity with the solar KPI card), the chosen
+  // material + spec, the itemized cost breakdown (roofCostBreakdown — the same math the card shows), the
+  // full measurement report, and the on-brand share/print/email + book CTA. Solar path is untouched below.
+  if(tradeMode==="roof" && window.__roofSel){
+    const rSel=window.__roofSel, rAddr=$("addr").value;
+    const rSqs=(typeof roofingSquares==="function")?roofingSquares():quoteAreaSqFt()/100;
+    const rt=(typeof getRoofTotals==="function")?getRoofTotals():null;
+    const spec=(typeof ROOF_SPEC!=="undefined")?ROOF_SPEC[rSel.matId]:null;
+    const psq=(typeof ROOF_PSQ!=="undefined"&&ROOF_PSQ[rSel.matId])?ROOF_PSQ[rSel.matId]:[450,700];
+    const wf=1+((typeof WASTE_OPTS!=="undefined"&&WASTE_OPTS[selWaste]!=null)?WASTE_OPTS[selWaste]:10)/100;
+    let [rlo,rhi]=applyRoofOpts(rSqs*wf*psq[0], rSqs*wf*psq[1], rSqs, rt); rlo=Math.round(rlo/50)*50; rhi=Math.round(rhi/50)*50;
+    const rMid=Math.round((rlo+rhi)/2);
+    const rFinMo=Math.round(monthly(rMid,TENANT.financing.roofApr,roofTermYears()));
+    // roofing KPI tiles (parity with the solar KPI card content)
+    const rk=(typeof ROOF_KPI!=="undefined"?ROOF_KPI[rSel.matId]:null)||{};
+    const addVal=rk.roiPct?Math.round(rMid*rk.roiPct/100)*100:0;
+    const roiHdr=rk.roiPct?('~'+Math.round(rk.roiPct*100)+'%'):'—';
+    const kpiTiles=
+      '<div class="ktile"><div class="ktv" style="font-size:16px">'+fmtMoney(rlo)+'–'+fmtMoney(rhi)+'</div><div class="ktl">Installed</div><div class="ktsub">tear-off + new roof'+(finConfigured()?' · '+fmtMoney(rFinMo)+'/mo financed':'')+'</div></div>'+
+      '<div class="ktile"><div class="ktv">'+(spec?esc(spec.warranty):'—')+'</div><div class="ktl">Warranty</div><div class="ktsub">manufacturer + workmanship</div></div>'+
+      '<div class="ktile"><div class="ktv">Recoups '+roiHdr+'</div><div class="ktl">Home value'+(rk.roiEst?' (est.)':'')+'</div><div class="ktsub">'+(addVal>0?'≈ +'+fmtMoney(addVal)+' added at resale*':'added value at resale')+'</div></div>'+
+      '<div class="ktile"><div class="ktv">'+(rk.lifeShort||(spec?esc(spec.life):'—'))+'</div><div class="ktl">Lifespan</div><div class="ktsub">before next replacement</div></div>';
+    const instNote=rk.installDays?'<div class="muted" style="margin-top:8px">🔨 Typically installed in ~'+rk.installDays+'.</div>':'';
+    // material spec bullets (from ROOF_SPEC / MAT_INFO)
+    const mi=(typeof MAT_INFO!=="undefined")?MAT_INFO[rSel.matId]:null;
+    const specBul=(mi&&mi.features)?mi.features.slice(0,4).map(f=>'<div class="bul"><span class="bm"></span><div>'+esc(f)+'</div></div>').join(''):'';
+    // material swatch/showroom render (their-material visual, if available)
+    let swatchBg=''; try{ const u=(typeof rdThumbUrl==="function")?rdThumbUrl(rSel.matId,false):null; if(u) swatchBg="url('"+u+"')"; }catch(_){}
+    const matVisual=swatchBg?'<div class="rp-matvis" style="background-image:'+swatchBg+'"></div>':'';
+    // itemized cost breakdown (reuse the exact card math)
+    const breakdown=(typeof roofCostBreakdown==="function"&&rt)?roofCostBreakdown(rSel,rSqs,wf,rt,rlo,rhi):'';
+    $("report").innerHTML=`
+     <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Back</button><button onclick="window.__emailReport()">Email me this</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Print / PDF</button></div>
+     <div class="rwrap">
+       ${tradeHeader()}
+       <div class="hero"><img src="${QUOTE.hero||''}" alt="Aerial view of your roof"><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING PROPOSAL'}</div><h1>Your new roof — ${esc(rSel.matLabel)}</h1><div class="addr">${esc(rAddr)}${finConfigured()?` &nbsp;·&nbsp; from ~$${rFinMo.toLocaleString()}/mo*`:''}</div></div></div>
+       <div class="sec"><h2>Your roof at a glance</h2>
+         <div class="rp-matrow">${matVisual}<div class="rp-matmeta"><div class="rp-matname">${esc(rSel.matLabel)} · ${esc(rSel.colorName)}</div><div class="muted">${spec?`${esc(spec.warranty)} warranty · ${esc(spec.life)} lifespan`:''} · ${rSqs.toFixed(1)} squares · tear-off + install${roofOpts.layers>1?' (2 layers)':''}${roofOpts.ridgeVent?' · ridge vent':''}${roofOpts.steep?' · steep / 2-story':''}.</div></div></div>
+         <div class="ktiles rp-ktiles">${kpiTiles}</div>${instNote}
+         ${rk.roiPct?'<div class="muted" style="font-size:10.5px;margin-top:6px">*Cost recouped at resale — Remodeling "Cost vs. Value" report'+(rk.roiEst?' (premium-material estimate)':'')+'.</div>':''}
+       </div>
+       ${specBul?`<div class="sec"><h2>Why ${esc(rSel.matLabel)}</h2>${specBul}</div>`:''}
+       <div class="sec"><h2>Cost breakdown</h2><div class="takeoff rp-takeoff">${breakdown||'<div class="muted">Itemized breakdown confirmed after your free on-site assessment.</div>'}</div>
+         <div class="muted" style="font-size:11px;margin-top:8px">Installed price band — includes tear-off &amp; disposal, ${esc(rSel.matLabel.toLowerCase())} material, underlayment, flashing &amp; labor. Finalised after a free on-site measurement.</div></div>
+       ${measurementReport(rt, rSqs)}
+       <div class="sec"><h2>What's included</h2>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full tear-off, disposal &amp; haul-away of your old roof</div></div>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>New ${esc(rSel.matLabel.toLowerCase())} in ${esc(rSel.colorName)}, underlayment &amp; flashing</div></div>
+         <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; manufacturer + workmanship warranty</div></div></div>
+       ${proposalSections()}
+       <div class="sec"><h2>Next step</h2>
+         <button class="rcta" id="bookBtn" onclick="window.__book()">Book my free assessment</button>
+         <div class="signbox" id="signbox">No obligation · pick a time that works · we confirm the final price on-site</div></div>
+       <div class="foot">*Ballpark estimate generated from aerial imagery + elevation data (±${(typeof confidencePct==="function"&&rt)?confidencePct(rt):6}%). Financing figures are illustrative. Pricing finalised after a free on-site assessment.</div>
+       <div class="rbadge">Measurements &amp; report powered by <b>QuoteQuick</b></div>
+     </div>`;
+    $("report").style.display="block"; document.body.style.overflow="hidden";
+    document.body.classList.add("report-open");
+    return;
+  }
   // bug #1: roofing squares = pitch-corrected SLOPED squares (roofingSquares), the SAME figure the quote
   // card + desktop/mobile rails price off — NOT the flat quoteAreaSqFt()/100 — so the report price matches
   // the card identically AND is the same whether roofing was reached via the tab or the branch.
@@ -13498,7 +13592,12 @@ window.__book=async()=>{
   if(b){ b.disabled=false; b.textContent="Assessment requested"; b.classList.add("done"); }
   const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
 };
-window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; document.body.classList.remove("report-open"); };
+window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; document.body.classList.remove("report-open");
+  // Back-target: when the proposal was opened from the roofing designer CTA, Close returns to the DESIGNER
+  // (never a dead end / bare map). Otherwise it just closes back to whatever was underneath.
+  const back=window.__reportBack; window.__reportBack=null;
+  if(back==="designer" && typeof window.__openRoofDesign==="function"){ try{ window.__openRoofDesign(); }catch(_){} }
+};
 // reusable info modal (material + data help cues)
 function openInfoModal(html){ const m=$("infoModal"); if(!m) return; $("imBody").innerHTML=html; m.style.display="flex"; }
 window.__closeInfo=()=>{ const m=$("infoModal"); if(m) m.style.display="none"; };
@@ -13666,7 +13765,21 @@ function applySharedSelection(){
   renderQuoteCard();
 }
 window.__shareReport=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(quoteUrl()); }catch(_){} setStatus("Quote link copied to clipboard"); setTimeout(()=>setStatus(""),2500); };
-window.__emailReport=()=>{ location.href="mailto:?subject="+encodeURIComponent("Your WeFixTrades roof & solar quote")+"&body="+encodeURIComponent("Here's your personalised roof & solar plan for "+$("addr").value+": "+quoteUrl()); };
+window.__emailReport=()=>{
+  // Flag the lead with intent:"email_quote" so the platform can send the PDF proposal (real PDF-email is a
+  // separate P1 wire — this leaves the button + intent ready; we do NOT claim "sent instantly"). If a lead
+  // is already on file, submit the flag silently and confirm we'll email it; then still offer the mailto
+  // share as an immediate self-serve path.
+  try{
+    if(window.__lead && typeof sendLead==="function"){
+      sendLead(Object.assign({},window.__lead,{intent:"email_quote",address:$("addr").value,trade:tradeMode},(typeof leadQuoteFields==="function"?leadQuoteFields(tradeMode):{}))).catch(()=>{});
+      if(typeof setStatus==="function"){ setStatus("We'll email your proposal shortly"); setTimeout(()=>setStatus(""),2800); }
+    }
+  }catch(_){}
+  const subj=tradeMode==="roof"?"Your WeFixTrades roofing proposal":"Your WeFixTrades roof & solar quote";
+  const body=(tradeMode==="roof"?"Here's your roofing proposal for ":"Here's your personalised roof & solar plan for ")+$("addr").value+": "+quoteUrl();
+  location.href="mailto:?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);
+};
 $("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } const picked=window.__pickedPlace; const pid=(picked&&picked.addr===v)?picked.id:""; if(typeof window.__enterSelectRoof==="function"){ window.__enterSelectRoof(v,pid); } else { run(v); } };   // funnel: a new address from the top bar re-enters the Select-Your-Roof gate
 $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();$("go").click();} });
 // ── LANDING HERO wiring ──────────────────────────────────────────────────
