@@ -16,7 +16,7 @@
  *   (the tiles key — ROOFQUOTE_TILES_KEY || GOOGLE_MAPS_API_KEY — is consumed in the route layer, not here)
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync, createReadStream, createWriteStream, renameSync, unlinkSync } from "fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, createReadStream, createWriteStream, renameSync, unlinkSync, readdirSync, statSync } from "fs";
 import path from "path";
 import os from "os";
 import https from "https";
@@ -97,6 +97,87 @@ function diskSetBuf(prefix: string, key: string, buf: Buffer): void {
   } catch {
     /* best-effort */
   }
+}
+
+// ── GeoTIFF raster disk cache (size-capped, oldest-first eviction) ───────────
+// Rasters (DSM/RGB/flux/mask) are ~3.5 MB/quote and were previously NOT disk-cached
+// (only a browser max-age), so any returning session re-downloaded them from Google
+// (~5 s, gated by the slowest raster). We cache them keyed on the STABLE raster id
+// (the `id` param of the geoTiff:get URL, which is immutable per raster asset) — NOT
+// the full signed URL, whose `key`/token rotate on every 30-min dataLayers re-mint.
+const GEOTIFF_CACHE_PREFIX = "geotiff";
+const GEOTIFF_CACHE_MAX_BYTES = 500 * 1024 * 1024; // 500 MB cap (guards the 220MB-tiles disk-fill risk)
+
+/** Extract the stable raster identity from a geoTiff:get URL. Google mints
+ *  `https://solar.googleapis.com/v1/geoTiff:get?id=<STABLE_ID>` where `id` is
+ *  immutable per raster; the `key` param is the rotating credential. Key the cache
+ *  on `id` alone so a re-minted URL for the same raster is a HIT. Falls back to the
+ *  full path+id-less query (minus key) if no `id` is present, so distinct rasters
+ *  never collide. */
+function geotiffCacheKey(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    const id = u.searchParams.get("id");
+    if (id) return "id:" + id;
+    // No id param — build a stable key from path + sorted query minus the rotating key.
+    const parts: string[] = [];
+    for (const [k, v] of [...u.searchParams.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      if (k === "key") continue;
+      parts.push(k + "=" + v);
+    }
+    return "url:" + u.pathname + "?" + parts.join("&");
+  } catch {
+    return null;
+  }
+}
+
+// TTL is effectively unbounded (rasters are immutable per id); we bound the cache by
+// total size, evicting oldest files first when a write would exceed the cap.
+function enforceGeotiffCacheCap(): void {
+  try {
+    const dir = cacheDir();
+    const prefix = GEOTIFF_CACHE_PREFIX + "-";
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith(prefix) && f.endsWith(".bin"))
+      .map((f) => {
+        const full = path.join(dir, f);
+        try {
+          const st = statSync(full);
+          return { full, size: st.size, mtime: st.mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter((x): x is { full: string; size: number; mtime: number } => x !== null);
+    let total = files.reduce((s, f) => s + f.size, 0);
+    if (total <= GEOTIFF_CACHE_MAX_BYTES) return;
+    // Evict oldest first until under the cap.
+    files.sort((a, b) => a.mtime - b.mtime);
+    for (const f of files) {
+      if (total <= GEOTIFF_CACHE_MAX_BYTES) break;
+      try {
+        unlinkSync(f.full);
+        total -= f.size;
+      } catch {
+        /* best-effort eviction */
+      }
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
+function geotiffCacheGet(cacheKey: string): { buf: Buffer; ct: string } | null {
+  const buf = diskGetBuf(GEOTIFF_CACHE_PREFIX, cacheKey);
+  if (!buf) return null;
+  const meta = diskGetJSON<{ ct?: string }>(GEOTIFF_CACHE_PREFIX + "ct", cacheKey);
+  return { buf, ct: (meta && meta.ct) || "image/tiff" };
+}
+
+function geotiffCacheSet(cacheKey: string, buf: Buffer, ct: string): void {
+  diskSetBuf(GEOTIFF_CACHE_PREFIX, cacheKey, buf);
+  diskSetJSON(GEOTIFF_CACHE_PREFIX + "ct", cacheKey, { ct });
+  enforceGeotiffCacheCap();
 }
 
 // ── in-memory caches (avoid paying twice for the same render within a process) ──
@@ -1684,6 +1765,12 @@ export async function solarInsights(
 /** Raw Solar dataLayers passthrough. Returns the upstream text body + ok flag.
  *  Successful responses are disk-cached by rounded lat/lng (same quota-protection
  *  scheme as solarInsights); errors fall through to a live retry. */
+// In-flight coalescing: when run() and the Select-Roof prefetch race for the same
+// dataLayers key, the second caller awaits the first's in-flight upstream call instead
+// of making a second billable Google dataLayers request. Keyed on the geo cache key
+// (+fresh flag, since fresh bypasses the cache and must re-mint). Deleted on settle.
+const _dataLayersInflight = new Map<string, Promise<{ ok: boolean; status: number; body: string; cached?: boolean }>>();
+
 export async function dataLayers(
   lat: string,
   lng: string,
@@ -1694,28 +1781,46 @@ export async function dataLayers(
   // that expire in hours, so a long-cached datalayers entry hands out dead URLs.
   const hit = fresh ? null : readSolarCache("datalayers", key, DATALAYERS_CACHE_TTL_MS);
   if (hit) return { ok: true, status: hit.status || 200, body: hit.body, cached: true };
-  const SOLAR = solarKey();
-  const url =
-    "https://solar.googleapis.com/v1/dataLayers:get?location.latitude=" +
-    lat +
-    "&location.longitude=" +
-    lng +
-    "&radiusMeters=40&view=FULL_LAYERS&requiredQuality=LOW&pixelSizeMeters=0.1&key=" +
-    SOLAR;
-  const r = await fetch(url);
-  const body = await r.text();
-  if (r.ok) diskSetJSON("datalayers", key, { body, status: r.status, _t: Date.now() } as SolarCacheEntry);
-  return { ok: r.ok, status: r.status, body, cached: false };
+  // Coalesce concurrent misses for the same key onto one upstream call.
+  const inflightKey = key + (fresh ? "|fresh" : "");
+  const existing = _dataLayersInflight.get(inflightKey);
+  if (existing) return existing;
+  const p = (async () => {
+    const SOLAR = solarKey();
+    const url =
+      "https://solar.googleapis.com/v1/dataLayers:get?location.latitude=" +
+      lat +
+      "&location.longitude=" +
+      lng +
+      "&radiusMeters=40&view=FULL_LAYERS&requiredQuality=LOW&pixelSizeMeters=0.1&key=" +
+      SOLAR;
+    const r = await fetch(url);
+    const body = await r.text();
+    if (r.ok) diskSetJSON("datalayers", key, { body, status: r.status, _t: Date.now() } as SolarCacheEntry);
+    return { ok: r.ok, status: r.status, body, cached: false };
+  })().finally(() => {
+    _dataLayersInflight.delete(inflightKey);
+  });
+  _dataLayersInflight.set(inflightKey, p);
+  return p;
 }
 
 export type GeoTiffResult =
-  | { ok: true; contentType: string; buf: Buffer }
+  | { ok: true; contentType: string; buf: Buffer; cached?: boolean }
   | { ok: false; status: number; error: string };
+
+// In-flight coalescing for geotiff by stable raster id: two concurrent fetches for
+// the same raster (e.g. prefetch + run() racing) share one upstream Google download.
+const _geotiffInflight = new Map<string, Promise<GeoTiffResult>>();
 
 /**
  * GeoTIFF proxy: fetch a Solar geoTiff:get URL server-side (appends key) and
  * return bytes. Host-whitelisted to solar.googleapis.com so the key can never
  * be used to proxy arbitrary URLs.
+ *
+ * Disk-cached keyed on the STABLE raster id (immutable per asset) so a returning
+ * session serves the ~1-5 MB raster from disk instead of re-downloading ~5 s from
+ * Google. Concurrent fetches for the same raster are coalesced onto one upstream call.
  */
 export async function geoTiff(raw: string): Promise<GeoTiffResult> {
   let target: URL;
@@ -1727,11 +1832,32 @@ export async function geoTiff(raw: string): Promise<GeoTiffResult> {
   if (target.hostname !== "solar.googleapis.com") {
     return { ok: false, status: 403, error: "host not allowed" };
   }
-  target.searchParams.set("key", solarKey());
-  const r = await fetch(target.toString());
-  if (!r.ok) return { ok: false, status: r.status, error: "upstream " + r.status };
-  const buf = Buffer.from(await r.arrayBuffer());
-  return { ok: true, contentType: r.headers.get("content-type") || "image/tiff", buf };
+  const cacheKey = geotiffCacheKey(raw);
+  // Disk-cache HIT — serve immediately (immutable raster, keyed on stable id).
+  if (cacheKey) {
+    const hit = geotiffCacheGet(cacheKey);
+    if (hit) return { ok: true, contentType: hit.ct, buf: hit.buf, cached: true };
+  }
+  // Coalesce concurrent misses for the same raster onto one upstream download.
+  if (cacheKey) {
+    const existing = _geotiffInflight.get(cacheKey);
+    if (existing) return existing;
+  }
+  const doFetch = async (): Promise<GeoTiffResult> => {
+    target.searchParams.set("key", solarKey());
+    const r = await fetch(target.toString());
+    if (!r.ok) return { ok: false, status: r.status, error: "upstream " + r.status };
+    const buf = Buffer.from(await r.arrayBuffer());
+    const contentType = r.headers.get("content-type") || "image/tiff";
+    if (cacheKey) geotiffCacheSet(cacheKey, buf, contentType);
+    return { ok: true, contentType, buf };
+  };
+  if (!cacheKey) return doFetch();
+  const p = doFetch().finally(() => {
+    _geotiffInflight.delete(cacheKey);
+  });
+  _geotiffInflight.set(cacheKey, p);
+  return p;
 }
 
 export type StreetViewResult =
