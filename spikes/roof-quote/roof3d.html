@@ -1104,7 +1104,54 @@
   #roofDesign .rd-grab:active::before{background:#64748b;width:52px}
   /* PEEK-only material name line — hidden by default, revealed only when the sheet is collapsed on mobile */
   #roofDesign .rd-peekmat{display:none;font-size:12.5px;font-weight:800;color:var(--ink);text-align:center;letter-spacing:-.01em;margin-top:2px}
-  @media (max-width:560px){
+  /* ─────────────────────────────────────────────────────────────────────────────────────────────
+     DESKTOP TWO-COLUMN (≥861px): controls move to a fixed-width LEFT PANEL (QuoteQuick-wizard feel),
+     the house preview owns the whole RIGHT area and is shown object-fit:contain so it is NEVER cropped.
+     --rd-left is the left-panel width; preview layers are inset by it (+ header height at top) so the
+     full render — sky, roof, lawn, trees — sits centred in the visible right region. */
+  @media (min-width:861px){
+    :root{ --rd-left:420px; --rd-headh:60px; }
+    /* Left panel: full-height scrollable settings column, NOT a bottom sheet. */
+    #roofDesign .rd-panel{
+      margin-top:0;position:absolute;top:var(--rd-headh);left:0;bottom:0;width:var(--rd-left);
+      max-height:none;overflow-y:auto;overflow-x:clip;border-radius:0;border-top:0;
+      border-right:1px solid var(--line);box-shadow:14px 0 44px rgba(15,23,42,.12);
+      padding:16px 18px;padding-bottom:max(18px,env(safe-area-inset-bottom));gap:12px;
+      background:color-mix(in srgb, var(--panel) 92%, transparent);
+    }
+    #roofDesign .rd-panel::before{display:none}
+    #roofDesign .rd-grab{display:none}
+    /* material tiles wrap into a tidy 2-up grid inside the narrow panel (no giant horizontal scroller) */
+    #roofDesign .rd-mats{flex-wrap:wrap;overflow-x:visible}
+    #roofDesign .rd-mat{width:calc(50% - 4px)}
+    /* colour chips wrap too so every colour is visible without a hidden side-scroll */
+    #roofDesign .rd-cols{flex-wrap:wrap;overflow-x:visible;overflow-y:visible;cursor:default}
+    /* estimate + spec list stack vertically in the narrow column */
+    #roofDesign .rd-info{grid-template-columns:1fr}
+    /* CTA is the natural full-width of the ~420px panel = a normal button, NOT the full screen */
+    #roofDesign .rd-cta .rd-done{padding:14px}
+    /* header spans the top of the whole screen, above both columns, styled to match the widget header */
+    #roofDesign .rd-head{min-height:var(--rd-headh);z-index:6}
+    /* PREVIEW LAYERS: inset from the left panel + below the header so the WHOLE house shows, contained.
+       Every stage layer (3D canvas, google photoreal, showroom photo, before/after, aerial fallback,
+       2D material canvas) is shifted right & padded so nothing hides under the panel or the header. */
+    body.rd-open #scene,body.rd-open #gmapWrap,body.rd-open #matCanvas,
+    body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade,
+    body.rd-open #aerialFb{
+      left:var(--rd-left)!important;top:var(--rd-headh)!important;right:auto!important;bottom:auto!important;
+      width:calc(100vw - var(--rd-left))!important;height:calc(100vh - var(--rd-headh))!important;
+    }
+    /* the showroom / before-after renders are full-house compositions → CONTAIN + centred with padding
+       so the sky above and lawn below always read; a gentle backdrop fills the letterbox area cleanly. */
+    body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade{
+      object-fit:contain!important;object-position:center!important;padding:22px;
+      background:radial-gradient(120% 120% at 50% 32%, #12203a 0%, #0b1220 78%)!important;
+    }
+    /* example-home badge + stage hints re-anchor into the right preview region, clear of the left panel */
+    body.rd-open .rd-example-badge{left:calc(var(--rd-left) + 16px)}
+    #roofDesign .rd-stagehint,#roofDesign .rd-uploadprompt{left:calc(var(--rd-left) + (100% - var(--rd-left))/2)}
+  }
+  @media (max-width:860px){
     /* the frosted picker becomes a foldable bottom sheet; cap FULL at ~70vh so the top of the house preview
        always stays visible, internal scroll for any overflow */
     #roofDesign .rd-panel{max-height:70vh;overflow-y:auto;padding-top:30px;transition:transform .16s cubic-bezier(.4,0,.2,1)}
@@ -1123,6 +1170,15 @@
     #roofDesign.sheet-peek .rd-cols,
     #roofDesign.sheet-peek .rd-feats{display:none!important}
     #roofDesign.sheet-peek .rd-info{grid-template-columns:1fr}
+    /* FULL-HOUSE ON MOBILE: the showroom/before-after render is a whole-house composition, so contain it
+       and reserve room at the top (header) and bottom (peek sheet ≈ 200px) so the ENTIRE house — roof, walls,
+       lawn — is visible above the sheet in its default PEEK state. Dragging the sheet down reveals even more. */
+    body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade{
+      object-fit:contain!important;object-position:center!important;
+      top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
+      width:100vw!important;height:calc(100vh - 56px - 216px)!important;
+      padding:8px 10px;background:radial-gradient(120% 120% at 50% 34%, #12203a 0%, #0b1220 80%)!important;
+    }
   }
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -11858,7 +11914,10 @@ async function openRoofDesign(){
       cols.addEventListener("pointerup",end); cols.addEventListener("pointercancel",end);
       cols.addEventListener("click",e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } },true);   // a drag isn't a chip-select
     })($("rdCols"));
-    setSheetState(rd, isMobileSheet());
+    // The roofing designer switches to the DESKTOP two-column layout at ≥861px (its CSS breakpoint), so its
+    // bottom-sheet PEEK/FULL behaviour applies below that — a wider threshold than the shared 560px sheet used
+    // by the step-3 dot editor. Default to PEEK on mobile/tablet so the house preview owns the viewport on open.
+    setSheetState(rd, (typeof window!=="undefined") && ((window.innerWidth||1024)<=860));
   }catch(_){}
   // SHOWROOM (Part 1): fetch the pre-rendered "example home" manifest ONCE (no await — the picker is already
   // live). When it lands, re-reflect so the current selection swaps to its instant photoreal image. If the
