@@ -459,7 +459,9 @@ function WidgetCard({
           </div>
         )}
         <div style={currentStep.help ? { paddingLeft: 40 } : undefined}>
-          <StepRenderer step={currentStep} accentColor={accentColor} />
+          {/* calculatorId (P0-T1): lead attribution for the roof_visualizer step's
+              embedded widget — see RoofVisualizerStep. Other steps ignore it. */}
+          <StepRenderer step={currentStep} accentColor={accentColor} calculatorId={calculator.id} />
         </div>
       </div>
 

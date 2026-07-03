@@ -1953,6 +1953,29 @@ function RoofVisualizerEmbed({
       if (!d || d.type !== 'qq:lead' || !d.payload || typeof d.payload !== 'object') return;
       const p = d.payload as Record<string, any>;
       const priceHi = Number(p.priceHi);
+      // (P0-2) TRADE-SPECIFIC QUOTE PAYLOAD — mirror of the widget-fallback sink
+      // (server/routes/roofQuoteRoutes.ts /lead). The widget posts the full quote flat on
+      // the payload: roofing material/matId/color/squares/financing (+ commercial marker),
+      // solar panels/kwhYr/monthlyPay/payMode/panelTier/battery/EV/solarBill. The old
+      // allowlist below dropped all of them. Persist under answers.quote via the SAME
+      // size-capped, type-checked whitelist: known keys, scalars only, strings capped at
+      // 160 chars, whole object ≤ 4 KB. Existing top-level answers keys stay unchanged.
+      const QUOTE_FIELD_KEYS = [
+        'material', 'matId', 'color', 'squares', 'financeMo', 'financeTerms',
+        'commercial',
+        'panels', 'kwhYr', 'monthlyPay', 'payMode', 'panelTier',
+        'battery', 'batteryModel', 'batteryCount', 'backupLoads',
+        'ev', 'evCharger', 'solarBill',
+      ];
+      const quote: Record<string, string | number | boolean> = {};
+      for (const k of QUOTE_FIELD_KEYS) {
+        const v = p[k];
+        if (typeof v === 'boolean') quote[k] = v;
+        else if (typeof v === 'number' && Number.isFinite(v)) quote[k] = v;
+        else if (typeof v === 'string' && v.trim()) quote[k] = v.trim().slice(0, 160);
+        // anything else (object/array/NaN/null) dropped — scalars only, 1 level deep
+      }
+      const hasQuote = Object.keys(quote).length > 0 && JSON.stringify(quote).length <= 4096;
       const body = {
         calculator_id: publishedCalcId,
         name: typeof p.name === 'string' ? p.name : null,
@@ -1981,14 +2004,34 @@ function RoofVisualizerEmbed({
           priorities: Array.isArray(p.priorities) ? p.priorities : null,
           leadScore: p.leadScore ?? null,
           intent: p.intent ?? null,
+          ...(hasQuote ? { quote } : {}),
         },
       };
-      // Best-effort; the widget keeps its own durable /api/roofquote/lead fallback.
-      void fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }).catch(() => {});
+      // (P0-T1) NOT silently best-effort anymore: a swallowed one-shot fetch meant a
+      // transient failure (rate limit / blip / 500) lost the lead with nobody notified
+      // whenever the widget's own /api/roofquote/lead fallback couldn't attribute it.
+      // Retry once after a short backoff, and surface the final failure to the console
+      // so it's visible in session-replay/devtools. The server dedups against the
+      // widget-fallback path, so a duplicate delivery is safe.
+      const postLead = (attempt: number) => {
+        fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }).then((r) => {
+          if (!r.ok) throw new Error(`POST /api/leads → ${r.status}`);
+        }).catch((err) => {
+          if (attempt < 2) {
+            setTimeout(() => postLead(attempt + 1), 4000);
+          } else {
+            console.warn(
+              '[RoofVisualizerEmbed] lead bridge POST failed after retry — relying on the widget\'s /api/roofquote/lead fallback queue',
+              err,
+            );
+          }
+        });
+      };
+      postLead(1);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);

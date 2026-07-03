@@ -42,14 +42,37 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
       <td style="padding:6px 0;font-size:14px;color:${accent ? "#0d3cfc" : "#F0F0F0"};font-weight:600;text-align:right;">${escapeHtml(value)}</td>
     </tr>`;
 
+  // Key inputs: scalar answers only — nested objects (answers.quote, arrays) would render
+  // as "[object Object]"; the quote object gets its own dedicated block below.
+  const scalarEntries = (obj: Record<string, any>) =>
+    Object.entries(obj).filter(([, v]) =>
+      v !== null && v !== undefined && (typeof v === "string" || typeof v === "number" || typeof v === "boolean"),
+    );
+  const kvTable = (entries: Array<[string, any]>) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:13px;color:#CDD1D6;">
+          ${entries.map(([k, v]) =>
+            `<tr><td style="padding:3px 0;color:#8B919A;">${escapeHtml(k)}</td><td style="padding:3px 0;color:#F0F0F0;text-align:right;">${escapeHtml(String(v))}</td></tr>`,
+          ).join("")}
+        </table>`;
   const inputsBlock = answers
     ? `<div style="margin:16px 0 0;padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
         <p style="font-size:11px;color:#8B919A;margin:0 0 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Key inputs</p>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#CDD1D6;">
-          ${Object.entries(answers).slice(0, 5).map(([k, v]) =>
-            `<tr><td style="padding:3px 0;color:#8B919A;">${escapeHtml(k)}</td><td style="padding:3px 0;color:#F0F0F0;text-align:right;">${escapeHtml(String(v))}</td></tr>`,
-          ).join("")}
-        </table>
+        ${kvTable(scalarEntries(answers).slice(0, 5))}
+      </div>`
+    : "";
+
+  // (P0-2) Quote details: the trade-specific quote the widget captured — roofing
+  // material/color/squares/financing or the solar config (panels, kWh/yr, pay mode,
+  // battery, EV, monthly bill). Renders whatever scalar keys exist in answers.quote,
+  // so new widget fields appear here without another template change.
+  const quoteObj = answers && answers.quote && typeof answers.quote === "object" && !Array.isArray(answers.quote)
+    ? (answers.quote as Record<string, any>)
+    : null;
+  const quoteEntries = quoteObj ? scalarEntries(quoteObj) : [];
+  const quoteBlock = quoteEntries.length
+    ? `<div style="margin:12px 0 0;padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+        <p style="font-size:11px;color:#8B919A;margin:0 0 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Quote details</p>
+        ${kvTable(quoteEntries)}
       </div>`
     : "";
 
@@ -72,7 +95,7 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
         ${detailRow("Email", lead.email || "—")}
         ${detailRow("Quote", quoteDisplay, true)}
       </table>
-      ${inputsBlock}`,
+      ${inputsBlock}${quoteBlock}`,
     cta: dashboardLink ? { label: "View in dashboard", url: dashboardLink } : undefined,
     ctaFinePrint: secondaryCta || undefined,
   });
@@ -85,7 +108,8 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
       `Phone: ${lead.phone || "—"}`,
       `Email: ${lead.email || "—"}`,
       `Quote: ${quoteDisplay}`,
-      answers ? `\nKey inputs:\n${Object.entries(answers).slice(0, 5).map(([k, v]) => `  ${k}: ${v}`).join("\n")}` : "",
+      answers ? `\nKey inputs:\n${scalarEntries(answers).slice(0, 5).map(([k, v]) => `  ${k}: ${v}`).join("\n")}` : "",
+      quoteEntries.length ? `\nQuote details:\n${quoteEntries.map(([k, v]) => `  ${k}: ${v}`).join("\n")}` : "",
     ].filter(Boolean).join("\n"),
     ctaLabel: dashboardLink ? "View in dashboard" : undefined,
     ctaUrl: dashboardLink || undefined,

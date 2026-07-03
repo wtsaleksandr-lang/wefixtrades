@@ -15,13 +15,16 @@ import ConfirmationStep from './steps/ConfirmationStep';
 interface StepRendererProps {
   step: StepDefinition;
   accentColor?: string;
+  /** Published calculator id (P0-T1) — only the roof_visualizer step consumes
+   *  it (lead attribution for the widget's own /api/roofquote/lead sink). */
+  calculatorId?: string | number;
 }
 
 /**
  * Central step dispatcher. Maps StepDefinition.type to the
  * correct step component. All 9 step types are now implemented.
  */
-export default function StepRenderer({ step, accentColor }: StepRendererProps) {
+export default function StepRenderer({ step, accentColor, calculatorId }: StepRendererProps) {
   switch (step.type) {
     case 'question':
       return <QuestionStep step={step} accentColor={accentColor} />;
@@ -54,7 +57,7 @@ export default function StepRenderer({ step, accentColor }: StepRendererProps) {
       return <SchedulingStep step={step} accentColor={accentColor} />;
 
     case 'roof_visualizer':
-      return <RoofVisualizerStep step={step} accentColor={accentColor} />;
+      return <RoofVisualizerStep step={step} accentColor={accentColor} calculatorId={calculatorId} />;
 
     case 'confirmation':
       return <ConfirmationStep step={step} accentColor={accentColor} />;
