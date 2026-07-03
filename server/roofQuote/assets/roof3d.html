@@ -12,7 +12,9 @@
 @font-face{font-family:"Satoshi";font-weight:700;font-display:swap;src:url("/fonts/satoshi-700.woff2") format("woff2")}
 @font-face{font-family:"Satoshi";font-weight:900;font-display:swap;src:url("/fonts/satoshi-900.woff2") format("woff2")}</style>
 <style>
-  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --green-text:#15803d; --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28); }
+  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --green-text:#15803d; --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28);
+    /* Fix 1 — unified squircle radii across the ENTIRE widget: buttons/CTAs squarer-rounded, badges/pills/chips/tabs slightly tighter, cards/tiles a touch softer. Truly-circular controls (close ✕, zoom +/-, gauge rings) keep 50% and are NOT routed here. */
+    --btn-radius:12px; --badge-radius:10px; --tile-radius:14px; }
   *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 "Satoshi","Satoshi Variable",system-ui,sans-serif;overflow:hidden}
   #app{position:fixed;inset:0}
   #scene{position:absolute;inset:0;touch-action:none;display:block}
@@ -21,7 +23,7 @@
   #addr{flex:1;background:#ffffff;border:1px solid #e1e7ef;border-radius:10px;padding:13px 15px;height:48px;color:#0f172a;font-size:15px;outline:none}
   #addr::placeholder{color:#94a3b8}
   #addr:focus{border-color:#0d3cfc;box-shadow:0 0 0 3px rgba(13,60,252,0.12)}
-  #go{background:#0d3cfc;border:0;border-radius:10px;padding:0 18px;font-weight:700;color:#ffffff;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow)}
+  #go{background:#0d3cfc;border:0;border-radius:var(--btn-radius);padding:0 18px;font-weight:700;color:#ffffff;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow)}
   /* (bug #6) Priced steps (Options/Estimate): the bottom sheet is the single primary CTA, so the top
      blue "Get Quote" button is hidden — the bar becomes a quiet, full-width "edit address" field. Enter
      still re-runs the search (keydown handler is untouched). A small magnifier hint marks it editable. */
@@ -98,7 +100,7 @@
   #hero .hc-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px}
   #hero .hc-eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#7ea0ff}
   /* DECORATIVE category badges — soft COLOURED FILL (per explicit ask; the selected=outline rule does NOT apply to these) */
-  #hero .hc-pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:99px;border:1px solid;line-height:1}
+  #hero .hc-pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:var(--badge-radius);border:1px solid;line-height:1}
   #hero .hc-pill.solar{color:#9ff0b6;background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.42)}
   #hero .hc-pill.roof{color:#ffc78a;background:rgba(245,158,11,.18);border-color:rgba(245,158,11,.45)}
   /* headline — light weight, white, 2 lines (matches reference type) */
@@ -145,7 +147,7 @@
   /* ===== SELECT YOUR ROOF step — aerial satellite + highlighted footprint + Continue ===== */
   #selectRoof{position:absolute;inset:0;z-index:30;display:none;flex-direction:column;background:var(--bg);padding-top:48px}
   #selectRoof .sr-head{flex:0 0 auto;text-align:center;padding:22px clamp(16px,5vw,40px) 14px}
-  #selectRoof .sr-eyebrow{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:5px 12px;margin-bottom:12px}
+  #selectRoof .sr-eyebrow{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:var(--badge-radius);padding:5px 12px;margin-bottom:12px}
   #selectRoof .sr-title{margin:0;font-size:clamp(22px,3.4vw,32px);line-height:1.1;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
   #selectRoof .sr-sub{margin:8px 0 0;font-size:14.5px;font-weight:600;color:var(--muted)}
   #selectRoof .sr-addr{display:inline-flex;align-items:center;gap:7px;margin-top:6px;font-size:14px;font-weight:700;color:var(--ink)}
@@ -162,15 +164,15 @@
   #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
   @keyframes srspin{to{transform:rotate(360deg)}}
   #selectRoof .sr-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px clamp(14px,4vw,40px) 20px;max-width:760px;width:100%;margin:0 auto}
-  #selectRoof .sr-back{background:#fff;border:1px solid var(--line);border-radius:12px;height:50px;padding:0 20px;font-weight:700;color:var(--ink);font-size:15px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
+  #selectRoof .sr-back{background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);height:50px;padding:0 20px;font-weight:700;color:var(--ink);font-size:15px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
   #selectRoof .sr-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  #selectRoof .sr-continue{flex:1 1 auto;max-width:360px;background:var(--blue);border:0;border-radius:12px;height:52px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;box-shadow:var(--btn-shadow);display:inline-flex;align-items:center;justify-content:center;gap:9px}
+  #selectRoof .sr-continue{flex:1 1 auto;max-width:360px;background:var(--blue);border:0;border-radius:var(--btn-radius);height:52px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;box-shadow:var(--btn-shadow);display:inline-flex;align-items:center;justify-content:center;gap:9px}
   #selectRoof .sr-continue svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-continue:disabled,#selectRoof .sr-continue[aria-disabled="true"]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none;filter:grayscale(.35)}
   /* ── PER-HOUSE banner inside the Edit-outline HUD (only shown while iterating selected buildings) ── */
   #dotHouse{display:none;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 9px;padding:7px 10px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:10px}
   #dotHouse .dhb-of{font-size:12.5px;font-weight:800;color:var(--blue);white-space:nowrap}
-  #dotHouse .dhb-prev{background:#fff;border:1px solid var(--line);border-radius:8px;height:28px;padding:0 9px;font-size:11.5px;font-weight:700;color:var(--ink);font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  #dotHouse .dhb-prev{background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);height:28px;padding:0 9px;font-size:11.5px;font-weight:700;color:var(--ink);font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   #dotHouse .dhb-prev svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #dotHouse .dhb-prev:disabled{opacity:.4;cursor:default}
   /* ── BRANCH choice: Solar panels vs Roofing remodel ── */
@@ -188,12 +190,12 @@
   #branchChoice .bc-card p{margin:0;font-size:13.5px;font-weight:600;line-height:1.4;color:var(--muted)}
   #branchChoice .bc-card .bc-go{margin-top:16px;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--blue)}
   #branchChoice .bc-card .bc-go svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  #branchChoice .bc-back{margin-top:clamp(20px,4vh,30px);background:#fff;border:1px solid var(--line);border-radius:12px;height:46px;padding:0 20px;font-weight:700;color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
+  #branchChoice .bc-back{margin-top:clamp(20px,4vh,30px);background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);height:46px;padding:0 20px;font-weight:700;color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
   #branchChoice .bc-back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   /* FIX 2b: large/commercial roof — pills are disabled (greyed, not-clickable); only the commercial CTA is live */
   #branchChoice.bc-commercial-gate .bc-card{opacity:.5;pointer-events:none;filter:grayscale(.4);box-shadow:none;transform:none}
   #branchChoice.bc-commercial-gate .bc-card:hover{border-color:var(--line);transform:none;box-shadow:none}
-  #branchChoice .bc-commercial{margin-top:clamp(20px,4vh,30px);background:var(--blue);border:0;border-radius:12px;height:52px;padding:0 26px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:9px;box-shadow:var(--btn-shadow)}
+  #branchChoice .bc-commercial{margin-top:clamp(20px,4vh,30px);background:var(--blue);border:0;border-radius:var(--btn-radius);height:52px;padding:0 26px;font-weight:800;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:9px;box-shadow:var(--btn-shadow)}
   #branchChoice .bc-commercial svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #branchChoice.bc-commercial-gate .bc-back{margin-top:14px}
   @media (max-width:560px){
@@ -346,12 +348,12 @@
     body.lc-fallback.card-peek #card,body.lc-fallback.card-folded #card{max-height:calc(100vh - 110px)}
   }
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
-  #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+  #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
   #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
   #card .qtab.qtab-locked,#card .qtab[disabled]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none}
   #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#0f172a}
   #card .qprice .qunit{font-size:13px;font-weight:600;color:var(--muted)}
-  #card .qband{font-size:11px;font-weight:700;color:#5b6573;background:#eef1f6;border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:3px}
+  #card .qband{font-size:11px;font-weight:700;color:#5b6573;background:#eef1f6;border:1px solid var(--line);border-radius:var(--badge-radius);padding:1px 6px;vertical-align:middle;margin-left:3px}
   #card .tk-note{font-size:10px;color:var(--faint);margin-top:7px;line-height:1.35}
   #card .tk-detect{display:flex;align-items:center;gap:5px;font-size:11px;color:#0d3cfc;font-weight:600;margin-top:8px;line-height:1.3}
   #card .tk-detect svg{flex:0 0 auto}
@@ -362,7 +364,7 @@
   #card .mrow b{color:#0f172a;font-weight:700}
   #card .waste-row{display:flex;align-items:center;gap:4px;margin:11px 0 2px;font-size:11px;color:var(--muted);flex-wrap:wrap}
   #card .waste-row>span{margin-right:2px}
-  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm,#card .aoc{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .wb,#card .bb,#card .pb,#card .btm,#card .ld,#card .bd,#card .evt,#card .evm,#card .pm,#card .sm,#card .aoc{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--badge-radius);padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
   #card .wb.on,#card .bb.on,#card .pb.on,#card .btm.on,#card .ld.on,#card .bd.on,#card .evt.on,#card .evm.on,#card .pm.on,#card .sm.on,#card .aoc.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .sectban{margin-top:6px;font-size:11px;color:#0d3cfc;background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:9px;padding:6px 9px;line-height:1.4}
   #card .szrange{flex:1;min-width:80px;accent-color:#0d3cfc;height:22px;cursor:pointer}
@@ -371,7 +373,7 @@
   #card .opt-l.ico svg{opacity:.7}
   /* premium KPI strip — shown once the homeowner enters their bill */
   #card .kpis{display:flex;gap:6px;margin:9px 0 2px}
-  #card .kpi{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;min-width:0}
+  #card .kpi{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 6px;text-align:center;min-width:0}
   #card .kpi .kv{font-size:16px;font-weight:800;color:#0b1424;line-height:1.1}
   #card .kpi .kl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
   #card .kpi .kpre{font-size:9px;color:var(--muted);margin-top:1px}
@@ -380,13 +382,13 @@
   #card .gauge-ring::before{content:"";position:absolute;inset:4px;background:#fff;border-radius:50%}
   #card .gauge-ring span{position:relative;font-size:10px;font-weight:800;color:#0d3cfc}
   #card .co2line{margin-top:8px;font-size:11px;color:#1a7a4a;background:#f0faf4;border:1px solid #d6efe0;border-radius:8px;padding:6px 9px;line-height:1.4}
-  #card .prodtog{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-align:left}
+  #card .prodtog{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--badge-radius);padding:6px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-align:left}
   #card .prodtog.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,.05)}
   #card .prodtog .pgrad{flex:0 0 auto;width:38px;height:8px;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#22d3ee,#facc15,#ef4444)}
   #card .sunline{margin-top:8px;font-size:11px;color:#9a6a00;background:#fff8e8;border:1px solid #f0e2bf;border-radius:8px;padding:6px 9px;line-height:1.4}
   #card .opt-row{display:flex;align-items:center;gap:4px;margin:5px 0 2px;flex-wrap:wrap}
   #card .opt-l{font-size:11px;color:var(--muted);margin-right:2px}
-  #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+  #card .ob{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--badge-radius);padding:4px 9px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
   #card .ob svg{flex:0 0 auto;opacity:.85}
   #card .ob.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #card .cust-toggle{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);margin-top:11px;padding:9px 0 0;color:#0d3cfc;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -418,7 +420,7 @@
   #card .itc-line{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#0f172a;font-weight:700;margin:6px 0 0;line-height:1.35}
   #card .itc-line .itc-amt{color:var(--green-text);font-weight:800}
   #card .ms-pair{display:flex;gap:7px;margin-top:8px}
-  #card .ms-cell{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+  #card .ms-cell{flex:1;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 10px;min-width:0}
   #card .ms-cell .msv{font-size:15px;font-weight:800;color:#0f172a;line-height:1.1;display:flex;align-items:center;flex-wrap:wrap}
   #card .ms-cell .msl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;line-height:1.2}
   #baHandle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.35);z-index:18;cursor:ew-resize;touch-action:none}
@@ -438,9 +440,9 @@
   /* ── REDESIGNED SOLAR KPI CARD ─────────────────────────────────────────── */
   #card .qhead{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;display:flex;align-items:center;gap:4px}
   #card .qident{font-size:11px;font-weight:600;color:var(--muted);margin:1px 0 9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  #card .qident-tag{font-size:9.5px;font-weight:800;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:99px;padding:1px 7px;letter-spacing:.01em}
+  #card .qident-tag{font-size:9.5px;font-weight:800;color:var(--blue);background:var(--accent-tint);border:1px solid rgba(13,60,252,.18);border-radius:var(--badge-radius);padding:1px 7px;letter-spacing:.01em}
   #card .ktiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 4px}
-  #card .ktile{background:#f7f9fc;border:1px solid var(--line);border-radius:11px;padding:8px 9px;min-width:0}
+  #card .ktile{background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 9px;min-width:0}
   #card .ktile .ktv{font-size:17px;font-weight:800;color:var(--ink);line-height:1.05;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #card .ktile .ktu{font-size:10px;font-weight:700;color:var(--muted);margin-left:1px}
   #card .ktile .ktl{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px;display:flex;align-items:center;gap:3px}
@@ -472,7 +474,7 @@
   #card .bb-util{background:#c3ccd8}
   #card .bb-loan{background:var(--blue)}
   #card .bb-val{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--ink);white-space:nowrap}
-  #card .bb-chip{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:800;color:var(--green-text);background:#f0faf4;border:1px solid #d6efe0;border-radius:99px;padding:2px 8px}
+  #card .bb-chip{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:800;color:var(--green-text);background:#f0faf4;border:1px solid #d6efe0;border-radius:var(--badge-radius);padding:2px 8px}
   #card .bb-key{display:flex;gap:12px;margin-top:5px;font-size:9px;color:var(--muted)}
   #card .bb-key span{display:inline-flex;align-items:center;gap:4px}
   #card .bb-key i{width:8px;height:8px;border-radius:2px;display:inline-block}
@@ -490,7 +492,7 @@
   #card .aoc.on .aoc-d{color:var(--blue)}
   #card .aoc-row .aoc{text-align:left;line-height:1.15}
   /* details sub-expander (legacy add-ons) */
-  #card .cust-subtoggle{display:flex;width:100%;align-items:center;justify-content:space-between;background:#fbfcfe;border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-top:6px;color:var(--ink);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  #card .cust-subtoggle{display:flex;width:100%;align-items:center;justify-content:space-between;background:#fbfcfe;border:1px solid var(--line);border-radius:var(--badge-radius);padding:7px 10px;margin-top:6px;color:var(--ink);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
   #card .cust-subtoggle .cs-chev{color:var(--blue);font-weight:800}
   #card .cust-subbody{margin-top:4px}
   #card .assume-line{margin-top:10px;font-size:9.5px;color:var(--faint);line-height:1.4;border-top:1px solid var(--line);padding-top:8px}
@@ -510,21 +512,21 @@
   #card .qroof-meta{flex:1 1 auto;min-width:0}
   #card .qroof-meta .qra-mat{font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #card .qroof-meta .qra-col{font-size:11px;font-weight:600;color:var(--muted);margin-top:1px}
-  #card .qroof-see{display:inline-flex;align-items:center;gap:6px;margin:0 0 9px;width:100%;justify-content:center;background:var(--accent-tint);border:1px solid var(--blue);border-radius:11px;padding:9px 12px;font-size:12.5px;font-weight:800;color:var(--blue);cursor:pointer;font-family:inherit;line-height:1}
+  #card .qroof-see{display:inline-flex;align-items:center;gap:6px;margin:0 0 9px;width:100%;justify-content:center;background:var(--accent-tint);border:1px solid var(--blue);border-radius:var(--btn-radius);padding:9px 12px;font-size:12.5px;font-weight:800;color:var(--blue);cursor:pointer;font-family:inherit;line-height:1}
   #card .qroof-see:hover{background:rgba(13,60,252,.1)}
   #card .qroof-see svg{width:15px;height:15px;flex:0 0 auto;stroke:var(--blue);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #card .qprompt{font-size:14px;color:#0f172a;font-weight:600;margin:2px 0 11px;line-height:1.3;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   #card .cmp{display:flex;flex-direction:column;gap:2px;margin:8px 0 2px}
-  #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
+  #card .cmp-row{display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--badge-radius);padding:8px 10px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
   #card .cmp-row:hover{border-color:#0d3cfc;background:rgba(13,60,252,0.05)}
   #card .qhint{font-size:11px;font-weight:700;color:#9aa7b8;flex:0 0 auto;white-space:nowrap}
   #card .mat-row{display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;padding:1px 2px 9px;margin:6px -2px 2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
   #card .mat-row::-webkit-scrollbar{height:5px}
   #card .mat-row::-webkit-scrollbar-thumb{background:#d6dde7;border-radius:3px}
-  #card .mat-card{flex:0 0 126px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 0 8px;cursor:pointer;overflow:hidden;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
+  #card .mat-card{flex:0 0 126px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);border-radius:var(--tile-radius);padding:0 0 8px;cursor:pointer;overflow:hidden;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
   #card .mat-card:hover{border-color:#0d3cfc;box-shadow:0 4px 12px rgba(13,60,252,.1)}
   #card .mat-img{height:72px;background-size:cover;background-position:center;position:relative;border-bottom:1px solid var(--line)}
-  #card .mat-badge{position:absolute;top:5px;left:5px;background:rgba(13,60,252,.93);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:99px;letter-spacing:.02em}
+  #card .mat-badge{position:absolute;top:5px;left:5px;background:rgba(13,60,252,.93);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:var(--badge-radius);letter-spacing:.02em}
   #card .mat-n{font-size:12px;font-weight:800;color:#0f172a;margin:6px 8px 0;white-space:nowrap}
   #card .mat-p{font-size:11px;font-weight:800;color:#0d3cfc;margin:2px 8px 0;white-space:nowrap}
   #card .mat-l{font-size:10px;color:var(--muted);margin:1px 8px 0}
@@ -532,7 +534,7 @@
   #card .cmp-p{font-size:12px;font-weight:700;color:#0d3cfc;white-space:nowrap}
   #card .cmp-l{font-size:10px;color:var(--muted);min-width:52px;text-align:right;white-space:nowrap}
   #card .qchips{display:flex;gap:6px;margin-bottom:11px}
-  #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:10px;padding:6px 0;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+  #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:6px 0;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
   #card .qchip span{font-size:10px;font-weight:500;color:var(--muted)}
   #card .qchip.on{background:rgba(13,60,252,0.06);border-color:#0d3cfc;color:#0f172a}
   #card .qchip.on span{color:var(--muted)}
@@ -540,7 +542,7 @@
   #card .qchip-skel{cursor:default;color:var(--muted);background:#f3f5f9;border-color:#eef1f6}
   #card .qchip-skel span{color:var(--muted)}
   #card .qnote{font-size:9.5px;color:#94a3b8;margin-top:9px;line-height:1.3}
-  #card .qcta{width:100%;margin-top:11px;background:#0d3cfc;border:0;border-radius:10px;padding:11px 0;font-size:14px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow)}
+  #card .qcta{width:100%;margin-top:11px;background:#0d3cfc;border:0;border-radius:var(--btn-radius);padding:11px 0;font-size:14px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow)}
   /* timeline + "why us" trust signals shown on the quote before the email gate */
   #card .qtrust{display:flex;flex-direction:column;gap:5px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
   #card .qtrust-row{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#475569;line-height:1.35}
@@ -549,7 +551,7 @@
   /* ===== quote report (PDF / web) ===== */
   #report{position:fixed;inset:0;z-index:50;background:#fff;color:#0f172a;overflow:auto;display:none;font:14px/1.55 "Satoshi","Satoshi Variable",system-ui,sans-serif}
   #report .rbar{position:sticky;top:0;background:#ffffff;border-bottom:1px solid #e1e7ef;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;z-index:2}
-  #report .rbar button{background:#0d3cfc;border:0;border-radius:8px;padding:8px 15px;font-weight:700;color:#ffffff;cursor:pointer;font-size:13px;box-shadow:var(--btn-shadow)}
+  #report .rbar button{background:#0d3cfc;border:0;border-radius:var(--btn-radius);padding:8px 15px;font-weight:700;color:#ffffff;cursor:pointer;font-size:13px;box-shadow:var(--btn-shadow)}
   #report .rbar button.ghost{background:#f7f9fc;border:1px solid #e1e7ef;color:#0f172a;box-shadow:none}
   #report .rwrap{max-width:740px;margin:0 auto;padding-bottom:50px}
   /* white-label report: trade header + placeholders */
@@ -992,13 +994,13 @@
   #solarGrid .sg-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,.62) 78%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
   /* panel-quality tier TABS — equal thirds, ellipsis-safe at 375px; selected = OUTLINE emphasis (hard rule: never a bright fill) */
   #solarGrid .sg-tiers{flex-basis:100%;display:flex;gap:6px;margin-top:2px}
-  #solarGrid .sg-tier{flex:1 1 0;min-width:0;padding:7px 4px;border-radius:99px;border:1px solid rgba(255,255,255,.26);background:rgba(11,18,32,.45);color:rgba(255,255,255,.82);font:700 11.5px/1.1 "Satoshi",system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  #solarGrid .sg-tier{flex:1 1 0;min-width:0;padding:7px 4px;border-radius:var(--badge-radius);border:1px solid rgba(255,255,255,.26);background:rgba(11,18,32,.45);color:rgba(255,255,255,.82);font:700 11.5px/1.1 "Satoshi",system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
   #solarGrid .sg-tier.on{border-color:#7ea6ff;color:#fff;background:rgba(126,166,255,.08);box-shadow:0 0 0 1.5px #7ea6ff inset,0 0 0 3px rgba(126,166,255,.16)}
   #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
   #solarGrid .sg-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
   /* floating "2D" return chip overlaid on the photoreal 3D solar view (dormant CUT-3D re-entry path) */
-  #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
+  #solar3dBack{position:absolute;z-index:36;top:max(12px,env(safe-area-inset-top));left:12px;display:none;align-items:center;gap:7px;padding:9px 14px 9px 11px;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.22);background:rgba(11,18,32,.82);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,.28)}
   #solar3dBack svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #solarGrid .sg-stage{flex:1;position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
   /* RECONCILED (heatmap-center): the canvas FILLS the full stage (flex:1, never capped) so the white
@@ -1008,7 +1010,7 @@
      pinned to the top with a huge black void below it (8e921b5e's goal, done without capping the stage).
      No aspect distortion — the contain-fit scale is uniform. */
   #sgCanvas{position:relative;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
-  #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:99px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
+  #solarGrid .sg-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:3;background:rgba(11,18,32,.78);color:rgba(255,255,255,.9);font-size:11.5px;font-weight:600;padding:6px 13px;border-radius:var(--badge-radius);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:8px}
   #solarGrid .sg-hint b{color:#fff}
   #solarGrid .sg-leg{display:inline-flex;align-items:center;gap:5px}
   #solarGrid .sg-leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
@@ -1081,10 +1083,10 @@
   #roofDesign .rd-head button,#roofDesign .rd-head label,#roofDesign .rd-head .rd-ai{pointer-events:auto}
   #roofDesign .rd-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #roofDesign .rd-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
-  #roofDesign .rd-back{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;border-radius:99px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px 9px 10px;cursor:pointer}
+  #roofDesign .rd-back{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px 9px 10px;cursor:pointer}
   #roofDesign .rd-back svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   /* the "see it on my house" CTA chip lives in the header, right-aligned */
-  #roofDesign .rd-ai{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(13,60,252,.92);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 14px;cursor:pointer;box-shadow:0 6px 20px rgba(13,60,252,.32)}
+  #roofDesign .rd-ai{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.28);background:rgba(13,60,252,.92);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 14px;cursor:pointer;box-shadow:0 6px 20px rgba(13,60,252,.32)}
   #roofDesign .rd-ai:disabled{opacity:.6;cursor:default}
   /* secondary "Upload photo" button sits beside the primary; outline style (not bright fill) per UI rules */
   #roofDesign .rd-upload{margin-left:0;background:rgba(13,60,252,.14);color:#dbe4ff;border-color:rgba(255,255,255,.34)}
@@ -1137,6 +1139,7 @@
        2D material canvas) is shifted right & padded so nothing hides under the panel or the header. */
     body.rd-open #scene,body.rd-open #gmapWrap,body.rd-open #matCanvas,
     body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade,
+    body.rd-open #aiPhotoBackdrop,
     body.rd-open #aerialFb{
       left:var(--rd-left)!important;top:var(--rd-headh)!important;right:auto!important;bottom:auto!important;
       width:calc(100vw - var(--rd-left))!important;height:calc(100vh - var(--rd-headh))!important;
@@ -1145,8 +1148,10 @@
        so the sky above and lawn below always read; a gentle backdrop fills the letterbox area cleanly. */
     body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade{
       object-fit:contain!important;object-position:center!important;padding:22px;
-      background:radial-gradient(120% 120% at 50% 32%, #12203a 0%, #0b1220 78%)!important;
+      background:transparent!important;
     }
+    /* backdrop fills the whole right pane (behind the contained render) so no dead grey bars show */
+    body.rd-open #aiPhotoBackdrop{background-color:#0b1220!important}
     /* example-home badge + stage hints re-anchor into the right preview region, clear of the left panel */
     body.rd-open .rd-example-badge{left:calc(var(--rd-left) + 16px)}
     #roofDesign .rd-stagehint,#roofDesign .rd-uploadprompt{left:calc(var(--rd-left) + (100% - var(--rd-left))/2)}
@@ -1177,14 +1182,19 @@
       object-fit:contain!important;object-position:center!important;
       top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
       width:100vw!important;height:calc(100vh - 56px - 216px)!important;
-      padding:8px 10px;background:radial-gradient(120% 120% at 50% 34%, #12203a 0%, #0b1220 80%)!important;
+      padding:8px 10px;background:transparent!important;
+    }
+    /* mobile: blurred backdrop occupies the same preview band as the contained render */
+    body.rd-open #aiPhotoBackdrop{
+      top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
+      width:100vw!important;height:calc(100vh - 56px - 216px)!important;background-color:#0b1220!important;
     }
   }
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   #roofDesign .rd-mats::-webkit-scrollbar{display:none}
   /* #3 rounded-square material tile: square real-texture thumbnail on top + name below. #7b premium hover. */
-  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:104px;border:1px solid var(--line);border-radius:14px;padding:8px 8px 9px;background:var(--panel);cursor:pointer;text-align:left;transition:background-color .24s ease,border-color .24s ease,transform .32s cubic-bezier(.22,1,.36,1)}
+  #roofDesign .rd-mat{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:104px;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 8px 9px;background:var(--panel);cursor:pointer;text-align:left;transition:background-color .24s ease,border-color .24s ease,transform .32s cubic-bezier(.22,1,.36,1)}
   /* selected = OUTLINE, not a bright fill (hard UI rule) */
   #roofDesign .rd-mat.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.22)}
   /* #7b hover = WeFixTrades /templates card effect: lift -2px + light blue-grey tint + border darken (ease-out cubic-bezier(.22,1,.36,1)); the texture recedes slightly for depth. No glow/sheen. */
@@ -1207,28 +1217,37 @@
      FULL colour name (no truncation) and rounded-square shape. */
   #roofDesign .rd-cols{display:flex;flex-wrap:nowrap;gap:8px;padding:1px 0 3px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;cursor:grab}
   #roofDesign .rd-cols::-webkit-scrollbar{display:none}
-  #roofDesign .rd-col{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);border-radius:11px;padding:6px 11px 6px 6px;background:var(--panel);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
+  #roofDesign .rd-col{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);border-radius:var(--badge-radius);padding:6px 11px 6px 6px;background:var(--panel);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}
   @media (hover:hover){ #roofDesign .rd-col:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,23,42,.10);border-color:color-mix(in srgb,var(--blue) 35%,var(--line))} }
   #roofDesign .rd-col .rdc-chip{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background-size:cover;background-position:center;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
+  /* Fix 3 — subtle scroll-affordance chevrons overlaid on a horizontal chip/tile scroller. Wrapper is
+     injected by JS around .rd-cols / .rd-mats when they overflow; arrows fade in only when more content
+     exists in that direction. Theme-aware, semi-transparent, never clunky. */
+  .rd-scrollwrap{position:relative}
+  .rd-scrollarrow{position:absolute;top:50%;transform:translateY(-50%);z-index:6;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(15,23,42,.16);color:var(--ink);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .12s ease;padding:0}
+  .rd-scrollarrow.on{opacity:.92;pointer-events:auto}
+  .rd-scrollarrow.l{left:-4px}.rd-scrollarrow.r{right:-4px}
+  @media (hover:hover){ .rd-scrollarrow:hover{opacity:1;transform:translateY(-50%) scale(1.06)} }
+  .rd-scrollarrow svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   #roofDesign .rd-col.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(13,60,252,.20)}
   #roofDesign .rd-col.on .rdc-chip{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(0,0,0,.10)}
   #roofDesign .rd-col .rdc-nm{font-size:11px;font-weight:700;color:var(--muted);line-height:1.1;white-space:nowrap}
   #roofDesign .rd-col.on .rdc-nm{color:var(--ink)}
   /* price + features row */
   #roofDesign .rd-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
-  #roofDesign .rd-price{background:#f7f9fc;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+  #roofDesign .rd-price{background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
   #roofDesign .rd-price .rdp-lab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
   #roofDesign .rd-price .rdp-v{font-size:21px;font-weight:900;color:var(--ink);letter-spacing:-.02em;line-height:1.05}
   #roofDesign .rd-price .rdp-sub{font-size:10.5px;font-weight:600;color:var(--muted)}
-  #roofDesign .rd-feats{background:rgba(13,60,252,.045);border:1px solid rgba(13,60,252,.16);border-radius:12px;padding:9px 11px;min-width:0}
+  #roofDesign .rd-feats{background:rgba(13,60,252,.045);border:1px solid rgba(13,60,252,.16);border-radius:var(--tile-radius);padding:9px 11px;min-width:0}
   #roofDesign .rd-feats .rdf-h{font-size:11.5px;font-weight:800;color:var(--ink);line-height:1.15;margin-bottom:4px}
   #roofDesign .rd-feats ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
   #roofDesign .rd-feats li{display:flex;align-items:flex-start;gap:6px;font-size:11px;font-weight:600;color:var(--ink);line-height:1.25}
   #roofDesign .rd-feats li svg{flex:0 0 auto;width:12px;height:12px;margin-top:1px;fill:none;stroke:#16a34a;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
   #roofDesign .rd-cta{display:flex;gap:8px}
-  #roofDesign .rd-cta .rd-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--btn-shadow)}
+  #roofDesign .rd-cta .rd-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:var(--btn-radius);padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--btn-shadow)}
   /* the AI on-house "rendering" hint sits centred over the stage while a render is in-flight */
-  #roofDesign .rd-stagehint{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:8px;background:rgba(11,18,32,.82);color:#fff;font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:99px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
+  #roofDesign .rd-stagehint{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:8px;background:rgba(11,18,32,.82);color:#fff;font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:var(--badge-radius);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
   #roofDesign .rd-stagehint .mini{width:13px;height:13px;border:2.4px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .9s linear infinite}
   /* CANOPY FALLBACK (Problem B): clickable "upload your photo instead" prompt when no accurate aerial render. */
   #roofDesign .rd-uploadprompt{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 52px));transform:translateX(-50%);z-index:6;max-width:min(420px,86vw);display:flex;align-items:center;gap:9px;background:rgba(11,18,32,.92);color:#fff;font:700 11.5px/1.35 "Satoshi",system-ui,sans-serif;text-align:left;padding:10px 15px;border-radius:14px;border:1px solid rgba(120,160,255,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.34)}
@@ -1295,12 +1314,12 @@
   #seeModal .sm-tag.a{right:8px}#seeModal .sm-tag.b{left:8px}
   #seeModal .sm-result-cta{display:none;gap:8px;margin-top:2px}
   #seeModal .sm-result-cta.on{display:flex}
-  #seeModal .sm-retry{flex:1;background:rgba(13,60,252,.08);border:1px solid rgba(13,60,252,.25);color:var(--blue);border-radius:11px;padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
-  #seeModal .sm-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:11px;padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
+  #seeModal .sm-retry{flex:1;background:rgba(13,60,252,.08);border:1px solid rgba(13,60,252,.25);color:var(--blue);border-radius:var(--btn-radius);padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
+  #seeModal .sm-done{flex:1;background:#0d3cfc;border:0;color:#fff;border-radius:var(--btn-radius);padding:12px;font:800 12.5px/1 "Satoshi",system-ui,sans-serif;cursor:pointer}
   #seeModal .sm-err{display:none;font-size:11.5px;font-weight:600;color:#b42318;background:rgba(180,35,24,.07);border:1px solid rgba(180,35,24,.2);border-radius:10px;padding:9px 11px;line-height:1.35}
   #seeModal .sm-err.on{display:block}
   /* trigger button in the roofing-designer rail */
-  #roofDesign .rd-seebtn{margin-left:0;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:99px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px;cursor:pointer}
+  #roofDesign .rd-seebtn{margin-left:0;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border-radius:var(--btn-radius);border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;font:800 12px/1 "Satoshi",system-ui,sans-serif;padding:9px 13px;cursor:pointer}
   #roofDesign .rd-seebtn svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   /* #6 CLOSEUP MODAL — Apple frosted glass (translucent + blur+saturate), rounded, closes on backdrop/Esc/X */
   #rdZoom{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:22px;background:color-mix(in srgb,var(--ink) 34%,transparent);-webkit-backdrop-filter:blur(10px) saturate(150%);backdrop-filter:blur(10px) saturate(150%)}
@@ -1312,6 +1331,12 @@
   #rdZoom .rz-s{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px}
   #rdZoom .rz-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 60%,transparent);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
   @media (hover:hover){ #rdZoom .rz-x:hover{color:var(--ink);border-color:color-mix(in srgb,var(--blue) 40%,var(--line))} }
+  /* Fix 4 — hover loupe magnifier over the house preview (desktop only). A circular lens follows the cursor
+     showing a ~2.5× zoomed crop of the render so buyers can inspect shingle texture. Positioned/sized by JS. */
+  #rdLoupe{position:fixed;z-index:60;width:140px;height:140px;border-radius:50%;border:2px solid rgba(255,255,255,.9);box-shadow:0 10px 30px rgba(15,23,42,.4),0 0 0 1px rgba(15,23,42,.18);background-repeat:no-repeat;pointer-events:none;display:none;opacity:0;transition:opacity .12s ease;will-change:transform,background-position}
+  #rdLoupe.on{display:block;opacity:1}
+  #rdLoupe::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 22px rgba(15,23,42,.22);pointer-events:none}
+  @media (hover:none){ #rdLoupe{display:none!important} }
   /* #7a WHITE-BORDER HOVER on primary CTAs — a crisp white ring appears on hover (theme-aware, subtle, premium) */
   @media (hover:hover){
     #hero #goHero:hover,
@@ -1354,6 +1379,11 @@
   <!-- (#3b/#3c) Full-house display: COVER + object-position:center-top so the render FILLS the stage with no
        grey letterbox bands, and the ROOF (top of the render) stays pinned to the top of the viewport — it
        remains visible ABOVE the expanded #roofDesign materials sheet, so tapping a material previews live. -->
+  <!-- Fix 2 — blurred COVER-scaled backdrop of the SAME showroom render, sitting just under the crisp
+       object-fit:contain #aiPhoto so the letterbox sides softly extend the render (no dead grey bars). -->
+  <div id="aiPhotoBackdrop" aria-hidden="true" style="position:absolute;inset:0;display:none;z-index:15;background-position:center;background-size:cover;filter:blur(24px) brightness(.9);transform:scale(1.1);pointer-events:none;transition:opacity .22s ease;opacity:0"></div>
+  <!-- Fix 4 — hover magnifier loupe over the roof preview (desktop only; JS positions + fills it) -->
+  <div id="rdLoupe" aria-hidden="true"></div>
   <img id="aiPhoto" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;background:#0b1220;display:none;z-index:16">
   <!-- AERIAL EMPTY-STATE FALLBACK — shown when neither our 3D model nor Google photoreal can render
        (e.g. addresses with no Google Solar coverage). Paints the real satellite/aerial ortho of the
@@ -11507,6 +11537,94 @@ async function rdLoadShowroom(){
 // tier=final) is gated OFF behind this flag (code kept for rollback). The EXPLICIT "See it on my house"
 // personalized paths (rdAiOnHouse / rdUploadOnHouse / #aiBtn) are untouched — those are user-initiated.
 const RD_BROWSE_AI_DISABLED=true;
+// Fix 2 — sync the blurred backdrop to the CURRENT #aiPhoto render (cover-scaled behind the contained
+// crisp image) so the letterbox sides softly extend the render instead of showing dead grey bars.
+// contain=false (real on-your-house cover crop) fills the pane already → hide the backdrop.
+function rdSyncBackdrop(){
+  try{
+    const img=$("aiPhoto"), bd=$("aiPhotoBackdrop"); if(!bd) return;
+    const shown = img && img.style.display!=="none" && img.src &&
+      (getComputedStyle(img).objectFit==="contain" || (img.style.objectFit==="contain"));
+    if(shown){ bd.style.backgroundImage="url('"+img.src.replace(/'/g,"%27")+"')"; bd.style.display="block"; requestAnimationFrame(()=>{ bd.style.opacity="1"; }); }
+    else { bd.style.opacity="0"; bd.style.display="none"; bd.style.backgroundImage=""; }
+  }catch(_){}
+}
+// Fix 3 — attach subtle ‹ › scroll-affordance chevrons to a horizontal scroller (colour row / material row).
+// Idempotent: wraps the scroller in a positioned container once, injects two arrow buttons, and toggles
+// their visibility from scroll position (fade out at each end). Click scrolls ~1.5 chip-widths. Coexists
+// with the existing drag-scroll. On desktop the rows wrap (no overflow) so the arrows simply never show.
+function rdAttachScrollArrows(sc){
+  try{
+    if(!sc || sc.__scrollArrows) return; sc.__scrollArrows=true;
+    let wrap=sc.parentElement;
+    if(!wrap || !wrap.classList.contains("rd-scrollwrap")){
+      wrap=document.createElement("div"); wrap.className="rd-scrollwrap";
+      sc.parentNode.insertBefore(wrap,sc); wrap.appendChild(sc);
+    }
+    const mk=(dir)=>{ const b=document.createElement("button"); b.type="button";
+      b.className="rd-scrollarrow "+(dir<0?"l":"r"); b.setAttribute("aria-label",dir<0?"Scroll left":"Scroll right");
+      b.innerHTML=dir<0?'<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>':'<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+      b.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation();
+        const step=Math.max(120, sc.clientWidth*0.55); sc.scrollBy({left:dir*step,behavior:"smooth"}); });
+      return b; };
+    const la=mk(-1), ra=mk(1); wrap.appendChild(la); wrap.appendChild(ra);
+    const upd=()=>{ try{
+      const max=sc.scrollWidth-sc.clientWidth;
+      const overflowing = max>4;
+      la.classList.toggle("on", overflowing && sc.scrollLeft>4);
+      ra.classList.toggle("on", overflowing && sc.scrollLeft < max-4);
+    }catch(_){} };
+    sc.addEventListener("scroll",()=>{ requestAnimationFrame(upd); },{passive:true});
+    try{ if(window.ResizeObserver){ const ro=new ResizeObserver(()=>requestAnimationFrame(upd)); ro.observe(sc); } }catch(_){}
+    sc.__scrollArrowsUpd=upd; requestAnimationFrame(upd); setTimeout(upd,120);
+  }catch(_){}
+}
+// Fix 4 — hover magnifier loupe over the #aiPhoto roof preview (desktop pointer only). Shows a ~2.5×
+// zoomed crop of the render under the cursor in a circular lens. rAF-throttled + transform-based so it
+// stays smooth. Correctly accounts for object-fit (contain letterboxing vs cover) so the crop is aligned.
+function rdWireLoupe(){
+  try{
+    const img=$("aiPhoto"), lp=$("rdLoupe"); if(!img||!lp||img.__loupeWired) return; img.__loupeWired=true;
+    const ZOOM=2.5, R=70;                 // lens radius 70 → 140px diameter (matches CSS)
+    const fine = window.matchMedia && window.matchMedia("(hover:hover) and (pointer:fine)").matches;
+    let raf=0, lastX=0, lastY=0, active=false;
+    // visible image rect inside the element box, honouring object-fit
+    function imgRect(){
+      const box=img.getBoundingClientRect();
+      const nw=img.naturalWidth||1, nh=img.naturalHeight||1;
+      const fit=getComputedStyle(img).objectFit;
+      // account for CSS padding (contain preview has padding:22px) — object-fit box is the content box
+      const cs=getComputedStyle(img);
+      const pl=parseFloat(cs.paddingLeft)||0, pr=parseFloat(cs.paddingRight)||0;
+      const pt=parseFloat(cs.paddingTop)||0, pb=parseFloat(cs.paddingBottom)||0;
+      const cw=box.width-pl-pr, ch=box.height-pt-pb, cx0=box.left+pl, cy0=box.top+pt;
+      const ar=nw/nh, br=cw/ch; let w,h;
+      if(fit==="contain"){ if(ar>br){ w=cw; h=cw/ar; } else { h=ch; w=ch*ar; } }
+      else { if(ar>br){ h=ch; w=ch*ar; } else { w=cw; h=cw/ar; } }   // cover
+      const x=cx0+(cw-w)/2, y=cy0+(ch-h)/2;
+      return {x,y,w,h,box};
+    }
+    function draw(){
+      raf=0; if(!active) return;
+      const r=imgRect();
+      // cursor position relative to the visible image
+      const rx=lastX-r.x, ry=lastY-r.y;
+      if(rx<0||ry<0||rx>r.w||ry>r.h){ lp.classList.remove("on"); return; }
+      lp.classList.add("on");
+      lp.style.backgroundImage="url('"+img.src.replace(/'/g,"%27")+"')";
+      lp.style.backgroundSize=(r.w*ZOOM)+"px "+(r.h*ZOOM)+"px";
+      const bgx=-(rx*ZOOM-R), bgy=-(ry*ZOOM-R);
+      lp.style.backgroundPosition=bgx+"px "+bgy+"px";
+      lp.style.transform="translate("+(lastX-R)+"px,"+(lastY-R)+"px)";
+    }
+    function onMove(e){ if(!fine) return; lastX=e.clientX; lastY=e.clientY; active=true; if(!raf) raf=requestAnimationFrame(draw); }
+    function onLeave(){ active=false; lp.classList.remove("on"); }
+    img.addEventListener("pointermove",e=>{ if(e.pointerType==="touch") return; onMove(e); });
+    img.addEventListener("pointerenter",e=>{ if(e.pointerType==="touch") return; if(img.src && img.style.display!=="none") onMove(e); });
+    img.addEventListener("pointerleave",onLeave);
+    img.addEventListener("pointerdown",onLeave);   // don't fight the before/after wipe drag
+  }catch(_){}
+}
 // Preview fit: showroom renders are full-house compositions → object-fit CONTAIN so the whole house is
 // always visible (never cropped). Real on-your-house AI renders keep the legacy cover crop. baBefore
 // mirrors the fit so the before/after wipe stays pixel-aligned.
@@ -11568,7 +11686,7 @@ function rdApplyShowroom(){
     if(!url){
       // no pre-render for this exact pick → drop any prior showroom image so the live 3D tint shows through
       if(img.dataset && img.dataset.showroom==="1"){ img.style.display="none"; img.src=""; delete img.dataset.showroom; }
-      rdSetExampleBadge(false);
+      rdSetExampleBadge(false); rdSyncBackdrop();
       return false;
     }
     if(window.__baActive) return false;
@@ -11585,6 +11703,7 @@ function rdApplyShowroom(){
         rdSetPreviewFit(true);   // whole house visible (contain), never cropped
         img.src=url; img.style.display="block"; img.style.zIndex="16";
         if(img.dataset){ img.dataset.showroom="1"; delete img.dataset.aireal; }
+        rdSyncBackdrop();          // Fix 2 — extend the render's sides with a blurred copy (no dead bars)
         rdSetExampleBadge(true);   // subtle "example home" label — this is the reference house, not the customer's
         rdShowroomBA();            // before/after wipe vs the original reference-house photo
         rdPreloadNeighbors();      // adjacent picks land instantly
@@ -11915,6 +12034,10 @@ async function openRoofDesign(){
       cols.addEventListener("pointerup",end); cols.addEventListener("pointercancel",end);
       cols.addEventListener("click",e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } },true);   // a drag isn't a chip-select
     })($("rdCols"));
+    // Fix 3 — subtle scroll-affordance chevrons on the colour + material rows (only appear when they overflow).
+    try{ if(typeof rdAttachScrollArrows==="function"){ rdAttachScrollArrows($("rdCols")); rdAttachScrollArrows($("rdMats")); } }catch(_){}
+    // Fix 4 — hover magnifier loupe over the house preview (desktop only).
+    try{ if(typeof rdWireLoupe==="function") rdWireLoupe(); }catch(_){}
     // The roofing designer switches to the DESKTOP two-column layout at ≥861px (its CSS breakpoint), so its
     // bottom-sheet PEEK/FULL behaviour applies below that — a wider threshold than the shared 560px sheet used
     // by the step-3 dot editor. Default to PEEK on mobile/tablet so the house preview owns the viewport on open.
@@ -12000,6 +12123,7 @@ function closeRoofDesign(){
   try{ document.body.classList.remove("rd-open"); }catch(_){}
   try{ rdSetExampleBadge(false); }catch(_){}
   const ai=$("aiPhoto"); if(ai){ ai.style.display="none"; ai.src=""; if(ai.dataset){ delete ai.dataset.showroom; delete ai.dataset.aireal; } }
+  try{ if(typeof rdSyncBackdrop==="function") rdSyncBackdrop(); }catch(_){}
   try{ if(mode==="photoreal" && typeof teardownPhotoreal==="function") teardownPhotoreal(); }catch(_){}
   try{ if(typeof clearMat==="function") clearMat(); }catch(_){}
   // drop the roofing-skin texture off the model facets so it doesn't bleed into the solar/measure lenses
@@ -15579,7 +15703,7 @@ function deactivateBA(){ ["baBefore","baHandle","baTagA","baTagB"].forEach(id=>{
   const h=$("baHandle"); if(h){ h.addEventListener("pointerdown",e=>{ drag=true; e.preventDefault(); try{h.setPointerCapture(e.pointerId);}catch(_){} });
     window.addEventListener("pointermove",e=>{ if(drag) upd(e.clientX); }); window.addEventListener("pointerup",()=>{ drag=false; }); }
 })();
-function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); const r=$("aiRendering"); if(r) r.style.display="none"; }
+function hideAI(){ $("aiPhoto").style.display="none"; $("aiBar").style.display="none"; $("aiPhoto").src=""; deactivateBA(); const r=$("aiRendering"); if(r) r.style.display="none"; try{ if(typeof rdSyncBackdrop==="function") rdSyncBackdrop(); }catch(_){} }
 // Belt-and-suspenders self-heal (audit-6 P1): if the AI <img> fails to paint (error event, or
 // loads with naturalWidth===0 — the classic expired-provider-url → black-panel symptom), re-request
 // /airender ONCE with a cache-bust so a poisoned/stale cache entry self-heals. Non-looping (single retry).
