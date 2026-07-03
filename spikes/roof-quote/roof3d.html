@@ -1606,7 +1606,7 @@
   <div id="report"></div>
   <div id="lead"><div class="lead-card">
     <div class="lead-h" id="leadH">See your full quote</div>
-    <div class="lead-s" id="leadS">Your personalised roof &amp; solar plan, sent to you instantly.</div>
+    <div class="lead-s" id="leadS">Your personalised quote, sent to you instantly.</div>
     <label class="lf" for="lname"><span class="lf-cue">Full name</span>
       <input id="lname" placeholder="Jane Smith" autocomplete="name" maxlength="80"></label>
     <div class="lerr-msg" id="lnameErr">Please enter your name</div>
@@ -13182,8 +13182,13 @@ function tradeHeader(){ const tr=TENANT.trade||{};
   const lic=tr.license?'<div class="th-meta">License '+esc(tr.license)+'</div>':'';
   return '<div class="th">'+logo+'<div class="th-co">'+company+contact+lic+'</div></div>';
 }
-function measurementReport(t, sqs){
+function measurementReport(t, sqs, kind){
   if(!t) return '';
+  // TRADE PURITY: the roof MEASUREMENT (area / squares / pitch / facets / edge lengths) is relevant to
+  // BOTH trades — a solar layout depends on roof geometry. But the WASTE CALCULATOR + roofing MATERIALS
+  // TAKEOFF (starter strip, hip/ridge cap, drip edge, underlayment, roofing nails…) are roofing-remodel
+  // artefacts and must NOT appear in the solar proposal. kind==="solar" renders geometry only.
+  const _solarOnly=(kind==="solar");
   // (FIX 5) ONE roof area across the whole report. The measurement header read t.roofAreaSqFt from
   // a possibly-stale cached getRoofTotals() (e.g. 2,510), while "The plan at a glance" reads the LIVE
   // canonical quoteAreaSqFt() (e.g. 2,131) — the same roof showed two ft² values. Pin the header's area
@@ -13216,9 +13221,10 @@ function measurementReport(t, sqs){
         : lenRow("Eaves",t.eaveFt)+lenRow("Rakes",t.rakeFt)+lenRow("Ridges",t.ridgeFt)+lenRow("Hips",t.hipFt)+lenRow("Valleys",t.valleyFt)+
           '<div class="mr-row tot"><span>Eaves + Rakes</span><b>'+lf((t.eaveFt||0)+(t.rakeFt||0))+'</b></div><div class="mr-row tot"><span>Hips + Ridges</span><b>'+lf((t.hipFt||0)+(t.ridgeFt||0))+'</b></div>')+'</div>'+
       '<div><div class="mr-h2">Area &amp; pitch</div><div class="mr-row"><span>Total roof area</span><b>'+f(t.roofAreaSqFt)+' ft²</b></div><div class="mr-row"><span>Squares</span><b>'+repSq.toFixed(1)+'</b></div><div class="mr-row"><span>Predominant pitch</span><b>'+t.predominantPitchX12+'/12</b></div><div class="mr-row"><span>Total facets</span><b>'+t.facetCount+'</b></div></div></div>'+
-    '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
-    '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>'+
-    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site before ordering materials.</div>'+
+    (_solarOnly ? '' :
+      '<div class="mr-h2">Waste calculator</div><table class="mr-waste"><tr>'+wasteCells+'</tr></table><div class="muted" style="font-size:11px;margin-top:3px">Recommended waste accounts for roof complexity, cuts and starter/hip/ridge runs.</div>'+
+      '<div class="mr-h2">Materials takeoff <span style="font-weight:500;color:#94a3b8">(at recommended waste)</span></div><div class="takeoff">'+tk+'</div>')+
+    '<div class="muted" style="font-size:11px;margin-top:8px">Measured from aerial imagery + elevation data (±'+(typeof confidencePct==="function"?confidencePct(t):6)+'%). Confirm exact measurements on site'+(_solarOnly?'.':' before ordering materials.')+'</div>'+
     footprintCreditLine()+'</div>';
 }
 // Data-source attribution for the outer building footprint (the EVEN-roofline source).
@@ -13331,7 +13337,7 @@ function openReport(){
        ${specBul?`<div class="sec"><h2>Why ${esc(rSel.matLabel)}</h2>${specBul}</div>`:''}
        <div class="sec"><h2>Cost breakdown</h2><div class="takeoff rp-takeoff">${breakdown||'<div class="muted">Itemized breakdown confirmed after your free on-site assessment.</div>'}</div>
          <div class="muted" style="font-size:11px;margin-top:8px">Installed price band — includes tear-off &amp; disposal, ${esc(rSel.matLabel.toLowerCase())} material, underlayment, flashing &amp; labor. Finalised after a free on-site measurement.</div></div>
-       ${measurementReport(rt, rSqs)}
+       ${measurementReport(rt, rSqs, "roof")}
        <div class="sec"><h2>What's included</h2>
          <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full tear-off, disposal &amp; haul-away of your old roof</div></div>
          <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>New ${esc(rSel.matLabel.toLowerCase())} in ${esc(rSel.colorName)}, underlayment &amp; flashing</div></div>
@@ -13350,39 +13356,27 @@ function openReport(){
   // bug #1: roofing squares = pitch-corrected SLOPED squares (roofingSquares), the SAME figure the quote
   // card + desktop/mobile rails price off — NOT the flat quoteAreaSqFt()/100 — so the report price matches
   // the card identically AND is the same whether roofing was reached via the tab or the branch.
+  // TRADE-PURITY: this fallthrough #report is the SOLAR proposal (the roofing designer always sets
+  // window.__roofSel → the pure roofing branch above). It renders SOLAR-ONLY content — no roofing-remodel
+  // sections (tear-off / re-roof / material takeoff), no roofing financing copy. The cross-sell back to
+  // roofing lives on the pre-fork branch-choice screen + the estimate-card trade toggle, never here.
   const addr=$("addr").value, sqs=(typeof roofingSquares==="function")?roofingSquares():quoteAreaSqFt()/100;
-  const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
-  const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
+  const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears);   // real loan payment (config-driven)
   const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-solarIncentiveRate());   // MATCH the card teaser: midpoint price, net of any configured incentive (default 0) — report must never read higher than the price the homeowner just saw
-  const heroMo=tradeMode==="roof"?moR(rhi):moS(t.lo?sFinBasis(t):rhi);
+  const heroMo=moS(t.lo?sFinBasis(t):(((best.lo||0)+(best.hi||0))/2)*(1-solarIncentiveRate()));
   const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(sFinBasis(x)).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
-  // enriched roofing section — reflects the chosen material + spec + measured takeoff + detected penetrations
-  const _sel=window.__roofSel, _rt=getRoofTotals(), _ft=window.__roofFeatures&&window.__roofFeatures.counts;
-  let roofSec;
-  if(_sel){
-    const spec=ROOF_SPEC[_sel.matId], psq=ROOF_PSQ[_sel.matId]||[450,700], wf=1+WASTE_OPTS[selWaste]/100;
-    let [mlo,mhi]=applyRoofOpts(sqs*wf*psq[0], sqs*wf*psq[1], sqs, _rt); mlo=Math.round(mlo/50)*50; mhi=Math.round(mhi/50)*50;
-    const pen=_ft?((_ft.chimneys||0)+(_ft.vents||0)+(_ft.skylights||0)):0;
-    const measLine=_rt?(edgesUntrustworthy(_rt)
-      ? `${sqs.toFixed(1)} squares · ±${confidencePct(_rt)}%${pen?` · ${pen} penetration${pen>1?'s':''} flashed`:''}. Ridge, hip & valley details are confirmed during your free on-site assessment for this complex roof.`
-      : `Measured: ${Math.round(_rt.ridgeFt+_rt.hipFt)} lf ridge/hip · ${Math.round(_rt.eaveFt+_rt.rakeFt)} lf drip edge · ±${confidencePct(_rt)}%${pen?` · ${pen} penetration${pen>1?'s':''} flashed`:''}.`):`${sqs.toFixed(1)} squares.`;
-    roofSec=`<div class="sec"><h2>New roof — ${_sel.matLabel}</h2><div class="pricebig">${fmtMoney(mlo)}–${fmtMoney(mhi)}</div>
-      <div class="muted">${_sel.matLabel} · ${_sel.colorName}${spec?` — ${spec.warranty} warranty, ${spec.life} lifespan`:''} · ${sqs.toFixed(1)} squares · tear-off + install${roofOpts.layers>1?' (2 layers)':''}${roofOpts.ridgeVent?' · ridge vent':''}${roofOpts.steep?' · steep/2-story':''}.</div>
-      <div class="bul"><span class="bm"></span><div>${measLine}</div></div></div>`;
-  } else {
-    roofSec=`<div class="sec"><h2>New roof option</h2><div class="pricebig">${fmtMoney(rlo)}–${fmtMoney(rhi)}</div><div class="muted">Asphalt-shingle re-roof · ${sqs.toFixed(1)} squares · tear-off + install. Choose a material in the tool for an exact figure.</div></div>`;
-  }
+  const _rt=getRoofTotals();
   const batteryBul=addBattery?(()=>{ sizeBattery(); const tot=+(curBat().kwh*batCount).toFixed(1); return `<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Battery storage — ${batCount}× ${curBat().label}, ${tot} kWh backup (covers ~${backupKwhNeed()} kWh of essentials${backupDays>1?` for ${backupDays} days`:''})</div></div>`; })():'';
   const evBul=(addEV||addCharger)?(()=>{ const t=solarTiers[selTier]||solarTiers[solarTiers.length-1]||{}; const ev=evSizing(t); const parts=[]; if(addEV&&ev.kw) parts.push(`+${ev.panels} panels (~${ev.kw} kW) to cover ~${ev.kwh.toLocaleString()} kWh/yr of EV driving`); if(addCharger) parts.push('Level-2 home charger install'); return `<div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>EV — ${parts.join('; ')}</div></div>`; })():'';
   $("report").innerHTML=`
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
      ${tradeHeader()}
-     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*${finConfigured()?'':' — estimate only, not an offer of credit'}</div></div></div>
-     ${measurementReport(_rt, sqs)}
+     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR SOLAR QUOTE'}</div><h1>Your solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*${finConfigured()?'':' — estimate only, not an offer of credit'}</div></div></div>
+     ${measurementReport(_rt, sqs, "solar")}
      <div class="sec"><h2>The plan at a glance</h2>
-       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} facets), measured from aerial + elevation data.</div></div>
+       <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} facets) of usable area, measured from aerial + elevation data.</div></div>
        <div class="bul"><span class="bm"></span><div>Solar: up to <b>${best.kw||''} kW</b> (${best.panels||''} panels) → ~<b>${best.kwhAc?best.kwhAc.toLocaleString():''} kWh/yr</b> of clean power.</div></div>
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
@@ -13394,8 +13388,7 @@ function openReport(){
          <div class="muted" style="margin-bottom:8px">Overall <b>${sa.tsrf}% TSRF — ${sa.rating}</b>${sa.tsrf>=75?' · incentive-grade':''}. Solar Access % is shade only; TOF is tilt &amp; orientation; TSRF combines both (75%+ is the industry "good" floor).</div>
          <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
          <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
-     ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">${finConfigured()?`Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact.`:`Financing estimate only — not an offer of credit; financing available for well-qualified buyers.`} ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">${finConfigured()?`Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr. Soft-pull pre-qualification, no credit impact.`:`Financing estimate only — not an offer of credit; financing available for well-qualified buyers.`} ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -13462,7 +13455,11 @@ function resetLeadCopy(){ const h=$("leadH")||document.querySelector("#lead .lea
   if(window.__largeRoof){
     if(h) h.textContent="Request your commercial quote"; if(s) s.textContent="A specialist will measure your roof and send a custom quote."; if(g) g.textContent="Request my commercial quote"; return;
   }
-  if(h) h.textContent="See your full quote"; if(s) s.innerHTML="Your personalised roof &amp; solar plan, sent to you instantly."; if(g) g.textContent="See my full quote"; }
+  // TRADE-PURE lead copy: this form sits AFTER the fork, so it must speak the active trade only —
+  // a roofing lead never hears "solar", a solar lead never hears "roof".
+  if(h) h.textContent="See your full quote";
+  if(s) s.innerHTML=(tradeMode==="roof")?"Your personalised roofing proposal, sent to you instantly.":"Your personalised solar plan, sent to you instantly.";
+  if(g) g.textContent="See my full quote"; }
 // 4) The gate: if the trade is gated AND no lead yet, show the form first and defer the
 //    reveal until a valid submit; otherwise reveal immediately (current behaviour).
 function gateThenReveal(trade, revealFn){
@@ -13868,8 +13865,8 @@ window.__emailReport=()=>{
       if(typeof setStatus==="function"){ setStatus("We'll email your proposal shortly"); setTimeout(()=>setStatus(""),2800); }
     }
   }catch(_){}
-  const subj=tradeMode==="roof"?"Your WeFixTrades roofing proposal":"Your WeFixTrades roof & solar quote";
-  const body=(tradeMode==="roof"?"Here's your roofing proposal for ":"Here's your personalised roof & solar plan for ")+$("addr").value+": "+quoteUrl();
+  const subj=tradeMode==="roof"?"Your WeFixTrades roofing proposal":"Your WeFixTrades solar quote";
+  const body=(tradeMode==="roof"?"Here's your roofing proposal for ":"Here's your personalised solar plan for ")+$("addr").value+": "+quoteUrl();
   location.href="mailto:?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);
 };
 $("go").onclick=()=>{ const v=$("addr").value.trim(); if(!v){ const a=$("addr"); a.focus(); a.style.borderColor="#e0556a"; setTimeout(()=>a.style.borderColor="",1200); return; } const picked=window.__pickedPlace; const pid=(picked&&picked.addr===v)?picked.id:""; if(typeof window.__enterSelectRoof==="function"){ window.__enterSelectRoof(v,pid); } else { run(v); } };   // funnel: a new address from the top bar re-enters the Select-Your-Roof gate
