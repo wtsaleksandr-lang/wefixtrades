@@ -530,6 +530,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       const r = await geoTiff(raw);
       if (!r.ok) return res.status(r.status).send(r.error);
       res.setHeader("Content-Type", r.contentType);
+      res.setHeader("X-Cache", r.cached ? "HIT" : "MISS");
       res.setHeader("Cache-Control", "public, max-age=600");
       return res.send(r.buf);
     } catch (err) {

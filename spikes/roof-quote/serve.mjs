@@ -1,4 +1,4 @@
-import http from "http"; import https from "https"; import zlib from "zlib"; import readline from "readline"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url"; import { createRequire } from "module";
+import http from "http"; import https from "https"; import zlib from "zlib"; import readline from "readline"; import { readFileSync, appendFileSync, existsSync, writeFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs"; import path from "path"; import { createHash } from "crypto"; import { pathToFileURL } from "url"; import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
 // ---- persistent disk cache: captures + AI renders survive restarts (cost lever; foundation for cross-tenant cache) ----
 const CACHE_DIR=path.join(import.meta.dirname,"cache");
@@ -8,6 +8,34 @@ function diskGetJSON(prefix,key){ const f=path.join(CACHE_DIR,prefix+"-"+ckey(ke
 function diskSetJSON(prefix,key,val){ try{ writeFileSync(path.join(CACHE_DIR,prefix+"-"+ckey(key)+".json"), JSON.stringify(val)); }catch(_){} }
 function diskGetBuf(prefix,key){ const f=path.join(CACHE_DIR,prefix+"-"+ckey(key)+".bin"); if(existsSync(f)){ try{ return readFileSync(f); }catch(_){} } return null; }
 function diskSetBuf(prefix,key,buf){ try{ writeFileSync(path.join(CACHE_DIR,prefix+"-"+ckey(key)+".bin"), buf); }catch(_){} }
+// ---- GeoTIFF raster disk cache (size-capped, oldest-first eviction) ----
+// Rasters (DSM/RGB/flux/mask) were NOT disk-cached before (only a browser max-age), so a
+// returning session re-downloaded ~3.5 MB/quote from Google (~5 s, gated by the slowest raster).
+// Cache them keyed on the STABLE raster id (the `id` param of the geoTiff:get URL, immutable per
+// asset) — NOT the full signed URL, whose `key`/token rotate on every 30-min dataLayers re-mint.
+const GEOTIFF_CACHE_PREFIX="geotiff";
+const GEOTIFF_CACHE_MAX_BYTES=500*1024*1024;   // 500 MB cap (guards the 220MB-tiles disk-fill risk)
+function geotiffCacheKey(raw){
+  try{ const u=new URL(raw); const id=u.searchParams.get("id"); if(id) return "id:"+id;
+    const parts=[]; for(const [k,v] of [...u.searchParams.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){ if(k==="key") continue; parts.push(k+"="+v); }
+    return "url:"+u.pathname+"?"+parts.join("&");
+  }catch(_){ return null; }
+}
+function enforceGeotiffCacheCap(){
+  try{ const pre=GEOTIFF_CACHE_PREFIX+"-";
+    const files=readdirSync(CACHE_DIR).filter(f=>f.startsWith(pre)&&f.endsWith(".bin")).map(f=>{ const full=path.join(CACHE_DIR,f); try{ const st=statSync(full); return { full, size:st.size, mtime:st.mtimeMs }; }catch(_){ return null; } }).filter(Boolean);
+    let total=files.reduce((s,f)=>s+f.size,0);
+    if(total<=GEOTIFF_CACHE_MAX_BYTES) return;
+    files.sort((a,b)=>a.mtime-b.mtime);
+    for(const f of files){ if(total<=GEOTIFF_CACHE_MAX_BYTES) break; try{ unlinkSync(f.full); total-=f.size; }catch(_){} }
+  }catch(_){}
+}
+function geotiffCacheGet(cacheKey){ const buf=diskGetBuf(GEOTIFF_CACHE_PREFIX,cacheKey); if(!buf) return null; const meta=diskGetJSON(GEOTIFF_CACHE_PREFIX+"ct",cacheKey)||{}; return { buf, ct: meta.ct||"image/tiff" }; }
+function geotiffCacheSet(cacheKey,buf,ct){ diskSetBuf(GEOTIFF_CACHE_PREFIX,cacheKey,buf); diskSetJSON(GEOTIFF_CACHE_PREFIX+"ct",cacheKey,{ct}); enforceGeotiffCacheCap(); }
+// In-flight coalescing maps (key→Promise, deleted on settle) — a second concurrent request for the
+// same dataLayers key / geotiff raster awaits the first upstream call instead of re-billing Google.
+const _dataLayersInflight=new Map();
+const _geotiffInflight=new Map();
 // Per-source latency profiler (RQ_PERF=1). Wraps a labelled async source and logs its wall time so we can
 // see, per request, exactly where footprint/neighbour latency goes (OSM vs MS vs VIDA vs Solar). No-op unless enabled.
 const RQ_PERF=process.env.RQ_PERF==="1";
@@ -1439,12 +1467,23 @@ http.createServer(async (req,res)=>{
     if(!fresh){ const c=diskGetJSON("datalayers",gk); if(c&&c.body&&c._t&&(Date.now()-c._t)<DATALAYERS_TTL_MS){ res.setHeader("X-Cache","HIT"); res.end(c.body); return; } }
     res.setHeader("X-Cache","MISS");
     try{
-      const url="https://solar.googleapis.com/v1/dataLayers:get?location.latitude="+lat+
-        "&location.longitude="+lng+"&radiusMeters=40&view=FULL_LAYERS&requiredQuality=LOW&pixelSizeMeters=0.1&key="+SOLAR;
-      const r=await fetch(url);
-      const t=await r.text();
-      if(r.ok) diskSetJSON("datalayers",gk,{body:t,_t:Date.now()});
-      res.end(r.ok ? t : JSON.stringify({error:"no_datalayers", code:r.status}));
+      // In-flight coalescing: run() + the Select-Roof prefetch race for the same key; the second
+      // caller awaits the first's upstream call instead of making a 2nd billable Google dataLayers call.
+      const inflightKey=gk+(fresh?"|fresh":"");
+      let p=_dataLayersInflight.get(inflightKey);
+      if(!p){
+        p=(async()=>{
+          const url="https://solar.googleapis.com/v1/dataLayers:get?location.latitude="+lat+
+            "&location.longitude="+lng+"&radiusMeters=40&view=FULL_LAYERS&requiredQuality=LOW&pixelSizeMeters=0.1&key="+SOLAR;
+          const r=await fetch(url);
+          const t=await r.text();
+          if(r.ok) diskSetJSON("datalayers",gk,{body:t,_t:Date.now()});
+          return { ok:r.ok, status:r.status, body:t };
+        })().finally(()=>{ _dataLayersInflight.delete(inflightKey); });
+        _dataLayersInflight.set(inflightKey,p);
+      }
+      const out=await p;
+      res.end(out.ok ? out.body : JSON.stringify({error:"no_datalayers", code:out.status}));
     }catch(e){ res.end(JSON.stringify({error:String(e)})); }
     return;
   }
@@ -1457,13 +1496,29 @@ http.createServer(async (req,res)=>{
     try{ target=new URL(raw); }catch(e){ res.statusCode=400; res.end("bad url"); return; }
     if(target.hostname!=="solar.googleapis.com"){ res.statusCode=403; res.end("host not allowed"); return; }
     try{
-      target.searchParams.set("key",SOLAR);
-      const r=await fetch(target.toString());
-      if(!r.ok){ res.statusCode=r.status; res.end("upstream "+r.status); return; }
-      const buf=Buffer.from(await r.arrayBuffer());
-      res.setHeader("Content-Type", r.headers.get("content-type")||"image/tiff");
+      const cacheKey=geotiffCacheKey(raw);
+      // Disk-cache HIT — serve immediately (immutable raster, keyed on stable id; big cross-session win).
+      if(cacheKey){ const hit=geotiffCacheGet(cacheKey); if(hit){ res.setHeader("Content-Type",hit.ct); res.setHeader("X-Cache","HIT"); res.setHeader("Cache-Control","public, max-age=600"); res.end(hit.buf); return; } }
+      // Coalesce concurrent misses for the same raster onto one upstream Google download.
+      let p=cacheKey?_geotiffInflight.get(cacheKey):null;
+      if(!p){
+        p=(async()=>{
+          target.searchParams.set("key",SOLAR);
+          const r=await fetch(target.toString());
+          if(!r.ok){ return { ok:false, status:r.status }; }
+          const buf=Buffer.from(await r.arrayBuffer());
+          const ct=r.headers.get("content-type")||"image/tiff";
+          if(cacheKey) geotiffCacheSet(cacheKey,buf,ct);
+          return { ok:true, buf, ct };
+        })();
+        if(cacheKey){ p=p.finally(()=>{ _geotiffInflight.delete(cacheKey); }); _geotiffInflight.set(cacheKey,p); }
+      }
+      const out=await p;
+      if(!out.ok){ res.statusCode=out.status; res.end("upstream "+out.status); return; }
+      res.setHeader("Content-Type", out.ct);
+      res.setHeader("X-Cache","MISS");
       res.setHeader("Cache-Control","public, max-age=600");
-      res.end(buf);
+      res.end(out.buf);
     }catch(e){ res.statusCode=502; res.end(String(e)); }
     return;
   }
