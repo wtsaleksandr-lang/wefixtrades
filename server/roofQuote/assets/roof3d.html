@@ -1562,7 +1562,7 @@
         <div class="sg-m"><div class="v" id="sgKwh">0</div><div class="l">kWh/yr</div></div>
         <div class="sg-m" id="sgOffsetTile" style="display:none"><div class="v" id="sgOffset">—</div><div class="l">Bill offset</div></div>
       </div>
-      <div class="sg-price"><span class="pv" id="sgPrice">$0</span><span class="pmo" id="sgMonthly"></span><span class="psub" id="sgPriceSub">est. installed after incentives</span></div>
+      <div class="sg-price"><span class="pv" id="sgPrice">$0</span><span class="pmo" id="sgMonthly"></span><span class="psub" id="sgPriceSub">est. installed</span></div>
       <div class="sg-bill">
         <div class="sgb-cue">Average monthly electric bill <span class="hq" id="sgBillHelp" title="Used to show your bill before vs after solar and size the savings. Optional.">i</span></div>
         <div class="sgb-wrap"><span class="sgb-dollar">$</span><input id="sgBill" type="number" inputmode="numeric" min="0" max="2000" step="10" placeholder="e.g. 220"><span class="sgb-per">/ month</span></div>
@@ -2259,19 +2259,26 @@ async function pvwattsFallback(ll){ try{ const kw=6;
     '<button class="rcta" style="margin-top:10px;width:100%" onclick="window.__book&&window.__book()">Get my custom on-site quote →</button>';
   return true; }catch(_){ return false; } }
 function creditTxt(){ const r=itcRate(); if(r>0) return 'after est. '+Math.round(r*100)+'% federal tax credit'; return REGION.credit>0 ? 'after '+Math.round(REGION.credit*100)+'% federal credit' : REGION.note; }
-/* ── Federal solar Investment Tax Credit (ITC) ──
-   30% of the installed system cost, current through 2032 (US only; Canada has no US ITC).
-   Hedged everywhere it shows: labelled an ESTIMATE + "consult a tax professional" — it's a
-   tax claim, not a guarantee. itcRate() is the single source of truth; REGION.credit stays
-   per-region (kept 0) for any future state-specific overlay, but the federal ITC is wired here. */
-function itcRate(){ const c=window.__regionCode; if(c && CA_PROV.has(c)) return 0; return US_STATES.has(c) ? 0.30 : (REGION===DEFAULT_REGION ? 0.30 : 0); }
+/* ── Federal solar tax credit — CONFIG-DRIVEN, default 0 ──
+   The 30% residential credit (IRC §25D) was TERMINATED for expenditures after Dec 31, 2025 by
+   P.L. 119-21 (OBBB, signed 2025-07-04); the IRS confirms installation had to be complete by
+   12/31/2025. A 2026 purchase gets NO federal credit, so the default here is 0 and no credit
+   line renders. If a future policy change (or a documented program a tenant is entitled to
+   advertise) restores one, the tenant sets TENANT.incentives.federalPct (whole percent, e.g.
+   30) — policy lives in config, not code. Applied ONLY to resolved US states: never Canada,
+   never an UNRESOLVED region (an undetected non-US address must not be shown a US credit).
+   itcRate() stays the single source of truth for every credit consumer. */
+function itcRate(){ const c=window.__regionCode; if(!c || !US_STATES.has(c)) return 0;
+  const p=Number(TENANT.incentives && TENANT.incentives.federalPct);
+  return (Number.isFinite(p) && p>0) ? Math.min(1, p/100) : 0; }
 function itcAmount(grossCost){ return Math.round((grossCost||0)*itcRate()); }
 /* effective solar incentive fraction used by the financing/net-cost math: prefer the real
-   federal ITC; fall back to any region-specific credit if ITC doesn't apply. */
+   tenant-configured federal credit (default 0 — §25D repealed); fall back to any
+   region-specific credit if none is configured. */
 function solarIncentiveRate(){ const r=itcRate(); return r>0 ? r : (REGION.credit||0); }
 /* 25-yr cumulative solar savings + payback, as an inline SVG (no chart lib) */
 function savingsModel(kwhAc, netCost){
-  const rate=REGION.rate, esc=0.035, yrs=25; let cum=0, payback=0; const pts=[];
+  const rate=REGION.rate, esc=0.03, yrs=25; let cum=0, payback=0; const pts=[];   // esc unified with FIN_ASSUME.esc (one escalation assumption per file)
   for(let n=1;n<=yrs;n++){ cum+=kwhAc*rate*Math.pow(1+esc,n-1); pts.push(cum); if(!payback&&cum>=netCost) payback=n; }
   const max=Math.max(cum,netCost*1.1)||1, W=440,H=150,pad=10;
   const X=n=>pad+(n-1)/(yrs-1)*(W-2*pad), Y=v=>H-pad-(v/max)*(H-2*pad);
@@ -2312,7 +2319,7 @@ function _crossYear(cum, costAt){
   return 0;
 }
 /* The model. Inputs come straight from renderQuoteCard's in-scope vars.
-   payMode: "cash" | "loan" | "lease".  All money is post-ITC (netCost already net).
+   payMode: "cash" | "loan" | "lease".  All money is post-incentive (netCost already net of any configured credit; default = no credit).
    annualConsumptionKwh may be 0 (bill not entered) → bill-dependent fields return null. */
 function solarFinModel(o){
   const kwhY1=Math.max(0,o.kwhY1||0), netCost=Math.max(0,o.netCost||0), rate=(REGION.rate||0.165);
@@ -2327,7 +2334,7 @@ function solarFinModel(o){
     const yr=kWh*r + (t<=10?srecYr:0);
     save.push(yr); run+=yr; cum.push(run);
   }
-  // cost curve: flat post-ITC for cash; cumulative loan payments (capped at term) for loan
+  // cost curve: flat post-incentive netCost for cash; cumulative loan payments (capped at term) for loan
   const costAt = payMode==="loan"
     ? (T)=> loanMo*12*Math.min(T,term)
     : (T)=> netCost;   // lease → treat like cash-cost=0 handled separately below
@@ -2727,6 +2734,11 @@ let TENANT={
   // every state and the $/kW/mo rate is provider-specific; the tenant opts in with their TPO
   // partner's real rate.
   financing:{ solarApr:6.99, solarYears:25, roofApr:9.99, roofYears:12, configured:false, leaseEnabled:false, leasePerKwMo:11 /* $/mo per kW for a $0-down lease/PPA */ },
+  // Incentive policy is CONFIG, not code. federalPct is a whole percent (30 = 30%) applied to
+  // cash/loan solar quotes in resolved US states. DEFAULT 0: §25D was repealed for post-2025
+  // expenditures (P.L. 119-21), so no federal credit may be shown unless a tenant explicitly
+  // configures one they can lawfully advertise.
+  incentives:{ federalPct:0 },
   features:{ battery:true, ev:true, srec:true, leasePPA:true, leadQual:true, sizeSlider:true, report:true,
     // PER-TRADE LEAD-GATE (Sky-Quote/Roofr pattern). When a trade's gate is ON the homeowner
     // must enter contact details BEFORE the estimate is revealed (collect-first). When OFF
@@ -2793,8 +2805,9 @@ const PANEL_TIERS=[
   {id:"prem",   label:"Premium",      brand:"SunPower Maxeon-class", mult:1.25, watt:440, warranty:"40-yr", eff:"~22.5%", look:"sleek"},
 ];
 let selPanel=1, payMode="loan";   // selPanel default = "Most popular" · payMode: cash | loan | lease (lease shown only if TENANT.financing.leaseEnabled)
-// QUICK ADD-ONS (quote-card chips): battery backup (ITC-eligible) + Level-2 EV charger (flat — NOT in the
-// ITC base). Installed lo–hi bands added on top of the solar system; the tier `mult` never applies to them.
+// QUICK ADD-ONS (quote-card chips): battery backup (inside any configured-credit base) + Level-2 EV
+// charger (flat — always OUTSIDE the credit base). Installed lo–hi bands added on top of the solar
+// system; the tier `mult` never applies to them. No credit is configured by default (§25D repealed).
 const ADDON_PRICES={ battery:{lo:12000,hi:16000,label:"Battery backup"}, ev:{lo:1200,hi:1800,label:"EV charger"} };   // battery band verified 2026 installed (Powerwall 3 ~$12k–16.5k, clustering $13k–16k)
 window.__addons={battery:false,ev:false};
 function applyRoofOpts(lo, hi, sqs, t){
@@ -2828,7 +2841,7 @@ function loanTermsTxt(termYears, apr, extra){
   return termYears+'-yr @ '+apr+'%'+(extra?', '+extra:'');
 }
 // Compliance disclaimer footnote — muted, always-visible short line + (i) cue → full legal text.
-// kind: "solar" (price + ITC tax-credit + financing claims) or "roof" (financing-only).
+// kind: "solar" (price + incentive + financing claims) or "roof" (financing-only).
 function discLine(kind){
   const lead = kind==="solar"
     ? 'Estimate only — final price confirmed after on-site assessment.'
@@ -2836,7 +2849,17 @@ function discLine(kind){
   return '<div class="qdisc">'+lead+'<i class="qdisc-i" data-disc="'+kind+'" title="Estimate &amp; eligibility disclaimer" role="button" tabindex="0">i</i></div>';
 }
 const DISC_FULL={
-  solar:'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates from aerial imagery and Google Solar data; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Any financing figures shown are estimates only and are not an offer of credit or a commitment to lend; actual rates, terms and payments are set by the lender, are subject to credit approval, and are typically available to well-qualified buyers.</p>',
+  // solar is a GETTER: the incentive sentence must track the live config. Default (federalPct 0,
+  // the post-§25D reality) states plainly that cash/loan prices carry NO federal credit; if a
+  // tenant configures a credit they can lawfully advertise, the text describes it as an estimate
+  // instead — the modal can never contradict the card.
+  get solar(){
+    const r=itcRate();
+    const inc = r>0
+      ? 'The '+Math.round(r*100)+'% federal tax credit shown is configured by your installer and is an estimate — eligibility depends on your tax situation.'
+      : 'Cash and loan prices include no federal tax credit — the federal residential solar credit ended for systems installed after 2025. With a lease/PPA, the solar provider claims the commercial clean-energy credit (Section 48E) and typically passes it through as a lower rate.';
+    return '<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates from aerial imagery and Google Solar data; your final price is confirmed after a free on-site assessment. '+inc+' State or local incentives may apply — consult a tax professional. Any financing figures shown are estimates only and are not an offer of credit or a commitment to lend; actual rates, terms and payments are set by the lender, are subject to credit approval, and are typically available to well-qualified buyers.</p>';
+  },
   roof:'<h3 style="margin:0 0 8px">Estimate &amp; financing</h3><p style="margin:0;color:var(--muted);line-height:1.5">The price range is an estimate from aerial measurements; your final price is confirmed after a free on-site assessment. Any financing figures shown are estimates only and are not an offer of credit or a commitment to lend; actual rates, terms and payments are set by the lender, are subject to credit approval, and are typically available to well-qualified buyers.</p>'
 };
 // Trust + timeline strip shown ON the quote card, before the email gate. A buyer's two open
@@ -3705,20 +3728,20 @@ function renderQuoteCard(){
     if(addEV && evS.kw){ const evCost=Math.round(evS.kw*1000*2.8); lo+=evCost; hi+=Math.round(evCost*1.1); }   // extra solar to cover EV charging (~$2.8/W)
     if(addCharger){ lo+=CHARGER_COST; hi+=Math.round(CHARGER_COST*1.15); }   // Level-2 EV charger install
     // ── QUICK ADD-ON CHIPS (Battery backup / EV charger) — flat installed lo–hi bands ADDED AFTER the
-    //    tier multiplier (mult applies to the solar system only, never add-ons). Battery is ITC-ELIGIBLE
-    //    (stays in the credit base); the EV charger is NOT — its mid-price is carved out of the ITC base
-    //    below via evcMid. Mutually exclusive with the legacy accordion battery/charger (handlers enforce).
+    //    tier multiplier (mult applies to the solar system only, never add-ons). If a tenant configures a
+    //    federal credit, the battery stays IN the credit base; the EV charger never does — its mid-price
+    //    is carved out below via evcMid. Mutually exclusive with the legacy accordion battery/charger (handlers enforce).
     const ao=window.__addons||(window.__addons={battery:false,ev:false});
     if(ao.battery){ lo+=ADDON_PRICES.battery.lo; hi+=ADDON_PRICES.battery.hi; }
     if(ao.ev){ lo+=ADDON_PRICES.ev.lo; hi+=ADDON_PRICES.ev.hi; }
-    const evcMid=ao.ev?Math.round((ADDON_PRICES.ev.lo+ADDON_PRICES.ev.hi)/2):0;   // EV-charger portion excluded from the ITC base
+    const evcMid=ao.ev?Math.round((ADDON_PRICES.ev.lo+ADDON_PRICES.ev.hi)/2):0;   // EV-charger portion excluded from any configured-credit base
     // EV adds real panels to the roof — the headline system (panels/kW/production) and SREC must reflect them,
     // not just the price. Otherwise the customer pays for panels the system summary never shows.
     const evAdd=(addEV&&evS.kw)?evS:{panels:0,kw:0,kwh:0};
     const totPanels=panels+(evAdd.panels||0), totKw=+(sysKw+(evAdd.kw||0)).toFixed(1), totKwh=sysKwh+(evAdd.kwh||0);
     const sMid=(lo+hi)/2;
-    const itcR=itcRate(), itcAmt=itcAmount(sMid-evcMid), netCost=Math.round((sMid-evcMid)*(1-itcR))+evcMid;   // net price after the 30% federal ITC (US) — EV charger stays OUTSIDE the credit base; feeds payback + financing
-    const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);   // owned-system loan (config-driven APR/sanitized-term), financed on the post-ITC net cost
+    const itcR=itcRate(), itcAmt=itcAmount(sMid-evcMid), netCost=Math.round((sMid-evcMid)*(1-itcR))+evcMid;   // net price after any CONFIGURED federal credit (default 0 — §25D repealed for post-2025 purchases, P.L. 119-21; itcR=0 ⇒ netCost = installed mid-price). EV charger stays OUTSIDE any credit base; feeds payback + financing
+    const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);   // owned-system loan (config-driven APR/sanitized-term), financed on the post-incentive net cost
     const leaseMo=Math.round(totKw*fin.leasePerKwMo);   // $0-down lease/PPA monthly — the lessor keeps the 48E commercial credit and passes it through as a lower rate
     const srecYr=srecIncome(totKwh);
     const aOpen=window.__addonOpen;   // accordion: only the open add-on shows its full config; the other stays a one-line summary
@@ -3753,7 +3776,7 @@ function renderQuoteCard(){
     // quick ADD-ON toggle chips (Battery backup / EV charger) — outline-selected, no $ in the chip (gate-safe);
     // each chip honours the same tenant feature flag as its legacy accordion counterpart
     // ADD-ON CHIPS (primary surface): when active, each shows its price delta + payback impact inline.
-    // Battery is ITC-eligible; the payback drag is estimated as (added net cost) ÷ (year-1 savings).
+    // Battery sits in any configured-credit base (none by default); payback drag ≈ (added net cost) ÷ (year-1 savings).
     const _yr1Save = Math.max(1, (totKwh*REGION.rate));   // ~year-1 production value, for payback-delta estimate
     const _addDelta=(lo,hi,itcElig)=>{ const mid=(lo+hi)/2, netAdd=itcElig?mid*(1-itcR):mid; return Math.max(0, netAdd/_yr1Save); };
     const batDeltaTxt = ao.battery ? ' <span class="aoc-d">+'+fmtMoney(ADDON_PRICES.battery.lo)+'–'+kAbbr(ADDON_PRICES.battery.hi).replace('$','$')+' · payback +'+_addDelta(ADDON_PRICES.battery.lo,ADDON_PRICES.battery.hi,itcR>0).toFixed(1)+' yrs</span>' : '';
@@ -3777,9 +3800,12 @@ function renderQuoteCard(){
       : finLine(sFin, loanTermsTxt(sTerm, fin.solarApr, creditTxt()));
     const srecLine=srecYr>0?'<div class="qfin" style="margin-top:5px;line-height:1.5">⚡ Earns ~<b>$'+srecYr.toLocaleString()+'/yr</b> in '+srecLabel()+TCUE("srec")+' — on top of bill savings.</div>':'';
     // ── MONEY STORY (surfaced UPFRONT, before the email wall) ──
-    // 1) the 30% federal ITC as a line that REDUCES the price (hedged: "est." + tax-pro cue)
-    // 2) payback period + 25-yr lifetime savings, computed from the post-ITC net cost
-    const itcLine=(itcR>0&&itcAmt>0)?'<div class="itc-line">−<span class="itc-amt">'+fmtMoney(itcAmt)+'</span> est. 30% federal tax credit (ITC)'+TCUE("itc")+'</div>':'';
+    // 1) a tenant-CONFIGURED federal credit as a line that REDUCES the price (hedged: "est." +
+    //    tax-pro cue). Renders ONLY when TENANT.incentives.federalPct>0 — the default is 0
+    //    because §25D was repealed for post-2025 purchases (P.L. 119-21), so no credit line
+    //    (and no "$0 credit" line) ever shows out of the box.
+    // 2) payback period + 25-yr lifetime savings, computed from the post-incentive net cost
+    const itcLine=(itcR>0&&itcAmt>0)?'<div class="itc-line">−<span class="itc-amt">'+fmtMoney(itcAmt)+'</span> est. '+Math.round(itcR*100)+'% federal tax credit'+TCUE("itc")+'</div>':'';
     // ── KPI FINANCIAL MODEL (single source of truth for tiles + chart + bars + ring) ──
     // Drives every headline number below from the ESCALATED cumulative-savings series, so the
     // payback pill and the chart intersection can never disagree (crude cost÷year1 is never shown).
@@ -10836,7 +10862,7 @@ function gridSelectionMetrics(){
   const kwhAc=Math.round(kwhDc*0.85);                                   // DC→AC derate, same factor as solarTiersFrom
   let lo=Math.round(kw*1000*2.5/100)*100*pTier.mult, hi=Math.round(kw*1000*3.1/100)*100*pTier.mult;   // same $/W band + quality multiplier as the card
   const sMid=(lo+hi)/2;
-  const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));    // post-ITC, same as the card
+  const itcR=itcRate(), itcAmt=itcAmount(sMid), netCost=Math.round(sMid*(1-itcR));    // net of any configured credit (default 0), same as the card
   const fin=TENANT.financing, mo=Math.round(monthly(netCost, fin.solarApr, solarTermYears()));   // sanitized term — never 0-yr / divide-by-zero (mirrors the quote card)
   const monthlySave=Math.round(kwhAc*REGION.rate/12);                  // bill savings at the live rate (same as solarTiersFrom.monthly)
   return { panels, kw, kwhAc, lo:Math.round(lo), hi:Math.round(hi), sMid:Math.round(sMid), netCost, itcAmt, mo, monthlySave, total:SG_STATE.panels.length };
@@ -10855,8 +10881,10 @@ function sgUpdateMetrics(){
     $("sgPriceSub").textContent="Enter your details to reveal your price";
   } else {
     $("sgPrice").textContent=fmtMoney(m.sMid);
-    $("sgMonthly").textContent=m.mo>0?('or '+fmtMoney(m.mo)+'/mo'):'';
-    $("sgPriceSub").textContent='est. installed'+(m.itcAmt>0?(' · incl. −'+fmtMoney(m.itcAmt)+' tax credit'):'');
+    $("sgMonthly").textContent=m.mo>0?('or '+fmtMoney(m.mo)+'/mo'+(finConfigured()?'':'*')):'';
+    // Reg Z hygiene: a bare payment amount with no lender behind it needs the "not an offer of credit"
+    // qualifier until the tenant configures real terms (same rule as the card's finLine).
+    $("sgPriceSub").textContent='est. installed'+(m.itcAmt>0?(' · incl. −'+fmtMoney(m.itcAmt)+' tax credit'):'')+((m.mo>0&&!finConfigured())?' · *financing estimate only — not an offer of credit':'');
   }
   // bill before / after
   const bill=+(($("sgBill").value)||0);
@@ -11234,7 +11262,7 @@ window.__sgFirstSelectedVisibleCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return
   const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
-  const sgDisc=$("sgDiscHelp"); if(sgDisc){ const openDisc=()=>{ if(typeof openInfoModal==="function") openInfoModal((typeof DISC_FULL!=="undefined"&&DISC_FULL.solar)||'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates; your final price is confirmed after a free on-site assessment. The federal tax credit (ITC) is subject to eligibility — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>'); }; sgDisc.onclick=openDisc; sgDisc.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openDisc(); } }; }
+  const sgDisc=$("sgDiscHelp"); if(sgDisc){ const openDisc=()=>{ if(typeof openInfoModal==="function") openInfoModal((typeof DISC_FULL!=="undefined"&&DISC_FULL.solar)||'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates; your final price is confirmed after a free on-site assessment. Cash and loan prices include no federal tax credit — the federal residential solar credit ended for systems installed after 2025. State or local incentives may apply — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>'); }; sgDisc.onclick=openDisc; sgDisc.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openDisc(); } }; }
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
   // ── Keep the canvas locked to its STAGE box. sgLayout() writes an explicit cv.style.height, so when the
   //    bottom metrics panel reflows (e.g. the bill before/after block expands on mobile), the stage shrinks
@@ -12875,7 +12903,7 @@ function openReport(){
   const rlo=Math.round(sqs*450/50)*50, rhi=Math.round(sqs*680/50)*50;
   const best=solarTiers[solarTiers.length-1]||{}, t=solarTiers[selTier]||best;
   const moS=v=>loanPayment(v,TENANT.financing.solarApr,TENANT.financing.solarYears), moR=v=>loanPayment(v,TENANT.financing.roofApr,TENANT.financing.roofYears);   // real loan payments (config-driven)
-  const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-solarIncentiveRate());   // MATCH the card teaser: midpoint price, post-ITC net — report must never read higher than the price the homeowner just saw
+  const sFinBasis=x=>(((x.lo||0)+(x.hi||0))/2)*(1-solarIncentiveRate());   // MATCH the card teaser: midpoint price, net of any configured incentive (default 0) — report must never read higher than the price the homeowner just saw
   const heroMo=tradeMode==="roof"?moR(rhi):moS(t.lo?sFinBasis(t):rhi);
   const tierCards=(solarTiers||[]).map((x,i)=>`<div class="tier${i===solarTiers.length-1?' pop':''}">${i===solarTiers.length-1?'<div class="pop-tag">MOST POPULAR</div>':''}<div class="tn">${x.label}</div><div class="mo">$${moS(sFinBasis(x)).toLocaleString()}/mo</div><div class="ca">${fmtMoney(x.lo)}–${fmtMoney(x.hi)}<br>${x.kw} kW · ${x.kwhAc?x.kwhAc.toLocaleString():''} kWh/yr</div></div>`).join("");
   // enriched roofing section — reflects the chosen material + spec + measured takeoff + detected penetrations
@@ -12900,7 +12928,7 @@ function openReport(){
    <div class="rbar"><button class="ghost" onclick="window.__closeReport()">Close</button><button onclick="window.__emailReport()">Email</button><button onclick="window.__shareReport()">Share</button><button onclick="window.print()">Download PDF</button></div>
    <div class="rwrap">
      ${tradeHeader()}
-     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*</div></div></div>
+     <div class="hero"><img src="${QUOTE.hero||''}" alt=""><div class="ov"><div class="brand">${(TENANT.trade&&TENANT.trade.company)?esc(TENANT.trade.company):'YOUR ROOFING &amp; SOLAR QUOTE'}</div><h1>Your roof &amp; solar plan</h1><div class="addr">${esc(addr)} &nbsp;·&nbsp; from ~$${heroMo.toLocaleString()}/mo*${finConfigured()?'':' — estimate only, not an offer of credit'}</div></div></div>
      ${measurementReport(_rt, sqs)}
      <div class="sec"><h2>The plan at a glance</h2>
        <div class="bul"><span class="bm"></span><div>Roof: <b>${quoteAreaSqFt().toLocaleString()} sq ft</b> (${sqs.toFixed(1)} squares · ${((roofSplitRatio()<1 && _rt && _rt.facetCount)?_rt.facetCount:QUOTE.facets)} facets), measured from aerial + elevation data.</div></div>
@@ -12908,7 +12936,7 @@ function openReport(){
        <div class="bul"><span class="bm"></span><div>From <b>~$${heroMo.toLocaleString()}/mo</b> with financing — often at or below your current power bill.</div></div></div>
      <div class="sec"><h2>Solar — choose your system</h2><div class="tiers">${tierCards||'<div class="muted">No solar configs for this roof.</div>'}</div></div>
      ${(()=>{ const nc=Math.round(((best.lo||0)+(best.hi||0))/2*(1-solarIncentiveRate())); const sv=best.kwhAc?savingsModel(best.kwhAc,nc):null; return sv?
-       '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3.5%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
+       '<div class="sec"><h2>Your 25-year savings</h2><div class="pricebig">'+fmtMoney(sv.net)+'</div><div class="muted">est. net savings over 25 years'+(sv.payback?' · pays for itself in ~'+sv.payback+' years':'')+' ('+creditTxt()+', 3%/yr utility inflation)</div>'+sv.svg+'</div>':''; })()}
      ${(()=>{ const sa=roofSolarAccess(); if(!sa) return '';
        const rows=sa.perFace.map(f=>`<tr><td>${f.dir} · ${f.x12}/12</td><td>${f.sqft.toLocaleString()} ft²</td><td>${f.access}%</td><td>${f.tof}%</td><td><b>${f.tsrf}%</b></td></tr>`).join('');
        return `<div class="sec"><h2>Sun &amp; shade by roof face</h2>
@@ -12916,7 +12944,7 @@ function openReport(){
          <table class="satab"><thead><tr><th>Roof face</th><th>Area</th><th>Access</th><th>TOF</th><th>TSRF</th></tr></thead><tbody>${rows}</tbody></table>
          <div class="muted" style="font-size:11px;margin-top:6px">Planning estimate from Google Solar satellite data — a site shade assessment confirms the final solar design.</div></div>`; })()}
      ${roofSec}
-     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">${finConfigured()?`Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact.`:`Financing estimate only — not an offer of credit; financing available for well-qualified buyers.`} ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit (ITC) — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
+     <div class="sec"><h2>Your monthly payment</h2><div class="pricebig">~$${heroMo.toLocaleString()}/mo</div><div class="muted">${finConfigured()?`Est. financing — solar ${TENANT.financing.solarApr}% APR / ${solarTermYears()} yr, roofing ${TENANT.financing.roofApr}% / ${roofTermYears()} yr. Soft-pull pre-qualification, no credit impact.`:`Financing estimate only — not an offer of credit; financing available for well-qualified buyers.`} ${itcRate()>0?'Solar net of the est. '+Math.round(itcRate()*100)+'% federal tax credit — consult a tax professional.':'Incentives: '+REGION.note+'.'}</div></div>
      <div class="sec"><h2>What's included</h2>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Full workmanship + manufacturer warranty</div></div>
        <div class="bul"><svg class="bc" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3L13 4.8"/></svg><div>Permitting, install, cleanup &amp; haul-away</div></div>
@@ -13017,6 +13045,7 @@ function deepMergeTenant(patch){
   if(patch.trade && typeof patch.trade==="object"){ TENANT.trade=Object.assign({}, TENANT.trade, patch.trade); }
   if(patch.financing && typeof patch.financing==="object"){ TENANT.financing=Object.assign({}, TENANT.financing, patch.financing); }
   if(patch.features && typeof patch.features==="object"){ TENANT.features=Object.assign({}, TENANT.features, patch.features); }
+  if(patch.incentives && typeof patch.incentives==="object"){ TENANT.incentives=Object.assign({}, TENANT.incentives, patch.incentives); }
   if(typeof patch.accent==="string") TENANT.accent=patch.accent;
   if(typeof patch.brand==="string") TENANT.brand=patch.brand;   // P1: brand must merge so a runtime patch can re-brand the hero
 }
@@ -13267,12 +13296,12 @@ const ADD_INFO={
     {n:"Premium (~+25%)", d:"SunPower Maxeon-class 440 W panels — the top efficiency-per-square-foot (~22.5%) and a 40-year warranty for the best long-term performance and resale."},
   ]},
   qaddons:{ title:"Add-ons", sub:"Battery backup & EV charger", items:[
-    {n:"Battery backup (+$9,500–12,000 installed)", d:"Stores solar power so your essentials keep running during a grid outage and lets you use more of your own solar at night. A solar-charged battery qualifies for the 30% federal tax credit — we include it in the credit estimate."},
-    {n:"EV charger (+$1,200–1,800 installed)", d:"A Level-2 (240V) home charger charges 5–7× faster than a standard outlet. Price includes the charger and a typical installation; it isn't part of the federal solar tax credit."},
+    {n:"Battery backup (+$12,000–16,000 installed)", d:"Stores solar power so your essentials keep running during a grid outage and lets you use more of your own solar at night. Some states offer storage rebates (e.g. CA SGIP) — consult a tax professional for what applies to you."},
+    {n:"EV charger (+$1,200–1,800 installed)", d:"A Level-2 (240V) home charger charges 5–7× faster than a standard outlet. Price includes the charger and a typical installation."},
   ]},
   battery:{ title:"Battery storage", sub:"13.5 kWh backup", items:[
     {n:"What it does", d:"Stores solar power so your essentials — lights, fridge, Wi-Fi, outlets — keep running during a grid outage, and lets you use more of your own solar at night."},
-    {n:"Cost & incentives", d:"About $11,500 installed. Many states still offer storage rebates (e.g. CA SGIP), and a battery charged by solar can qualify for the 30% federal tax credit. These are estimates — consult a tax professional for your situation."},
+    {n:"Cost & incentives", d:"About $13,200 installed. Many states still offer storage rebates (e.g. CA SGIP). These are estimates — consult a tax professional for your situation."},
     {n:"Good to know", d:"One 13.5 kWh unit backs up key circuits, not a whole large home — we right-size backup in the site design."},
   ]},
   ev:{ title:"Charge an EV with solar", sub:"Size extra panels for your driving", items:[
@@ -13302,14 +13331,20 @@ const TERM_INFO={
   nem:{ t:"Net metering / NEM 3.0", s:"Crediting extra solar", d:"When your panels make more power than you're using, the extra goes to the grid and your utility credits you for it. NEM 3.0 is California's current version of those rules — the credit is smaller than it used to be, which is why a battery often pays off there." },
   sgip:{ t:"SGIP", s:"California battery rebate", d:"The Self-Generation Incentive Program — a California rebate that helps pay for a home battery. Amounts vary by utility and household; we confirm what you qualify for on site." },
   srec:{ t:"SREC / SREC-II", s:"Solar credit you can sell", d:"In some states your system earns a certificate for the clean energy it makes (one per ~1,000 kWh) that you can sell for cash — income on top of your bill savings. SREC-II is New Jersey's current version of the program. In Massachusetts the equivalent incentive is the SMART tariff — a payment from your utility for each kWh your system makes, rather than a tradable certificate." },
-  itc:{ t:"Federal tax credit (ITC)", s:"30% off your taxes", d:"The federal Investment Tax Credit lets you claim 30% of your solar system's cost back on your federal income taxes (currently available through 2032). It's an estimate shown here — the exact amount depends on your tax situation, so consult a tax professional." },
+  // Post-§25D honesty (P.L. 119-21): the residential federal credit ended for systems installed
+  // after 2025 — the tooltip must never claim one exists. `d` is a FUNCTION so the copy stays
+  // truthful if a tenant configures TENANT.incentives.federalPct>0 (then the cue sits next to a
+  // rendered credit line and must describe it, not deny it).
+  itc:{ t:"Solar incentives", s:"What applies in 2026", d:()=>{ const r=itcRate(); return r>0
+    ? "A "+Math.round(r*100)+"% federal tax credit is shown as configured by your installer. It's an estimate — the exact amount depends on your tax situation, so consult a tax professional."
+    : "The federal residential solar tax credit ended for systems installed after 2025, so cash and loan purchases no longer get a federal credit. If you choose a lease or PPA instead, the solar provider claims a commercial clean-energy credit (Section 48E) and typically passes it through to you as a lower rate. State incentives may still apply — consult a tax professional."; } },
   netmeter:{ t:"Net metering", s:"Credit for extra power", d:"Credit from your utility for the extra solar power you send back to the grid — it spins your meter backward, lowering your bill." },
   ppa:{ t:"PPA / lease", s:"$0-down solar", d:"A Power Purchase Agreement (or lease) means a company installs the panels at no upfront cost and you simply pay a lower rate for the power they make — instead of buying the system yourself." },
   pitch:{ t:'Roof pitch ("8/12")', s:"How steep the roof is", d:"How steep your roof is, written as rise over run — an 8/12 pitch climbs 8 inches up for every 12 inches across. Steeper roofs (9/12+) need extra safety setup, which costs a little more." },
   squares:{ t:"Squares", s:"Roofing area unit", d:"The unit roofers measure in — 1 square = 100 square feet of roof. A typical house is about 15–30 squares." },
-  lifetime:{ t:"25-year savings", s:"Lifetime estimate", d:"Your estimated total bill savings over 25 years (your panels' warrantied life), after the federal tax credit and assuming utility rates keep rising ~3.5% a year. It's a planning estimate — your actual savings depend on usage and future rates." },
+  lifetime:{ t:"25-year savings", s:"Lifetime estimate", d:"Your estimated total bill savings over 25 years (your panels' warrantied life), net of your system cost and assuming utility rates keep rising ~3% a year. It's a planning estimate — your actual savings depend on usage and future rates." },
 };
-function termModal(key){ const x=TERM_INFO[key]; if(!x) return ''; return '<div class="im-h">'+x.t+'</div><div class="im-sub">'+x.s+'</div><p class="im-p">'+x.d+'</p>'; }
+function termModal(key){ const x=TERM_INFO[key]; if(!x) return ''; const d=(typeof x.d==="function")?x.d():x.d; return '<div class="im-h">'+x.t+'</div><div class="im-sub">'+x.s+'</div><p class="im-p">'+d+'</p>'; }
 const TCUE=(k)=>'<span class="helpcue" data-terminfo="'+k+'" title="What does this mean?">i</span>';
 // small thumbnails/icons for the add-on toggles
 const OB_ICON={
