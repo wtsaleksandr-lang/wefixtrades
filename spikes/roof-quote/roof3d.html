@@ -13589,7 +13589,7 @@ function openReport(){
 }
 window.__openReport=openReport;
 /* lead capture soft-gate: value (3D + teaser price) shown first; capture unlocks the full report */
-window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } window.__leadThen=null; resetLeadCopy(); $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
+window.__openCapture=()=>{ if(window.__lead){ openReport(); return; } wftEmit("lead_open",{ trade:(typeof tradeMode!=="undefined"?tradeMode:null) }); window.__leadThen=null; resetLeadCopy(); $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); };
 window.__closeCapture=()=>{ $("lead").style.display="none"; window.__leadThen=null; resetLeadCopy(); };
 /* ─── PER-TRADE LEAD-GATE (collect-first) ───────────────────────────────────
    When a trade's gate is ON, the estimate reveal (end of the solar / roofing
@@ -13845,6 +13845,7 @@ $("lgo").onclick=async()=>{
   }catch(e){ window.__leadSubmitting=false; if(_go) _go.disabled=false; throw e; }
   window.__leadSubmitting=false; if(_go) _go.disabled=false;
   window.__lead={name,email,phone,timeline,priorities,leadScore}; $("lead").style.display="none";
+  wftEmit("lead_submit",{ trade:tradeMode, leadScore, timeline });   // the conversion event — fired only on a successful /lead POST
   // PER-TRADE GATE: if a pending reveal was deferred behind this form, run it (and reveal the
   // estimate) instead of opening the full report. Otherwise keep the soft-gate behaviour.
   const _then=window.__leadThen; window.__leadThen=null; resetLeadCopy();
@@ -13996,6 +13997,7 @@ async function bookFallback(customMsg){
 window.__book=async()=>{
   // (P1a) one click = one open: guard before the await + disable the book button.
   if(window.__bookSubmitting) return;
+  wftEmit("booking_open",{ trade:(typeof tradeMode!=="undefined"?tradeMode:null) });
   // Booking implies a lead — if we don't have contact yet, capture it first, then resume into the
   // scheduler (reuse the report's __leadThen deferral so the flow continues after the gate closes).
   if(!window.__lead){ window.__leadThen=()=>{ try{ window.__book(); }catch(_){} }; resetLeadCopy(); $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); return; }
@@ -14224,6 +14226,21 @@ const FUNNEL_STEPS=["address","roof","options","estimate"];
 // Each step name → how many of the 3 progress-line connectors are filled (0..3) when it's the active step.
 const FUNNEL_FILL={address:0,roof:1,options:2,estimate:3};
 let __funnelOn=false;
+// ── ANALYTICS EMIT — platform-agnostic funnel telemetry. The widget is embedded, so it does NOT bind to a
+// vendor: every event is (a) postMessage'd to the host page (which forwards to GA4 / PostHog / Segment /
+// GTM), and (b) pushed to window.dataLayer + window.gtag when they exist (same-origin / GTM embeds).
+// Fire-and-forget; never throws. Events: step_address|step_roof|step_options|step_estimate, trade_solar|
+// trade_roof, lead_open, lead_submit, booking_open.
+let __wftLastStep="";
+function wftEmit(event, data){
+  try{
+    const payload=Object.assign({ event:"wft_roof_"+event, widget:"roofquote", ts:Date.now() }, data||{});
+    try{ if(window.parent && window.parent!==window) window.parent.postMessage(payload,"*"); }catch(_){}
+    try{ if(Array.isArray(window.dataLayer)) window.dataLayer.push(payload); }catch(_){}
+    try{ if(typeof window.gtag==="function") window.gtag("event", payload.event, data||{}); }catch(_){}
+  }catch(_){ /* telemetry is best-effort — never disrupt the funnel */ }
+}
+window.__wftEmit=wftEmit;
 function setFunnelStep(step){
   const bar=$("funnelBar"); if(!bar) return;
   // The immersive solar designer (and its 3D photoreal sub-view) owns the full screen — its header
@@ -14240,6 +14257,7 @@ function setFunnelStep(step){
   // CTA. Restored automatically on the Address/Roof steps where searching IS the primary action.
   try{ const priced=(step==="options"||step==="estimate"); document.body.classList.toggle("step-priced",priced); }catch(_){}
   const idx=FUNNEL_STEPS.indexOf(step); if(idx<0) return;
+  if(step!==__wftLastStep){ __wftLastStep=step; wftEmit("step_"+step, { step, trade:(typeof tradeMode!=="undefined"?tradeMode:null), panels:(window.__selPanels&&window.__selPanels.panels)||null }); }
   bar.querySelectorAll(".fb-step").forEach((el,i)=>{
     el.classList.remove("active","done");
     const s=el.getAttribute("data-step"); const si=FUNNEL_STEPS.indexOf(s);
@@ -15195,6 +15213,7 @@ $("bcCommercial").onclick=()=>{
 // Solar → existing Solar view + interactive solar grid (primary/first house).
 $("bcSolar").onclick=()=>{
   if($("bcSolar").disabled) return;   // FIX 2b: inert on a large/commercial roof
+  wftEmit("trade_solar");
   $("branchChoice").style.display="none";
   try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // left step 3 (chose a trade) → panels allowed again + #card may show (FIX 2)
   window.__houseLoopActive=false;
@@ -15211,6 +15230,7 @@ $("bcSolar").onclick=()=>{
 // price/features picker (openRoofDesign). Falls back to the legacy Roofing tab if the new step is unavailable.
 $("bcRoof").onclick=()=>{
   if($("bcRoof").disabled) return;   // FIX 2b: inert on a large/commercial roof
+  wftEmit("trade_roof");
   $("branchChoice").style.display="none";
   try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // left step 3 (chose a trade) → panels allowed again + #card may show (FIX 2)
   window.__houseLoopActive=false;
