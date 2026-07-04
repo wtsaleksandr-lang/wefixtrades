@@ -1175,6 +1175,10 @@
      upper band that stays visible above the bottom-sheet quote card. Tunable; verified live at 375px. */
   #aerialFb{transform:scale(1.55);transform-origin:50% 44%;transition:transform .35s cubic-bezier(.4,0,.2,1)}
   @media (max-width:560px){ #aerialFb{transform:scale(1.95);transform-origin:50% 39%} }
+  /* the CLEAN-SHOT paneled hero is already framed tight on the roof by the designer → drop the wide-aerial
+     crop-zoom (a whisper of scale + upward origin keeps the array in the band above the bottom-sheet card). */
+  body.paneled-hero #aerialFb{transform:scale(1.04);transform-origin:50% 42%}
+  @media (max-width:560px){ body.paneled-hero #aerialFb{transform:scale(1.12);transform-origin:50% 40%} }
   body.rd-open #scene,body.rd-open #gmapWrap,body.rd-open #matCanvas,body.rd-open #aerialFb{display:none!important}
   /* (FIX 1 — GLOBAL) neutral premium placeholder behind the reference render. Full-viewport by default
      (mobile); the desktop media query insets it to the right pane. z-13 sits under #aiPhotoBackdrop (z-15). */
@@ -5558,7 +5562,12 @@ window.__no3D = true;
 function mount2DBase(){
   try{
     const img=$("aerialFb");
-    const src=(window.QUOTE&&QUOTE.hero)||(typeof QUOTE!=="undefined"&&QUOTE&&QUOTE.hero)||"";
+    // Prefer the CLEAN-SHOT paneled hero (the buyer's designed array on a clean satellite, captured at
+    // "Use this system") over the bare aerial — so the estimate shows THEIR system on THEIR roof. The
+    // paneled shot is already framed tight on the roof, so `body.paneled-hero` drops the wide-aerial crop-zoom.
+    const paneled=((window.__selPanels&&window.__selPanels.panels>0)?window.__paneledHero:"")||"";   // only while a committed design is live (auto-ignored after a new address / preset-tier / size change nulls __selPanels)
+    const src=paneled||(window.QUOTE&&QUOTE.hero)||(typeof QUOTE!=="undefined"&&QUOTE&&QUOTE.hero)||"";
+    document.body.classList.toggle("paneled-hero", !!paneled);
     if(img && src){ img.src=src; img.style.display="block"; }
     else if(img){ img.style.display="none"; }
     try{ const sc=$("scene"); if(sc) sc.style.display="none"; }catch(_){}
@@ -5821,7 +5830,7 @@ async function run(addr){
     window.__committedFlatSqFt=null; window.__committedSlopedSqFt=null;   // NEW address/roof → drop any committed edited flat+sloped area from a prior run (no stale leak across addresses)
     setRegion();
     window.__spv=spv; window.__attached=isAttached(spv);   // townhouse / semi-detached footprint → OFFER the owner's-section toggle (quote still defaults to the whole roof below)
-    window.__selPanels=null; SG_STATE=null; window.__addons={battery:false,ev:false};   // a NEW roof invalidates any custom panel-grid design + quick add-ons from a prior address
+    window.__selPanels=null; SG_STATE=null; window.__paneledHero=null; window.__addons={battery:false,ev:false};   // a NEW roof invalidates any custom panel-grid design + its clean-shot hero + quick add-ons from a prior address
     if(window.__attached){ if(!window.__sectionMode) window.__sectionMode="whole"; if(!window.__sectionShare) window.__sectionShare=Math.max(0.5,+(1/estUnits(spv)).toFixed(2)); }   // correctness-by-default: quote the WHOLE confirmed roof; "My section" is user-opt-in via the toggle. Share floored at 0.5 (a residential unit is at least half a duplex) for when the user DOES opt in.
     rebuildSolarTiers();   // sets solarTiers (whole building, or the owner's section when attached) + selTier=Best
     renderQuoteCard();
@@ -10923,8 +10932,9 @@ function sgDraw(){
         const px=sampleRGB(E,N);
         if(px){ ld[k]=px[0]; ld[k+1]=px[1]; ld[k+2]=px[2]; ld[k+3]=255; }
         else { ld[k]=18; ld[k+1]=26; ld[k+2]=38; ld[k+3]=255; }
-        // flux tint only on the selected roof (clip ∧ mask ∧ has-flux).
-        if(!fg || !inClip(E,N)) continue;
+        // flux tint only on the selected roof (clip ∧ mask ∧ has-flux). CLEAN-SHOT (estimate-hero snapshot):
+        // skip the tint entirely so the hero is the panels on a CLEAN satellite, not the sun heatmap.
+        if(!fg || (SG_STATE&&SG_STATE._cleanShot) || !inClip(E,N)) continue;
         if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }
         const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
         const t=(v-fmin0)/range, c=fluxIronColor(t);       // fixed [0..SG_FLUX_MAX] norm + Google iron palette
@@ -11096,7 +11106,7 @@ function sgDraw(){
       // The circle container makes it read instantly as a "remove" control (Alex's circled +/− example),
       // not a stray line. Minus (not ✕) pairs with the empty-slot circled "+". Size is clamped to a stable
       // screen size (floor 3.2px, ceil 7px, never overflow the module) so it never balloons on zoom.
-      { let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.32);
+      if(!(SG_STATE&&SG_STATE._cleanShot)){ let icoR=Math.min(Math.max(shortPx*0.15, 3.2*pr.dpr), 7*pr.dpr); icoR=Math.min(icoR, shortPx*0.32);   // clean-shot: no edit badge on the estimate hero
         const cR=icoR*1.8;
         ctx.lineCap="round";
         ctx.beginPath(); ctx.arc(cx,cy,cR,0,Math.PI*2);
@@ -11106,7 +11116,7 @@ function sgDraw(){
         ctx.lineWidth=Math.max(1,1.2*pr.dpr);
         ctx.strokeStyle = hot ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.75)";
         ctx.beginPath(); ctx.moveTo(cx-icoR,cy); ctx.lineTo(cx+icoR,cy); ctx.stroke(); }
-    } else {
+    } else if(!(SG_STATE&&SG_STATE._cleanShot)){
       // ── EMPTY SLOT — a SEE-THROUGH open square: the flux shows THROUGH it (opposite of the opaque module,
       //    so placed-vs-empty is unmistakable). Only a whisper of scrim for legibility on bright orange,
       //    a clean bright outline, and a centred "+". Hover shows a faint preview of the module to be placed.
@@ -11277,6 +11287,13 @@ function closeSolarGrid(commit){
     if(m && m.panels>0){
       window.__selPanels={ panels:m.panels, kwhAc:m.kwhAc, kw:m.kw };
       const bill=+(($("sgBill").value)||0); if(bill>0){ solarBill=bill; }
+      // CLEAN-SHOT HERO (Alex's pick: panels on a CLEAN satellite) — re-render the designer with the flux
+      // tint + edit badges + empty slots suppressed, then snapshot it as the estimate hero so "Use this
+      // system" lands on the buyer's ACTUAL array on their real roof, not a bare aerial. #sgCanvas is a 2D
+      // canvas so toDataURL is safe even as the grid hides (the bitmap persists). Silent fallback to QUOTE.hero.
+      try{ const _cv=$("sgCanvas");
+        if(_cv && typeof sgDraw==="function"){ SG_STATE._cleanShot=true; sgDraw(); window.__paneledHero=_cv.toDataURL("image/jpeg",0.92); SG_STATE._cleanShot=false; sgDraw(); }
+      }catch(_){ window.__paneledHero=null; }
     }
   }
   // FUNNEL ✕ (close WITHOUT committing): go BACK to the branch-choice step the user came from — NOT the
