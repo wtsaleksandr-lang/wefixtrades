@@ -6,6 +6,7 @@ import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
 import { createLogger } from "../lib/logger";
 import { assertPublicHttpsUrl } from "../lib/webhookSsrfGuard";
 import { generateProposalPdf } from "../lib/proposalPdfGenerator";
+import { sendHomeownerProposal } from "../lib/homeownerProposalEmail";
 
 const log = createLogger("NotificationWorker");
 
@@ -194,6 +195,67 @@ export async function processNotificationQueue(): Promise<{ processed: number; e
           text,
           ...(attachments ? { attachments } : {}),
         });
+
+        await storage.updateNotification(notif.id, {
+          status: 'sent',
+          processed_at: new Date(),
+          attempts: (notif.attempts || 0) + 1,
+        });
+        processed++;
+      } else if (notif.type === 'homeowner_email') {
+        // Homeowner-facing "Email me this proposal". The widget flagged the
+        // lead with answers.intent="email_quote"; here we generate the branded
+        // proposal PDF and email it to the HOMEOWNER (transactional — they
+        // requested it). Logic lives in server/lib/homeownerProposalEmail.ts
+        // (pure + unit-tested); this branch just wires the queue → PDF gen →
+        // transporter. The transporter routes via the multi-provider
+        // orchestrator (Resend/Brevo/...) or SMTP, same as every other send.
+        if (!mail) {
+          await storage.updateNotification(notif.id, {
+            status: 'failed',
+            last_error: 'SMTP not configured',
+            attempts: (notif.attempts || 0) + 1,
+          });
+          errors.push(`Notification ${notif.id}: SMTP not configured`);
+          continue;
+        }
+
+        const payload = notif.payload as any;
+        const calc = await storage.getCalculatorByToken(payload?.edit_token || '');
+        const lead = await storage.getLeadById(notif.lead_id);
+        if (!calc || !lead) {
+          await storage.updateNotification(notif.id, { status: 'failed', last_error: 'Calculator or lead not found' });
+          continue;
+        }
+
+        const result = await sendHomeownerProposal(calc, lead, {
+          generatePdf: generateProposalPdf,
+          sendMail: async (msg) => {
+            await mail.sendMail({
+              from: `WeFixTrades <${getFromAddress()}>`,
+              to: msg.to,
+              subject: msg.subject,
+              html: msg.html,
+              text: msg.text,
+              // Transactional — homeowner requested this quote. Explicitly
+              // tag so the orchestrator routes it down the transactional chain.
+              category: 'transactional',
+              ...(msg.attachments ? { attachments: msg.attachments } : {}),
+            } as any);
+          },
+          log,
+        });
+
+        if (!result.sent) {
+          // No intent/email — should never happen (we gate at enqueue), but be
+          // defensive: mark skipped rather than fail so it never retries.
+          await storage.updateNotification(notif.id, {
+            status: 'skipped',
+            last_error: 'Lead no longer qualifies for homeowner proposal email',
+            attempts: (notif.attempts || 0) + 1,
+          });
+          continue;
+        }
 
         await storage.updateNotification(notif.id, {
           status: 'sent',

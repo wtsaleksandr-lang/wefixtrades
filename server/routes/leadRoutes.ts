@@ -17,6 +17,7 @@ import {
   LEADS_RATE_LIMIT_WINDOW_MS,
 } from "../services/rateLimiter";
 import { sendQuoteReadySms } from "../services/quotequickHomeownerSmsService";
+import { shouldEmailHomeownerProposal } from "../lib/homeownerProposalEmail";
 import {
   QUOTA_HARD_BLOCK,
   buildQuotaUsage,
@@ -153,6 +154,39 @@ export async function enqueueLeadNotificationsAndFollowups(lead: any, calculator
         hosted_url: hostedUrl,
       },
     });
+  }
+
+  // Homeowner-facing "Email me this proposal" — the roof/solar widget stamps
+  // answers.intent="email_quote" when the homeowner clicks the button. When
+  // that intent is present AND the homeowner gave an email, enqueue a
+  // transactional homeowner_email: the notification worker generates the
+  // branded proposal PDF and emails it to the homeowner (subject "Your
+  // WeFixTrades quote"). Transactional (they requested it) — no marketing
+  // consent flag needed. Reuses the queue's retry + rate-limit machinery.
+  if (shouldEmailHomeownerProposal(lead)) {
+    await storage.enqueueNotification({
+      calculator_id: calculatorId,
+      lead_id: lead.id,
+      type: 'homeowner_email',
+      status: 'pending',
+      payload: {
+        edit_token: calc.edit_token,
+      },
+    });
+
+    // FOLLOW-UP DRIP (2-touch) — TODO. The existing owner follow-up drip below
+    // (`if (followup.enabled)`) already enqueues homeowner-facing followupJobs
+    // for ANY lead with an email whenever the OWNER has configured a schedule
+    // + templates — so an owner who's set up follow-ups already gets the drip
+    // for these leads for free. What's intentionally NOT done here (to avoid
+    // shipping an untuned, always-on sequence): a DEDICATED 2-touch homeowner
+    // proposal drip (e.g. +1 day "still interested?" / +3 day "quote expiring")
+    // that fires for email_quote leads even when the owner hasn't configured
+    // follow-ups. That needs its own trade-agnostic copy + an unsubscribe path
+    // (it's homeowner-marketing, not transactional) + a cancel-on-reply/booked
+    // guard. Enqueue those via storage.enqueueFollowupJobs with dedicated
+    // step types once the copy is approved. Doing the transactional PDF email
+    // now (above) is the P1; the drip is a fast follow-on.
   }
 
   if (notifications.sms_enabled && calc.owner_phone) {
