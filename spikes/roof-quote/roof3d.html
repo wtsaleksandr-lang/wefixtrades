@@ -3975,7 +3975,13 @@ function renderQuoteCard(){
     // from kW × the SAME $/W band so the card price matches the grid's live price exactly (no fork).
     const grid=window.__selPanels;
     if(grid && grid.panels>0 && !window.__attached){
-      panels=grid.panels; sysKw=grid.kw; sysKwh=grid.kwhAc;
+      // Compute the designed system's kW LIVE from its panel COUNT × the current panelWatt() rather than the
+      // kw frozen into __selPanels at design time — so the headline + "your system" summary rescale with the
+      // selected quality tier in lockstep with the Good/Better/Best chips (else Budget/Premium re-open the
+      // exact headline-vs-chip mismatch this fix removes). Energy scales from the committed watt (derived from
+      // the frozen kw/panels) to the live watt, mirroring the chips' eK.
+      const _gw=panelWatt(), _gWc=(grid.kw>0&&grid.panels>0)?(grid.kw*1000/grid.panels):_gw;
+      panels=grid.panels; sysKw=+(grid.panels*_gw/1000).toFixed(2); sysKwh=Math.round((grid.kwhAc||0)*(_gw/_gWc));
       sysMonthly=Math.round((sysKwh||0)*REGION.rate/12);
       lo=Math.round(sysKw*1000*2.5/100)*100; hi=Math.round(sysKw*1000*3.1/100)*100;
       window.__quoteFromGrid=true;
