@@ -336,6 +336,44 @@ async function main() {
   }
   console.log("  ✓ availability sourced from bookflowService (HH:MM, same-day, available-only); no-client → empty grid");
 
+  /* ───────────────────────────────────────────────────────────────────
+   * 5. BOOKING NOT ENABLED (the default-tenant state) — availability returns
+   *    a stable empty grid + "not enabled" message, and POST is rejected 4xx,
+   *    WITHOUT ever resolving a client or touching bookflow. This is the exact
+   *    fallback the roof/solar widget relies on to degrade to lead capture when
+   *    a tenant hasn't turned booking on.
+   * ─────────────────────────────────────────────────────────────────── */
+  console.log("legacy-booking-bookflow: booking DISABLED → empty grid + POST 4xx (widget fallback path)");
+  {
+    (storage as any).getCalculatorById = async () => calcWith({ enabled: false });
+    const deps = {
+      resolveClientForCalculator: async () => {
+        throw new Error("must not resolve a client when booking is disabled");
+      },
+      getAvailableSlots: async () => {
+        throw new Error("must not read bookflow slots when booking is disabled");
+      },
+      createBookingForCalculator: async () => {
+        throw new Error("must not create a booking when disabled");
+      },
+    };
+    const resA = makeRes();
+    await handleAvailability({ query: { calculator_id: "42", date: FUTURE_DATE } } as any, resA, deps as any);
+    assert.equal(resA.statusCode, 200, "disabled availability still 200 (stable shape for the widget)");
+    assert.deepEqual((resA.body as any).slots, [], "disabled → empty slots");
+    assert.match(String((resA.body as any).message || ""), /not enabled/i, "disabled → 'not enabled' message");
+
+    const resP = makeRes();
+    await handlePostBooking(
+      { body: { calculator_id: 42, customer_name: "Test Homeowner", date: FUTURE_DATE, time: "09:00" } } as any,
+      resP,
+      deps as any,
+    );
+    assert.ok(resP.statusCode >= 400 && resP.statusCode < 500, `disabled POST returns a 4xx, got ${resP.statusCode}`);
+    assert.notEqual(resP.statusCode, 500, "disabled POST must NOT 500");
+  }
+  console.log("  ✓ booking disabled → widget-safe empty grid + 4xx POST, bookflow never touched");
+
   console.log("\nlegacy-booking-bookflow: all assertions passed");
 }
 
