@@ -219,7 +219,10 @@ export async function enqueueLeadNotificationsAndFollowups(lead: any, calculator
           phone: lead.phone,
           email: lead.email,
           quote_value: lead.quote_amount,
-          inputs_summary: lead.answers ? Object.entries(lead.answers as Record<string, any>).slice(0, 5) : [],
+          // Send the full (form-bounded) answer set to the tenant's webhook/CRM — the old slice(0,5) silently
+          // dropped most of a multi-step lead's inputs (address, roof/panel choices, timeline…). Cap at 50 to
+          // guard a pathological payload while never truncating a real form.
+          inputs_summary: lead.answers ? Object.entries(lead.answers as Record<string, any>).slice(0, 50) : [],
           created_at: new Date().toISOString(),
         },
       },
