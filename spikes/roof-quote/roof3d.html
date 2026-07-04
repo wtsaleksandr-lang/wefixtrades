@@ -781,7 +781,13 @@
      (vs omitted, which made the rail jump between addresses — the Miami "missing Model/Materials" bug). */
   #ctrls button.lens-na{opacity:.4;cursor:not-allowed;pointer-events:none}
   #ctrls button.lens-na:hover{border-color:#e1e7ef;color:var(--muted)}
-  @media (max-width:560px){ #ctrls{flex-direction:row;left:0;right:0;bottom:2px;justify-content:center;gap:2px;flex-wrap:nowrap} #ctrls button{width:63px;height:54px} #ctrls button svg{width:18px;height:18px} #ctrls button span{font-size:9px} }
+  @media (max-width:560px){ #ctrls{flex-direction:row;left:0;right:0;bottom:2px;justify-content:center;gap:6px;flex-wrap:nowrap} #ctrls button{width:78px;height:54px} #ctrls button svg{width:18px;height:18px} #ctrls button span{font-size:9.5px}
+    /* MOBILE DECLUTTER (Alex: "the bottom buttons are useless"): on the flat-satellite solar estimate the
+       Rotate/Recenter buttons carry .lens-na (disabled) and the "Model" toggle is a technical shadow-study
+       control no homeowner needs — hide all three on phones so only the meaningful lenses (Panels · Sun ·
+       Measure) remain. On a house that DOES have a real 3D base, rotate/reset lose .lens-na → they reappear. */
+    #ctrls #bModel{display:none!important}
+    #ctrls button.lens-na{display:none!important} }
   /* sun-path bar */
   #sunbar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:20;background:#ffffff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid #e1e7ef;border-radius:16px;padding:10px 14px;display:none;gap:16px;align-items:center;box-shadow:var(--card-shadow)}
   #sunbar .sl{display:flex;flex-direction:column;gap:3px;min-width:150px}
@@ -1014,7 +1020,14 @@
   /* (polish: mobile-first-load) the EXPANDED sheet caps at 38vh; the DEFAULT (peek) state shows just the
      headline price + a drag handle (~31vh) so the 3D model — the hero — owns the upper ~2/3 of the phone
      on first load. Drag the handle UP (or tap it) to expand to the full quote; drag DOWN past peek to fold. */
-  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:38vh;overflow-y:auto;overflow-x:hidden;padding-top:30px} #card.sheet-dragging{transition:none!important} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important}
+  @media (max-width:560px){ #card{width:auto;left:2px;right:2px;bottom:66px;max-height:58vh;overflow-y:auto;overflow-x:hidden;padding-top:30px} #card.sheet-dragging{transition:none!important} #card .grid{grid-template-columns:repeat(3,1fr)} body.analyzing #card{display:none!important}
+    /* STICKY CONVERSION CTA (Alex: "the card is cropped"). The solar estimate card is ~1200px tall; the
+       primary "Lock in my rate →" is the LAST child, so on a phone it sat ~1000px below the fold and the
+       sheet just guillotined mid-content. Pin the CTA to the sheet's bottom edge so it's ALWAYS visible
+       (headline + KPI tiles show above it in peek; the detail scrolls between). The fade above it signals
+       "scroll for more" so partial content reads as scrollable, not chopped. */
+    #card .qcta{position:sticky;bottom:-1px;margin-top:12px;padding:14px 0;font-size:15px;z-index:6}
+    #card .qcta::before{content:"";position:absolute;left:0;right:0;top:-22px;height:22px;pointer-events:none;background:linear-gradient(to top,#ffffff,rgba(255,255,255,0))}
     #card .ktiles{grid-template-columns:1fr 1fr}
     #card .ktile .ktv{font-size:16px}
     #card .kpi-chart{height:150px}
@@ -1024,7 +1037,7 @@
        quote card's mobile bottom sheet so they don't stack/collide. Desktop card is a side panel (no collision). */
     body.dot-editing #card{display:none!important} #matbar{bottom:66px;left:2px;right:2px;max-width:none;transform:none;justify-content:center}
     /* peeking default: shorter sheet, headline price visible, body clipped — the model stays the hero */
-    #card.peek{max-height:31vh}
+    #card.peek{max-height:44vh}
     /* the grab handle — a centred pill at the top of the sheet; mobile only, drag/tap target */
     #card .sheet-grab{display:flex}
     /* mobile bottom-sheet fold: collapse the whole sheet, surface a centred handle pill above the toolbar */
@@ -1146,6 +1159,13 @@
      fallback must NEVER read through behind the reference render (a race, or a not-yet-loaded showroom image,
      would otherwise flash a satellite / top-down). Hide every customer-house surface while the browser is
      open — at desktop AND mobile — so only the reference render (or the neutral placeholder) is ever visible. */
+  /* ESTIMATE-VIEW FRAMING (Alex: "I don't like the current top-down view"). The 2D estimate hero is the
+     Google-Solar RGB raster (fetched CENTRED ON THE ROOF, see ~L5702) shown in #aerialFb — but it covers a
+     wide radius so the house reads tiny (~15-20% of frame) amid street/neighbours. Since the roof is centred,
+     a centred crop-zoom pulls it forward to fill the frame. Origin biased slightly UP so the roof sits in the
+     upper band that stays visible above the bottom-sheet quote card. Tunable; verified live at 375px. */
+  #aerialFb{transform:scale(1.55);transform-origin:50% 44%;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+  @media (max-width:560px){ #aerialFb{transform:scale(1.95);transform-origin:50% 39%} }
   body.rd-open #scene,body.rd-open #gmapWrap,body.rd-open #matCanvas,body.rd-open #aerialFb{display:none!important}
   /* (FIX 1 — GLOBAL) neutral premium placeholder behind the reference render. Full-viewport by default
      (mobile); the desktop media query insets it to the right pane. z-13 sits under #aiPhotoBackdrop (z-15). */
