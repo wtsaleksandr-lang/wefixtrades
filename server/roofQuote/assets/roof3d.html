@@ -1225,9 +1225,26 @@
     #roofDesign .rd-stagehint,#roofDesign .rd-uploadprompt{left:calc(var(--rd-left) + (100% - var(--rd-left))/2)}
   }
   @media (max-width:860px){
-    /* the frosted picker becomes a foldable bottom sheet; cap FULL at ~70vh so the top of the house preview
-       always stays visible, internal scroll for any overflow */
-    #roofDesign .rd-panel{max-height:70vh;overflow-y:auto;padding-top:30px;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+    /* ── MOBILE = STACKED RESERVED-BAND MODEL (rebuilt) ──────────────────────────────────────────
+       Two non-overlapping regions driven by ONE pair of tokens so the geometry can never drift:
+         --rd-headh  = the top header band
+         --rd-sheeth = the FIXED reserved height of the bottom picker sheet
+       • HOUSE BAND  = everything between the header bottom and the sheet top:
+                       top:var(--rd-headh)  height:calc(100dvh - headh - sheeth).
+                       The whole contained render + its cover backdrop live in exactly this band, so
+                       the render's letterbox is always fully painted by the blurred backdrop → ZERO gaps.
+       • SHEET       = docked to the bottom at a HARD-CAPPED height of --rd-sheeth in BOTH peek AND full.
+                       Opening (peek→full) reveals more controls that SCROLL INSIDE the sheet; the sheet's
+                       TOP EDGE never moves, so it can NEVER rise over the house. House stays 100% visible
+                       in every state. */
+    :root{ --rd-headh:56px; --rd-sheeth:clamp(300px, 52dvh, 456px); }
+    /* Sheet: pinned to the bottom, fixed reserved height, internal scroll. No margin-top:auto growth. */
+    #roofDesign .rd-panel{
+      position:absolute;left:0;right:0;bottom:0;margin-top:0;
+      height:var(--rd-sheeth);max-height:var(--rd-sheeth);
+      overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+      padding-top:30px;transition:transform .16s cubic-bezier(.4,0,.2,1);
+    }
     #roofDesign .rd-panel.sheet-dragging{transition:none!important}
     #roofDesign .rd-grab{display:flex}
     /* (#3a) On the narrow phone header the title was crushed to ~89px between Back and the See-it button,
@@ -1236,35 +1253,38 @@
     #roofDesign .rd-title small{display:none}
     #roofDesign .rd-title{font-size:13px}
     /* PEEK (default on mobile): handle + selected material + INSTALLED ESTIMATE price + "Use this roof" only.
-       Everything else (material scroller, colours, benefits) folds away so the house preview is clearly visible. */
-    #roofDesign.sheet-peek .rd-panel{max-height:none}
+       Everything else (material scroller, colours, benefits) folds away — but the sheet's OUTER height stays
+       --rd-sheeth so the house band never resizes between peek and full (no reflow, no gap). */
     #roofDesign.sheet-peek .rd-peekmat{display:block}
     #roofDesign.sheet-peek .rd-mats,
     #roofDesign.sheet-peek .rd-cols,
     #roofDesign.sheet-peek .rd-kpis,
     #roofDesign.sheet-peek .rd-feats{display:none!important}
     #roofDesign.sheet-peek .rd-info{grid-template-columns:1fr}
-    /* FULL-HOUSE ON MOBILE: the showroom/before-after render is a whole-house composition, so contain it
-       and reserve room at the top (header) and bottom (peek sheet ≈ 200px) so the ENTIRE house — roof, walls,
-       lawn — is visible above the sheet in its default PEEK state. Dragging the sheet down reveals even more. */
+    /* HOUSE BAND: the showroom / before-after render is a whole-house composition → CONTAIN it inside the
+       reserved band above the sheet so the ENTIRE house (roof → walls → lawn) is visible and NEVER covered,
+       in peek AND full. object-fit:contain keeps the house 100% visible; the backdrop below fills the rest. */
     body.rd-open #aiPhoto,body.rd-open #baBefore,body.rd-open #aiPhotoFade{
       object-fit:contain!important;object-position:center!important;
-      top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
-      width:100vw!important;height:calc(100vh - 56px - 216px)!important;
-      padding:8px 10px;background:transparent!important;
-      /* (Refinement B) same seamless edge-feather on mobile so the contained house melts into its blurred backdrop */
-      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
+      top:var(--rd-headh)!important;bottom:auto!important;left:0!important;right:auto!important;
+      width:100vw!important;height:calc(100dvh - var(--rd-headh) - var(--rd-sheeth))!important;
+      padding:0!important;background:transparent!important;
+      /* soft edge-feather so the contained house melts into its own blurred backdrop (no hard letterbox seam) */
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 4%,#000 96%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 3%,#000 97%,transparent 100%);
       -webkit-mask-composite:source-in;mask-composite:intersect;
-      mask-image:linear-gradient(to right,transparent 0,#000 5%,#000 95%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 5%,#000 95%,transparent 100%);
+      mask-image:linear-gradient(to right,transparent 0,#000 4%,#000 96%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 3%,#000 97%,transparent 100%);
     }
-    /* mobile: blurred backdrop occupies the same preview band as the contained render (edge-to-edge fill, no gaps) */
+    /* BACKDROP: the blurred cover copy of the render fills the ENTIRE house band edge-to-edge (top,bottom,
+       left,right — including corners) and sits BEHIND the contained sharp render, so there is never a blank
+       bar on any side. Identical geometry to the render band above (same tokens) → they coincide exactly. */
     body.rd-open #aiPhotoBackdrop{
-      top:56px!important;bottom:auto!important;left:0!important;right:auto!important;
-      width:100vw!important;height:calc(100vh - 56px - 216px)!important;background-color:#0b1220!important;
+      top:var(--rd-headh)!important;bottom:auto!important;left:0!important;right:auto!important;
+      width:100vw!important;height:calc(100dvh - var(--rd-headh) - var(--rd-sheeth))!important;
+      background-color:#0b1220!important;
     }
-    /* (FIX 1) mobile neutral placeholder: the desktop --rd-left inset doesn't apply here, so paint the
-       dark gradient across the full-width preview band (below the header) behind the reference render. */
-    body.rd-open #app::before{left:0;top:56px;right:0;bottom:0}
+    /* (FIX 1) mobile neutral placeholder: the desktop --rd-left inset doesn't apply here, so paint the dark
+       gradient across the full house band (behind the reference render) so any load race is covered too. */
+    body.rd-open #app::before{left:0;top:var(--rd-headh);right:0;bottom:var(--rd-sheeth)}
   }
   /* material / style chips (horizontal scroller) */
   #roofDesign .rd-mats{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -3674,7 +3694,10 @@ function wireSheetHandle(sheetEl, handleSel, opts){
     if(e.cancelable) e.preventDefault();
     // Live follow — only in the direction the sheet can actually snap (PEEK can be dragged UP, FULL down),
     // with rubber-band resistance past the snap so it never flies off-screen.
-    let t = isPeek() ? Math.min(0,dy) : Math.max(0,dy);
+    // (mobile roof-designer) `noPeekLift`: the sheet is a FIXED reserved-height band, so lifting it UP in peek
+    // would slide it over the house — which is exactly the overlap we're eliminating. In peek, only allow a
+    // downward drag (reveal MORE house); the peek→full grow is a content swap on release, no upward motion.
+    let t = isPeek() ? (opts.noPeekLift ? Math.max(0,dy) : Math.min(0,dy)) : Math.max(0,dy);
     if(Math.abs(t)>90) t = (t<0?-1:1)*(90+(Math.abs(t)-90)*0.35);
     moveEl.style.transform = (moveEl===sheetEl ? `translateX(-50%) translateY(${t}px)` : `translateY(${t}px)`);
     // #dotHud desktop uses translateX(-50%); on mobile it's translate:none, so the -50% above is only wanted
@@ -12169,7 +12192,7 @@ async function openRoofDesign(){
   try{ const rd=$("roofDesign");
     // (#2) translate the .rd-panel live (not the full-screen #roofDesign wrapper); the peek material line
     // is a safe (non-interactive) extra drag zone so the whole peek header grabs, not just the pill.
-    wireSheetHandle(rd, ".rd-grab", { moveSel:".rd-panel", dragZones:[".rd-peekmat"] });
+    wireSheetHandle(rd, ".rd-grab", { moveSel:".rd-panel", dragZones:[".rd-peekmat"], noPeekLift:true });
     // colour strip: grab-and-drag to scroll — native swipe on touch; explicit click-drag on mouse (desktop).
     (function(cols){ if(!cols||cols.__dragScroll) return; cols.__dragScroll=true;
       let down=false,sx=0,sl=0,moved=false;
