@@ -181,8 +181,8 @@
   #selectRoof .sr-continue:disabled,#selectRoof .sr-continue[aria-disabled="true"]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none;filter:grayscale(.35)}
   /* ── PER-HOUSE banner inside the Edit-outline HUD (only shown while iterating selected buildings) ── */
   #dotHouse{display:none;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 9px;padding:7px 10px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:10px}
-  #dotHouse .dhb-of{font-size:12.5px;font-weight:800;color:var(--blue);white-space:nowrap}
-  #dotHouse .dhb-prev{background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);height:28px;padding:0 9px;font-size:11.5px;font-weight:700;color:var(--ink);font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  #dotHouse .dhb-of{font-size:13px;font-weight:800;color:var(--blue);white-space:nowrap}
+  #dotHouse .dhb-prev{background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);min-height:40px;padding:0 12px;font-size:13px;font-weight:700;color:var(--ink);font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   #dotHouse .dhb-prev svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   #dotHouse .dhb-prev:disabled{opacity:.4;cursor:default}
   /* ── BRANCH choice: Solar panels vs Roofing remodel ── */
@@ -898,7 +898,7 @@
   #dotHud .dh-grab:active{cursor:grabbing}
   #dotHud .dh-grab:active::before{background:#64748b;width:52px}
   /* slim top row: prompt on the left, the live area read-out on the right */
-  #dotHud .dh-prompt{font-size:11px;font-weight:700;color:#0f172a;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  #dotHud .dh-prompt{font-size:13px;font-weight:700;color:#0f172a;margin:0 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
   #dotHud .dh-prompt .dh-area{font-weight:800;color:#0d3cfc;font-variant-numeric:tabular-nums;white-space:nowrap}
   #dotHud .dh-prompt .dh-area span{font-weight:600;color:var(--muted)}
   /* full stats/pitch/facets live inside .dh-more — hidden until "Details" is toggled (keeps the bar slim) */
@@ -914,7 +914,7 @@
   #dotHud .dh-pitch{margin-bottom:8px;text-align:left}
   #dotHud .dh-pitch-l{font-size:9.5px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.03em}
   #dotHud .dh-pitch-row{display:flex;gap:5px}
-  #dotHud .dh-pbtn{flex:1;background:#f5f7fb;border:1px solid #e1e7ef;color:#475569;border-radius:8px;padding:6px 3px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #dotHud .dh-pbtn{flex:1;min-height:40px;background:#f5f7fb;border:1px solid #e1e7ef;color:#475569;border-radius:8px;padding:6px 3px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
   #dotHud .dh-pbtn.dh-pauto{flex:.7;color:#0d3cfc}
   #dotHud .dh-pbtn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07);box-shadow:inset 0 0 0 1px #0d3cfc}
   /* per-facet breakdown chips */
@@ -924,15 +924,22 @@
   #dotHud .dh-fchip{font-size:10.5px;font-weight:600;color:#334155;background:#f5f7fb;border:1px solid #eef1f6;border-radius:8px;padding:3px 6px;display:inline-flex;align-items:center;gap:4px}
   #dotHud .dh-fchip b{font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums}
   #dotHud .dh-fchip i{font-style:normal;color:#94a3b8;font-size:9.5px}
-  /* slim action row — Details toggle + Undo/Redo/Reset + Done. Smaller padding than before. */
-  #dotHud .dh-actions{display:flex;gap:5px;justify-content:center;margin-top:7px}
-  #dotHud .dh-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:9px;padding:7px 5px;font-size:11.5px;font-weight:700;cursor:pointer}
-  #dotHud .dh-btn:disabled{opacity:.4;cursor:default}
-  #dotHud .dh-btn.dh-primary{background:#0d3cfc;border-color:#0d3cfc;color:#fff;flex:1.25}
+  /* Action area — the secondary TOOLS (Details/Undo/Redo/Split/Reset) share the top row; the PRIMARY
+     #dotDone drops to its OWN full-width row via flex-basis:100% (see .dh-primary below). Wrapping the
+     flex container keeps DOM order intact — no reordering — while giving Done a proper CTA-sized line. */
+  #dotHud .dh-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+  #dotHud .dh-btn{flex:1;background:#fff;border:1px solid #e1e7ef;color:#0f172a;border-radius:9px;padding:8px 5px;min-height:40px;font-size:12.5px;font-weight:700;cursor:pointer}
+  #dotHud .dh-btn:disabled{opacity:.35;cursor:default}
+  /* PRIMARY CTA — own full-width row, tall + bold, must never wrap to two lines. */
+  #dotHud .dh-btn.dh-primary{flex:0 0 100%;order:2;min-height:48px;background:#0d3cfc;border-color:#0d3cfc;color:#fff;font-size:15px;font-weight:800;white-space:nowrap;margin-top:2px}
   #dotHud .dh-btn.dh-more-btn{flex:.85;color:#475569}
   #dotHud .dh-btn.dh-more-btn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07)}
+  /* UNDO / REDO — darker legible glyph; clear enabled vs disabled vs hover states. */
+  #dotHud #dotUndo,#dotHud #dotRedo{color:#334155;font-size:15px;line-height:1}
+  #dotHud #dotUndo:hover:not(:disabled),#dotHud #dotRedo:hover:not(:disabled){border-color:#0d3cfc;background:rgba(13,60,252,0.06)}
+  #dotHud #dotUndo:disabled,#dotHud #dotRedo:disabled{opacity:.35}
   /* SPLIT control — subtle by default (detached users ignore it); lit when Split mode is on. */
-  #dotHud .dh-btn.dh-split-btn{flex:.9;color:#475569;font-size:11px;white-space:nowrap}
+  #dotHud .dh-btn.dh-split-btn{flex:.9;color:#475569;font-size:12px;white-space:nowrap}
   #dotHud .dh-btn.dh-split-btn.on{border-color:#0d3cfc;color:#0d3cfc;background:rgba(13,60,252,0.07)}
   /* SPLIT toolbar — the instruction + Apply/Remove row that appears below the actions in Split mode. */
   #dotHud .dh-splitbar{display:none;margin-top:8px;border-top:1px solid #eef1f6;padding-top:8px}
@@ -948,7 +955,9 @@
     /* full-width bottom sheet on mobile; capped ~70vh so the top of the roof preview always stays visible */
     #dotHud{left:2px;right:2px;bottom:8px;transform:none;width:auto;max-height:70vh;overflow-y:auto;padding:30px 10px 9px;border-radius:18px 18px 0 0;transition:transform .16s cubic-bezier(.4,0,.2,1)}
     #dotHud.sheet-dragging{transition:none!important}
-    #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px}
+    #dotHud .dh-v{font-size:13px} #dotHud .dh-btn{padding:9px 5px;min-height:44px}
+    /* keep the primary CTA a full-width, single-line, 48px+ button on mobile too */
+    #dotHud .dh-btn.dh-primary{min-height:48px;font-size:15px;font-weight:800;padding:11px 5px}
     #dotHud .dh-grab{display:flex}
     /* PEEK (default): handle + the single squares/area line + Done editing only. The .dh-more detail and
        the secondary action buttons collapse away so the roof preview is clearly visible. */
@@ -8661,11 +8670,15 @@ function renderRoofDiagram(){
     lblBoxes.push(box);
     // clean translucent slate chip (neutral — the coloured EDGES now carry the type hierarchy);
     // area is the headline, pitch a faint sub-line. Lets the aerial + edges read through.
-    ctx.fillStyle="rgba(13,20,34,0.58)"; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.fill();
-    ctx.strokeStyle="rgba(255,255,255,0.22)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.stroke();
+    // (#8) GUARANTEED contrast plate — near-opaque dark slate so the label reads on any satellite (bright
+    // roofs washed out the old .58 alpha), plus a soft text-shadow behind the glyphs for extra legibility.
+    ctx.fillStyle="rgba(13,20,34,0.82)"; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,0.30)"; ctx.lineWidth=1; rrRound(ctx,box.x,box.y,pw,ph,5); ctx.stroke();
     ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.save(); ctx.shadowColor="rgba(0,0,0,0.55)"; ctx.shadowBlur=2; ctx.shadowOffsetY=0.5;
     ctx.font="700 "+fs+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="#fff"; ctx.fillText(a,cx,cy-fs*0.46);
-    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(196,214,244,0.92)"; ctx.fillText(pit,cx,cy+fs*0.52); }
+    ctx.font="600 "+(fs*0.78)+"px system-ui,Segoe UI,sans-serif"; ctx.fillStyle="rgba(210,225,250,0.96)"; ctx.fillText(pit,cx,cy+fs*0.52);
+    ctx.restore(); }
   }  // end if(!__dotsActive) — static measurement overlay suppressed while the dot editor owns the outline
   // ── LEGEND — small survey-sheet key (only the edge types actually present), bottom-left, off the roof.
   //    Suppressed while the per-house DOT EDITOR is active: that surface overlays its own outline +
@@ -9141,7 +9154,7 @@ const RoofDots=(function(){
       // On desktop the hud is a centred 360px card, so the bottom-right corner is clear → anchor to box bottom.
       let bottomGap=(ar.bottom-r.bottom+12);
       try{ if(window.innerWidth<560 && hud && hud.style.display!=="none"){
-        const hr=hud.getBoundingClientRect(); if(hr&&hr.height>0) bottomGap=Math.max(bottomGap,(ar.bottom-hr.top)+10); } }catch(_){}
+        const hr=hud.getBoundingClientRect(); if(hr&&hr.height>0) bottomGap=Math.max(bottomGap,(ar.bottom-hr.top)+18); } }catch(_){}
       edZoomCtl.style.bottom=bottomGap+"px"; }
     const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height);
     // ring → local overlay px (relative to the canvas element top-left)
@@ -15028,7 +15041,9 @@ async function openHouseEditor(i){
   const paintBanner=()=>{
     const last=(i>=n-1);
     const hb=$("dotHouse"); if(hb) hb.style.display = (n>=1 && window.__houseLoopActive) ? "flex" : "none";
-    const ofEl=$("dotHouseOf"); if(ofEl) ofEl.textContent="House "+(i+1)+" of "+n;
+    // "House X of N" is noise for a single structure — hide the counter when there's exactly one building,
+    // but KEEP the banner + "Back" button: for house 0 the Back is the only affordance to the building picker.
+    const ofEl=$("dotHouseOf"); if(ofEl){ ofEl.textContent="House "+(i+1)+" of "+n; ofEl.style.display = (n>1) ? "" : "none"; }
     const pv=$("dotHousePrev"); if(pv) pv.disabled=false;   // house 0 → Back returns to building selection
     const done=$("dotDone");
     if(done) done.textContent = last ? "Done editing" : "Next house →";
