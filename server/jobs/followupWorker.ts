@@ -88,7 +88,11 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
       const calculator = await storage.getCalculatorById(job.calculator_id);
       const calcSettings = (calculator?.calculator_settings as any) || {};
       const currentFollowupEnabled = calcSettings.followup?.enabled;
-      if (!currentFollowupEnabled) {
+      // The default homeowner proposal drip (payload.homeowner_proposal_drip) is a PRODUCT default — not the
+      // tenant's own configured sequence — so it must run even when the tenant hasn't enabled follow-ups.
+      // Every OTHER guard (reply-cancel, status!=new-cancel above, quiet hours, unsubscribe footer) still applies.
+      const isHomeownerDrip = (job.payload as any)?.homeowner_proposal_drip === true;
+      if (!currentFollowupEnabled && !isHomeownerDrip) {
         await storage.updateFollowupJob(job.id, {
           status: 'cancelled',
           last_error: 'Follow-up disabled in current calculator settings',

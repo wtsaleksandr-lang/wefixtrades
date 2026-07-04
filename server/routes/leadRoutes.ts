@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/node";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import { buildHostedUrl } from "@shared/slugUtils";
+import { buildHomeownerProposalDripJobs } from "../lib/homeownerProposalDrip";
 import { createLogger } from "../lib/logger";
 import { noisyCatch } from "../lib/silentFailureGuard";
 import { trackEvent, calculatorDistinctId } from "../lib/analytics";
@@ -174,19 +175,21 @@ export async function enqueueLeadNotificationsAndFollowups(lead: any, calculator
       },
     });
 
-    // FOLLOW-UP DRIP (2-touch) — TODO. The existing owner follow-up drip below
-    // (`if (followup.enabled)`) already enqueues homeowner-facing followupJobs
-    // for ANY lead with an email whenever the OWNER has configured a schedule
-    // + templates — so an owner who's set up follow-ups already gets the drip
-    // for these leads for free. What's intentionally NOT done here (to avoid
-    // shipping an untuned, always-on sequence): a DEDICATED 2-touch homeowner
-    // proposal drip (e.g. +1 day "still interested?" / +3 day "quote expiring")
-    // that fires for email_quote leads even when the owner hasn't configured
-    // follow-ups. That needs its own trade-agnostic copy + an unsubscribe path
-    // (it's homeowner-marketing, not transactional) + a cancel-on-reply/booked
-    // guard. Enqueue those via storage.enqueueFollowupJobs with dedicated
-    // step types once the copy is approved. Doing the transactional PDF email
-    // now (above) is the P1; the drip is a fast follow-on.
+    // DEDICATED homeowner proposal drip — the 2-touch trade-agnostic nudge. Fires ONLY when the tenant has
+    // NOT configured their own follow-up sequence (`followup.enabled`); when they have, the sequence below
+    // already covers these leads, so we don't double-message. The shared worker runs these despite
+    // followup.enabled=false via the payload.homeowner_proposal_drip bypass, still CANCELS on reply /
+    // status-change (booked/won), and appends the unsubscribe footer (CAN-SPAM). Best-effort — an enqueue
+    // failure must never break the (already-succeeded) lead capture.
+    if (!followup.enabled) {
+      try {
+        const dripBookingLink = followup.personalization?.booking_link || hostedUrl || '';
+        const dripJobs = buildHomeownerProposalDripJobs(lead, calc, { calculatorId, bookingLink: dripBookingLink });
+        if (dripJobs.length) await storage.enqueueFollowupJobs(dripJobs);
+      } catch (err) {
+        log.warn('[leads] homeowner proposal drip enqueue failed', { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
   }
 
   if (notifications.sms_enabled && calc.owner_phone) {
