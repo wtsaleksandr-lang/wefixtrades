@@ -163,6 +163,16 @@
   #selectRoof .sr-load{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13.5px;font-weight:600}
   #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
   @keyframes srspin{to{transform:rotate(360deg)}}
+  /* (perf fix2) SETTLING pill — floats over the still-visible satellite + confirmed outline after Continue.
+     Never a full-bleed veil (that would recreate the grey void); it's a small bottom-centre progress chip. */
+  #selectRoof .sr-settle{display:none;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:7;align-items:center;gap:9px;background:rgba(11,18,32,.82);color:#fff;font-size:13px;font-weight:700;letter-spacing:-.01em;padding:9px 15px;border-radius:999px;box-shadow:0 6px 20px rgba(11,18,32,.34);backdrop-filter:blur(6px);white-space:nowrap}
+  #selectRoof.settling .sr-settle{display:inline-flex}
+  #selectRoof .sr-settle .sr-settle-ring{flex:0 0 auto;width:15px;height:15px;border-radius:50%;border:2.4px solid rgba(255,255,255,.32);border-top-color:#fff;animation:srspin .9s linear infinite}
+  /* While settling: keep the map + outline fully crisp, but make the whole step non-interactive and dim the
+     surrounding chrome so it reads as "loading the next step" rather than "still selecting". */
+  #selectRoof.settling{pointer-events:none}
+  #selectRoof.settling .sr-head,#selectRoof.settling .sr-foot,#selectRoof.settling .sr-hint,#selectRoof.settling .sr-count{opacity:.32;transition:opacity .25s ease}
+  #selectRoof.settling .sr-mapwrap{box-shadow:0 0 0 2px var(--blue),var(--card-shadow);transition:box-shadow .25s ease}
   #selectRoof .sr-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px clamp(14px,4vw,40px) 20px;max-width:760px;width:100%;margin:0 auto}
   #selectRoof .sr-back{background:#fff;border:1px solid var(--line);border-radius:var(--btn-radius);height:50px;padding:0 20px;font-weight:700;color:var(--ink);font-size:15px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--card-shadow)}
   #selectRoof .sr-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -1497,6 +1507,9 @@
       <div class="sr-load" id="srLoad"><div class="sr-ring"></div><span id="srLoadT">Locating your building…</span></div>
       <div class="sr-count" id="srCount" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span id="srCountT">1 building selected</span></div>
       <div class="sr-hint" id="srHint"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="srHintT">Tap buildings to add or remove them from your quote.</span></div>
+      <!-- (perf fix2) SETTLING badge — after Continue we KEEP this satellite + the confirmed blue outline on
+           screen (never a grey void) and show a subtle progress pill here while the precise editor loads. -->
+      <div class="sr-settle" id="srSettle"><span class="sr-settle-ring"></span><span id="srSettleT">Perfecting your roofline…</span></div>
     </div>
     <div class="sr-foot">
       <button class="sr-back" id="srBack" type="button"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
@@ -1810,7 +1823,15 @@ window.addEventListener("error",e=>errors.push("err:"+(e.message||e)));
 window.addEventListener("unhandledrejection",e=>errors.push("rej:"+(e.reason&&e.reason.message||e.reason)));
 
 function setStatus(t,isErr){ const s=$("status"); if(!t){s.style.display="none";return;} s.style.display="block"; s.textContent=t; s.classList.toggle("err",!!isErr); }
-function showLoad(t){ $("load").style.display=t?"flex":"none"; if(t)$("loadt").textContent=t; }
+function showLoad(t){
+  // (perf fix2) While the Select-Roof "settling" satellite is on screen (post-Continue, pre-editor), the
+  // grey #load veil would sit ON TOP of it and recreate the exact blank-grey void we're eliminating. Suppress
+  // the veil in that window — the settling pill already communicates progress — but mirror the stage text
+  // into the pill so it stays live, and always allow showLoad(false) to hide it.
+  const settling=(()=>{ try{ return $("selectRoof")&&$("selectRoof").classList.contains("settling"); }catch(_){ return false; } })();
+  if(t && settling){ const st=$("srSettleT"); if(st) st.textContent=t; $("load").style.display="none"; $("loadt").textContent=t; return; }
+  $("load").style.display=t?"flex":"none"; if(t)$("loadt").textContent=t;
+}
 
 /* 3D billboard label (canvas sprite) for per-facet sq-ft + pitch */
 // Clean survey-sheet label sprite. Two typographic tiers so area reads as the HEADLINE and
@@ -5645,6 +5666,16 @@ async function run(addr){
         if(d<=3){ dl=smc.dl; }
       }
     }catch(_){}
+    // (perf fix5) If the Select-Roof prefetch's /datalayers is STILL IN FLIGHT (mask decode not done, so
+    // __srMaskCache isn't populated yet), await THAT promise instead of firing a second billable Solar call.
+    // Same ~3 m proximity guard as the settled-cache reuse; a mismatch falls through to a fresh fetch.
+    if(!dl){ try{ const dp=window.__srDlPromise;
+      if(dp&&dp.p&&isFinite(dp.lat)&&isFinite(dp.lng)){
+        const mLng=111320*Math.cos((SITE.lat||43)*Math.PI/180);
+        const d=Math.hypot((dp.lng-SITE.lng)*mLng,(dp.lat-SITE.lat)*111320);
+        if(d<=3){ const shared=await dp.p; if(shared&&shared.dsmUrl&&shared.maskUrl) dl=shared; }
+      }
+    }catch(_){} }
     if(!dl) dl=await datalayers(SITE.lat,SITE.lng);
     if(!dl.dsmUrl||!dl.rgbUrl) throw new Error("no DSM/RGB layers");
     // ── RESILIENT raster load ─────────────────────────────────────────────────
@@ -5687,6 +5718,10 @@ async function run(addr){
     // and show the inline note — the numeric quote below still renders from Solar data.
     evaluateOverlayConfidence();
     showLoad("Building 3D model…");
+    // (perf fix4) YIELD so the "Building 3D model…" stage message actually PAINTS before the RGB→texture
+    // upload + buildScene + premium-model compute seize the main thread. The profile found these ran as one
+    // ~2 s solid long-task during which the loader text/spinner never repainted (frozen-spinner jank).
+    await new Promise(r=>requestAnimationFrame(()=>r()));
     // RGB -> CanvasTexture
     const cw=rgb.width,ch=rgb.height, cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
     const cx=cv.getContext("2d"), id=cx.createImageData(cw,ch);
@@ -5765,7 +5800,14 @@ async function run(addr){
     }catch(_){ /* footprint optional — mask-trace fallback covers a miss */ }
     window.__fpSettled=true;   // (measure-stable) the footprint has resolved (landed or definitively exhausted) → the upcoming facet extraction reads a SETTLED input; getRoofTotals may now cache the measurement
     // 3D scene + sun lens are an ENHANCEMENT — a WebGL/Three/3D-tiles failure must never suppress the price card the homeowner came for
-    try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun(); }
+    try{ buildScene(b,dsm,rgb,tex); $("sunbar").style.display="flex"; updateSun();
+      // (perf fix3) Facet geometry is now extracted — the 2D outline/dot editor has everything it needs.
+      // Flip the lighter gate so openHouseEditor mounts NOW, while enterModelDefault (premium skin + panels +
+      // hero camera, below) finishes in the background. Yield one frame first so this paints before the
+      // ~1–2 s premium-model compute block seizes the main thread (perf fix4).
+      window.__facetsReady=true;
+      await new Promise(r=>requestAnimationFrame(()=>r()));
+    }
     catch(e){ errors.push("scene:"+((e&&e.message)||e)); }
     // STEP 6: DEFAULT to our premium own 3D model (engineered panels + hero camera), NOT Google's
     // tree-blocked photoreal tiles. Photoreal is now an explicit opt-in via #viewToggle ("Satellite").
@@ -14311,8 +14353,21 @@ async function _upgradeSelectRoofFromMask(g, detectedSource, seq){
     const cached=window.__srMaskCache;
     if(cached && cached.key===key && cached.mask){ dl=cached.dl; mask=cached.mask; }   // reuse if we already have it
     else{
-      dl=await withTimeout(datalayers(g.lat,g.lng), 6000).catch(()=>null);
-      if(!dl||!dl.maskUrl) return;
+      // (perf fix5) SHARE THE IN-FLIGHT dataLayers PROMISE. run() used to fire its OWN /datalayers because
+      // __srMaskCache wasn't populated until this prefetch fully settled (mask decode included). Publish the
+      // in-flight promise so run() can await THIS one instead of racing a duplicate billable Solar call.
+      const dlKey=g.lat.toFixed(6)+","+g.lng.toFixed(6);
+      const dlP=withTimeout(datalayers(g.lat,g.lng), 6000).catch(()=>null);
+      window.__srDlPromise={ key:dlKey, lat:g.lat, lng:g.lng, p:dlP };
+      dl=await dlP;
+      if(!dl||!dl.maskUrl){ if(window.__srDlPromise&&window.__srDlPromise.p===dlP) window.__srDlPromise=null; return; }
+      // (perf fix1) WARM THE HEAVY RASTERS during the roof-confirm dwell. The buyer typically dwells 5–15 s on
+      // the Select-Roof map; fire-and-forget /geotiff fetches for DSM/RGB/flux now so they're in the browser
+      // HTTP cache (and, once merged, the server disk cache) before Continue. NEVER blocks this trace or the UI.
+      try{
+        const warm=(u)=>{ if(u) fetchTiffBytes(u).catch(()=>{}); };   // fire-and-forget; browser caches the 200
+        warm(dl.dsmUrl); warm(dl.rgbUrl); warm(dl.annualFluxUrl);
+      }catch(_){}
       mask=await withTimeout(decodeTiff(dl.maskUrl), 6000).catch(()=>null);
       if(!mask) return;
       window.__srMaskCache={ key, lat:g.lat, lng:g.lng, dl, mask };   // cache for run() reuse (no double-fetch)
@@ -14672,11 +14727,26 @@ function startHouseLoop(addr){
   window.__houseResults={};
   window.__branchAddr=addr;
   window.__houseLoopActive=true;
-  $("selectRoof").style.display="none";
+  // (perf fix2) DON'T hide the Select-Roof satellite + confirmed outline behind a grey loader void. Keep it
+  // on screen in a non-interactive "settling" state (with a subtle progress pill) so the buyer keeps seeing
+  // the roof they just confirmed until the precise editor diagram paints — openHouseEditor's tryShow() peels
+  // this overlay away the instant #matCanvas is up. A safety cap also clears it so it can never get stuck.
+  const sr=$("selectRoof");
+  if(sr){ sr.style.display="flex"; sr.classList.add("settling"); }
+  try{ const st=$("srSettleT"); if(st) st.textContent="Perfecting your roofline…"; }catch(_){}
+  if(window.__srSettleCap){ clearTimeout(window.__srSettleCap); }
+  window.__srSettleCap=setTimeout(()=>{ try{ __clearSelectRoofSettle(); }catch(_){} }, 15000);   // hard safety: never wedge the satellite over the editor
   $("branchChoice").style.display="none";
   $("bar").style.display="flex";
   setFunnelStep("options");
   runHouse(0);
+}
+// (perf fix2) Peel the settling Select-Roof overlay away once the real editor is on screen (or the safety
+// cap fires). Idempotent: a no-op if it was already cleared.
+function __clearSelectRoofSettle(){
+  if(window.__srSettleCap){ clearTimeout(window.__srSettleCap); window.__srSettleCap=null; }
+  const sr=$("selectRoof");
+  if(sr){ sr.classList.remove("settling"); sr.style.display="none"; }
 }
 
 // Re-anchor run() to the i-th selected building and analyse it. Detected home keeps the precise
@@ -14690,8 +14760,12 @@ function runHouse(i){
   window.__srPrimaryRun = useCentroid ? { centroid:b.centroid } : null;
   setFunnelStep("options");
   // run() resolves when __roofReady flips; poll briefly then open the editor for this house.
-  window.__roofReady=false;
-  run(window.__branchAddr).finally(()=>{ __whenRoofReady(()=>openHouseEditor(i)); });
+  // (perf fix3) The 2D dot editor only needs the FACET geometry (buildScene), not the premium 3D model
+  // (enterModelDefault: skin/lighting/hero cam). Gate the editor mount on the lighter __facetsReady so it
+  // becomes interactive ~0.5–1 s sooner; the premium model finishes behind the editor.
+  window.__roofReady=false; window.__facetsReady=false;
+  run(window.__branchAddr);
+  __whenFacetsReady(()=>openHouseEditor(i));
 }
 
 // Poll for the async run() to finish wiring the model (run() sets window.__roofReady=true at the end).
@@ -14700,6 +14774,17 @@ function __whenRoofReady(cb,tries){
   if(window.__roofReady){ cb(); return; }
   if(tries<=0){ cb(); return; }   // degrade gracefully — still let the user proceed/branch
   setTimeout(()=>__whenRoofReady(cb,tries-1),250);
+}
+// (perf fix3) Lighter gate for the 2D outline/dot editor: fires as soon as buildScene has extracted the
+// facet geometry (window.__facetsReady), which is all the top-down diagram + dots need — WITHOUT waiting
+// for the premium 3D model (enterModelDefault). Falls back to __roofReady if a build failed before facets.
+// Polls fast (60 ms) so the editor mounts promptly once facets land, and still bails out (opens anyway) on
+// __roofReady or after the cap so a degraded build can't wedge the flow. run() itself flips __roofReady.
+function __whenFacetsReady(cb,tries){
+  tries=(tries==null)?150:tries;   // ~9 s cap at 60 ms
+  if(window.__facetsReady || window.__roofReady){ cb(); return; }
+  if(tries<=0){ cb(); return; }
+  setTimeout(()=>__whenFacetsReady(cb,tries-1),60);
 }
 
 // Mount the Edit-outline editor for house i and show the per-house nav.
@@ -14754,8 +14839,10 @@ async function openHouseEditor(i){
     if(painted){ try{ showMeasDiagram(true); }catch(_){} }   // sets #matCanvas display:block once the model is ready
     let ok=false; try{ ok=RoofDots.show(); }catch(_){}
     const mc=$("matCanvas"); const shown=!!(mc && mc.style.display!=="none");
-    if(ok && shown){ paintBanner(); return; }               // diagram on screen + dots mounted → done
-    if(tries<=0){ try{ if(mc && mc.style.display==="none") showMeasDiagram(true); }catch(_){} paintBanner(); return; }
+    if(ok && shown){ try{ __clearSelectRoofSettle(); }catch(_){} paintBanner(); return; }   // diagram on screen + dots mounted → peel the settling satellite + done
+    if(tries<=0){ try{ if(mc && mc.style.display==="none") showMeasDiagram(true); }catch(_){} try{ __clearSelectRoofSettle(); }catch(_){} paintBanner(); return; }
+    // As soon as the matCanvas is actually painted, peel the overlay even mid-retry so the buyer never sees a double layer.
+    if(shown){ try{ __clearSelectRoofSettle(); }catch(_){} }
     requestAnimationFrame(()=>tryShow(tries-1));
   })(90);
 }
