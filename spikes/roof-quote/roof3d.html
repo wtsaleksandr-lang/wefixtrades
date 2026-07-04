@@ -633,6 +633,25 @@
   #report .rcta{width:100%;background:#0d3cfc;border:0;border-radius:12px;padding:15px 0;font-size:16px;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:var(--btn-shadow);transition:transform .15s ease,box-shadow .15s ease}
   @media (hover:hover){ #report .rcta:not(.done):hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(13,60,252,.34)} }
   #report .rcta.done{background:#16a34a;color:#fff;cursor:default;box-shadow:none}
+  /* ── IN-FUNNEL BOOKING (P1-3): a lightweight in-report slot picker wired to the
+     platform BookFlow API (/api/bookings). Theme-aware, squircle tokens, mobile-safe. ── */
+  #report .bk-wrap{margin-top:12px}
+  #report .bk-head{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 3px}
+  #report .bk-sub{font-size:12px;color:var(--muted);margin:0 0 12px}
+  #report .bk-slots{display:flex;flex-direction:column;gap:8px}
+  #report .bk-slot{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--btn-radius);padding:12px 14px;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+  @media (hover:hover){ #report .bk-slot:hover{border-color:var(--blue);box-shadow:0 6px 16px rgba(13,60,252,.14);transform:translateY(-1px)} }
+  #report .bk-slot .bk-day{font-weight:700}
+  #report .bk-slot .bk-time{font-weight:800;color:var(--blue);font-size:14px;white-space:nowrap}
+  #report .bk-slot[aria-disabled="true"]{opacity:.55;cursor:default;pointer-events:none}
+  #report .bk-more{width:100%;margin-top:9px;background:var(--accent-tint);border:1px solid var(--blue);border-radius:var(--btn-radius);padding:10px 0;font-size:13px;font-weight:800;color:var(--blue);cursor:pointer;font-family:inherit}
+  #report .bk-more.on{background:var(--blue);color:#fff}
+  #report .bk-msg{font-size:12px;color:var(--muted);text-align:center;padding:16px 0}
+  #report .bk-confirm{text-align:center;padding:6px 0}
+  #report .bk-confirm .bk-check{width:46px;height:46px;border-radius:50%;background:#16a34a;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+  #report .bk-confirm .bk-check svg{width:24px;height:24px;stroke:#fff;stroke-width:2.6;fill:none}
+  #report .bk-confirm .bk-when{font-size:17px;font-weight:800;color:var(--ink);margin:0 0 4px}
+  #report .bk-confirm .bk-note{font-size:12.5px;color:var(--muted)}
   #report .rbadge{text-align:center;padding:8px 14px 22px;font-size:11px;color:#94a3b8}
   #report .rbadge b{color:#0d3cfc;font-weight:800}
   #report .foot{padding:18px 30px;color:#94a3b8;font-size:10.5px;line-height:1.5}
@@ -13725,17 +13744,166 @@ $("lgo").onclick=async()=>{
   const _then=window.__leadThen; window.__leadThen=null; resetLeadCopy();
   if(typeof _then==="function"){ try{ _then(); }catch(_){} } else { openReport(); }
 };
-window.__book=async()=>{
-  // (P1a) one click = one POST: guard before the await + disable the book button.
-  if(window.__bookSubmitting) return;
-  window.__bookSubmitting=true; const b=$("bookBtn"); if(b) b.disabled=true;
-  // (P0) carry the ACTIVE trade's quote so a roofing assessment request shows the roofing quote, not solar.
+// ── IN-FUNNEL BOOKING (P1-3) ──────────────────────────────────────────────────────────────────
+// The "Book my free assessment" CTA now opens a real in-widget scheduler wired to the platform's
+// public BookFlow API (GET /api/bookings/availability + POST /api/bookings). These routes are
+// mounted at the app root (NOT under RQ_BASE=/api/roofquote), so we call the absolute paths
+// directly and never let the RQ_BASE rewrite touch them.
+//
+// Booking implies a LEAD: booking a real appointment means we already have (or must capture) the
+// homeowner's contact. So __book first ensures window.__lead exists — if not, it defers behind the
+// lead gate (same __leadThen mechanism the report reveal uses) and resumes into the scheduler.
+//
+// GRACEFUL FALLBACK (the current lead-flag "we'll reach out" behaviour) is preserved end-to-end:
+//   • no ?calc= (some embeds omit it)         → the API can't resolve a calendar → fall back
+//   • availability says booking not enabled /  no linked client / no upcoming slots → fall back
+//   • the create POST fails                    → fall back (the assessment request is still logged)
+// In every fallback we STILL POST the intent:"book_assessment" lead so no request is ever lost.
+
+// The booking API lives at the APP ROOT, not under RQ_BASE. Call it directly (same origin as the
+// embed) so the /api/roofquote prefix is never wrongly prepended.
+async function bookFetch(path, opts){ return fetch(path, opts); }
+
+// Resolve the calculator id the embed was attributed with (?calc=<digits>). Empty when absent.
+function bookCalcId(){ try{ const c=(leadAttr().calc||"").trim(); return /^\d+$/.test(c)?Number(c):null; }catch(_){ return null; } }
+
+// Compact quote summary for the booking NOTES so the installer sees what the homeowner configured
+// (mirrors leadQuoteFields but as one human-readable line). Roofing vs solar vs commercial aware.
+function bookNotes(){
+  const parts=[]; const addr=($("addr")&&$("addr").value)||"";
+  if(addr) parts.push("Address: "+addr);
   try{
-    await sendLead(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode},leadQuoteFields(tradeMode)));
-  }catch(e){ window.__bookSubmitting=false; if(b) b.disabled=false; throw e; }
+    const q=leadQuoteFields(tradeMode)||{};
+    if(q.commercial){ parts.push("Commercial quote request"+(q.roofSqft?(" · ~"+q.roofSqft+" ft² roof"):"")); }
+    else if(tradeMode==="roof"){
+      const bits=[]; if(q.material) bits.push(q.material); if(q.color) bits.push(q.color);
+      if(q.squares) bits.push(q.squares+" squares"); if(q.priceLo&&q.priceHi) bits.push("$"+q.priceLo.toLocaleString()+"–$"+q.priceHi.toLocaleString());
+      if(bits.length) parts.push("Roofing quote: "+bits.join(" · "));
+      if(q.financeMo) parts.push("Financing ~$"+q.financeMo+"/mo ("+q.financeTerms+")");
+    } else {
+      const bits=[]; if(q.tier) bits.push(q.tier); if(q.kw) bits.push(q.kw+" kW");
+      if(q.panels) bits.push(q.panels+" panels"); if(q.priceLo&&q.priceHi) bits.push("$"+q.priceLo.toLocaleString()+"–$"+q.priceHi.toLocaleString());
+      if(bits.length) parts.push("Solar quote: "+bits.join(" · "));
+      if(q.battery) parts.push("Battery"+(q.batteryModel?(" ("+q.batteryModel+")"):""));
+      if(q.ev||q.evCharger) parts.push("EV / charger");
+      if(q.monthlyPay) parts.push("~$"+q.monthlyPay+"/mo financed");
+    }
+    const t=window.__lead&&window.__lead.timeline; if(t) parts.push("Timeline: "+t);
+  }catch(_){}
+  parts.push("Booked in-funnel via QuoteQuick roof widget.");
+  return parts.join("\n");
+}
+function localYMD(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function slotLabel(dateStr,time){
+  try{
+    const [y,m,d]=dateStr.split("-").map(Number); const [hh,mm]=time.split(":").map(Number);
+    const dt=new Date(y,m-1,d,hh,mm);
+    const day=dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+    const t=dt.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    return {day,time:t};
+  }catch(_){ return {day:dateStr,time:time}; }
+}
+// Scan the next `days` calendar days for the first `want` available slots. Uses the same GET
+// availability route the no-deposit booking writes to. Returns {slots:[{date,time}], enabled}.
+async function fetchUpcomingSlots(calcId, want, days){
+  const out=[]; let sawEnabled=false; const start=new Date();
+  for(let i=0;i<days && out.length<want*3;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+    const ymd=localYMD(d);
+    let j=null;
+    try{ const r=await bookFetch("/api/bookings/availability?calculator_id="+calcId+"&date="+ymd); if(!r||!r.ok) continue; j=await r.json(); }
+    catch(_){ continue; }
+    if(!j) continue;
+    // Booking disabled / no linked client → the API returns {slots:[], message:"…not enabled/available"}.
+    // Treat a working_day OR any returned slots as "enabled"; a bare empty-with-message day is inconclusive.
+    if(Array.isArray(j.slots) && j.slots.length){ sawEnabled=true; for(const t of j.slots){ out.push({date:ymd,time:t}); } }
+    else if(j.working_day===true){ sawEnabled=true; }
+  }
+  return { slots:out, enabled: sawEnabled || out.length>0 };
+}
+
+// Render the scheduler UI into the report's "Next step" section (in place of the button + signbox).
+function bookRenderScheduler(slots){
+  const host=$("bookBtn"); if(!host) return;
+  const sec=host.parentElement; if(!sec) return;
+  const shown=slots.slice(0,3);
+  const rows=shown.map((s,i)=>{ const L=slotLabel(s.date,s.time);
+    return '<button class="bk-slot" data-i="'+i+'"><span class="bk-day">'+esc(L.day)+'</span><span class="bk-time">'+esc(L.time)+'</span></button>'; }).join("");
+  const more=slots.length>3?'<button class="bk-more" id="bkMore">See more times</button>':'';
+  sec.innerHTML=
+    '<div class="bk-wrap" id="bkWrap">'+
+      '<div class="bk-head">Pick a time for your free on-site assessment</div>'+
+      '<div class="bk-sub">No obligation · we confirm the final price on-site</div>'+
+      '<div class="bk-slots" id="bkSlots">'+rows+'</div>'+more+
+      '<div class="bk-msg" id="bkMsg" style="display:none"></div>'+
+    '</div>';
+  window.__bookSlots=slots; window.__bookShown=3;
+  const sl=$("bkSlots");
+  if(sl) sl.addEventListener("click",e=>{ const btn=e.target.closest(".bk-slot"); if(!btn) return; const i=Number(btn.dataset.i); const s=window.__bookSlots[i]; if(s) bookCreate(s,btn); });
+  const mb=$("bkMore"); if(mb) mb.addEventListener("click",()=>bookShowMore());
+}
+function bookShowMore(){
+  const sl=$("bkSlots"); if(!sl) return; const all=window.__bookSlots||[]; const next=Math.min(all.length,(window.__bookShown||3)+6);
+  const rows=all.slice(0,next).map((s,i)=>{ const L=slotLabel(s.date,s.time);
+    return '<button class="bk-slot" data-i="'+i+'"><span class="bk-day">'+esc(L.day)+'</span><span class="bk-time">'+esc(L.time)+'</span></button>'; }).join("");
+  sl.innerHTML=rows; window.__bookShown=next;
+  const mb=$("bkMore"); if(mb && next>=all.length) mb.style.display="none";
+}
+// POST /api/bookings for the chosen slot. On success show confirmation; on failure fall back.
+async function bookCreate(slot,btn){
+  if(window.__bookCreating) return; window.__bookCreating=true;
+  const slots=document.querySelectorAll(".bk-slot"); slots.forEach(s=>s.setAttribute("aria-disabled","true"));
+  const msg=$("bkMsg"); if(msg){ msg.style.display="block"; msg.textContent="Booking your time…"; }
+  const lead=window.__lead||{}; const calcId=bookCalcId();
+  const payload={ calculator_id:calcId, customer_name:(lead.name||"").trim()||"Homeowner",
+    customer_email:(lead.email||"").trim()||undefined, customer_phone:(lead.phone||"").trim()||undefined,
+    date:slot.date, time:slot.time, notes:bookNotes() };
+  try{ const q=leadQuoteFields(tradeMode)||{}; if(q.priceHi!=null&&isFinite(q.priceHi)) payload.quote_amount=q.priceHi; }catch(_){}
+  let ok=false, appt=null;
+  try{
+    const r=await bookFetch("/api/bookings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(r&&r.ok){ const j=await r.json(); appt=j&&j.booking; ok=!!appt; }
+  }catch(_){ ok=false; }
+  window.__bookCreating=false;
+  if(ok){ bookRenderConfirm(slot); }
+  else { slots.forEach(s=>s.removeAttribute("aria-disabled")); if(msg){ msg.textContent=""; msg.style.display="none"; } bookFallback("That time was just taken — we'll reach out to confirm a time that works for you."); }
+}
+function bookRenderConfirm(slot){
+  const wrap=$("bkWrap"); if(!wrap) return; const L=slotLabel(slot.date,slot.time);
+  wrap.innerHTML=
+    '<div class="bk-confirm">'+
+      '<div class="bk-check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>'+
+      '<div class="bk-when">You’re booked — '+esc(L.day)+' at '+esc(L.time)+'</div>'+
+      '<div class="bk-note">We’ll see you then. A confirmation is on its way to your email.</div>'+
+    '</div>';
+}
+// Graceful fallback = the ORIGINAL lead-flag behaviour: log the book_assessment intent lead and
+// show the "we'll reach out shortly" reassurance. Never leaves a broken/empty picker on screen.
+async function bookFallback(customMsg){
+  try{ await sendLead(Object.assign({},window.__lead||{},{intent:"book_assessment",address:$("addr").value,trade:tradeMode},leadQuoteFields(tradeMode))); }catch(_){}
+  const host=$("bookBtn"); const wrap=$("bkWrap");
+  const html='<button class="rcta done" disabled>Assessment requested</button>'+
+    '<div class="signbox">'+esc(customMsg||"Thanks — we’ll reach out shortly to confirm a time that works for you.")+'</div>';
+  if(wrap && wrap.parentElement){ wrap.parentElement.innerHTML=html; }
+  else if(host && host.parentElement){ host.parentElement.innerHTML=html; }
+}
+window.__book=async()=>{
+  // (P1a) one click = one open: guard before the await + disable the book button.
+  if(window.__bookSubmitting) return;
+  // Booking implies a lead — if we don't have contact yet, capture it first, then resume into the
+  // scheduler (reuse the report's __leadThen deferral so the flow continues after the gate closes).
+  if(!window.__lead){ window.__leadThen=()=>{ try{ window.__book(); }catch(_){} }; resetLeadCopy(); $("lead").style.display="flex"; setTimeout(()=>$("lname").focus(),50); return; }
+  window.__bookSubmitting=true; const b=$("bookBtn"); if(b) b.disabled=true;
+  const calcId=bookCalcId();
+  // No ?calc= → the API can't resolve a calendar for this embed → graceful lead-flag fallback.
+  if(calcId==null){ window.__bookSubmitting=false; await bookFallback(); return; }
+  // Show a lightweight "finding times" state while we scan availability.
+  if(b){ b.textContent="Finding available times…"; }
+  let res=null; try{ res=await fetchUpcomingSlots(calcId,3,14); }catch(_){ res=null; }
   window.__bookSubmitting=false;
-  if(b){ b.disabled=false; b.textContent="Assessment requested"; b.classList.add("done"); }
-  const s=$("signbox"); if(s) s.textContent="Thanks — we'll reach out shortly to confirm a time that works for you.";
+  // Booking not enabled / no linked client / no upcoming slots → graceful lead-flag fallback.
+  if(!res || !res.enabled || !res.slots.length){ await bookFallback(); return; }
+  bookRenderScheduler(res.slots);
 };
 window.__closeReport=()=>{ $("report").style.display="none"; document.body.style.overflow=""; document.body.classList.remove("report-open");
   // Back-target: when the proposal was opened from the roofing designer CTA, Close returns to the DESIGNER
