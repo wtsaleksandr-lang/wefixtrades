@@ -2711,10 +2711,10 @@ function kpiChartSvg(m, mobile){
 /* 3 Good/Better/Best solar tiers from Google's panel configs + a ballpark installed price + monthly */
 function solarTiersFrom(spv){
   const cfgs=spv.solarPanelConfigs||[]; if(!cfgs.length) return [];
-  const w=panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];   // class nameplate watt (400 res / 500 comm) — single source of truth, was Google panelCapacityWatts
+  const w=panelWatt(), eK=w/panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];   // selected-tier nameplate (single source of truth — matches the grid designer); eK scales energy to that wattage
   const idx=[Math.floor(cfgs.length*0.45),Math.floor(cfgs.length*0.72),cfgs.length-1];
   return idx.map((ix,i)=>{ ix=Math.min(cfgs.length-1,Math.max(0,ix)); const c=cfgs[ix];
-    const panels=c.panelsCount, kw=panels*w/1000, kwhAc=Math.round((c.yearlyEnergyDcKwh||0)*0.85);
+    const panels=c.panelsCount, kw=panels*w/1000, kwhAc=Math.round((c.yearlyEnergyDcKwh||0)*0.85*eK);
     return { label:labels[i], panels, kw:+kw.toFixed(1), kwhAc,
       lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
 }
@@ -2741,12 +2741,12 @@ function sectionPanels(spv, ll, share){
 }
 // Good/Better/Best tiers from an arbitrary panel subset (mirrors solarTiersFrom but on the filtered list)
 function solarTiersFromPanels(list,w){
-  if(!list.length) return []; const rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
+  if(!list.length) return []; const eK=w/panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];   // eK scales energy to the selected-tier wattage `w`
   const sorted=list.slice().sort((a,b)=>(b.yearlyEnergyDcKwh||0)-(a.yearlyEnergyDcKwh||0));
   const total=(typeof usableRoofCount==="function")?usableRoofCount(sorted.length):sorted.length;   // bug #2: usable-roof cap
   const idx=[Math.max(1,Math.floor(total*0.45)),Math.max(1,Math.floor(total*0.72)),total];
   return idx.map((cnt,i)=>{ cnt=Math.min(total,Math.max(1,cnt)); const sub=sorted.slice(0,cnt);
-    const kw=cnt*w/1000, kwhAc=Math.round(sub.reduce((a,p)=>a+(p.yearlyEnergyDcKwh||0),0)*0.85);
+    const kw=cnt*w/1000, kwhAc=Math.round(sub.reduce((a,p)=>a+(p.yearlyEnergyDcKwh||0),0)*0.85*eK);
     return { label:labels[i], panels:cnt, kw:+kw.toFixed(1), kwhAc, lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
 }
 // ── USABLE-ROOF FRACTION (bug #2: oversized solar) ──────────────────────────
@@ -2809,7 +2809,7 @@ function solarTiersFromEngineered(){
   let cand=null;
   try{ const c=buildGridCandidates(); if(c&&c.panels&&c.panels.length){ cand=c; } }catch(_){ cand=null; }
   if(!cand) return [];
-  const w=cand.wattsPerPanel||panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];
+  const w=panelWatt(), eK=w/panelDims().watt, rate=REGION.rate, ppwLo=2.5, ppwHi=3.1, labels=["Good","Better","Best"];   // selected-tier nameplate (single source of truth — matches gridSelectionMetrics); eK scales energy to it
   // BEST = the modal's DEFAULT SELECTION (e.g. 26 of 35 fitted on Asheville). gridDefaultSelection opens the
   // grid onto the NON-LOW-SUN squares (its `good` pool) capped at recN; when recN ≥ that pool it selects the
   // whole pool. We mirror that pool DIRECTLY (the non-low-sun candidates) instead of calling
@@ -2830,7 +2830,7 @@ function solarTiersFromEngineered(){
   const total=usableRoofCount(ranked.length);
   const idx=[Math.max(1,Math.floor(total*0.45)),Math.max(1,Math.floor(total*0.72)),total];
   return idx.map((cnt,i)=>{ cnt=Math.min(total,Math.max(1,cnt)); const sub=ranked.slice(0,cnt);
-    const kw=+(cnt*w/1000).toFixed(1), kwhAc=Math.round(sub.reduce((a,c)=>a+(c.kwh||0),0)*0.85);   // same DC→AC derate as gridSelectionMetrics
+    const kw=+(cnt*w/1000).toFixed(1), kwhAc=Math.round(sub.reduce((a,c)=>a+(c.kwh||0),0)*0.85*eK);   // same DC→AC derate + selected-tier energy scale as gridSelectionMetrics
     return { label:labels[i], panels:cnt, kw, kwhAc,
       lo:Math.round(kw*1000*ppwLo/100)*100, hi:Math.round(kw*1000*ppwHi/100)*100, monthly:Math.round(kwhAc*rate/12) }; });
 }
@@ -2839,7 +2839,7 @@ function solarTiersFromEngineered(){
 function rebuildSolarTiers(){
   const spv=window.__spv; if(!spv) return;
   if(window.__attached && window.__sectionMode==="mine"){
-    solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), panelDims().watt);   // class nameplate watt (400 res / 500 comm)
+    solarTiers=solarTiersFromPanels(sectionPanels(spv, window.__ll, window.__sectionShare||0.5), panelWatt());   // selected-tier nameplate — single source of truth (matches designer + engineered ladder)
     if(!solarTiers.length) solarTiers=solarTiersFrom(spv);   // safety: never leave the user with nothing
     window.__tiersEngineered=false;   // attached-section tiers use the legacy reconcile path
     // The owner's-section ladder is built from Google's per-unit panels directly (no async engineered
@@ -3428,6 +3428,14 @@ function panelDims(){
 // Default panel orientation is PORTRAIT → long axis runs DOWN the slope (ph), short axis ACROSS (pw).
 function panelDimsPW(){ return panelDims().h; }   // across / short  (was Google panelWidthMeters || 1.045)
 function panelDimsPH(){ return panelDims().w; }   // along-slope / long (was Google panelHeightMeters || 1.879)
+// SELECTED-PANEL WATTAGE — the SINGLE source of truth for kW across the quote card headline, the Good/
+// Better/Best tier chips, and the grid designer. The three used to disagree: the tier builders baked in the
+// class default (panelDims().watt, 400 res) while gridSelectionMetrics already used the chosen quality
+// tier's nameplate (Budget 390 / Most-popular 420 / Premium 440) — so a designed 17-panel system read 7.14 kW
+// on the headline but 6.8 kW on the "Good" chip. Route every kW through this. Commercial (largeRoof) has no
+// residential quality tiers → the 500 W class default. Energy is scaled by panelWatt()/panelDims().watt at
+// each call site so kWh tracks the same wattage the kW is computed from (mirrors gridSelectionMetrics' eScale).
+function panelWatt(){ const d=panelDims(); if(d.cls==="commercial") return d.watt; const pt=(typeof PANEL_TIERS!=="undefined")&&PANEL_TIERS[selPanel]; return (pt&&pt.watt)||d.watt; }
 window.__panelDims=panelDims;   // headless-verify hook
 function buildingHeightAboveGrade(spv){
   try{
@@ -3968,7 +3976,13 @@ function renderQuoteCard(){
     // from kW × the SAME $/W band so the card price matches the grid's live price exactly (no fork).
     const grid=window.__selPanels;
     if(grid && grid.panels>0 && !window.__attached){
-      panels=grid.panels; sysKw=grid.kw; sysKwh=grid.kwhAc;
+      // Compute the designed system's kW LIVE from its panel COUNT × the current panelWatt() rather than the
+      // kw frozen into __selPanels at design time — so the headline + "your system" summary rescale with the
+      // selected quality tier in lockstep with the Good/Better/Best chips (else Budget/Premium re-open the
+      // exact headline-vs-chip mismatch this fix removes). Energy scales from the committed watt (derived from
+      // the frozen kw/panels) to the live watt, mirroring the chips' eK.
+      const _gw=panelWatt(), _gWc=(grid.kw>0&&grid.panels>0)?(grid.kw*1000/grid.panels):_gw;
+      panels=grid.panels; sysKw=+(grid.panels*_gw/1000).toFixed(2); sysKwh=Math.round((grid.kwhAc||0)*(_gw/_gWc));
       sysMonthly=Math.round((sysKwh||0)*REGION.rate/12);
       lo=Math.round(sysKw*1000*2.5/100)*100; hi=Math.round(sysKw*1000*3.1/100)*100;
       window.__quoteFromGrid=true;
@@ -4397,7 +4411,8 @@ function renderQuoteCard(){
   card.querySelectorAll("[data-addinfo]").forEach(b=>b.onclick=()=>openInfoModal(addonsModal(b.dataset.addinfo)));
   card.querySelectorAll("[data-terminfo]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openInfoModal(termModal(b.dataset.terminfo)); });
   card.querySelectorAll("[data-disc]").forEach(b=>{ const open=e=>{ e.stopPropagation(); openInfoModal(DISC_FULL[b.dataset.disc]||DISC_FULL.solar); }; b.onclick=open; b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(e); } }; });
-  card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
+  card.querySelectorAll(".pb").forEach(b=>b.onclick=async()=>{ selPanel=+b.dataset.panel; try{ rebuildSolarTiers(); }catch(_){}   /* quality tier changes the nameplate watt → rescale the Good/Better/Best chips so they stay consistent with the headline + designer */
+    renderQuoteCard(); if(mode==="photoreal"&&panelsVisible&&!sunMode&&!labelsVisible&&!matMode){ showLoad(""); await buildPhotoPanels(); showLoad(false);} });
   card.querySelectorAll("[data-batm]").forEach(b=>b.onclick=()=>{ selBattery=+b.dataset.batm; renderQuoteCard(); });
   // QUICK ADD-ON chips (Battery backup / EV charger) — flat lo–hi bands; mutually exclusive with the
   // legacy accordion battery/charger so an add-on is never double-counted in the price.
@@ -11136,7 +11151,7 @@ function gridSelectionMetrics(){
   // TIER WATTAGE drives the numbers: kW uses the selected tier's real nameplate; per-panel energy scales
   // by tierWatt / the class reference (Google's per-panel kWh assumes ~KWH_REF_WATT nameplate; commercial
   // class carries its own 500 W reference in wattsPerPanel). Count/layout NEVER change with the tier.
-  const sel=SG_STATE.sel, w=pTier.watt||SG_STATE.wattsPerPanel;
+  const sel=SG_STATE.sel, w=panelWatt();   // shared single source (residential quality-tier nameplate / commercial class) — same as the tier chips
   const eScale=w/(SG_STATE.wattsPerPanel||KWH_REF_WATT);
   let panels=0, kwhDc=0;
   for(const c of SG_STATE.panels){ if(sel.has(c.id)){ panels++; kwhDc+=(c.kwh||0)*eScale; } }
