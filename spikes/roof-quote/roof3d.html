@@ -445,7 +445,7 @@
   .pac-item:hover,.pac-item-selected{background:rgba(13,60,252,0.06)}
   .pac-icon{display:none} .pac-item-query{font-size:13px;color:#0f172a}
   #card .qsub{font-size:11px;color:var(--muted);margin:2px 0 10px}
-  #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 9px;line-height:1.2}
+  #card .qaddr{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--faint);margin:0 0 9px;line-height:1.2}
   #card .qaddr svg{flex:0 0 auto;opacity:.8}
   /* ── REDESIGNED SOLAR KPI CARD ─────────────────────────────────────────── */
   #card .qhead{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;display:flex;align-items:center;gap:4px}
@@ -1219,7 +1219,8 @@
   #roofDesign .rd-grab:active{cursor:grabbing}
   #roofDesign .rd-grab:active::before{background:#64748b;width:52px}
   /* PEEK-only material name line — hidden by default, revealed only when the sheet is collapsed on mobile */
-  #roofDesign .rd-peekmat{display:none;font-size:12.5px;font-weight:800;color:var(--ink);text-align:center;letter-spacing:-.01em;margin-top:2px}
+  #roofDesign .rd-peekmat{display:none;font-size:12.5px;font-weight:800;color:var(--ink);text-align:center;letter-spacing:-.01em;margin-top:2px;cursor:pointer;padding:5px 0;min-height:34px}
+  #roofDesign .rd-peekmat .rd-peekchg{color:var(--blue);font-weight:800;margin-left:6px;white-space:nowrap}   /* (audit) affordance: in the mobile peek the only hint of the other 5 materials was the grab pill — surface "Change ›" and make the label tap-to-expand */
   /* ─────────────────────────────────────────────────────────────────────────────────────────────
      DESKTOP TWO-COLUMN (≥861px): controls move to a fixed-width LEFT PANEL (QuoteQuick-wizard feel),
      the house preview owns the whole RIGHT area and is shown object-fit:contain so it is NEVER cropped.
@@ -4139,8 +4140,18 @@ function renderQuoteCard(){
         : '<div class="ktile"><div class="ktv">25 yr+</div><div class="ktl">Pays for itself</div><div class="ktsub">long-horizon payback at this rate</div></div>';
     }
     // (d) 25-YEAR SAVINGS tile ---------------------------------------------------------------
-    const kpi25 = ms ? '<div class="ktile" data-kv="'+Math.max(0,ms.net)+'"><div class="ktv" data-money>'+fmtMoney(Math.max(0,ms.net))+'</div>'+
-      '<div class="ktl">25-year savings'+TCUE("lifetime")+'</div><div class="ktsub">vs. staying with the utility</div></div>' : '';
+    // (audit) In a low-rate market (e.g. Ontario, no US ITC) the LOAN-basis 25-yr net nets ~$0 after paying
+    // the loan the whole term → the tile read a bare "$0 savings", which tells every prospect solar saves
+    // nothing. When the current-mode net is ≤0, show the honest OWNERSHIP (cash-basis) lifetime savings
+    // instead — the true value of owning solar vs the utility — labelled "if you own it — before financing"
+    // (the financing cost stays transparent in the New-monthly + payback tiles). Never headline "$0".
+    // [Alex: how solar economics read in low-rate markets is a presentation lever you can tune.]
+    let sav25 = ms ? ms.net : 0, sav25Sub = 'vs. staying with the utility';
+    if(ms && ms.net<=0 && totKwh){
+      try{ const cm=solarFinModel({ kwhY1:totKwh, netCost:netCost, srecYr:srecYr, payMode:"cash", term:sTerm, annualConsumptionKwh:annualUse, oldBill:solarBill }); if(cm.net25>0){ sav25=cm.net25; sav25Sub='if you own it — before financing'; } }catch(_){}
+    }
+    const kpi25 = ms ? '<div class="ktile" data-kv="'+Math.max(0,sav25)+'"><div class="ktv" data-money>'+fmtMoney(Math.max(0,sav25))+'</div>'+
+      '<div class="ktl">25-year savings'+TCUE("lifetime")+'</div><div class="ktsub">'+sav25Sub+'</div></div>' : '';
     const kpiTiles = totKwh ? '<div class="ktiles">'+kpiNet+kpiMonthly+kpiPayback+kpi25+'</div>' : '';
     // Loan is the default and its story is cash-flow, not payback — offer a subtle one-tap hint to the
     // TRUE asset breakeven (cash-mode payback), so a buyer who wants "when is it paid off?" can see it.
@@ -11683,7 +11694,7 @@ function rdRenderInfo(){
     sub.textContent = sqs>0 ? ("on your "+sqs.toFixed(1)+" sq roof"+(wastePct>0?(" + "+wastePct+"% waste"):"")+", installed") : "on your measured roof";
   } }
   const fh=$("rdFeatH"); if(fh) fh.textContent=m.label;
-  const pm=$("rdPeekMat"); if(pm) pm.textContent=m.label;   // PEEK-line selected-material name (frosted sheet)
+  const pm=$("rdPeekMat"); if(pm){ pm.innerHTML=esc(m.label)+' <span class="rd-peekchg">Change ›</span>'; pm.onclick=()=>{ try{ setSheetState($("roofDesign"),false); }catch(_){} }; }   // PEEK-line selected-material name + a tap-to-expand "Change ›" cue so the other materials are discoverable (frosted sheet)
   const spec=ROOF_SPEC[m.id]||{}, info=MAT_INFO[m.id]||{};
   // features = lifespan + warranty (from ROOF_SPEC) then the top product benefits (from MAT_INFO) — capped to keep the card tight
   const feats=[];
