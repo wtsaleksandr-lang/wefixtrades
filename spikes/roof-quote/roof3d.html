@@ -358,7 +358,7 @@
     body.lc-fallback.card-peek #card,body.lc-fallback.card-folded #card{max-height:calc(100vh - 110px)}
   }
   #card .qtabs{display:flex;gap:6px;margin-bottom:10px}
-  #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:8px 0;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+  #card .qtab{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:8px 0;min-height:40px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}   /* (audit a11y) ≥40px tap target */
   #card .qtab.on{background:#ffffff;border-color:#0d3cfc;box-shadow:inset 0 0 0 1px #0d3cfc;color:#0f172a;font-weight:700}
   #card .qtab.qtab-locked,#card .qtab[disabled]{opacity:.45;cursor:default;pointer-events:none;box-shadow:none}
   #card .qprice{font-size:26px;font-weight:800;line-height:1.05;color:#0f172a}
@@ -544,7 +544,7 @@
   #card .cmp-p{font-size:12px;font-weight:700;color:#0d3cfc;white-space:nowrap}
   #card .cmp-l{font-size:10px;color:var(--muted);min-width:52px;text-align:right;white-space:nowrap}
   #card .qchips{display:flex;gap:6px;margin-bottom:11px}
-  #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:6px 0;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+  #card .qchip{flex:1;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:var(--badge-radius);padding:6px 0;min-height:40px;justify-content:center;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}   /* (audit a11y) ≥40px tap target */
   #card .qchip span{font-size:10px;font-weight:500;color:var(--muted)}
   #card .qchip.on{background:rgba(13,60,252,0.06);border-color:#0d3cfc;color:#0f172a}
   #card .qchip.on span{color:var(--muted)}
@@ -717,7 +717,7 @@
   #lead .lq-prios{margin-top:8px}
   #lead .lq-l{display:block;font-size:11px;color:var(--faint);margin-bottom:6px}
   #lead .lq-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-  #lead .lqp{flex:0 0 auto;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:6px 10px;color:#64748b;font-size:12px;font-weight:700;cursor:pointer}
+  #lead .lqp{flex:0 0 auto;display:inline-flex;align-items:center;background:#f7f9fc;border:1px solid #e1e7ef;border-radius:8px;padding:6px 12px;min-height:40px;color:#64748b;font-size:12px;font-weight:700;cursor:pointer}   /* (audit a11y) ≥40px tap target */
   #lead .lqp.on{border-color:#0d3cfc;background:rgba(13,60,252,0.06);color:#0d3cfc}
   #lead #lgo{width:100%;background:#0d3cfc;border:0;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;color:#ffffff;cursor:pointer;margin-top:4px;box-shadow:var(--btn-shadow)}
   /* Always-visible consent + privacy notice directly above the submit button.
@@ -1082,7 +1082,7 @@
   #solarGrid .sg-head{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 14px;padding-top:max(11px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,.62) 78%,transparent);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
   /* panel-quality tier TABS — equal thirds, ellipsis-safe at 375px; selected = OUTLINE emphasis (hard rule: never a bright fill) */
   #solarGrid .sg-tiers{flex-basis:100%;display:flex;gap:6px;margin-top:2px}
-  #solarGrid .sg-tier{flex:1 1 0;min-width:0;padding:7px 4px;border-radius:var(--badge-radius);border:1px solid rgba(255,255,255,.26);background:rgba(11,18,32,.45);color:rgba(255,255,255,.82);font:700 11.5px/1.1 "Satoshi",system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  #solarGrid .sg-tier{flex:1 1 0;min-width:0;padding:7px 4px;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:var(--badge-radius);border:1px solid rgba(255,255,255,.26);background:rgba(11,18,32,.45);color:rgba(255,255,255,.82);font:700 11.5px/1.1 "Satoshi",system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}   /* (audit a11y) ≥40px tap target */
   #solarGrid .sg-tier.on{border-color:#7ea6ff;color:#fff;background:rgba(126,166,255,.08);box-shadow:0 0 0 1.5px #7ea6ff inset,0 0 0 3px rgba(126,166,255,.16)}
   #solarGrid .sg-title{font-size:14px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
   #solarGrid .sg-title small{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.66);margin-top:1px}
