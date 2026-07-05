@@ -12,7 +12,7 @@
 @font-face{font-family:"Satoshi";font-weight:700;font-display:swap;src:url("/fonts/satoshi-700.woff2") format("woff2")}
 @font-face{font-family:"Satoshi";font-weight:900;font-display:swap;src:url("/fonts/satoshi-900.woff2") format("woff2")}</style>
 <style>
-  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#94a3b8; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --green-text:#15803d; --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28);
+  :root{ --bg:#eef1f6; --panel:#ffffff; --line:#e1e7ef; --muted:#5b6573; --cyan:#0d3cfc; --blue:#0d3cfc; --ink:#0f172a; --faint:#64748b; --accent-tint:rgba(13,60,252,0.08); --accent-soft:rgba(13,60,252,0.14); --green-text:#15803d; --card-shadow:0 12px 40px rgba(15,23,42,0.08),0 2px 8px rgba(15,23,42,0.04); --btn-shadow:0 8px 20px rgba(13,60,252,0.28);
     /* Fix 1 — unified squircle radii across the ENTIRE widget: buttons/CTAs squarer-rounded, badges/pills/chips/tabs slightly tighter, cards/tiles a touch softer. Truly-circular controls (close ✕, zoom +/-, gauge rings) keep 50% and are NOT routed here. */
     --btn-radius:12px; --badge-radius:10px; --tile-radius:14px; }
   *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 "Satoshi","Satoshi Variable",system-ui,sans-serif;overflow:hidden}
@@ -669,7 +669,7 @@
   #report .rp-takeoff .tk-row b{color:#0f172a;font-weight:700;white-space:nowrap}
   #report .rp-takeoff .tk-tot{border-top:1px solid #e1e7ef;margin-top:5px;padding-top:7px}
   #report .rp-takeoff .tk-tot span,#report .rp-takeoff .tk-tot b{color:#0f172a;font-weight:800;font-size:14px}
-  #report .rp-takeoff .ccue{display:none}
+  #report .ccue{display:none}   /* info-cue "i" badges belong to the interactive card, NOT the static proposal — the old .rp-takeoff scope let a bare "i" leak into Materials Takeoff ("Starter stripi"), "squaresi", the material name, etc. Hide across the whole report. */
   #report .rp-matrow{display:flex;gap:14px;align-items:center;margin-bottom:12px}
   #report .rp-matvis{width:88px;height:88px;flex:0 0 auto;border-radius:var(--tile-radius);border:1px solid #e1e7ef;background-size:cover;background-position:center}
   #report .rp-matmeta{min-width:0}
@@ -1558,7 +1558,7 @@
     <button data-v="model" class="on" aria-pressed="true" title="Our 3D model — your roof with the engineered solar design"><svg viewBox="0 0 24 24"><path d="M3 11.2l9-7 9 7M5.2 10v9h13.6v-9"/></svg>3D model</button>
     <button data-v="photo" aria-pressed="false" title="Real aerial / satellite imagery of your home"><svg viewBox="0 0 24 24"><path d="M3.5 7.5l8.5-4 8.5 4-8.5 4z"/><path d="M3.5 12l8.5 4 8.5-4M3.5 16.5l8.5 4 8.5-4"/></svg>Satellite</button>
   </div>
-  <div id="bar"><input id="addr" placeholder="4521 T St, Sacramento CA" value=""><button id="go">Get Quote</button></div>
+  <div id="bar"><input id="addr" placeholder="Enter your home address" value=""><button id="go">Get Quote</button></div>
   <!-- FUNNEL PROGRESS BAR — Address · Roof · Options · Estimate. Driven by setFunnelStep(); hidden on the hero. -->
   <div id="funnelBar"><div class="fb-inner">
     <div class="fb-step" data-step="address"><span class="fb-num">1</span><span class="fb-lab">Address</span></div>
@@ -1755,7 +1755,7 @@
           </div>
           <div class="sm-addr" id="smAddrWrap">
             <label for="smAddr">Your address</label>
-            <input id="smAddr" type="text" placeholder="123 Main St, City, State" autocomplete="street-address">
+            <input id="smAddr" type="text" placeholder="123 Main St, City" autocomplete="street-address">
           </div>
           <div class="sm-filewrap" id="smFileWrap">
             <label class="sm-file" id="smFileLabel" for="smFileInput"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span id="smFileLabelT">Choose a photo of your house</span><input id="smFileInput" type="file" accept="image/*" style="display:none"></label>
@@ -3564,8 +3564,8 @@ function lowConfidenceCardBody(conf){
   const reasonLine = canopyTrig
     ? 'This roof is heavily shaded by tree cover, so an instant satellite measurement here wouldn’t be accurate.'
     : 'We couldn’t get clear enough 3D imagery for this address, so an instant satellite measurement here wouldn’t be accurate.';
-  const eyebrow = canopyTrig ? 'Approximate estimate — heavy tree cover' : 'Approximate estimate — limited 3D imagery';
-  return '<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">'+eyebrow+'</div>'+
+  const eyebrow = canopyTrig ? 'Instant measurement unavailable — heavy tree cover' : 'Instant measurement unavailable — limited 3D imagery';
+  return '<div class="qsub" style="color:#b45309;font-weight:700;margin-bottom:4px">'+eyebrow+'</div>'+
     '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
     '<div class="qsub" style="margin-top:6px">'+reasonLine+' A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
     '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
@@ -3582,7 +3582,7 @@ function showGracefulDegrade(){
     if(window.__measEditing){ card.style.display="none"; return; }   // (FIX 2) no card before the trade choice
     card.style.display="block";
     document.body.classList.add("lc-fallback");   // same clean centered fallback presentation as the low-confidence path
-    card.innerHTML='<div class="qsub" style="color:#f59e0b;font-weight:700;margin-bottom:4px">Approximate estimate — we couldn’t get a confident read</div>'+
+    card.innerHTML='<div class="qsub" style="color:#b45309;font-weight:700;margin-bottom:4px">Instant measurement unavailable</div>'+
       '<div class="qprice" style="font-size:20px;line-height:1.25">We couldn’t get a confident read on this roof</div>'+
       '<div class="qsub" style="margin-top:6px">We couldn’t pull confident satellite data for this address right now, so an instant measurement here wouldn’t be accurate. A quick site visit gets you an exact, guaranteed measurement and price — no obligation.</div>'+
       '<button class="rcta" style="margin-top:12px;width:100%" onclick="window.__book&&window.__book()">Request a precise on-site quote →</button>';
@@ -4094,7 +4094,7 @@ function renderQuoteCard(){
     const grossMid = Math.round(sMid);
     // (a) NET COST tile ------------------------------------------------------------------
     const kpiNet = '<div class="ktile" data-kv="'+netCost+'"><div class="ktv" data-money>'+fmtMoney(netCost)+'</div>'+
-      '<div class="ktl">Net cost'+TCUE("itc")+'</div>'+
+      '<div class="ktl">'+(itcR>0?'Net cost':'Installed price')+TCUE("itc")+'</div>'+   /* "Net" over-claims where no incentive is netted (e.g. Canada, no ITC) → "Installed price" */
       '<div class="ktsub">'+(itcR>0&&itcAmt>0?'after '+fmtMoney(itcAmt)+' federal tax credit ('+Math.round(itcR*100)+'%)':'installed price')+
       (grossMid>netCost?' · <s>'+fmtMoney(grossMid)+'</s>':'')+'</div></div>';
     // (b) NEW MONTHLY tile — honest: loan mode includes the loan payment ---------------------
@@ -5687,7 +5687,7 @@ async function run(addr){
   if(typeof window.__leaveHero==="function") window.__leaveHero();   // dismiss the landing hero once a quote starts
   showLoad("Locating address…"); setStatus(""); overlaySuppressed=false; setOverlayNote(false);
   try{ window.__measEditing=false; document.body.classList.remove("meas-editing"); }catch(_){}   // (FIX 2) fresh address → reset the edit-step gate cleanly
-  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=1; window.__addons={battery:false,ev:false}; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false; try{ if(typeof RoofDots!=="undefined"){ RoofDots.hide(); RoofDots.reset(); } window.__editTotals=null; window.__dotsAuto=null; }catch(_){}   // (dots) new address → drop the previous roof's edited outline + editor state   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
+  window.__matRenders={}; window.__matInflight={}; window.__matWarming=false; window.__matFinal={}; matIdx=0; selMat=0; selCol=0; window.__roofSel=null; window.__roofTotals=null; window.__wasteAuto=false; window.__optsAuto=false; roofOpts.layers=1; roofOpts.ridgeVent=false; roofOpts.steep=false; roofOpts.gutters=false; window.__roofExpanded=false; window.__roofFeatures=null; window.__featInflight=false; addBattery=false; selBattery=0; solarBill=0; selPanel=1; window.__addons={battery:false,ev:false}; window.__solarExpanded=false; selLoads=new Set(["fridge","lights","wifi"]); backupDays=1; batCount=1; addEV=false; selEV=0; evMiles=12000; addCharger=false; liveRateDone=false; window.__rateSource=""; sunDone=false; window.__sunHours=0; window.__sizePct=1; payMode="loan"; window.__addonOpen=null; window.__attached=false; window.__sectionMode=null; window.__sectionShare=0; window.__spv=null; window.__prodMode=false; window.__renderedPanels=0; window.__fpRejectShiftM=null; window.__photoFallbackInFlight=false; window.__floatingDegrade=false; window.__canopyDegrade=false; window.__countOnly=false; window.__panelSafetyNet=false; try{ if(typeof RoofDots!=="undefined"){ RoofDots.hide(); RoofDots.reset(); } window.__editTotals=null; window.__dotsAuto=null; }catch(_){}   /* (audit P0) also reset the degrade/count-only flags: they're set in buildPhotoPanels but only re-cleared THERE, which never runs under __no3D — so a Miami-floating / Dallas-canopy address A poisoned a clean address B into the low-confidence no-price card */   // (dots) new address → drop the previous roof's edited outline + editor state   // (fix2 P0 #2/#3/P1 #4) drop the previous address's rendered engineered panel count + footprint-reject shift + photo-fallback guard so the new quote never inherits stale state   // new address → drop stale material renders + selection + takeoff + options + detection + battery + bill + panel tier + backup loads + EV
   try{
     // If this run was launched by picking an autocomplete suggestion whose text matches what we're
     // geocoding, use that suggestion's place_id for an EXACT-parcel resolve (no street drift). The
@@ -13640,6 +13640,16 @@ function resetLeadCopy(){ const h=$("leadH")||document.querySelector("#lead .lea
   // a roofing lead never hears "solar", a solar lead never hears "roof".
   if(h) h.textContent="See your full quote";
   if(s) s.innerHTML=(tradeMode==="roof")?"Your personalised roofing proposal, sent to you instantly.":"Your personalised solar plan, sent to you instantly.";
+  // TRADE-AWARE "what matters most" chips: the static HTML hard-codes SOLAR motivations ("Lower my bill /
+  // Backup power / Go green"), which leak into a re-roof lead. Rebuild for the active trade + re-bind toggles.
+  try{
+    const row=document.querySelector("#lqual .lq-row");
+    if(row){
+      const prios=(tradeMode==="roof")?["Fix a leak / damage","Curb appeal","Home value","Best price"]:["Lower my bill","Backup power","Go green","Best price"];
+      row.innerHTML=prios.map(p=>'<button type="button" class="lqp" data-p="'+p+'">'+p+'</button>').join("");
+      row.querySelectorAll(".lqp").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
+    }
+  }catch(_){}
   if(g) g.textContent="See my full quote"; }
 // 4) The gate: if the trade is gated AND no lead yet, show the form first and defer the
 //    reveal until a valid submit; otherwise reveal immediately (current behaviour).
