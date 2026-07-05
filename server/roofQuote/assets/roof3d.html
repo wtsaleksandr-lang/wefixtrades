@@ -3996,6 +3996,7 @@ function renderQuoteCard(){
       window.__quoteFromGrid=true;
     } else { window.__quoteFromGrid=false; }
     window.__quotePanels=panels;   // the headline count the customer sees — asserted == __renderedPanels in verify
+    if(window.__no3D) window.__renderedPanels=panels;   // (audit fix 15v17) In prod (__no3D) the Three.js schematic is NEVER the displayed surface — the customer sees the 2D aerial / grid / panels-on-satellite hero, all at THIS quoted count. So the rendered count of record IS the quote; the hidden schematic's own placement (which can fit fewer, e.g. 15 vs 17) must not define it. Guards on the two schematic writers below keep them from clobbering this under __no3D.
     const pTier=PANEL_TIERS[selPanel]; lo=Math.round(lo*pTier.mult); hi=Math.round(hi*pTier.mult);   // panel-quality price multiplier
     if(addBattery){ sizeBattery(); const bc=curBat().cost*batCount; lo+=bc; hi+=Math.round(bc*1.1); }   // battery storage (count auto-sized to backup loads)
     const evS=evSizing({kw:sysKw,panels:panels,kwhAc:sysKwh});
@@ -5180,7 +5181,7 @@ function buildSceneAnalytic(b, dsm, rgb, rgbTex){
     window.__panelsPlaced=placed;
     // (count-consistency) The N filled navy modules we just DREW is the count the customer sees on the
     // model — publish it as the canonical rendered count so renderQuoteCard's headline matches exactly.
-    if(placed>0){ window.__renderedPanels=placed;
+    if(placed>0 && !window.__no3D){ window.__renderedPanels=placed;   /* (audit 15v17) in prod the schematic is hidden — don't let its placed count (can be < quote) overwrite the customer-facing quote count; renderQuoteCard owns __renderedPanels under __no3D */
       if(typeof renderQuoteCard==="function" && window.__roofReady){ try{ renderQuoteCard(); }catch(_){} } }
     return placed;
   }
@@ -5518,7 +5519,7 @@ function setModelPanelsVisible(on){
 function syncModelRenderedPanels(){
   if(window.__attached) return;
   const placed=window.__panelsPlaced||0;
-  if(placed>0 && window.__renderedPanels!==placed){ window.__renderedPanels=placed; }
+  if(placed>0 && !window.__no3D && window.__renderedPanels!==placed){ window.__renderedPanels=placed; }   /* (audit 15v17) same guard: the hidden schematic's placement must not clobber the quote count in prod */
 }
 // (count-consistency) Re-draw the 3D Model-lens panel array to the CURRENT selected count (card headline)
 // after a tier-chip / size-slider / bill change. Only acts when our Three.js model is the live base
