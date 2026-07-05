@@ -760,6 +760,7 @@
   /* ROOFING DESIGNER OPEN = zero solar (Alex hard rule): hard-hide the lens rail + the Solar/Roofing quote
      card no matter what inline display any later renderQuoteCard()/applyTradeMode() sets. !important wins. */
   body.rd-open #ctrls,body.rd-open #card{display:none!important}
+  body:has(#lead[style*="flex"]) #ctrls{display:none!important}   /* (audit) the lead modal is a translucent scrim → the solar lens rail peeked at the bottom edge behind it; hide it while the form is open (keyed off #lead's inline display:flex; graceful no-op where :has() is unsupported) */
   /* (FIX 2) ROOFLINE-EDIT step (before the Solar/Roofing trade choice) = the #card (Solar/Roofing tabs +
      "Lock in my rate") must NEVER appear. Belt-and-suspenders CSS so no stray renderQuoteCard()/inline
      display:block can leak it before the branch screen. Cleared the moment a trade is chosen. */
@@ -868,7 +869,7 @@
   .zoomctl{position:absolute;right:12px;bottom:12px;z-index:31;display:flex;flex-direction:column;
     border-radius:11px;overflow:hidden;background:var(--panel);border:1px solid var(--line);
     box-shadow:var(--card-shadow);pointer-events:auto;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
-  .zoomctl button{width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  .zoomctl button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
     background:transparent;border:0;color:var(--ink);font-family:inherit;font-size:21px;font-weight:600;
     line-height:1;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .14s ease}
   .zoomctl button:first-child{border-bottom:1px solid var(--line)}
@@ -4102,10 +4103,17 @@ function renderQuoteCard(){
     // (b) NEW MONTHLY tile — honest: loan mode includes the loan payment ---------------------
     let kpiMonthly;
     if(KM.newBill!=null){
-      const wasSub = KM.oldBill!=null ? (KM.estimated?'est. was ':'was ')+fmtMoney(KM.oldBill) : '';
+      // (audit) In ESTIMATED mode (no real bill) the "was $X" baseline is derived from the system's OWN
+      // production; at a low utility rate the loan payment can exceed it, so the tile read
+      // "New monthly $141 · est. was $92" — telling the buyer solar costs MORE. When that happens, drop the
+      // circular/unflattering comparison and invite the real bill instead. Keep the comparison when solar is
+      // genuinely cheaper, or when a REAL bill was entered (then it's honest + favourable).
+      const misleadingWas = !!KM.estimated && KM.oldBill!=null && KM.newBill >= KM.oldBill;
+      const wasSub = (KM.oldBill!=null && !misleadingWas) ? (KM.estimated?'est. was ':'was ')+fmtMoney(KM.oldBill) : '';
       const saveSub = (KM.oldBill!=null && KM.oldBill>KM.newBill) ? ' · save '+fmtMoney(KM.oldBill-KM.newBill)+'/mo' : '';
+      const inviteSub = misleadingWas ? ' · add your bill for exact savings' : '';
       kpiMonthly = '<div class="ktile" data-kv="'+KM.newBill+'"><div class="ktv" data-money>'+fmtMoney(KM.newBill)+'<span class="ktu">/mo</span></div>'+
-        '<div class="ktl">New monthly</div><div class="ktsub">'+wasSub+saveSub+(payMode==="loan"?' · incl. loan':'')+'</div></div>';
+        '<div class="ktl">New monthly</div><div class="ktsub">'+wasSub+saveSub+(payMode==="loan"?' · incl. loan':'')+inviteSub+'</div></div>';
     } else {
       // no bill entered → show the monthly solar VALUE (cash) or the payment (loan/lease), no fabricated "was"
       const v = payMode==="loan"?Math.round(sFin):(payMode==="lease"?leaseMo:KM.monthlySolarValue);
@@ -10938,7 +10946,7 @@ function sgDraw(){
     // PASS 1 — fill the buffer: RGB photo everywhere it exists; record where the flux tint applies (roof).
     // tint[] holds the magma colour; roofM[] marks roof cells so we can edge-feather the alpha in pass 2.
     const cells=lw*lh, tintR=new Float32Array(cells), tintG=new Float32Array(cells), tintB=new Float32Array(cells), roofM=new Uint8Array(cells);
-    const FLUX_A=0.72;                                                       // tint opacity over the photo (roof texture still reads through)
+    const FLUX_A=0.6;                                                        // (audit) tint opacity over the photo — softened 0.72→0.6 so the PLACED black modules stay the dominant element and the empty cells' orange sun-tint reads as context, not a wall (roof texture still shows through)
     for(let ly=0;ly<lh;ly++){ const y=ly*SS+SS/2, N=pr.N1-(y-pr.offY)/pr.scale;
       for(let lx=0;lx<lw;lx++){ const x=lx*SS+SS/2, E=pr.E0+(x-pr.offX)/pr.scale;
         const ci=ly*lw+lx, k=ci*4;
