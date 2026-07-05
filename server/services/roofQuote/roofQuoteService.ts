@@ -754,8 +754,9 @@ export async function geocode(address: string): Promise<GeocodeResult> {
       "&key=" +
       SOLAR,
   );
+  if (!r.ok) return { error: "upstream_" + r.status, message: "" };   // a 5xx HTML page would throw in r.json() below
   const j = (await r.json()) as any;
-  if (j.status === "OK" && j.results[0]) {
+  if (j.status === "OK" && Array.isArray(j.results) && j.results[0]) {
     const res0 = j.results[0];
     const l = res0.geometry.location;
     // location_type tells us how precise the point is: ROOFTOP = exact building,
@@ -803,6 +804,7 @@ export async function localRate(country: string, region: string): Promise<RateRe
     "&frequency=monthly&data%5B0%5D=price&facets%5Bstateid%5D%5B0%5D=" + region +
     "&facets%5Bsectorid%5D%5B0%5D=RES&sort%5B0%5D%5Bcolumn%5D=period&sort%5B0%5D%5Bdirection%5D=desc&length=1";
   const r = await fetch(url);
+  if (!r.ok) return { error: "upstream_" + r.status, region };
   const j = (await r.json()) as any;
   const row = j?.response?.data?.[0];
   if (row?.price) {
@@ -827,6 +829,7 @@ export async function sunHours(lat: string, lng: string): Promise<SunResult> {
     "https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=ALLSKY_SFC_SW_DWN&community=RE&longitude=" +
       lng + "&latitude=" + lat + "&format=JSON",
   );
+  if (!r.ok) return { error: "upstream_" + r.status };
   const j = (await r.json()) as any;
   const ann = j?.properties?.parameter?.ALLSKY_SFC_SW_DWN?.ANN;
   if (typeof ann === "number") {
@@ -1698,6 +1701,7 @@ export async function pvwattsProduction(lat: string, lng: string, kw: number): P
       "&lat=" + lat + "&lon=" + lng + "&system_capacity=" + kw +
       "&azimuth=180&tilt=20&array_type=1&module_type=0&losses=14",
   );
+  if (!r.ok) return { error: "upstream_" + r.status };
   const j = (await r.json()) as any;
   const ann = j?.outputs?.ac_annual;
   if (typeof ann === "number") {

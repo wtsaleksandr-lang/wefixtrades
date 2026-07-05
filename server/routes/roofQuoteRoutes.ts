@@ -422,7 +422,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await geocode(addr));
     } catch (err) {
       log.error("geocode failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -436,7 +436,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.send(ok ? body : JSON.stringify({ error: "no_solar" }));
     } catch (err) {
       log.error("solar failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -448,7 +448,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await localRate(country, region));
     } catch (err) {
       log.error("rates failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -459,7 +459,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await pvwattsProduction(String(req.query.lat || ""), String(req.query.lng || ""), kw));
     } catch (err) {
       log.error("pvwatts failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -469,7 +469,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await sunHours(String(req.query.lat || ""), String(req.query.lng || "")));
     } catch (err) {
       log.error("sun failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -513,7 +513,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.send(ok ? body : JSON.stringify({ error: "no_datalayers" }));
     } catch (err) {
       log.error("datalayers failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -565,7 +565,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json({ knowledge: await houseKnowledge(address) });
     } catch (err) {
       log.error("analyze failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -578,7 +578,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await roofFeatures(address));
     } catch (err) {
       log.error("features failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err), ok: false });
+      return res.json({ error: "request_failed", ok: false });   // real error already logged above; don't leak raw messages
     }
   });
 
@@ -773,7 +773,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await aiRender(address, material, requestedTier, paid));
     } catch (err) {
       log.error("airender failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -839,7 +839,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await aiRenderTopDown(address, material));
     } catch (err) {
       log.error("airender-topdown failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 
@@ -914,7 +914,7 @@ export function registerRoofQuoteRoutes(app: Express) {
       return res.json(await aiRenderUpload(dataUri, material));
     } catch (err) {
       log.error("airender-upload failed", { err: (err as Error).message });
-      return res.json({ error: String((err as Error).message || err) });
+      return res.json({ error: "request_failed" });   // real error already logged above; don't leak upstream messages/IPs to anonymous callers
     }
   });
 

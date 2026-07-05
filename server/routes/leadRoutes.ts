@@ -120,8 +120,10 @@ export function isDuplicateSubmission(calculatorId: number, email: string | null
 async function requireCalcByToken(token: string) {
   const calculator = await storage.getCalculatorByToken(token);
   if (!calculator) return null;
-  const isExpired = new Date() > new Date(calculator.token_expires_at);
-  if (isExpired) return null;
+  // Match the booking path's guard (bookingRoutes): expired only when the expiry EXISTS and is past. The old
+  // `new Date() > new Date(token_expires_at)` was inconsistent — new Date(undefined) is Invalid → comparison
+  // false → a token with a missing expiry was silently accepted forever.
+  if (calculator.token_expires_at && new Date(calculator.token_expires_at) < new Date()) return null;
   return calculator;
 }
 
@@ -654,8 +656,7 @@ export function registerLeadRoutes(app: Express): void {
       const calculator = await storage.getCalculatorByToken(token);
       if (!calculator) return res.status(404).json({ error: "Calculator not found" });
 
-      const isExpired = new Date() > new Date(calculator.token_expires_at);
-      if (isExpired) return res.status(403).json({ error: "Edit access expired. Duplicate your calculator to get a new edit period." });
+      if (calculator.token_expires_at && new Date(calculator.token_expires_at) < new Date()) return res.status(403).json({ error: "Edit access expired. Duplicate your calculator to get a new edit period." });
 
       const leadsList = await storage.getLeadsByCalculatorId(calculator.id);
 

@@ -32,7 +32,17 @@ const createBookingBody = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/),
   quote_amount: z.number().optional(),
   notes: z.string().optional(),
-});
+}).refine((b) => {
+  // The shape regex alone accepts "2026-99-99" / "25:99" / "2026-02-30", which then build an Invalid Date and
+  // throw RangeError in .toISOString() → a 500. Validate a REAL calendar date + clock time arithmetically
+  // (no Date/tz involved, so this can't itself be tz-fooled).
+  const [y, m, d] = b.date.split("-").map(Number);
+  const [hh, mm] = b.time.split(":").map(Number);
+  if (!(m >= 1 && m <= 12) || !(hh >= 0 && hh <= 23) || !(mm >= 0 && mm <= 59)) return false;
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+  return d >= 1 && d <= dim;
+}, { message: "Invalid date or time" });
 
 /* ─── DI seam (DB-free unit-testable) ─────────────────────────────────────
  * Booking consolidation (PR7): the legacy wizard BookingStep (System C-legacy)
@@ -215,6 +225,12 @@ export async function handlePostBooking(
     const bookingSettings = settings.booking_settings || {};
     if (!bookingSettings.enabled) return res.status(400).json({ error: "Booking not enabled" });
 
+    // Reject past dates (mirrors the availability handler) — a homeowner must never be able to POST a booking
+    // for a day already gone. Coarse string compare on YYYY-MM-DD (independent of the tz-of-day question).
+    const nowLocal = new Date();
+    const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
+    if (body.date < todayStr) return res.status(400).json({ error: "Cannot book a past date" });
+
     // THE SPLIT: a deposit is required only when the trade both opted in AND has
     // a connected Stripe account. This single boolean decides the path.
     const requiresDeposit = !!(bookingSettings.require_deposit && bookingSettings.stripe_account_id);
@@ -318,7 +334,7 @@ export async function handlePostBooking(
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors });
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Booking request failed" });
   }
 }
 
@@ -383,7 +399,7 @@ export function registerBookingRoutes(app: Express, deps: BookingRoutesDeps = de
       res.json({ checkout_url: session.url });
     } catch (err: any) {
       log.error("[Stripe Checkout]", err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: "Booking request failed" });
     }
   });
 
@@ -472,7 +488,7 @@ export function registerBookingRoutes(app: Express, deps: BookingRoutesDeps = de
       const bookingsList = await storage.getBookingsByCalculatorId(calc.id);
       res.json({ bookings: bookingsList });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: "Booking request failed" });
     }
   });
 
@@ -529,7 +545,7 @@ export function registerBookingRoutes(app: Express, deps: BookingRoutesDeps = de
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: "Booking request failed" });
     }
   });
 }
