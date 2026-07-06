@@ -56,6 +56,7 @@
     "check:client-chat-access": "tsx server/services/clientChatAccess.test.ts",
     "check:tradeline-route-order": "tsx server/routes/portalTradelineKnowledgeRoutes.routeOrder.test.ts",
     "check:matrix-rate": "tsx client/src/components/quote-widget/MatrixField.resolveRate.test.ts",
+    "check:trades-sync": "tsx client/src/site/__tests__/trades.sync.test.ts",
     "check:style-drop": "tsx client/src/components/wizard/elfsight/aiToolApplier.styleDrop.test.ts",
     "check:wizard-field-types": "tsx client/src/components/wizard/elfsight/__tests__/fieldTypes.test.tsx",
     "check:wizard-template-apply": "tsx client/src/components/wizard/elfsight/__tests__/templateApply.test.tsx",

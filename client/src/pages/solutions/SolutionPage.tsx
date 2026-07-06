@@ -17,7 +17,13 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { IconBadge } from "@/components/IconBadge";
 import NotFound from "@/pages/not-found";
 import { mkt, shadows } from "@/theme/tokens";
+import { TRADES } from "@/site/trades";
 import type { LucideIcon } from "lucide-react";
+
+// Roof/solar 3D instant-quote widget (calc=3 preset). Mirrors the CTA pattern
+// in EffortelProductPage — opened in a new tab. Shown only on the roof/solar
+// trade pages (gated by the TRADES `roofWidget` flag).
+const ROOF_WIDGET_SRC = "/api/roofquote/widget?calc=3";
 
 type SolutionConfig = {
   slug: string;
@@ -1143,6 +1149,11 @@ export default function SolutionPage() {
 
   if (!solution) return <NotFound />;
 
+  // Roof/solar trades get a prominent shortcut to the live 3D quote widget.
+  const showRoofWidgetCta = TRADES.some(
+    (t) => t.slug === solution.slug && t.roofWidget,
+  );
+
   return (
     <MarketingLayout>
       <PageMeta
@@ -1164,6 +1175,93 @@ export default function SolutionPage() {
           ctaSecondary={{ label: "Watch Demos", href: "/demos" }}
           animation={<TradeHeroAnimation slug={solution.slug} />}
         />
+
+        {showRoofWidgetCta && (
+          <section
+            style={{ background: mkt.bg, padding: "40px 28px 0" }}
+            data-testid="solution-roof-widget-cta"
+          >
+            <div
+              data-reveal="fade-up"
+              style={{
+                maxWidth: 1080,
+                margin: "0 auto",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 20,
+                padding: "26px 28px",
+                background: mkt.sectionLight,
+                border: `1px solid ${mkt.accent}`,
+                borderRadius: 18,
+                boxShadow: shadows.card,
+              }}
+            >
+              <div style={{ flex: "1 1 320px", minWidth: 260 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: mkt.accentOnDark,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    marginBottom: 10,
+                  }}
+                >
+                  Instant Quote
+                </div>
+                <h2
+                  style={{
+                    fontSize: "clamp(20px, 2.4vw, 28px)",
+                    fontWeight: 700,
+                    color: mkt.onDark,
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.25,
+                    margin: 0,
+                  }}
+                >
+                  See your home in 3D &mdash; get an instant roof &amp; solar quote
+                </h2>
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: mkt.onDarkMuted,
+                    lineHeight: 1.6,
+                    margin: "10px 0 0",
+                    maxWidth: 560,
+                  }}
+                >
+                  Type an address and watch the live widget model the roof, size the system,
+                  and price it &mdash; the same tool your customers use.
+                </p>
+              </div>
+              <a
+                href={ROOF_WIDGET_SRC}
+                target="_blank"
+                rel="noopener"
+                data-testid="link-roof-widget-live-demo"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexShrink: 0,
+                  padding: "14px 22px",
+                  borderRadius: 12,
+                  background: mkt.accent,
+                  color: mkt.onDark,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  letterSpacing: "0.02em",
+                  textDecoration: "none",
+                  boxShadow: shadows.card,
+                }}
+              >
+                Try the live demo <ArrowRight size={16} />
+              </a>
+            </div>
+          </section>
+        )}
 
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-pain-points">
           <div style={{ maxWidth: 800, margin: "0 auto" }} data-reveal="fade-up">
