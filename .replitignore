@@ -21,6 +21,16 @@ spikes/
 scripts/showroom-assets/
 audits/
 
+# Container dev-tooling in the home dir (~3.3 GB — the DECISIVE cut for the 8 GiB
+# limit). VSCode remote server + its extensions (Claude/Codex/ChatGPT native
+# binaries + cached VSIXs), Playwright's Chromium download, and Replit local
+# state/logs. These exist only in the dev container; the running server (bundled
+# dist/index.cjs) never reads them. .replitignore is applied at BUNDLE time,
+# AFTER the Build step succeeds, so excluding build-time tools here is safe.
+.config/.vscode-server/
+.cache/
+.local/
+
 # Test / build scratch.
 coverage/
 __review/
