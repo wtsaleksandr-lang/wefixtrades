@@ -5,11 +5,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
-import ReviewsSection from "@/components/home/ReviewsSection";
-import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
-import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
+import { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
+import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2 } from "lucide-react";
 import { mkt } from "@/theme/tokens";
-import { TRADELINE, formatPrice } from "@/config/pricing";
 import { SERVICES, type Service } from "@shared/services";
 import { parseRecommendations } from "@/lib/recommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
@@ -71,14 +69,27 @@ function ChatPanel() {
     },
   });
 
-  const handleSend = () => {
-    const text = inputValue.trim();
+  const sendText = (raw: string) => {
+    const text = raw.trim();
     if (!text || sendMutation.isPending) return;
     const newMessages: Message[] = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
     setInputValue("");
     sendMutation.mutate(newMessages);
   };
+
+  const handleSend = () => sendText(inputValue);
+
+  // Tappable starter prompts shown under the greeting (only before the
+  // visitor has said anything) so the widget reads as an intentional,
+  // ready-to-use sandbox instead of a hollow box. Each chip sends straight
+  // into the live /api/chat/sync flow.
+  const STARTER_PROMPTS = [
+    "Do you offer emergency service?",
+    "How much for a drain unclog?",
+    "Can you book me in?",
+  ];
+  const showStarters = messages.length === 1 && !sendMutation.isPending;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -143,6 +154,32 @@ function ChatPanel() {
             </div>
           );
         })}
+        {showStarters && (
+          <div style={{
+            display: "flex", flexWrap: "wrap", gap: 8,
+            paddingLeft: 36, marginTop: 2,
+          }}>
+            {STARTER_PROMPTS.map((p) => (
+              <button
+                key={p}
+                data-testid="demo-starter-chip"
+                onClick={() => sendText(p)}
+                style={{
+                  padding: "8px 14px", borderRadius: 999,
+                  background: mkt.surface, color: mkt.text,
+                  border: `1px solid ${mkt.onDarkBorder}`,
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  fontFamily: "inherit", lineHeight: 1.3,
+                  transition: "border-color 0.15s ease, background 0.15s ease",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = mkt.accent; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = mkt.onDarkBorder; }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
         {sendMutation.isPending && (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -416,107 +453,6 @@ function VoicePanel() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   FAQ ACCORDION
-   ═══════════════════════════════════════════════════════════════════ */
-
-const DEMO_FAQ = [
-  { q: "What does the assistant actually do?", a: "It answers phone calls and website chats 24/7, gives instant estimates based on your real pricing, captures lead details, books jobs, and sends automated follow-ups and review requests — all configured to your business." },
-  { q: "Is it the same system for chat and voice?", a: "Yes. One assistant handles both channels using the same knowledge about your services, pricing, and availability. Customers get a consistent experience whether they call or message." },
-  { q: "How long does setup take?", a: "Most trades businesses are up and running in under 15 minutes. You configure your services, pricing formulas, and business hours — the system learns your business from there." },
-  { q: "Is it tailored to my specific trade?", a: "Absolutely. The system adapts to your trade type, service area, pricing structure, and business rules. It's not a generic chatbot — it speaks your language and understands your work." },
-  { q: "Can I still review leads and override things?", a: "Yes. You see every conversation, lead, and booking in your dashboard. You control follow-up timing, messaging, and can jump in manually at any point." },
-  { q: "What if a customer needs to reach a real person?", a: "The assistant can transfer urgent calls to your mobile immediately, with full conversation context included so you never start cold." },
-];
-
-function FAQItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 14, overflow: "hidden" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "18px 22px", background: open ? mkt.surface : mkt.bg, border: "none",
-          cursor: "pointer", gap: 16, textAlign: "left", transition: "background 0.2s ease",
-        }}
-      >
-        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={20} color={mkt.onDarkMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
-      </button>
-      <div style={{ maxHeight: open ? 300 : 0, overflow: "hidden", transition: "max-height 0.25s ease" }}>
-        <div style={{ padding: "0 22px 18px", fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>{a}</div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   PRICING SECTION — TradeLine tiers (from shared/pricing.ts)
-   ═══════════════════════════════════════════════════════════════════ */
-
-const PLANS = TRADELINE.tiers.map(t => ({
-  name: `TradeLine ${t.name}`,
-  price: formatPrice(t.price),
-  period: "/mo",
-  desc: t.features.slice(0, 2).join(". ") + ".",
-  features: t.features,
-  highlighted: t.highlighted,
-  badge: t.badge,
-}));
-
-function PricingCards() {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, maxWidth: 680, margin: "0 auto" }}>
-      {PLANS.map((plan) => (
-        <div
-          key={plan.name}
-          style={{
-            background: mkt.sectionLight, borderRadius: 20, padding: "32px 28px",
-            border: `1px solid ${plan.highlighted ? mkt.accent : mkt.border}`,
-            boxShadow: plan.highlighted ? `0 0 40px rgba(13,60,252,0.1)` : "none",
-            position: "relative",
-          }}
-        >
-          {plan.badge && (
-            <div style={{
-              position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
-              background: mkt.accent, color: mkt.onDark, padding: "4px 14px",
-              borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
-            }}>{plan.badge}</div>
-          )}
-          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, marginBottom: 4 }}>{plan.name}</div>
-          <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 36, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.03em" }}>{plan.price}</span>
-            <span style={{ fontSize: 14, color: mkt.onDarkMuted }}>{plan.period}</span>
-          </div>
-          <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5, marginBottom: 20 }}>{plan.desc}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-            {plan.features.map((f) => (
-              <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Check size={14} color={mkt.accent} strokeWidth={2.5} />
-                <span style={{ fontSize: 13, color: mkt.text }}>{f}</span>
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/wizard"
-            style={{
-              display: "block", textAlign: "center", padding: "12px 0", borderRadius: 12,
-              background: plan.highlighted ? mkt.accent : "transparent",
-              color: plan.highlighted ? mkt.buttonText : mkt.accent,
-              border: plan.highlighted ? "none" : `1px solid ${mkt.accent}`,
-              fontSize: 14, fontWeight: 700, textDecoration: "none",
-            }}
-          >
-            Get Started
-          </Link>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
    MAIN DEMO PAGE
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -526,7 +462,7 @@ export default function DemoPage() {
   // Title + meta tags handled by <PageMeta> below.
 
   return (
-    <MarketingLayout>
+    <MarketingLayout hideSiteChat>
       <PageMeta
         title="Try the demo — see WeFixTrades answer a live customer"
         description="Talk or chat with our AI receptionist in your browser. Watch it qualify a lead, generate an instant quote, and book the job — exactly how it would for your trade business."
@@ -657,7 +593,10 @@ export default function DemoPage() {
             </div>
 
             {/* ── Demo content ── */}
-            <div style={{ height: 600 }}>
+            {/* Trimmed 600 → 500: with the greeting + starter chips this
+                reads as a full, intentional panel rather than a hollow box,
+                while still leaving room for a live transcript to grow. */}
+            <div style={{ height: 500 }}>
               {mode === "chat" ? <ChatPanel /> : <VoicePanel />}
             </div>
           </div>
@@ -668,69 +607,45 @@ export default function DemoPage() {
           </p>
         </section>
 
-        {/* ═══ REVIEWS ═══ */}
-        <section style={{ background: mkt.sectionLight, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <ReviewsSection />
-          </div>
-        </section>
-
-        {/* ═══ PRICING ═══ */}
-        <section style={{ background: mkt.bg, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
-                Pricing
-              </span>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 10 }}>
-                Simple, transparent plans
-              </h2>
-              <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.6 }}>
-                Start with chat. Add voice when you're ready. No contracts.
-              </p>
-            </div>
-            <PricingCards />
-          </div>
-        </section>
-
-        {/* ═══ FAQ ═══ */}
-        <section style={{ background: mkt.sectionLight, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
-          <div style={{ maxWidth: 680, margin: "0 auto" }}>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
-                FAQ
-              </span>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
-                Common questions
-              </h2>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {DEMO_FAQ.map((faq) => <FAQItem key={faq.q} {...faq} />)}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ MINIMAL BOTTOM CTA ═══ */}
-        <section style={{ background: mkt.bg, padding: "64px 28px", textAlign: "center", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
+        {/* ═══ HANDOFF — the demo's only next-step block ═══ */}
+        {/* Sales content (reviews / pricing / FAQ) lives on /products/tradeline.
+            This page is a pure sandbox, so it hands off in two directions:
+            build now (primary) or go read the full pitch (secondary). */}
+        <section style={{ background: mkt.bg, padding: "8px 28px 80px", textAlign: "center" }}>
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
             <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", marginBottom: 12 }}>
               Ready to set up yours?
             </h2>
             <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.6, marginBottom: 28 }}>
-              Get your 24/7 assistant running in under 15 minutes.
+              Get your own 24/7 assistant running in under 15 minutes.
             </p>
-            <Link
-              href="/wizard"
-              data-testid="button-build-yours"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "14px 32px", borderRadius: 10,
-                background: mkt.ctaBg, color: mkt.ctaText,
-                fontSize: 15, fontWeight: 500, textDecoration: "none",
-              }}
-            >
-              Start Free <ArrowRight size={16} />
-            </Link>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+              <Link
+                href="/wizard"
+                data-testid="button-build-yours"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "14px 32px", borderRadius: 10,
+                  background: mkt.ctaBg, color: mkt.ctaText,
+                  fontSize: 15, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                Set yours up <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/products/tradeline"
+                data-testid="button-see-features"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "14px 32px", borderRadius: 10,
+                  background: "transparent", color: mkt.onDark,
+                  border: `1px solid ${mkt.onDarkBorder}`,
+                  fontSize: 15, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                See features &amp; pricing <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
         </section>
 
