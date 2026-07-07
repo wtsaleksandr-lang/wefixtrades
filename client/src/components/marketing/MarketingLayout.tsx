@@ -11,6 +11,7 @@ import { MarketingNav } from "./navigation/MarketingNav";
 import Logo from "@/components/primitives/Logo";
 import AnnouncementBanner from "./AnnouncementBanner";
 import MarketingStickyBar from "./MarketingStickyBar";
+import MobileStickyCta from "./MobileStickyCta";
 import AppStoreBadges from "./AppStoreBadges";
 
 const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
@@ -685,7 +686,11 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
       <div style={{ height: 24, flexShrink: 0 }} />
       <main id="main-content" tabIndex={-1} style={{ flex: 1 }}>{children}</main>
       <MarketingFooter />
+      {/* Desktop scroll pill (≥1024px + hover) and the mobile-only bottom CTA
+          (≤560px / touch). Each self-gates by breakpoint, so exactly one — or
+          neither — shows at a time. */}
       <MarketingStickyBar />
+      <MobileStickyCta />
       {!hideSiteChat && (
         <Suspense fallback={null}>
           <SiteChatWidget />

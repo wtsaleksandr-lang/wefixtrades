@@ -686,7 +686,10 @@ export default function SiteChatWidget() {
           opacity: 0;
           pointer-events: none;
         }
-        @media (max-width: 480px) {
+        /* ≤560px matches the MobileStickyCta breakpoint: the launcher lifts by
+           --mkt-sticky-bar-h (published by that bar) so it floats clear ABOVE
+           the persistent bottom CTA instead of overlapping it. */
+        @media (max-width: 560px) {
           .wft-chat-bubble {
             /* P1-2: safe-area insets so the launcher clears the home
                indicator / curved corners on notched phones. */
