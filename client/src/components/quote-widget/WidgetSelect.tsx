@@ -46,6 +46,12 @@ export default function WidgetSelect({
   const stacked = labelLayout === 'stacked';
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  // SSR-SAFE PORTAL — the panel is portaled to `document.body`, and that target
+  // is evaluated on EVERY render (the createPortal wraps AnimatePresence so exit
+  // animations can play). On the server `document` is undefined, so gate the
+  // portal behind a client-only mounted flag (the SSR field-types guard renders
+  // WidgetSelect server-side and would otherwise throw "document is not defined").
+  const [mounted, setMounted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -86,6 +92,9 @@ export default function WidgetSelect({
 
   const selectedIdx = Math.max(0, options.findIndex((o) => o.id === value));
   const selectedLabel = options[selectedIdx]?.label ?? '';
+
+  // Client-only mount flag for the body portal (see `mounted` above).
+  useEffect(() => { setMounted(true); }, []);
 
   // Open → focus the active (selected) option for keyboard nav.
   useEffect(() => {
@@ -230,7 +239,7 @@ export default function WidgetSelect({
           so it escapes the calculator body's overflow clip. `fontFamily` is
           re-applied here because the portal target sits OUTSIDE this wrapper's
           font-family context. */}
-      {createPortal(
+      {mounted && createPortal(
         <AnimatePresence>
           {open && panelPos && (
             <motion.ul
