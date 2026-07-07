@@ -1355,12 +1355,21 @@
     #roofDesign .rd-mat:hover .rdm-tex{transform:scale(.965)}
     #roofDesign .rd-mat:hover .rdm-loupe{opacity:1;transform:scale(1)}
   }
-  #roofDesign .rd-mat .rdm-tex{position:relative;width:100%;aspect-ratio:1/1;height:auto;border-radius:10px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08);overflow:hidden;cursor:zoom-in;transition:transform .46s cubic-bezier(.22,1,.36,1)}
+  /* Bug #2 fix — the tile BODY selects the material (normal pointer); ONLY the top-right loupe zooms. So the
+     texture no longer shows a zoom-in cursor as if the whole tile magnifies; it inherits the tile's pointer. */
+  #roofDesign .rd-mat .rdm-tex{position:relative;width:100%;aspect-ratio:1/1;height:auto;border-radius:10px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.08);overflow:hidden;cursor:pointer;transition:transform .46s cubic-bezier(.22,1,.36,1)}
   /* sheen highlight that appears on hover */
   #roofDesign .rd-mat .rdm-tex::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.34),rgba(255,255,255,0) 42%);opacity:0;transition:opacity .16s ease;pointer-events:none}
-  /* #6 loupe/magnifier affordance — a small zoom glyph that fades in on hover; also the click-to-zoom hit-area */
-  #roofDesign .rd-mat .rdm-loupe{position:absolute;top:6px;right:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:color-mix(in srgb,var(--panel) 62%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 2px 6px rgba(15,23,42,.22);opacity:0;transform:scale(.82);transition:opacity .14s ease,transform .14s ease;cursor:zoom-in}
+  /* #6 loupe/magnifier affordance — the ONLY zoom control on the tile (Bug #2). Fades in on hover; clicking it
+     opens the closeup modal without selecting the material. It keeps cursor:zoom-in so its purpose is unambiguous. */
+  #roofDesign .rd-mat .rdm-loupe{position:absolute;top:6px;right:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:color-mix(in srgb,var(--panel) 62%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 2px 6px rgba(15,23,42,.22);opacity:0;transform:scale(.82);transition:opacity .14s ease,transform .14s ease,background-color .14s ease,box-shadow .14s ease;cursor:zoom-in}
   #roofDesign .rd-mat .rdm-loupe svg{width:14px;height:14px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* Bug #2 — clear, distinct hover POP on the loupe itself (blue tint + larger scale + ring) so the user reads
+     it as its own clickable "zoom" control, separate from selecting the tile. */
+  @media (hover:hover){
+    #roofDesign .rd-mat .rdm-loupe:hover{transform:scale(1.16);background:color-mix(in srgb,var(--blue) 22%,var(--panel));box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 42%,transparent),0 4px 10px rgba(15,23,42,.28)}
+    #roofDesign .rd-mat .rdm-loupe:hover svg{stroke:var(--blue)}
+  }
   #roofDesign .rd-mat .rdm-nm{font-size:11.5px;font-weight:800;color:var(--ink);line-height:1.1;letter-spacing:-.01em}
   #roofDesign .rd-mat .rdm-tier{font-size:9.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.02em}
   /* colour swatches */
@@ -6009,10 +6018,10 @@ const ROOF_CATALOG=[
  { id:"slate", label:"Natural Slate", type:"slate", tier:"Premium", colors:[
    {n:"Gray",base:"rgb(96,100,104)",p:"gray natural slate roof tiles"},
    {n:"Black",base:"rgb(44,46,48)",p:"black natural slate roof tiles"},
-   {n:"Purple",base:"rgb(86,72,92)",p:"purple natural slate roof tiles"},
+   {n:"Charcoal",base:"rgb(64,66,70)",p:"charcoal-gray natural slate roof tiles"},
    {n:"Green",base:"rgb(74,88,72)",p:"green natural slate roof tiles"},
    {n:"Red",base:"rgb(120,58,52)",p:"red natural slate roof tiles"},
-   {n:"Mottled",base:"rgb(92,82,90)",p:"mottled purple-green blend natural slate roof tiles"} ]},
+   {n:"Mottled Gray-Green",base:"rgb(88,94,86)",p:"mottled gray-green blend natural slate roof tiles"} ]},
  { id:"cedar", label:"Cedar Shake", type:"wood", tier:"Premium", colors:[
    {n:"New Cedar",base:"rgb(158,104,64)",p:"new western-red-cedar wood shake roof, warm reddish-brown"},
    {n:"Honey",base:"rgb(178,134,82)",p:"honey-amber cedar wood shake roof"},
@@ -11726,7 +11735,7 @@ function rdBuildMats(){
     const bg=real?("url("+real+")"):("url("+tex+")");
     // #6 loupe/magnifier affordance overlay (desktop hover) + click-to-zoom → frosted closeup modal.
     b.innerHTML='<div class="rdm-tex" style="background-image:'+bg+'">'
-      +'<span class="rdm-loupe" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2M11 8v6M8 11h6"/></svg></span>'
+      +'<span class="rdm-loupe" role="button" tabindex="-1" title="Zoom in on this texture" aria-label="Zoom in on '+esc(m.label)+' texture"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2M11 8v6M8 11h6"/></svg></span>'
       +'</div>'
       +'<div class="rdm-tier">'+esc(m.tier||"")+'</div><div class="rdm-nm">'+esc(m.label)+'</div>';
     b.onclick=(ev)=>{
@@ -12107,10 +12116,20 @@ async function rdAiOnHouse(){
     if(typeof activateBA==="function") activateBA();
     $("aiBar") && ($("aiBar").style.display="flex");
   };
+  // Hardening: in prod a render route can 404 to the SPA homepage HTML instead of JSON. r.json() on HTML
+  // THROWS and would skip straight to the generic catch — killing the Street-View (/airender) fallback
+  // below. jsonOrNull() turns a non-ok/non-JSON response into a graceful MISS (null) so the fallback runs.
+  const jsonOrNull=async r=>{
+    try{ if(!r||!r.ok) return null;
+      const ct=(r.headers&&r.headers.get&&r.headers.get("content-type"))||"";
+      if(ct.indexOf("application/json")<0) return null;
+      return await r.json();
+    }catch(_){ return null; }
+  };
   try{
     // 1) PRIMARY: roof-only masked top-down render.
     const r=await fetch("/airender-topdown?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
-    const j=await r.json();
+    const j=await jsonOrNull(r);   // non-JSON/HTML/!ok → null → treated as a render MISS (falls to the Kontext fallback below), never a throw
     // endpoint returns root-relative urls; prefix with RQ_BASE (set in the app build, "" in the spike) so the <img> resolves in both.
     const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
     if(j&&j.url&&j.roofOnly){ paint(RB+j.url, j.base?(RB+j.base):null); }
@@ -12131,7 +12150,7 @@ async function rdAiOnHouse(){
       // an address that geocoded to a real footprint is far more likely to be the right house.
       console.warn("[rdAi] no roof-only mask ("+(j&&j.error||"?")+") → Kontext fallback");
       const r2=await fetch("/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
-      const j2=await r2.json();
+      const j2=await jsonOrNull(r2);
       if(j2&&j2.url){ window.__baBeforeSrc=null; paint(j2.url,null); }
       else {
         window.__aiDown=true;
@@ -12161,7 +12180,8 @@ async function rdUploadOnHouse(file){
     const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
     const r=await fetch(RB+"/airender-upload",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ image:dataUri, material:(c?c.p:m.label) }) });
-    const j=await r.json();
+    // Hardening: a non-ok/non-JSON (HTML SPA shell) response → graceful MISS, not a thrown r.json().
+    let j=null; try{ if(r&&r.ok){ const ct=(r.headers&&r.headers.get&&r.headers.get("content-type"))||""; if(ct.indexOf("application/json")>=0) j=await r.json(); } }catch(_){ j=null; }
     if(j&&j.url){ window.__aiDown=false; window.__baBeforeSrc=null;
       const img=$("aiPhoto"); if(img){ if(typeof paintAiPhoto==="function") paintAiPhoto(j.url,$("addr").value.trim(),c?c.p:m.label); else { img.src=j.url; img.style.display="block"; } img.style.zIndex="16"; if(img.dataset){ img.dataset.aireal="1"; delete img.dataset.showroom; } }
       try{ rdSetExampleBadge(false); }catch(_){}
@@ -12574,25 +12594,37 @@ window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify
       if(cta) cta.classList.add("on");
     };
     const fail=msg=>{ if(timedOut) return; clearTimeout(backstop); clearInterval(stageTimer); smSpin(false); smRendering=false; smRefreshStart(); smSetErr(msg); };
+    // Hardening: in prod some render routes can return the SPA homepage HTML (not JSON) when a backend
+    // path 404s to the app shell. A raw r.json() on HTML THROWS and would jump to the generic catch —
+    // pre-empting the Street-View /airender fallback below. smJsonOrNull() turns a non-ok/non-JSON
+    // response into a graceful MISS (null) so the fallback chain runs instead of dying.
+    const smJsonOrNull=async r=>{
+      try{ if(!r||!r.ok) return null;
+        const ct=(r.headers&&r.headers.get&&r.headers.get("content-type"))||"";
+        if(ct.indexOf("application/json")<0) return null;
+        return await r.json();
+      }catch(_){ return null; }
+    };
     try{
       if(smSource==="upload"){
         if(!smFile){ fail("Choose a photo first."); return; }
         const dataUri=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(smFile); });
         const r=await fetch(RB+"/airender-upload",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ image:dataUri, material:matPrompt }) });
-        const j=await r.json();
+        const j=await smJsonOrNull(r);
         if(j&&j.url){ done((j.url.charCodeAt(0)===47?RB:"")+j.url, dataUri); }   // root-relative → prefix RB; data: URI stays as-is. before = their own uploaded photo
-        else { fail("Couldn't render that photo — try a clearer front-of-house shot."); }
+        // upload has no Street-View fallback → an honest, non-technical message (covers HTML/500/timeout too)
+        else { fail("Preview isn't available right now — please try again shortly."); }
       } else {
         // GOOGLE EARTH source: roof-only masked top-down first; fall back to Street-View Kontext if no footprint.
         const addr=(el("smAddr")&&el("smAddr").value.trim())||($("addr")&&$("addr").value.trim())||"";
         if(!addr){ fail("Enter your address to use your Google Earth image."); return; }
         const r=await fetch(RB+"/airender-topdown?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
-        const j=await r.json();
+        const j=await smJsonOrNull(r);   // non-JSON/HTML/!ok → null → falls through to the Street-View fallback instead of throwing
         if(j&&j.url&&j.roofOnly){ done(RB+j.url, j.base?(RB+j.base):null); }
         else {
-          // no roof mask (canopy/no footprint) OR transient error → Street-View repaint at the resolved address
+          // no roof mask (canopy/no footprint) OR transient error/non-JSON → Street-View repaint at the resolved address
           const r2=await fetch(RB+"/airender?address="+encodeURIComponent(addr)+"&material="+encodeURIComponent(matPrompt));
-          const j2=await r2.json();
+          const j2=await smJsonOrNull(r2);
           if(j2&&j2.url){ done(j2.url, null); }
           else { fail(j2&&j2.error==="no_streetview" ? "No clear imagery here yet — try uploading a photo instead." : "Preview unavailable right now — try uploading a photo instead."); }
         }
