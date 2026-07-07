@@ -50,6 +50,7 @@
     "check:calculator-schema": "tsx shared/schemas/calculator.fieldTypes.test.ts",
     "check:template-formula-refs": "tsx scripts/check-template-formula-refs.ts",
     "check:template-image-hosts": "tsx scripts/check-template-image-hosts.ts",
+    "check:template-thumbnails": "tsx scripts/check-template-thumbnails.ts",
     "check:quote-widget-distance": "tsx server/routes/quoteWidgetDistanceRoutes.test.ts",
     "check:quote-widget-upload": "tsx server/routes/quoteWidgetUploadRoutes.test.ts",
     "check:roofquote-cost-gating": "tsx server/routes/roofQuoteRoutes.test.ts",
