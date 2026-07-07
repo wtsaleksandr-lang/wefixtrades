@@ -67,6 +67,8 @@ jobs:
         run: npm run check:template-formula-refs
       - name: Template image-host guard (no preset references the dead source.unsplash.com redirector → broken image cards on the conversion widget)
         run: npm run check:template-image-hosts
+      - name: Template thumbnail-coverage guard (every preset ships a committed non-empty pre-rendered @2x.png so the premium gallery uses the real snapshot, not the data-driven fallback; a new template added without regenerating thumbnails fails here. Regenerate via `npx vite --port 5321` + `RENDER_BASE_URL=http://localhost:5321 npm run thumbnails`)
+        run: npm run check:template-thumbnails
       - name: Quote-widget distance guard (cache hit = 1 upstream call; no-key/quota soft-fail not 500; DM mapping; origin geocode-on-save)
         run: npm run check:quote-widget-distance
       - name: Quote-widget upload guard (magic-byte allowlist not filename; 8MB/field cap; per-IP min+day quota; cheap authz; junk never burns daily budget)
