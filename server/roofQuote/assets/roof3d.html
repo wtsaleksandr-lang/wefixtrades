@@ -12238,8 +12238,8 @@ async function rdAiOnHouse(){
     "Analyzing your roof…",
     "Applying "+label+" to your home…",
     "Painting on the new material…",
-    "This usually takes up to a minute…",
-    "Finishing your photoreal preview…"
+    "Generating your preview — this can take up to a couple of minutes…",
+    "Almost there — finishing your photoreal preview…"
   ];
   let __aiStage=0;
   if(hint){ if(hintT) hintT.textContent=STAGES[0]; hint.style.display="flex"; }
@@ -12248,8 +12248,10 @@ async function rdAiOnHouse(){
     if(hintT) hintT.textContent=STAGES[__aiStage];
   }, 9000);
   // CLIENT TIMEOUT BACKSTOP: the server bounds itself, but a stalled network/Replicate call must NEVER
-  // spin forever. After ~72s, gracefully fall back to the textured 3D house already on screen + a brief
-  // note, and stop the spinner. __aiTimedOut guards the late fetch result from re-stomping the UI.
+  // spin forever. A first cold render (oblique capture + Replicate cold-start) can legitimately run
+  // ~80–120s, so after ~180s (not 72s, which cut off renders that would have succeeded) gracefully
+  // fall back to the textured 3D house already on screen + a brief note, and stop the spinner.
+  // __aiTimedOut guards the late fetch result from re-stomping the UI.
   let __aiTimedOutLocal=false;
   const stopSpinner=()=>{ try{ clearInterval(__aiStageTimer); }catch(_){} if(hint) hint.style.display="none"; };
   const timeoutFallback=()=>{ if(__aiTimedOutLocal) return; __aiTimedOutLocal=true;
@@ -12258,7 +12260,7 @@ async function rdAiOnHouse(){
     if(typeof setStatus==="function"){ setStatus("Preview is taking longer than usual — showing your 3D model", true); setTimeout(()=>setStatus(""),4200); }
     btn.disabled=false; if(lbl) lbl.textContent="See it on my house";
   };
-  const __aiTimeout=setTimeout(timeoutFallback, 72000);
+  const __aiTimeout=setTimeout(timeoutFallback, 180000);
   const paint=(url,beforeUrl)=>{
     // a real render landed — it always wins over the timeout note (better outcome). Clear the backstop
     // so the late note can't fire and stomp the photo the buyer is now seeing.
@@ -12651,8 +12653,8 @@ window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify
     "Analyzing your roof…",
     "Applying your new roof…",
     "Painting on the new material…",
-    "This usually takes up to a minute…",
-    "Finishing your photoreal preview…"
+    "Generating your preview — this can take up to a couple of minutes…",
+    "Almost there — finishing your photoreal preview…"
   ];
   const el=id=>document.getElementById(id);
   function smClassToggle(node,on){ if(node){ node.classList.toggle("on",!!on); } }
@@ -12745,8 +12747,12 @@ window.__rdPickMat=rdPickMat; window.__rdPickCol=rdPickCol;   // headless-verify
     let stageIdx=0; smSpin(true, SM_STAGES[0]);
     const stageTimer=setInterval(()=>{ stageIdx=Math.min(stageIdx+1,SM_STAGES.length-1); if(el("smSpinT")) el("smSpinT").textContent=SM_STAGES[stageIdx]; }, 9000);
     let timedOut=false;
+    // COLD-RENDER BACKSTOP: a first-time oblique capture + Replicate cold-start can legitimately run
+    // ~80–120s. A 72s hard cut showed the retry copy on renders that would have succeeded. Give the
+    // pipeline up to 180s before offering the soft retry; the stepped SM_STAGES copy keeps the wait
+    // reassuring (progress, not error) the whole time.
     const backstop=setTimeout(()=>{ timedOut=true; clearInterval(stageTimer); smSpin(false); smRendering=false; smRefreshStart();
-      smSetErr("This is taking longer than usual — please try again in a moment."); }, 72000);
+      smSetErr("This is taking longer than usual — please try again in a moment."); }, 180000);
     const RB=(typeof window!=="undefined"&&window.RQ_BASE)||"";
     const done=(afterUrl,beforeUrl)=>{
       if(timedOut) return; clearTimeout(backstop); clearInterval(stageTimer);
