@@ -1,0 +1,27 @@
+# Deployment image slimming (Replit autoscale) — keep the bundle under the 8 GiB limit.
+# Production runtime = the bundled `dist/index.cjs` + `dist/public` + prod node_modules
+# (native deps like duckdb). NOTHING below is read at runtime, so excluding it from the
+# deployment image is safe and does not affect the running app.
+
+# Git history (~690 MB) — inflated by regenerated template thumbnails + the 16k-line
+# roof3d spike committed many times. Not needed to run the server.
+.git
+
+# The roof-quote SPIKE + its regenerable local caches (~550 MB of Microsoft building
+# tiles `msfttile-*.gz` + solar/cell JSON under spikes/roof-quote/cache/). The prod
+# widget is served from the synced copy at server/roofQuote/assets/roof3d.html and
+# resolves footprints via the OSM/VIDA/Solar APIs — it never reads spikes/.
+spikes/
+
+# Temp + dev logs (a ~120 MB dev-server.log lives here).
+.tmp/
+**/*.log
+
+# Dev-only demo assets + audit notes — not served at runtime.
+scripts/showroom-assets/
+audits/
+
+# Test / build scratch.
+coverage/
+__review/
+.vscode/
