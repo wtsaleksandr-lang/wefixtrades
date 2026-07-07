@@ -3101,6 +3101,20 @@ export default function AdvancedCalculator({
         // breathing room between each. 540px is the floor for both wizard
         // preview and the live customer-facing widget (single component).
         minHeight: '540px',
+        // BD-2a-shell — bound the widget to its parent's height WHEN the parent
+        // has a definite height (fixed-height iframe embed, the wizard bezel
+        // preview, the template-thumbnail render harness). `max-height: 100%`
+        // resolves to `none` against an AUTO-height parent (the common inline
+        // <div> embed), so tall widgets there still grow naturally and the
+        // whole page scrolls — no regression. But inside a DEFINITE-height
+        // parent it caps the root and lets the body region (below) scroll
+        // internally between the pinned sticky top + sticky bottom bars. Without
+        // this cap the root grew past the frame and the `position:sticky`
+        // bottom action bar anchored to the OUTER scrollport, painting OVER the
+        // last tier card (Good/Better/Best) instead of the body scrolling
+        // beneath it — the "footer bisects the Premium card" bug. This restores
+        // the intended sticky-shell (see memory/feedback_sticky_widget_header).
+        maxHeight: '100%',
         // BD-2a-badge-pin — root is a flex COLUMN so the body region can flex
         // and push the sticky bottom bar + root Powered-by badge flush to the
         // bottom edge on every template, even when content is shorter than the
@@ -3450,6 +3464,10 @@ export default function AdvancedCalculator({
           padding: 2px;
           grid-template-columns: 1fr;
         }
+        /* BD-2a-shell — hide the body's scroll chrome (the body is the sticky
+           shell's internal scroll region when the widget is height-bounded).
+           Matches the widget's other chrome-free scroll surfaces. */
+        .${gridId}::-webkit-scrollbar { width: 0; height: 0; display: none; }
         /* Mobile spacing tune — on the single-column ≤559px layout the body
            grid blocks (fields panel, result panel, CTA) should breathe, not
            sit flush to the widget edges. ~16px outer gutters + a comfortable
@@ -3680,6 +3698,23 @@ export default function AdvancedCalculator({
           // column instead of overflowing.
           flex: '1 1 auto',
           minHeight: 0,
+          // BD-2a-shell — the body is the SCROLL region of the sticky shell.
+          // When the root is height-bounded by its parent (fixed iframe embed /
+          // wizard bezel / thumbnail harness) this lets the fields + result
+          // panel (incl. the Good/Better/Best tier cards) scroll BETWEEN the
+          // pinned sticky-top and the pinned sticky-bottom action bar, so no
+          // content can ever render underneath the footer. When the root is
+          // NOT bounded (inline auto-height embed) the content fits, so there
+          // is no scrollbar and the whole page scrolls exactly as before — the
+          // `overflow-y: auto` is inert there. `overflow-x: clip` (never
+          // `visible`, so `overflow-y` doesn't force a stray horizontal
+          // scrollbar; never `hidden`, per memory/project_overflow_clip_for_sticky)
+          // keeps wide numeric values inside the widget. Scrollbar hidden to
+          // match the widget's existing chrome-free scroll surfaces.
+          overflowY: 'auto',
+          overflowX: 'clip',
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch',
         }}>
         {/* Inputs — when the stepper is on the contact step, the fields
             section is replaced by the ContactStep (rendered further below
