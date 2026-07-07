@@ -15,6 +15,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { AE } from './appleEditor';
 import { useLayoutGuard } from '@/lib/layoutGuard';
 import type { TemplateField, TemplateCalculation, TemplateStep, TemplateTiered } from '@shared/templatePresets';
+import { getTemplatePreset } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
@@ -181,6 +182,17 @@ export default function BuildTab({
   // (previously a bare `return` left an oversize file silently ignored, with
   // the owner getting no feedback). Mirrors the AI reference-image error line.
   const [logoError, setLogoError] = useState<string | null>(null);
+  // ROOF-ADDON — the Fields "Add" menu's featured "Address → 3D Roof & Solar"
+  // entry turns the whole calculator into the full-body 3D roof/solar widget.
+  // The roof widget is toggled by the active template's `widgetKind`, so the
+  // clean, no-rearchitect path is to apply the `roof_solar_visualizer` preset
+  // through the same `onApplyTemplate` (→ shell `requestApplyTemplate`) the
+  // gallery uses — which carries the "replace your calculator?" confirm
+  // guardrail whenever the user has authored content.
+  const handleInsertRoofWidget = useCallback(() => {
+    onApplyTemplate(getTemplatePreset('roof_solar_visualizer') ?? null);
+  }, [onApplyTemplate]);
+
   const onLogoFile = useCallback((file: File | null) => {
     if (!file) { setLogoError(null); onLogoChange(null); return; }
     if (file.size > LOGO_MAX_BYTES) {
@@ -498,7 +510,7 @@ export default function BuildTab({
 
       <div className="qq-build-divider" />
 
-      <FieldsPanel fields={fields} onChange={onFieldsChange} />
+      <FieldsPanel fields={fields} onChange={onFieldsChange} onInsertRoofWidget={handleInsertRoofWidget} />
 
       <div className="qq-build-divider" />
 
