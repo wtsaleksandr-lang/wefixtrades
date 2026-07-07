@@ -160,6 +160,7 @@
   #selectRoof .sr-hint svg{flex:0 0 auto;width:14px;height:14px;stroke:#7fa0ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #selectRoof .sr-count{position:absolute;left:8px;top:8px;z-index:5;display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;letter-spacing:-.01em;padding:7px 11px;border-radius:7px;box-shadow:0 4px 14px rgba(13,60,252,.32)}
   #selectRoof .sr-count svg{flex:0 0 auto;width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #selectRoof .sr-credit{position:absolute;right:8px;bottom:8px;z-index:5;max-width:calc(100% - 16px);background:rgba(17,24,39,.46);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:rgba(255,255,255,.9);font-size:9.5px;line-height:1.3;font-weight:500;padding:3px 7px;border-radius:6px;text-align:right;pointer-events:none}
   #selectRoof .sr-load{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13.5px;font-weight:600}
   #selectRoof .sr-load .sr-ring{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:srspin .9s linear infinite}
   @keyframes srspin{to{transform:rotate(360deg)}}
@@ -1636,6 +1637,8 @@
       <div class="sr-load" id="srLoad"><div class="sr-ring"></div><span id="srLoadT">Locating your building…</span></div>
       <div class="sr-count" id="srCount" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg><span id="srCountT">1 building selected</span></div>
       <div class="sr-hint" id="srHint"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="srHintT">Tap buildings to add or remove them from your quote.</span></div>
+      <!-- CC-BY / ODbL attribution for the neighbour building outlines (OSM · Microsoft · VIDA Open Buildings). Populated from the /buildings response; VIDA (CC-BY-4.0) requires this credit whenever its outlines are shown. -->
+      <div class="sr-credit" id="srCredit" style="display:none"></div>
       <!-- (perf fix2) SETTLING badge — after Continue we KEEP this satellite + the confirmed blue outline on
            screen (never a grey void) and show a subtle progress pill here while the precise editor loads. -->
       <div class="sr-settle" id="srSettle"><span class="sr-settle-ring"></span><span id="srSettleT">Perfecting your roofline…</span></div>
@@ -5959,17 +5962,17 @@ async function run(addr){
         // {candidates:[{ring,source,attribution}...]}; old/cached responses may only carry a single
         // top-level {ring,source} — normalise both shapes into __footprintCandidates.
         let cands=Array.isArray(fp.candidates)?fp.candidates.slice():[];
-        if(!cands.length && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="cache")){
+        if(!cands.length && Array.isArray(fp.ring) && fp.ring.length>=4 && (fp.source==="osm"||fp.source==="msft"||fp.source==="vida"||fp.source==="cache")){
           cands=[{ ring:fp.ring, source:fp.source, attribution:fp.attribution||"" }];
         }
-        cands=cands.filter(c=>c&&Array.isArray(c.ring)&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"||c.source==="cache"));
+        cands=cands.filter(c=>c&&Array.isArray(c.ring)&&c.ring.length>=4&&(c.source==="osm"||c.source==="msft"||c.source==="vida"||c.source==="cache"));
         if(cands.length){
           window.__footprintCandidates=cands;
           // Seed the legacy single-source globals with the primary (cascade) pick; the registration step
           // in extractFacetPolysAnalytic re-selects the best-aligned candidate and overwrites these.
           const primary=cands[0];
           window.__footprintWGS=primary.ring;       // [[lng,lat],...] open ring
-          window.__footprintSource=primary.source;  // "osm" | "msft" | "cache"
+          window.__footprintSource=primary.source;  // "osm" | "msft" | "vida" | "cache"
           window.__footprintAttribution=primary.attribution||"";
         }
       }
@@ -6928,7 +6931,7 @@ function extractFacetPolysAnalytic(margin){
   //    blob, DP-simplify, light orthogonal regularize. This is the starting polygon
   //    every facet is clipped FROM (already ordered; no stitching).
   let footprint=null, footprintFull=null;   // footprintFull = whole-block ring when a shared-building split trims `footprint` to one unit
-  let footprintSource="mask";                // "osm" | "msft" | "cache" | "mask" — exposed via window.__footprintSource
+  let footprintSource="mask";                // "osm" | "msft" | "vida" | "cache" | "mask" — exposed via window.__footprintSource
   // ── PRIMARY: clean VECTOR building footprint, fetched in run() into window.__footprintCandidates.
   //    (fix4 #1) Multiple sources can be available (OSM AND Microsoft). We register EVERY candidate to
   //    Google's roof reference and KEEP THE ONE THAT LANDS BEST (smallest post-registration shift, with a
@@ -6938,7 +6941,7 @@ function extractFacetPolysAnalytic(margin){
   //    architectural edges, register, score; the winner's outline (then + overhang) is what every facet is
   //    clipped from. This is the EVEN-roofline fix. Falls through to the mask trace if NO candidate aligns.
   let cands=Array.isArray(window.__footprintCandidates)?window.__footprintCandidates:null;
-  if(!cands && Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="msft"||window.__footprintSource==="cache")){
+  if(!cands && Array.isArray(window.__footprintWGS) && window.__footprintWGS.length>=4 && (window.__footprintSource==="osm"||window.__footprintSource==="msft"||window.__footprintSource==="vida"||window.__footprintSource==="cache")){
     cands=[{ ring:window.__footprintWGS, source:window.__footprintSource, attribution:window.__footprintAttribution||"" }];
   }
   if(cands && cands.length){
@@ -13705,6 +13708,8 @@ function footprintCreditLine(){
   let txt="";
   if(src==="osm") txt="Building outline © OpenStreetMap contributors.";
   else if(src==="msft") txt=(window.__footprintAttribution||"© Microsoft Building Footprints")+" (building outline).";
+  // VIDA Open Buildings is CC-BY-4.0 → attribution is REQUIRED whenever a VIDA outline is shown.
+  else if(src==="vida") txt=(window.__footprintAttribution||"© Google–Microsoft–OSM Open Buildings / VIDA (CC-BY-4.0)")+" (building outline).";
   else if(src==="cache") txt=(window.__footprintAttribution||"© national building footprints")+" (building outline).";
   else return "";
   return '<div class="muted" style="font-size:10px;margin-top:4px;opacity:.8">'+txt+'</div>';
@@ -15056,6 +15061,10 @@ function _addNeighbourBuildings(g, neighbours, seq){
     // IN-FRAME as they load WITHOUT the map ever moving on its own — the prior auto-zoom-out was jarring (Alex).
     // flip the single-detect hint to the multi-building string now that neighbours are tappable
     if(__srBuildings.length>1){ const ht=$("srHintT"); if(ht) ht.textContent="Tap buildings to add or remove them from your quote."; }
+    // CC-BY / ODbL compliance: the neighbour outlines just drawn may include VIDA (Google–Microsoft–OSM Open
+    // Buildings, CC-BY-4.0) alongside OSM/Microsoft. Their required attribution rode back on the /buildings
+    // response; surface it as a small on-map credit line now that outlines are on screen.
+    try{ const cr=$("srCredit"), at=(typeof window!=="undefined"&&window.__neighbourAttribution)||""; if(cr&&at){ cr.textContent=at; cr.style.display="block"; } }catch(_){}
     syncSelection();
     return add.length;
   }catch(_){ return 0; }
@@ -15187,6 +15196,9 @@ async function fetchNeighbours(lat,lng){
   const dLat=0.0010, dLng=0.0010/Math.max(0.2,Math.cos(lat*Math.PI/180));   // ~110m N/S, ~110m E/W
   const bbox=[(lat-dLat).toFixed(6),(lng-dLng).toFixed(6),(lat+dLat).toFixed(6),(lng+dLng).toFixed(6)].join(",");
   const r=await fetchJSON("/buildings?bbox="+bbox,"buildings").catch(()=>null);
+  // Capture the required source attribution (OSM · Microsoft · VIDA CC-BY-4.0) so _addNeighbourBuildings can
+  // render it as an on-map credit line. Previously this string was silently dropped — a CC-BY licence gap.
+  try{ if(r&&typeof r.attribution==="string"&&r.attribution) window.__neighbourAttribution=r.attribution; }catch(_){}
   return (r&&Array.isArray(r.buildings))?r.buildings:[];
 }
 
@@ -15213,6 +15225,7 @@ async function enterSelectRoof(addr, placeId){
   setFunnelStep("roof");
   $("srAddr").textContent=v;
   $("srLoad").style.display="flex"; $("srLoadT").textContent="Locating your building…";
+  try{ const cr=$("srCredit"); if(cr){ cr.style.display="none"; cr.textContent=""; } window.__neighbourAttribution=""; }catch(_){}  // clear any prior address's attribution
   // FIX 1: gate Continue while the preview is still detecting/blank. Disable now; re-enable when the
   // preview renders (below) or after a safety timeout (~7s) so a slow/failed detect never traps the buyer.
   __srSetContinueReady(false);

@@ -1135,8 +1135,8 @@ async function msftFootprint(lat: number, lng: number): Promise<LngLat[] | null>
   return best && bestD <= 60 ? best : null;
 }
 
-export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "cache"; attribution: string; }
-export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; incomplete?: boolean; }
+export interface FootprintCandidate { ring: LngLat[]; source: "osm" | "msft" | "vida" | "cache"; attribution: string; }
+export interface FootprintResult { ring?: LngLat[]; source: "osm" | "msft" | "vida" | "cache" | "none"; attribution?: string; error?: string; candidates?: FootprintCandidate[]; incomplete?: boolean; }
 
 // (fix6 latency) How long the route will WAIT for the Microsoft tile before responding with whatever
 // it has (OSM). The msftFootprint promise is NOT aborted past this budget — Node keeps it running so
@@ -1233,18 +1233,32 @@ export async function buildingFootprint(lat: string, lng: string): Promise<Footp
   const candidates: FootprintCandidate[] = [];
   if (osm && osm.length >= 3) candidates.push({ ring: osm, source: "osm", attribution: "© OpenStreetMap contributors" });
   if (msft && msft.length >= 3) candidates.push({ ring: msft, source: "msft", attribution: "© Microsoft Building Footprints (ODbL/CDLA)" });
+  // 3rd source: VIDA Google–Microsoft–OSM Open Buildings — the coverage-gap fallback (ZA/AU etc). Runs ONLY when
+  // OSM AND Microsoft both returned nothing, so US/CA behaviour is unchanged (VIDA is a fallback, not a
+  // replacement). Time-boxed by VIDA_FOOTPRINT_BUDGET_MS so a slow/cold DuckDB→S3 query can't hang the request —
+  // on timeout it falls through to the cache/none backstop; the background-complete query still finishes + caches
+  // so the next call self-heals. vidaFootprint never throws (returns null on any failure); the timeboxResolve
+  // fallback arm is just a backstop.
+  if (!candidates.length) {
+    const vida = await timeboxResolve<LngLat[] | null>(vidaFootprint(la, ln), VIDA_FOOTPRINT_BUDGET_MS, null);
+    if (vida && vida.length >= 3) candidates.push({ ring: vida, source: "vida", attribution: "© Google–Microsoft–OSM Open Buildings / VIDA (CC-BY-4.0)" });
+  }
   if (!candidates.length) {
     const c = cacheFootprint(la, ln);
     if (c && c.length >= 3) candidates.push({ ring: c, source: "cache", attribution: "© Microsoft / national building footprints" });
   }
-  // msPending: MS was still warming when the budget expired → INCOMPLETE (missing MS).
-  const msPending = !msft;
+  // msPending: MS was still warming when the budget expired → INCOMPLETE (missing MS). But a VIDA hit is the
+  // DETERMINISTIC final answer for a coverage-gap market (no MS tile is coming), so it is COMPLETE — otherwise a
+  // permanent `incomplete` flag would make the client refetch on every load (the ZA/AU never-caches bug).
+  const hasVida = candidates.some((c) => c.source === "vida");
+  const msPending = !msft && !hasVida;
   if (!candidates.length) return { source: "none", candidates: [] };
   const primary = candidates[0];
   const out: FootprintResult = { ring: primary.ring, source: primary.source, attribution: primary.attribution, candidates, incomplete: msPending };
   // Persist ANY real-source hit immediately (kills the warm==cold defeat). Complete → 30d TTL; OSM-only
   // (MS pending) → short incomplete-TTL so the warm reload is instant yet upgrades to the complete set shortly.
-  if (candidates.some((c) => c.source === "osm" || c.source === "msft")) diskSetJSON("footprint", key, { body: out, _t: Date.now(), incomplete: msPending });
+  // VIDA is deterministic + stable → persisted as complete (30d) so a coverage-gap address isn't re-queried every load.
+  if (candidates.some((c) => c.source === "osm" || c.source === "msft" || c.source === "vida")) diskSetJSON("footprint", key, { body: out, _t: Date.now(), incomplete: msPending });
   return out;
 }
 
@@ -1484,6 +1498,29 @@ async function vidaBuildingsBbox(bs: number, bw: number, bn: number, be: number,
   const per = await Promise.all(iso3s.map((iso3) => vidaQueryCountry(conn, iso3, bs, bw, bn, be, priority)));
   for (const list of per) for (const b of list) { if (seen.has(b.id)) continue; seen.add(b.id); out.push(b); }
   return out;
+}
+
+// ── VIDA SINGLE-building footprint — the 3rd source in buildingFootprint()'s OSM→MS→VIDA→cache chain ──
+// Mirrors fpPickBuilding's selection rule exactly: query a small (~30 m half-span) bbox around the point via
+// VIDA, then pick the ring CONTAINING the point; else the NEAREST centroid within 40 m. Because VIDA only runs
+// after OSM AND Microsoft both miss (see buildingFootprint), US/CA (OSM/MS-rich) behaviour is unchanged — this
+// is a strict coverage-gap FALLBACK (ZA/AU etc). Returns null on any miss/failure; NEVER throws. The caller
+// time-boxes it (VIDA_FOOTPRINT_BUDGET_MS) so a slow/cold S3 read can't hang the /footprint request.
+async function vidaFootprint(lat: number, lng: number): Promise<LngLat[] | null> {
+  const { mLat, mLng } = fpMetres(lat);
+  const dLat = 30 / mLat, dLng = 30 / (mLng || 1); // ~30 m half-span box (row-group pruning keeps the S3 read tiny)
+  const bs = lat - dLat, bn = lat + dLat, bw = lng - dLng, be = lng + dLng;
+  const iso3s = iso3CandidatesFromBbox(bs, bw, bn, be);
+  if (!iso3s.length) return null; // outside every supported VIDA market → skip
+  // Reuse vidaBuildingsComplete: it runs the country query (via vidaBuildingsBbox, priority=true so it preempts
+  // prewarm) to COMPLETION in the background and caches its rows by rounded bbox, so a cold miss self-heals for
+  // the next call. It never throws (returns [] on any failure).
+  const blds = await vidaBuildingsComplete(bs, bw, bn, be, iso3s);
+  if (!Array.isArray(blds) || !blds.length) return null;
+  for (const b of blds) if (fpPointInRing([lng, lat], b.ring)) return b.ring; // containing ring wins
+  let best: LngLat[] | null = null, bestD = Infinity; // else nearest centroid within 40 m (same as fpPickBuilding)
+  for (const b of blds) { const c = b.centroid; const d = Math.hypot((c[0] - lng) * mLng, (c[1] - lat) * mLat); if (d < bestD) { bestD = d; best = b.ring; } }
+  return best && bestD <= 40 ? best : null;
 }
 
 // ── Background completion + self-healing cache (mirrors the MS-tile "keep running past the budget" model) ──
