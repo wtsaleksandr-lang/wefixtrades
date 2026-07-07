@@ -1143,6 +1143,50 @@
   /* compliance footnote on the panel-design card — muted, unobtrusive */
   #solarGrid .sg-disc{font-size:10.5px;color:var(--faint);line-height:1.4;margin-top:2px;text-align:center}
   #solarGrid .sg-disc .sg-disc-i{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--faint);color:var(--faint);font-size:9px;font-weight:700;margin-left:3px;cursor:pointer;vertical-align:middle}
+  /* ── LIVE FULL-ESTIMATE PANEL inside the solar designer — mirrors the #card estimate tiles/chart/ring so
+       the buyer sees the whole estimate AT panel-select. Uses the SAME light tokens as #card → theme-aware.
+       Selected chips = OUTLINE emphasis (never a bright fill), per the hard UI rules. */
+  #solarGrid .sg-est{display:flex;flex-direction:column;gap:8px}
+  #solarGrid .sg-est .ktiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #solarGrid .sg-est .ktile{background:#f7f9fc;border:1px solid var(--line);border-radius:var(--tile-radius);padding:8px 9px;min-width:0}
+  #solarGrid .sg-est .ktv{font-size:16px;font-weight:800;color:var(--ink);line-height:1.05;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #solarGrid .sg-est .ktu{font-size:10px;font-weight:700;color:var(--muted);margin-left:1px}
+  #solarGrid .sg-est .ktl{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:3px}
+  #solarGrid .sg-est .ktsub{font-size:9.5px;color:var(--muted);margin-top:3px;line-height:1.25}
+  #solarGrid .sg-est .ktsub s{color:var(--faint);opacity:.85}
+  #solarGrid .sg-est .itc-line{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink);font-weight:700;line-height:1.35}
+  #solarGrid .sg-est .itc-line .itc-amt{color:var(--green-text);font-weight:800}
+  #solarGrid .sg-est .kchart-wrap{position:relative;border:1px solid var(--line);border-radius:11px;background:#fbfcfe;padding:6px 6px 2px;overflow:visible}
+  #solarGrid .sg-est .kpi-chart{display:block;width:100%;height:108px}
+  #solarGrid .sg-est .kpi-chart text{font-family:inherit}
+  #solarGrid .sg-est .offring{display:flex;align-items:center;gap:10px;background:#fbfcfe;border:1px solid var(--line);border-radius:11px;padding:8px 10px}
+  #solarGrid .sg-est .or-ring{flex:0 0 auto;width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--green-text) calc(var(--p)*1%),#e6ebf3 0);display:flex;align-items:center;justify-content:center;position:relative}
+  #solarGrid .sg-est .or-ring::before{content:"";position:absolute;inset:4px;background:#fbfcfe;border-radius:50%}
+  #solarGrid .sg-est .or-ring span{position:relative;font-size:10px;font-weight:800;color:var(--green-text)}
+  #solarGrid .sg-est .or-txt b{display:block;font-size:12px;font-weight:800;color:var(--ink);line-height:1.15}
+  #solarGrid .sg-est .or-txt small{display:block;font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.25}
+  #solarGrid .sg-est .sge-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  #solarGrid .sg-est .sge-l{font-size:11px;color:var(--muted);margin-right:2px}
+  #solarGrid .sg-est .sge-b{flex:0 0 auto;background:#f7f9fc;border:1px solid var(--line);border-radius:var(--badge-radius);padding:6px 10px;min-height:32px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;line-height:1.15}
+  #solarGrid .sg-est .sge-b.on{border-color:#0d3cfc;background:rgba(13,60,252,.06);color:#0d3cfc}
+  #solarGrid .sg-est .sge-b .aoc-d{display:block;font-size:8.5px;font-weight:700;color:var(--muted);margin-top:1px}
+  #solarGrid .sg-est .sge-b.on .aoc-d{color:var(--blue)}
+  #solarGrid .sg-est .sge-lock{font-size:11.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.4;padding:14px 8px;border:1px dashed var(--line);border-radius:12px;background:#fbfcfe}
+  /* DESKTOP (>560px): dock the estimate card on the LEFT, floating over the flux canvas (mirrors #card's
+     left placement); the canvas fills the stage behind/right. Internal scroll; CTA pinned to the bottom. */
+  @media (min-width:561px){
+    #solarGrid .sg-panel{position:absolute;left:12px;top:104px;bottom:12px;width:312px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:16px;box-shadow:var(--card-shadow);padding:13px 14px 0}
+    #solarGrid .sg-cta{position:sticky;bottom:0;background:var(--panel);padding:10px 0 13px;margin-top:2px;z-index:2}
+    #solarGrid .sg-cta::before{content:"";position:absolute;left:0;right:0;top:-16px;height:16px;pointer-events:none;background:linear-gradient(to top,var(--panel),transparent)}
+    #solarGrid .sg-disc{padding-bottom:10px}
+  }
+  /* MOBILE (≤560px): keep the estimate as the bottom scrollable section (existing sheet pattern) — no left
+     placement — capped so the top-down grid keeps the upper viewport; CTA sticks to the sheet bottom. */
+  @media (max-width:560px){
+    #solarGrid .sg-panel{max-height:56vh;overflow-y:auto;overflow-x:hidden}
+    #solarGrid .sg-cta{position:sticky;bottom:0;background:var(--panel);padding-top:9px;z-index:2}
+    #solarGrid .sg-cta::before{content:"";position:absolute;left:0;right:0;top:-16px;height:16px;pointer-events:none;background:linear-gradient(to top,var(--panel),transparent)}
+  }
   /* open-grid button injected into the Solar quote card */
   .sg-open{display:flex;align-items:center;gap:9px;width:100%;margin-top:9px;background:linear-gradient(120deg,rgba(13,60,252,.08),rgba(22,182,207,.10));border:1px solid rgba(13,60,252,.22);border-radius:12px;padding:11px 13px;cursor:pointer;font-family:inherit;text-align:left}
   .sg-open .sgo-ic{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:#0d3cfc;color:#fff;display:flex;align-items:center;justify-content:center}
@@ -1817,6 +1861,11 @@
         <div class="sg-m" id="sgOffsetTile" style="display:none"><div class="v" id="sgOffset">—</div><div class="l">Bill offset</div></div>
       </div>
       <div class="sg-price"><span class="pv" id="sgPrice">$0</span><span class="pmo" id="sgMonthly"></span><span class="psub" id="sgPriceSub">est. installed</span></div>
+      <!-- FULL live estimate — the SAME metrics as the Estimate-step quote card (net cost, new monthly,
+           payback, 25-yr savings, payback chart, coverage ring, add-ons, pay-with), rendered by
+           sgRenderEstimate() and refreshed on every panel/tier/bill change so the buyer sees the whole
+           estimate AT panel-select (card is docked LEFT on desktop). -->
+      <div class="sg-est" id="sgEstimate" style="display:none"></div>
       <div class="sg-bill">
         <div class="sgb-cue">Average monthly electric bill <span class="hq" id="sgBillHelp" title="Used to show your bill before vs after solar and size the savings. Optional.">i</span></div>
         <div class="sgb-wrap"><span class="sgb-dollar">$</span><input id="sgBill" type="number" inputmode="numeric" min="0" max="2000" step="10" placeholder="e.g. 220"><span class="sgb-per">/ month</span></div>
@@ -11253,6 +11302,107 @@ function sgUpdateMetrics(){
   const anyLow=SG_STATE.panels.some(c=>c.lowSun);
   $("sgSubtitle").textContent = anyLow ? 'Amber-ringed panels get the least sun — lower payoff' : 'Tap the squares to add or remove panels';
   const legLow=$("sgLegLow"); if(legLow) legLow.style.display = anyLow ? '' : 'none';
+  try{ sgRenderEstimate(); }catch(_){}   // full live estimate card (net cost, payback, 25-yr, chart, ring, add-ons) — updates on every change
+}
+// ── FULL live estimate model — mirrors the quote card's cost model EXACTLY (gridSelectionMetrics base +
+//    the SAME add-on bands / ITC / financing / solarFinModel), so the numbers shown AT panel-select equal
+//    what "Use this system" then commits into the Estimate-step card (no discrepancy / flicker).
+function sgEstimateModel(){
+  const m=gridSelectionMetrics(); if(!m || m.panels<=0) return null;
+  let lo=m.lo, hi=m.hi;                                              // already include the panel-quality multiplier (same as the card)
+  const ao=window.__addons||(window.__addons={battery:false,ev:false});
+  if(ao.battery){ lo+=ADDON_PRICES.battery.lo; hi+=ADDON_PRICES.battery.hi; }
+  if(ao.ev){ lo+=ADDON_PRICES.ev.lo; hi+=ADDON_PRICES.ev.hi; }
+  const evcMid=ao.ev?Math.round((ADDON_PRICES.ev.lo+ADDON_PRICES.ev.hi)/2):0;   // EV-charger portion carved OUT of any credit base (mirrors the card)
+  const totKwh=m.kwhAc, totKw=m.kw;
+  const sMid=(lo+hi)/2;
+  const itcR=itcRate(), itcAmt=itcAmount(sMid-evcMid), netCost=Math.round((sMid-evcMid)*(1-itcR))+evcMid;
+  const fin=TENANT.financing, sTerm=solarTermYears(), sFin=monthly(netCost, fin.solarApr, sTerm);
+  const leaseMo=Math.round(totKw*fin.leasePerKwMo);
+  const srecYr=srecIncome(totKwh);
+  const bill=+(($("sgBill").value)||0);
+  const usage=(bill>0 && REGION.rate>0)?bill*12/REGION.rate:0;
+  const KM=solarFinModel({ kwhY1:totKwh, netCost:netCost, srecYr:srecYr, payMode:payMode,
+    loanMo:sFin, leaseMo:leaseMo, term:sTerm, annualConsumptionKwh:(usage>0?usage:0), oldBill:bill });
+  return { m, lo, hi, sMid, itcR, itcAmt, netCost, sFin, sTerm, leaseMo, srecYr, KM, totKwh, totKw, evcMid, grossMid:Math.round(sMid), bill, usage };
+}
+// ── Render the full estimate into #sgEstimate. Called from sgUpdateMetrics on open + every interaction.
+function sgRenderEstimate(){
+  const host=$("sgEstimate"); if(!host) return;
+  const E=sgEstimateModel();
+  if(!E){ host.innerHTML=''; host.style.display='none'; return; }
+  host.style.display='';
+  // PER-TRADE GATE: keep the full estimate behind the lead form when solar is gated + no lead captured
+  // (same rule the bare price readout obeys).
+  if((typeof window.__priceGated==="function") && window.__priceGated("solar")){
+    host.innerHTML='<div class="sge-lock">🔒 Enter your details to reveal your full estimate — savings, payback and 25-year value.</div>';
+    return;
+  }
+  const {itcR,itcAmt,netCost,sFin,sTerm,leaseMo,srecYr,KM,totKwh,grossMid,usage,bill}=E;
+  // (a) NET COST / INSTALLED PRICE
+  const kpiNet='<div class="ktile"><div class="ktv">'+fmtMoney(netCost)+'</div>'+
+    '<div class="ktl">'+(itcR>0?'Net cost':'Installed price')+'</div>'+
+    '<div class="ktsub">'+(itcR>0&&itcAmt>0?'after '+fmtMoney(itcAmt)+' federal tax credit ('+Math.round(itcR*100)+'%)':'installed price')+
+    (grossMid>netCost?' · <s>'+fmtMoney(grossMid)+'</s>':'')+'</div></div>';
+  // (b) NEW MONTHLY / value / payment
+  let kpiMonthly;
+  if(KM.newBill!=null){
+    const misleadingWas=!!KM.estimated && KM.oldBill!=null && KM.newBill>=KM.oldBill;
+    const wasSub=(KM.oldBill!=null && !misleadingWas)?(KM.estimated?'est. was ':'was ')+fmtMoney(KM.oldBill):'';
+    const saveSub=(KM.oldBill!=null && KM.oldBill>KM.newBill)?' · save '+fmtMoney(KM.oldBill-KM.newBill)+'/mo':'';
+    const inviteSub=misleadingWas?' · add your bill for exact savings':'';
+    kpiMonthly='<div class="ktile"><div class="ktv">'+fmtMoney(KM.newBill)+'<span class="ktu">/mo</span></div>'+
+      '<div class="ktl">New monthly</div><div class="ktsub">'+wasSub+saveSub+(payMode==="loan"?' · incl. loan':'')+inviteSub+'</div></div>';
+  } else {
+    const v=payMode==="loan"?Math.round(sFin):(payMode==="lease"?leaseMo:KM.monthlySolarValue);
+    kpiMonthly='<div class="ktile"><div class="ktv">'+fmtMoney(v)+'<span class="ktu">/mo</span></div>'+
+      '<div class="ktl">'+(payMode==="cash"?'Solar value':'Payment')+'</div><div class="ktsub">'+(payMode==="cash"?'power you no longer buy':(payMode==="lease"?'$0-down lease':loanTermsTxt(sTerm, TENANT.financing.solarApr)))+'</div></div>';
+  }
+  // (c) PAYBACK / AHEAD-FROM (mode-aware, mirrors the card)
+  const ms= totKwh ? { net:KM.net25, payback:KM.payback } : null;
+  let kpiPayback;
+  if(payMode==="lease"){
+    kpiPayback='<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Positive from</div><div class="ktsub">$0 down · save from the first bill</div></div>';
+  } else if(payMode==="loan"){
+    const dayOneSave=Math.round(KM.monthlySolarValue - sFin);
+    if(dayOneSave>=0){
+      kpiPayback='<div class="ktile"><div class="ktv">Day one</div><div class="ktl">Ahead from</div><div class="ktsub">you save ~'+fmtMoney(dayOneSave)+'/mo from month one — growing as rates rise</div></div>';
+    } else {
+      const annualPay=sFin*12; let flipYr=0; for(let n=0;n<KM.save.length;n++){ if(KM.save[n]>=annualPay){ flipYr=n+1; break; } }
+      kpiPayback='<div class="ktile"><div class="ktv">'+(flipYr?('Year '+flipYr):'—')+'</div><div class="ktl">Ahead from</div><div class="ktsub">'+(flipYr?'savings overtake the payment by year '+flipYr:'savings overtake the payment as rates rise')+'</div></div>';
+    }
+  } else {
+    const remYrs= ms&&ms.payback>0 ? Math.max(0,Math.round(FIN_ASSUME.horizon-ms.payback)):0;
+    kpiPayback=(ms&&ms.payback>0)
+      ? '<div class="ktile"><div class="ktv">Year '+ms.payback.toFixed(1)+'</div><div class="ktl">Pays for itself</div><div class="ktsub">then free electricity for ~'+remYrs+' more years</div></div>'
+      : '<div class="ktile"><div class="ktv">25 yr+</div><div class="ktl">Pays for itself</div><div class="ktsub">long-horizon payback at this rate</div></div>';
+  }
+  // (d) 25-YEAR SAVINGS (never headline $0 — fall back to ownership value in low-rate markets, as the card does)
+  let sav25= ms?ms.net:0, sav25Sub='vs. staying with the utility';
+  if(ms && ms.net<=0 && totKwh){ try{ const cm=solarFinModel({kwhY1:totKwh,netCost:netCost,srecYr:srecYr,payMode:"cash",term:sTerm,annualConsumptionKwh:(usage>0?usage:0),oldBill:bill}); if(cm.net25>0){ sav25=cm.net25; sav25Sub='if you own it — before financing'; } }catch(_){} }
+  const kpi25= ms ? '<div class="ktile"><div class="ktv">'+fmtMoney(Math.max(0,sav25))+'</div><div class="ktl">25-year savings</div><div class="ktsub">'+sav25Sub+'</div></div>' : '';
+  const tiles= totKwh ? '<div class="ktiles">'+kpiNet+kpiMonthly+kpiPayback+kpi25+'</div>' : '';
+  const itcLine=(itcR>0&&itcAmt>0)?'<div class="itc-line">−<span class="itc-amt">'+fmtMoney(itcAmt)+'</span> est. '+Math.round(itcR*100)+'% federal tax credit</div>':'';
+  const chart=(totKwh && KM.cum && KM.cum.length)?'<div class="kchart-wrap">'+kpiChartSvg(KM,false)+'</div>':'';
+  // COVERAGE RING
+  let ring='';
+  if(KM.offsetPct!=null){
+    const disp=KM.offsetPct>=100?'100%+':KM.offsetPct+'%'; const gpct=Math.min(100,KM.offsetPct);
+    ring='<div class="offring"><div class="or-ring" style="--p:'+gpct+'"><span>'+disp+'</span></div>'+
+      '<div class="or-txt"><b>'+(KM.estimated?'Sized to cover your home':'Covers '+disp+' of your electricity')+'</b><small>'+(KM.estimated?'Produces ~'+(totKwh?totKwh.toLocaleString():'—')+' kWh/yr — about what a home this size uses. Enter your bill to refine.':(KM.offsetPct>=100?'Produces as much as your home uses in a year.':'The rest is topped up from the grid, at retail rate.'))+'</small></div></div>';
+  }
+  // ADD-ON CHIPS (Battery / EV) with price delta — outline-selected (never a bright fill)
+  const ao=window.__addons||{}; const _yr1=Math.max(1,totKwh*REGION.rate);
+  const addDelta=(l,h,elig)=>{ const mid=(l+h)/2, netAdd=elig?mid*(1-itcR):mid; return Math.max(0,netAdd/_yr1); };
+  const batD=ao.battery?' <span class="aoc-d">+'+fmtMoney(ADDON_PRICES.battery.lo)+'–'+kAbbr(ADDON_PRICES.battery.hi)+' · payback +'+addDelta(ADDON_PRICES.battery.lo,ADDON_PRICES.battery.hi,itcR>0).toFixed(1)+' yrs</span>':'';
+  const evD=ao.ev?' <span class="aoc-d">+'+fmtMoney(ADDON_PRICES.ev.lo)+'–'+kAbbr(ADDON_PRICES.ev.hi)+'</span>':'';
+  const batChip=TENANT.features.battery?('<button class="sge-b'+(ao.battery?' on':'')+'" data-sg-ao="battery" type="button">'+(ao.battery?'✓ ':'')+ADDON_PRICES.battery.label+batD+'</button>'):'';
+  const evChip=TENANT.features.ev?('<button class="sge-b'+(ao.ev?' on':'')+'" data-sg-ao="ev" type="button">'+(ao.ev?'✓ ':'')+ADDON_PRICES.ev.label+evD+'</button>'):'';
+  const addRow=(batChip||evChip)?'<div class="sge-row"><span class="sge-l">Add-ons</span>'+batChip+evChip+'</div>':'';
+  // PAY-WITH (Cash / Loan / optional Lease) — shares payMode with the quote card
+  const payOpts=[{id:"cash",label:"Cash"},{id:"loan",label:"Loan"}].concat((TENANT.financing.leaseEnabled&&TENANT.features.leasePPA)?[{id:"lease",label:"Lease"}]:[]);
+  const payRow='<div class="sge-row"><span class="sge-l">Pay with</span>'+payOpts.map(o=>'<button class="sge-b'+(payMode===o.id?' on':'')+'" data-sg-pm="'+o.id+'" type="button">'+o.label+'</button>').join('')+'</div>';
+  host.innerHTML=tiles+itcLine+chart+ring+addRow+payRow;
 }
 // ── Pick the panel quad under a canvas-px point (exact polygon, else nearest centroid). No state change.
 function sgPick(px,py){
@@ -11626,6 +11776,16 @@ window.__sgFirstSelectedVisibleCenter=()=>{ if(!SG_STATE||!SG_STATE.proj) return
   };
   const back=$("solar3dBack"); if(back) back.onclick=()=>{ if(window.__solar3dActive) exitSolar3D(); };
   const bill=$("sgBill"); if(bill) bill.addEventListener("input",()=>sgUpdateMetrics());
+  // FULL-ESTIMATE add-on chips (Battery/EV) + Pay-with toggles — delegated (the panel re-renders each
+  // update). They mutate the SAME shared globals the quote card reads (window.__addons / payMode), then
+  // re-render both surfaces so the grid estimate and the committed Estimate-step card never disagree.
+  const estHost=$("sgEstimate");
+  if(estHost) estHost.addEventListener("click",(e)=>{
+    const ab=e.target.closest("[data-sg-ao]");
+    if(ab){ const k=ab.dataset.sgAo, ao=window.__addons||(window.__addons={battery:false,ev:false}); if(k in ao){ ao[k]=!ao[k]; sgUpdateMetrics(); try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} } return; }
+    const pb=e.target.closest("[data-sg-pm]");
+    if(pb){ payMode=pb.dataset.sgPm; sgUpdateMetrics(); try{ if(typeof renderQuoteCard==="function") renderQuoteCard(); }catch(_){} return; }
+  });
   const help=$("sgBillHelp"); if(help) help.onclick=()=>{ if(typeof openInfoModal==="function") openInfoModal('<h3 style="margin:0 0 8px">Your electric bill</h3><p style="margin:0;color:var(--muted);line-height:1.5">We use your average monthly bill to estimate how much energy you use, then show your bill <b>before vs after</b> solar and size your savings. It’s optional — the panel design works without it.</p>'); };
   const sgDisc=$("sgDiscHelp"); if(sgDisc){ const openDisc=()=>{ if(typeof openInfoModal==="function") openInfoModal((typeof DISC_FULL!=="undefined"&&DISC_FULL.solar)||'<h3 style="margin:0 0 8px">Estimate &amp; eligibility</h3><p style="margin:0;color:var(--muted);line-height:1.5">Prices, savings and incentives shown are estimates; your final price is confirmed after a free on-site assessment. Cash and loan prices include no federal tax credit — the federal residential solar credit ended for systems installed after 2025. State or local incentives may apply — consult a tax professional. Financing shown is illustrative; actual terms are subject to credit approval.</p>'); }; sgDisc.onclick=openDisc; sgDisc.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openDisc(); } }; }
   window.addEventListener("resize",()=>{ if(window.__sgOpen){ sgLayout(); sgDraw(); } });
