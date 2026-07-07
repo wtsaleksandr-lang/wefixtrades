@@ -123,6 +123,7 @@ const BuildWithAiPreview = lazy(() => import("@/pages/products/quotequick/BuildW
 // ── Shared / public ───────────────────────────────────────────────────────
 const SharedAuditReport = lazy(() => import("@/pages/marketing/SharedAuditReport"));
 const CitationTrackerPage = lazy(() => import("@/pages/marketing/CitationTrackerPage"));
+const SolutionsIndex = lazy(() => import("@/pages/solutions/SolutionsIndex"));
 const SolutionPage = lazy(() => import("@/pages/solutions/SolutionPage"));
 const DemoCenter = lazy(() => import("@/pages/demos/DemoCenter"));
 const DemoPage = lazy(() => import("@/pages/demos/DemoPage"));
@@ -639,6 +640,7 @@ function Router() {
       <Route path="/products" component={ProductIndex} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />
+      <Route path="/solutions" component={SolutionsIndex} />
       <Route path="/solutions/:slug" component={SolutionPage} />
 
       <Route path="/demos" component={DemoCenter} />
