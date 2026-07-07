@@ -4,6 +4,36 @@ import { Copy, Check, ChevronRight, Code, Key, Gauge, AlertCircle, Webhook, Tag,
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt, colors } from "@/theme/tokens";
+import {
+  API_TIERS,
+  API_OVERAGE_RATE_PER_1K_CALLS,
+  API_OVERAGE_MAX_MULTIPLIER,
+  QQ_LOYALTY_STARTER_MONTHLY,
+} from "@shared/pricing/apiTiers";
+
+/* Tier tables derive from the single canonical catalog (shared/pricing/apiTiers.ts)
+   so displayed prices/quotas can never drift from the server / portal copies. */
+const fmtInt = (n: number) => n.toLocaleString("en-US");
+
+const API_RATE_LIMIT_ROWS: string[][] = API_TIERS.map((t) => [
+  t.id === "free" ? "Developer (free)" : t.name,
+  `${fmtInt(t.rateLimitPerMinute)}/min`,
+  fmtInt(t.monthlyCallQuota),
+  t.priceMonthly === 0
+    ? "Hard stop at quota"
+    : `$${API_OVERAGE_RATE_PER_1K_CALLS} per 1,000 calls, cap ${API_OVERAGE_MAX_MULTIPLIER}×`,
+]);
+
+const API_PRICING_ROWS: string[][] = API_TIERS.map((t) => [
+  t.name,
+  `$${t.priceMonthly}`,
+  t.priceMonthly === 0
+    ? "$0"
+    : `$${fmtInt(t.priceAnnual)} ($${t.priceAnnualPerMonthEq}/mo)`,
+  fmtInt(t.monthlyCallQuota),
+  t.maxCalculators === -1 ? "Unlimited" : String(t.maxCalculators),
+  t.webhookQuota === -1 ? "Unlimited" : String(t.webhookQuota),
+]);
 
 /* ═══════════════════════════════════════════════════
    WeFixTrades Developer API Docs — single-pager
@@ -1017,13 +1047,7 @@ function ContentSections() {
 
         <Table
           head={["Tier", "Per-minute rate limit", "Monthly call quota", "Overage"]}
-          rows={[
-            ["Developer (free)", "5/min", "1,000", "Hard stop at quota"],
-            ["Starter", "30/min", "25,000", "$2 per 1,000 calls, cap 3×"],
-            ["Pro", "120/min", "150,000", "$2 per 1,000 calls, cap 3×"],
-            ["Business", "600/min", "750,000", "$2 per 1,000 calls, cap 3×"],
-            ["Agency", "1,800/min", "3,000,000", "$2 per 1,000 calls, cap 3×"],
-          ]}
+          rows={API_RATE_LIMIT_ROWS}
         />
 
         <H3 id="rate-headers">Response headers</H3>
@@ -1475,17 +1499,12 @@ function ContentSections() {
         </P>
         <Table
           head={["Tier", "Monthly", "Annual", "Calls / month", "Calculators", "Webhook subs"]}
-          rows={[
-            ["Developer", "$0", "$0", "1,000", "1", "0"],
-            ["Starter", "$49", "$480 ($40/mo)", "25,000", "3", "5"],
-            ["Pro", "$149", "$1,488 ($124/mo)", "150,000", "10", "20"],
-            ["Business", "$399", "$3,972 ($331/mo)", "750,000", "50", "100"],
-            ["Agency", "$999", "$9,948 ($829/mo)", "3,000,000", "Unlimited", "Unlimited"],
-          ]}
+          rows={API_PRICING_ROWS}
         />
         <Callout type="tip">
           <strong>QuoteQuick loyalty:</strong> existing QuoteQuick paid customers get Starter at{" "}
-          <InlineCode>$29/mo</InlineCode> for life. Email{" "}
+          <InlineCode>${QQ_LOYALTY_STARTER_MONTHLY}/mo</InlineCode> for as long as your QuoteQuick
+          plan stays active (it reverts to the standard Starter rate if you cancel QuoteQuick). Email{" "}
           <a href="mailto:billing@wefixtrades.com" style={{ color: C.accent }}>
             billing@wefixtrades.com
           </a>{" "}
