@@ -566,6 +566,17 @@ export default function PreviewPane({
   // (and the desktop device-preview toggle) keep the full bezel/grid/zoom/drag
   // machinery untouched. Gated solely on the viewport via useIsMobile().
   const isMobileViewport = useIsMobile();
+  // fix/wizard-desktop-fullwidth — the DESKTOP device-preview default now also
+  // renders the clean (Elfsight-style) anchored full-width path. The canvas /
+  // bezel / pan / zoom / drag machinery is reserved ONLY for the explicit
+  // `tablet` and `mobile` device-preview toggles, where a framed device mock is
+  // meaningful. So the "clean view" is mounted whenever we're on a real ≤768px
+  // viewport OR the device toggle is `desktop`. A ref mirror lets the
+  // once-bound wheel / pinch / drag pane listeners bail without re-binding on
+  // every device switch. (The roof widget keeps its own full-bleed path.)
+  const isCleanView = isMobileViewport || device === 'desktop';
+  const isCleanViewRef = useRef(isCleanView);
+  isCleanViewRef.current = isCleanView;
   // Track which field came from the live shell list — only those get the
   // per-field decorators. Placeholder seed fields (when `fields` is undefined)
   // are left alone since we can't reorder/remove them via the shell.
@@ -673,6 +684,25 @@ export default function PreviewPane({
       userZoomLockedRef.current = true;
       setZoom(savedScale);
     }
+  }, [device]);
+
+  // fix/wizard-desktop-fullwidth — the desktop default is now the clean,
+  // anchored, natively-scrolling path (no stage transform). Any pan/zoom that a
+  // previous build persisted under the desktop keys is DEAD for this view and
+  // could only confuse a later read, so clear it AND neutralise the live
+  // offset/zoom whenever the desktop clean path is active. Tablet/mobile device
+  // toggles still persist + restore their own keys (handled by the device
+  // effect above), so this only touches the desktop slot. The roof widget uses
+  // its own full-bleed path (also no transform), so this is harmless there too.
+  useEffect(() => {
+    if (device !== 'desktop') return;
+    try {
+      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_desktop`);
+      localStorage.removeItem(`${WIDGET_SCALE_KEY}_desktop`);
+    } catch { /* storage unavailable — the live reset below still applies */ }
+    userZoomLockedRef.current = false;
+    setWidgetOffset({ x: 0, y: 0 });
+    setZoom(1);
   }, [device]);
 
   // Persist zoom whenever it changes.
@@ -1536,6 +1566,11 @@ export default function PreviewPane({
     const pane = paneRef.current;
     if (!pane) return;
     const onWheel = (e: WheelEvent) => {
+      // fix/wizard-desktop-fullwidth — in the clean view (real mobile OR the
+      // desktop device default) there is NO stage transform, so neither
+      // canvas-pan nor ctrl-wheel-zoom apply. Let the wheel fall through to
+      // native scroll of the anchored, overflow-y:auto clean container.
+      if (isCleanViewRef.current) return;
       // BUG-1 — no zoom while the fullscreen TEST modal is open; the wheel
       // there must drive the live calculator only, never the editor canvas.
       if (fullscreenOpenRef.current) return;
@@ -1665,9 +1700,12 @@ export default function PreviewPane({
       pinchStartZoom = zoomRef.current || 1;
     };
     const onTouchStart = (e: TouchEvent) => {
+      // fix/wizard-desktop-fullwidth — no canvas pinch-zoom in the clean view.
+      if (isCleanViewRef.current) return;
       if (e.touches.length === 2) beginPinch(e);
     };
     const onTouchMove = (e: TouchEvent) => {
+      if (isCleanViewRef.current) return;
       if (e.touches.length !== 2) return;
       // A second finger may have arrived AFTER touchstart (e.g. mid one-finger
       // drag); seed the gesture on the first 2-touch move we see.
@@ -1726,6 +1764,9 @@ export default function PreviewPane({
     let active = false;
     let sx = 0, sy = 0, bx = 0, by = 0;
     const onStart = (e: TouchEvent) => {
+      // fix/wizard-desktop-fullwidth — no canvas drag in the clean desktop view
+      // (no stage to move); let the touch scroll the anchored container.
+      if (isCleanViewRef.current) { active = false; return; }
       if (e.touches.length !== 1 || isControlOrHandle(e.target)) { active = false; return; }
       active = true;
       sx = e.touches[0].clientX; sy = e.touches[0].clientY;
@@ -3016,71 +3057,101 @@ export default function PreviewPane({
    * mounted, so zoom is implicitly locked at 100% and there is no
    * drag-to-move / pinch-zoom / scroll-zoom. The swipe-to-delete touch
    * listener on `overlayHostRef` (bound elsewhere) keeps working. */
-  const mobileCleanContent = (
+  // fix/wizard-desktop-fullwidth — the clean (Elfsight-style) render path is now
+  // shared by BOTH the real ≤768px viewport AND the desktop device-preview
+  // default. The few mobile-only behaviours are branched on `cleanIsMobile`:
+  //   • mobile wraps the widget in <WizardPinchZoom> + gates overlays on
+  //     `isMobileZoomed` + hides the per-field remove (−) badges + omits the
+  //     drop zones (field add/remove live in the Build sheet on phones);
+  //   • desktop renders the widget bare (no pinch), keeps the remove (−) badges
+  //     AND the Elementor-style "+" DropZonesOverlay, exactly like the old
+  //     desktop bezel — just without the fixed-width draggable canvas.
+  // The widget owns its own maxWidth + margin:0 auto (see CSS), so width:100%
+  // renders it full-bleed-but-centred like Elfsight — not a fixed-width card.
+  const cleanIsMobile = isMobileViewport;
+  const cleanContent = (
     <div
-      className="qq-preview-mobile-clean"
-      data-testid="preview-mobile-clean"
+      className={`qq-preview-mobile-clean${cleanIsMobile ? '' : ' is-desktop'}`}
+      data-testid={cleanIsMobile ? 'preview-mobile-clean' : 'preview-desktop-clean'}
     >
       {/* Horizontal-scroll wrapper kept (harmless at full width) so the
           sticky-bearing bezel keeps overflow:clip (sticky-safe — see
-          project_overflow_clip_for_sticky). The mobile preview is always
-          full-width now; the width slider/drag handle were removed. */}
-      <div className="qq-preview-mobile-hscroll" data-testid="preview-mobile-hscroll">
+          project_overflow_clip_for_sticky). The preview is always full-width
+          now; the width slider/drag handle were removed. */}
+      <div className={`qq-preview-mobile-hscroll${cleanIsMobile ? '' : ' is-desktop'}`} data-testid="preview-mobile-hscroll">
       {/* Direct render of the live widget — no bezel, no browser chrome, no
           phone bezel. The widget-scope class is preserved so the global
           widget-scope touch-action / contrast rules still apply. */}
       <div
-        className="widget-scope qq-preview-mobile-widget-scope"
+        className={`widget-scope qq-preview-mobile-widget-scope${cleanIsMobile ? '' : ' is-desktop'}`}
         style={{
-          // Mobile preview is always full-width (the width override was removed).
+          // Always full-width; the widget's own maxWidth keeps it centred.
           width: '100%',
           margin: '0 auto',
         }}
       >
         <div
           ref={(el) => {
-            // Thread the same refs the desktop bezel uses so live editing,
+            // Thread the same refs the bezel paths use so live editing,
             // selection measurement, swipe-to-delete and title-edit keep
-            // working. bezelMeasureRef/stageRef aren't needed (no zoom/fit
-            // on mobile) so they're intentionally left unset here.
+            // working. bezelMeasureRef/stageRef aren't needed (no zoom/fit in
+            // the clean path) so they're intentionally left unset here — this
+            // keeps computeFitZoom() a no-op and the inline-title scale
+            // derivation (rect.width / offsetWidth) exactly 1 (no transform).
             setBezelRef(el);
             overlayHostRef.current = el;
           }}
-          data-testid="preview-bezel-mobile-clean"
-          className="qq-bezel--mobile-clean"
+          data-testid={cleanIsMobile ? 'preview-bezel-mobile-clean' : 'preview-bezel-desktop-clean'}
+          className={`qq-bezel--mobile-clean${cleanIsMobile ? '' : ' is-desktop'}`}
           onClick={onBezelClick}
           /* fix/tmpl-editor-mobile (A) — surface matches the widget body bg
              (token-derived) so a dark template shows no white band below the
              widget; light templates keep their white. */
           style={{ position: 'relative', width: '100%', background: previewBodyBg }}
         >
-          {/* feat/mobile-wizard-gestures (F2) — pinch-to-zoom wraps ONLY the
-              rendered widget, INSIDE the overlay host (this bezel). The host
-              itself is never inside a transformed ancestor, so the inline-title
-              scale derivation (getBoundingClientRect().width / offsetWidth) stays
-              exactly 1 and PreviewOverlay's measurements stay in unscaled host
-              space. Overlays below are suppressed while zoomed. */}
-          <WizardPinchZoom onZoomChange={setMobileZoom}>
-            {renderPreviewWidget}
-          </WizardPinchZoom>
-          {/* Clean mobile preview — selection ring stays, but the per-field
-              remove (−) badge is hidden (removal moves to the Build panel).
-              While pinch-zoomed (z>1) the overlays are hidden: they measure the
-              host's UNSCALED geometry and would sit misaligned over the scaled
-              widget; they return at 1×. */}
-          {!isMobileZoomed && shellFields.length > 0 && onRemoveField && (
+          {cleanIsMobile ? (
+            /* feat/mobile-wizard-gestures (F2) — pinch-to-zoom wraps ONLY the
+                rendered widget, INSIDE the overlay host (this bezel). The host
+                itself is never inside a transformed ancestor, so the inline-title
+                scale derivation (getBoundingClientRect().width / offsetWidth) stays
+                exactly 1 and PreviewOverlay's measurements stay in unscaled host
+                space. Overlays below are suppressed while zoomed. */
+            <WizardPinchZoom onZoomChange={setMobileZoom}>
+              {renderPreviewWidget}
+            </WizardPinchZoom>
+          ) : (
+            /* Desktop clean — no pinch-zoom (mouse/trackpad); render bare so the
+                host geometry stays unscaled for overlay measurement. */
+            renderPreviewWidget
+          )}
+          {/* Selection ring stays in both flavours. On MOBILE the per-field
+              remove (−) badge is hidden (removal moves to the Build panel) and
+              overlays are suppressed while pinch-zoomed (z>1) since they measure
+              the host's UNSCALED geometry; on DESKTOP the remove badge shows and
+              there's no zoom to gate on. */}
+          {(cleanIsMobile ? !isMobileZoomed : true) && shellFields.length > 0 && onRemoveField && (
             <PreviewOverlay
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
               onRemoveField={onRemoveField}
-              hideRemove
+              hideRemove={cleanIsMobile}
             />
           )}
-          {!isMobileZoomed && shellFields.length > 0 && onUpdateField && (
+          {(cleanIsMobile ? !isMobileZoomed : true) && shellFields.length > 0 && onUpdateField && (
             <InlineStyleToolbar
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
               onUpdateField={onUpdateField}
+            />
+          )}
+          {/* BF-10 — Elementor-style "+" drop zones between rendered field
+              components. DESKTOP clean only (the mobile clean path does field
+              add via the Build sheet, matching the old behaviour). */}
+          {!cleanIsMobile && !isRoofWidget && shellFields.length > 0 && onAddField && (
+            <DropZonesOverlay
+              fields={shellFields}
+              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+              onAddField={onAddField}
             />
           )}
           {!isRoofWidget && shellFields.length === 0 && onAddField && (
@@ -3094,17 +3165,12 @@ export default function PreviewPane({
             <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
           )}
           {/* fix/mobile-chat-sim — visitor chat-bubble sim, INSIDE the calculator
-              mockup card. The desktop/tablet bezels mount it inside the device
-              frame; the clean mobile path renders the widget bare, so it was
-              never mounted on phones (enabling Settings → "AI chat visibility"
-              showed nothing). Mount it here, absolutely positioned within THIS
-              card (.qq-bezel--mobile-clean is position:relative) so it reads as
-              part of the owner's calculator — an in-product EXAMPLE of the chat
-              their customers would get — NOT a viewport-fixed floater in the
-              editor chrome (which looked like the wizard's own assistant). It
-              scrolls with the calculator content for the same reason. Bottom-left
-              matches the desktop sim and stays clear of the editor's right-edge
-              AI build tab. */}
+              mockup card. The tablet/mobile device bezels mount it inside the
+              device frame; the clean path renders the widget bare, so it mounts
+              here, absolutely positioned within THIS card (.qq-bezel--mobile-clean
+              is position:relative) so it reads as part of the owner's calculator
+              — an in-product EXAMPLE of the chat their customers would get — and
+              scrolls with the calculator content. */}
           {!flpActive && chatSimEnabled && (
             <PreviewChatBubbleSim
               visibility={chatSimVisibility}
@@ -3149,7 +3215,7 @@ export default function PreviewPane({
    * what a full-bleed map needs. The pane-level drag/pan handlers are already
    * suppressed for the roof widget (so iframe clicks pass through), and the
    * zoom toolbar / drag handle are already null for it, so nothing else is
-   * lost. Mobile keeps the existing `mobileCleanContent` path (also bezel-less
+   * lost. Mobile keeps the existing clean-content path (also bezel-less
    * + full-width). Non-roof (form/template) previews are untouched. */
   const roofFullBleedDesktopContent = (
     <div
@@ -3202,13 +3268,14 @@ export default function PreviewPane({
   return (
     <div
       data-theme="light"
-      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${!isMobileViewport && isRoofWidget ? ' is-roof-fullbleed' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
+      className={`qq-preview-pane${isMobileViewport ? ' is-mobile-clean' : ''}${!isMobileViewport && isRoofWidget ? ' is-roof-fullbleed' : ''}${!isMobileViewport && !isRoofWidget && isCleanView ? ' is-desktop-clean' : ''}${widgetSelected ? ' is-widget-selected' : ''}${editingSection ? ' is-title-editing' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       /* fix/wizard-preview-p0 — expose which inline section is being edited so
        * the underlying-text hide rule can target the RIGHT node (subtitle /
        * result-heading / footnote), not just the title. */
       data-editing-section={editingSection ?? undefined}
       data-mobile-clean={isMobileViewport ? 'true' : 'false'}
+      data-clean-view={isCleanView ? 'true' : 'false'}
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
       data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
       data-flp-phase={flpPhase}
@@ -3223,12 +3290,12 @@ export default function PreviewPane({
       /* ROOF-WIDGET — omit the canvas drag-to-pan handlers so pointerdowns pass
          through to the embedded iframe (they otherwise capture the pointer and
          swallow every click meant for the widget's own controls). */
-      onPointerDown={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onPaneBackgroundPointerDown}
-      onPointerMove={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerMove}
-      onPointerUp={isMobileViewport || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerUp}
-      onPointerCancel={isMobileViewport || fullscreenOpen ? undefined : onHandlePointerUp}
+      onPointerDown={isCleanView || fullscreenOpen || isRoofWidget ? undefined : onPaneBackgroundPointerDown}
+      onPointerMove={isCleanView || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerMove}
+      onPointerUp={isCleanView || fullscreenOpen || isRoofWidget ? undefined : onHandlePointerUp}
+      onPointerCancel={isCleanView || fullscreenOpen ? undefined : onHandlePointerUp}
     >
-      {isMobileViewport ? mobileCleanContent : isRoofWidget ? roofFullBleedDesktopContent : (
+      {isMobileViewport ? cleanContent : isRoofWidget ? roofFullBleedDesktopContent : isCleanView ? cleanContent : (
        <>
       {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || zoom !== 1) && (
         <button
@@ -3826,6 +3893,47 @@ export default function PreviewPane({
         .qq-preview-pane.is-roof-fullbleed .qq-preview-roof-fullbleed {
           flex: 1;
           min-height: 0;
+        }
+        /* fix/wizard-desktop-fullwidth — DESKTOP clean preview. Unlike the
+         * mobile clean path (whose sole scroller is the ancestor editor-right
+         * sheet), the desktop pane is itself the vertical scroller: a plain
+         * full-width, anchored, overflow-y:auto column with NO stage transform,
+         * NO bezel chrome, NO dotted canvas grid, NO pan/zoom/drag. The widget
+         * owns its own maxWidth + margin:0 auto, so it renders full-bleed-but-
+         * centred like Elfsight. Natively scrolling both axes fixes the old
+         * "can't pan up" + "booking slots clipped" bugs with zero pan math.
+         * touch-action is left default (mouse/trackpad surface). Scoped to
+         * .is-desktop-clean so the roof full-bleed + framed tablet/mobile
+         * bezel paths are untouched. */
+        .qq-preview-pane.is-desktop-clean {
+          display: block;
+          padding: 0 !important;
+          margin: 0;
+          /* The pane is a flex child of the editor-right column with a fixed
+           * height; make IT the scroller so tall widgets reveal their bottom. */
+          overflow-y: auto;
+          overflow-x: hidden;
+          touch-action: auto;
+          background: ${p.colors.surface};
+        }
+        .qq-preview-mobile-clean.is-desktop {
+          /* Desktop clean column — centred surface gutter (not the mobile
+           * full-bleed white). Vertical breathing room so the first/last cards
+           * aren't flush to the pane edge; the widget's own maxWidth centres it.
+           * !important is required to beat the mobile base rule's !important
+           * white background + zero side padding (same base class). */
+          padding: 24px 16px 48px !important;
+          background: ${p.colors.surface} !important;
+        }
+        .qq-preview-mobile-hscroll.is-desktop,
+        .qq-preview-mobile-widget-scope.is-desktop {
+          background: transparent !important;
+        }
+        .qq-bezel--mobile-clean.is-desktop {
+          /* Centre the widget and cap its width for the Elfsight full-width feel
+           * even on very wide panes; the widget's own maxWidth still applies. */
+          max-width: 1100px;
+          margin: 0 auto;
         }
         .qq-preview-pane.is-mobile-clean {
           display: block;
