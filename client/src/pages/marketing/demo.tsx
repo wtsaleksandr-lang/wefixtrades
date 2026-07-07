@@ -91,6 +91,10 @@ function ChatPanel() {
       <div ref={scrollContainerRef} style={{
         flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex",
         flexDirection: "column", gap: 12,
+        // Soft top/bottom edge fade — the transcript dissolves into the
+        // frame instead of sitting inside a hard box.
+        WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%)",
+        maskImage: "linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%)",
       }}>
         {messages.map((msg, idx) => {
           if (msg.role === "user") {
@@ -154,7 +158,14 @@ function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
       {/* Input bar */}
-      <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, padding: "12px 16px", display: "flex", gap: 8 }}>
+      <div style={{
+        // Faded divider — the line dissolves toward both ends instead of a
+        // hard full-width rule.
+        borderTop: "1px solid transparent",
+        borderImageSource: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)",
+        borderImageSlice: 1,
+        padding: "12px 16px", display: "flex", gap: 8,
+      }}>
         <input
           data-testid="demo-chat-input"
           type="text" value={inputValue}
@@ -220,9 +231,15 @@ function VoicePanel() {
   const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
   const hasTranscript = vapi.transcript.length > 0;
   const hasRecs = vapi.recommendedServiceIds.length > 0;
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Keep the auto-scroll CONTAINED to the transcript's own scroll box.
+    // `scrollIntoView()` here would bubble to the nearest scrollable
+    // ancestor — the document — yanking the whole page down to the reviews
+    // section every time a transcript chunk arrives. Scrolling the container
+    // directly never moves the page.
+    const el = transcriptScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [vapi.transcript.length, vapi.recommendedServiceIds.length]);
 
   let statusLabel: string = "";
@@ -337,10 +354,15 @@ function VoicePanel() {
 
       {/* Live transcript + recommendation cards pushed by the voice assistant */}
       {(hasTranscript || hasRecs) && (
-        <div style={{
+        <div ref={transcriptScrollRef} style={{
           marginTop: 20, width: "100%", maxWidth: 440,
           flex: 1, minHeight: 0, overflowY: "auto",
           display: "flex", flexDirection: "column", gap: 8, textAlign: "left",
+          // Soft edge fade so the transcript reads as un-boxed (matches the
+          // faded widget frame) — content dissolves at the top/bottom rather
+          // than hitting a hard line.
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%)",
+          maskImage: "linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%)",
         }}>
           {vapi.transcript.map((line, i) => (
             <div
@@ -368,7 +390,6 @@ function VoicePanel() {
                 ))}
             </div>
           )}
-          <div ref={transcriptEndRef} />
         </div>
       )}
     </div>
@@ -511,11 +532,35 @@ export default function DemoPage() {
         keywords={["ai receptionist demo", "trades ai demo", "instant quote demo"]}
       />
       <div data-theme="light" data-testid="demo-page">
+        <style>{`
+          /* Faded widget frame — a gradient border ring that dissolves to
+             transparent (mask trick) instead of a hard 1px rounded-rect line.
+             Stronger accent glint at the top-left, fading out toward the
+             bottom-right, so the widget's edges read as softly faded. */
+          .demo-faded-frame::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 24px;
+            padding: 1.5px;
+            background: linear-gradient(155deg,
+              rgba(13,60,252,0.45) 0%,
+              rgba(255,255,255,0.12) 28%,
+              rgba(255,255,255,0.03) 58%,
+              transparent 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+          }
+        `}</style>
 
         {/* ═══ HERO — minimal, animation retained ═══ */}
         <section style={{
           background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(13,60,252,0.08) 0%, ${mkt.bg} 70%)`,
-          padding: "80px 28px 0", textAlign: "center", position: "relative",
+          padding: "48px 28px 0", textAlign: "center", position: "relative",
         }}>
           <div style={{ maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 }}>
             <h1 data-testid="demo-headline" style={{
@@ -533,11 +578,13 @@ export default function DemoPage() {
         </section>
 
         {/* ═══ CENTRAL DEMO CONTAINER ═══ */}
-        <section style={{ background: mkt.bg, padding: "40px 20px 80px" }}>
-          <div style={{
+        {/* Lifted up: reduced top padding (40 → 12) so the widget sits higher,
+            closer under the hero waveform. */}
+        <section style={{ background: mkt.bg, padding: "12px 20px 80px" }}>
+          <div className="demo-faded-frame" style={{
+            position: "relative",
             maxWidth: 820, margin: "0 auto",
             background: mkt.bg,
-            border: `1px solid ${mkt.onDarkBorder}`,
             borderRadius: 24,
             overflow: "hidden",
             boxShadow: `0 0 60px rgba(13,60,252,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
@@ -546,7 +593,10 @@ export default function DemoPage() {
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px",
-              borderBottom: `1px solid ${mkt.onDarkBorder}`,
+              // Faded divider so the header meets the body without a hard rule.
+              borderBottom: "1px solid transparent",
+              borderImageSource: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)",
+              borderImageSlice: 1,
               background: mkt.accent,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
