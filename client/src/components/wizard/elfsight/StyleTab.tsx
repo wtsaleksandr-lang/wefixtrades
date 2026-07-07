@@ -655,8 +655,159 @@ export default function StyleTab({
         </div>
       </fieldset>
 
+      {/* ── Colours ─────────────────────────────────────────────────
+       *
+       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
+       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
+       * CSS — the 9th item naturally falls onto the second row.
+       *
+       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
+       * slot was plumbed into the AdvancedCalculator's resolveTheme()
+       * but never read anywhere in the rendered widget, so the picker was
+       * misleading the owner. Removed pending an actual consumer in a
+       * future wave; the optional field stays on the type for forward
+       * compat. Decision documented in the BD-3f PR body.
+       *
+       * BD-3f Item 5 — Success / Error swatches mount a dismissable
+       * "ghost" demo toast onto the preview pane so the owner can SEE the
+       * colour they're picking in context. The ghost auto-dismisses after
+       * 6s; it's editor-only and never reaches the exported widget. */}
+      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-colours"
+                  region="background"
+                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
+                />
+                <span style={{ marginLeft: 6 }}>Colours</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        {/* Apple/Tesla minimalism — only Accent (the one colour most users
+            touch) shows by default. Background, Text and the other five tokens
+            live behind a single "More colours" disclosure below. Every swatch
+            stays fully editable; theme presets already cover most users. */}
+        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
+          {/* CONTRAST-3 — every readable-by-design swatch declares its
+              expected pair so the popover surfaces a live ratio + a
+              suggested-colour swatch when AA fails. The runtime guard
+              (CONTRAST-1) still auto-corrects on render so this layer is
+              informational, never blocking. */}
+          <ColourSwatch
+            icon={MousePointerClick}
+            label="Accent"
+            testid="style-input-accent"
+            value={accent}
+            fallback={DEFAULT_SHELL_STYLE.accent}
+            onChange={(v) => patch({ accent: v })}
+            pairColour={getContrastingColor(accent)}
+            pairLabel="CTA text"
+            pairRole="bg"
+          />
+        </div>
+        {/* The remaining tokens (Background, Text, Surface, Border, Success,
+            Error, Results bg) are advanced — hidden by default behind one
+            disclosure, but unchanged in rendering / testids / handlers. */}
+        <AdvancedSection
+          id="style-colours-more"
+          label="More colours"
+          hint="background, text, surface, border, success, error, result panel"
+        >
+          <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-more-row">
+            <ColourSwatch
+              icon={Square}
+              label="Background"
+              testid="style-input-background"
+              value={background}
+              fallback={DEFAULT_SHELL_STYLE.background}
+              onChange={(v) => patch({ background: v })}
+              pairColour={text}
+              pairLabel="body text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Type}
+              label="Text"
+              testid="style-input-text"
+              value={text}
+              fallback={DEFAULT_SHELL_STYLE.text}
+              onChange={(v) => patch({ text: v })}
+              pairColour={surface}
+              pairLabel="surface"
+              pairRole="fg"
+            />
+            <ColourSwatch
+              icon={Box}
+              label="Surface"
+              testid="style-input-surface"
+              value={surface}
+              fallback={TOKEN_FALLBACKS.surface}
+              onChange={(v) => patch({ surface: v })}
+              pairColour={text}
+              pairLabel="body text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Frame}
+              label="Border"
+              testid="style-input-border"
+              value={borderColour}
+              fallback={TOKEN_FALLBACKS.border}
+              onChange={(v) => patch({ border: v })}
+            />
+            <ColourSwatch
+              icon={CheckCircle2}
+              label="Success"
+              testid="style-input-success"
+              value={success}
+              fallback={TOKEN_FALLBACKS.success}
+              onChange={(v) => patch({ success: v })}
+              onOpen={() => setGhost('success')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={XCircle}
+              label="Error"
+              testid="style-input-error"
+              value={errorColour}
+              fallback={TOKEN_FALLBACKS.error}
+              onChange={(v) => patch({ error: v })}
+              onOpen={() => setGhost('error')}
+              pairColour="#ffffff"
+              pairLabel="badge text"
+              pairRole="bg"
+            />
+            <ColourSwatch
+              icon={Receipt}
+              label="Results bg"
+              testid="style-input-resultsbg"
+              value={resultsBg}
+              fallback={DEFAULT_SHELL_STYLE.resultsBg}
+              onChange={(v) => patch({ resultsBg: v })}
+              pairColour={text}
+              pairLabel="result text"
+              pairRole="bg"
+            />
+          </div>
+        </AdvancedSection>
+        </div>
+      </fieldset>
+
+      <AdvancedSection id="style-advanced" label="Advanced style" hint="typography, layout, shape, branding, badges, brand kit & more">
       {/* ── Typography ──────────────────────────────────────────────
        *
+       * Progressive disclosure — font family + typography depth are a
+       * low-frequency edit once a theme is picked, so they live inside the
+       * Advanced style fold. Markup unchanged; only placement moved.
        * Wave L S2 — visible "Typography" heading dropped; the font picker
        * speaks for itself. Legend kept for screen readers. */}
       <fieldset className="qq-style-group" data-testid="style-group-typography">
@@ -758,154 +909,6 @@ export default function StyleTab({
         </div>
       </fieldset>
 
-      {/* ── Colours ─────────────────────────────────────────────────
-       *
-       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
-       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
-       * CSS — the 9th item naturally falls onto the second row.
-       *
-       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
-       * slot was plumbed into the AdvancedCalculator's resolveTheme()
-       * but never read anywhere in the rendered widget, so the picker was
-       * misleading the owner. Removed pending an actual consumer in a
-       * future wave; the optional field stays on the type for forward
-       * compat. Decision documented in the BD-3f PR body.
-       *
-       * BD-3f Item 5 — Success / Error swatches mount a dismissable
-       * "ghost" demo toast onto the preview pane so the owner can SEE the
-       * colour they're picking in context. The ghost auto-dismisses after
-       * 6s; it's editor-only and never reaches the exported widget. */}
-      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="style-section-colours"
-                  region="background"
-                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
-                />
-                <span style={{ marginLeft: 6 }}>Colours</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        {/* Apple/Tesla minimalism — only the three colours that matter most
-            (Accent, Background, Text) show by default. The other five live
-            behind a single "More colours" disclosure below. Every swatch
-            stays fully editable; theme presets already cover most users. */}
-        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
-          {/* CONTRAST-3 — every readable-by-design swatch declares its
-              expected pair so the popover surfaces a live ratio + a
-              suggested-colour swatch when AA fails. The runtime guard
-              (CONTRAST-1) still auto-corrects on render so this layer is
-              informational, never blocking. */}
-          <ColourSwatch
-            icon={MousePointerClick}
-            label="Accent"
-            testid="style-input-accent"
-            value={accent}
-            fallback={DEFAULT_SHELL_STYLE.accent}
-            onChange={(v) => patch({ accent: v })}
-            pairColour={getContrastingColor(accent)}
-            pairLabel="CTA text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Square}
-            label="Background"
-            testid="style-input-background"
-            value={background}
-            fallback={DEFAULT_SHELL_STYLE.background}
-            onChange={(v) => patch({ background: v })}
-            pairColour={text}
-            pairLabel="body text"
-            pairRole="bg"
-          />
-          <ColourSwatch
-            icon={Type}
-            label="Text"
-            testid="style-input-text"
-            value={text}
-            fallback={DEFAULT_SHELL_STYLE.text}
-            onChange={(v) => patch({ text: v })}
-            pairColour={surface}
-            pairLabel="surface"
-            pairRole="fg"
-          />
-        </div>
-        {/* The remaining five tokens (Surface, Border, Success, Error,
-            Results bg) are advanced — hidden by default behind one
-            disclosure, but unchanged in rendering / testids / handlers. */}
-        <AdvancedSection
-          id="style-colours-more"
-          label="More colours"
-          hint="surface, border, success, error, result panel"
-        >
-          <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-more-row">
-            <ColourSwatch
-              icon={Box}
-              label="Surface"
-              testid="style-input-surface"
-              value={surface}
-              fallback={TOKEN_FALLBACKS.surface}
-              onChange={(v) => patch({ surface: v })}
-              pairColour={text}
-              pairLabel="body text"
-              pairRole="bg"
-            />
-            <ColourSwatch
-              icon={Frame}
-              label="Border"
-              testid="style-input-border"
-              value={borderColour}
-              fallback={TOKEN_FALLBACKS.border}
-              onChange={(v) => patch({ border: v })}
-            />
-            <ColourSwatch
-              icon={CheckCircle2}
-              label="Success"
-              testid="style-input-success"
-              value={success}
-              fallback={TOKEN_FALLBACKS.success}
-              onChange={(v) => patch({ success: v })}
-              onOpen={() => setGhost('success')}
-              pairColour="#ffffff"
-              pairLabel="badge text"
-              pairRole="bg"
-            />
-            <ColourSwatch
-              icon={XCircle}
-              label="Error"
-              testid="style-input-error"
-              value={errorColour}
-              fallback={TOKEN_FALLBACKS.error}
-              onChange={(v) => patch({ error: v })}
-              onOpen={() => setGhost('error')}
-              pairColour="#ffffff"
-              pairLabel="badge text"
-              pairRole="bg"
-            />
-            <ColourSwatch
-              icon={Receipt}
-              label="Results bg"
-              testid="style-input-resultsbg"
-              value={resultsBg}
-              fallback={DEFAULT_SHELL_STYLE.resultsBg}
-              onChange={(v) => patch({ resultsBg: v })}
-              pairColour={text}
-              pairLabel="result text"
-              pairRole="bg"
-            />
-          </div>
-        </AdvancedSection>
-        </div>
-      </fieldset>
-
-      <AdvancedSection id="style-advanced" label="Advanced style" hint="layout, shape, branding, badges, brand kit & more">
       {/* ── Layout ── Elfsight-style: width/layout is not a default-visible
        *  Style control, so it lives under Advanced settings with the rest of
        *  the non-core groups. Markup unchanged — only placement moved. */}

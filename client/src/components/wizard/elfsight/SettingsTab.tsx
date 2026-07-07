@@ -9,15 +9,17 @@
 // tucked behind the "More settings" fold.
 //
 //   Default surface:
-//     1. Number formatting — thousands sep + decimal sep + ISO currency code.
-//     2. Branding          — "Powered by WeFixTrades" badge toggle (real
+//     1. Branding          — "Powered by WeFixTrades" badge toggle (real
 //                            pricing model: Free keeps it; Pro / Business hide it).
+//     2. AI chat visibility — behavior toggle (off / smart timing / always).
 //   (Pricing model section REMOVED 2026-06-17 — fidelity-A4: it had no effect
 //    on the advanced calculator the wizard always renders. See the in-body
 //    comment where it used to live.)
-//   "More settings" fold:
-//     4. Business location — distance-based-pricing anchor address.
-//     5. Business profile  — inline trust signals (rating, license, insured).
+//   "More settings" fold (progressive disclosure — low-frequency edits):
+//     1. Number formatting — thousands sep + decimal sep + ISO currency code
+//                            (DEMOTED here 2026-07 from the default surface).
+//     2. Business location — distance-based-pricing anchor address.
+//     3. Business profile  — inline trust signals (rating, license, insured).
 //
 // Lead-form CTA, success copy, spam protection, email-notification recipient,
 // the action mode, AND the Deposit + Online-booking config live in the ACTION
@@ -151,86 +153,11 @@ export default function SettingsTab({
          the per-fieldset single-cue rule is still honored within each. */
       data-cue-allowed-multiple
     >
-      {/* ── CORE: Number formatting ─────────────────────────────── */}
-      {/* ROOF-WIDGET — the iframe formats its own prices; hide this. */}
-      {!isRoofWidget && (
-      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">
-          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
-          <HelpCueRow
-            className="!mb-0"
-            cue={
-              <>
-                <InfoCue
-                  testid="settings-section-numberformat"
-                  region="result"
-                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-                />
-                <span style={{ marginLeft: 6 }}>Number formatting</span>
-              </>
-            }
-          />
-        </legend>
-        <div className="qq-style-group-body">
-        <div className="qq-style-grid">
-          <FloatField
-            label="Thousands separator"
-            htmlFor="qq-settings-thousands"
-            variant="select"
-            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-            infoTestid="settings-numberformat"
-          >
-            <select
-              id="qq-settings-thousands"
-              className="premium-input"
-              value={numberFormat.thousands}
-              onChange={(e) =>
-                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
-              }
-              data-testid="settings-select-thousands"
-            >
-              {THOUSANDS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
-            <select
-              id="qq-settings-decimal"
-              className="premium-input"
-              value={numberFormat.decimal}
-              onChange={(e) =>
-                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
-              }
-              data-testid="settings-select-decimal"
-            >
-              {DECIMAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </FloatField>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <FloatField label="Currency code" htmlFor="qq-settings-currency">
-            <input
-              id="qq-settings-currency"
-              type="text"
-              maxLength={3}
-              className="premium-input"
-              placeholder=" "
-              style={{ textTransform: 'uppercase' }}
-              value={numberFormat.currency}
-              onChange={(e) =>
-                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
-              }
-              data-testid="settings-input-currency"
-              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
-            />
-          </FloatField>
-        </div>
-        </div>
-      </fieldset>
-      )}
+      {/* ── Number formatting DEMOTED to the "More settings" fold ─────
+       *  (progressive disclosure) — it's a low-frequency edit, so the
+       *  default Settings surface leads with Branding + AI chat. The
+       *  fieldset itself now renders inside the fold below; state +
+       *  testids unchanged. */}
 
       {/* ── Pricing model — HIDDEN (fidelity-A4, 2026-06-17) ──────────
        *  This section (mode hourly/fixed/custom + per-mode rate/value/
@@ -406,8 +333,88 @@ export default function SettingsTab({
       <AdvancedSection
         id="settings-advanced"
         label="More settings"
-        hint="business location & profile details"
+        hint="number formatting, business location & profile details"
       >
+      {/* ── Number formatting (DEMOTED here from the default surface) ──
+       *  Thousands sep + decimal sep + ISO currency code. Low-frequency,
+       *  so it lives in the fold. State + testids unchanged from before. */}
+      <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
+        <legend className="qq-style-legend">
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-numberformat"
+                  region="result"
+                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+                />
+                <span style={{ marginLeft: 6 }}>Number formatting</span>
+              </>
+            }
+          />
+        </legend>
+        <div className="qq-style-group-body">
+        <div className="qq-style-grid">
+          <FloatField
+            label="Thousands separator"
+            htmlFor="qq-settings-thousands"
+            variant="select"
+            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+            infoTestid="settings-numberformat"
+          >
+            <select
+              id="qq-settings-thousands"
+              className="premium-input"
+              value={numberFormat.thousands}
+              onChange={(e) =>
+                patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
+              }
+              data-testid="settings-select-thousands"
+            >
+              {THOUSANDS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
+            <select
+              id="qq-settings-decimal"
+              className="premium-input"
+              value={numberFormat.decimal}
+              onChange={(e) =>
+                patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
+              }
+              data-testid="settings-select-decimal"
+            >
+              {DECIMAL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </FloatField>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <FloatField label="Currency code" htmlFor="qq-settings-currency">
+            <input
+              id="qq-settings-currency"
+              type="text"
+              maxLength={3}
+              className="premium-input"
+              placeholder=" "
+              style={{ textTransform: 'uppercase' }}
+              value={numberFormat.currency}
+              onChange={(e) =>
+                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
+              }
+              data-testid="settings-input-currency"
+              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
+            />
+          </FloatField>
+        </div>
+        </div>
+      </fieldset>
+
       {/* ── Deposit + Online booking RELOCATED to the Action tab ──────
        *  Both the PERSISTED Stripe deposit (settings.deposit) and the
        *  built-in scheduler (settings.scheduling) now live in the Action

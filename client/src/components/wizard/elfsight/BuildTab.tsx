@@ -428,6 +428,33 @@ export default function BuildTab({
 
       <div className="qq-build-divider" />
 
+      {/* Business identity moved DOWN into a collapsed fold below the
+          calculator's structure (Fields + Calculations) so it no longer
+          wedges between the AI card and Fields. See the "build-business"
+          AdvancedSection after CalculationsPanel. */}
+      <FieldsPanel fields={fields} onChange={onFieldsChange} onInsertRoofWidget={handleInsertRoofWidget} />
+
+      <div className="qq-build-divider" />
+
+      <CalculationsPanel
+        calculations={calculations}
+        fields={fields}
+        onChange={onCalculationsChange}
+      />
+
+      {/* Business identity (logo + name) — DE-EMPHASIZED into a collapsed fold
+          (progressive disclosure) so returning users land on Fields +
+          Calculations first. Set once, rarely touched. Opens by default only
+          while both name and logo are still blank (a fresh calculator).
+          Markup / testids / wiring are unchanged — only the placement + the
+          collapsible wrapper are new. */}
+      <div className="qq-build-divider" />
+      <AdvancedSection
+        id="build-business"
+        label="Business name & logo"
+        hint="shown in the calculator header & hosted page"
+        defaultOpen={!businessName && !logo}
+      >
       <section className="qq-build-section" data-testid="editor-business-section" data-edit-key="business">
         {/* P1 (UI-audit B) — the business-name row was the only top-of-panel
          * input without a help cue. Add a section header with the InfoCue as
@@ -507,18 +534,7 @@ export default function BuildTab({
           </p>
         )}
       </section>
-
-      <div className="qq-build-divider" />
-
-      <FieldsPanel fields={fields} onChange={onFieldsChange} onInsertRoofWidget={handleInsertRoofWidget} />
-
-      <div className="qq-build-divider" />
-
-      <CalculationsPanel
-        calculations={calculations}
-        fields={fields}
-        onChange={onCalculationsChange}
-      />
+      </AdvancedSection>
 
       {/* Structure (RELOCATED from Style tab) — step layout + pricing tiers.
           These shape HOW the calculator is structured, so they belong with

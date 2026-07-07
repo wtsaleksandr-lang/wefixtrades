@@ -453,6 +453,50 @@ export default function ActionTab({
       {/* ── 2. Lead form (rich case) ──────────────────────────────── */}
       {actionMode === 'lead-form' && (
         <>
+          {/* Email notifications — PROMOTED to the default surface (was buried
+              in the "Advanced action" fold). Where a lead is sent is the single
+              most-edited action setting, so it sits directly under the mode
+              selector. Same key (settings.leadEmail) + testids, unchanged wiring. */}
+          <div className="qq-action-card" data-testid="action-group-email">
+            <div className="qq-action-card-head">
+              <span className="qq-action-card-headicon" aria-hidden="true">
+                <BellRing size={16} />
+              </span>
+              <span className="qq-action-card-title">Email notifications</span>
+              <InfoCue
+                testid="action-section-email"
+                text="Where customer leads are sent when someone submits the form. Single recipient; message format is fixed."
+              />
+            </div>
+            <div className="qq-action-card-body">
+              <FloatField
+                label="Lead notification email"
+                htmlFor="qq-action-leademail"
+                infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+                infoTestid="settings-lead-email"
+              >
+                <input
+                  id="qq-action-leademail"
+                  type="email"
+                  className="premium-input"
+                  placeholder=" "
+                  value={leadEmail}
+                  onChange={(e) => patch({ leadEmail: e.target.value })}
+                  data-testid="settings-input-lead-email"
+                  aria-invalid={leadEmailInvalid ? 'true' : 'false'}
+                />
+              </FloatField>
+              {leadEmailInvalid && (
+                <p
+                  className="qq-action-error"
+                  data-testid="settings-lead-email-error"
+                >
+                  Enter a valid email address.
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* 2a. CTA card */}
           <div className="qq-action-card" data-testid="action-group-cta">
             <div className="qq-action-card-head">
@@ -579,7 +623,7 @@ export default function ActionTab({
           <AdvancedSection
             id="action-advanced"
             label="Advanced action"
-            hint="payment, email notifications, booking & more"
+            hint="payment, text alerts, booking, submit copy, spam & more"
           >
             {/* Payment — RELOCATED from SettingsTab. The PERSISTED Stripe
                 deposit (settings.deposit → appearance.deposit on save).
@@ -722,47 +766,6 @@ export default function ActionTab({
                       <span className="qq-action-toggle-title">Require deposit to confirm booking</span>
                     </label>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Email notifications — relocated settings.leadEmail */}
-            <div className="qq-action-card" data-testid="action-group-email">
-              <div className="qq-action-card-head">
-                <span className="qq-action-card-headicon" aria-hidden="true">
-                  <BellRing size={16} />
-                </span>
-                <span className="qq-action-card-title">Email notifications</span>
-                <InfoCue
-                  testid="action-section-email"
-                  text="Where customer leads are sent when someone submits the form. Single recipient; message format is fixed."
-                />
-              </div>
-              <div className="qq-action-card-body">
-                <FloatField
-                  label="Lead notification email"
-                  htmlFor="qq-action-leademail"
-                  infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-                  infoTestid="settings-lead-email"
-                >
-                  <input
-                    id="qq-action-leademail"
-                    type="email"
-                    className="premium-input"
-                    placeholder=" "
-                    value={leadEmail}
-                    onChange={(e) => patch({ leadEmail: e.target.value })}
-                    data-testid="settings-input-lead-email"
-                    aria-invalid={leadEmailInvalid ? 'true' : 'false'}
-                  />
-                </FloatField>
-                {leadEmailInvalid && (
-                  <p
-                    className="qq-action-error"
-                    data-testid="settings-lead-email-error"
-                  >
-                    Enter a valid email address.
-                  </p>
                 )}
               </div>
             </div>
