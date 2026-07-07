@@ -1,5 +1,5 @@
 /**
- * TRADES — single source of truth for the 42 trade solutions.
+ * TRADES — single source of truth for the 40 trade solutions.
  *
  * This lightweight index powers cross-cutting navigation/IA surfaces (nav
  * search, a future `/solutions` catalogue page) WITHOUT importing the heavy
@@ -8,7 +8,7 @@
  *
  * ⚠️ MUST STAY IN SYNC with the `SOLUTIONS` array in
  *    `client/src/pages/solutions/SolutionPage.tsx` — every `slug` here MUST
- *    correspond to a route slug rendered there, and the counts must match (42).
+ *    correspond to a route slug rendered there, and the counts must match (40).
  *    The guard `npm run check:trades-sync`
  *    (client/src/site/__tests__/trades.sync.test.ts) enforces this and will
  *    fail CI if the two lists drift. When you add/remove/rename a trade in
