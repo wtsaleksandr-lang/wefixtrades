@@ -45,6 +45,7 @@ import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
 import HostedPageSection from './HostedPageSection';
+import AdvancedSection from './AdvancedSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import { StyledSelect } from './StyledSelect';
@@ -513,71 +514,12 @@ export default function InstallTab({
 
       <div className="qq-install-divider" />
 
-      {/* ── Wave P — hosted page customisation ─────────────────────
-       *
-       * Lives between the hosted link and the language picker. Lets the
-       * user pick a background preset / solid color / custom image, a
-       * centered-card vs full-bleed layout, and an optional headline +
-       * subhead + logo for the hosted page only. */}
-      <HostedPageSection
-        value={settings.hostedPage}
-        onChange={(next: HostedPageSettings) => onChange({ ...settings, hostedPage: next })}
-        businessName={businessName}
-        logoUrl={logoUrl}
-        accentColor={style?.accent}
-        bodyBackgroundColor={style?.background}
-      />
-
-      <div className="qq-install-divider" />
-
-      {/* ── 2. Language picker ──────────────────────────────────────
-       *  Wave R-pre v2 — promoted to FloatField; "Language" is now the
-       *  floating label inside the field. InfoCue moves to the field's
-       *  top-right corner. No "Widget language" heading above. */}
-      <section className="qq-install-section" data-testid="install-section-language">
-        <FloatField
-          label="Language tag (lang attribute)"
-          htmlFor="qq-install-language-select"
-          variant="select"
-          infoText="Sets the widget's lang attribute for screen readers and search engines — it does NOT translate your widget. The text stays exactly as you wrote it. Full UI translation is coming soon."
-          infoTestid="install-language"
-        >
-          <select
-            id="qq-install-language-select"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            data-testid="install-select-language"
-            className="premium-input"
-          >
-            {SHELL_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label} ({l.native}) — {l.code}
-              </option>
-            ))}
-          </select>
-        </FloatField>
-        <p
-          className="qq-install-current"
-          data-testid="install-current-language"
-        >
-          Selected: <strong>{currentLang.label}</strong> ({currentLang.code})
-        </p>
-        <p
-          className="qq-install-sub"
-          data-testid="install-language-note"
-          style={{ marginTop: 4 }}
-        >
-          This only tags the widget's language for screen readers and search
-          engines — it does not translate the visible text. Your widget reads
-          exactly as you wrote it. Full UI translation is coming soon.
-        </p>
-        {/* TODO(i18n): translation strings — once translations land, ALSO
-            apply them to the live preview header / CTA / step labels. */}
-      </section>
-
-      <div className="qq-install-divider" />
-
-      {/* ── 3. Embed snippet ──────────────────────────────────────────
+      {/* ── Embed snippet ──────────────────────────────────────────
+       *  Hosted-page customisation + the language tag + the floating-launcher
+       *  config were DEMOTED into the "Customise & advanced" fold below this
+       *  section (progressive disclosure) so the default Install surface is
+       *  just: hosted link, embed snippet, platform guides.
+       *  ─── (original section 3 comment) ───────────────────────────
        *
        * BD-3m — embed-mode toggle (Inline / Floating) sits above the
        * snippet. Inline (default) drops the legacy `<script>` + mount
@@ -605,15 +547,139 @@ export default function InstallTab({
           />
         </h3>
 
+        <p className="qq-install-sub" style={{ marginTop: 8 }}>
+          {embedMode === 'floating'
+            ? 'Paste this snippet anywhere on your page — the launcher icon attaches itself to the body and stays in view as visitors scroll.'
+            : 'Paste this snippet on your site where you want the calculator to appear.'}
+        </p>
+        <div className="qq-install-snippet-wrap">
+          <pre
+            className="qq-install-snippet"
+            data-testid="install-embed-snippet"
+            data-embed-mode={embedMode}
+            data-embed-position={embedMode === 'floating' ? embedPosition : undefined}
+            aria-label="Embed snippet"
+          >
+            <code>{snippet}</code>
+          </pre>
+          <button
+            type="button"
+            onClick={() => copyText(snippet, setSnippetCopyOk)}
+            data-testid="install-copy-snippet"
+            className="qq-install-copy-btn"
+            aria-label="Copy embed snippet"
+          >
+            {snippetCopyOk ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+
+        {/* Beginner fallback — for users who don't want to (or can't) paste a
+            script tag into their site. Points them at the zero-setup hosted
+            link (section 1 above) as the no-website-skills option, and copies
+            it for them in one click. Outline callout, never a bright fill. */}
+        <div
+          className="qq-install-nocode"
+          data-testid="install-nocode-fallback"
+        >
+          <p className="qq-install-nocode-h">Not sure how to add this to your site?</p>
+          <p className="qq-install-nocode-sub">
+            You don't need any website skills. Share your free hosted link
+            instead — it runs the calculator on its own page with nothing to
+            install. Drop it in an email, your Instagram bio, or your Google
+            Business profile.
+          </p>
+          <button
+            type="button"
+            onClick={() => copyText(hostedUrl, setHostedCopyOk)}
+            className="qq-install-nocode-copy"
+            data-testid="install-nocode-copy"
+            aria-label="Copy hosted link"
+          >
+            {hostedCopyOk ? 'Hosted link copied' : 'Copy my hosted link instead'}
+          </button>
+        </div>
+      </section>
+
+      <div className="qq-install-divider" />
+
+      {/* ── Customise & advanced (progressive disclosure) ───────────
+       *  Everything a returning user rarely reopens: the hosted-page look,
+       *  the language tag, and the floating-launcher options. Collapsed by
+       *  default so the Install surface leads with the hosted link, the embed
+       *  snippet and the platform guides. Every control keeps its wiring +
+       *  testids — only placement + the collapsible wrapper changed. */}
+      <AdvancedSection
+        id="install-advanced"
+        label="Customise & advanced"
+        hint="hosted-page look, language tag & floating launcher"
+      >
+        {/* ── Hosted page customisation (Wave P) — pick a background preset /
+            solid color / custom image, a centered-card vs full-bleed layout,
+            and an optional headline + subhead + logo for the hosted page. */}
+        <HostedPageSection
+          value={settings.hostedPage}
+          onChange={(next: HostedPageSettings) => onChange({ ...settings, hostedPage: next })}
+          businessName={businessName}
+          logoUrl={logoUrl}
+          accentColor={style?.accent}
+          bodyBackgroundColor={style?.background}
+        />
+
+        <div className="qq-install-divider" />
+
+        {/* ── Language picker ──────────────────────────────────────── */}
+        <section className="qq-install-section" data-testid="install-section-language">
+          <FloatField
+            label="Language tag (lang attribute)"
+            htmlFor="qq-install-language-select"
+            variant="select"
+            infoText="Sets the widget's lang attribute for screen readers and search engines — it does NOT translate your widget. The text stays exactly as you wrote it. Full UI translation is coming soon."
+            infoTestid="install-language"
+          >
+            <select
+              id="qq-install-language-select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              data-testid="install-select-language"
+              className="premium-input"
+            >
+              {SHELL_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label} ({l.native}) — {l.code}
+                </option>
+              ))}
+            </select>
+          </FloatField>
+          <p
+            className="qq-install-current"
+            data-testid="install-current-language"
+          >
+            Selected: <strong>{currentLang.label}</strong> ({currentLang.code})
+          </p>
+          <p
+            className="qq-install-sub"
+            data-testid="install-language-note"
+            style={{ marginTop: 4 }}
+          >
+            This only tags the widget's language for screen readers and search
+            engines — it does not translate the visible text. Your widget reads
+            exactly as you wrote it. Full UI translation is coming soon.
+          </p>
+          {/* TODO(i18n): translation strings — once translations land, ALSO
+              apply them to the live preview header / CTA / step labels. */}
+        </section>
+
         {/* Embed-mode toggle. Radio pair: Inline (drop-in mount) vs Floating
-         *  launcher (icon docked in a corner). This is now the SINGLE home of
-         *  the floating-launcher config (relocated from the Style tab) — it
-         *  writes the persisted `style.floatingLauncher` slot directly, so the
-         *  snippet, the live preview, and the saved widget all stay in sync
-         *  with no cross-tab effect. When the style slot isn't plumbed in
-         *  (no onStyleChange), the launcher controls are simply hidden. */}
+         *  launcher (icon docked in a corner). This is the SINGLE home of the
+         *  floating-launcher config (relocated from the Style tab) — it writes
+         *  the persisted `style.floatingLauncher` slot directly, so the embed
+         *  snippet above, the live preview, and the saved widget all stay in
+         *  sync. When the style slot isn't plumbed in (no onStyleChange), the
+         *  launcher controls are simply hidden. */}
         {onStyleChange && style ? (
           <>
+            <div className="qq-install-divider" />
+
             <div
               className="qq-install-mode"
               data-testid="install-embed-mode"
@@ -765,61 +831,7 @@ export default function InstallTab({
             )}
           </>
         ) : null}
-
-        <p className="qq-install-sub" style={{ marginTop: 8 }}>
-          {embedMode === 'floating'
-            ? 'Paste this snippet anywhere on your page — the launcher icon attaches itself to the body and stays in view as visitors scroll.'
-            : 'Paste this snippet on your site where you want the calculator to appear.'}
-        </p>
-        <div className="qq-install-snippet-wrap">
-          <pre
-            className="qq-install-snippet"
-            data-testid="install-embed-snippet"
-            data-embed-mode={embedMode}
-            data-embed-position={embedMode === 'floating' ? embedPosition : undefined}
-            aria-label="Embed snippet"
-          >
-            <code>{snippet}</code>
-          </pre>
-          <button
-            type="button"
-            onClick={() => copyText(snippet, setSnippetCopyOk)}
-            data-testid="install-copy-snippet"
-            className="qq-install-copy-btn"
-            aria-label="Copy embed snippet"
-          >
-            {snippetCopyOk ? 'Copied' : 'Copy'}
-          </button>
-        </div>
-
-        {/* Beginner fallback — for users who don't want to (or can't) paste a
-            script tag into their site. Points them at the zero-setup hosted
-            link (section 1 above) as the no-website-skills option, and copies
-            it for them in one click. Outline callout, never a bright fill. */}
-        <div
-          className="qq-install-nocode"
-          data-testid="install-nocode-fallback"
-        >
-          <p className="qq-install-nocode-h">Not sure how to add this to your site?</p>
-          <p className="qq-install-nocode-sub">
-            You don't need any website skills. Share your free hosted link
-            instead — it runs the calculator on its own page with nothing to
-            install. Drop it in an email, your Instagram bio, or your Google
-            Business profile.
-          </p>
-          <button
-            type="button"
-            onClick={() => copyText(hostedUrl, setHostedCopyOk)}
-            className="qq-install-nocode-copy"
-            data-testid="install-nocode-copy"
-            aria-label="Copy hosted link"
-          >
-            {hostedCopyOk ? 'Hosted link copied' : 'Copy my hosted link instead'}
-          </button>
-        </div>
-      </section>
-
-      <div className="qq-install-divider" />
+      </AdvancedSection>
 
       {/* ── 4. Done-for-you install service — Wave L I1 ─────────────
        *
