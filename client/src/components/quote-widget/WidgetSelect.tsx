@@ -11,7 +11,8 @@
  * the active option. The selected value is still a plain string id passed up
  * via onChange, so callers are unchanged from the old native select.
  */
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { WidgetTheme } from './widgetThemes';
 import { getRelativeLuminance } from '@/lib/contrastGuard';
@@ -46,8 +47,42 @@ export default function WidgetSelect({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+
+  // PORTAL-POSITIONING — the calculator body is now a scroll container
+  // (`overflow-y:auto` + `overflow-x:clip`, see AdvancedCalculator BD-2a-shell).
+  // Any `overflow: auto/clip/hidden` ancestor CLIPS an absolutely-positioned
+  // descendant, so the old `position:absolute` panel got cut off at the body's
+  // box (fixed-height iframe / wizard bezel) or grew the inner scroll. Fix: the
+  // open panel is portaled to `document.body` and positioned `fixed` against the
+  // trigger's viewport rect — it escapes every clip context. All colours are
+  // passed as inline style VALUES (from `theme.*`) so theming survives the move
+  // out of the widget's scoped-token subtree.
+  const [panelPos, setPanelPos] = useState<{
+    left: number; width: number; top?: number; bottom?: number; maxHeight: number; flip: boolean;
+  } | null>(null);
+
+  const computePosition = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 6;
+    const cap = 248;
+    const vh = window.innerHeight;
+    const spaceBelow = vh - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    // Flip above only when there isn't enough room below AND there's more above.
+    const flip = spaceBelow < Math.min(cap, 160) && spaceAbove > spaceBelow;
+    const avail = flip ? spaceAbove : spaceBelow;
+    const maxHeight = Math.max(96, Math.min(cap, avail - 8));
+    setPanelPos(
+      flip
+        ? { left: rect.left, width: rect.width, bottom: vh - rect.top + gap, maxHeight, flip }
+        : { left: rect.left, width: rect.width, top: rect.bottom + gap, maxHeight, flip },
+    );
+  };
 
   const selectedIdx = Math.max(0, options.findIndex((o) => o.id === value));
   const selectedLabel = options[selectedIdx]?.label ?? '';
@@ -57,14 +92,35 @@ export default function WidgetSelect({
     if (open) setActive(selectedIdx);
   }, [open, selectedIdx]);
 
-  // Click-outside + Escape close.
+  // Click-outside + Escape close. The panel now lives in a body portal, so a
+  // click inside it is NOT inside wrapRef — also allow clicks within the portaled
+  // list (listRef) before treating it as "outside".
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (listRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  // Position the portaled panel on open, and keep it pinned to the trigger while
+  // open — the body scroll container (and window) can move the trigger under it,
+  // so listen in capture phase to catch scrolls on any ancestor scroller.
+  useLayoutEffect(() => {
+    if (!open) { setPanelPos(null); return; }
+    computePosition();
+    const onScroll = () => computePosition();
+    const onResize = () => computePosition();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, [open]);
 
   // Keep the active option scrolled into view.
@@ -107,6 +163,7 @@ export default function WidgetSelect({
   return (
     <div ref={wrapRef} style={{ position: 'relative', fontFamily }}>
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         role="combobox"
@@ -169,52 +226,66 @@ export default function WidgetSelect({
         </label>
       )}
 
-      <AnimatePresence>
-        {open && (
-          <motion.ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            aria-label={label}
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            style={{
-              position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 60,
-              listStyle: 'none', margin: 0, padding: 4,
-              background: theme.surface, border: `1px solid ${theme.border}`,
-              borderRadius: panelRadius, boxShadow: '0 16px 44px rgba(0,0,0,0.34)',
-              maxHeight: 248, overflowY: 'auto', transformOrigin: 'top center',
-            }}
-          >
-            {options.map((o, idx) => {
-              const isSel = o.id === value;
-              const isActive = idx === active;
-              return (
-                <li
-                  key={o.id}
-                  role="option"
-                  aria-selected={isSel}
-                  data-idx={idx}
-                  onMouseEnter={() => setActive(idx)}
-                  onClick={() => choose(idx)}
-                  style={{
-                    padding: '9px 12px', borderRadius: optRadius, cursor: 'pointer',
-                    fontSize: 14, lineHeight: 1.3,
-                    color: isSel ? selectedOptionFg : theme.text,
-                    background: isSel ? theme.accent : (isActive ? hoverBg : 'transparent'),
-                    transition: 'background 120ms ease',
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}
-                >
-                  {o.label}
-                </li>
-              );
-            })}
-          </motion.ul>
-        )}
-      </AnimatePresence>
+      {/* Panel is portaled to <body> (position:fixed against the trigger rect)
+          so it escapes the calculator body's overflow clip. `fontFamily` is
+          re-applied here because the portal target sits OUTSIDE this wrapper's
+          font-family context. */}
+      {createPortal(
+        <AnimatePresence>
+          {open && panelPos && (
+            <motion.ul
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              aria-label={label}
+              initial={{ opacity: 0, y: panelPos.flip ? 6 : -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: panelPos.flip ? 6 : -6, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              style={{
+                position: 'fixed',
+                left: panelPos.left,
+                width: panelPos.width,
+                ...(panelPos.flip ? { bottom: panelPos.bottom } : { top: panelPos.top }),
+                zIndex: 2147483000,
+                listStyle: 'none', margin: 0, padding: 4,
+                fontFamily,
+                background: theme.surface, border: `1px solid ${theme.border}`,
+                borderRadius: panelRadius, boxShadow: '0 16px 44px rgba(0,0,0,0.34)',
+                maxHeight: panelPos.maxHeight, overflowY: 'auto',
+                transformOrigin: panelPos.flip ? 'bottom center' : 'top center',
+                boxSizing: 'border-box',
+              }}
+            >
+              {options.map((o, idx) => {
+                const isSel = o.id === value;
+                const isActive = idx === active;
+                return (
+                  <li
+                    key={o.id}
+                    role="option"
+                    aria-selected={isSel}
+                    data-idx={idx}
+                    onMouseEnter={() => setActive(idx)}
+                    onClick={() => choose(idx)}
+                    style={{
+                      padding: '9px 12px', borderRadius: optRadius, cursor: 'pointer',
+                      fontSize: 14, lineHeight: 1.3,
+                      color: isSel ? selectedOptionFg : theme.text,
+                      background: isSel ? theme.accent : (isActive ? hoverBg : 'transparent'),
+                      transition: 'background 120ms ease',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {o.label}
+                  </li>
+                );
+              })}
+            </motion.ul>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
