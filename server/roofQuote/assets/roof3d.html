@@ -11002,10 +11002,31 @@ function sgDraw(){
     const clip=SG_STATE.clipBoxes;
     const inClip=(E,N)=>{ if(!clip||!clip.length) return true;
       for(let ci=0;ci<clip.length;ci++){ const b=clip[ci]; if(E>=b[0]&&E<=b[2]&&N>=b[1]&&N<=b[3]) return true; } return false; };
-    // PASS 1 — fill the buffer: RGB photo everywhere it exists; record where the flux tint applies (roof).
-    // tint[] holds the magma colour; roofM[] marks roof cells so we can edge-feather the alpha in pass 2.
+    // VECTOR ROOF POLYGON (device px) — the analytic building outline the 2D-map renderSunPreview()/pointInPoly2
+    // clip to (window.__footprintEN, [E,N] in UTM). THIS, not the coarse Google flux-mask iso-contour, defines
+    // the visible heatmap EDGE: the tint then ends on the clean straight roofline (no stepped purple fringe past
+    // the tiles). Google's mask/flux still says WHICH cells carry data; the polygon says WHERE the edge is.
+    // Anti-aliasing a boundary that is itself a coarse stepped raster grid (the mask) can't straighten it — the
+    // fix is to swap the boundary SOURCE to the vector polygon. Falls back to the mask-contour AA when no outline.
+    let roofPolyDev=null;
+    try{
+      let ring=null, rzone=null;
+      if(typeof roofFootprintClip==="function"){ const fc=roofFootprintClip(); if(fc&&Array.isArray(fc.ring)&&fc.ring.length>=3){ ring=fc.ring; rzone=fc.zone; } }
+      if(!ring && Array.isArray(window.__footprintEN) && window.__footprintEN.length>=3){ ring=window.__footprintEN; rzone=window.__footprintZone; }
+      if(ring && (rzone==null || SG_STATE.zone==null || rzone===SG_STATE.zone)){   // zone must match or the ring mis-projects
+        roofPolyDev=ring.map(([E,N])=>[ pr.offX+(E-pr.E0)*pr.scale, pr.offY+(pr.N1-N)*pr.scale ]);
+      }
+    }catch(_){ roofPolyDev=null; }
+    const havePoly=!!(roofPolyDev&&roofPolyDev.length>=3);
+    try{ window.__sgHeatEdge=havePoly?"polygon":"mask"; }catch(_){}   // verify hook: which source defines the heatmap edge
+    // PASS 1 — fill the low-res buffer with the REAL aerial photo (opaque base everywhere) and, in parallel,
+    // record the magma flux tint COLOUR per cell. WITH the vector polygon, colour is gated ONLY by has-flux —
+    // the polygon (PASS 3) both excludes neighbours and cuts the exact edge, so colour always reaches the
+    // straight roofline (no uncoloured sliver inside the edge). WITHOUT a polygon we fall back to the
+    // clip ∧ dilated-mask support that the mask-contour AA edge needs.
     const cells=lw*lh, tintR=new Float32Array(cells), tintG=new Float32Array(cells), tintB=new Float32Array(cells), roofM=new Uint8Array(cells);
     const FLUX_A=0.6;                                                        // (audit) tint opacity over the photo — softened 0.72→0.6 so the PLACED black modules stay the dominant element and the empty cells' orange sun-tint reads as context, not a wall (roof texture still shows through)
+    const cleanShot=!!(SG_STATE&&SG_STATE._cleanShot);
     for(let ly=0;ly<lh;ly++){ const y=ly*SS+SS/2, N=pr.N1-(y-pr.offY)/pr.scale;
       for(let lx=0;lx<lw;lx++){ const x=lx*SS+SS/2, E=pr.E0+(x-pr.offX)/pr.scale;
         const ci=ly*lw+lx, k=ci*4;
@@ -11013,21 +11034,25 @@ function sgDraw(){
         const px=sampleRGB(E,N);
         if(px){ ld[k]=px[0]; ld[k+1]=px[1]; ld[k+2]=px[2]; ld[k+3]=255; }
         else { ld[k]=18; ld[k+1]=26; ld[k+2]=38; ld[k+3]=255; }
-        // flux tint only on the selected roof (clip ∧ mask ∧ has-flux). CLEAN-SHOT (estimate-hero snapshot):
-        // skip the tint entirely so the hero is the panels on a CLEAN satellite, not the sun heatmap.
-        if(!fg || (SG_STATE&&SG_STATE._cleanShot) || !inClip(E,N)) continue;
-        if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.5) continue; }
+        // flux tint colour. CLEAN-SHOT (estimate-hero snapshot): skip the tint so the hero is panels on a CLEAN
+        // satellite, not the sun heatmap.
+        if(!fg || cleanShot) continue;
+        if(!havePoly){ if(!inClip(E,N)) continue; if(mg){ const m=sampleGrid(mg,E,N); if(m==null||m<=0.15) continue; } }   // fallback support (no vector outline)
         const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
         const t=(v-fmin0)/range, c=fluxIronColor(t);       // fixed [0..SG_FLUX_MAX] norm + Google iron palette
         tintR[ci]=c[0]; tintG[ci]=c[1]; tintB[ci]=c[2]; roofM[ci]=1;
       } }
-    // PASS 2 — separable 5-tap binomial blur of the tint, CONFINED to roof cells (off-roof weights dropped),
-    // run BLUR_PASSES× → smooths residual flux-cell stair-stepping into a continuous gradient without bleeding
-    // the colour past the roofline. A single pass over the (previously 4×) downsampled buffer was too weak to
-    // hide the ramp banding on a large frame-filling flat roof; repeating the separable blur compounds the
-    // smoothing on the smooth-data case while still clipping to the roof. Then composite the smoothed tint
-    // over the photo with an edge-feathered alpha.
-    if(fg){
+    // Draw the smooth photo base first (bilinear upscale of the low-res buffer). The tint (if any) is composited
+    // on top afterwards through an anti-aliased silhouette.
+    bx.putImageData(limg,0,0);
+    ctx.save();
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+    ctx.drawImage(buf,0,0,lw,lh,0,0,W,H);
+    // PASS 2 — separable 5-tap binomial blur of the tint COLOUR, CONFINED to the (dilated) roof cells, run
+    // BLUR_PASSES× → smooths residual flux-cell stair-stepping into a continuous gradient. Then paint the
+    // smoothed colour into a dedicated low-res TINT buffer, DILATED one cell (borrow a neighbour's colour) so
+    // the upscale carries real colour across the whole AA edge band and never samples black at the roofline.
+    if(fg && !cleanShot){
       const KW=[1,4,6,4,1];
       const BLUR_PASSES=3;   // full horizontal+vertical binomial passes; each is roof-confined so edges stay crisp
       const blurPass=(src,horiz)=>{ const dst=new Float32Array(cells);
@@ -11037,18 +11062,59 @@ function sgDraw(){
         return dst; };
       const smooth=(src)=>{ let a=src; for(let p=0;p<BLUR_PASSES;p++){ a=blurPass(blurPass(a,true),false); } return a; };
       const bR=smooth(tintR), bG=smooth(tintG), bB=smooth(tintB);
-      for(let ly=0;ly<lh;ly++)for(let lx=0;lx<lw;lx++){ const i=ly*lw+lx; if(!roofM[i]) continue;
-        // edge feather: fraction of the 8 neighbours that are also roof → interior full alpha, edge softer.
-        let nb=0; for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ if(!dr&&!dc) continue; const rr=ly+dr,cc=lx+dc; if(rr<0||cc<0||rr>=lh||cc>=lw) continue; if(roofM[rr*lw+cc]) nb++; }
-        const af=FLUX_A*(0.55+0.45*(nb/8)), k=i*4;
-        ld[k]=Math.round(ld[k]*(1-af)+bR[i]*af); ld[k+1]=Math.round(ld[k+1]*(1-af)+bG[i]*af); ld[k+2]=Math.round(ld[k+2]*(1-af)+bB[i]*af);
+      const tlo=(SG_STATE._tintLo&&SG_STATE._tintLo.width===lw&&SG_STATE._tintLo.height===lh)
+        ? SG_STATE._tintLo : (SG_STATE._tintLo=Object.assign(document.createElement("canvas"),{width:lw,height:lh}));
+      const tbx=tlo.getContext("2d"); const timg=tbx.createImageData(lw,lh), tdd=timg.data;
+      for(let i=0;i<cells;i++){ const ly=(i/lw)|0, lx=i-ly*lw, k=i*4;
+        let r=bR[i],g=bG[i],b=bB[i],on=roofM[i];
+        if(!on){ // 1-cell colour dilation — borrow the mean of any roof neighbours so the AA band has colour
+          let sr=0,sg=0,sb=0,n=0;
+          for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const rr=ly+dr,cc=lx+dc; if(rr<0||cc<0||rr>=lh||cc>=lw) continue; const j=rr*lw+cc; if(roofM[j]){ sr+=bR[j];sg+=bG[j];sb+=bB[j];n++; } }
+          if(n){ r=sr/n; g=sg/n; b=sb/n; on=1; } }
+        if(on){ tdd[k]=Math.round(r); tdd[k+1]=Math.round(g); tdd[k+2]=Math.round(b); tdd[k+3]=255; }
       }
+      tbx.putImageData(timg,0,0);
+      // full-res tint canvas — smooth bilinear upscale of the gradient (opaque across the support).
+      const thi=(SG_STATE._tintHi&&SG_STATE._tintHi.width===W&&SG_STATE._tintHi.height===H)
+        ? SG_STATE._tintHi : (SG_STATE._tintHi=Object.assign(document.createElement("canvas"),{width:W,height:H}));
+      const thx=thi.getContext("2d"); thx.clearRect(0,0,W,H); thx.imageSmoothingEnabled=true; thx.imageSmoothingQuality="high";
+      thx.drawImage(tlo,0,0,lw,lh,0,0,W,H);
+      // PASS 3 — cut the tint to the ROOF EDGE via destination-in (keeps tint only where the mask below is opaque).
+      thx.globalCompositeOperation="destination-in";
+      if(havePoly){
+        // (A) VECTOR ROOF POLYGON — a single ANTI-ALIASED path fill. Canvas fills are natively anti-aliased and
+        // the polygon has STRAIGHT vector edges, so the heatmap ends on a clean straight roofline flush with the
+        // panels — no stepped purple fringe. This is the boundary source the 2D map already uses (pointInPoly2).
+        thx.beginPath(); thx.moveTo(roofPolyDev[0][0],roofPolyDev[0][1]);
+        for(let i=1;i<roofPolyDev.length;i++) thx.lineTo(roofPolyDev[i][0],roofPolyDev[i][1]);
+        thx.closePath(); thx.fillStyle="#fff"; thx.fill();
+      } else {
+        // (B) FALLBACK (no analytic outline available) — per-device-pixel smoothstep on the mask's BILINEAR 0.5
+        // iso-contour, gated to has-flux. Softer than the old binary per-cell test, but the edge still traces the
+        // coarse mask; only used when the vector footprint genuinely isn't resolvable.
+        let x0=0,y0=0,x1=W,y1=H;    // scan only the clip region's device-px bbox (not the whole canvas)
+        if(clip&&clip.length){ let mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+          for(const bb of clip){ for(const [E,N] of [[bb[0],bb[1]],[bb[2],bb[1]],[bb[0],bb[3]],[bb[2],bb[3]]]){ const sx=pr.offX+(E-pr.E0)*pr.scale, sy=pr.offY+(pr.N1-N)*pr.scale; if(sx<mnx)mnx=sx; if(sx>mxx)mxx=sx; if(sy<mny)mny=sy; if(sy>mxy)mxy=sy; } }
+          x0=Math.max(0,(Math.floor(mnx)-2)|0); y0=Math.max(0,(Math.floor(mny)-2)|0); x1=Math.min(W,(Math.ceil(mxx)+2)|0); y1=Math.min(H,(Math.ceil(mxy)+2)|0); }
+        const mhi=(SG_STATE._maskHi&&SG_STATE._maskHi.width===W&&SG_STATE._maskHi.height===H)
+          ? SG_STATE._maskHi : (SG_STATE._maskHi=Object.assign(document.createElement("canvas"),{width:W,height:H}));
+        const mhx=mhi.getContext("2d"); const mimg=mhx.createImageData(W,H), mdd=mimg.data;
+        const HW=0.28;   // smoothstep half-width around the mask 0.5 contour → ~1px feathered edge
+        for(let yy=y0;yy<y1;yy++){ const N=pr.N1-(yy-pr.offY)/pr.scale;
+          for(let xx=x0;xx<x1;xx++){ const E=pr.E0+(xx-pr.offX)/pr.scale;
+            if(!inClip(E,N)) continue;
+            const v=sampleGrid(fg,E,N); if(v==null||!isFinite(v)||v<=0) continue;
+            let cover=1;
+            if(mg){ const m=sampleGrid(mg,E,N); if(m==null) continue; let tt=(m-(0.5-HW))/(2*HW); tt=tt<0?0:tt>1?1:tt; cover=tt*tt*(3-2*tt); if(cover<=0) continue; }
+            const k=(yy*W+xx)*4; mdd[k]=255; mdd[k+1]=255; mdd[k+2]=255; mdd[k+3]=Math.round(255*cover);
+          } }
+        mhx.putImageData(mimg,0,0);
+        thx.drawImage(mhi,0,0);
+      }
+      thx.globalCompositeOperation="source-over";
+      // composite the edge-masked tint over the photo at the tint opacity.
+      ctx.globalAlpha=FLUX_A; ctx.drawImage(thi,0,0); ctx.globalAlpha=1;
     }
-    bx.putImageData(limg,0,0);
-    // Upscale with bilinear smoothing → continuous gradient + smooth photo, no pixel blocks.
-    ctx.save();
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
-    ctx.drawImage(buf,0,0,lw,lh,0,0,W,H);
     ctx.restore();
   }
   // 2) panels (Alex's spec). UNSELECTED = a hollow, slightly-shaded BLUE glassy slot with a "+" and faint
