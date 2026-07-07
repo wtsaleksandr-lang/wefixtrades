@@ -28,6 +28,7 @@ import {
   Type as TypeIcon, ToggleLeft as ToggleIcon, Layers, Mail as MailIcon,
   MapPin, Table, Camera,
   FileText, Minus, Video as VideoIcon, MousePointerClick, Link as LinkIcon,
+  Sun,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -40,6 +41,17 @@ interface Props {
   onPick: (type: PublicFieldType) => void;
   /** True when there are no fields yet — render as the large empty-state CTA. */
   emphasis?: boolean;
+  /**
+   * ROOF-ADDON — when provided, the menu surfaces a featured "Address → 3D
+   * Roof & Solar" entry at the top. Picking it does NOT append a field
+   * (the roof/solar widget is a full-body widget); instead it fires this
+   * callback, which applies the `roof_solar_visualizer` template preset via
+   * the shell's existing `requestApplyTemplate` — the SAME path (and the same
+   * "replace your calculator?" confirm guardrail) the gallery uses. Absent on
+   * surfaces that can't turn the whole calculator into a widget (e.g. the
+   * in-preview add affordance), where the entry simply isn't shown.
+   */
+  onInsertRoofWidget?: () => void;
 }
 
 interface TypeMeta {
@@ -227,7 +239,7 @@ interface AnchorRect {
   viewportHeight: number;
 }
 
-export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
+export default function AddFieldMenu({ onPick, emphasis = false, onInsertRoofWidget }: Props) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -347,6 +359,36 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
   })();
 
   const handlePick = (type: PublicFieldType) => { onPick(type); setOpen(false); };
+  const handlePickRoof = () => { onInsertRoofWidget?.(); setOpen(false); };
+
+  // ROOF-ADDON — featured "Address → 3D Roof & Solar" entry. Rendered at the
+  // top of both the desktop dropdown and the mobile sheet when the shell wired
+  // `onInsertRoofWidget`. It's a full-body widget, so the description says so
+  // and the shell's confirm dialog is the actual guardrail before replacing.
+  const roofFeatured = onInsertRoofWidget ? (
+    <button
+      type="button"
+      className="qq-addfield-featured"
+      data-testid="add-field-roof_visualizer"
+      onClick={handlePickRoof}
+      role="menuitem"
+    >
+      <span className="qq-addfield-featured-icon" aria-hidden="true">
+        <Sun size={24} strokeWidth={2} />
+      </span>
+      <span className="qq-addfield-text">
+        <span className="qq-addfield-featured-label">
+          Address → 3D Roof &amp; Solar
+          <span className="qq-addfield-featured-badge">ADD-ON</span>
+        </span>
+        <span className="qq-addfield-desc">
+          Customers type their address and get a photoreal 3D model of their roof
+          with instant solar &amp; roofing quotes. Replaces the form with the
+          full-screen visualizer.
+        </span>
+      </span>
+    </button>
+  ) : null;
 
   const menu = open ? (
     isMobile ? (
@@ -370,6 +412,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         >
           <div className="qq-addfield-sheet-handle" aria-hidden="true" />
           <p className="qq-addfield-sheet-title">Add a field</p>
+          {roofFeatured}
           {TYPES.map((t) => (
             <DraggableMenuItem
               key={t.id}
@@ -398,6 +441,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         style={desktopMenuStyle}
       >
         <p className="qq-addfield-menu-title">Pick a field type</p>
+        {roofFeatured}
         <div className="qq-addfield-grid">
           {TYPES.map((t) => (
             <DraggableMenuItem
@@ -491,6 +535,60 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         }
         @media (max-width: 520px) {
           .qq-addfield-grid { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        /* ROOF-ADDON — featured full-width "Address → 3D Roof & Solar" entry.
+           Accent-tinted so it reads as a promoted add-on distinct from the
+           plain field tiles below it. */
+        .qq-addfield-featured {
+          display: flex; align-items: flex-start; gap: 12px;
+          width: 100%; box-sizing: border-box;
+          padding: 12px; border-radius: 10px;
+          font: inherit; cursor: pointer; text-align: left;
+          background: ${p.colors.accentLighter};
+          border: 1px solid ${p.colors.accent};
+          color: ${p.colors.body};
+          transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-addfield-featured:hover,
+        .qq-addfield-featured:focus-visible {
+          background: ${p.colors.accent};
+          border-color: ${p.colors.accent};
+          box-shadow: ${p.shadows.button};
+          outline: none;
+        }
+        .qq-addfield-featured-icon {
+          width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+          background: ${p.colors.accent}; color: #fff;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .qq-addfield-featured:hover .qq-addfield-featured-icon,
+        .qq-addfield-featured:focus-visible .qq-addfield-featured-icon {
+          background: #fff; color: ${p.colors.accent};
+        }
+        .qq-addfield-featured-label {
+          display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+          font-size: 13.5px; font-weight: 700; color: ${p.colors.heading};
+          line-height: 1.25;
+        }
+        .qq-addfield-featured-badge {
+          padding: 1px 6px; border-radius: 999px;
+          font-size: 8px; font-weight: 700; letter-spacing: 0.4px;
+          text-transform: uppercase;
+          background: ${p.colors.accent}; color: #fff;
+        }
+        .qq-addfield-featured:hover .qq-addfield-featured-label,
+        .qq-addfield-featured:focus-visible .qq-addfield-featured-label,
+        .qq-addfield-featured:hover .qq-addfield-desc,
+        .qq-addfield-featured:focus-visible .qq-addfield-desc {
+          color: #fff;
+        }
+        .qq-addfield-featured:hover .qq-addfield-featured-badge,
+        .qq-addfield-featured:focus-visible .qq-addfield-featured-badge {
+          background: #fff; color: ${p.colors.accent};
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-addfield-featured { transition: none; }
         }
         .qq-addfield-item {
           position: relative;
@@ -673,6 +771,20 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-hint,
         .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-desc {
           color: #94a3b8;
+        }
+        /* ROOF-ADDON featured entry — dark palette (accent-tinted surface). */
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-featured,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-featured {
+          background: rgba(13, 60, 252, 0.18);
+          border-color: #0d3cfc;
+        }
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-featured .qq-addfield-featured-label,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-featured .qq-addfield-featured-label {
+          color: #e2e8f0;
+        }
+        [data-theme="dark"].qq-addfield-menu .qq-addfield-featured .qq-addfield-desc,
+        .qq-addfield-sheet-root[data-theme="dark"] .qq-addfield-featured .qq-addfield-desc {
+          color: #cbd5e1;
         }
 
         /* Wave N — secondary-sized "+ Add field" trigger on phones. The

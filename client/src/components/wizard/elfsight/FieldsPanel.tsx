@@ -23,6 +23,14 @@ const p = platformTheme;
 interface Props {
   fields: TemplateField[];
   onChange: (next: TemplateField[]) => void;
+  /**
+   * ROOF-ADDON — turns the current calculator into the full-body 3D roof &
+   * solar widget. Threaded straight into AddFieldMenu's featured entry; when
+   * omitted the entry is hidden. BuildTab wires this to the shell's
+   * `requestApplyTemplate('roof_solar_visualizer')` (same confirm guardrail
+   * as the gallery template swap).
+   */
+  onInsertRoofWidget?: () => void;
 }
 
 /* ── default-field factories per public type ──────────────────────────── */
@@ -156,7 +164,7 @@ export function makeField(publicType: PublicFieldType): TemplateField {
 
 /* ── component ────────────────────────────────────────────────────────── */
 
-export default function FieldsPanel({ fields, onChange }: Props) {
+export default function FieldsPanel({ fields, onChange, onInsertRoofWidget }: Props) {
   const isEmpty = fields.length === 0;
 
   const handleAdd = (publicType: PublicFieldType) => {
@@ -205,7 +213,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
             <span>Fields</span>
           </h3>
         </div>
-        {!isEmpty && <AddFieldMenu onPick={handleAdd} />}
+        {!isEmpty && <AddFieldMenu onPick={handleAdd} onInsertRoofWidget={onInsertRoofWidget} />}
       </header>
 
       {isEmpty ? (
@@ -216,7 +224,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
             Add your first field to start building the calculator. You can mix
             sliders, dropdowns, image choices and more.
           </p>
-          <AddFieldMenu onPick={handleAdd} emphasis />
+          <AddFieldMenu onPick={handleAdd} onInsertRoofWidget={onInsertRoofWidget} emphasis />
         </div>
       ) : (
         <SortableContext
