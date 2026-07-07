@@ -16,10 +16,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowUp, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowRight, LogIn } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { NAV_LINKS } from "@/site/navigation";
+import { PRIMARY_CTA } from "@/site/cta";
+import { useAuth } from "@/hooks/useAuth";
 import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
 // Pull the canonical entries for the items we want to surface — Products,
@@ -33,6 +35,7 @@ const STICKY_LINKS = PICK
 
 export default function MarketingStickyBar() {
   const visible = useStickyBarVisible();
+  const { isAuthenticated } = useAuth();
   const [active, setActive] = useState<string | null>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 
@@ -141,11 +144,59 @@ export default function MarketingStickyBar() {
           </Menu>
         </div>
 
-        {/* Primary CTA — cream/off-white per DOSS pattern. Color comes
-         * from mkt.buttonBg/Text which were re-aliased to the cream
-         * tokens in tokens.ts; this component's structure is unchanged. */}
+        {/* Login / Dashboard entry point — keeps the portal reachable while
+         * scrolled (the top nav is hidden when this bar is visible). Mirrors
+         * MarketingNav's isAuthenticated logic. Full text on wider screens;
+         * collapses to an icon-only button at ≤480px (where the 4 dropdowns
+         * are already hidden) so the bar still fits at 390px. */}
         <Link
-          href="/wizard"
+          href={isAuthenticated ? "/Dashboard" : "/login"}
+          data-testid={isAuthenticated ? "sticky-dashboard" : "sticky-login"}
+          aria-label={isAuthenticated ? "Dashboard" : "Login"}
+          className="mkt-sticky-login"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            height: 32,
+            padding: "0 12px",
+            borderRadius: 9,
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: mkt.text,
+            fontSize: 12,
+            fontWeight: 500,
+            fontFamily: "'DM Mono', monospace",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)";
+            e.currentTarget.style.color = mkt.accent;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+            e.currentTarget.style.color = mkt.text;
+          }}
+        >
+          <LogIn size={14} strokeWidth={2} aria-hidden="true" />
+          <span className="mkt-sticky-login-label">
+            {isAuthenticated ? "Dashboard" : "Login"}
+          </span>
+        </Link>
+
+        {/* Primary CTA — unified with the top nav's canonical CTA via
+         * PRIMARY_CTA (same label + destination). Cream/off-white per DOSS
+         * pattern; color comes from mkt.buttonBg/Text (re-aliased to the cream
+         * tokens in tokens.ts). Uses shortLabel so it fits the compact bar. */}
+        <Link
+          href={PRIMARY_CTA.href}
           className="wft-hover-border-blue"
           style={{
             display: "inline-flex",
@@ -171,12 +222,16 @@ export default function MarketingStickyBar() {
             e.currentTarget.style.background = mkt.buttonBg;
           }}
         >
-          Start Free <ArrowRight size={12} strokeWidth={2.4} />
+          {PRIMARY_CTA.shortLabel} <ArrowRight size={12} strokeWidth={2.4} />
         </Link>
       </div>
       <style>{`
         @media (max-width: 480px) {
           .mkt-sticky-menu-wrap { display: none !important; }
+          /* Collapse the login button to icon-only so the bar still fits at
+           * 390px; the button stays visible + tappable (min 32px target). */
+          .mkt-sticky-login { padding: 0 8px !important; }
+          .mkt-sticky-login-label { display: none !important; }
         }
       `}</style>
     </div>

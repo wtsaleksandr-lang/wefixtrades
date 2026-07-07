@@ -4,6 +4,7 @@ import { Menu as MenuIcon, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/primitives/Logo";
 import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
+import { PRIMARY_CTA } from "@/site/cta";
 import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt, typography } from "@/theme/tokens";
@@ -290,7 +291,7 @@ export function MarketingNav() {
                     {isAuthenticated ? "Dashboard" : "Login"}
                   </Link>
                   <Link
-                    href="/templates"
+                    href={PRIMARY_CTA.href}
                     className="mkt-btn-primary nav-cta-start-free"
                     data-testid="nav-cta-start-free"
                     style={{
@@ -309,10 +310,10 @@ export function MarketingNav() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    Start free — no card
+                    {PRIMARY_CTA.label}
                   </Link>
                   <Link
-                    href="/demo"
+                    href="/demos"
                     className="mkt-btn-demo"
                     data-testid="nav-cta-tradeline"
                     style={{
@@ -343,7 +344,7 @@ export function MarketingNav() {
                       el.style.borderColor = mkt.ctaSecondaryBorder;
                     }}
                   >
-                    TradeLine Demo
+                    See it live
                   </Link>
                 </>
               )}
@@ -546,7 +547,7 @@ export function MarketingNav() {
             ))}
 
             <Link
-              href="/templates"
+              href={PRIMARY_CTA.href}
               onClick={() => setMenuOpen(false)}
               data-testid="nav-cta-start-free-mobile"
               className="wft-hover-border-blue"
@@ -564,10 +565,10 @@ export function MarketingNav() {
                 textDecoration: "none",
               }}
             >
-              Start free — no card
+              {PRIMARY_CTA.label}
             </Link>
             <Link
-              href="/demo"
+              href="/demos"
               onClick={() => setMenuOpen(false)}
               data-testid="nav-cta-tradeline-mobile"
               style={{
@@ -585,7 +586,7 @@ export function MarketingNav() {
                 border: `1px solid ${mkt.ctaSecondaryBorder}`,
               }}
             >
-              TradeLine Demo
+              See it live
             </Link>
           </div>
         </div>
