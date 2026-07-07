@@ -8,9 +8,10 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Plus } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
+import { TRADES } from "@/site/trades";
 import { NavIcon } from "@/components/marketing/navigation/NavIcon";
 import { ToolsRichCards } from "@/components/marketing/navigation/ToolsRichCards";
 import { FreeToolsMegaPanel } from "@/components/marketing/navigation/FreeToolsMegaPanel";
@@ -69,6 +70,167 @@ const topHoverOff = (el: HTMLElement) => {
   el.style.borderColor = "transparent";
 };
 
+// ── TradeTypeahead ───────────────────────────────────────────────────────────
+// "Find your trade" search at the top of the Solutions mega-menu. Filters ALL
+// TRADES (the shared SoT index) by label/shortLabel as the user types. Empty
+// query renders nothing below the input, so the caller's featured cards show
+// as today; a non-empty query renders a compact result list and the caller
+// hides the featured grid. Keyboard: ↓/↑ move the active row, Enter navigates,
+// Esc clears. Theme-aware tokens only.
+const TradeTypeahead = ({
+  onNavigate,
+  onSearchingChange,
+}: {
+  onNavigate: () => void;
+  /** Notifies the parent whether a query is active so it can hide the
+   *  featured-card grid while search results are showing. */
+  onSearchingChange?: (searching: boolean) => void;
+}) => {
+  const [q, setQ] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [, navigate] = useLocation();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const query = q.trim().toLowerCase();
+
+  useEffect(() => {
+    onSearchingChange?.(query.length > 0);
+  }, [query, onSearchingChange]);
+  const results = query
+    ? TRADES.filter(
+        (t) =>
+          t.label.toLowerCase().includes(query) ||
+          t.shortLabel.toLowerCase().includes(query),
+      )
+    : [];
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [query]);
+
+  const go = (slug: string) => {
+    onNavigate();
+    navigate(`/solutions/${slug}`);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setQ("");
+      return;
+    }
+    if (!results.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % results.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + results.length) % results.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const t = results[Math.min(activeIdx, results.length - 1)];
+      if (t) go(t.slug);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: query ? 12 : 14 }}>
+      <label htmlFor="nav-trade-search" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+        Find your trade
+      </label>
+      <input
+        id="nav-trade-search"
+        ref={inputRef}
+        type="text"
+        role="combobox"
+        aria-expanded={results.length > 0}
+        aria-controls="nav-trade-results"
+        aria-autocomplete="list"
+        placeholder="Find your trade…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={onKeyDown}
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 12px",
+          borderRadius: 10,
+          background: "rgba(255,255,255,0.06)",
+          border: `1px solid ${mkt.onDarkBorder}`,
+          color: mkt.onDark,
+          fontFamily: "'DM Mono', monospace",
+          fontSize: 13,
+          fontWeight: 450,
+          letterSpacing: "0.02em",
+          outline: "none",
+        }}
+      />
+      {query && (
+        <div
+          id="nav-trade-results"
+          role="listbox"
+          aria-label="Matching trades"
+          style={{
+            marginTop: 8,
+            maxHeight: 260,
+            overflowY: "auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 6,
+          }}
+        >
+          {results.length === 0 ? (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                padding: "10px 4px",
+                fontFamily: "'DM Mono', monospace",
+                fontSize: 12.5,
+                color: mkt.onDarkMuted,
+              }}
+            >
+              No trades match “{q.trim()}”.
+            </div>
+          ) : (
+            results.map((t, i) => (
+              <Link
+                key={t.slug}
+                href={`/solutions/${t.slug}`}
+                role="option"
+                aria-selected={i === activeIdx}
+                className="mkt-menu-card"
+                onClick={onNavigate}
+                onMouseEnter={() => setActiveIdx(i)}
+                style={{
+                  outline: i === activeIdx ? `1px solid ${mkt.accentOnDark}` : undefined,
+                }}
+              >
+                <div className="mkt-menu-card-icon" style={{ color: mkt.accent }} aria-hidden>
+                  <NavIcon icon={t.icon} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 650,
+                      color: mkt.text,
+                      lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {t.label}
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── MenuItem ─────────────────────────────────────────────────────────────────
 export const MenuItem = ({
   setActive,
@@ -110,6 +272,13 @@ export const MenuItem = ({
   const ctx = useContext(MenuContext);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [vh, setVh] = useState<number>(typeof window !== "undefined" ? window.innerHeight : 0);
+  // Solutions typeahead: when a query is active we hide the featured grid so
+  // the search results own the panel. Reset whenever the dropdown closes.
+  const [searchingSolutions, setSearchingSolutions] = useState(false);
+  const isSolutions = item === "Solutions";
+  useEffect(() => {
+    if (!isOpen) setSearchingSolutions(false);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !ctx?.containerRef.current) {
@@ -235,6 +404,16 @@ export const MenuItem = ({
                 <ToolsRichCards items={children!} onNavigate={() => setActive(null)} />
               ) : (
                 <>
+                {/* Solutions "Find your trade" typeahead — searches ALL 40
+                    TRADES (shared SoT) by label/shortLabel. Empty query keeps
+                    the featured cards below; a query hides them and shows a
+                    compact result list. */}
+                {isSolutions && (
+                  <TradeTypeahead
+                    onNavigate={() => setActive(null)}
+                    onSearchingChange={setSearchingSolutions}
+                  />
+                )}
                 {/* Flagship hero row — our three home-grown tools, surfaced
                     FIRST as full screenshot cards (real poster + on-hover
                     Ken-Burns motion) above the standard product grid. Hidden
@@ -267,7 +446,7 @@ export const MenuItem = ({
                     }}
                   />
                 )}
-                {children && children.length > 0 && (
+                {children && children.length > 0 && !(isSolutions && searchingSolutions) && (
                 <motion.div
                   layout
                   style={{

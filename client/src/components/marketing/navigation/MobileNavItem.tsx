@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Plus, ChevronDown, Lock } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
+import { TRADES } from "@/site/trades";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
 
@@ -25,6 +26,11 @@ export function MobileNavItem({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [pressedHref, setPressedHref] = useState<string | null>(null);
+  // Solutions "Find your trade" typeahead (mobile). Filters ALL 40 TRADES by
+  // label/shortLabel; a non-empty query hides the featured cards and shows a
+  // compact result list.
+  const [tradeQuery, setTradeQuery] = useState("");
+  const isSolutions = label === "Solutions";
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
@@ -167,6 +173,118 @@ export function MobileNavItem({
                   </Link>
                 </>
               ) : (
+                <>
+                {/* Solutions "Find your trade" typeahead — searches ALL 40
+                    TRADES; a query hides the featured cards below and shows a
+                    compact result list. */}
+                {isSolutions && (
+                  <div style={{ marginBottom: 8 }}>
+                    <label
+                      htmlFor="mobile-trade-search"
+                      style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}
+                    >
+                      Find your trade
+                    </label>
+                    <input
+                      id="mobile-trade-search"
+                      type="text"
+                      role="combobox"
+                      aria-expanded={tradeQuery.trim().length > 0}
+                      aria-controls="mobile-trade-results"
+                      aria-autocomplete="list"
+                      placeholder="Find your trade…"
+                      value={tradeQuery}
+                      onChange={(e) => setTradeQuery(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 12px",
+                        borderRadius: 12,
+                        background: "rgba(255,255,255,0.06)",
+                        border: `1px solid ${mkt.border}`,
+                        color: mkt.text,
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 13,
+                        fontWeight: 450,
+                        letterSpacing: "0.02em",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                )}
+                {isSolutions && tradeQuery.trim() ? (
+                  (() => {
+                    const query = tradeQuery.trim().toLowerCase();
+                    const results = TRADES.filter(
+                      (t) =>
+                        t.label.toLowerCase().includes(query) ||
+                        t.shortLabel.toLowerCase().includes(query),
+                    );
+                    if (results.length === 0) {
+                      return (
+                        <div
+                          style={{
+                            padding: "10px 4px",
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: 12.5,
+                            color: mkt.textMuted,
+                          }}
+                        >
+                          No trades match “{tradeQuery.trim()}”.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div id="mobile-trade-results" role="listbox" aria-label="Matching trades">
+                        {results.map((t) => (
+                          <a
+                            key={t.slug}
+                            href={`/solutions/${t.slug}`}
+                            role="option"
+                            aria-selected={false}
+                            onClick={handleCardTap(`/solutions/${t.slug}`)}
+                            className={`mkt-menu-card mkt-menu-card--mobile${pressedHref === `/solutions/${t.slug}` ? " mkt-menu-card--pressed" : ""}`}
+                            style={{
+                              display: "flex",
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 14,
+                              padding: "10px 10px",
+                              marginBottom: 6,
+                              borderRadius: 14,
+                              textDecoration: "none",
+                              background: "rgba(255,255,255,0.04)",
+                              border: `1px solid ${mkt.border}`,
+                            }}
+                          >
+                            <div
+                              className="mkt-menu-card-icon"
+                              style={{ color: mkt.accent, flexShrink: 0 }}
+                              aria-hidden
+                            >
+                              <NavIcon icon={t.icon} />
+                            </div>
+                            <div
+                              style={{
+                                minWidth: 0,
+                                fontSize: 13,
+                                fontWeight: 650,
+                                color: mkt.text,
+                                lineHeight: 1.15,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                textAlign: "left",
+                              }}
+                            >
+                              {t.label}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()
+                ) : (
                 children!.map(({ label: cl, href: ch, description, icon }) => (
                   <a
                     key={ch + cl}
@@ -237,6 +355,8 @@ export function MobileNavItem({
                     </div>
                   </a>
                 ))
+                )}
+                </>
               )}
             </div>
           </div>

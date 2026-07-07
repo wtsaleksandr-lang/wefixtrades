@@ -236,57 +236,22 @@ function MarketingFooter() {
             ]}
           />
 
-          {/* Solutions — first 8 shown above the fold so the visible link
-              count matches the Products column (which also surfaces 8 of 15).
-              Remaining trades unfold behind "All Solutions". */}
-          <ExpandableFooterColumn
-            title="Solutions"
-            toggleLabel="All Solutions"
-            visibleCount={8}
-            links={[
-              { href: "/solutions/for-plumbers", label: "Plumbers" },
-              { href: "/solutions/for-hvac", label: "HVAC" },
-              { href: "/solutions/for-electricians", label: "Electricians" },
-              { href: "/solutions/for-roofers", label: "Roofers" },
-              { href: "/solutions/for-cleaners", label: "Cleaners" },
-              { href: "/solutions/for-landscapers", label: "Landscapers" },
-              { href: "/solutions/for-pest-control", label: "Pest Control" },
-              { href: "/solutions/for-garage-door", label: "Garage Door" },
-              { href: "/solutions/for-locksmiths", label: "Locksmiths" },
-              { href: "/solutions/for-painters", label: "Painters" },
-              { href: "/solutions/for-remodelers", label: "Remodelers" },
-              { href: "/solutions/for-general-contractors", label: "General Contractors" },
-              // Wave 16 — long-tail trade pages.
-              { href: "/solutions/for-carpenters", label: "Carpenters" },
-              { href: "/solutions/for-cabinet-installers", label: "Cabinet Installers" },
-              { href: "/solutions/for-chimney-sweeps", label: "Chimney Sweeps" },
-              { href: "/solutions/for-concrete", label: "Concrete" },
-              { href: "/solutions/for-countertop-installers", label: "Countertop Installers" },
-              { href: "/solutions/for-deck-builders", label: "Deck Builders" },
-              { href: "/solutions/for-door-installers", label: "Door Installers" },
-              { href: "/solutions/for-drywall", label: "Drywall" },
-              { href: "/solutions/for-fencing", label: "Fencing" },
-              { href: "/solutions/for-flooring", label: "Flooring" },
-              { href: "/solutions/for-foundation-repair", label: "Foundation Repair" },
-              { href: "/solutions/for-gutter-services", label: "Gutter Services" },
-              { href: "/solutions/for-insulation", label: "Insulation" },
-              { href: "/solutions/for-masonry", label: "Masonry" },
-              { href: "/solutions/for-mold-remediation", label: "Mold Remediation" },
-              { href: "/solutions/for-moving-services", label: "Moving Services" },
-              { href: "/solutions/for-pool-service", label: "Pool Service" },
-              { href: "/solutions/for-septic-services", label: "Septic Services" },
-              { href: "/solutions/for-siding", label: "Siding" },
-              { href: "/solutions/for-solar", label: "Solar" },
-              { href: "/solutions/for-tile-installers", label: "Tile Installers" },
-              { href: "/solutions/for-tree-service", label: "Tree Service" },
-              { href: "/solutions/for-water-damage-restoration", label: "Water Damage" },
-              { href: "/solutions/for-waterproofing", label: "Waterproofing" },
-              { href: "/solutions/for-well-water", label: "Well Water" },
-              { href: "/solutions/for-window-installers", label: "Window Installers" },
-              { href: "/solutions/for-appliance-repair", label: "Appliance Repair" },
-              { href: "/solutions/for-junk-removal", label: "Junk Removal" },
-            ]}
-          />
+          {/* Solutions — top 8 trades + a single "All industries →" link to
+              the /solutions catalogue. The full 40-trade dump used to unfold
+              behind "All Solutions" here, which stretched the footer far past
+              the other columns; discovery of the long tail now lives on the
+              catalogue page and the nav "Find your trade" typeahead. */}
+          <FooterColumn title="Solutions">
+            <FtLink href="/solutions/for-plumbers">Plumbers</FtLink>
+            <FtLink href="/solutions/for-hvac">HVAC</FtLink>
+            <FtLink href="/solutions/for-electricians">Electricians</FtLink>
+            <FtLink href="/solutions/for-roofers">Roofers</FtLink>
+            <FtLink href="/solutions/for-cleaners">Cleaners</FtLink>
+            <FtLink href="/solutions/for-landscapers">Landscapers</FtLink>
+            <FtLink href="/solutions/for-pest-control">Pest Control</FtLink>
+            <FtLink href="/solutions/for-garage-door">Garage Door</FtLink>
+            <FtLink href="/solutions">All industries →</FtLink>
+          </FooterColumn>
 
           {/* For You — audience landing pages (Brightlocal-style). Sits
               between Solutions and Resources because the buyer persona is

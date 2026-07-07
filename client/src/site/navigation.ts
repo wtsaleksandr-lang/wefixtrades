@@ -124,8 +124,6 @@ export const NAV_LINKS: NavItem[] = [
       { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
       { label: "CiteTrack", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
       { label: "CiteFlow", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
-      { label: "TradeLine\u2122", href: "/products/tradeline", description: "Always-on lead handling system.", icon: "workflow" },
-      { label: "QuoteQuick\u2122", href: "/products/quickquotepro", description: "Instant quotes + booking on your site.", icon: "calculator" },
       { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
@@ -208,6 +206,7 @@ export const NAV_LINKS: NavItem[] = [
       { label: "For General Contractors", href: "/solutions/for-general-contractors", description: "Organize leads & follow-ups.", icon: "building2" },
     ],
     footer: [
+      { label: "See all 40 trades", href: "/solutions" },
       { label: "Compare products for your trade", href: "/products" },
     ],
   },
