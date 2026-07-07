@@ -23,6 +23,7 @@ import { SuiteBreadcrumb } from "@/components/marketing/SuiteBreadcrumb";
 import { SmsConsentDisclosure } from "@/components/forms/SmsConsentDisclosure";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { mkt } from "@/theme/tokens";
+import { getLenis } from "@/hooks/useLenis";
 import { getProductBySlug } from "@/config/products";
 import {
   productSchema,
@@ -210,7 +211,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
     : cfg;
 
   return (
-    <MarketingLayout hideSiteChat={isTradeLine}>
+    <MarketingLayout hideSiteChat={isTradeLine} hideStickyCtas={isTradeLine}>
       <PageMeta
         // Strip a redundant trailing "| WeFixTrades" — PageMeta already
         // appends " · WeFixTrades", so the raw seoTitles produced a doubled
@@ -2396,8 +2397,20 @@ function CtaLink({
   style?: React.CSSProperties;
 }) {
   if (href.startsWith("#")) {
+    // In-page anchor — smooth-scroll to the target section instead of the
+    // browser's instant jump, and keep it in sync with the Lenis smooth-scroll
+    // instance when present (falls back to native smooth scrollIntoView).
+    const onAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      const el = document.getElementById(href.slice(1));
+      if (!el) return; // unknown target → let the default anchor behavior run
+      e.preventDefault();
+      const lenis = getLenis();
+      if (lenis) lenis.scrollTo(el, { offset: -24 });
+      else el.scrollIntoView({ behavior: "smooth", block: "start" });
+      history.replaceState(null, "", href);
+    };
     return (
-      <a href={href} className={className} style={style}>
+      <a href={href} className={className} style={style} onClick={onAnchorClick}>
         {children}
       </a>
     );

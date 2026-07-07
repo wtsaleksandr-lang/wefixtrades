@@ -635,7 +635,7 @@ function MarketingFooter() {
   );
 }
 
-export default function MarketingLayout({ children, hideSiteChat = false }: { children: ReactNode; hideSiteChat?: boolean }) {
+export default function MarketingLayout({ children, hideSiteChat = false, hideStickyCtas = false }: { children: ReactNode; hideSiteChat?: boolean; hideStickyCtas?: boolean }) {
   useLenis();
   const [location] = useLocation();
   usePageView(location);
@@ -688,9 +688,12 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
       <MarketingFooter />
       {/* Desktop scroll pill (≥1024px + hover) and the mobile-only bottom CTA
           (≤560px / touch). Each self-gates by breakpoint, so exactly one — or
-          neither — shows at a time. */}
-      <MarketingStickyBar />
-      <MobileStickyCta />
+          neither — shows at a time.
+          `hideStickyCtas` suppresses BOTH on pages that own the bottom edge
+          with their own fixed launcher (e.g. TradeLine's demo bar) — otherwise
+          two fixed-bottom elements collide when scrolled. */}
+      {!hideStickyCtas && <MarketingStickyBar />}
+      {!hideStickyCtas && <MobileStickyCta />}
       {!hideSiteChat && (
         <Suspense fallback={null}>
           <SiteChatWidget />
