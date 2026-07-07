@@ -64,70 +64,61 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { API_TIERS, QQ_LOYALTY_STARTER_MONTHLY } from "@shared/pricing/apiTiers";
 
-/* ─── Locked tier catalog (display source until AJ-3 /api-tiers ships) ─── */
+/* ─── Tier catalog for display ───────────────────────────────────────────
+ * Derived from the SINGLE canonical source shared/pricing/apiTiers.ts so
+ * prices / quotas / loyalty rate can never drift from the server or the
+ * public /docs/api page. Only presentation copy (marketing bullets,
+ * "recommended" flag) lives here; every NUMBER comes from API_TIERS. */
 
 interface DisplayTier {
   id: string;
   name: string;
-  monthlyUsd: number;       // sticker price for monthly billing
+  monthlyUsd: number;         // sticker price for monthly billing
+  annualPerMonthUsd: number;  // annual price expressed as monthly equivalent
+  annualTotalUsd: number;     // full annual price
   loyaltyMonthlyUsd?: number; // discounted price for QQ-paid loyalty
-  monthlyQuota: number;     // calls/month
-  calcsIncluded: string;    // "1 calc" / "Unlimited"
+  monthlyQuota: number;       // calls/month
+  calcsIncluded: string;      // "1 calc" / "Unlimited"
   features: string[];
   recommended?: boolean;
 }
 
-const LOCKED_TIERS: DisplayTier[] = [
-  {
-    id: "dev",
-    name: "Developer",
-    monthlyUsd: 0,
-    monthlyQuota: 1_000,
-    calcsIncluded: "1 calc",
-    features: ["1,000 calls / month", "1 calculator", "Community support"],
-  },
-  {
-    id: "starter",
-    name: "Starter",
-    monthlyUsd: 49,
-    loyaltyMonthlyUsd: 29,
-    monthlyQuota: 25_000,
-    calcsIncluded: "3 calcs",
-    features: ["25,000 calls / month", "3 calculators", "Webhooks", "Email support"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    monthlyUsd: 149,
-    monthlyQuota: 150_000,
-    calcsIncluded: "10 calcs",
-    features: ["150,000 calls / month", "10 calculators", "Priority email", "Sandbox + production keys"],
-    recommended: true,
-  },
-  {
-    id: "business",
-    name: "Business",
-    monthlyUsd: 399,
-    monthlyQuota: 750_000,
-    calcsIncluded: "50 calcs",
-    features: ["750,000 calls / month", "50 calculators", "99.9% SLA", "Multi-team keys"],
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    monthlyUsd: 999,
-    monthlyQuota: 3_000_000,
-    calcsIncluded: "Unlimited",
-    features: ["3M calls / month", "Unlimited calculators", "Dedicated Slack", "Custom contracts"],
-  },
-];
+const fmtCalls = (n: number) =>
+  n >= 1_000_000 ? `${n / 1_000_000}M` : n.toLocaleString("en-US");
+const calcsLabel = (n: number) =>
+  n === -1 ? "Unlimited" : `${n} calc${n === 1 ? "" : "s"}`;
 
-// 17% annual discount → annual price = monthly * 12 * 0.83 rounded.
-function annualEquivalentMonthly(monthlyUsd: number): number {
-  if (monthlyUsd === 0) return 0;
-  return Math.round(monthlyUsd * 0.83);
-}
+// Non-numeric marketing bullets per tier — every numeric bullet is derived.
+const TIER_EXTRA_FEATURES: Record<string, string[]> = {
+  free: ["Community support"],
+  starter: ["Webhooks", "Email support"],
+  pro: ["Priority email", "Sandbox + production keys"],
+  business: ["99.9% SLA", "Multi-team keys"],
+  agency: ["Dedicated Slack", "Custom contracts"],
+};
+
+const LOCKED_TIERS: DisplayTier[] = API_TIERS.map((t) => ({
+  id: t.id,
+  name: t.name,
+  monthlyUsd: t.priceMonthly,
+  annualPerMonthUsd: t.priceAnnualPerMonthEq,
+  annualTotalUsd: t.priceAnnual,
+  loyaltyMonthlyUsd: t.stripeLoyaltyMonthlyPriceEnv
+    ? QQ_LOYALTY_STARTER_MONTHLY
+    : undefined,
+  monthlyQuota: t.monthlyCallQuota,
+  calcsIncluded: calcsLabel(t.maxCalculators),
+  features: [
+    `${fmtCalls(t.monthlyCallQuota)} calls / month`,
+    t.maxCalculators === -1
+      ? "Unlimited calculators"
+      : `${t.maxCalculators} calculator${t.maxCalculators === 1 ? "" : "s"}`,
+    ...(TIER_EXTRA_FEATURES[t.id] ?? []),
+  ],
+  recommended: t.id === "pro",
+}));
 
 /* ─── API response shapes ─── */
 
@@ -659,7 +650,7 @@ function PricingView({
       {/* Tier cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 auto-rows-fr" data-testid="tier-grid">
         {LOCKED_TIERS.map((t) => {
-          const monthly = interval === "annual" ? annualEquivalentMonthly(t.monthlyUsd) : t.monthlyUsd;
+          const monthly = interval === "annual" ? t.annualPerMonthUsd : t.monthlyUsd;
           const isFree = t.monthlyUsd === 0;
           const isStarter = t.id === "starter";
           const showLoyaltyPrice = isStarter && loyaltyEligible && interval === "monthly";
@@ -701,7 +692,7 @@ function PricingView({
                 </div>
                 {interval === "annual" && !isFree && (
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    ${monthly * 12}/year billed annually
+                    ${t.annualTotalUsd.toLocaleString("en-US")}/year billed annually
                   </p>
                 )}
                 {interval === "monthly" && showLoyaltyPrice && (
