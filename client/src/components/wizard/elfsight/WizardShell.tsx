@@ -2469,6 +2469,11 @@ export default function WizardShell({ embed = false }: Props) {
                      editors bind to, keeping the two panes in sync. */
                   onHeaderSubtitleChange={(v) => setHeader({ ...(state.header ?? {}), subtitle: v })}
                   onResultsTextChange={(which, v) => setResults({ ...(state.results ?? {}), [which]: v })}
+                  /* feat/inline-editing — inline edit of the CTA / submit button
+                     LABEL commits to settings.ctaLabel (the same field the
+                     Action-tab CTA editor writes; buildAdvancedConfig maps it
+                     onto results.cta_label in the preview), keeping both in sync. */
+                  onCtaLabelChange={(v) => setSettings({ ...(state.settings ?? {}), ctaLabel: v })}
                   /* BUG-3 fix (fix/inline-title-edit): persist the draft when an
                      inline title edit is committed (debounced inside PreviewPane)
                      so a title typed on the mockup survives navigation without a

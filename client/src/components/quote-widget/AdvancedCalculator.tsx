@@ -4239,7 +4239,13 @@ export default function AdvancedCalculator({
                     // it's keyboard/SR-correct.
                     disabled={minSelectUnmet}
                     aria-disabled={minSelectUnmet || undefined}
-                    onClick={() => {
+                    onClick={(e) => {
+                      // Inline-edit (editor preview only) — a click on the
+                      // pencil edit-hint is meant to open the CTA-label editor
+                      // via PreviewPane's onBezelClick delegation. Don't ALSO
+                      // fire the button's lead-modal / redirect action. Gated on
+                      // editableTitle so the live/published widget is untouched.
+                      if (editableTitle && (e.target as HTMLElement).closest?.('[data-testid="advanced-cta-edit-hint"]')) return;
                       if (minSelectUnmet) return;
                       // 'redirect' → open the owner's destination URL (new tab in
                       // the preview so the editor isn't navigated away); any
@@ -4276,10 +4282,20 @@ export default function AdvancedCalculator({
                       // back to the accent colour when undefined.
                       ['--qq-cta-base' as string]: String(ctaBg),
                     }}>
-                    {ctaProps.__html
-                      ? <span dangerouslySetInnerHTML={{ __html: ctaProps.__html }} />
-                      : ctaLabelPlain}
+                    {/* feat/inline-editing — the CTA copy is wrapped in a
+                        stable-testid span so PreviewPane's section editor can
+                        measure JUST the label (not the whole button) when the
+                        owner inline-edits it in the wizard preview. */}
+                    <span data-testid="advanced-cta-label">
+                      {ctaProps.__html
+                        ? <span dangerouslySetInnerHTML={{ __html: ctaProps.__html }} />
+                        : ctaLabelPlain}
+                    </span>
                     {' '}<span style={{ fontSize: '16px' }}>→</span>
+                    {/* Wizard-preview-only pencil (editableTitle). Opens the
+                        inline CTA-label editor; never mounts on the published
+                        widget. Matches the title/subtitle/result edit-hints. */}
+                    {editableTitle && <EditHint testId="advanced-cta-edit-hint" color={ctaFgGuarded} />}
                   </button>
                 )}
 
