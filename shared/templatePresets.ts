@@ -9431,13 +9431,58 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     matchingTrades: ['roofing', 'solar', 'exterior'],
     widgetKind: 'roof_visualizer',
     requireAddress: true,
-    trustBadges: BADGES.roofing,
+    trustBadges: BADGES.solar,
     layout: 'single-column', theme: 'light', defaultIcon: 'Sun',
+    // Showcase style — confident sky-slate palette framing the 3D widget: a
+    // clean blue accent, deep navy-slate result panel and sunlit-amber solar
+    // CTA. The widget itself produces the precise figure, so range_mode stays
+    // off. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#2563eb',
+      background: '#f4f7fb',
+      surface: '#ffffff',
+      border: '#dbe4f0',
+      text: '#0f172a',
+      resultsBg: '#0f213d',
+      ctaColor: '#f59e0b',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'geist',
+      fieldStyle: 'outline',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        range_mode: { enabled: false, band_pct: 10 },
+      },
+      animations: {
+        step_transition: 'slide-fade',
+        duration_ms: 220,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
     header: {
       title: 'See your roof in 3D — get an instant roof & solar quote',
-      subtitle: 'Type your address to load a photoreal 3D model of your roof, then explore materials and solar options.',
+      subtitle: 'NABCEP-certified · 25-year production warranty · Type your address to load a photoreal 3D model of your roof, then explore materials and solar options.',
       align: 'left',
     },
+    steps: [
+      { id: 'step_roof', label: 'Your roof', help: 'The 3D visualizer measures your roof from your address — this only sets a fallback.', fields: ['roof_area'] },
+    ],
     fields: [
       { id: 'roof_area', name: 'Roof Area', label: 'Approximate roof area', type: 'slider', colSpan: 2,
         help: 'The visualizer measures this automatically from your address — this is only a fallback.',
@@ -9450,9 +9495,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     results: {
       heading: 'Your instant roof & solar quote',
       show_breakdown: false,
-      cta_label: 'Get my full quote',
+      cta_label: 'Get My Full Roof & Solar Quote',
       cta_heading: 'Want the exact figure?',
-      cta_sub: 'Share your details and a roofing specialist confirms materials, solar options and the final price.',
+      cta_sub: 'Share your details and a NABCEP-certified specialist confirms materials, solar tiers and the final price — plus every incentive you qualify for.',
+      submit_success: 'Requested! A roof & solar specialist will call within one business day with your exact quote and available incentives.',
+      footnote: 'Eligible for the 30% federal solar tax credit + state and utility incentives. 25-year panel production warranty and lifetime roofing options available. Free, no-obligation estimate.',
     },
   },
 
@@ -9472,11 +9519,56 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     requireAddress: true,
     trustBadges: BADGES.roofing,
     layout: 'single-column', theme: 'light', defaultIcon: 'Home',
+    // Showcase style — warm-roof palette framing the 3D widget: a terracotta
+    // accent, deep warm-charcoal result panel and burnt-orange CTA that reads
+    // as roofing. The widget produces the precise figure, so range_mode stays
+    // off. Never falls back to deriveStyleFromCategory.
+    style: {
+      widgetWidth: 'wide',
+      accent: '#c2410c',
+      background: '#f7f6f4',
+      surface: '#ffffff',
+      border: '#e6e1db',
+      text: '#111827',
+      resultsBg: '#26211d',
+      ctaColor: '#ea580c',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'geist',
+      fieldStyle: 'filled',
+      radius: 12,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      resultPanel: {
+        emphasis: 'bold',
+        border: 'subtle',
+        range_mode: { enabled: false, band_pct: 12 },
+      },
+      animations: {
+        step_transition: 'slide-fade',
+        duration_ms: 220,
+        reduced_motion_respect: true,
+      },
+      premiumAnimations: {
+        enabled: true,
+        countUp: true,
+        staggerReveal: true,
+        cardFlip: false,
+        confetti: false,
+      },
+    },
     header: {
       title: 'See your roof in 3D — get an instant roofing quote',
-      subtitle: 'Type your address to load a photoreal 3D model of your roof and explore materials.',
+      subtitle: 'GAF & Owens Corning certified · Lifetime warranty available · Type your address to load a photoreal 3D model of your roof and explore materials.',
       align: 'left',
     },
+    steps: [
+      { id: 'step_roof', label: 'Your roof', help: 'The 3D visualizer measures your roof from your address — this only sets a fallback.', fields: ['roof_area'] },
+    ],
     fields: [
       { id: 'roof_area', name: 'Roof Area', label: 'Approximate roof area', type: 'slider', colSpan: 2,
         help: 'The visualizer measures this automatically from your address — this is only a fallback.',
@@ -9489,9 +9581,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     results: {
       heading: 'Your instant roofing quote',
       show_breakdown: false,
-      cta_label: 'Get my full quote',
+      cta_label: 'Get My Full Roofing Quote',
       cta_heading: 'Want the exact figure?',
-      cta_sub: 'Share your details and a roofing specialist confirms materials and the final price.',
+      cta_sub: 'Share your details and a certified roofing specialist confirms materials, tear-off scope and the final price — with a free drone roof survey.',
+      submit_success: 'Requested! A roofing specialist will call within one business day with your exact quote and material options.',
+      footnote: 'GAF Master Elite & Owens Corning certified. Lifetime material warranty available. Free, no-obligation drone roof survey and estimate.',
     },
   },
 ];

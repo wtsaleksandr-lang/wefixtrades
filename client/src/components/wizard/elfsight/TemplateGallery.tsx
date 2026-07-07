@@ -980,6 +980,50 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           </select>
         </div>
         <div className="qq-tg-modal-grid" data-testid="template-browse-grid">
+          {/* Curated Featured hero row — leads the gallery with a hand-picked
+              set of flagship templates, the way top SaaS galleries surface
+              editor picks above the raw catalogue. Computed inline (no hook) so
+              it only shows in the default browse state (no search / All
+              categories / All trades) and never fights an active filter. */}
+          {(() => {
+            const featured = pickFeatured(templates);
+            const isDefaultBrowse =
+              activeCategory === 'All' && activeTrade === 'All' && search.trim() === '';
+            if (!isDefaultBrowse || featured.length === 0) return null;
+            return (
+              <section
+                className="qq-tg-featured"
+                data-testid="template-browse-featured"
+                aria-label="Featured templates"
+              >
+                <div className="qq-tg-featured-head">
+                  <h3 className="qq-tg-featured-title">Featured</h3>
+                  <span className="qq-tg-featured-sub">Popular picks to start fast</span>
+                </div>
+                <div className="qq-tg-featured-grid">
+                  {featured.map((t) => {
+                    const isActive = t.id === activeTemplateId;
+                    return (
+                      <TemplateCardHover
+                        key={t.id}
+                        template={t}
+                        className={`qq-tg-card qq-tg-card--with-desc qq-tg-card--featured${isActive ? ' is-active' : ''}`}
+                        testId={`template-featured-card-${t.id}`}
+                        onClick={() => onApplyTemplate(t)}
+                      >
+                        <div className="qq-tg-mockup">
+                          <TemplateThumbnail template={t} missing={pngMissing} onMissing={markMissing} />
+                        </div>
+                        <div className="qq-tg-card-body">
+                          <span className="qq-tg-card-name">{t.name}</span>
+                        </div>
+                      </TemplateCardHover>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })()}
           {visible.map((t) => {
             const isActive = t.id === activeTemplateId;
             // Template design v2 (Phase 1) — subtitle removed from the card
@@ -1188,6 +1232,57 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
         }
+        /* Featured hero row — full-width band leading the gallery. Sits inside
+         * the scrolling grid (grid-column: 1 / -1) so it scrolls WITH the
+         * catalogue rather than eating fixed header space. Larger, emphasized
+         * cards; help cue anchored top-left in the section header per the UI
+         * rules. Shown only in the default (unfiltered) browse state. */
+        .qq-tg-featured {
+          grid-column: 1 / -1;
+          display: flex; flex-direction: column; gap: 12px;
+          padding: 0 0 8px;
+          margin: 0 0 4px;
+          border-bottom: 1px solid ${p.colors.borderLight};
+        }
+        .qq-tg-featured-head {
+          display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+        }
+        .qq-tg-featured-title {
+          margin: 0;
+          font-size: 14px; font-weight: 800; color: ${p.colors.heading};
+          letter-spacing: -0.005em;
+          /* Help cue top-left: inline-flex keeps the InfoCue trigger tight to
+           * the "Featured" title (mirrors .qq-tg-strip-h). */
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .qq-tg-featured-sub {
+          font-size: 11.5px; font-weight: 500; color: ${p.colors.muted};
+          line-height: 1.3;
+        }
+        /* Larger emphasized cards — wider min track than the main grid so the
+         * featured picks read as flagship. Reflows 3→2→1 columns down to
+         * 375px without clipping. */
+        .qq-tg-featured-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+          gap: 12px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .qq-tg-featured-grid .qq-tg-card--featured {
+          border-color: ${p.colors.accentLight ?? p.colors.accent};
+          box-shadow: ${p.shadows.button};
+        }
+        .qq-tg-featured-grid .qq-tg-card--featured:hover {
+          border-color: ${p.colors.accent};
+          box-shadow: ${p.shadows.xl};
+        }
+        @media (max-width: 768px) {
+          .qq-tg-featured-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          }
+        }
+
         .qq-tg-modal-empty {
           grid-column: 1 / -1;
           text-align: center;
@@ -1216,4 +1311,41 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
     </div>,
     document.body,
   );
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* Featured hero row — curated flagship picks.                    */
+/* ───────────────────────────────────────────────────────────── */
+
+/**
+ * Curated "Featured" hero row — a hand-picked set of flagship templates that
+ * leads the Browse-all gallery, the way top SaaS galleries surface editor
+ * picks above the raw catalogue order. Rendered as larger, emphasized cards
+ * ABOVE the category-filtered grid, and only in the default browse state (no
+ * search / All categories / All trades) so it never fights an active filter.
+ * Order here is the display order; any id not present in the merged catalogue
+ * is skipped gracefully.
+ *
+ * Declared at module end (below the components) purely to keep insertions out
+ * of the top of the file; hoisting makes `pickFeatured` available to the
+ * modal's render regardless of source order.
+ */
+const FEATURED_TEMPLATE_IDS: readonly string[] = [
+  'mobile_car_detail',
+  'hvac_installation',
+  'roof_solar_visualizer',
+  'kitchen_renovation',
+  'web_design_quote',
+  'deep_home_cleaning',
+];
+
+/** Resolve the curated featured ids to actual templates, in curated order. */
+function pickFeatured(templates: TemplateConfig[]): TemplateConfig[] {
+  const byId = new Map(templates.map((t) => [t.id, t] as const));
+  const out: TemplateConfig[] = [];
+  for (const id of FEATURED_TEMPLATE_IDS) {
+    const t = byId.get(id);
+    if (t) out.push(t);
+  }
+  return out;
 }
