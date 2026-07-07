@@ -74,7 +74,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Your always-on lead handling system. TradeLine answers calls and chats 24/7, provides instant estimates, books jobs, sends follow-ups, and requests reviews — automatically.",
     category: "ai",
     heroVisualType: "chat",
-    primaryCTA: { label: "Get Started", href: "/pricing" },
+    // Hero + final "Get Started" smooth-scroll to this page's own pricing
+    // section (#pricing) instead of leaking off to /pricing — keeps visitors
+    // inside TradeLine's own funnel. Per-tier checkout buttons are unaffected.
+    primaryCTA: { label: "Get Started", href: "#pricing" },
     secondaryCTA: { label: "See It in Action", href: "/demo" },
     highlights: [
       "24/7 call and chat answering \u2014 AI picks up every call, day or night. No voicemail.",
