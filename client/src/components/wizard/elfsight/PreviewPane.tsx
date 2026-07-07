@@ -87,6 +87,13 @@ interface Props {
    *  `results.footnote`, keeping the BuildTab result-text fields in sync. When
    *  absent those sections are not inline-editable. */
   onResultsTextChange?: (which: 'heading' | 'footnote', v: string) => void;
+  /** feat/inline-editing — two-way bind for the primary CTA / submit button
+   *  LABEL. Fired when the owner inline-edits the CTA copy in the preview
+   *  (pencil on the button). Commits to `settings.ctaLabel` — the field the
+   *  Action-tab CTA editor writes and which buildAdvancedConfig maps onto
+   *  `results.cta_label` (settings.ctaLabel wins), so the two panes stay in
+   *  sync. When absent the CTA label is not inline-editable. */
+  onCtaLabelChange?: (v: string) => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -537,7 +544,7 @@ function WizardPinchZoom({
 
 export default function PreviewPane({
   businessName, onBusinessNameChange, onHeaderTitleChange, onCommitTitle,
-  onHeaderSubtitleChange, onResultsTextChange, logo, layout, device, fields, calculations,
+  onHeaderSubtitleChange, onResultsTextChange, onCtaLabelChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, defaultIcon, steps, category, widgetKind,
   onRemoveField, onAddField, onUpdateField, onPreviewSpotEdit,
   hostedFrame = false,
@@ -1760,7 +1767,7 @@ export default function PreviewPane({
     if (isMobileViewport) return;
     const isControlOrHandle = (t: EventTarget | null) =>
       t instanceof Element &&
-      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos');
+      !!t.closest('input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid$="-edit-hint"], .qq-hover-editable, .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos');
     let active = false;
     let sx = 0, sy = 0, bx = 0, by = 0;
     const onStart = (e: TouchEvent) => {
@@ -1891,7 +1898,13 @@ export default function PreviewPane({
     // explicitly. Without this, on desktop these sections looked editable
     // (pencil + cursor) but the canvas pan swallowed the click and the inline
     // editor never mounted — while mobile (separate touch path) worked.
-    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid="advanced-title"], [data-testid="advanced-subtitle"], [data-testid="advanced-result-heading"], [data-testid="advanced-footnote"], [data-testid$="-edit-hint"], .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
+    // feat/inline-editing — `.qq-hover-editable` is the class P1 stamps on the
+    // currently hover-highlighted editable region. A pointerdown on it must NOT
+    // arm a canvas pan (same pointer-capture-swallows-the-click reason as the
+    // title/pencils above), so the click reaches onBezelClick and opens the
+    // editor / selects the region. `[data-shell-field-id]` covers field cells so
+    // a press starting on a field never pans (its click-to-select must land).
+    'input, select, textarea, button, a, label, [role="slider"], [role="radio"], [role="checkbox"], [role="option"], [contenteditable], [data-testid="advanced-title"], [data-testid="advanced-subtitle"], [data-testid="advanced-result-heading"], [data-testid="advanced-footnote"], [data-testid$="-edit-hint"], [data-testid="advanced-cta-label"], .qq-hover-editable, .qq-widget-drag-handle, [class*="qq-widget-resize-handle"], .qq-zoom-toolbar, .qq-preview-reset-pos';
 
   // Background click — deselect the widget so resize handles go away. Also the
   // mouse drag-from-anywhere entry point: when the pointer-down isn't on an
@@ -2312,6 +2325,112 @@ export default function PreviewPane({
     return () => cancelAnimationFrame(raf);
   }, [selection.selected, shellFields, resolvePreviewNode, centerPreviewNode]);
 
+  /* ── feat/inline-editing P1 — hover-highlight editable regions ──────────────
+   *
+   * The #1 Wix-feel discoverability win: make the EXISTING click-to-edit
+   * targets obvious on hover. A single delegated mouseover/mouseout listener on
+   * the pane resolves the hovered element to the nearest editable region (a
+   * field cell via `data-shell-field-id`, or a structural/text spot whose
+   * `data-component-type` is mapped in COMPONENT_EDIT_MAP), paints a subtle
+   * `.qq-hover-editable` outline on it, and floats a small "Edit" pill at its
+   * top-right corner. Additive + non-destructive:
+   *   - Bound ONCE (empty deps); reads live state through refs so it never
+   *     re-binds. `.qq-hover-editable` is in SKIP_MOVE_SELECTOR + isControlOr
+   *     Handle, so a pointerdown on a highlighted region never arms a pan/drag
+   *     (the click reaches onBezelClick and opens the editor / selects).
+   *   - Suppressed while an inline editor is open (editingSectionRef), during a
+   *     drag/resize/wheel-pan, and cleared on scroll — so the pill never lags a
+   *     moving stage (we never animate or read the transform here).
+   *   - `body` (the whole-widget wrapper) is excluded so hovering dead space
+   *     doesn't outline the entire widget; leaf text/field/CTA/tier/trust spots
+   *     are what light up.
+   * The floating pill is a body-level element (position:fixed, viewport coords)
+   * so a transformed/zoomed stage ancestor can't distort it. */
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return undefined;
+    const badge = document.createElement('div');
+    badge.className = 'qq-hover-edit-badge';
+    badge.textContent = 'Edit';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.style.display = 'none';
+    document.body.appendChild(badge);
+
+    let current: HTMLElement | null = null;
+    const clearHover = () => {
+      if (current) { current.classList.remove('qq-hover-editable'); current = null; }
+      badge.style.display = 'none';
+    };
+    const suppressed = () =>
+      editingSectionRef.current != null
+      || dragStateRef.current != null
+      || resizeStateRef.current != null
+      || wheelPanActiveRef.current === true;
+
+    // Resolve a hovered element to the editable region it belongs to (or null).
+    const resolveEditable = (t: EventTarget | null): HTMLElement | null => {
+      if (!(t instanceof Element)) return null;
+      // A field cell is editable as a whole (label + control route to editors).
+      const field = t.closest<HTMLElement>('[data-shell-field-id]');
+      if (field) return field;
+      const node = t.closest<HTMLElement>('[data-component-type]');
+      if (!node) return null;
+      const type = node.dataset.componentType ?? '';
+      if (type === 'body') return null; // whole-widget wrapper — too broad
+      if (type.startsWith('field-')) return node;
+      return COMPONENT_EDIT_MAP[type] ? node : null;
+    };
+
+    const positionBadge = (node: HTMLElement) => {
+      const r = node.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) { badge.style.display = 'none'; return; }
+      badge.style.display = 'block';
+      badge.style.left = `${Math.round(r.right)}px`;
+      badge.style.top = `${Math.round(r.top)}px`;
+    };
+
+    const onOver = (e: Event) => {
+      if (suppressed()) { clearHover(); return; }
+      const node = resolveEditable((e as MouseEvent).target);
+      if (!node) { clearHover(); return; }
+      if (node !== current) {
+        if (current) current.classList.remove('qq-hover-editable');
+        current = node;
+        node.classList.add('qq-hover-editable');
+      }
+      positionBadge(node);
+    };
+    const onOut = (e: Event) => {
+      const to = (e as MouseEvent).relatedTarget as Node | null;
+      // Still inside the current region → keep the highlight.
+      if (current && to && current.contains(to)) return;
+      // Moving onto another editable region → let the next mouseover re-paint,
+      // but drop the stale one now so two regions never light up at once.
+      if (
+        to instanceof Element
+        && to.closest('[data-shell-field-id],[data-component-type]')
+      ) {
+        if (current) { current.classList.remove('qq-hover-editable'); current = null; }
+        badge.style.display = 'none';
+        return;
+      }
+      clearHover();
+    };
+
+    pane.addEventListener('mouseover', onOver);
+    pane.addEventListener('mouseout', onOut);
+    pane.addEventListener('mouseleave', clearHover);
+    pane.addEventListener('scroll', clearHover, true);
+    return () => {
+      pane.removeEventListener('mouseover', onOver);
+      pane.removeEventListener('mouseout', onOut);
+      pane.removeEventListener('mouseleave', clearHover);
+      pane.removeEventListener('scroll', clearHover, true);
+      badge.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
   // We attach click handlers via event delegation on the bezel.
@@ -2357,6 +2476,12 @@ export default function PreviewPane({
       { sel: '[data-testid="advanced-subtitle-edit-hint"], [data-testid="advanced-subtitle"]', section: 'subtitle' },
       { sel: '[data-testid="advanced-result-heading-edit-hint"], [data-testid="advanced-result-heading"]', section: 'results-heading' },
       { sel: '[data-testid="advanced-footnote-edit-hint"], [data-testid="advanced-footnote"]', section: 'footnote' },
+      // feat/inline-editing — CTA label. ONLY the pencil edit-hint opens the
+      // editor (NOT the whole button / label), so a normal CTA click still
+      // tests the lead flow + selects the Action tab. The button's own onClick
+      // bails early when the pencil is the target (see AdvancedCalculator), so
+      // the lead modal never opens on a pencil click.
+      { sel: '[data-testid="advanced-cta-edit-hint"]', section: 'cta' },
     ];
     for (const { sel, section } of inlineSpot) {
       if (target.closest(sel)) {
@@ -2459,7 +2584,11 @@ export default function PreviewPane({
   // node to measure, which state field to read/write) differs. Each section's
   // config below is resolved at render time from the wired commit props — a
   // section with no commit prop is simply NOT inline-editable.
-  type SectionKey = 'title' | 'subtitle' | 'results-heading' | 'footnote';
+  // feat/inline-editing — 'cta' (primary button label) and 'field-label' (a
+  // field's label, keyed by the live `editingFieldId`) join the four original
+  // text sections. Both reuse the SAME overlay editor + measurement plumbing;
+  // only their selector / value / commit binding differs (below).
+  type SectionKey = 'title' | 'subtitle' | 'results-heading' | 'footnote' | 'cta' | 'field-label';
   interface SectionConfig {
     /** Selector for the live rendered element to measure + overlay. */
     selector: string;
@@ -2474,6 +2603,21 @@ export default function PreviewPane({
     /** Whether this section has a wired commit path (else not editable). */
     enabled: boolean;
   }
+  // feat/inline-editing — which field's LABEL is being inline-edited. Drives the
+  // dynamic `field-label` section config below (selector + value + commit all
+  // resolve against this id). Null when no field label is open. Declared here
+  // (before sectionConfigs) so the config can read it synchronously.
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+  const editingFieldIdRef = useRef<string | null>(null);
+  editingFieldIdRef.current = editingFieldId;
+  const editingField = editingFieldId
+    ? shellFields.find((f) => f.id === editingFieldId) ?? null
+    : null;
+  // Escape a field id for use inside a CSS attribute selector.
+  const escapeCssId = (raw: string): string => {
+    try { return CSS.escape(raw); } catch { return raw; }
+  };
+
   const sectionConfigs: Record<SectionKey, SectionConfig> = {
     title: {
       selector: '[data-testid="advanced-title"]',
@@ -2507,9 +2651,50 @@ export default function PreviewPane({
       multiline: true,
       enabled: !!onResultsTextChange,
     },
+    // feat/inline-editing — primary CTA / submit button label. Measures JUST the
+    // label span (advanced-cta-label), not the whole button. Value mirrors the
+    // renderer's precedence: settings.ctaLabel wins (buildAdvancedConfig maps it
+    // onto results.cta_label) and falls back to results.cta_label. Commits to
+    // settings.ctaLabel via onCtaLabelChange, so the Action-tab CTA editor and
+    // the preview stay in sync.
+    cta: {
+      selector: '[data-testid="advanced-cta-label"]',
+      // The CTA label is owned by settings.ctaLabel in the wizard state (the
+      // renderer's results.cta_label is derived from it in buildAdvancedConfig).
+      // Empty → the placeholder shows and the widget renders its 'Get My Quote'
+      // default; typing here seeds settings.ctaLabel.
+      value: settings?.ctaLabel ?? '',
+      commit: (v) => onCtaLabelChange?.(v),
+      placeholder: 'Button label (e.g. Get My Quote)',
+      multiline: false,
+      enabled: !!onCtaLabelChange,
+    },
+    // feat/inline-editing — a field's LABEL, keyed by editingFieldId. The
+    // selector targets the first <label> inside the field's stable
+    // data-shell-field-id cell (every field type renders one). Value + commit
+    // resolve against the live field; commit routes through onUpdateField so the
+    // edit is undo-integrated exactly like a left-pane label change.
+    'field-label': {
+      selector: editingFieldId
+        ? `[data-shell-field-id="${escapeCssId(editingFieldId)}"] label`
+        : '[data-shell-field-id] label',
+      value: editingField?.label ?? '',
+      commit: (v) => {
+        const id = editingFieldIdRef.current;
+        if (id) onUpdateField?.(id, { label: v });
+      },
+      placeholder: 'Field label',
+      multiline: false,
+      enabled: !!onUpdateField,
+    },
   };
 
   const [editingSection, setEditingSection] = useState<SectionKey | null>(null);
+  // feat/inline-editing — ref mirror so the always-on P1 hover-highlight
+  // listener (bound once) can suppress itself while an inline editor is open
+  // without re-binding on every open/close.
+  const editingSectionRef = useRef<SectionKey | null>(null);
+  editingSectionRef.current = editingSection;
   const [titleBox, setTitleBox] = useState<{
     left: number; top: number; width: number; height: number;
     // fix/wizard-preview-p0 — computed type of the edited node so the overlay
@@ -2669,6 +2854,44 @@ export default function PreviewPane({
   const openTitleEditor = useCallback(() => {
     openSectionEditor('title');
   }, [openSectionEditor]);
+
+  // feat/inline-editing — open the inline editor for a specific FIELD's label.
+  // Mirrors openSectionEditor's lifecycle exactly, but resolves the measure
+  // selector from the passed fieldId directly (the sectionConfigs snapshot in
+  // sectionConfigsRef is a render behind, so a plain openSectionEditor('field-
+  // label') would measure the PREVIOUS field). Sets editingFieldId (drives the
+  // controlled value + commit binding) and points activeSelectorRef at this
+  // field's <label> before measuring.
+  const openFieldLabelEditor = useCallback((fieldId: string) => {
+    if (!onUpdateField) return; // no commit path wired → not editable
+    let esc = fieldId;
+    try { esc = CSS.escape(fieldId); } catch { /* older engines — raw id */ }
+    const selector = `[data-shell-field-id="${esc}"] label`;
+    setEditingFieldId(fieldId);
+    editingFieldIdRef.current = fieldId;
+    setEditingSection('field-label');
+    activeSelectorRef.current = selector;
+    const node = measureTitle();
+    if (!node) { setEditingSection(null); setEditingFieldId(null); return; }
+    setTitleBox((prev) => prev ?? FALLBACK_TITLE_BOX);
+    if (!titleBox) {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
+    requestAnimationFrame(() => {
+      measureTitle();
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select?.();
+    });
+  }, [onUpdateField, measureTitle, titleBox]);
+
+  // feat/inline-editing — keep editingFieldId scoped to an open field-label
+  // edit. When the editor closes (blur/Enter/Esc) or switches to another
+  // section, clear it so a stale id can't leak into the next open.
+  useEffect(() => {
+    if (editingSection !== 'field-label' && editingFieldId !== null) {
+      setEditingFieldId(null);
+    }
+  }, [editingSection, editingFieldId]);
 
   // The binding for whichever section is currently open. When nothing is open
   // these fall back to the title config (harmless — the render gate requires
@@ -3134,6 +3357,7 @@ export default function PreviewPane({
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
               onRemoveField={onRemoveField}
+              onEditLabel={onUpdateField ? openFieldLabelEditor : undefined}
               hideRemove={cleanIsMobile}
             />
           )}
@@ -3396,6 +3620,7 @@ export default function PreviewPane({
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
+                    onEditLabel={onUpdateField ? openFieldLabelEditor : undefined}
                   />
                 )}
                 {/* Wave 61 — floating <InlineStyleToolbar /> for the
@@ -3537,6 +3762,7 @@ export default function PreviewPane({
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
+                    onEditLabel={onUpdateField ? openFieldLabelEditor : undefined}
                   />
                 )}
                 {/* Wave 61 — floating <InlineStyleToolbar /> for the
@@ -3860,6 +4086,42 @@ export default function PreviewPane({
         }
         @media (prefers-reduced-motion: reduce) {
           .qq-preview-pane .qq-selected { transition: none; }
+        }
+
+        /* feat/inline-editing P1 — hover-highlight for editable regions. A
+         * SUBTLE dashed accent outline (distinct from the solid qq-selected
+         * outline, which always wins via :not) makes the existing click-to-edit
+         * targets discoverable on hover — the Wix-feel win. Theme-aware (accent
+         * var); reduced-motion users skip the transition. */
+        .qq-preview-pane .qq-hover-editable:not(.qq-selected) {
+          outline: 1.5px dashed var(--qq-accent, ${p.colors.accent});
+          outline-offset: 2px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: outline-color 120ms ease;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-preview-pane .qq-hover-editable:not(.qq-selected) { transition: none; }
+        }
+        /* Floating "Edit" pill for the hovered editable region. Body-level
+         * (position:fixed, viewport coords) so a zoomed/transformed stage
+         * ancestor can't distort it; pointer-events:none so it never eats the
+         * hover/click. Sits just inside the region's top-right corner. */
+        .qq-hover-edit-badge {
+          position: fixed;
+          z-index: 2147483000;
+          pointer-events: none;
+          transform: translate(-100%, -50%);
+          padding: 2px 7px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.4;
+          letter-spacing: 0.01em;
+          background: var(--qq-accent, ${p.colors.accent});
+          color: rgba(255, 255, 255, 0.98);
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
+          white-space: nowrap;
         }
 
         /* Apple-mobile-clean (2026-06-05) — clean Elfsight-style mobile preview.

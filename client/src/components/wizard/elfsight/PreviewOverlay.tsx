@@ -44,6 +44,17 @@ interface Props {
   /** Callback when a user removes a field from the preview (− icon). */
   onRemoveField: (fieldId: string) => void;
   /**
+   * feat/inline-editing — click the per-field pencil to inline-edit that
+   * field's LABEL directly on the preview. When provided, each decorator draws
+   * a small pencil affordance (hover/focus revealed, like the remove badge) at
+   * the field's top-left corner. PreviewPane wires this to its shared section
+   * editor (commits via onUpdateField(id, { label })). Optional — when absent
+   * no pencil is drawn (the overlay stays remove-only). This overlay is mounted
+   * ONLY inside the editor preview, never on the published widget, so the
+   * affordance is inherently preview-only (no editableTitle gate needed).
+   */
+  onEditLabel?: (fieldId: string) => void;
+  /**
    * Apple-mobile-clean (2026-06-05) — on a real ≤768px viewport the preview
    * is a clean Elfsight-style scrollable calculator with no editor chrome;
    * field removal happens in the Build panel sheet instead. When true the
@@ -134,7 +145,7 @@ function measureFields(
 }
 
 export default function PreviewOverlay({
-  fields, containerRef, onRemoveField, hideRemove = false,
+  fields, containerRef, onRemoveField, onEditLabel, hideRemove = false,
 }: Props) {
   const [boxes, setBoxes] = useState<FieldBox[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -205,6 +216,7 @@ export default function PreviewOverlay({
           key={b.fieldId}
           box={b}
           onRemove={() => onRemoveField(b.fieldId)}
+          onEditLabel={onEditLabel ? () => onEditLabel(b.fieldId) : undefined}
           hideRemove={hideRemove}
         />
       ))}
@@ -313,6 +325,50 @@ export default function PreviewOverlay({
           color: ${p.colors.danger};
           border-color: ${p.colors.danger};
         }
+
+        /* feat/inline-editing — per-field LABEL edit pencil. Mirrors the remove
+         * badge's affordance model exactly (44×44 tap target, hover/focus
+         * revealed on fine pointers, always visible on coarse) but sits at the
+         * field's TOP-LEFT corner so it never collides with the remove (−) badge
+         * at top-right. The wrapper stays pointer-events:none (clicks pass to the
+         * field control); the button re-enables pointer events for its own
+         * hover/click. Editor-only overlay ⇒ never on the published widget. */
+        .qq-preview-field-deco-edit {
+          position: absolute;
+          top: -22px; left: -22px;
+          width: 44px; height: 44px;
+          padding: 0; margin: 0;
+          background: transparent; border: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.12s ease;
+          z-index: 2;
+          pointer-events: auto;
+        }
+        @media (pointer: fine) {
+          .qq-preview-field-deco:focus-within .qq-preview-field-deco-edit,
+          .qq-preview-field-deco-edit:hover,
+          .qq-preview-field-deco-edit:focus-visible {
+            opacity: 1;
+          }
+        }
+        @media (pointer: coarse) {
+          .qq-preview-field-deco-edit { opacity: 1; }
+        }
+        .qq-preview-field-deco-edit-glyph {
+          width: 18px; height: 18px; border-radius: 50%;
+          background: rgba(255,255,255,1); color: ${p.colors.muted};
+          border: 1px solid ${p.colors.border};
+          display: inline-flex; align-items: center; justify-content: center;
+          box-shadow: 0 1px 4px rgba(15,23,42,0.18);
+          transition: color 0.12s ease, border-color 0.12s ease;
+        }
+        .qq-preview-field-deco-edit:hover .qq-preview-field-deco-edit-glyph,
+        .qq-preview-field-deco-edit:focus-visible .qq-preview-field-deco-edit-glyph {
+          color: ${p.colors.accent};
+          border-color: ${p.colors.accent};
+        }
       `}</style>
     </div>
   );
@@ -321,11 +377,13 @@ export default function PreviewOverlay({
 interface FieldDecoratorProps {
   box: FieldBox;
   onRemove: () => void;
+  /** feat/inline-editing — inline-edit this field's label (pencil). Optional. */
+  onEditLabel?: () => void;
   /** Hide the remove (−) badge on real mobile — see Props.hideRemove. */
   hideRemove?: boolean;
 }
 
-function FieldDecorator({ box, onRemove, hideRemove = false }: FieldDecoratorProps) {
+function FieldDecorator({ box, onRemove, onEditLabel, hideRemove = false }: FieldDecoratorProps) {
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
@@ -348,6 +406,26 @@ function FieldDecorator({ box, onRemove, hideRemove = false }: FieldDecoratorPro
         data-testid={`preview-field-select-${box.fieldId}`}
         aria-hidden="true"
       />
+      {onEditLabel && (
+        <button
+          type="button"
+          className="qq-preview-field-deco-edit"
+          aria-label="Edit field label"
+          title="Edit label"
+          data-testid={`preview-field-edit-${box.fieldId}`}
+          onClick={(e) => { e.stopPropagation(); onEditLabel(); }}
+        >
+          <span className="qq-preview-field-deco-edit-glyph" aria-hidden="true">
+            <svg
+              width={11} height={11} viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth={2.6}
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+            </svg>
+          </span>
+        </button>
+      )}
       {!hideRemove && (
         <button
           type="button"
