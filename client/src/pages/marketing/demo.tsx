@@ -89,7 +89,7 @@ function ChatPanel() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Messages area */}
       <div ref={scrollContainerRef} style={{
-        flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex",
+        flex: 1, overflowY: "auto", padding: "20px 30px", display: "flex",
         flexDirection: "column", gap: 12,
         // Soft top/bottom edge fade — the transcript dissolves into the
         // frame instead of sitting inside a hard box.
@@ -158,13 +158,15 @@ function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
       {/* Input bar */}
-      <div style={{
+      <div className="demo-fog-input" style={{
         // Faded divider — the line dissolves toward both ends instead of a
         // hard full-width rule.
         borderTop: "1px solid transparent",
         borderImageSource: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)",
         borderImageSlice: 1,
-        padding: "12px 16px", display: "flex", gap: 8,
+        // Inset (see .demo-fog-input) so the input + send button clear the
+        // container's bottom/side fog fade and stay fully opaque + usable.
+        display: "flex", gap: 8,
       }}>
         <input
           data-testid="demo-chat-input"
@@ -533,27 +535,41 @@ export default function DemoPage() {
       />
       <div data-theme="light" data-testid="demo-page">
         <style>{`
-          /* Faded widget frame — a gradient border ring that dissolves to
-             transparent (mask trick) instead of a hard 1px rounded-rect line.
-             Stronger accent glint at the top-left, fading out toward the
-             bottom-right, so the widget's edges read as softly faded. */
-          .demo-faded-frame::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: 24px;
-            padding: 1.5px;
-            background: linear-gradient(155deg,
-              rgba(13,60,252,0.45) 0%,
-              rgba(255,255,255,0.12) 28%,
-              rgba(255,255,255,0.03) 58%,
-              transparent 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-            pointer-events: none;
-            z-index: 2;
+          /* True four-side fog fade — the widget's rendered content dissolves
+             smoothly to transparent into the dark page background at every
+             edge (left, right, top, bottom), like a chat sidebar's items
+             fading out. Two crossed linear gradients intersected: the centre
+             is fully opaque, all four edges fade over ~44px. No hard border,
+             no ring — the mask alpha (#000 = keep, transparent = fade) is the
+             sole edge treatment. */
+          .demo-fog-fade {
+            -webkit-mask-image:
+              linear-gradient(to right,  transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%),
+              linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+                    mask-image:
+              linear-gradient(to right,  transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%),
+              linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+            -webkit-mask-composite: source-in;
+                    mask-composite: intersect;
+          }
+          /* Header + input insets keep the interactive controls past the fog
+             fade so they stay fully opaque and usable. */
+          .demo-fog-header { padding: 26px 46px 16px; }
+          .demo-fog-input  { padding: 12px 46px 42px; }
+          /* On narrow screens tighten the horizontal fog + insets so the
+             header label and toggle don't collide (44px each side would eat
+             too much of a 375px widget). Vertical fog stays generous. */
+          @media (max-width: 560px) {
+            .demo-fog-fade {
+              -webkit-mask-image:
+                linear-gradient(to right,  transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%),
+                linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+                      mask-image:
+                linear-gradient(to right,  transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%),
+                linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+            }
+            .demo-fog-header { padding: 24px 28px 14px; }
+            .demo-fog-input  { padding: 12px 24px 38px; }
           }
         `}</style>
 
@@ -581,18 +597,22 @@ export default function DemoPage() {
         {/* Lifted up: reduced top padding (40 → 12) so the widget sits higher,
             closer under the hero waveform. */}
         <section style={{ background: mkt.bg, padding: "12px 20px 80px" }}>
-          <div className="demo-faded-frame" style={{
+          <div className="demo-fog-fade" style={{
             position: "relative",
             maxWidth: 820, margin: "0 auto",
             background: mkt.bg,
             borderRadius: 24,
             overflow: "hidden",
-            boxShadow: `0 0 60px rgba(13,60,252,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
+            // No box-shadow: a drop shadow paints a rounded-rect silhouette
+            // outside the box that the mask can't fade, reintroducing a hard
+            // edge. The fog mask is the sole edge treatment.
           }}>
             {/* ── Mode toggle header ── */}
-            <div style={{
+            <div className="demo-fog-header" style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "14px 20px",
+              // Inset (see .demo-fog-header) keeps the header text + toggle past
+              // the container's fog fade and fully opaque, while the blue header
+              // bg still bleeds to the edges and dissolves into the background.
               // Faded divider so the header meets the body without a hard rule.
               borderBottom: "1px solid transparent",
               borderImageSource: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)",
