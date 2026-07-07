@@ -32,6 +32,11 @@ const VIEWPORT_W = 560;
 const VIEWPORT_H = 700;
 const READY_SELECTOR = '[data-render-ready="true"]';
 const READY_TIMEOUT_MS = 15_000;
+// Upper bound (per template) on how long to wait for images to finish
+// loading/decoding after the render-ready flag flips. Kept well under the
+// anti-hang ceiling so a stubborn asset degrades gracefully rather than
+// stalling the run.
+const IMAGE_WAIT_TIMEOUT_MS = 8_000;
 
 async function snapOne(
   ctx: BrowserContext,
@@ -42,6 +47,49 @@ async function snapOne(
     const url = `${BASE_URL}/internal/template-render/${templateId}`;
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+    // The render page flips `data-render-ready` on a 500ms settle timer, which
+    // can fire BEFORE option `<img>`s have fetched + decoded — the screenshot
+    // then captures generic house-emoji placeholders instead of the real
+    // imagery (observed on `mobile_mechanic`). Close the race explicitly:
+    //   1. Let the network go idle so in-flight image requests complete.
+    //   2. Wait for every `<img>` to report `complete` and successfully
+    //      `decode()` (or settle on error so a single broken asset can't hang
+    //      the whole run). Both steps are bounded so no template can block the
+    //      pipeline.
+    await page
+      .waitForLoadState("networkidle", { timeout: IMAGE_WAIT_TIMEOUT_MS })
+      .catch((err: Error) => {
+        // Bounded — networkidle not reaching quiescence is non-fatal (the
+        // per-image decode wait below is the real gate); surface it so a
+        // chronically slow template is visible rather than silently dropped.
+        console.warn(`[thumbnails] ${templateId}: networkidle wait — ${err.message}`);
+      });
+    await page
+      .evaluate(
+        (timeoutMs) =>
+          Promise.race([
+            Promise.all(
+              Array.from(document.images).map((img) =>
+                img.complete && img.naturalWidth > 0
+                  ? Promise.resolve()
+                  : new Promise<void>((resolve) => {
+                      const done = () => resolve();
+                      img.addEventListener("load", done, { once: true });
+                      img.addEventListener("error", done, { once: true });
+                      // decode() covers already-loaded-but-not-yet-decoded.
+                      if (img.decode) img.decode().then(done).catch(done);
+                    }),
+              ),
+            ).then(() => undefined),
+            new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+          ]),
+        IMAGE_WAIT_TIMEOUT_MS,
+      )
+      .catch((err: Error) => {
+        // Bounded — an in-page eval failure must not abort the whole run;
+        // log it so a broken decode path is visible instead of silent.
+        console.warn(`[thumbnails] ${templateId}: image-decode wait — ${err.message}`);
+      });
     await page.screenshot({
       path: path.join(OUT_DIR, `${templateId}@2x.png`),
       omitBackground: false,

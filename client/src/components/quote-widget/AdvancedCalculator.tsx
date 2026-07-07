@@ -237,7 +237,7 @@ function applyStyleOverrides(base: WidgetTheme, style: AdvStyle | undefined): Wi
 
 /* ─── Config types (mirror calculator_settings.advanced) ─── */
 
-interface AdvOption { id: string; label: string; value: number; image?: string; }
+interface AdvOption { id: string; label: string; value: number; image?: string; imageUrl?: string; }
 interface AdvField {
   id: string;
   name: string;
@@ -5766,9 +5766,18 @@ function FieldInput({ field, value, accent, theme, bodyIsDark, onChange, radiusP
                   background: c.bg, overflow: 'hidden',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {o.image
-                    ? <img src={o.image} alt={richHtmlToPlainText(o.label)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span aria-hidden="true" style={{ fontSize: '28px', color: c.textMuted }}>🏠</span>}
+                  {(() => {
+                    // image_choice cards render from `image` (data URL uploaded
+                    // in the editor). Template presets built with `optImg`
+                    // populate `imageUrl` instead (the image-card radio prop),
+                    // so fall back to it — otherwise every preset image_choice
+                    // card silently shows the 🏠 placeholder (observed on
+                    // mobile_mechanic and all other optImg image_choice fields).
+                    const cardImg = o.image ?? o.imageUrl;
+                    return cardImg
+                      ? <img src={cardImg} alt={richHtmlToPlainText(o.label)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span aria-hidden="true" style={{ fontSize: '28px', color: c.textMuted }}>🏠</span>;
+                  })()}
                 </div>
                 {/* BG-7 Item 3 — sanitized rich-text label. */}
                 {(() => {
