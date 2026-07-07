@@ -253,8 +253,19 @@ export function MobileNavItem({
                               marginBottom: 6,
                               borderRadius: 14,
                               textDecoration: "none",
-                              background: "rgba(255,255,255,0.04)",
+                              // Selected/pressed result echoes the desktop
+                              // active treatment: a subtle accent tint + a
+                              // clean, complete inset accent ring (inside the
+                              // box, follows the 14px radius, never clipped).
+                              background:
+                                pressedHref === `/solutions/${t.slug}`
+                                  ? mkt.accentTint
+                                  : "rgba(255,255,255,0.04)",
                               border: `1px solid ${mkt.border}`,
+                              boxShadow:
+                                pressedHref === `/solutions/${t.slug}`
+                                  ? `inset 0 0 0 1px ${mkt.accentOnDark}`
+                                  : undefined,
                             }}
                           >
                             <div

@@ -200,9 +200,20 @@ const TradeTypeahead = ({
                 className="mkt-menu-card"
                 onClick={onNavigate}
                 onMouseEnter={() => setActiveIdx(i)}
-                style={{
-                  outline: i === activeIdx ? `1px solid ${mkt.accentOnDark}` : undefined,
-                }}
+                style={
+                  i === activeIdx
+                    ? {
+                        // Clean, complete highlight: recolor the card's own
+                        // border (inside the box, follows the 16px radius, can
+                        // never be clipped by the scroll container) + a subtle
+                        // accent tint. Replaces the old `outline` which sat
+                        // OUTSIDE the box and got clipped by the results
+                        // container's overflow, leaving a partial border.
+                        borderColor: mkt.accentOnDark,
+                        background: mkt.accentTint,
+                      }
+                    : undefined
+                }
               >
                 <div className="mkt-menu-card-icon" style={{ color: mkt.accent }} aria-hidden>
                   <NavIcon icon={t.icon} />
