@@ -30,13 +30,11 @@ import { Check, ArrowRight, Star } from "lucide-react";
  * These render below the hero and add ~hundreds of KB to the JS bundle.
  * React.lazy + Suspense defers their parse/eval until the chunk arrives.
  * Suspense fallbacks reserve approximate heights to minimise CLS during
- * the late-load. GlobeSection is doubly conditional (hasWebGL) — lazy
- * also keeps the Three.js bundle entirely out of non-WebGL devices.
+ * the late-load.
  */
 const CapabilitiesShowcase = lazy(() => import("@/components/marketing/CapabilitiesShowcase"));
 const StickyStackCards = lazy(() => import("@/components/marketing/StickyStackCards"));
 const ServiceStackTimeline = lazy(() => import("@/components/marketing/ServiceStackTimeline"));
-const GlobeSection = lazy(() => import("@/components/marketing/globe/GlobeSection"));
 const ReviewsSection = lazy(() => import("@/components/home/ReviewsSection"));
 const AutomationDiagram = lazy(() => import("@/components/marketing/AutomationDiagram"));
 /* Wave 69 — Self-Service Drag-Drop interactive element. Lazy + deferred
@@ -448,16 +446,6 @@ const RESPONSIVE_CSS = `
 `;
 
 export default function HomePage() {
-  // WebGL probe moved off the synchronous render path (was a useState
-  // initializer that created a throwaway canvas + GL context on the hero/LCP
-  // path). Run it in an effect after first paint; GlobeSection it gates is
-  // lazy + deferred-until-near anyway, so the one-render delay is invisible.
-  const [hasWebGL, setHasWebGL] = useState(false);
-  useEffect(() => {
-    const canvas = document.createElement("canvas");
-    setHasWebGL(!!(canvas.getContext("webgl") ?? canvas.getContext("experimental-webgl")));
-  }, []);
-
   // Title + meta tags handled by <PageMeta> below.
   //
   // Wave 45 — hero entrance stagger moved to CSS (`heroEnterIn` keyframe
@@ -879,23 +867,6 @@ export default function HomePage() {
           WorkflowDemo) — they duplicated the 3-type story above and broke the
           V7 visual cohesion as the user scrolled. AutomationDiagram remains as
           the interactive "How it works" deep-dive. */}
-      {hasWebGL && (
-        /* compression: GlobeSection hidden on mobile (≤768px). Saves
-         * ~600-800px of scroll on phones — the globe is decorative and
-         * the same "results happening now" message is implicit in the
-         * TrustSection stats below. Desktop still gets it. */
-        <div className="home-globe-wrap" style={{ display: "block" }}>
-          <style>{`@media (max-width: 768px) { .home-globe-wrap { display: none !important; } }`}</style>
-          {/* Wave 45 — defer the 520 KiB gzipped vendor-globe (Three.js)
-              chunk fetch until the visitor scrolls within 600px of it.
-              Was the single biggest LCP-blocker on the homepage. */}
-          <DeferUntilNear minHeight={560}>
-            <Suspense fallback={lazyFallback(560)}>
-              <GlobeSection />
-            </Suspense>
-          </DeferUntilNear>
-        </div>
-      )}
       <SurfaceSection overlap className="py-4">
         <DeferUntilNear minHeight={480}>
           <Suspense fallback={lazyFallback(480)}>
