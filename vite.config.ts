@@ -181,15 +181,6 @@ export default defineConfig({
           ) {
             return "vendor-motion";
           }
-          if (
-            id.includes("/node_modules/three/") ||
-            id.includes("/node_modules/globe.gl/") ||
-            id.includes("/node_modules/topojson-client/") ||
-            id.includes("/node_modules/cobe/")
-          ) {
-            return "vendor-globe";
-          }
-
           // All Radix primitives — group them. Pulled by lots of pages but
           // a single cacheable chunk is better than splitting per primitive.
           if (id.includes("/node_modules/@radix-ui/")) {
