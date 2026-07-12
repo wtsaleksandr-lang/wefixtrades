@@ -260,7 +260,9 @@ async function fetchPlace(
     });
     if (near) params.set("locationbias", `point:${near.lat},${near.lng}`);
     const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${params.toString()}`;
-    const r = await fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const r = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
     if (!r.ok) return null;
     const j: any = await r.json();
     const cand = j.candidates?.[0];

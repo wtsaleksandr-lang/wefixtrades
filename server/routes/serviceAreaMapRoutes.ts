@@ -128,8 +128,10 @@ async function geocodeAddress(fullAddress: string): Promise<{ lat: number; lng: 
     return null;
   }
   const url = `${GEOCODE_ENDPOINT}?address=${encodeURIComponent(fullAddress)}&key=${encodeURIComponent(key)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
     if (!resp.ok) {
       log.warn("geocode HTTP error", { status: resp.status });
       return null;
@@ -297,8 +299,10 @@ async function renderMapPng(inputs: RenderInputs): Promise<Buffer | null> {
   );
   params.set("key", key);
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const resp = await fetch(`${STATIC_MAPS_ENDPOINT}?${params.toString()}`);
+    const resp = await fetch(`${STATIC_MAPS_ENDPOINT}?${params.toString()}`, { signal: controller.signal }).finally(() => clearTimeout(timer));
     if (!resp.ok) {
       log.warn("static maps HTTP error", { status: resp.status });
       return null;
