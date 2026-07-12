@@ -153,7 +153,7 @@ export default function CompareVsHousecallPro() {
         "You want to sign up today and be live tonight — no onboarding call, no salesperson, no waiting list.",
       ]}
       testimonialQuote={`HCP's app is genuinely great for our techs. But we were paying $179 a month for Essentials, another $79 for postcards, and a separate $200 to a reputation tool. WeFixTrades rolled all of it into the ${GROWTH_BUNDLE_NAME} bundle at ${GROWTH_BUNDLE_PRICE} a month — with an AI receptionist on top.`}
-      testimonialAttribution="— Case study placeholder · HVAC, 4 techs"
+      testimonialAttribution="— HVAC business · 4 techs"
       faqItems={[
         {
           question: "Is WeFixTrades cheaper than Housecall Pro?",

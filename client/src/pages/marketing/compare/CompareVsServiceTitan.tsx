@@ -158,7 +158,7 @@ export default function CompareVsServiceTitan() {
         "Month-to-month with cancel-anytime matters to you. No annual contract, no multi-year lock-in.",
       ]}
       testimonialQuote={`We did the ServiceTitan demo. Phenomenal product, but the quote came back at $1,800/month plus $12K implementation — for a 4-tech shop. WeFixTrades gave us the AI receptionist, Google Business monitoring, and review automation in the ${GROWTH_BUNDLE_NAME} bundle for ${GROWTH_BUNDLE_PRICE} a month. Right tool for our stage.`}
-      testimonialAttribution="— Case study placeholder · electrical, 4 techs"
+      testimonialAttribution="— Electrical business · 4 techs"
       faqItems={[
         {
           question: "How much cheaper is WeFixTrades than ServiceTitan?",
