@@ -454,49 +454,52 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
         }}>
           {/* LEFT — copy + CTAs */}
           <div className="tlhp-split-text" style={{ minWidth: 0 }}>
-            <Reveal>
-              <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accentOnDark, marginBottom: 16 }}>
-                {cfg.name}
-              </span>
-            </Reveal>
-            {hook?.eyebrow && (
-              <Reveal delay={0.04}>
-                <p style={{ fontSize: 14, color: mkt.onDarkMuted, fontStyle: "italic", marginBottom: 18, maxWidth: 520 }}>
-                  {hook.eyebrow}
+            {/* HEAD — chip + title. Grouped so mobile can render it ABOVE the
+                phone (title → media → subtitle order per the hero blueprint).
+                The pain-point line was removed here: the product-name chip is
+                the single eyebrow, matching every other product hero. */}
+            <div className="tlhp-head">
+              <Reveal>
+                <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accentOnDark, marginBottom: 16 }}>
+                  {cfg.name}
+                </span>
+              </Reveal>
+              <Reveal delay={0.08}>
+                <h1 style={{
+                  fontSize: "clamp(40px, 5.4vw, 68px)", fontWeight: 700,
+                  lineHeight: 0.98, letterSpacing: "-0.03em",
+                  color: mkt.onDark, marginBottom: 22, maxWidth: 560,
+                }}>
+                  {hook?.headline ?? cfg.shortTagline}
+                </h1>
+              </Reveal>
+            </div>
+            {/* BODY — subtitle + CTAs + helper. On mobile this sits BELOW the
+                phone; on desktop it flows normally under the title. */}
+            <div className="tlhp-body">
+              <Reveal delay={0.12}>
+                <p style={{ fontSize: 17, lineHeight: 1.55, color: mkt.onDarkMuted, maxWidth: 520, marginBottom: 32 }}>
+                  {hook?.sub ?? cfg.seoDescription}
                 </p>
               </Reveal>
-            )}
-            <Reveal delay={0.08}>
-              <h1 style={{
-                fontSize: "clamp(40px, 5.4vw, 68px)", fontWeight: 700,
-                lineHeight: 0.98, letterSpacing: "-0.03em",
-                color: mkt.onDark, marginBottom: 22, maxWidth: 560,
-              }}>
-                {hook?.headline ?? cfg.shortTagline}
-              </h1>
-            </Reveal>
-            <Reveal delay={0.12}>
-              <p style={{ fontSize: 17, lineHeight: 1.55, color: mkt.onDarkMuted, maxWidth: 520, marginBottom: 32 }}>
-                {hook?.sub ?? cfg.seoDescription}
-              </p>
-            </Reveal>
-            <Reveal delay={0.16}>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
-                  {cfg.primaryCTA.label} <ArrowRight size={16} />
-                </CtaLink>
-                {cfg.secondaryCTA && (
-                  <CtaLink href={cfg.secondaryCTA.href} style={ctaGhost}>
-                    {cfg.secondaryCTA.label}
+              <Reveal delay={0.16}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
+                    {cfg.primaryCTA.label} <ArrowRight size={16} />
                   </CtaLink>
-                )}
-              </div>
-            </Reveal>
-            <Reveal delay={0.20}>
-              <p style={{ marginTop: 20, fontSize: 12, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.06em" }}>
-                Tap the phone to pause the demo · resumes when you're ready
-              </p>
-            </Reveal>
+                  {cfg.secondaryCTA && (
+                    <CtaLink href={cfg.secondaryCTA.href} style={ctaGhost}>
+                      {cfg.secondaryCTA.label}
+                    </CtaLink>
+                  )}
+                </div>
+              </Reveal>
+              <Reveal delay={0.20}>
+                <p style={{ marginTop: 20, fontSize: 12, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.06em" }}>
+                  Tap the phone to pause the demo · resumes when you're ready
+                </p>
+              </Reveal>
+            </div>
           </div>
 
           {/* RIGHT — premium animated phone.
@@ -527,11 +530,15 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
               gap: 40px !important;
               text-align: center;
             }
-            .tlhp-split-text { order: 2; }
-            .tlhp-split-phone { order: 1; }
+            /* Mobile hero order: title → phone (media) → subtitle/CTAs.
+               display:contents hoists head + body out of the text column so
+               the phone can sit between them. */
+            .tlhp-split-text { display: contents; }
+            .tlhp-head { order: 1; }
+            .tlhp-split-phone { order: 2; }
+            .tlhp-body { order: 3; display: flex; flex-direction: column; align-items: center; }
             .tlhp-split-text h1,
             .tlhp-split-text p { margin-left: auto !important; margin-right: auto !important; }
-            .tlhp-split-text > div { justify-content: center; }
           }
         `}</style>
       </section>

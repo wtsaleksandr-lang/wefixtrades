@@ -87,81 +87,88 @@ export default function SplitHero({
           alignItems: "center",
         }}
       >
-        {/* LEFT — chip + title + subtitle + CTAs */}
+        {/* LEFT — chip + title + subtitle + CTAs.
+            head (chip+title) and body (subtitle+CTAs) are grouped so mobile
+            can render the animation BETWEEN them (title → media → subtitle),
+            matching the hero blueprint. On desktop they flow normally. */}
         <div className="split-hero-text" style={{ minWidth: 0 }}>
-          <Reveal>
-            <span
-              data-testid="split-hero-chip"
-              style={{
-                display: "inline-block",
-                fontFamily: MONO,
-                fontSize: 12,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                /* WHITE chip per Alex 2026-05-26 — out of the way of the title. */
-                color: mkt.onDark,
-                marginBottom: 18,
-                opacity: 0.92,
-              }}
-            >
-              {chip}
-            </span>
-          </Reveal>
-          <Reveal delay={0.06}>
-            <h1
-              data-testid="split-hero-title"
-              style={{
-                fontSize: "clamp(36px, 5.2vw, 56px)",
-                fontWeight: 700,
-                lineHeight: 1.04,
-                letterSpacing: "-0.03em",
-                color: titleColor,
-                margin: 0,
-                marginBottom: 18,
-                maxWidth: 560,
-                fontFamily: SANS,
-              }}
-            >
-              {title}
-            </h1>
-          </Reveal>
-          <Reveal delay={0.12}>
-            <p
-              data-testid="split-hero-subtitle"
-              style={{
-                fontSize: 17,
-                lineHeight: 1.5,
-                color: subColor,
-                maxWidth: 520,
-                margin: 0,
-                marginBottom: 28,
-              }}
-            >
-              {subtitle}
-            </p>
-          </Reveal>
-          <Reveal delay={0.18}>
-            {/* CTA cluster — 2px gap between buttons per global UI rule. */}
-            <div
-              className="split-hero-cta-cluster"
-              data-testid="split-hero-cta-cluster"
-              style={{
-                display: "flex",
-                gap: 2,
-                flexWrap: "wrap",
-                alignItems: "stretch",
-              }}
-            >
-              <CtaLink href={ctaPrimary.href} className="wft-hover-border-white" style={ctaPrimaryStyle}>
-                {ctaPrimary.label} <ArrowRight size={16} />
-              </CtaLink>
-              {ctaSecondary && (
-                <CtaLink href={ctaSecondary.href} className="wft-hover-border-white" style={ctaGhostStyle}>
-                  {ctaSecondary.label}
+          <div className="split-hero-head">
+            <Reveal>
+              <span
+                data-testid="split-hero-chip"
+                style={{
+                  display: "inline-block",
+                  fontFamily: MONO,
+                  fontSize: 12,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  /* WHITE chip per Alex 2026-05-26 — out of the way of the title. */
+                  color: mkt.onDark,
+                  marginBottom: 18,
+                  opacity: 0.92,
+                }}
+              >
+                {chip}
+              </span>
+            </Reveal>
+            <Reveal delay={0.06}>
+              <h1
+                data-testid="split-hero-title"
+                style={{
+                  fontSize: "clamp(36px, 5.2vw, 56px)",
+                  fontWeight: 700,
+                  lineHeight: 1.04,
+                  letterSpacing: "-0.03em",
+                  color: titleColor,
+                  margin: 0,
+                  marginBottom: 18,
+                  maxWidth: 560,
+                  fontFamily: SANS,
+                }}
+              >
+                {title}
+              </h1>
+            </Reveal>
+          </div>
+          <div className="split-hero-body">
+            <Reveal delay={0.12}>
+              <p
+                data-testid="split-hero-subtitle"
+                style={{
+                  fontSize: 17,
+                  lineHeight: 1.5,
+                  color: subColor,
+                  maxWidth: 520,
+                  margin: 0,
+                  marginBottom: 28,
+                }}
+              >
+                {subtitle}
+              </p>
+            </Reveal>
+            <Reveal delay={0.18}>
+              {/* CTA cluster — 2px gap between buttons per global UI rule. */}
+              <div
+                className="split-hero-cta-cluster"
+                data-testid="split-hero-cta-cluster"
+                style={{
+                  display: "flex",
+                  gap: 2,
+                  flexWrap: "wrap",
+                  alignItems: "stretch",
+                }}
+              >
+                <CtaLink href={ctaPrimary.href} className="wft-hover-border-white" style={ctaPrimaryStyle}>
+                  {ctaPrimary.label} <ArrowRight size={16} />
                 </CtaLink>
-              )}
-            </div>
-          </Reveal>
+                {ctaSecondary && (
+                  <CtaLink href={ctaSecondary.href} className="wft-hover-border-white" style={ctaGhostStyle}>
+                    {ctaSecondary.label}
+                  </CtaLink>
+                )}
+              </div>
+            </Reveal>
+          </div>
         </div>
 
         {/* RIGHT — animated visual. Self-contained: each animation handles
@@ -188,8 +195,13 @@ export default function SplitHero({
             grid-template-columns: 1fr !important;
             gap: 32px !important;
           }
-          .split-hero-text { order: 1; }
+          /* Mobile hero order: title → animation (media) → subtitle/CTAs.
+             display:contents hoists head + body so the animation can sit
+             between them instead of after the whole text block. */
+          .split-hero-text { display: contents; }
+          .split-hero-head { order: 1; }
           .split-hero-anim { order: 2; max-height: none !important; }
+          .split-hero-body { order: 3; }
           .split-hero-text h1,
           .split-hero-text p { max-width: 100% !important; }
         }
