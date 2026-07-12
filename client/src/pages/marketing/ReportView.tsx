@@ -266,6 +266,26 @@ function gradeColor(grade: string): string {
   if (grade === 'C') return AMBER;
   return RED;
 }
+// Single source of truth for the overall-score verdict label, used at EVERY
+// breakpoint (headline SemiGauge + score modal) so the same score never reads
+// "Below average" in one place and "Critical" in another.
+function scoreVerdict(score: number): string {
+  if (score >= 80) return 'Strong';
+  if (score >= 60) return 'Room to improve';
+  if (score >= 40) return 'Below average';
+  return 'Critical — needs attention';
+}
+// The LLM narrative sometimes restates the overall score in its prose (e.g.
+// "your score of 29/100") and can disagree with the computed gauge value. Force
+// every score number the narrative emits to the ONE computed score so the card
+// never contradicts itself. Only rewrites explicit score references ("NN/100",
+// "score(d) of NN"); leaves all other numbers untouched.
+function reconcileNarrativeScore(text: string | undefined, score: number): string | undefined {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\b\d{1,3}\s*\/\s*100\b/g, `${score}/100`)
+    .replace(/\b(score of|scored|scores)\s+\d{1,3}\b/gi, (_m, p1) => `${p1} ${score}`);
+}
 function statusColor(status: string): string {
   if (status === 'strong' || status === 'good') return GREEN;
   if (status === 'below-fold') return AMBER;
@@ -1258,9 +1278,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   // deterministic dataQuality flags so a dropped source is never silent. The
   // score above is renormalized over the categories that DID load.
   const dataQuality = report?.dataQuality || {};
+  // Did real speed numbers load this run? Used to stop a stale AI note from
+  // claiming "speed was unavailable" while the Website-Quality pillar shows
+  // live Mobile/Desktop scores (the two must never contradict).
+  const speedNumbersPresent = (() => {
+    const sd = liveSpeedData || report?.speedData || {};
+    return sd?.mobile?.score != null || sd?.desktop?.score != null;
+  })();
   const missingDataNote: string | null = (() => {
     const aiNote = ai?.reportDataQuality?.missingDataNote;
-    if (typeof aiNote === 'string' && aiNote.trim()) return aiNote.trim();
+    if (typeof aiNote === 'string' && aiNote.trim()) {
+      // Suppress a stale AI note that asserts speed was unavailable when real
+      // speed numbers actually loaded — fall through to the deterministic note
+      // (which never mentions speed) so the banner can't contradict the pillar.
+      const claimsSpeedMissing = /speed/i.test(aiNote)
+        && /(unavailable|could ?n[’']?t|couldn[’']?t|not be completed|no data)/i.test(aiNote);
+      if (!(claimsSpeedMissing && speedNumbersPresent)) return aiNote.trim();
+    }
     const missing: string[] = [];
     if (dataQuality.competitorDataAvailable === false) missing.push('competitor');
     if (dataQuality.keywordDataAvailable === false) missing.push('search-ranking');
@@ -1270,6 +1304,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
     return `We couldn't load ${what} this run, so it's excluded from your score — refresh to retry.`;
   })();
   const competitorDataMissing = dataQuality.competitorDataAvailable === false;
+  const keywordDataMissing = dataQuality.keywordDataAvailable === false;
   const keywords = report?.keywords || [];
   // Rank Grid pre-fill — the audit already knows what this business is and where.
   // Derive up to 5 relevant keyword terms so the Rank Grid tab opens with the
@@ -1576,12 +1611,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   };
 
   const scoreRows = [
-    { key: 'googleMaps', icon: <MapPin size={20} color={CYAN} />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { key: 'websiteQuality', icon: <Globe size={20} color={CYAN} />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { key: 'searchVisibility', icon: <Search size={20} color={CYAN} />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { key: 'competitorPosition', icon: <Trophy size={20} color={CYAN} />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={20} color={CYAN} />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
-    { key: 'demandCoverage', icon: <Clock size={20} color={CYAN} />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
+    { key: 'googleMaps', icon: <MapPin size={20} color={CYAN} />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is', unavailable: false },
+    { key: 'websiteQuality', icon: <Globe size={20} color={CYAN} />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote, unavailable: false },
+    { key: 'searchVisibility', icon: <Search size={20} color={CYAN} />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: keywordDataMissing ? "Couldn't load search-ranking data this run — excluded from your score" : 'How easily customers find you on Google', unavailable: keywordDataMissing },
+    { key: 'competitorPosition', icon: <Trophy size={20} color={CYAN} />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: competitorDataMissing ? "Couldn't load competitor data this run — excluded from your score" : 'How you compare to local competitors', unavailable: competitorDataMissing },
+    { key: 'adOpportunity', icon: <Megaphone size={20} color={CYAN} />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: keywordDataMissing ? "Couldn't load search-ranking data this run — excluded from your score" : 'Whether Google Ads would help you get more calls', unavailable: keywordDataMissing },
+    { key: 'demandCoverage', icon: <Clock size={20} color={CYAN} />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies", unavailable: false },
   ];
 
   const card = (extra?: any) => ({
@@ -2044,7 +2079,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               <div key={i} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3, wordBreak: 'break-word' }}>{v}</div>
             ))}
             {business?.website && (
-              <a href={business.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: CYAN, display: 'block', marginTop: 3, textDecoration: 'none', wordBreak: 'break-all' }}>
+              <a href={business.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: CYAN, display: 'block', marginTop: 3, textDecoration: 'none', overflowWrap: 'anywhere', whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {business.website.replace(/^https?:\/\//, '').split('/')[0]}
               </a>
             )}
@@ -2056,7 +2091,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         {ai.executiveSummary && (
           <>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '12px 0 14px', position: 'relative', zIndex: 1 }}/>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0, position: 'relative', zIndex: 1 }}>{ai.executiveSummary}</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.65, margin: 0, position: 'relative', zIndex: 1 }}>{reconcileNarrativeScore(ai.executiveSummary, liveTotal)}</p>
             {/* KEYSTONE: while the premium AI narrative is still generating in the
                 background, show a subtle indicator. It vanishes the moment the
                 poll swaps the AI prose in. */}
@@ -2176,15 +2211,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             max={100}
             label="Overall audit score"
             unit="/100"
-            verdict={
-              liveTotal >= 80
-                ? "Strong"
-                : liveTotal >= 60
-                ? "Room to improve"
-                : liveTotal >= 40
-                ? "Below average"
-                : "Critical — needs attention"
-            }
+            verdict={scoreVerdict(liveTotal)}
             advice={
               liveTotal >= 80
                 ? "You're outperforming most local competitors. Focus on widening the moat with reviews + content."
@@ -2208,20 +2235,29 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(13,60,252,0.08)', flexShrink: 0 }}>
-                  {row.icon}
-                </span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {row.label}
-                  <Info className="breakdown-info-icon" size={12} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
-                </span>
-                <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
-                  <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+              {/* On mobile the label stacks ABOVE the bar so a long pillar name
+                  ("Google Maps Profile") never truncates to "Google Ma" when the
+                  fixed-width bar + score squeeze it on one 375px row. */}
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 6 : 10, width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: isMobile ? 'none' : 1, minWidth: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(13,60,252,0.08)', flexShrink: 0 }}>
+                    {row.icon}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: isMobile ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: isMobile ? 'clip' : 'ellipsis', overflowWrap: 'anywhere', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {row.label}
+                    <Info className="breakdown-info-icon" size={12} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+                  </span>
                 </div>
-                <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: scoreColor(row.score, row.max) }}>
-                  {row.score}/{row.max}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: isMobile ? 38 : 0 }}>
+                  <div style={{ width: isMobile ? 120 : 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
+                    {!row.unavailable && (
+                      <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
+                    )}
+                  </div>
+                  <span style={{ width: 48, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: row.unavailable ? GREY : scoreColor(row.score, row.max) }}>
+                    {row.unavailable ? '—' : `${row.score}/${row.max}`}
+                  </span>
+                </div>
               </div>
               <div style={{ fontSize: 11, color: GREY, marginTop: 2, marginLeft: 38 }}>{row.note}</div>
             </div>
@@ -2229,7 +2265,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         ))}
         {ai.gradeExplanation && (
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: GREY, lineHeight: 1.6 }}>
-            {ai.gradeExplanation}
+            {reconcileNarrativeScore(ai.gradeExplanation, liveTotal)}
           </div>
         )}
       </div>}
@@ -3782,7 +3818,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     Grade {scores.grade || 'D'}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
-                    {liveTotal >= 70 ? 'Above industry average' : liveTotal >= 50 ? 'Below industry average' : 'Critical — needs attention'}
+                    {scoreVerdict(liveTotal)}
                   </div>
                 </div>
               </div>

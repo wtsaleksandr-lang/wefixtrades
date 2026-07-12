@@ -104,6 +104,14 @@ function categoryVerdict(pct: number): string {
   if (pct >= 50) return "Fair";
   return "Weak";
 }
+// Force any score number the AI narrative restates ("your score of 29/100") to
+// the ONE computed overall score so the prose can't contradict the gauge.
+function reconcileNarrativeScore(text: string | undefined, score: number): string | undefined {
+  if (!text || typeof text !== "string") return text;
+  return text
+    .replace(/\b\d{1,3}\s*\/\s*100\b/g, `${score}/100`)
+    .replace(/\b(score of|scored|scores)\s+\d{1,3}\b/gi, (_m, p1) => `${p1} ${score}`);
+}
 function categoryAdvice(key: string, pct: number): string {
   if (pct >= 80) return "Maintain";
   const tips: Record<string, string> = {
@@ -336,9 +344,16 @@ export default function SharedAuditReport() {
   // Partial-data note: prefer the AI-authored note, else derive one from the
   // deterministic dataQuality flags so a dropped source is never silent.
   const dataQuality = ad?.dataQuality || {};
+  const speedNumbersPresent = speedData?.mobile?.score != null || speedData?.desktop?.score != null;
   const missingDataNote: string | null = (() => {
     const aiNote = narrative?.reportDataQuality?.missingDataNote;
-    if (typeof aiNote === "string" && aiNote.trim()) return aiNote.trim();
+    if (typeof aiNote === "string" && aiNote.trim()) {
+      // Don't let a stale AI note claim speed was unavailable when real speed
+      // numbers actually loaded (they'd contradict the Website pillar/section).
+      const claimsSpeedMissing = /speed/i.test(aiNote)
+        && /(unavailable|could ?n[’']?t|couldn[’']?t|not be completed|no data)/i.test(aiNote);
+      if (!(claimsSpeedMissing && speedNumbersPresent)) return aiNote.trim();
+    }
     const missing: string[] = [];
     if (dataQuality.competitorDataAvailable === false) missing.push("competitor");
     if (dataQuality.keywordDataAvailable === false) missing.push("search-ranking");
@@ -536,7 +551,7 @@ export default function SharedAuditReport() {
               <span className={s.gradeBadge} style={{ background: gradeBg(grade), color: gradeColor(grade) }}>{grade}</span>
             </div>
           </div>
-          {narrative.executiveSummary && <div className={s.heroSummary}>{narrative.executiveSummary}</div>}
+          {narrative.executiveSummary && <div className={s.heroSummary}>{reconcileNarrativeScore(narrative.executiveSummary, overall)}</div>}
           {missingDataNote && <div className={s.calloutAmber} data-testid="audit-missing-data-note">{missingDataNote}</div>}
           {websiteBlockedNote && <div className={s.calloutAmber} data-testid="audit-website-blocked-note">{websiteBlockedNote}</div>}
           <div className={s.heroFooter}>
