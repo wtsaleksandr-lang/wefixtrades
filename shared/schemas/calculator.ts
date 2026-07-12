@@ -652,6 +652,41 @@ export const calculatorSettingsSchema = z.object({
     }).default({}),
   }).default({}),
 
+  /**
+   * Phase 2 — INDEPENDENT AI chat-widget styling.
+   *
+   * Decouples the customer-facing chat bubble (AIChatBubble.tsx) from the
+   * calculator theme. Safe-by-default: absent / legacy rows and
+   * `styleMode: 'inherit'` mean the bubble derives its look from the calculator
+   * accent EXACTLY as before (zero behavior change — the light-lock stays).
+   * Only `styleMode: 'custom'` makes the widget read the fields below and drop
+   * its light-lock (a `dark` theme becomes selectable).
+   *
+   *   styleMode     inherit (default) → calculator-derived look, light-locked.
+   *                 custom            → the fields below drive the widget.
+   *   theme         light | dark — the removable light-lock (custom only).
+   *   launcherColor 6-digit hex; overrides the calculator accent for the
+   *                 launcher / header / bubbles (custom only).
+   *   launcherIcon  which glyph the closed launcher shows.
+   *   greeting      first assistant line (≤200 chars); {business} is not
+   *                 interpolated — owners write the literal text they want.
+   *   font          body font for the whole panel.
+   *   position      which corner the launcher / panel anchors to.
+   *   visibility    independent timing. When set it overrides the wizard-derived
+   *                 advanced.style.aiChatVisibility (still tier-gated for 'always'
+   *                 in calculator.tsx). Absent ⇒ fall back to the wizard value.
+   */
+  aiWidget: z.object({
+    styleMode: z.enum(['inherit', 'custom']).default('inherit'),
+    theme: z.enum(['light', 'dark']).default('light'),
+    launcherColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    launcherIcon: z.enum(['chat', 'sparkles', 'help', 'message', 'bot']).default('chat'),
+    greeting: z.string().max(200).optional(),
+    font: z.enum(['inter', 'georgia', 'montserrat', 'merriweather', 'roboto-mono']).default('inter'),
+    position: z.enum(['bottom-right', 'bottom-left']).default('bottom-right'),
+    visibility: z.enum(['rescue', 'always']).optional(),
+  }).default({}),
+
   test_history: z.object({
     scenarios: z.array(z.object({
       label: z.string(),

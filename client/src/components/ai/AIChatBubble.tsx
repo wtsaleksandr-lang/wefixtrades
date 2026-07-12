@@ -1,15 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, X, Send, Loader2, GripHorizontal, Trash2 } from 'lucide-react';
+import {
+  MessageCircle, X, Send, Loader2, GripHorizontal, Trash2,
+  Sparkles, HelpCircle, MessageSquare, Bot,
+} from 'lucide-react';
 
 /**
- * CONTRAST-2 — AIChatBubble is light-theme locked.
+ * CONTRAST-2 — AIChatBubble is light-theme locked BY DEFAULT.
  *
  * The chat panel renders over a white surface with a brand-accent header,
  * so `#fff` and `#000` inside the style objects below are intentional for
  * that single theme. The pill-mode and panel-mode root JSX elements both
  * carry data-theme="light", which scopes the hardcoded-color lint
  * exemption to this whole module.
+ *
+ * Phase 2 — the light-lock is removable ONLY on the independent custom path
+ * (styleMode==='custom' + theme==='dark'). When custom, every light surface
+ * literal below is replaced by a value from the derived `palette` object; the
+ * pill keeps its literal `data-theme="light"` so the module-wide lint
+ * exemption anchor is preserved. Inherit (default) is byte-for-byte the old
+ * look, so existing calculators are unchanged unless the owner opts in.
  */
+
+/** Phase 2 — launcher glyph options the owner can pick (custom mode). */
+const LAUNCHER_ICONS = {
+  chat: MessageCircle,
+  message: MessageSquare,
+  sparkles: Sparkles,
+  help: HelpCircle,
+  bot: Bot,
+} as const;
+export type LauncherIconKey = keyof typeof LAUNCHER_ICONS;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -46,6 +66,23 @@ interface AIChatBubbleProps {
    * value (the caller — `calculator.tsx` — enforces the tier gate).
    */
   visibility?: 'rescue' | 'always';
+  /**
+   * Phase 2 — independent chat-widget styling. When `styleMode` is omitted or
+   * 'inherit', the bubble looks EXACTLY as before (calculator-derived accent,
+   * light-locked). When 'custom', the props below take over and the light-lock
+   * is removable via `widgetTheme`.
+   */
+  styleMode?: 'inherit' | 'custom';
+  /** Custom-mode surface theme. 'dark' removes the light-lock. Ignored on inherit. */
+  widgetTheme?: 'light' | 'dark';
+  /** Custom-mode launcher glyph. Defaults to the chat bubble. */
+  launcherIcon?: LauncherIconKey;
+  /** Custom-mode greeting — the literal first assistant line. */
+  greeting?: string;
+  /** Resolved CSS font-family applied to the whole panel (custom mode). */
+  fontFamily?: string;
+  /** Which corner the launcher / panel anchors to. Defaults bottom-right. */
+  widgetPosition?: 'bottom-right' | 'bottom-left';
 }
 
 /**
@@ -213,7 +250,48 @@ export default function AIChatBubble({
   customerPhone,
   customerName,
   visibility = 'rescue',
+  styleMode = 'inherit',
+  widgetTheme = 'light',
+  launcherIcon = 'chat',
+  greeting,
+  fontFamily,
+  widgetPosition = 'bottom-right',
 }: AIChatBubbleProps) {
+  // Phase 2 — custom-mode switches. On inherit, `custom` is false everywhere so
+  // every branch below collapses to the exact legacy value (zero visual change).
+  const custom = styleMode === 'custom';
+  const dark = custom && widgetTheme === 'dark';
+  // Derived surface palette. Light values are byte-identical to the historic
+  // literals; dark values are non-pure slate tones (never #000/#fff) so the
+  // hardcoded-color guard is never tripped and contrast stays ≥4.5:1.
+  const palette = {
+    surface: dark ? '#0f172a' : '#fff',        // panel + input + typing bg
+    surfaceAlt: dark ? '#1e293b' : '#f8f9fa',  // messages scroll area
+    bubbleBg: dark ? '#1e293b' : '#fff',       // assistant reply bubble
+    bubbleText: dark ? '#e2e8f0' : '#1a1a1a',
+    inputText: dark ? '#e2e8f0' : '#1a1a1a',
+    border: dark ? '#334155' : '#e5e7eb',
+    muted: dark ? '#94a3b8' : '#9ca3af',
+    disabledBg: dark ? '#334155' : '#e5e7eb',
+    disabledFg: dark ? '#64748b' : '#9ca3af',
+    // Favicon is all-blue, so keep a light chip behind it on either theme.
+    avatarChip: dark ? '#e2e8f0' : '#fff',
+    panelShadow: dark ? '0 8px 32px rgba(0,0,0,0.45)' : '0 8px 32px rgba(0,0,0,0.18)',
+  };
+  // Semantic HTML theme attribute for the panel. Kept dynamic so global
+  // [data-theme] tokens apply; the pill below keeps a LITERAL data-theme="light"
+  // which is the module's hardcoded-color-guard exemption anchor.
+  const panelThemeAttr: 'light' | 'dark' = dark ? 'dark' : 'light';
+  // Custom launcher glyph (defaults to the historic chat bubble).
+  const LauncherIcon = (custom && LAUNCHER_ICONS[launcherIcon]) || MessageCircle;
+  // Anchor side — left corner when the owner picked bottom-left (custom only).
+  const anchorLeft = custom && widgetPosition === 'bottom-left';
+  // Panel font — only applied in custom mode (inherit keeps the host cascade).
+  const panelFont = custom && fontFamily ? fontFamily : undefined;
+  // First assistant line. Custom greeting when set; otherwise the historic copy.
+  const greetingText = custom && greeting && greeting.trim()
+    ? greeting.trim()
+    : `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`;
   // CONTRAST — every accent-coloured surface (launcher FAB, rescue pill, chat
   // header, send button, user message bubbles) hardcoded white text/icons. On a
   // BRIGHT brand accent (yellow/lime/amber) that is unreadable. Derive the
@@ -488,12 +566,12 @@ export default function AIChatBubble({
     } else {
       setMessages([{
         role: 'assistant',
-        content: `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`,
+        content: greetingText,
         ts: Date.now(),
       }]);
     }
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [isOpen, businessName, calculatorId, position]);
+  }, [isOpen, businessName, calculatorId, position, greetingText]);
 
   // BD-3c Feature 3 — persist conversation on every message change. Skip
   // when the panel is closed (no messages yet to persist) and when there's
@@ -645,11 +723,11 @@ export default function AIChatBubble({
     clearHistory(calculatorId);
     setMessages([{
       role: 'assistant',
-      content: `Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`,
+      content: greetingText,
       ts: Date.now(),
     }]);
     setHandoff(false);
-  }, [calculatorId, businessName]);
+  }, [calculatorId, businessName, greetingText]);
 
   // BD-3c Feature 3 — drag-handle move. Pointer-based (works for mouse +
   // touch). We snapshot the initial position + pointer location on
@@ -718,14 +796,16 @@ export default function AIChatBubble({
         flexDirection: 'column',
         borderRadius: '16px',
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        background: '#fff',
+        boxShadow: palette.panelShadow,
+        background: palette.surface,
+        fontFamily: panelFont,
         userSelect: isDragging ? 'none' : 'auto',
       }
     : {
         position: 'fixed',
         bottom: '88px',
-        right: '24px',
+        // Anchor to the owner-chosen corner (custom mode); default right.
+        ...(anchorLeft ? { left: '24px' } : { right: '24px' }),
         zIndex: 9999,
         width: `${PANEL_WIDTH}px`,
         height: `${PANEL_HEIGHT}px`,
@@ -733,8 +813,9 @@ export default function AIChatBubble({
         flexDirection: 'column',
         borderRadius: '16px',
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        background: '#fff',
+        boxShadow: palette.panelShadow,
+        background: palette.surface,
+        fontFamily: panelFont,
         userSelect: isDragging ? 'none' : 'auto',
       };
 
@@ -745,7 +826,8 @@ export default function AIChatBubble({
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',
-        background: '#fff',
+        background: palette.surface,
+        fontFamily: panelFont,
       }
     : desktopPanelStyle;
 
@@ -770,6 +852,7 @@ export default function AIChatBubble({
             copy={proactiveCopy}
             accentColor={accentColor}
             anchorBottom={64}
+            anchorLeft={anchorLeft}
             onAccept={handleAcceptProactive}
             onDismiss={handleDismissProactive}
             reduceMotion={reduceMotionRef.current}
@@ -784,7 +867,7 @@ export default function AIChatBubble({
           style={{
             position: 'fixed',
             bottom: '20px',
-            right: '20px',
+            ...(anchorLeft ? { left: '20px' } : { right: '20px' }),
             zIndex: 9998,
             padding: '8px 14px',
             borderRadius: '999px',
@@ -810,7 +893,7 @@ export default function AIChatBubble({
             (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
           }}
         >
-          <MessageCircle size={14} />
+          <LauncherIcon size={14} />
           Need help?
           {/* BD-3d Feature 2 — small unread dot when a proactive nudge
               hasn't been acted on. */}
@@ -846,7 +929,7 @@ export default function AIChatBubble({
   return (
     <>
       {isOpen && (
-        <div ref={panelRef} data-theme="light" style={panelStyle} data-testid="ai-chat-panel">
+        <div ref={panelRef} data-theme={panelThemeAttr} style={panelStyle} data-testid="ai-chat-panel">
           <div
             style={{
               background: accentColor,
@@ -890,8 +973,8 @@ export default function AIChatBubble({
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {/* Branded checkmark avatar. Favicon is all-blue and can read low
-                  on the dark accent header, so seat it in a small white chip. */}
-              <span style={{ background: '#fff', borderRadius: '6px', padding: '3px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  on the dark accent header, so seat it in a small light chip. */}
+              <span style={{ background: palette.avatarChip, borderRadius: '6px', padding: '3px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <BrandMark size={20} />
               </span>
               <div>
@@ -926,7 +1009,7 @@ export default function AIChatBubble({
 
           <div
             ref={messagesAreaRef}
-            style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8f9fa' }}
+            style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', background: palette.surfaceAlt }}
             data-testid="chat-messages-area"
           >
             {/* Skip empty messages — the SSE branch reserves a placeholder
@@ -955,8 +1038,8 @@ export default function AIChatBubble({
                     maxWidth: '82%',
                     padding: '9px 13px',
                     borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: msg.role === 'user' ? accentColor : '#fff',
-                    color: msg.role === 'user' ? accentFg : '#1a1a1a',
+                    background: msg.role === 'user' ? accentColor : palette.bubbleBg,
+                    color: msg.role === 'user' ? accentFg : palette.bubbleText,
                     fontSize: '14px',
                     lineHeight: 1.5,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
@@ -970,7 +1053,7 @@ export default function AIChatBubble({
 
             {isLoading && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }} data-testid="chat-typing-indicator">
-                <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '16px 16px 16px 4px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <div style={{ background: palette.bubbleBg, padding: '10px 14px', borderRadius: '16px 16px 16px 4px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0s' }} />
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.2s' }} />
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.4s' }} />
@@ -1006,7 +1089,7 @@ export default function AIChatBubble({
             <div ref={messagesEndRef} />
           </div>
 
-          <div style={{ padding: '12px', background: '#fff', borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
+          <div style={{ padding: '12px', background: palette.surface, borderTop: `1px solid ${palette.border}`, flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
               {/* BD-3c Feature 2 — bigger default textarea (64px ≈ 3 lines)
                   that expands to 120px (~6 lines) on focus. Animated via
@@ -1027,12 +1110,12 @@ export default function AIChatBubble({
                   flex: 1,
                   padding: '10px 13px',
                   borderRadius: '14px',
-                  border: '1px solid #e5e7eb',
+                  border: `1px solid ${palette.border}`,
                   outline: 'none',
                   fontSize: '15px',
                   lineHeight: 1.45,
-                  background: '#fff',
-                  color: '#1a1a1a',
+                  background: palette.surface,
+                  color: palette.inputText,
                   resize: 'none',
                   height: `${inputHeight}px`,
                   minHeight: `${INPUT_MIN_H}px`,
@@ -1050,7 +1133,7 @@ export default function AIChatBubble({
                   width: '38px',
                   height: '38px',
                   borderRadius: '50%',
-                  background: (!input.trim() || isLoading) ? '#e5e7eb' : accentColor,
+                  background: (!input.trim() || isLoading) ? palette.disabledBg : accentColor,
                   border: 'none',
                   cursor: (!input.trim() || isLoading) ? 'not-allowed' : 'pointer',
                   display: 'flex',
@@ -1058,7 +1141,7 @@ export default function AIChatBubble({
                   justifyContent: 'center',
                   // Dark glyph when disabled (grey bg) or on a bright accent;
                   // white on a dark accent. Never white-on-grey / white-on-yellow.
-                  color: (!input.trim() || isLoading) ? '#9ca3af' : accentFg,
+                  color: (!input.trim() || isLoading) ? palette.disabledFg : accentFg,
                   flexShrink: 0,
                   transition: 'background 0.15s',
                 }}
@@ -1068,7 +1151,7 @@ export default function AIChatBubble({
                 {isLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
               </button>
             </div>
-            <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: '#9ca3af' }} data-testid="text-powered-by">
+            <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: palette.muted }} data-testid="text-powered-by">
               Powered by WeFixTrades
             </div>
           </div>
@@ -1082,6 +1165,7 @@ export default function AIChatBubble({
           copy={proactiveCopy}
           accentColor={accentColor}
           anchorBottom={92}
+          anchorLeft={anchorLeft}
           onAccept={handleAcceptProactive}
           onDismiss={handleDismissProactive}
           reduceMotion={reduceMotionRef.current}
@@ -1093,7 +1177,7 @@ export default function AIChatBubble({
         style={{
           position: 'fixed',
           bottom: '24px',
-          right: '24px',
+          ...(anchorLeft ? { left: '24px' } : { right: '24px' }),
           zIndex: 9998,
           width: '56px',
           height: '56px',
@@ -1117,7 +1201,7 @@ export default function AIChatBubble({
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.07)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
       >
-        {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
+        {isOpen ? <X size={24} /> : <LauncherIcon size={24} />}
         {/* BD-3d Feature 2 — unread badge on the FAB. */}
         {!isOpen && proactiveBadge && (
           <span
@@ -1199,12 +1283,14 @@ interface ProactiveToastProps {
   accentColor: string;
   /** Distance from the bottom of the viewport for the toast's bottom edge. */
   anchorBottom: number;
+  /** Anchor to the left corner (mirrors the custom bottom-left launcher). */
+  anchorLeft?: boolean;
   onAccept: () => void;
   onDismiss: () => void;
   reduceMotion: boolean;
 }
 
-function ProactiveToast({ copy, accentColor, anchorBottom, onAccept, onDismiss, reduceMotion }: ProactiveToastProps) {
+function ProactiveToast({ copy, accentColor, anchorBottom, anchorLeft, onAccept, onDismiss, reduceMotion }: ProactiveToastProps) {
   return (
     <div
       role="status"
@@ -1213,18 +1299,19 @@ function ProactiveToast({ copy, accentColor, anchorBottom, onAccept, onDismiss, 
       data-variant={copy.key}
       style={{
         position: 'fixed',
-        right: '24px',
+        ...(anchorLeft
+          ? { left: '24px', borderRight: `3px solid ${accentColor}` }
+          : { right: '24px', borderLeft: `3px solid ${accentColor}` }),
         bottom: `${anchorBottom}px`,
         zIndex: 9998,
         maxWidth: '260px',
         background: '#fff',
         color: '#1a1a1a',
-        borderRadius: '14px 14px 4px 14px',
+        borderRadius: anchorLeft ? '14px 14px 14px 4px' : '14px 14px 4px 14px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
         padding: '10px 30px 10px 14px',
         fontSize: '13px',
         lineHeight: 1.4,
-        borderLeft: `3px solid ${accentColor}`,
         cursor: 'pointer',
         animation: reduceMotion ? 'none' : 'qq-ai-proactive-rise 180ms ease-out both',
       }}

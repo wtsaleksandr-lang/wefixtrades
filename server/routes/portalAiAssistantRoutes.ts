@@ -74,6 +74,39 @@ function deepMergeSettings(
   return result;
 }
 
+/**
+ * Phase 2 — the independent chat-widget styling block, with defaults applied so
+ * the client always receives a fully-shaped object (absent / legacy ⇒ inherit).
+ * Kept in sync with `aiWidget` in shared/schemas/calculator.ts.
+ */
+function normalizeAiWidget(raw: any) {
+  const w = raw && typeof raw === "object" ? raw : {};
+  const oneOf = <T extends string>(v: any, allowed: readonly T[], fallback: T): T =>
+    allowed.includes(v) ? (v as T) : fallback;
+  return {
+    styleMode: oneOf(w.styleMode, ["inherit", "custom"] as const, "inherit"),
+    theme: oneOf(w.theme, ["light", "dark"] as const, "light"),
+    launcherColor:
+      typeof w.launcherColor === "string" && /^#[0-9a-fA-F]{6}$/.test(w.launcherColor)
+        ? w.launcherColor
+        : undefined,
+    launcherIcon: oneOf(
+      w.launcherIcon,
+      ["chat", "sparkles", "help", "message", "bot"] as const,
+      "chat",
+    ),
+    greeting: typeof w.greeting === "string" ? w.greeting.slice(0, 200) : undefined,
+    font: oneOf(
+      w.font,
+      ["inter", "georgia", "montserrat", "merriweather", "roboto-mono"] as const,
+      "inter",
+    ),
+    position: oneOf(w.position, ["bottom-right", "bottom-left"] as const, "bottom-right"),
+    visibility:
+      w.visibility === "rescue" || w.visibility === "always" ? w.visibility : undefined,
+  };
+}
+
 /** Resolve the authenticated user's most-recent calculator (or null). */
 async function resolveOwnerCalculator(req: Request, res: Response) {
   const clientId = await withClientIdOrPreview(req, res, {
@@ -117,6 +150,9 @@ export function registerPortalAiAssistantRoutes(app: Express): void {
       // 'rescue' (smart timing, default) | 'always' — from the wizard Style tab.
       const aiChatVisibility =
         settings?.advanced?.style?.aiChatVisibility === "always" ? "always" : "rescue";
+      // Phase 2 — independent chat-widget styling block. Absent / legacy ⇒
+      // inherit (the widget keeps its calculator-derived, light-locked look).
+      const aiWidget = normalizeAiWidget(settings.aiWidget);
 
       return res.json({
         hasCalculator: true,
@@ -130,6 +166,7 @@ export function registerPortalAiAssistantRoutes(app: Express): void {
           enabled: aiEmployee.enabled === true,
           active,
           aiChatVisibility,
+          aiWidget,
         },
       });
     } catch (err: any) {
@@ -174,6 +211,63 @@ export function registerPortalAiAssistantRoutes(app: Express): void {
         });
       } catch (err: any) {
         log.error("calculator-placement patch failed", { error: err?.message });
+        res.status(500).json({ error: "update_failed" });
+      }
+    },
+  );
+
+  /* ─── PATCH /widget-style — independent chat-widget styling (Phase 2) ─── */
+  const widgetStyleBody = z
+    .object({
+      styleMode: z.enum(["inherit", "custom"]).optional(),
+      theme: z.enum(["light", "dark"]).optional(),
+      launcherColor: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/, "launcherColor must be a 6-digit hex")
+        .optional(),
+      launcherIcon: z.enum(["chat", "sparkles", "help", "message", "bot"]).optional(),
+      greeting: z.string().max(200).optional(),
+      font: z
+        .enum(["inter", "georgia", "montserrat", "merriweather", "roboto-mono"])
+        .optional(),
+      position: z.enum(["bottom-right", "bottom-left"]).optional(),
+      visibility: z.enum(["rescue", "always"]).optional(),
+    })
+    .strict();
+  app.patch(
+    `${BASE}/widget-style`,
+    requireClient,
+    async (req: Request, res: Response) => {
+      const parsed = widgetStyleBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res
+          .status(400)
+          .json({ error: "invalid_body", details: parsed.error.format() });
+      }
+      try {
+        const calc = await resolveOwnerCalculator(req, res);
+        if (calc === undefined) return;
+        if (!calc) return res.status(404).json({ error: "no_calculator" });
+
+        const currentSettings = (calc.calculator_settings as any) || {};
+        // Partial patch, deep-merged so sibling keys (and other aiWidget fields
+        // the client didn't send) survive. `aiWidget` is registered in
+        // calculatorSettingsSchema, so this persists through every read path.
+        const nextSettings = deepMergeSettings(currentSettings, {
+          aiWidget: parsed.data,
+        });
+
+        const updated = await storage.updateCalculator(calc.id, {
+          calculator_settings: nextSettings as any,
+        });
+        if (!updated) return res.status(500).json({ error: "update_failed" });
+
+        const nextWidget = normalizeAiWidget(
+          ((updated.calculator_settings as any) || {}).aiWidget,
+        );
+        return res.json({ aiWidget: nextWidget });
+      } catch (err: any) {
+        log.error("widget-style patch failed", { error: err?.message });
         res.status(500).json({ error: "update_failed" });
       }
     },

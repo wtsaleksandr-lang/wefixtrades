@@ -76,6 +76,18 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /* ─── types ─── */
+type WidgetIcon = "chat" | "sparkles" | "help" | "message" | "bot";
+type WidgetFont = "inter" | "georgia" | "montserrat" | "merriweather" | "roboto-mono";
+interface AiWidgetStyle {
+  styleMode: "inherit" | "custom";
+  theme: "light" | "dark";
+  launcherColor?: string;
+  launcherIcon: WidgetIcon;
+  greeting?: string;
+  font: WidgetFont;
+  position: "bottom-right" | "bottom-left";
+  visibility?: "rescue" | "always";
+}
 interface AiStatus {
   hasCalculator: boolean;
   calculator: {
@@ -85,8 +97,27 @@ interface AiStatus {
     enabled: boolean;
     active: boolean;
     aiChatVisibility: "off" | "rescue" | "always";
+    aiWidget: AiWidgetStyle;
   } | null;
 }
+
+/* Phase 2 — option lists for the independent chat-widget styling controls. */
+const WIDGET_ICON_OPTIONS: { value: WidgetIcon; label: string }[] = [
+  { value: "chat", label: "Chat" },
+  { value: "message", label: "Message" },
+  { value: "sparkles", label: "Sparkle" },
+  { value: "help", label: "Help" },
+  { value: "bot", label: "Bot" },
+];
+const WIDGET_FONT_OPTIONS: { value: WidgetFont; label: string }[] = [
+  { value: "inter", label: "Inter" },
+  { value: "georgia", label: "Georgia" },
+  { value: "montserrat", label: "Montserrat" },
+  { value: "merriweather", label: "Merriweather" },
+  { value: "roboto-mono", label: "Roboto Mono" },
+];
+const DEFAULT_LAUNCHER_COLOR = "#6366f1";
+const GREETING_CAP = 200;
 interface WidgetSite {
   site: { enabled: boolean; site_key?: string } | null;
   tradeType: string | null;
@@ -219,6 +250,47 @@ export default function PortalYourAiAssistant() {
   const [newA, setNewA] = useState("");
   const [teachOpen, setTeachOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+
+  /* ── Phase 2 — independent chat-widget styling form ── */
+  const serverWidget = calc?.aiWidget;
+  const [widget, setWidget] = useState<AiWidgetStyle>({
+    styleMode: "inherit",
+    theme: "light",
+    launcherIcon: "chat",
+    font: "inter",
+    position: "bottom-right",
+  });
+  const [widgetDirty, setWidgetDirty] = useState(false);
+  // Hydrate from the server once (and whenever the server value changes) unless
+  // the owner has unsaved edits in flight.
+  useEffect(() => {
+    if (!widgetDirty && serverWidget) setWidget(serverWidget);
+  }, [serverWidget, widgetDirty]);
+  const patchWidget = (p: Partial<AiWidgetStyle>) => {
+    setWidget((w) => ({ ...w, ...p }));
+    setWidgetDirty(true);
+  };
+  const saveWidgetMut = useMutation({
+    mutationFn: (w: AiWidgetStyle) =>
+      api("/api/portal/ai-assistant/widget-style", {
+        method: "PATCH",
+        body: JSON.stringify({
+          styleMode: w.styleMode,
+          theme: w.theme,
+          launcherColor: w.launcherColor,
+          launcherIcon: w.launcherIcon,
+          greeting: w.greeting?.slice(0, GREETING_CAP) || undefined,
+          font: w.font,
+          position: w.position,
+          visibility: w.visibility,
+        }),
+      }),
+    onSuccess: () => {
+      setWidgetDirty(false);
+      qc.invalidateQueries({ queryKey: ["/api/portal/ai-assistant/status"] });
+    },
+  });
+  const widgetCustom = widget.styleMode === "custom";
 
   const saveNotesMut = useMutation({
     mutationFn: async (content: string) => {
@@ -635,48 +707,241 @@ export default function PortalYourAiAssistant() {
                   appears to visitors.
                 </p>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="min-w-0 text-sm text-muted-foreground">
-                    {calc?.aiChatVisibility === "off"
-                      ? "The chat assistant is turned off on your calculator."
-                      : calc?.aiChatVisibility === "always"
-                        ? "Set to always show the chat bubble on your calculator."
-                        : "Set to smart timing — the bubble appears only when a visitor looks stuck."}{" "}
-                    These controls live on the wizard's Settings tab for now.
-                  </p>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="flex-shrink-0"
-                    data-testid="link-appearance-wizard"
-                  >
-                    <Link href="/wizard">
-                      Open appearance &amp; timing <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
+                {/* ── Phase 2 — mode toggle. Inherit keeps the calculator look
+                     (safe default); Customize reveals the independent controls.
+                     Selected = outline, never a bright fill (DS rule). ── */}
+                <div className="space-y-1.5">
+                  <span className="block text-sm font-medium text-foreground">Style</span>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Widget style mode">
+                    <ModeButton
+                      selected={!widgetCustom}
+                      onClick={() => patchWidget({ styleMode: "inherit" })}
+                      title="Inherit from calculator"
+                      blurb="Matches your calculator's colour and light theme."
+                      testid="widget-mode-inherit"
+                    />
+                    <ModeButton
+                      selected={widgetCustom}
+                      onClick={() => patchWidget({ styleMode: "custom" })}
+                      title="Customize"
+                      blurb="Give the chat its own colour, theme, and greeting."
+                      testid="widget-mode-custom"
+                    />
+                  </div>
                 </div>
 
-                {/* Phase-2 note — set expectations without over-promising */}
-                <p className="text-xs text-muted-foreground">
-                  Fuller chat-widget styling for your assistant — its own colours, avatar, and
-                  greeting, independent of the calculator theme — is coming soon.
-                </p>
+                {widgetCustom && (
+                  <div className="space-y-4 rounded-lg border border-border p-4" data-testid="widget-custom-controls">
+                    {/* Launcher colour */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="widget-color" className="block text-sm font-medium text-foreground">
+                        Launcher colour
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        The bubble, header, and reply accents use this colour.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="widget-color"
+                          type="color"
+                          value={widget.launcherColor || DEFAULT_LAUNCHER_COLOR}
+                          onChange={(e) => patchWidget({ launcherColor: e.target.value })}
+                          className="h-9 w-14 cursor-pointer rounded-md border border-border bg-transparent p-1"
+                          data-testid="input-widget-color"
+                          aria-label="Launcher colour"
+                        />
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {(widget.launcherColor || DEFAULT_LAUNCHER_COLOR).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
 
-                {/* TODO(phase-2): independent chat-widget styling controls slot in HERE.
-                 * Phase 2 gives AIChatBubble.tsx its own persisted look (colour/avatar/
-                 * greeting) decoupled from the calculator theme + removes its light-lock.
-                 * When those settings exist, replace the wizard link + "coming soon" note
-                 * above with the inline controls (and surface smart-timing inline once it
-                 * has its own read/write endpoint rather than being derived from wizard
-                 * settings.advanced.style.aiChatVisibility). No backend exists yet — Phase 1
-                 * deliberately keeps the functional link so nothing regresses. */}
+                    {/* Theme — removes the light-lock */}
+                    <SegmentedField
+                      label="Theme"
+                      help="Dark gives the chat panel a dark surface."
+                      value={widget.theme}
+                      options={[
+                        { value: "light", label: "Light" },
+                        { value: "dark", label: "Dark" },
+                      ]}
+                      onChange={(v) => patchWidget({ theme: v as AiWidgetStyle["theme"] })}
+                      testid="widget-theme"
+                    />
+
+                    {/* Launcher icon */}
+                    <SegmentedField
+                      label="Launcher icon"
+                      help="The glyph shown on the closed chat button."
+                      value={widget.launcherIcon}
+                      options={WIDGET_ICON_OPTIONS}
+                      onChange={(v) => patchWidget({ launcherIcon: v as WidgetIcon })}
+                      testid="widget-icon"
+                    />
+
+                    {/* Greeting */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="widget-greeting" className="block text-sm font-medium text-foreground">
+                        Greeting
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        The first line the assistant says when the chat opens.
+                      </p>
+                      <Textarea
+                        id="widget-greeting"
+                        rows={2}
+                        maxLength={GREETING_CAP}
+                        value={widget.greeting ?? ""}
+                        onChange={(e) => patchWidget({ greeting: e.target.value })}
+                        placeholder={`Hi! I'm the virtual assistant for ${businessName}. How can I help you today?`}
+                        data-testid="input-widget-greeting"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {(widget.greeting ?? "").length}/{GREETING_CAP}
+                      </span>
+                    </div>
+
+                    {/* Font */}
+                    <SegmentedField
+                      label="Font"
+                      help="Body font for the chat panel."
+                      value={widget.font}
+                      options={WIDGET_FONT_OPTIONS}
+                      onChange={(v) => patchWidget({ font: v as WidgetFont })}
+                      testid="widget-font"
+                    />
+
+                    {/* Position */}
+                    <SegmentedField
+                      label="Position"
+                      help="Which corner the chat launcher sits in."
+                      value={widget.position}
+                      options={[
+                        { value: "bottom-right", label: "Bottom right" },
+                        { value: "bottom-left", label: "Bottom left" },
+                      ]}
+                      onChange={(v) => patchWidget({ position: v as AiWidgetStyle["position"] })}
+                      testid="widget-position"
+                    />
+                  </div>
+                )}
+
+                {/* Timing — independent of style; applies in both modes. */}
+                <SegmentedField
+                  label="When it appears"
+                  help="Smart shows it only when a visitor looks stuck. Always keeps it visible (paid plans)."
+                  value={widget.visibility ?? "rescue"}
+                  options={[
+                    { value: "rescue", label: "Smart" },
+                    { value: "always", label: "Always" },
+                  ]}
+                  onChange={(v) => patchWidget({ visibility: v as AiWidgetStyle["visibility"] })}
+                  testid="widget-visibility"
+                />
+
+                {/* Save + escape hatch to the wizard for turning chat fully off. */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Link
+                    href="/wizard"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue hover:underline"
+                    data-testid="link-appearance-wizard"
+                  >
+                    Turn chat off / advanced <ExternalLink className="h-3 w-3" />
+                  </Link>
+                  <Button
+                    size="sm"
+                    onClick={() => saveWidgetMut.mutate(widget)}
+                    disabled={!widgetDirty || saveWidgetMut.isPending}
+                    data-testid="button-save-widget-style"
+                  >
+                    <Save className="mr-1 h-3.5 w-3.5" /> Save appearance
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
         </section>
       </div>
     </PortalLayout>
+  );
+}
+
+/* ─── Phase 2 — style mode card button (selected = outline, never bright fill) ─── */
+function ModeButton({
+  selected,
+  onClick,
+  title,
+  blurb,
+  testid,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  blurb: string;
+  testid: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      data-testid={testid}
+      className={`rounded-lg border bg-transparent p-3 text-left transition-colors ${
+        selected
+          ? "border-brand-blue ring-1 ring-brand-blue/40"
+          : "border-border hover:border-brand-blue/50"
+      }`}
+    >
+      <span className={`block text-sm font-medium ${selected ? "text-brand-blue" : "text-foreground"}`}>
+        {title}
+      </span>
+      <span className="mt-0.5 block text-xs text-muted-foreground">{blurb}</span>
+    </button>
+  );
+}
+
+/* ─── Phase 2 — segmented enum picker (selected = outline) ─── */
+function SegmentedField({
+  label,
+  help,
+  value,
+  options,
+  onChange,
+  testid,
+}: {
+  label: string;
+  help?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+  testid: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-sm font-medium text-foreground">{label}</span>
+      {help && <p className="text-xs text-muted-foreground">{help}</p>}
+      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        {options.map((o) => {
+          const selected = value === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              aria-pressed={selected}
+              data-testid={`${testid}-${o.value}`}
+              className={`rounded-md border bg-transparent px-3 py-1.5 text-xs font-medium transition-colors ${
+                selected
+                  ? "border-brand-blue text-brand-blue ring-1 ring-brand-blue/40"
+                  : "border-border text-muted-foreground hover:border-brand-blue/50"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
