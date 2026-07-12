@@ -350,6 +350,48 @@ export function FreeToolFormTextarea({
   );
 }
 
+/* ─── Required-field validation (S9) ───────────────────────────────────
+ *
+ * The free-tool AI generators (GBP post generator, review-response generator)
+ * submitted SILENTLY when a required field was empty: the native `required`
+ * bubble was inconsistent on these floating-label fields and effectively
+ * swallowed the submit with no visible feedback — a "dead button". Give every
+ * tool ONE JS validation path: find the first empty required field so the
+ * caller can show a styled inline error AND focus that field. Pair with a
+ * `noValidate` <form> so this JS path is authoritative rather than racing the
+ * native bubble.
+ */
+export interface RequiredFieldSpec {
+  /** Current field value. */
+  value: string;
+  /** DOM id passed to the FreeToolFormField / Select / Textarea — used to
+   *  move focus to the offending field. */
+  id: string;
+  /** Natural-language phrase for the inline error, e.g. "your business name". */
+  label: string;
+}
+
+/** Returns the first required field left empty (after trim), or null if all
+ *  are filled. Order matters — pass fields top-to-bottom so focus lands on the
+ *  first gap the visitor sees. */
+export function firstEmptyRequired(
+  fields: RequiredFieldSpec[],
+): RequiredFieldSpec | null {
+  for (const f of fields) {
+    if (!f.value.trim()) return f;
+  }
+  return null;
+}
+
+/** Focus a free-tool field by its DOM id. No-op on the server. */
+export function focusFieldById(id: string): void {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById(id);
+  if (el && typeof (el as HTMLElement).focus === "function") {
+    (el as HTMLElement).focus();
+  }
+}
+
 /* ─── Scoped styles ────────────────────────────────────────────────── */
 
 /**

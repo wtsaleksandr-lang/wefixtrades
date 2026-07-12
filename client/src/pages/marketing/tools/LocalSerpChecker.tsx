@@ -25,6 +25,8 @@ import {
   FreeToolFormField,
   FreeToolFormSelect,
   FreeToolFormFieldStyles,
+  firstEmptyRequired,
+  focusFieldById,
 } from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
@@ -188,8 +190,13 @@ export default function LocalSerpChecker() {
     e.preventDefault();
     setError(null);
     setResult(null);
-    if (!query.trim() || !location.trim()) {
-      setError("Enter both a search term and a location.");
+    const missing = firstEmptyRequired([
+      { value: query, id: "serp-query", label: "a search term" },
+      { value: location, id: "serp-location", label: "a search location" },
+    ]);
+    if (missing) {
+      setError(`Please enter ${missing.label} to check results.`);
+      focusFieldById(missing.id);
       return;
     }
     setLoading(true);
@@ -272,7 +279,7 @@ export default function LocalSerpChecker() {
   };
 
   const form = (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} noValidate>
       <FreeToolFormFieldStyles />
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <FreeToolFormField
@@ -337,7 +344,7 @@ export default function LocalSerpChecker() {
           width: "100%",
           padding: "14px 16px",
           borderRadius: 12,
-          background: loading ? "rgba(34,197,94,0.6)" : "rgb(34,197,94)",
+          background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
           color: "rgb(255,255,255)",
           fontSize: 15,
           fontWeight: 700,

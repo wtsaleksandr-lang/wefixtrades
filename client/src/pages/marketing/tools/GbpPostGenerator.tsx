@@ -21,6 +21,8 @@ import {
   FreeToolFormSelect,
   FreeToolFormTextarea,
   FreeToolFormFieldStyles,
+  firstEmptyRequired,
+  focusFieldById,
 } from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
@@ -114,8 +116,13 @@ export default function GbpPostGenerator() {
     e.preventDefault();
     setError(null);
     setPosts(null);
-    if (!businessName.trim() || !trade.trim()) {
-      setError("Please enter your business name and trade.");
+    const missing = firstEmptyRequired([
+      { value: businessName, id: "gbp-business", label: "your business name" },
+      { value: trade, id: "gbp-trade", label: "your trade / business type" },
+    ]);
+    if (missing) {
+      setError(`Please enter ${missing.label} to generate posts.`);
+      focusFieldById(missing.id);
       return;
     }
     setLoading(true);
@@ -141,7 +148,7 @@ export default function GbpPostGenerator() {
   }
 
   const form = (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} noValidate>
       <FreeToolFormFieldStyles />
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <FreeToolFormField
@@ -227,7 +234,7 @@ export default function GbpPostGenerator() {
         boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(34,197,94)", marginBottom: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)", marginBottom: 10 }}>
         {posts.length} post {posts.length === 1 ? "variant" : "variants"} ready
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
