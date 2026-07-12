@@ -23,8 +23,8 @@ export default function MapGuardHeroAnimation() {
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="MapGuard local-rank heatmap shifting from red to green; average rank climbs from 8.2 to 3.1">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
+      <AnimationFrame aspect="auto" ariaLabel="MapGuard local-rank heatmap shifting from red to green; average rank climbs from 8.2 to 3.1">
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>Local rank heatmap</span>
             <motion.span

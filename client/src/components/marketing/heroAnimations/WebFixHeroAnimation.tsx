@@ -1,10 +1,10 @@
 /**
- * WebFixHeroAnimation — PageSpeed 32 → fixes check off → 94.
+ * WebFixHeroAnimation — PageSpeed 42 → fixes check off → 98.
  */
 import { motion } from "framer-motion";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { AnimationFrame, cardStyle, monoLabel, useBeat, useInView, usePrefersReducedMotion } from "./_shared";
+import { AnimationFrame, cardStyle, monoLabel, useInView, usePrefersReducedMotion } from "./_shared";
 import { mkt } from "@/theme/tokens";
 import { MONO } from "@/components/effortel-blocks";
 
@@ -14,8 +14,19 @@ export default function WebFixHeroAnimation() {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref);
   const reduced = usePrefersReducedMotion();
-  const beat = useBeat(5, 1100, inView && !reduced);
-  const phase = reduced ? 4 : beat;
+
+  // One-shot climb that HOLDS on the final beat instead of looping back to 42.
+  // A looping gauge cycles through 61/77/89 and back to 42, so any snapshot
+  // (and the resting state) could show a value that contradicts the "From 42
+  // to 98" headline. Climbing once and settling on 98 keeps the resting gauge
+  // equal to the headline's target.
+  const [phaseRaw, setPhaseRaw] = useState(0);
+  useEffect(() => {
+    if (reduced || !inView || phaseRaw >= 4) return;
+    const id = window.setTimeout(() => setPhaseRaw((p) => Math.min(4, p + 1)), 1100);
+    return () => window.clearTimeout(id);
+  }, [reduced, inView, phaseRaw]);
+  const phase = reduced ? 4 : phaseRaw;
 
   // Phase 0: score 42, phase 1-4: each fix checks off, score climbs to 98.
   // Endpoints (42 → 98) match the WebFix copy, stat band, and demo gauge so
