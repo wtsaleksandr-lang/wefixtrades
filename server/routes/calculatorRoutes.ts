@@ -43,6 +43,106 @@ function generateToken(): string {
 }
 
 /**
+ * Sanitize a calculator row for an UNAUTHENTICATED public response
+ * (the `/api/calculators/lookup` public-slug + shared-preview branches).
+ *
+ * The old code spread `{ ...calculator }` straight to any anonymous visitor,
+ * which leaked owner-only secrets and internal config the customer-facing
+ * widget never reads. This projection KEEPS every field the public widget
+ * (QuoteWidget / AIChatBubble / HostedPageFrame) renders and STRIPS only the
+ * clearly-internal ones. It is deliberately a redaction (keep-the-rest) rather
+ * than a strict allowlist so a future public render field is never dropped by
+ * accident on this money-making hot path.
+ *
+ * Stripped (top-level):
+ *   edit_token             — grants edit/PATCH access; a hard secret.
+ *   stripe_subscription_id — billing identifier.
+ *   user_id                — internal owner FK.
+ *   slug_release_warned_at — internal slug-lifecycle cron state.
+ *
+ * Stripped (calculator_settings): see sanitizePublicCalculatorSettings.
+ *
+ * Kept: business_name, trade_type, tagline, logo_url, owner_email, owner_phone,
+ * website_url, primary_color, cta_button_text, lead_thank_you_message,
+ * pricing_config, theme_overrides, plan_tier, slug, total_views,
+ * show_powered_by_badge, is_duplicated, token_expires_at, created_at,
+ * updated_at, and the sanitized calculator_settings.
+ */
+function toPublicCalculator(calculator: any): any {
+  if (!calculator || typeof calculator !== "object") return calculator;
+  const {
+    edit_token: _editToken,
+    stripe_subscription_id: _stripeSub,
+    user_id: _userId,
+    slug_release_warned_at: _slugWarned,
+    calculator_settings,
+    ...rest
+  } = calculator;
+  void _editToken;
+  void _stripeSub;
+  void _userId;
+  void _slugWarned;
+  return {
+    ...rest,
+    calculator_settings: sanitizePublicCalculatorSettings(calculator_settings),
+  };
+}
+
+/**
+ * Strip internal-only sub-fields from `calculator_settings` for the public
+ * (anonymous) payload while preserving everything the widget renders.
+ *
+ * Stripped:
+ *   ai_employee            — subscription_status / trial_started_at / plan /
+ *                            training_profile (incl. escalation email + phone) /
+ *                            twilio numbers. The public widget uses the
+ *                            server-computed `aiAssistantActive` boolean instead
+ *                            (U6), so it needs NONE of this.
+ *   followup               — server-side email/SMS automation config, templates,
+ *                            and notifications.webhook_url. Never rendered client-side.
+ *   lead_form.delivery      — primary_email / secondary_email / webhook_url:
+ *                            the lead-delivery targets. (Kept: fields, custom_fields,
+ *                            consent, cta, mode, spam — all needed to render the form.)
+ *   integrations.webhook_url — CRM webhook URL; effectively a secret.
+ *   shell_settings.leadEmail — owner lead-notification email. (Kept: hostedPage etc.)
+ */
+function sanitizePublicCalculatorSettings(settings: any): any {
+  if (!settings || typeof settings !== "object") return settings;
+  const {
+    ai_employee: _aiEmployee,
+    followup: _followup,
+    lead_form,
+    integrations,
+    shell_settings,
+    ...restSettings
+  } = settings;
+  void _aiEmployee;
+  void _followup;
+
+  const out: Record<string, any> = { ...restSettings };
+
+  if (lead_form && typeof lead_form === "object") {
+    const { delivery: _delivery, ...restLeadForm } = lead_form;
+    void _delivery;
+    out.lead_form = restLeadForm;
+  }
+
+  if (integrations && typeof integrations === "object") {
+    const { webhook_url: _webhookUrl, ...restIntegrations } = integrations;
+    void _webhookUrl;
+    out.integrations = restIntegrations;
+  }
+
+  if (shell_settings && typeof shell_settings === "object") {
+    const { leadEmail: _leadEmail, ...restShell } = shell_settings;
+    void _leadEmail;
+    out.shell_settings = restShell;
+  }
+
+  return out;
+}
+
+/**
  * Deep merge for calculator_settings JSONB updates.
  * Merges nested objects instead of replacing them, so a PATCH with
  * { appearance: { accent_color: '#ff0000' } } preserves other appearance fields.
@@ -425,7 +525,7 @@ export function registerCalculatorRoutes(app: Express): void {
           const previewExpired = new Date() > new Date(previewCalc.token_expires_at);
           if (!previewExpired) {
             return res.json({
-              calculator: { ...calculator, is_token_expired: false, is_preview: true, aiAssistantActive },
+              calculator: { ...toPublicCalculator(calculator), is_token_expired: false, is_preview: true, aiAssistantActive },
             });
           }
         }
@@ -439,7 +539,7 @@ export function registerCalculatorRoutes(app: Express): void {
       }
 
       res.json({
-        calculator: { ...calculator, is_token_expired: isExpired, is_preview: false, aiAssistantActive },
+        calculator: { ...toPublicCalculator(calculator), is_token_expired: isExpired, is_preview: false, aiAssistantActive },
       });
     } catch (error: any) {
       log.error("Get calculator error:", error);
