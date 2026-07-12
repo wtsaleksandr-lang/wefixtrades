@@ -694,6 +694,7 @@ export default function SocialSyncDashboard() {
             </div>
             <MonthlyBarSeries
               bars={monthlyPostBars}
+              fillWidth
               lede={`${monthlyPostBars[monthlyPostBars.length - 1]?.value ?? 0}`}
               caption={(() => {
                 const cur = monthlyPostBars[monthlyPostBars.length - 1]?.value ?? 0;
@@ -711,13 +712,16 @@ export default function SocialSyncDashboard() {
           {/* Advanced — platform mix donut */}
           <AdvancedOnly product="socialsync" elementId="socialsync.platform-mix-donut">
             <Card className="p-4 h-full" data-testid="ss-platform-mix-donut">
-              <div className="flex items-center justify-end gap-2 mb-2">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Platform mix
+                </div>
                 <IllustrativeDataBadge show={platformMixIllustrative} />
               </div>
               <DonutChart
-                title="Platform mix"
                 segments={platformMixSegments}
-                size={130}
+                size={160}
+                fillWidth
                 ariaLabel="SocialSync posts by platform"
               />
             </Card>
@@ -735,8 +739,8 @@ export default function SocialSyncDashboard() {
               <SparklineWithPeak
                 data={topPostSeries}
                 color="violet"
-                width={280}
-                height={96}
+                fillWidth
+                height={140}
                 ariaLabel="Recent post engagement with peak day callout"
               />
             </Card>

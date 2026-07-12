@@ -47,8 +47,15 @@ export type SparklineWithPeakProps = {
   formatValue?: (n: number) => string;
   /** Color palette token. Defaults to sapphire. */
   color?: SparklineWithPeakPalette;
-  /** Pixel width. Default 320. */
+  /** Pixel width. Default 320. Ignored for horizontal sizing when `fillWidth`. */
   width?: number;
+  /**
+   * Stretch the sparkline to the parent's full width (responsive). When true the
+   * component measures its container and uses that width for the line geometry
+   * so the chart fills its card instead of a fixed pixel width. `width` is still
+   * used as the fallback until the first measurement lands. Default false.
+   */
+  fillWidth?: boolean;
   /** Pixel height. Default 96. */
   height?: number;
   /** Stroke width. Default 2. */
@@ -81,6 +88,7 @@ export function SparklineWithPeak({
   formatValue = defaultFormat,
   color = "sapphire",
   width = 320,
+  fillWidth = false,
   height = 96,
   strokeWidth = 2,
   showArea = true,
@@ -91,6 +99,24 @@ export function SparklineWithPeak({
   const reduceMotion = useReducedMotion();
   const shouldAnimate = !reduceMotion;
   const colorVar = PALETTE_VAR[color];
+
+  // Responsive width: when `fillWidth`, measure the container and use that as
+  // the drawing width so the sparkline fills its card. Falls back to `width`
+  // until the first measurement resolves.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [measuredW, setMeasuredW] = useState<number>(0);
+  useEffect(() => {
+    if (!fillWidth) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setMeasuredW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fillWidth]);
+  const effWidth = fillWidth && measuredW > 0 ? measuredW : width;
 
   // Reserve top space for the callout label (~30px) and bottom for the line.
   // The line itself occupies the lower 60% of the SVG so the callout sits
@@ -111,7 +137,7 @@ export function SparklineWithPeak({
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
-    const innerW = width - PAD_X * 2;
+    const innerW = effWidth - PAD_X * 2;
     const innerH = height - CALLOUT_RESERVE - PAD_BOTTOM;
     const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
     const pts = data.map((v, i) => {
@@ -123,13 +149,13 @@ export function SparklineWithPeak({
     const line = pts
       .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
       .join(" ");
-    const area = `${line} L ${(width - PAD_X).toFixed(2)} ${height - PAD_BOTTOM} L ${PAD_X} ${height - PAD_BOTTOM} Z`;
+    const area = `${line} L ${(effWidth - PAD_X).toFixed(2)} ${height - PAD_BOTTOM} L ${PAD_X} ${height - PAD_BOTTOM} Z`;
     let peak = 0;
     for (let i = 1; i < data.length; i += 1) {
       if (data[i] > data[peak]) peak = i;
     }
     return { linePath: line, areaPath: area, points: pts, peakIdx: peak };
-  }, [data, width, height]);
+  }, [data, effWidth, height]);
 
   const hasData = points.length > 0;
   const peakPoint = peakIdx >= 0 ? points[peakIdx] : null;
@@ -137,13 +163,12 @@ export function SparklineWithPeak({
     peakLabel ?? (peakPoint ? formatValue(peakPoint.v) : "");
 
   // Hover tracking — find nearest point to cursor X.
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [tip, setTip] = useState<ChartTooltipState | null>(null);
 
   function handleMove(e: React.MouseEvent<SVGSVGElement>) {
     if (!hasData) return;
     const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-    const localX = ((e.clientX - rect.left) / rect.width) * width;
+    const localX = ((e.clientX - rect.left) / rect.width) * effWidth;
     let nearest = 0;
     let best = Infinity;
     for (let i = 0; i < points.length; i += 1) {
@@ -179,14 +204,19 @@ export function SparklineWithPeak({
     return (
       <div
         ref={containerRef}
-        className={cn("relative inline-block", className)}
-        style={{ width, height }}
+        className={cn("relative", fillWidth ? "block w-full" : "inline-block", className)}
+        style={{ width: fillWidth ? "100%" : width, height }}
         data-testid="sparkline-with-peak-empty"
       >
-        <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}>
+        <svg
+          viewBox={`0 0 ${effWidth} ${height}`}
+          width={fillWidth ? "100%" : effWidth}
+          height={height}
+          preserveAspectRatio="none"
+        >
           <line
             x1={PAD_X}
-            x2={width - PAD_X}
+            x2={effWidth - PAD_X}
             y1={height / 2}
             y2={height / 2}
             stroke="hsl(var(--foreground))"
@@ -205,22 +235,23 @@ export function SparklineWithPeak({
   // Heuristic horizontal anchor: if peak is in the left/right 15% of width,
   // shift the callout inward so the label doesn't clip outside the SVG.
   const labelAnchor =
-    peakPoint && peakPoint.x < width * 0.15
+    peakPoint && peakPoint.x < effWidth * 0.15
       ? "start"
-      : peakPoint && peakPoint.x > width * 0.85
+      : peakPoint && peakPoint.x > effWidth * 0.85
         ? "end"
         : "middle";
 
   return (
     <div
       ref={containerRef}
-      className={cn("relative inline-block", className)}
-      style={{ width, height }}
+      className={cn("relative", fillWidth ? "block w-full" : "inline-block", className)}
+      style={{ width: fillWidth ? "100%" : width, height }}
     >
       <svg
-        viewBox={`0 0 ${width} ${height}`}
-        width={width}
+        viewBox={`0 0 ${effWidth} ${height}`}
+        width={fillWidth ? "100%" : effWidth}
         height={height}
+        preserveAspectRatio="none"
         role="img"
         aria-label={
           ariaLabel ??

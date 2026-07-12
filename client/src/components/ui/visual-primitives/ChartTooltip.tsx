@@ -125,7 +125,7 @@ export function ChartTooltip({
         // Tooltip card — dark in light theme, light in dark theme via popover token.
         // Using --popover / --popover-foreground keeps theme parity with Radix tooltips.
         "rounded-md border border-[color:var(--border)] bg-popover text-popover-foreground",
-        "shadow-md px-2.5 py-1.5 min-w-[80px] max-w-[220px]",
+        "shadow-md px-2.5 py-1.5 w-max min-w-[80px] max-w-[220px]",
         className
       )}
       data-testid="chart-tooltip"
@@ -143,11 +143,11 @@ export function ChartTooltip({
             aria-hidden="true"
           />
         )}
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium truncate">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium whitespace-nowrap">
           {state.label}
         </span>
       </div>
-      <div className="text-sm font-semibold tabular-nums leading-tight mt-0.5">
+      <div className="text-sm font-semibold tabular-nums leading-tight mt-0.5 whitespace-nowrap">
         {state.value}
       </div>
       {state.detail && (

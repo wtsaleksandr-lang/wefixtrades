@@ -511,8 +511,8 @@ export default function QuoteQuickDashboard() {
                 <SparklineWithPeak
                   data={bestRevenueSeries}
                   color="emerald"
-                  width={260}
-                  height={96}
+                  fillWidth
+                  height={140}
                   ariaLabel="Best revenue day in the last 14 days"
                 />
               ) : (
@@ -550,6 +550,7 @@ export default function QuoteQuickDashboard() {
               </div>
               <MonthlyBarSeries
                 bars={quotesMonthlyBars}
+                fillWidth
                 color="violet"
                 ariaLabel="Quotes sent per month"
               />

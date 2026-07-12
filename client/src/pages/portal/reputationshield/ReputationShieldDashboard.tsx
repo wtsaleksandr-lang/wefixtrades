@@ -766,13 +766,16 @@ export default function ReputationShieldDashboard() {
           {/* Advanced — sentiment mix donut */}
           <AdvancedOnly product="reputationshield" elementId="reputationshield.sentiment-mix-donut">
             <Card className="p-4 h-full" data-testid="rs-sentiment-mix-donut">
-              <div className="flex items-center justify-end gap-2 mb-2">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Sentiment mix
+                </div>
                 <IllustrativeDataBadge show={sentimentIllustrative} />
               </div>
               <DonutChart
-                title="Sentiment mix"
                 segments={sentimentSegments}
-                size={130}
+                size={160}
+                fillWidth
                 muted={sentimentIllustrative}
                 ariaLabel="Review sentiment mix"
               />
@@ -803,6 +806,7 @@ export default function ReputationShieldDashboard() {
               </div>
               <MonthlyBarSeries
                 bars={reviewsMonthlyBars}
+                fillWidth
                 color="sapphire"
                 ariaLabel="New reviews per month"
               />

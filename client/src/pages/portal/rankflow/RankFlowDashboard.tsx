@@ -536,6 +536,7 @@ export default function RankFlowDashboard() {
             </div>
             <MonthlyBarSeries
               bars={top10MonthlyBars}
+              fillWidth
               lede={`${top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0}`}
               caption={(() => {
                 const cur = top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0;
@@ -562,8 +563,8 @@ export default function RankFlowDashboard() {
               <SparklineWithPeak
                 data={bestSpikeSeries}
                 color="sapphire"
-                width={280}
-                height={96}
+                fillWidth
+                height={140}
                 ariaLabel="Best ranking spike across recent weeks"
               />
             </Card>

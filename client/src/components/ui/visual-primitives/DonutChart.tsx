@@ -49,6 +49,12 @@ export type DonutChartProps = {
   thickness?: number;
   /** Show legend on the right. Default true. */
   showLegend?: boolean;
+  /**
+   * Stretch the chart to the parent's full width so the donut sits in the left
+   * half and the legend fills the right half (vertically centered), balanced
+   * across the card. Default false (shrinks to content — intrinsic layout).
+   */
+  fillWidth?: boolean;
   /** Formatter for legend + tooltip values. */
   formatValue?: (n: number) => string;
   /**
@@ -129,6 +135,7 @@ export function DonutChart({
   size = 160,
   thickness = 0.3,
   showLegend = true,
+  fillWidth = false,
   formatValue = defaultFormat,
   muted = false,
   className,
@@ -235,7 +242,8 @@ export function DonutChart({
     <div
       ref={containerRef}
       className={cn(
-        "relative inline-flex flex-col gap-3",
+        "relative flex flex-col gap-3",
+        fillWidth ? "w-full" : "inline-flex",
         muted && "opacity-60 saturate-0",
         className
       )}
@@ -243,7 +251,7 @@ export function DonutChart({
       data-muted={muted ? "true" : undefined}
     >
       {title && <div className="text-sm font-medium">{title}</div>}
-      <div className="flex items-center gap-4">
+      <div className={cn("flex items-center gap-4", fillWidth && "w-full")}>
         <div className="relative" style={{ width: size, height: size }}>
           <svg
             viewBox={`0 0 ${size} ${size}`}

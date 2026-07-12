@@ -596,6 +596,7 @@ export default function PortalContentFlowDashboard() {
                 </div>
                 <MonthlyBarSeries
                   bars={monthlyBars}
+                  fillWidth
                   lede={`${monthlyBars[monthlyBars.length - 1]?.value ?? 0}`}
                   caption={(() => {
                     const cur = monthlyBars[monthlyBars.length - 1]?.value ?? 0;
@@ -613,13 +614,16 @@ export default function PortalContentFlowDashboard() {
               {/* Advanced — content type mix */}
               <AdvancedOnly product="contentflow" elementId="contentflow.content-type-mix-donut">
                 <Card className="p-4 h-full" data-testid="cf-content-type-donut">
-                  <div className="flex items-center justify-end gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                      Content type mix
+                    </div>
                     <IllustrativeDataBadge show={contentTypeIllustrative} />
                   </div>
                   <DonutChart
-                    title="Content type mix"
                     segments={contentTypeSegments}
-                    size={130}
+                    size={160}
+                    fillWidth
                     ariaLabel="Mix of content types published recently"
                   />
                 </Card>
@@ -638,8 +642,8 @@ export default function PortalContentFlowDashboard() {
                     <SparklineWithPeak
                       data={topPostHistory}
                       color="violet"
-                      width={280}
-                      height={96}
+                      fillWidth
+                      height={140}
                       ariaLabel="Recent post performance with peak day callout"
                     />
                   ) : (
