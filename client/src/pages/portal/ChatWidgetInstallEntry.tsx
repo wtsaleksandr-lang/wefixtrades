@@ -140,7 +140,10 @@ export default function ChatWidgetInstallEntry() {
             We give every Starter and Pro account a copy/paste snippet you can drop into your site
             yourself — no install service required.
           </p>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge
+            variant="outline"
+            className="text-[10px] max-w-full whitespace-normal text-left leading-snug [overflow-wrap:anywhere] box-border"
+          >
             Snippet on your TradeLine settings page (coming with the chat-widget launch)
           </Badge>
         </Card>

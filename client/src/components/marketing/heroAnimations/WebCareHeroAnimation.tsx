@@ -3,7 +3,7 @@
  */
 import { motion } from "framer-motion";
 import { useRef } from "react";
-import { Shield } from "lucide-react";
+import { Shield, Check } from "lucide-react";
 import { AnimationFrame, cardStyle, monoLabel, useInView, usePrefersReducedMotion } from "./_shared";
 import { mkt } from "@/theme/tokens";
 import { MONO } from "@/components/effortel-blocks";
@@ -18,8 +18,8 @@ export default function WebCareHeroAnimation() {
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="Uptime monitor showing 100% green across 30 checks, security shield rotating">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
+      <AnimationFrame aspect="auto" ariaLabel="Uptime monitor showing 100% green across 30 checks, security shield rotating">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={monoLabel}>WebCare · monitor</span>
             <span style={{ ...monoLabel, color: "#10B981" }}>● 100%</span>
@@ -65,13 +65,13 @@ export default function WebCareHeroAnimation() {
           </div>
 
           {/* Rotating shield */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+          <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
             <motion.div
               animate={animate ? { rotate: 360 } : { rotate: 0 }}
               transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
               style={{
-                width: 72,
-                height: 72,
+                width: 96,
+                height: 96,
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
@@ -83,8 +83,30 @@ export default function WebCareHeroAnimation() {
             </motion.div>
           </div>
 
-          <div style={{ textAlign: "center", ...monoLabel, color: mkt.onDarkMuted }}>
-            SSL · Plugins · Backups · OK
+          {/* Security checklist — fills the lower half so the card reads as a
+              full monitor dashboard instead of a mostly-empty frame. */}
+          <div style={{ ...cardStyle, padding: "10px 12px" }}>
+            {[
+              { label: "SSL certificate", value: "Valid" },
+              { label: "Plugin updates", value: "Current" },
+              { label: "Daily backups", value: "On" },
+            ].map((row) => (
+              <div
+                key={row.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "5px 0",
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ color: mkt.onDarkMuted }}>{row.label}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#10B981", fontFamily: MONO, fontSize: 11 }}>
+                  <Check size={14} /> {row.value}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </AnimationFrame>

@@ -143,6 +143,7 @@ export default function SplitHero({
           <Reveal delay={0.18}>
             {/* CTA cluster — 2px gap between buttons per global UI rule. */}
             <div
+              className="split-hero-cta-cluster"
               data-testid="split-hero-cta-cluster"
               style={{
                 display: "flex",
@@ -191,6 +192,12 @@ export default function SplitHero({
           .split-hero-anim { order: 2; max-height: none !important; }
           .split-hero-text h1,
           .split-hero-text p { max-width: 100% !important; }
+        }
+        @media (max-width: 560px) {
+          /* Mobile CTAs stack full-width so the primary + secondary read as an
+             equal pair, instead of one full-width button and one narrow one
+             sized to its (shorter) label. */
+          .split-hero-cta-cluster > a { flex: 1 0 100%; }
         }
       `}</style>
     </section>

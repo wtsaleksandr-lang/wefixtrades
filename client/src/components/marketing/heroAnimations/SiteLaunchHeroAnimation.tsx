@@ -80,7 +80,11 @@ export default function SiteLaunchHeroAnimation() {
                     key={s.label}
                     initial={false}
                     animate={{
-                      opacity: visible ? 1 : 0.12,
+                      // Un-drawn rows stay at a legible 0.6 (not 0.12) so the
+                      // dashed skeleton outline below reads as an intentional
+                      // "not built yet" placeholder rather than an invisible
+                      // dark-on-dark render fault.
+                      opacity: visible ? 1 : 0.6,
                       scale: visible ? 1 : 0.98,
                     }}
                     transition={{ duration: 0.35 }}
@@ -89,7 +93,8 @@ export default function SiteLaunchHeroAnimation() {
                       borderRadius: 8,
                       background: visible
                         ? `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`
-                        : "rgba(255,255,255,0.06)",
+                        : "rgba(255,255,255,0.04)",
+                      border: visible ? "1px solid transparent" : `1px dashed ${mkt.onDarkBorder}`,
                       position: "relative",
                       overflow: "hidden",
                     }}

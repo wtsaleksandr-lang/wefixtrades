@@ -71,9 +71,18 @@ export function useBeat(totalBeats: number, beatMs: number, active: boolean): nu
 export function AnimationFrame({
   children,
   ariaLabel,
+  aspect = "square",
 }: {
   children: ReactNode;
   ariaLabel: string;
+  /**
+   * "square" (default) locks the frame to a 1:1 box — right for animations
+   * whose content fits a square. "auto" lets the frame grow to its content
+   * height instead, so taller content (e.g. MapGuard's 5×5 grid + rank card)
+   * isn't clipped by `overflow: hidden`, and shorter content (WebCare) doesn't
+   * leave a large empty middle.
+   */
+  aspect?: "square" | "auto";
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   return (
@@ -82,7 +91,7 @@ export function AnimationFrame({
       role="img"
       aria-label={ariaLabel}
       data-testid="hero-animation-frame"
-      style={frameStyle}
+      style={aspect === "auto" ? { ...frameStyle, aspectRatio: "auto", minHeight: 300 } : frameStyle}
     >
       <div style={dotGridStyle} aria-hidden="true" />
       <div style={frameInnerStyle}>{children}</div>

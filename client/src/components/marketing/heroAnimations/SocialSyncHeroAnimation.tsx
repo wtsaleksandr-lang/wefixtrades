@@ -24,12 +24,14 @@ export default function SocialSyncHeroAnimation() {
 
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <AnimationFrame ariaLabel="A single social post fans out to Facebook, Instagram, LinkedIn, and Twitter">
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", alignItems: "center" }}>
+      <AnimationFrame aspect="auto" ariaLabel="A single social post fans out to Facebook, Instagram, LinkedIn, and Twitter">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", alignItems: "center" }}>
           <div style={{ ...monoLabel, alignSelf: "stretch" }}>SocialSync · 1 post → 4 platforms</div>
 
-          {/* Central post + radiating platforms */}
-          <div style={{ position: "relative", width: "100%", height: 220 }}>
+          {/* Central post + radiating platforms. Height hugs the fan (post at
+              top + pills reaching ~y:92) so the frame isn't left with a large
+              blank band. */}
+          <div style={{ position: "relative", width: "100%", height: 186 }}>
             {/* Central post */}
             <motion.div
               animate={phase === 0 ? { scale: [0.97, 1.02, 0.97] } : { scale: 1 }}
