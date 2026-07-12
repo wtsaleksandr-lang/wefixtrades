@@ -6,6 +6,13 @@
 import { Phone, DollarSign, Rocket, Wrench } from "lucide-react";
 import AudienceLandingPage from "./AudienceLandingPage";
 import { mkt } from "@/theme/tokens";
+import { QUOTEQUICK, TRADELINE, getTier, lowestMonthly, formatPrice } from "@shared/pricing";
+
+/* Derive every own-price from shared/pricing.ts (single source of truth) so the
+ * copy can never go stale if QuoteQuick or TradeLine reprices. Mirrors the
+ * compare-page rule in comparePricing.ts — never hardcode our own $ amounts. */
+const QQ_PRO_MO = `${formatPrice(getTier(QUOTEQUICK, "Pro")!.price)}/mo`; // "$19/mo"
+const TRADELINE_FROM_MO = `${formatPrice(lowestMonthly(TRADELINE)!)}/mo`; // "$99/mo"
 
 export default function ForSoloTradersPage() {
   return (
@@ -23,14 +30,14 @@ export default function ForSoloTradersPage() {
           <span style={{ color: mkt.accent }}>without the agency price tag.</span>
         </>
       }
-      heroSub="Start free, upgrade to the $19/mo quote tool when you're ready, and add a 24/7 voice agent that answers when you're on a job. Onboarding takes under ten minutes. No retainer. No setup fee. Cancel anytime."
+      heroSub={`Start free, upgrade to the ${QQ_PRO_MO} quote tool when you're ready, and add a 24/7 voice agent that answers when you're on a job. Onboarding takes under ten minutes. No retainer. No setup fee. Cancel anytime.`}
       valueEyebrow="For the one-person operation"
       valueTitle="Priced like a phone bill, not a marketing agency."
       valueProps={[
         {
           icon: DollarSign,
-          title: "Free to start, $19/mo to grow",
-          body: "Begin on the free quote-tool tier, then upgrade to the $19/mo plan for the full calculator widget and review link — no contract, no setup fee.",
+          title: `Free to start, ${QQ_PRO_MO} to grow`,
+          body: `Begin on the free quote-tool tier, then upgrade to the ${QQ_PRO_MO} plan for the full calculator widget and review link — no contract, no setup fee.`,
         },
         {
           icon: Phone,
@@ -49,7 +56,7 @@ export default function ForSoloTradersPage() {
         },
       ]}
       pricingTeaserTitle="Start free. No card to try it."
-      pricingTeaserBody="Upgrade to the $19/mo quote tool, or add the TradeLine voice agent from $99/mo when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees."
+      pricingTeaserBody={`Upgrade to the ${QQ_PRO_MO} quote tool, or add the TradeLine voice agent from ${TRADELINE_FROM_MO} when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees.`}
       testimonialQuote="I'm a one-truck plumber. Before WeFixTrades I was missing maybe six calls a week. The voice agent picks up everything now, and I bid on three extra jobs a week that I would've never known existed."
       testimonialAttribution="— Solo plumber case study placeholder · Q3 launch"
       finalCtaTitle={

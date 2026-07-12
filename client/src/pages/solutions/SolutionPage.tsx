@@ -27,7 +27,15 @@ const ROOF_WIDGET_SRC = "/api/roofquote/widget?calc=3";
 
 type SolutionConfig = {
   slug: string;
+  /** Plural noun for the trade audience, e.g. "Plumbers" (used in "Solutions for Plumbers"). */
   trade: string;
+  /**
+   * Trade as an ADJECTIVE, e.g. "plumbing" / "electrical" / "HVAC" — for copy
+   * like "grow your {tradeAdjective} business". Kept lowercase except acronyms
+   * (HVAC) so it can be dropped inline without a further .toLowerCase(). Required
+   * so every new solution must supply one (prevents the plural-as-adjective bug).
+   */
+  tradeAdjective: string;
   headline: string;
   subheadline: string;
   heroIcon: LucideIcon;
@@ -46,6 +54,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-plumbers",
     trade: "Plumbers",
+    tradeAdjective: "plumbing",
     headline: "Win more plumbing leads on autopilot",
     subheadline: "Stop missing calls. Automate quotes, reviews, and follow-ups so you can focus on the job site.",
     heroIcon: Wrench,
@@ -73,6 +82,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-hvac",
     trade: "HVAC",
+    tradeAdjective: "HVAC",
     headline: "Book more HVAC service calls automatically",
     subheadline: "AI answers after-hours calls, quotes AC installs instantly, and keeps your Google profile dominating local search.",
     heroIcon: Fan,
@@ -100,6 +110,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-electricians",
     trade: "Electricians",
+    tradeAdjective: "electrical",
     headline: "Automate quotes & follow-ups for electrical work",
     subheadline: "From panel upgrades to EV charger installs, capture every lead and close faster with AI-powered automation.",
     heroIcon: Zap,
@@ -127,6 +138,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-roofers",
     trade: "Roofers",
+    tradeAdjective: "roofing",
     headline: "Boost visibility & conversions for roofing jobs",
     subheadline: "Dominate local search, capture storm-damage leads instantly, and automate follow-ups that close big-ticket jobs.",
     heroIcon: Home,
@@ -154,6 +166,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-cleaners",
     trade: "Cleaners",
+    tradeAdjective: "cleaning",
     headline: "Get booked on autopilot for cleaning jobs",
     subheadline: "Instant quotes, AI chat booking, and reputation management that keeps your schedule full without cold calling.",
     heroIcon: Sparkles,
@@ -181,6 +194,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-landscapers",
     trade: "Landscapers",
+    tradeAdjective: "landscaping",
     headline: "Capture more local landscaping jobs",
     subheadline: "Instant lawn-care + maintenance quotes, automated scheduling, and Google rankings that pull in seasonal work all year.",
     heroIcon: Trees,
@@ -208,6 +222,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-pest-control",
     trade: "Pest Control",
+    tradeAdjective: "pest control",
     headline: "Respond faster to new pest-control leads",
     subheadline: "Customers want it gone TODAY. AI answers, quotes, and books — even when your techs are knee-deep in a callout.",
     heroIcon: Bug,
@@ -235,6 +250,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-garage-door",
     trade: "Garage Door",
+    tradeAdjective: "garage door",
     headline: "Turn urgent garage-door calls into bookings",
     subheadline: "When their door is stuck open at midnight, the first responder wins. AI picks up, quotes, dispatches.",
     heroIcon: Warehouse,
@@ -262,6 +278,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-locksmiths",
     trade: "Locksmiths",
+    tradeAdjective: "locksmith",
     headline: "Convert high-intent locksmith searches",
     subheadline: "Locked out, lost keys, broken deadbolt — they search, click the first listing, and call. Be the first listing AND the call gets answered.",
     heroIcon: KeyRound,
@@ -289,6 +306,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-painters",
     trade: "Painters",
+    tradeAdjective: "painting",
     headline: "Generate more painting estimate requests",
     subheadline: "Drive more interior + exterior estimate requests, qualify them automatically, and stack 5-star portfolio reviews.",
     heroIcon: PaintBucket,
@@ -316,6 +334,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-remodelers",
     trade: "Remodelers",
+    tradeAdjective: "remodeling",
     headline: "Turn remodel inquiries into booked projects",
     subheadline: "Big-ticket projects need polish: a beautiful site, fast quoting, and authority content that signals trust before the consult.",
     heroIcon: Hammer,
@@ -343,6 +362,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-general-contractors",
     trade: "General Contractors",
+    tradeAdjective: "general contracting",
     headline: "Organize leads & follow-ups for GC work",
     subheadline: "Multi-trade, multi-stage projects — managed in one inbox. AI qualifies leads, books consults, and never lets a follow-up slip.",
     heroIcon: Building2,
@@ -375,6 +395,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-carpenters",
     trade: "Carpenters",
+    tradeAdjective: "carpentry",
     headline: "Win more finish-carpentry and remodel jobs",
     subheadline: "Sort framing from finish work, capture measurements before the visit, and quote built-ins faster than the next bid.",
     heroIcon: Ruler,
@@ -402,6 +423,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-cabinet-installers",
     trade: "Cabinet Installers",
+    tradeAdjective: "cabinet installation",
     headline: "Book cabinet measures and installs on autopilot",
     subheadline: "Filter design-only shoppers from real buyers, capture scope before the site visit, and protect install-day calendar.",
     heroIcon: Package,
@@ -429,6 +451,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-chimney-sweeps",
     trade: "Chimney Sweeps",
+    tradeAdjective: "chimney sweep",
     headline: "Lock in pre-season sweeps before the rush hits",
     subheadline: "Book chimney cleanings and inspections by neighborhood, flag safety calls fast, and stay top-3 on Google Maps.",
     heroIcon: Flame,
@@ -456,6 +479,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-concrete",
     trade: "Concrete Contractors",
+    tradeAdjective: "concrete",
     headline: "Quote driveways, slabs, and patios in one call",
     subheadline: "Qualify decorative vs structural pours, capture access constraints, and reschedule pours around the weather automatically.",
     heroIcon: Square,
@@ -483,6 +507,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-countertop-installers",
     trade: "Countertop Installers",
+    tradeAdjective: "countertop installation",
     headline: "Coordinate template + install around cabinet readiness",
     subheadline: "Qualify granite vs quartz vs laminate scope, route slab selections to your showroom, and lock install dates clean.",
     heroIcon: RectangleHorizontal,
@@ -510,6 +535,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-deck-builders",
     trade: "Deck Builders",
+    tradeAdjective: "deck building",
     headline: "Book deck consults without overloading the calendar",
     subheadline: "Qualify composite vs pressure-treated, flag permits and HOAs early, and let spring estimates fill from inspiration links.",
     heroIcon: Grid3x3,
@@ -537,6 +563,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-door-installers",
     trade: "Door Installers",
+    tradeAdjective: "door installation",
     headline: "Quote entry, patio, and storm doors in one intake",
     subheadline: "Triage security emergencies same-day, send product brochures pre-visit, and route to the right installer's calendar.",
     heroIcon: DoorOpen,
@@ -564,6 +591,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-drywall",
     trade: "Drywall Contractors",
+    tradeAdjective: "drywall",
     headline: "Patch and finish jobs booked without site visits",
     subheadline: "Photos do the qualifying — patch vs full-room vs new-construction routed to the right crew with the right tools.",
     heroIcon: LayoutGrid,
@@ -591,6 +619,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-fencing",
     trade: "Fencing Contractors",
+    tradeAdjective: "fencing",
     headline: "Quote linear footage and book installs before the rain",
     subheadline: "Qualify wood vs vinyl vs aluminum scope, flag HOAs and surveys, and pack installer routes by density.",
     heroIcon: Fence,
@@ -618,6 +647,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-flooring",
     trade: "Flooring Contractors",
+    tradeAdjective: "flooring",
     headline: "Win more LVP, hardwood, and tile install jobs",
     subheadline: "Showroom + in-home consults to the right product expert, subfloor + moisture flags up front, prep checklists pre-install.",
     heroIcon: LayoutDashboard,
@@ -645,6 +675,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-foundation-repair",
     trade: "Foundation Repair",
+    tradeAdjective: "foundation repair",
     headline: "Get found first when foundations are cracking",
     subheadline: "Triage active settlement as priority, capture photos and history in the intake, and expedite pre-sale inspection reports.",
     heroIcon: Building,
@@ -672,6 +703,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-gutter-services",
     trade: "Gutter Services",
+    tradeAdjective: "gutter",
     headline: "Pack seasonal routes before the leaves drop",
     subheadline: "Cleaning + repair + new-install in one intake, neighborhood route clustering, before-storm reminders.",
     heroIcon: CloudRain,
@@ -699,6 +731,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-insulation",
     trade: "Insulation Contractors",
+    tradeAdjective: "insulation",
     headline: "Sell attic + wall + crawlspace jobs with rebate clarity",
     subheadline: "Qualify retrofit vs new-construction, flag rebate eligibility up front, and book energy assessments tightly routed.",
     heroIcon: Layers,
@@ -726,6 +759,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-masonry",
     trade: "Masonry Contractors",
+    tradeAdjective: "masonry",
     headline: "Sell tuckpointing, repair, and restoration with photos",
     subheadline: "Photo-driven qualification, weather-aware scheduling, and clean repair-vs-rebuild pricing tiers.",
     heroIcon: Layers,
@@ -753,6 +787,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-mold-remediation",
     trade: "Mold Remediation",
+    tradeAdjective: "mold remediation",
     headline: "Respond fast when mold turns into a health emergency",
     subheadline: "Triage active mold as urgent, coordinate testing + containment + remediation in one intake, capture adjuster info early.",
     heroIcon: Biohazard,
@@ -780,6 +815,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-moving-services",
     trade: "Moving Services",
+    tradeAdjective: "moving",
     headline: "Book local and long-distance moves without phone tag",
     subheadline: "Bedroom count + stairs + specialty items in one intake, pack/load/unload calendar coordination, prep checklists pre-move.",
     heroIcon: Truck,
@@ -807,6 +843,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-pool-service",
     trade: "Pool Service",
+    tradeAdjective: "pool service",
     headline: "Lock in recurring pool routes that pay year-round",
     subheadline: "Open + close + weekly service in one intake, equipment history captured up front, seasonal reminders before customers forget.",
     heroIcon: Waves,
@@ -834,6 +871,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-septic-services",
     trade: "Septic Services",
+    tradeAdjective: "septic",
     headline: "Pump, repair, and inspect on a route — not a panic",
     subheadline: "Triage backups as urgent, capture tank size and last-pump date up front, route routine pumps by neighborhood.",
     heroIcon: Container,
@@ -861,6 +899,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-siding",
     trade: "Siding Contractors",
+    tradeAdjective: "siding",
     headline: "Lead 'siding near me' searches in your zip code",
     subheadline: "Vinyl + fiber-cement + metal scope qualification, storm-damage insurance coordination, weather-window scheduling.",
     heroIcon: Building2,
@@ -888,6 +927,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-solar",
     trade: "Solar Installers",
+    tradeAdjective: "solar",
     headline: "Qualify solar buyers before the design consult",
     subheadline: "Roof age + shading + utility bill in one call, satellite-based design pre-visit, financing + credits explained early.",
     heroIcon: Sun,
@@ -915,6 +955,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-tile-installers",
     trade: "Tile Installers",
+    tradeAdjective: "tile",
     headline: "Book bathroom and backsplash tile jobs on the call",
     subheadline: "Floor + shower + backsplash + outdoor scope sorted up front, plumbing/demo coordination tight, material prep guidance.",
     heroIcon: Grid2x2,
@@ -942,6 +983,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-tree-service",
     trade: "Tree Service",
+    tradeAdjective: "tree service",
     headline: "Get hazard calls before the next company even rings",
     subheadline: "Storm-down + hazard prioritized, AI prune planning from photos, permit + protected-species flags up front.",
     heroIcon: TreeDeciduous,
@@ -969,6 +1011,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-water-damage-restoration",
     trade: "Water Damage Restoration",
+    tradeAdjective: "water damage restoration",
     headline: "Be the first crew on-site when water is rising",
     subheadline: "24/7 triage, insurance-claim coordination, mitigation → demo → reconstruction in one handoff.",
     heroIcon: Droplet,
@@ -996,6 +1039,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-waterproofing",
     trade: "Waterproofing Contractors",
+    tradeAdjective: "waterproofing",
     headline: "Sell basement and crawlspace waterproofing year-round",
     subheadline: "Water-entry mapping in the intake, sump + storm history captured up front, dry-out guidance pre-visit.",
     heroIcon: ShieldCheck,
@@ -1023,6 +1067,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-well-water",
     trade: "Well Water Services",
+    tradeAdjective: "well water",
     headline: "Restore water fast when the pump fails",
     subheadline: "Same-day priority for no-water calls, well-type + depth + symptoms in the intake, contamination alerts to the right tech.",
     heroIcon: Pipette,
@@ -1050,6 +1095,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-window-installers",
     trade: "Window Installers",
+    tradeAdjective: "window installation",
     headline: "Quote and install ENERGY-STAR windows by the home",
     subheadline: "Full-frame + insert + storm scope qualification, rebate + tax-credit eligibility, route measures by installer density.",
     heroIcon: AppWindow,
@@ -1077,6 +1123,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-appliance-repair",
     trade: "Appliance Repair",
+    tradeAdjective: "appliance repair",
     headline: "Diagnose, dispatch, and fix appliances same-day",
     subheadline: "Make + model + error code in one intake, in-warranty vs out routing, 2-hour arrival windows with ETA texts.",
     heroIcon: WashingMachine,
@@ -1104,6 +1151,7 @@ const SOLUTIONS: SolutionConfig[] = [
   {
     slug: "for-junk-removal",
     trade: "Junk Removal",
+    tradeAdjective: "junk removal",
     headline: "Quote by volume and book same-day pickups",
     subheadline: "Photos during the call, same-day route optimization, hazardous + e-waste pricing baked in.",
     heroIcon: Trash2,
@@ -1426,7 +1474,7 @@ export default function SolutionPage() {
         >
           <div style={{ maxWidth: 600, margin: "0 auto" }} data-reveal="scale">
             <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 16, lineHeight: 1.1 }}>
-              Ready to grow your {solution.trade.toLowerCase()} business?
+              Ready to grow your {solution.tradeAdjective} business?
             </h2>
             <p style={{ fontSize: 16, color: mkt.onDarkMuted, lineHeight: 1.65, marginBottom: 36, maxWidth: 460, margin: "0 auto 36px" }}>
               Join hundreds of trades businesses using WeFixTrades to win more jobs on autopilot.
