@@ -176,7 +176,12 @@ export function MarketingNav() {
         data-testid="nav-marketing"
         style={{
           position: "fixed",
-          top: 0,
+          // S7 fix — offset the fixed header below the announcement banner
+          // when one is present. AnnouncementBanner publishes its rendered
+          // height as `--wft-announcement-h` (0px when no banner), so on
+          // ordinary pages this is `top: 0` unchanged, and on waitlist/
+          // announcement pages the header no longer paints over the banner.
+          top: "var(--wft-announcement-h, 0px)",
           left: 0,
           right: 0,
           // Sit above the dropdown backdrop (zIndex 9990 in navbar-menu)

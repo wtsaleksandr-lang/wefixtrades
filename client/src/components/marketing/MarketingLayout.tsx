@@ -667,6 +667,20 @@ export default function MarketingLayout({ children, hideSiteChat = false, hideSt
           orphans across home/about/blog/products/vs-pages. */}
       <style>{`
         .mkt-layout h1, .mkt-layout h2, .mkt-layout h3 { text-wrap: balance; }
+        /* S1/S2 fix — reserve bottom clearance so the persistent bottom CTA
+           bar (MobileStickyCta / MarketingStickyBar) and the floating chat
+           launcher (SiteChatWidget) never cover the last interactive content
+           on a page (final CTAs, result cards, share rows). The bars/FAB
+           occupy this reserved band, so it does not read as an empty gap; the
+           footer follows immediately after. Only applied when the shared
+           bottom chrome is present (pages that own their own bottom edge pass
+           hideStickyCtas and are excluded). Values sit on the 8px scale. */
+        .mkt-main-clearance {
+          padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+        }
+        @media (min-width: 1024px) {
+          .mkt-main-clearance { padding-bottom: 80px; }
+        }
       `}</style>
       {/* Skip-to-content — sr-only until focused. Lets keyboard users
           jump past the announcement banner + nav straight to the page
@@ -684,7 +698,12 @@ export default function MarketingLayout({ children, hideSiteChat = false, hideSt
         <MarketingNav />
       </header>
       <div style={{ height: 24, flexShrink: 0 }} />
-      <main id="main-content" tabIndex={-1} style={{ flex: 1 }}>{children}</main>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={hideStickyCtas ? undefined : "mkt-main-clearance"}
+        style={{ flex: 1 }}
+      >{children}</main>
       <MarketingFooter />
       {/* Desktop scroll pill (≥1024px + hover) and the mobile-only bottom CTA
           (≤560px / touch). Each self-gates by breakpoint, so exactly one — or

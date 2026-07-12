@@ -18,7 +18,7 @@
  * previously dismissed the old one.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { X, ArrowRight } from "lucide-react";
 import { mkt } from "@/theme/tokens";
@@ -54,6 +54,38 @@ export default function AnnouncementBanner() {
     setDismissed(window.localStorage.getItem(dismissKey) === "1");
   }, [dismissKey]);
 
+  /* S7 fix — publish the banner's rendered height as `--wft-announcement-h`
+   * on the document root. The fixed MarketingNav reads this var for its `top`
+   * offset, so the sticky header sits BELOW the banner instead of painting
+   * over it (the bug: on waitlist/announcement pages the banner rendered
+   * behind the header — logo overlap, clipped/unreadable text on mobile).
+   * The banner itself is position:sticky (see the style block below) so the
+   * offset stays valid while scrolling. Kept in sync on resize (the strip
+   * wraps to 2 lines at phone widths, changing its height). Reset to 0 when
+   * the banner is absent/dismissed so the nav returns flush to the top. */
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = bannerRef.current;
+    if (!config || dismissed || !el) {
+      root.style.setProperty("--wft-announcement-h", "0px");
+      return;
+    }
+    const publish = () => {
+      root.style.setProperty("--wft-announcement-h", `${el.offsetHeight}px`);
+    };
+    publish();
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", publish);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.setProperty("--wft-announcement-h", "0px");
+    };
+  }, [config, dismissed]);
+
   if (!config || dismissed) return null;
 
   const onDismiss = () => {
@@ -65,10 +97,18 @@ export default function AnnouncementBanner() {
 
   return (
     <div
+      ref={bannerRef}
       role="region"
       aria-label="Site announcement"
       data-theme="dark"
       style={{
+        /* S7 fix — sticky above the fixed header (zIndex 9992 > nav's 9991)
+         * and pinned to the very top so the header's `top` offset stays
+         * valid on scroll. In normal flow it still reserves its own height,
+         * so page content is pushed down exactly as before. */
+        position: "sticky",
+        top: 0,
+        zIndex: 9992,
         background: mkt.accent,
         color: "#FFFFFF",
         padding: "8px 16px",
