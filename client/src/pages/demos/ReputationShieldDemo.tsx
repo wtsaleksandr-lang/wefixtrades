@@ -79,10 +79,12 @@ function StepNav({ current, total, onSelect }: { current: number; total: number;
   const labels = ["SMS Request", "Review Page", "Dashboard"];
   return (
     <div
+      className="rep-stepnav"
       style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        flexWrap: "wrap",
         gap: 8,
         marginBottom: 20,
       }}
@@ -91,6 +93,7 @@ function StepNav({ current, total, onSelect }: { current: number; total: number;
         <button
           key={i}
           onClick={() => onSelect(i)}
+          className="rep-stepnav-btn"
           style={{
             display: "flex",
             alignItems: "center",
@@ -329,8 +332,14 @@ export default function ReputationShieldDemo() {
           transform: translateY(-1px);
           box-shadow: 0 8px 24px rgba(13,60,252,0.25);
         }
+        /* Mobile stepper: keep the full labels readable — previously they
+         * were hidden (display:none), leaving three context-free number
+         * circles. Shrink the pills and let the row wrap cleanly so every
+         * label reads in full with no truncation. */
         @media (max-width: 600px) {
-          .step-label { display: none; }
+          .rep-stepnav { gap: 6px !important; }
+          .rep-stepnav-btn { padding: 7px 11px !important; font-size: 12px !important; gap: 5px !important; }
+          .step-label { font-size: 12px; }
         }
       `}</style>
 

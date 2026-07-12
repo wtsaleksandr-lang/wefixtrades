@@ -309,16 +309,22 @@ const RESPONSIVE_CSS = `
   .hero-cta-row > .hero-cta-primary-warm,
   .hero-cta-row > .hero-cta-secondary-warm { box-sizing: border-box; }
   @media (max-width: 640px) {
+    /* Full-width stacked CTAs per the hero blueprint. The previous
+     * nowrap + flex:1 1 0 + ellipsis row clipped the longer primary label
+     * ("Build your free calculator") on ~375px viewports. Stacking gives
+     * each button the full width so both labels read in full. */
+    .hero-cta-row {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
     .hero-cta-row > .hero-cta-primary-warm,
     .hero-cta-row > .hero-cta-secondary-warm {
-      flex: 1 1 0;
-      min-width: 0;
-      padding: 13px 14px;
+      flex: none;
+      width: 100%;
+      padding: 14px 18px;
       justify-content: center;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: 13px;
+      font-size: 14px;
     }
   }
   /* Warm hero subtle canvas-noise overlay — drawn over the cream base.
@@ -397,6 +403,11 @@ const RESPONSIVE_CSS = `
       width: 92% !important;
       height: 60% !important;
     }
+    /* Hide the animated grid-glow squares on mobile. On the narrow cream
+     * hero they crowd/overlap the headline and read as stray broken blocks
+     * rather than a subtle backdrop (they're tuned for the wide desktop
+     * canvas). Desktop keeps the effect. */
+    .hero-grid-glow { display: none !important; }
   }
   /* Hero shell — Cloudflare-style framed container */
   .hero-first-screen-zone {
