@@ -7,12 +7,23 @@ gsap.registerPlugin(ScrollTrigger);
 // Effortel-matched easing: smooth ease-out with slight overshoot
 const EASE = "cubic-bezier(0.526, 0.007, 0, 0.989)";
 
+// Never start fully transparent. A card that is mid-stagger, mid-fade, or sitting
+// just below the trigger line must stay legible (the audit caught reveal content
+// left at ~2:1). The translate/scale still carries the entrance; opacity only
+// dips to this floor, so content is always readable if the user lands or scrolls
+// fast. Resting state is full opacity (see the tween target below).
+const START_OPACITY = 0.45;
+
+// Cap any per-element data-delay so a long stagger can never strand a later card
+// at START_OPACITY for an appreciable time.
+const MAX_DELAY = 0.25;
+
 const REVEAL_VARIANTS: Record<string, gsap.TweenVars> = {
-  "fade-up":    { y: 40, opacity: 0 },
-  "fade-left":  { x: -32, opacity: 0 },
-  "fade-right": { x: 32, opacity: 0 },
-  "scale":      { scale: 0.94, opacity: 0 },
-  "fade":       { opacity: 0 },
+  "fade-up":    { y: 40, opacity: START_OPACITY },
+  "fade-left":  { x: -32, opacity: START_OPACITY },
+  "fade-right": { x: 32, opacity: START_OPACITY },
+  "scale":      { scale: 0.94, opacity: START_OPACITY },
+  "fade":       { opacity: START_OPACITY },
 };
 
 export function useScrollReveal() {
@@ -45,7 +56,7 @@ export function useScrollReveal() {
 
       const variant = el.getAttribute("data-reveal") || "fade-up";
       const delayAttr = el.getAttribute("data-delay");
-      const delay = delayAttr ? parseInt(delayAttr, 10) / 1000 : 0;
+      const delay = Math.min(delayAttr ? parseInt(delayAttr, 10) / 1000 : 0, MAX_DELAY);
 
       const from = REVEAL_VARIANTS[variant] ?? REVEAL_VARIANTS["fade-up"];
 
@@ -53,7 +64,11 @@ export function useScrollReveal() {
 
       const trigger = ScrollTrigger.create({
         trigger: el,
-        start: "top 95%",
+        // Fire as soon as the top edge peeks into the viewport so a card that
+        // lands at the bottom of the fold reveals immediately (with once:true it
+        // will have finished animating by the time it is fully on screen),
+        // rather than sitting at START_OPACITY until scrolled further.
+        start: "top bottom",
         once: true,
         onEnter: () => {
           gsap.to(el, {
