@@ -125,9 +125,20 @@ async function resolveOwnerCalculator(req: Request, res: Response) {
     .select()
     .from(calculators)
     .where(eq(calculators.user_id, client.user_id))
-    .orderBy(desc(calculators.id))
-    .limit(1);
-  return calcs[0] ?? null;
+    .orderBy(desc(calculators.id));
+  if (calcs.length === 0) return null;
+  // Target the owner's PUBLISHED/live calculator, not merely the newest row.
+  // A multi-calculator owner with a live widget + a newer draft would
+  // otherwise have every AI-assistant GET/PATCH silently hit the draft and
+  // never reach the widget the public actually sees. Prefer a published calc
+  // (calculator_settings.publish.status === 'published'); `calcs` is already
+  // id-desc so `.find` yields the NEWEST published one deterministically when
+  // several are published. Fall back to the newest overall when none are
+  // marked published (legacy rows / pre-publish drafts) so behaviour is never
+  // worse than before.
+  const isPublished = (c: (typeof calcs)[number]) =>
+    ((c.calculator_settings as any)?.publish?.status) === "published";
+  return calcs.find(isPublished) ?? calcs[0];
 }
 
 export function registerPortalAiAssistantRoutes(app: Express): void {
@@ -160,6 +171,11 @@ export function registerPortalAiAssistantRoutes(app: Express): void {
           id: calc.id,
           business_name: calc.business_name,
           slug: calc.slug,
+          // Tier flag so the portal can gate paid-only options (e.g. the
+          // 'Always' visibility mode) up-front instead of letting a free-tier
+          // owner pick it and silently having calculator.tsx downgrade it to
+          // 'rescue' on render. Mirrors the paid check in calculator.tsx.
+          plan_tier: calc.plan_tier ?? "free",
           // The single honest predicate the public widget renders on. We expose
           // ONLY the boolean + the owner-facing "enabled" intent — never the
           // billing internals (subscription_status / trial timestamps / plan).
