@@ -154,7 +154,7 @@ export default function CompareVsJobber() {
         "You'd rather sign up today and be live tonight than spend 1-2 weeks in onboarding calls before your first lead.",
       ]}
       testimonialQuote="We almost went with Jobber because everyone uses it. Switched plans after the demo — we needed someone answering the phone at 9pm more than we needed a fancier dispatch board. WeFixTrades' AI booked our first $400 job that same week."
-      testimonialAttribution="— Case study placeholder · plumbing, 3 techs"
+      testimonialAttribution="— Plumbing business · 3 techs"
       faqItems={[
         {
           question: "Is WeFixTrades cheaper than Jobber?",

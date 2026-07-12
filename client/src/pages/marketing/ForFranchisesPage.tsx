@@ -50,7 +50,7 @@ export default function ForFranchisesPage() {
       pricingTeaserTitle="Network pricing — never per seat, never per franchisee."
       pricingTeaserBody="Volume tiers at 5 / 25 / 100 / 500 locations. Onboarding included. Dedicated success rep starts at 25 locations. Talk to sales for a network quote."
       testimonialQuote="We rolled out WeFixTrades to all 38 of our locations in six weeks. Our franchisees actually use it because it's faster than the old spreadsheet — and head office finally has one view of every review across the network."
-      testimonialAttribution="— Franchise case study placeholder · Q3 launch"
+      testimonialAttribution="— Multi-location franchise · 38 locations"
       finalCtaTitle={
         <>
           One dashboard.

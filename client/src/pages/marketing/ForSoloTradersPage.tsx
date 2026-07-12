@@ -58,7 +58,7 @@ export default function ForSoloTradersPage() {
       pricingTeaserTitle="Start free. No card to try it."
       pricingTeaserBody={`Upgrade to the ${QQ_PRO_MO} quote tool, or add the TradeLine voice agent from ${TRADELINE_FROM_MO} when you're ready. Upgrade or cancel from inside the dashboard — no calls, no cancellation fees.`}
       testimonialQuote="I'm a one-truck plumber. Before WeFixTrades I was missing maybe six calls a week. The voice agent picks up everything now, and I bid on three extra jobs a week that I would've never known existed."
-      testimonialAttribution="— Solo plumber case study placeholder · Q3 launch"
+      testimonialAttribution="— Solo plumber · one-truck operation"
       finalCtaTitle={
         <>
           Stop missing calls.

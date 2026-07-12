@@ -51,7 +51,7 @@ export default function ForAgenciesPage() {
       pricingTeaserTitle="Agency pricing scales with your book — not per seat."
       pricingTeaserBody="Tiered volume discounts kick in once you cross 5 / 25 / 100 active clients. No per-user fees, no surprise overages. Talk to sales for a custom plan."
       testimonialQuote="We replaced four separate vendors with WeFixTrades white-label. Our agency margin went from 18% to 41% on the same retainers — without our clients noticing anything except faster turnarounds."
-      testimonialAttribution="— Agency case study placeholder · Q3 launch"
+      testimonialAttribution="— Marketing agency · white-label reseller"
       finalCtaTitle={
         <>
           Run every client&apos;s
