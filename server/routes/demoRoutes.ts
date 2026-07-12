@@ -150,7 +150,7 @@ Requirements:
             });
             const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params}`;
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 30000);
+            const timeout = setTimeout(() => controller.abort(), 12000);
             const resp = await fetch(endpoint, { signal: controller.signal });
             clearTimeout(timeout);
             if (!resp.ok) return null;
@@ -229,13 +229,20 @@ Provide exactly 3 issues (ordered high to low severity) and exactly 4 recommenda
       let recommendations: any[] = [];
 
       try {
-        const raw = await chat({
-          system: "You are an SEO expert. Return only valid JSON.",
-          messages: [{ role: "user", content: seoPrompt }],
-          maxTokens: 1000,
-          // audit/ai 2026-05-24: rankflow demo — anonymous public route.
-          surface: "demo",
-        });
+        // Bound the AI call so the demo can never hang: if the provider is slow,
+        // fall through to the deterministic fallback issues/recommendations below.
+        const raw = await Promise.race([
+          chat({
+            system: "You are an SEO expert. Return only valid JSON.",
+            messages: [{ role: "user", content: seoPrompt }],
+            maxTokens: 1000,
+            // audit/ai 2026-05-24: rankflow demo — anonymous public route.
+            surface: "demo",
+          }),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error("AI analysis timed out")), 10000)
+          ),
+        ]);
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -246,12 +253,22 @@ Provide exactly 3 issues (ordered high to low severity) and exactly 4 recommenda
         log.error("[rankflow-demo] Claude parse error", { error: parseErr?.message });
       }
 
-      // Fallback issues if Claude didn't produce any
+      // Fallback issues if Claude didn't produce any (or timed out)
       if (issues.length === 0) {
         issues = [
           { title: "Page speed needs improvement", severity: "high", description: "Slow load times hurt rankings and user experience." },
           { title: "Mobile optimization gaps", severity: "medium", description: "Mobile-first indexing means your mobile experience matters most." },
           { title: "Missing meta descriptions", severity: "low", description: "Meta descriptions improve click-through rates from search results." },
+        ];
+      }
+
+      // Fallback recommendations so the unlocked report is never empty
+      if (recommendations.length === 0) {
+        recommendations = [
+          { title: "Improve page load speed", impact: "high", description: "Compress images, enable caching, and minimize scripts so pages load in under 3 seconds." },
+          { title: "Optimize for mobile", impact: "high", description: "Ensure tap targets, font sizes, and layout work cleanly on phones — most local searches are mobile." },
+          { title: "Complete your Google Business Profile", impact: "medium", description: "A complete, verified profile with photos and categories is the biggest local-ranking lever." },
+          { title: "Add location and service pages", impact: "medium", description: "Dedicated pages for each service area help you rank for 'near me' searches." },
         ];
       }
 

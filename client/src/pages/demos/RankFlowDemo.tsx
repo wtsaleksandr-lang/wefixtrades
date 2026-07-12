@@ -305,11 +305,15 @@ export default function RankFlowDemo() {
       setTimeout(() => setScanPhase(p.text), p.delay)
     );
 
+    // Safety net: never let the scanner spin forever if the server is slow.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
     try {
       const resp = await fetch("/api/demos/rankflow/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
+        signal: controller.signal,
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Analysis failed");
@@ -318,8 +322,13 @@ export default function RankFlowDemo() {
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 300);
     } catch (err: any) {
-      setError(err.message || "Failed to analyze. Please check the URL and try again.");
+      if (err?.name === "AbortError") {
+        setError("The scan is taking longer than usual. Please try again in a moment.");
+      } else {
+        setError(err.message || "Failed to analyze. Please check the URL and try again.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
       setScanPhase("");
       timers.forEach(clearTimeout);
