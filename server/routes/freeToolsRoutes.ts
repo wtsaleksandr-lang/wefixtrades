@@ -320,8 +320,10 @@ function normPhoneDigits(s: string): string {
 }
 
 /**
- * Decide a citation status from the organic results of a `site:<domain>`
- * query. Pure + exported for unit tests.
+ * Decide a citation status from the organic results of a normal
+ * `<name> <city> <directory>` query (results are host-filtered to the
+ * directory domain here — the caller no longer uses a `site:` operator).
+ * Pure + exported for unit tests.
  */
 export function classifyCitationHit(
   organic: Array<{ link: string; title?: string; snippet?: string }>,
@@ -379,21 +381,38 @@ async function citationCheckerHandler(req: Request, res: Response) {
   }
 
   const checks = CITATION_SOURCES.map(async (src) => {
-    // `site:<domain> "<name>" <city>` — phone is intentionally NOT ANDed into
-    // the query. Directory result snippets rarely contain the literal phone
-    // string, so requiring it as an AND term dropped legitimate matches
-    // (~9/10 → ~3/10). The phone field is "optional, helps matching" only — it
-    // must never shrink the citation count. A host-only hit is then
-    // business-matched (name + city, or phone digits) before we claim
-    // "found"; unconfirmed host hits are reported as "unverified".
-    const queryParts = [
-      `site:${src.domain}`,
-      `"${businessName}"`,
-      city,
-    ].filter(Boolean);
+    // Robust directory lookup (2026-07 root-cause fix). The old query
+    // `site:<domain> "<name>" <city>` was over-constrained: the `site:`
+    // operator combined with an EXACT-QUOTED name returned ZERO organic
+    // results for genuinely-listed businesses (Google/Serper drops the
+    // listing whenever the indexed page title differs even slightly from the
+    // quoted string — "Roto-Rooter Plumbing & Water Cleanup" vs the typed
+    // "Roto Rooter"), so real listings were mis-reported as "missing" across
+    // ALL directories (hostHits.length === 0 before name-matching even ran).
+    //
+    // Instead we run a NORMAL search `<name> <city> <directory>` (no `site:`,
+    // no quotes) and host-filter the returned results down to the directory
+    // domain inside classifyCitationHit. Including the directory brand word
+    // strongly biases Google/Serper to surface that directory's page for the
+    // business when a listing exists (its own listing outranks category pages
+    // for the business's exact name), while dropping the exact-phrase and
+    // site: constraints removes the two filters that were nuking valid hits.
+    //
+    // False-positive safety is UNCHANGED and lives in classifyCitationHit:
+    // a result must (a) be hosted ON the directory domain AND (b) fuzzy-match
+    // the business name (+ city when supplied, or phone digits) to count as
+    // "found". Unrelated hosts are filtered out; a directory category/index
+    // page (no business name) stays "unverified". Cost parity: still one
+    // query per directory, and num<=10 keeps each a 1-credit Serper call.
+    //
+    // Phone is intentionally NOT ANDed into the query (snippets rarely carry
+    // the literal phone string); it only ever lifts a host hit to "found" in
+    // the classifier — never shrinks the count.
+    const dirName = src.label.replace(/\s*\(.*?\)\s*/g, " ").trim();
+    const queryParts = [businessName, city, dirName].filter(Boolean);
     const q = queryParts.join(" ");
     try {
-      const result = await searchSerp({ query: q, country: "us", language: "en", num: 5 });
+      const result = await searchSerp({ query: q, country: "us", language: "en", num: 10 });
       const { status, url } = classifyCitationHit(
         result.organic,
         src,
@@ -1506,7 +1525,8 @@ async function reviewResponseHandler(req: Request, res: Response) {
  *   → { ok, results[], summary, topFixes[] }
  *
  * REUSES the citation backend (#1812): the same CITATION_SOURCES + the same
- * `site:<domain>` SERP path + classifyCitationHit discipline. For each
+ * robust `<name> <city> <directory>` SERP path (host-filtered, no `site:`) +
+ * classifyCitationHit discipline. For each
  * directory hit we compare the listing's snippet/title against the canonical
  * NAP the user entered and flag genuine mismatches (phone digits differ, the
  * business name appears in a variant form). We are HONEST about uncertainty:
@@ -1540,9 +1560,19 @@ async function napCheckerHandler(req: Request, res: Response) {
   const canonPhoneDigits = normPhoneDigits(phone);
 
   const checks = CITATION_SOURCES.map(async (src): Promise<NapRowResult> => {
-    const q = [`site:${src.domain}`, `"${businessName}"`, city].filter(Boolean).join(" ");
+    // Robust directory lookup — see citationCheckerHandler for the full
+    // rationale. The old `site:<domain> "<name>" <city>` query was
+    // over-constrained (site: + exact-quoted name returned zero results for
+    // genuinely-listed businesses, so real listings were mis-reported as
+    // "missing"). We run a normal `<name> <city> <directory>` query and let
+    // classifyCitationHit host-filter + name/phone-match; a listing must be
+    // hosted ON the directory domain AND confirmed before any NAP field is
+    // compared, so no false mismatches. Cost parity: 1 (<=10-result) credit
+    // per directory.
+    const dirName = src.label.replace(/\s*\(.*?\)\s*/g, " ").trim();
+    const q = [businessName, city, dirName].filter(Boolean).join(" ");
     try {
-      const result = await searchSerp({ query: q, country: "us", language: "en", num: 5 });
+      const result = await searchSerp({ query: q, country: "us", language: "en", num: 10 });
       const { status, url } = classifyCitationHit(result.organic, src, businessName, city, phone);
 
       if (status === "missing") {
