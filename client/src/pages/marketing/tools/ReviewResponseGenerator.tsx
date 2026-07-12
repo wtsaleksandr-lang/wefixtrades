@@ -22,6 +22,8 @@ import {
   FreeToolFormSelect,
   FreeToolFormTextarea,
   FreeToolFormFieldStyles,
+  firstEmptyRequired,
+  focusFieldById,
 } from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
@@ -174,8 +176,14 @@ export default function ReviewResponseGenerator() {
     e.preventDefault();
     setError(null);
     setReplies(null);
-    if (!businessName.trim() || !trade.trim() || !reviewText.trim()) {
-      setError("Please fill in your business name, trade, and the review text.");
+    const missing = firstEmptyRequired([
+      { value: businessName, id: "rr-business", label: "your business name" },
+      { value: trade, id: "rr-trade", label: "your trade / business type" },
+      { value: reviewText, id: "rr-review", label: "the customer's review" },
+    ]);
+    if (missing) {
+      setError(`Please enter ${missing.label} to generate replies.`);
+      focusFieldById(missing.id);
       return;
     }
     setLoading(true);
@@ -204,7 +212,7 @@ export default function ReviewResponseGenerator() {
   const negative = rating <= 2;
 
   const form = (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} noValidate>
       <FreeToolFormFieldStyles />
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <FreeToolFormField
@@ -310,7 +318,7 @@ export default function ReviewResponseGenerator() {
         boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(34,197,94)", marginBottom: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(13,60,252)", marginBottom: 10 }}>
         {replies.length} reply {replies.length === 1 ? "option" : "options"} ready
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
