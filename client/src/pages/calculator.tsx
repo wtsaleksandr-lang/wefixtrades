@@ -204,13 +204,39 @@ export default function Calculator() {
   // when the account's assistant is otherwise active.
   const chatTurnedOff = chatVisibilityRaw === 'off';
   const showChatBubble = calculator?.aiAssistantActive === true && !chatTurnedOff;
-  const chatVisibility: 'rescue' | 'always' =
-    isPaidTier && chatVisibilityRaw === 'always' ? 'always' : 'rescue';
 
-  const accentColor =
+  // Phase 2 — INDEPENDENT chat-widget styling. Absent / legacy / `inherit`
+  // means the bubble looks EXACTLY as before (accent-derived, light-locked).
+  // Only `custom` feeds the launcher its own colour/theme/icon/greeting/font/
+  // position, and its own timing when set.
+  const aiWidget = (calculator?.calculator_settings as any)?.aiWidget;
+  const widgetCustom = aiWidget?.styleMode === 'custom';
+
+  // Timing precedence: an explicit custom `visibility` wins over the wizard-
+  // derived value; 'off' (wizard-only) still hides the launcher above. 'always'
+  // stays tier-gated exactly as before.
+  const effectiveVisibilityRaw = aiWidget?.visibility ?? chatVisibilityRaw;
+  const chatVisibility: 'rescue' | 'always' =
+    isPaidTier && effectiveVisibilityRaw === 'always' ? 'always' : 'rescue';
+
+  const baseAccentColor =
     calculator?.calculator_settings?.appearance?.accent_color ||
     calculator?.primary_color ||
     '#6366f1';
+  // In custom mode the owner's launcher colour becomes the widget accent.
+  const accentColor =
+    widgetCustom && aiWidget?.launcherColor ? aiWidget.launcherColor : baseAccentColor;
+
+  // Resolve the font enum → a real CSS font-family stack (custom mode only).
+  const AI_WIDGET_FONT_MAP: Record<string, string> = {
+    inter: 'Inter, system-ui, sans-serif',
+    georgia: 'Georgia, serif',
+    montserrat: 'Montserrat, sans-serif',
+    merriweather: 'Merriweather, serif',
+    'roboto-mono': '"Roboto Mono", monospace',
+  };
+  const widgetFontFamily =
+    widgetCustom && aiWidget?.font ? AI_WIDGET_FONT_MAP[aiWidget.font] : undefined;
 
   const isPreview = calculator?.is_preview === true;
 
@@ -238,6 +264,12 @@ export default function Calculator() {
           businessName={calculator.business_name}
           theme={calculator.theme_overrides}
           visibility={chatVisibility}
+          styleMode={widgetCustom ? 'custom' : 'inherit'}
+          widgetTheme={widgetCustom ? (aiWidget?.theme === 'dark' ? 'dark' : 'light') : 'light'}
+          launcherIcon={widgetCustom ? aiWidget?.launcherIcon : undefined}
+          greeting={widgetCustom ? aiWidget?.greeting : undefined}
+          fontFamily={widgetFontFamily}
+          widgetPosition={widgetCustom && aiWidget?.position === 'bottom-left' ? 'bottom-left' : 'bottom-right'}
         />
       )}
     </>
