@@ -44,10 +44,10 @@ client/src/components/wizard/elfsight/TemplateGallery.tsx:250:5	rule-b	<div> con
 client/src/components/wizard/elfsight/TemplateGallery.tsx:917:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:228:17	rule-c	size={11}
 client/src/pages/Blog.tsx:240:19	rule-c	size={120}
-client/src/pages/Blog.tsx:359:17	rule-c	size={84}
+client/src/pages/Blog.tsx:342:17	rule-c	size={84}
 client/src/pages/CaseStudies.tsx:492:24	rule-c	size={48}
 client/src/pages/CaseStudies.tsx:502:19	rule-c	size={56}
-client/src/pages/CaseStudies.tsx:641:22	rule-c	size={80}
+client/src/pages/CaseStudies.tsx:620:22	rule-c	size={80}
 client/src/pages/OnboardingForm.tsx:118:14	rule-c	square w-12 h-12
 client/src/pages/OnboardingForm.tsx:297:24	rule-c	square w-10 h-10
 client/src/pages/OnboardingForm.tsx:334:5	rule-b	<div> contains 3 cues

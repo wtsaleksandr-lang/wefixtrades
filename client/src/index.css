@@ -4216,14 +4216,39 @@ select:focus {
    hover) and the worker zoomed just proud of the top edge (overflow visible,
    stays inside the card); a per-trade badge that merges to just its white icon
    on card hover; and Call/Chat CTAs that cross-swap colours on hover. */
-.airx-card {
+/* ── Shared "nice card" hover primitive (single source of truth) ───────────
+   ONE motion language behind .airx-card, .calx-card and the Blog grid card
+   (.blog-card-grid): at rest the surface is transparent with a hairline
+   border; on hover the surface lightens to #D6DFE3, the border darkens, and
+   the whole card lifts (--nice-lift, default -3px; calx overrides to -2px).
+   Easing is cubic-bezier(0.22,1,0.36,1). Per-card thumbnail treatments (airx
+   worker pop-out, calx preview peek, blog thumb recede) layer on top. This is
+   the button/pricing "thin white border" hover's sibling — NEVER put this
+   card-hover on pricing or plain data tiles. */
+.airx-card, .calx-card, .blog-card-grid, .cs-study-card {
   position: relative; background: transparent;
-  border: 1px solid rgba(15, 20, 24, 0.10); border-radius: 18px; padding: 4px;
-  display: flex; flex-direction: column; min-height: 440px;
-  transition: background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column;
+  border: 1px solid rgba(15, 20, 24, 0.10);
   transform: translateY(0);
+  transition: background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.airx-card:hover { background: #D6DFE3; border-color: rgba(15, 20, 24, 0.18); transform: translateY(-3px); }
+.airx-card:hover, .calx-card:hover, .blog-card-grid:hover, .cs-study-card:hover {
+  background: #D6DFE3; border-color: rgba(15, 20, 24, 0.18);
+  transform: translateY(var(--nice-lift, -3px));
+}
+/* Shared thumbnail recede+dim (blog + case-study illustration panels): the
+   whole coloured panel shrinks + dims on card hover. Per-post/per-trade panel
+   colour stays inline on the element. */
+.nice-card-thumb {
+  transform: scale(1); opacity: 1;
+  transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease;
+}
+.blog-card-grid:hover .nice-card-thumb,
+.cs-study-card:hover .nice-card-thumb { transform: scale(0.97); opacity: 0.82; }
+
+/* .airx-card variant — the standout: worker pops proud of the frame, badge
+   dissolves (see .airx-bg / .airx-ph / .airx-badge below). */
+.airx-card { border-radius: 18px; padding: 4px; min-height: 440px; }
 
 .airx-thumb {
   position: relative; width: 100%; height: 170px; flex-shrink: 0;
@@ -4299,14 +4324,9 @@ select:focus {
    single solid "Use template →" CTA layered above it. Per-category colour is
    passed via the --calx-accent (panel) and --calx-ink (CTA label) CSS
    variables set inline on each card. */
-.calx-card {
-  position: relative; background: transparent;
-  border: 1px solid rgba(15, 20, 24, 0.10); border-radius: 14px; padding: 3px;
-  display: flex; flex-direction: column; min-height: 300px;
-  transition: background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  transform: translateY(0);
-}
-.calx-card:hover { background: #D6DFE3; border-color: rgba(15, 20, 24, 0.18); transform: translateY(-2px); }
+/* .calx-card variant (~30% smaller sibling) — coloured panel recedes while a
+   real calculator preview peeks/lifts. Shallower -2px lift than airx. */
+.calx-card { --nice-lift: -2px; border-radius: 14px; padding: 3px; min-height: 300px; }
 .calx-thumb {
   position: relative; width: 100%; height: 116px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 11px;
@@ -4371,4 +4391,15 @@ select:focus {
 @media (max-width: 640px) {
   .calx-btn { min-height: 44px; }
 }
+
+/* ── Blog grid + Case-study card variants ──────────────────────────────────
+   Both consume the shared "nice card" base above (each was a duplicated inline
+   React hover — Blog.tsx and CaseStudies.tsx — now folded in so they can't
+   drift). airx-sized frame (18px radius, 4px pad, 440 min-height, -3px lift).
+   Their thumbnail is a single coloured illustration panel using .nice-card-thumb
+   (recede + dim: scale 0.97, opacity 0.82) — behaviour preserved verbatim from
+   the old inline styles. Blog cards are click-navigable (cursor pointer);
+   case-study cards are not (default cursor). */
+.blog-card-grid { border-radius: 18px; padding: 4px; min-height: 440px; overflow: hidden; cursor: pointer; }
+.cs-study-card { border-radius: 18px; padding: 4px; min-height: 440px; }
 
