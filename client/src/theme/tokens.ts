@@ -193,7 +193,14 @@ export const mkt = {
   surfaceAlt: '#2E3638',
   text: colors.effortel.n300,
   textMuted: colors.effortel.n400,
-  textFaint: colors.effortel.n600,
+  /* Faint/meta text on dark (timestamps, chat labels, disclaimers, hero meta
+   * lines). The old n600 #5F6F77 read ~3.3:1 on the dark surfaces it sits on
+   * (2.7:1 on sectionLight) — fails WCAG AA + the locked CONTRAST rule. Raised
+   * to a legible cool-grey that clears 4.5:1 on every dark surface in use:
+   * 6.44 on bg #181D1F, 6.85 on bgBase #161616, 5.32 on sectionLight #242D30,
+   * 4.50 on sectionLighter #2E393C. Still visibly a step below textMuted
+   * (n400, ~9.5:1) so hierarchy is preserved. */
+  textFaint: '#96A1A6',
   border: 'rgba(255,255,255,0.08)',
   borderLight: 'rgba(255,255,255,0.04)',
   /* Accent: primary blue (#0d3cfc), hover dark blue (#0b34d6).
@@ -216,7 +223,8 @@ export const mkt = {
   darkHover: colors.effortel.n800,
   onDark: colors.effortel.n100,
   onDarkMuted: colors.effortel.n400,
-  onDarkFaint: colors.effortel.n600,
+  /* See textFaint above — same fix. Was n600 #5F6F77 (~3.3:1, fails AA). */
+  onDarkFaint: '#96A1A6',
   onDarkBorder: 'rgba(255,255,255,0.08)',
   overlay: 'rgba(255,255,255,0.05)',
   frost: 'rgba(34,40,42,0.85)',
@@ -275,7 +283,14 @@ export const mkt = {
    * the canonical names going forward. */
   fg: '#F9F9F9',
   fgSecondary: '#A39E99',
-  fgTertiary: '#78736E',
+  /* Warm tertiary meta text on dark. Old #78736E read ~3.0–3.9:1 on the DOSS
+   * dark canvas (fails AA where used for readable meta). Raised to clear
+   * 4.5:1 on every DOSS dark surface: 5.73 on bg, 6.09 on bgBase #161616,
+   * 5.74 on bgElevated #1C1C1C, 5.23 on bgHigher #242424. Sits just below
+   * fgSecondary (#A39E99) so the warm hierarchy holds. */
+  fgTertiary: '#9A958F',
+  /* fgDisabled intentionally left dim — disabled controls are WCAG-exempt and
+   * must read as disabled, not as active secondary text. */
   fgDisabled: '#6B6662',
 
   darkBg: '#0d1514',
