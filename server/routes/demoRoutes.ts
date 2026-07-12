@@ -75,13 +75,20 @@ Requirements:
 - Include seasonal or local references when possible
 - Each post should have a different angle/topic`;
 
-      const raw = await chat({
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-        maxTokens: 1200,
-        // audit/ai 2026-05-24: socialsync demo — anonymous public route.
-        surface: "demo",
-      });
+      // Bound the AI call so the demo can never hang if a provider stalls;
+      // on timeout the outer catch returns a clean "try again" error.
+      const raw = await Promise.race([
+        chat({
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+          maxTokens: 1200,
+          // audit/ai 2026-05-24: socialsync demo — anonymous public route.
+          surface: "demo",
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("AI generation timed out")), 15000)
+        ),
+      ]);
 
       // Parse JSON from response — handle potential markdown wrapping
       let posts;

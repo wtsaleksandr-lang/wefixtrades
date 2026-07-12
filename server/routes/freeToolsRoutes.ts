@@ -1382,13 +1382,18 @@ async function gbpPostGeneratorHandler(req: Request, res: Response) {
 
   try {
     const text = (
-      await chat({
-        system,
-        messages: [{ role: "user", content: `Generate the 3 GBP ${goalKey || "update"} posts now.` }],
-        maxTokens: 900,
-        modelOverride: TOOL_AI_MODEL,
-        surface: TOOL_AI_SURFACE,
-      })
+      await Promise.race([
+        chat({
+          system,
+          messages: [{ role: "user", content: `Generate the 3 GBP ${goalKey || "update"} posts now.` }],
+          maxTokens: 900,
+          modelOverride: TOOL_AI_MODEL,
+          surface: TOOL_AI_SURFACE,
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("AI request timed out")), 15000)
+        ),
+      ])
     ).trim();
     const posts = parseStringArray(text, "posts");
     if (posts.length === 0) {
@@ -1466,13 +1471,18 @@ async function reviewResponseHandler(req: Request, res: Response) {
 
   try {
     const text = (
-      await chat({
-        system,
-        messages: [{ role: "user", content: `Here is the ${rating}-star review to reply to:\n\n"""${reviewText}"""` }],
-        maxTokens: 800,
-        modelOverride: TOOL_AI_MODEL,
-        surface: TOOL_AI_SURFACE,
-      })
+      await Promise.race([
+        chat({
+          system,
+          messages: [{ role: "user", content: `Here is the ${rating}-star review to reply to:\n\n"""${reviewText}"""` }],
+          maxTokens: 800,
+          modelOverride: TOOL_AI_MODEL,
+          surface: TOOL_AI_SURFACE,
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("AI request timed out")), 15000)
+        ),
+      ])
     ).trim();
     const replies = parseStringArray(text, "replies");
     if (replies.length === 0) {
