@@ -609,6 +609,7 @@ export default function AdFlowDashboard() {
             </div>
             <MonthlyBarSeries
               bars={leadsMonthlyBars}
+              fillWidth
               lede={`${leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0}`}
               caption={(() => {
                 const cur = leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0;
@@ -636,8 +637,8 @@ export default function AdFlowDashboard() {
                 <SparklineWithPeak
                   data={peakRoasSeries}
                   color="violet"
-                  width={260}
-                  height={96}
+                  fillWidth
+                  height={140}
                   ariaLabel="Peak ROAS day in the last 12 weeks"
                 />
               ) : (
@@ -651,14 +652,16 @@ export default function AdFlowDashboard() {
           {/* Advanced — ad spend by platform donut */}
           <AdvancedOnly product="adflow" elementId="adflow.spend-by-platform-donut">
             <Card className="p-4 h-full" data-testid="af-spend-by-platform-donut">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="sr-only">Ad spend by platform</span>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Ad spend by platform
+                </div>
                 <IllustrativeDataBadge show={adSpendByPlatformIllustrative} />
               </div>
               <DonutChart
-                title="Ad spend by platform"
                 segments={adSpendByPlatform}
-                size={130}
+                size={160}
+                fillWidth
                 formatValue={(n) => `$${n.toLocaleString()}`}
                 ariaLabel="Ad spend by platform"
               />

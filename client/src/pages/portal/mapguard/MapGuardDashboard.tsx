@@ -527,13 +527,16 @@ export default function MapGuardDashboard() {
           {/* Advanced — citation directory mix donut */}
           <AdvancedOnly product="mapguard" elementId="mapguard.citation-directory-donut">
             <Card className="p-4 h-full" data-testid="mg-citation-directory-donut">
-              <div className="flex items-center justify-end gap-2 mb-2">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Citation directory mix
+                </div>
                 <IllustrativeDataBadge show={citationDirectoryIllustrative} />
               </div>
               <DonutChart
-                title="Citation directory mix"
                 segments={citationDirectorySegments}
-                size={130}
+                size={160}
+                fillWidth
                 muted={citationDirectoryIllustrative}
                 ariaLabel="MapGuard citation directory mix"
               />
@@ -553,8 +556,8 @@ export default function MapGuardDashboard() {
                 <SparklineWithPeak
                   data={geoBestDaySeries}
                   color="sapphire"
-                  width={280}
-                  height={96}
+                  fillWidth
+                  height={140}
                   ariaLabel="Best-ranking day across the geo grid"
                 />
               ) : (

@@ -48,6 +48,13 @@ export type MonthlyBarSeriesProps = {
   barGap?: number;
   /** Container height (px). Default 72. */
   height?: number;
+  /**
+   * Stretch the bars to fill the parent's full width (responsive). When true
+   * the component measures its container and distributes the bars evenly across
+   * it instead of using the intrinsic `barWidth`/`barGap` layout — so the chart
+   * fills its card rather than hugging the left edge. Default false (intrinsic).
+   */
+  fillWidth?: boolean;
   /** Formatter for tooltip values. Default toLocaleString. */
   formatValue?: (n: number) => string;
   className?: string;
@@ -75,6 +82,7 @@ export function MonthlyBarSeries({
   barWidth = 12,
   barGap = 6,
   height = 72,
+  fillWidth = false,
   formatValue = defaultFormat,
   className,
   ariaLabel,
@@ -83,8 +91,39 @@ export function MonthlyBarSeries({
   const shouldAnimate = !reduceMotion;
   const colorVar = PALETTE_VAR[color];
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   const max = Math.max(...bars.map((b) => b.value), 0.0001);
-  const innerW = bars.length * barWidth + Math.max(0, bars.length - 1) * barGap;
+  const intrinsicW =
+    bars.length * barWidth + Math.max(0, bars.length - 1) * barGap;
+
+  // Responsive width: when `fillWidth`, measure the container and lay the bars
+  // out across its full width so the chart fills the card. Falls back to the
+  // intrinsic width until the first measurement lands.
+  const [measuredW, setMeasuredW] = useState<number>(0);
+  useEffect(() => {
+    if (!fillWidth) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setMeasuredW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fillWidth]);
+
+  const useFill = fillWidth && measuredW > 0;
+  const layoutW = useFill ? measuredW : intrinsicW;
+  // In fill mode, spread bars into equal slots and widen each bar to ~62% of
+  // its slot (capped) so the row reads full and balanced, not sparse.
+  const slotW = useFill ? layoutW / bars.length : barWidth + barGap;
+  const drawnBarW = useFill
+    ? Math.max(barWidth, Math.min(slotW * 0.62, 44))
+    : barWidth;
+  const xFor = (i: number) =>
+    useFill ? i * slotW + (slotW - drawnBarW) / 2 : i * (barWidth + barGap);
+
   const labelRowH = 16;
   const innerH = height - labelRowH;
 
@@ -104,7 +143,6 @@ export function MonthlyBarSeries({
     return () => timers.forEach((t) => clearTimeout(t));
   }, [bars, shouldAnimate]);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [tip, setTip] = useState<ChartTooltipState | null>(null);
 
   function handleBarEnter(e: React.MouseEvent<SVGRectElement>, idx: number) {
@@ -123,7 +161,11 @@ export function MonthlyBarSeries({
   return (
     <div
       ref={containerRef}
-      className={cn("relative inline-flex flex-col gap-2", className)}
+      className={cn(
+        "relative flex flex-col gap-2",
+        fillWidth ? "w-full" : "inline-flex",
+        className
+      )}
       data-testid="monthly-bar-series"
     >
       {(lede || caption) && (
@@ -144,9 +186,10 @@ export function MonthlyBarSeries({
         </div>
       )}
       <svg
-        viewBox={`0 0 ${innerW} ${height}`}
-        width={innerW}
+        viewBox={`0 0 ${layoutW} ${height}`}
+        width={useFill ? "100%" : layoutW}
         height={height}
+        preserveAspectRatio="none"
         role="img"
         aria-label={
           ariaLabel ?? `Bar series, ${bars.length} periods, peak ${formatValue(max)}`
@@ -154,7 +197,7 @@ export function MonthlyBarSeries({
       >
         {bars.map((b, i) => {
           const barH = Math.max(2, (b.value / max) * innerH);
-          const x = i * (barWidth + barGap);
+          const x = xFor(i);
           const targetH = bootIdx >= i ? barH : 0;
           const isHi = b.highlighted;
           const fill = isHi ? `hsl(${colorVar})` : "hsl(var(--foreground) / 0.18)";
@@ -162,7 +205,7 @@ export function MonthlyBarSeries({
             <g key={`${b.label}-${i}`} role="presentation">
               <motion.rect
                 x={x}
-                width={barWidth}
+                width={drawnBarW}
                 rx={2}
                 ry={2}
                 fill={fill}
@@ -179,7 +222,7 @@ export function MonthlyBarSeries({
                 data-highlighted={isHi ? "true" : undefined}
               />
               <text
-                x={x + barWidth / 2}
+                x={x + drawnBarW / 2}
                 y={height - 2}
                 textAnchor="middle"
                 className="text-[9px] fill-muted-foreground tabular-nums"

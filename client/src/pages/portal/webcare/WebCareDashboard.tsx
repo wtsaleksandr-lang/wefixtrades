@@ -480,6 +480,7 @@ export default function WebCareDashboard() {
               </div>
               <MonthlyBarSeries
                 bars={incidentsMonthlyBars}
+                fillWidth
                 color="crimson"
                 ariaLabel="WebCare incidents per month"
               />

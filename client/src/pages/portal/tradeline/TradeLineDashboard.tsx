@@ -479,8 +479,8 @@ export default function TradeLineDashboard() {
                 data={peakCallHourSeries}
                 pointLabels={peakCallHourLabels}
                 color="amber"
-                width={260}
-                height={96}
+                fillWidth
+                height={140}
                 ariaLabel="Hourly call volume with peak hour callout"
               />
             </Card>
@@ -497,6 +497,7 @@ export default function TradeLineDashboard() {
               </div>
               <MonthlyBarSeries
                 bars={callsMonthlyBars}
+                fillWidth
                 color="sapphire"
                 ariaLabel="TradeLine calls per month"
               />
