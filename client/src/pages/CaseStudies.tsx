@@ -592,37 +592,19 @@ const CS_LIGHT = {
             border-radius: ~5px; background: secondary; padding: .25em .35em; }
      .subtitle.is-tag { font-family: monospaced; letter-spacing: -.04em; } */
 function StudyCard({ study }: { study: Study }) {
-  const [hover, setHover] = useState(false);
   const TradeIcon = TRADE_ICON[study.trade] ?? Wrench;
   const tradeColor = TRADE_COLOR[study.trade];
   const headlineOutcome = study.outcomes[0];
 
   return (
     <article
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        position: "relative",
-        // Subtle hairline border at rest, card bg matches section bg
-        // so only the thumbnail and text show against the cool-grey
-        // panel; lightens slightly on hover.
-        background: hover ? CS_LIGHT.cardHover : "transparent",
-        border: `1px solid ${hover ? "rgba(15,20,24,0.18)" : "rgba(15,20,24,0.10)"}`,
-        borderRadius: 18,
-        padding: 4,                          // ← .19em frame
-        display: "flex", flexDirection: "column",
-        cursor: "default",
-        minHeight: 440,                      // ~20% taller
-        transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
-        transform: hover ? "translateY(-3px)" : "translateY(0)",
-      }}
+      className="cs-study-card"
     >
-      {/* Thumbnail — 3:2 aspect-ratio coloured panel that nests inside
-          the frame with a slightly smaller radius so the parent's
-          padding reads as a deliberate frame. */}
-      {/* Thumbnail — Effortel hover style: image SHRINKS slightly and
-          DIMS instead of growing on hover. */}
-      <div style={{
+      {/* Thumbnail — coloured panel nesting inside the frame with a slightly
+          smaller radius so the parent's padding reads as a deliberate frame.
+          Uses the shared .nice-card-thumb recede+dim on card hover (see
+          index.css). Per-trade panel colour stays inline. */}
+      <div className="nice-card-thumb" style={{
         position: "relative",
         width: "100%",
         aspectRatio: "5 / 4",                // taller thumbnail (was 3:2)
@@ -631,9 +613,6 @@ function StudyCard({ study }: { study: Study }) {
         background: tradeColor,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
-        transform: hover ? "scale(0.97)" : "scale(1)",
-        opacity: hover ? 0.82 : 1,
-        transition: "transform 480ms cubic-bezier(0.22,1,0.36,1), opacity 320ms ease",
       }}>
         <div style={{
           color: "#0E1116", opacity: 0.85,

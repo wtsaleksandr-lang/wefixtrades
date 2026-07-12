@@ -317,27 +317,13 @@ function BlogCard({ post, onOpen, size = "grid" }: {
   return (
     <article
       onClick={onOpen}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        // Subtle 1px border at rest (matches Effortel's hairline), card
-        // bg matches section bg so only the vivid thumbnail + text show
-        // against the cool-grey panel; lightens slightly on hover.
-        background: hover ? LIGHT.cardHover : "transparent",
-        border: `1px solid ${hover ? "rgba(15,20,24,0.18)" : "rgba(15,20,24,0.10)"}`,
-        borderRadius: 18, overflow: "hidden",
-        padding: 4,
-        cursor: "pointer", position: "relative",
-        display: "flex", flexDirection: "column",
-        minHeight: 440,                    // ~20% taller — fits taller thumbnail
-        transform: hover ? "translateY(-3px)" : "translateY(0)",
-        transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
-      }}
+      className="blog-card-grid"
     >
-      {/* Thumbnail — Effortel hover style: image SHRINKS slightly and
-          DIMS instead of growing, so the card itself reads as the
-          interactive element rather than a hover-zoom photo. */}
-      <div style={{
+      {/* Thumbnail — the shared "nice card" recede+dim: on card hover the
+          coloured panel SHRINKS slightly and DIMS (see .blog-card-grid__thumb
+          in index.css), so the card itself reads as the interactive element
+          rather than a hover-zoom photo. Per-post panel colour stays inline. */}
+      <div className="nice-card-thumb" style={{
         position: "relative",
         width: "100%",
         aspectRatio: "5 / 4",                // taller thumbnail (was 3:2)
@@ -346,9 +332,6 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         background: post.vivid.bg,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
-        transform: hover ? "scale(0.97)" : "scale(1)",
-        opacity: hover ? 0.82 : 1,
-        transition: "transform 480ms cubic-bezier(0.22,1,0.36,1), opacity 320ms ease",
       }}>
         <ConcentricRings ink={post.vivid.ink} />
         <div style={{
