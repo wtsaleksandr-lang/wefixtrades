@@ -343,6 +343,9 @@ export default function SocialSyncDemo() {
     setPosts([]);
     setGenerated(false);
 
+    // Safety net: never let the generator spin forever if the server stalls.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
       const resp = await fetch("/api/demos/socialsync/generate", {
         method: "POST",
@@ -352,6 +355,7 @@ export default function SocialSyncDemo() {
           city,
           business_name: businessName || undefined,
         }),
+        signal: controller.signal,
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Generation failed");
@@ -361,8 +365,13 @@ export default function SocialSyncDemo() {
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 200);
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      if (err?.name === "AbortError") {
+        setError("This is taking longer than usual. Please try again in a moment.");
+      } else {
+        setError(err.message || "Something went wrong. Please try again.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
