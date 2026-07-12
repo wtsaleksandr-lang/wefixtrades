@@ -232,6 +232,33 @@ export default function CitationChecker() {
         </div>
       </div>
 
+      {/* Honesty caveat — when we confirmed ZERO listings, don't assert an
+          all-red "you're missing everywhere" verdict. A findable business
+          usually IS listed; the search just couldn't match the exact name.
+          Mirror the graceful "couldn't confirm" state the rank-grid uses. */}
+      {foundCount === 0 && (
+        <div
+          data-testid="citation-no-match-caveat"
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 12,
+            background: "rgba(245,158,11,0.08)",
+            border: "1px solid rgba(245,158,11,0.3)",
+            fontSize: 13,
+            color: "rgb(146,64,14)",
+            lineHeight: 1.55,
+          }}
+        >
+          <strong>We couldn't confirm your listing on these directories.</strong>{" "}
+          That usually means the name we searched didn't exactly match how you're
+          listed — not that you're missing everywhere. Try the exact business
+          name as it appears on your Google Business Profile
+          {city.trim() ? "" : ", and add your city"} to help us match, then run
+          the check again.
+        </div>
+      )}
+
       {/* Wave 73b — KPI primitives above the directory table. */}
       <div
         data-testid="citation-kpi-cards"

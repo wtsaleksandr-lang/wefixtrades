@@ -266,11 +266,11 @@ export default function NapChecker() {
             background: "rgba(13,60,252,0.02)",
           }}
         >
-          <div style={{ fontSize: 26, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
-            {score == null ? "—" : `${score}%`}
+          <div style={{ fontSize: score == null ? 20 : 26, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
+            {score == null ? "No data" : `${score}%`}
           </div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)", marginTop: 4 }}>
-            Consistent
+            {score == null ? "Not confirmed" : "Consistent"}
           </div>
         </div>
         <div style={{ fontSize: 13, color: "rgba(0,0,0,0.62)", lineHeight: 1.55, flex: "1 1 200px", minWidth: 0 }}>
@@ -280,7 +280,9 @@ export default function NapChecker() {
           ) : score != null ? (
             <> No inconsistencies found on confirmed listings.</>
           ) : (
-            <> We couldn't confirm any listings to compare — try adding your city.</>
+            <> We couldn't confirm any of your listings across these directories, so there's nothing to compare yet.{city.trim()
+              ? " Try the exact business name as it appears on your Google Business Profile."
+              : " Try adding your city to help us match your listings."}</>
           )}
           {result.summary.unverified > 0 && (
             <> {result.summary.unverified} listing{result.summary.unverified === 1 ? "" : "s"} couldn't be verified (not counted against your score).</>
@@ -346,6 +348,16 @@ export default function NapChecker() {
           body="MapGuard claims and corrects your listings across the major directories so your Name, Address, and Phone match everywhere — the consistency Google rewards, without the tedious manual work."
           serviceId="mapguard-setup"
           ctaLabel="Fix my NAP consistency"
+        />
+      ) : score == null ? (
+        <ToolUpsellCTA
+          sourceTool="nap-checker"
+          tone="fix"
+          eyebrow="Next step"
+          headline="We couldn't confirm your listings — let's get them found"
+          body="If we couldn't confirm your business on these directories, Google may be struggling too. MapGuard claims and standardises your listings across the major directories so your Name, Address, and Phone are found and consistent everywhere."
+          serviceId="mapguard-setup"
+          ctaLabel="Get my listings found + consistent"
         />
       ) : (
         <ToolUpsellCTA
