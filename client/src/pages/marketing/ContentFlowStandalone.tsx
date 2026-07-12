@@ -118,17 +118,21 @@ const PATTERNS = [
 ] as const;
 
 /* ─── Section 6: style presets ─── */
+/* Each preset carries a representative gradient "swatch" that evokes the
+   look — no external image assets required, and never an empty "SAMPLE"
+   box. Gradients use non-brand-black/white hues so the row reads as a
+   designed style gallery. `ink` is the on-swatch monogram colour. */
 const STYLE_PRESETS = [
-  "Photorealistic",
-  "Cinematic",
-  "Minimalist",
-  "Vintage",
-  "Editorial",
-  "Lifestyle",
-  "Product-Hero",
-  "Flat-Illustration",
-  "Hand-Drawn",
-  "3D-Render",
+  { name: "Photorealistic", gradient: "linear-gradient(135deg,#22333b 0%,#5b7b8c 100%)", ink: "rgba(240,247,252,0.92)" },
+  { name: "Cinematic", gradient: "linear-gradient(135deg,#0f2a37 0%,#c9622f 120%)", ink: "rgba(255,241,230,0.92)" },
+  { name: "Minimalist", gradient: "linear-gradient(135deg,#d7dbe0 0%,#a7aeb8 100%)", ink: "rgba(40,46,54,0.72)" },
+  { name: "Vintage", gradient: "linear-gradient(135deg,#7a5a3a 0%,#c9a878 100%)", ink: "rgba(255,248,238,0.92)" },
+  { name: "Editorial", gradient: "linear-gradient(135deg,#2b2f36 0%,#565d68 100%)", ink: "rgba(244,246,249,0.92)" },
+  { name: "Lifestyle", gradient: "linear-gradient(135deg,#e0895f 0%,#e9b98a 100%)", ink: "rgba(56,32,20,0.72)" },
+  { name: "Product-Hero", gradient: "linear-gradient(135deg,#0d3cfc 0%,#4f6dfd 100%)", ink: "rgba(255,255,255,0.94)" },
+  { name: "Flat-Illustration", gradient: "linear-gradient(135deg,#3b82c4 0%,#7cc4a4 100%)", ink: "rgba(255,255,255,0.94)" },
+  { name: "Hand-Drawn", gradient: "linear-gradient(135deg,#8a6db0 0%,#c9a1d6 100%)", ink: "rgba(255,251,255,0.92)" },
+  { name: "3D-Render", gradient: "linear-gradient(135deg,#243b7a 0%,#8a5fd6 100%)", ink: "rgba(244,240,255,0.92)" },
 ] as const;
 
 /* ─── Section 5b: trade landings shipped in PR #785 ─── */
@@ -199,6 +203,85 @@ function buildProductJsonLd() {
   };
 }
 
+/* ─── Hero media — representative "generated post" cards ─────────────
+   The hero previously had no product media (empty right ~45% on desktop).
+   This renders three sample post cards — image swatch + caption + a
+   ContentFlow watermark chip — so the hero shows the actual output shape
+   without needing external image assets. Illustrative, no hard claims. */
+const HERO_SAMPLE_CARDS = [
+  { gradient: "linear-gradient(135deg,#0d3cfc 0%,#4f6dfd 100%)", tag: "Product-Hero", caption: "5 signs your AC is about to fail" },
+  { gradient: "linear-gradient(135deg,#22333b 0%,#5b7b8c 100%)", tag: "Photorealistic", caption: "Behind the scenes: a full re-pipe" },
+  { gradient: "linear-gradient(135deg,#7a5a3a 0%,#c9a878 100%)", tag: "Editorial", caption: "Why we switched to copper this year" },
+] as const;
+
+function ContentFlowHeroVisual() {
+  return (
+    <div
+      data-testid="cf-hero-visual"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: 16,
+        width: "100%",
+        maxWidth: 760,
+      }}
+    >
+      {HERO_SAMPLE_CARDS.map((c) => (
+        <div
+          key={c.tag}
+          style={{
+            background: mkt.sectionLight,
+            border: `1px solid ${mkt.onDarkBorder}`,
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: shadows.card,
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              position: "relative",
+              aspectRatio: "4 / 3",
+              background: c.gradient,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: 10,
+                left: 10,
+                padding: "4px 9px",
+                borderRadius: 999,
+                background: "rgba(15,20,22,0.55)",
+                color: "rgba(255,255,255,0.94)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                backdropFilter: "blur(4px)",
+              }}
+            >
+              {c.tag}
+            </span>
+          </div>
+          <div style={{ padding: "14px 14px 16px" }}>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: mkt.onDark, lineHeight: 1.4, margin: "0 0 10px" }}>
+              {c.caption}
+            </p>
+            <div style={{ display: "grid", gap: 6 }}>
+              <span style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.10)", width: "100%" }} />
+              <span style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.10)", width: "82%" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12 }}>
+              <Sparkles size={12} style={{ color: mkt.accentOnDark }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: mkt.onDarkFaint }}>ContentFlow</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ContentFlowStandalone() {
   useScrollReveal();
 
@@ -234,6 +317,7 @@ export default function ContentFlowStandalone() {
               { label: "Start free — 5 images + 3 articles", href: FREE_CTA },
               { label: "See pricing", href: "#pricing" },
             ]}
+            visual={<ContentFlowHeroVisual />}
           />
 
           {/* ── 2. SOCIAL PROOF STRIP ─────────────────────────────── */}
@@ -397,13 +481,22 @@ export default function ContentFlowStandalone() {
                 title="12 named patterns. Every one adapts to your brand."
                 sub="Each pattern is a proven post format. Pick one, hit generate, get the image + caption + article in seconds. The same 12 patterns work for an HVAC company, a SaaS marketer, or a personal-brand creator — the AI re-skins the brief for your context."
               />
+              {/* Explicit 4-col so 12 cards land as a clean 4/4/4 — the
+                  auto-fit version orphaned the last row of 2 on desktop.
+                  Collapses to 3 / 2 / 1 down the breakpoints. */}
+              <style>{`
+                .cf-patterns-grid {
+                  display: grid;
+                  grid-template-columns: repeat(4, minmax(0, 1fr));
+                  gap: 14px;
+                  margin-top: 32px;
+                }
+                @media (max-width: 1024px) { .cf-patterns-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+                @media (max-width: 720px)  { .cf-patterns-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+                @media (max-width: 460px)  { .cf-patterns-grid { grid-template-columns: 1fr; } }
+              `}</style>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 14,
-                  marginTop: 32,
-                }}
+                className="cf-patterns-grid"
                 data-testid="cf-patterns-grid"
               >
                 {PATTERNS.map(({ id, label, icon: Icon, tagline }, i) => (
@@ -508,7 +601,7 @@ export default function ContentFlowStandalone() {
                 }}
                 data-testid="cf-styles-grid"
               >
-                {STYLE_PRESETS.map((name, i) => (
+                {STYLE_PRESETS.map(({ name, gradient, ink }, i) => (
                   <div
                     key={name}
                     data-reveal="fade-up"
@@ -526,18 +619,26 @@ export default function ContentFlowStandalone() {
                       style={{
                         aspectRatio: "4 / 3",
                         borderRadius: 8,
-                        background: `linear-gradient(135deg, ${mkt.accentTint} 0%, rgba(255,255,255,0.03) 100%)`,
+                        background: gradient,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: mkt.onDarkFaint,
-                        fontSize: 10,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
                         marginBottom: 10,
+                        overflow: "hidden",
                       }}
                     >
-                      Sample
+                      <span
+                        style={{
+                          fontSize: 34,
+                          fontWeight: 800,
+                          color: ink,
+                          letterSpacing: "-0.02em",
+                          fontFamily: "Georgia, 'Times New Roman', serif",
+                          textShadow: "0 1px 8px rgba(0,0,0,0.18)",
+                        }}
+                      >
+                        {name.replace(/[^A-Za-z]/g, "").slice(0, 2)}
+                      </span>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: mkt.onDark }}>{name}</div>
                   </div>
@@ -570,7 +671,7 @@ export default function ContentFlowStandalone() {
                     marginBottom: 14,
                   }}
                 >
-                  Live demo · interactive sandbox
+                  See it in action
                 </div>
                 <h2
                   style={{
@@ -592,7 +693,7 @@ export default function ContentFlowStandalone() {
                     margin: "0 auto 24px",
                   }}
                 >
-                  Try the full generator — no card required, no signup gate on the demo path.
+                  Create a free account and run the full generator — no card required. Your first 5 images and 3 articles are on us.
                 </p>
                 <Link
                   href={DEMO_CTA}
@@ -610,7 +711,7 @@ export default function ContentFlowStandalone() {
                     textDecoration: "none",
                   }}
                 >
-                  Try it now <ArrowRight size={16} />
+                  Start free <ArrowRight size={16} />
                 </Link>
               </div>
             </V7Container>

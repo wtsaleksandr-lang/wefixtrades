@@ -651,6 +651,19 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
   // (e.g. WebFix $249, SiteLaunch $1197) — its header + microcopy must not
   // imply a recurring subscription ("Cancel anytime", "billed monthly").
   const allOneTime = pricing.plans.every((p) => (p.period ?? "").includes("one-time"));
+  // When a product mixes recurring tiers with a one-time add-on (QuoteQuick:
+  // Free/Pro/Business subscriptions + a $75 install service), the add-on used
+  // to become a 4th grid card that orphaned onto its own row with a big void
+  // beside it. Pull one-time add-ons out into a full-width banner below the
+  // subscription grid so the tier grid stays a clean 3-up. Products whose
+  // tiers are ALL one-time (WebFix, SiteLaunch) keep the existing grid.
+  const hasMonthlyTier = pricing.plans.some((p) => (p.period ?? "").includes("/mo"));
+  const addonPlans = hasMonthlyTier
+    ? pricing.plans.filter((p) => (p.period ?? "").includes("one-time"))
+    : [];
+  const gridPlans = addonPlans.length > 0
+    ? pricing.plans.filter((p) => !(p.period ?? "").includes("one-time"))
+    : pricing.plans;
   const pricingHeading = comingSoon
     ? "Simple, transparent pricing"
     : allOneTime
@@ -702,13 +715,13 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
         </Reveal>
         <div style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${Math.min(pricing.plans.length, 3)}, 1fr)`,
+          gridTemplateColumns: `repeat(${Math.min(gridPlans.length, 3)}, 1fr)`,
           alignItems: "stretch",
           gap: 16,
-          maxWidth: pricing.plans.length === 1 ? 460 : pricing.plans.length === 2 ? 760 : 1080,
+          maxWidth: gridPlans.length === 1 ? 460 : gridPlans.length === 2 ? 760 : 1080,
           margin: "0 auto",
         }} className="pricing-grid">
-          {pricing.plans.map((p, i) => (
+          {gridPlans.map((p, i) => (
             <Reveal key={p.name} delay={i * 0.06}>
               {/* Highlighted card: blue bg with WHITE text (high contrast).
                 * Non-highlighted: dark surface with normal text.
@@ -820,6 +833,74 @@ function Pricing({ pricing, primaryCta, comingSoon, slug }: { pricing?: { plans:
             </Reveal>
           ))}
         </div>
+
+        {/* One-time add-on(s) — full-width banner so they don't orphan the
+            subscription grid. Currently QuoteQuick's $75 install service. */}
+        {!comingSoon && addonPlans.map((p) => (
+          <Reveal key={p.name}>
+            <div
+              data-testid={`pricing-addon-${p.sku ?? p.name}`}
+              style={{
+                maxWidth: 1080,
+                margin: "20px auto 0",
+                background: mkt.sectionLight,
+                border: `1px solid var(--hairline)`,
+                borderRadius: 20,
+                padding: "22px clamp(20px, 3vw, 32px)",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 20,
+              }}
+              className="pricing-addon-banner"
+            >
+              <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: mkt.onDark, margin: 0 }}>
+                    {p.name}
+                  </h3>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em" }}>
+                    {p.price}
+                    <span style={{ fontSize: 13, fontWeight: 500, color: mkt.onDarkFaint }}>{p.period}</span>
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+                  {(p.features ?? []).slice(0, 3).map((f: string) => (
+                    <span key={f} style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 13, color: mkt.onDarkMuted }}>
+                      <Check size={14} style={{ flexShrink: 0, color: mkt.accent }} strokeWidth={3} />
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {checkoutEnabled && p.sku ? (
+                <button
+                  type="button"
+                  onClick={() => setCheckoutTier({ sku: p.sku, name: p.name, price: `${p.price}${p.period}`, period: p.period ?? "" })}
+                  style={{
+                    flexShrink: 0, padding: "12px 22px", borderRadius: 10,
+                    background: mkt.ctaBg, color: mkt.ctaText,
+                    fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
+                  }}
+                >
+                  Add {p.name}
+                </button>
+              ) : (
+                <Link
+                  href={primaryCta.href}
+                  style={{
+                    flexShrink: 0, padding: "12px 22px", borderRadius: 10,
+                    background: mkt.ctaBg, color: mkt.ctaText,
+                    fontSize: 13, fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  {primaryCta.label}
+                </Link>
+              )}
+            </div>
+          </Reveal>
+        ))}
+
         {(displayNote || (!comingSoon && pricing.noteLink)) && (
           <p style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.04em" }}>
             {displayNote}
@@ -1363,7 +1444,17 @@ function QuickQuoteLandingLiveDemo() {
         >
           Not roofing? Build any quote calculator
         </h2>
-        <div style={{ marginBottom: 22 }}>
+        {/* The widget's internal sticky header (data-testid="advanced-sticky-top",
+            top:0) anchors to the PAGE scroll context on an inline embed, so it
+            pinned BEHIND the site's fixed nav (~68px) and clipped the trust-badge
+            row. Scope an offset to THIS instance only so the sticky header parks
+            just below the nav (+ any announcement banner) instead of under it. */}
+        <style>{`
+          .qq-notroofing-embed [data-testid="advanced-sticky-top"] {
+            top: calc(var(--wft-announcement-h, 0px) + 80px) !important;
+          }
+        `}</style>
+        <div className="qq-notroofing-embed" style={{ marginBottom: 22 }}>
           {/* Real widget — anonymous-visitor-safe (isEmbed=false matches
               the /products/quickquotepro/demo mount). */}
           <QuoteWidget calculator={calculator} isEmbed={false} />

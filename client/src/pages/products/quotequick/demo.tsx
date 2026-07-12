@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors } from "@/theme/tokens";
@@ -55,6 +55,219 @@ const BADGE_COPY = {
 } as const;
 
 type Pov = "homeowner" | "trade";
+
+/* ─── Per-POV product mock ───────────────────────────────────────────
+   Wave 53: the tour MP4s don't exist yet, so the page used to degrade to
+   a single empty box with a "Try the builder" CTA — identical for both
+   POVs, so the Homeowner/Trade toggle looked broken. This renders a
+   distinct, representative product mock per POV (built from tokens, no
+   external asset) so the toggle actually shows two different things and
+   the media area is never an empty void. When Alex drops the real MP4s
+   in, the <video> plays instead and this only shows on error. */
+function TourBrowserFrame({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        overflow: "hidden",
+        border: `1px solid ${mkt.onDarkBorder}`,
+        background: mkt.surface,
+        boxShadow: "0 18px 44px rgba(0,0,0,0.28)",
+      }}
+    >
+      {/* chrome bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "9px 14px",
+          background: "rgba(255,255,255,0.04)",
+          borderBottom: `1px solid ${mkt.onDarkBorder}`,
+        }}
+      >
+        <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgba(255,255,255,0.18)" }} />
+        <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgba(255,255,255,0.13)" }} />
+        <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgba(255,255,255,0.10)" }} />
+        <span style={{ marginLeft: 8, fontSize: 11, color: mkt.onDarkFaint, fontWeight: 600, letterSpacing: "0.02em" }}>
+          {label}
+        </span>
+      </div>
+      <div style={{ padding: "18px clamp(16px, 4vw, 24px) 22px" }}>{children}</div>
+    </div>
+  );
+}
+
+function HomeownerMock() {
+  return (
+    <TourBrowserFrame label="acmeplumbing.com/quote">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark }}>Acme Plumbing</div>
+        <div style={{ fontSize: 12, color: mkt.onDarkFaint }}>★ 4.9 · Insured</div>
+      </div>
+      <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginBottom: 4 }}>Your instant estimate</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 34, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          $180–$240
+        </span>
+        <span style={{ fontSize: 12, color: mkt.onDarkFaint }}>for a water-heater repair</span>
+      </div>
+      <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+        {[
+          ["Service call + diagnosis", "$90"],
+          ["Labour (1–2 hrs)", "$90–$150"],
+        ].map(([k, v]) => (
+          <div
+            key={k}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 13,
+              color: mkt.onDarkMuted,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${mkt.onDarkBorder}`,
+            }}
+          >
+            <span>{k}</span>
+            <span style={{ color: mkt.onDark, fontWeight: 600 }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginBottom: 8 }}>Pick a time & pay a deposit to book</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {["Tue 9am", "Tue 2pm", "Wed 11am"].map((slot, i) => (
+          <span
+            key={slot}
+            style={{
+              padding: "7px 12px",
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 600,
+              border: `1px solid ${i === 0 ? mkt.accent : mkt.onDarkBorder}`,
+              color: i === 0 ? mkt.accentOnDark : mkt.onDarkMuted,
+              background: i === 0 ? mkt.accentTint : "transparent",
+            }}
+          >
+            {slot}
+          </span>
+        ))}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: mkt.accent,
+          color: "rgba(255,255,255,1)",
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Pay $50 deposit & book <ArrowRight size={16} />
+      </div>
+    </TourBrowserFrame>
+  );
+}
+
+function TradeMock() {
+  const steps = ["Template", "Pricing", "Publish"];
+  return (
+    <TourBrowserFrame label="Build your calculator">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        {steps.map((s, i) => (
+          <div key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                color: i === 0 ? mkt.accentOnDark : mkt.onDarkFaint,
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10,
+                  background: i === 0 ? mkt.accent : "rgba(255,255,255,0.06)",
+                  color: i === 0 ? "rgba(255,255,255,1)" : mkt.onDarkFaint,
+                }}
+              >
+                {i + 1}
+              </span>
+              {s}
+            </span>
+            {i < steps.length - 1 && <span style={{ width: 16, height: 1, background: mkt.onDarkBorder }} />}
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginBottom: 8 }}>Pick a trade template</div>
+      <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+        {["Plumbing repair", "HVAC install", "House cleaning"].map((t, i) => (
+          <div
+            key={t}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+              border: `1px solid ${i === 0 ? mkt.accent : mkt.onDarkBorder}`,
+              color: i === 0 ? mkt.onDark : mkt.onDarkMuted,
+              background: i === 0 ? mkt.accentTint : "transparent",
+            }}
+          >
+            <span>{t}</span>
+            {i === 0 && <span style={{ fontSize: 11, color: mkt.accentOnDark }}>Selected</span>}
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 11,
+          color: mkt.onDarkMuted,
+          background: "rgba(255,255,255,0.04)",
+          border: `1px solid ${mkt.onDarkBorder}`,
+          borderRadius: 10,
+          padding: "9px 12px",
+          marginBottom: 14,
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+        }}
+      >
+        &lt;script src="quotequick.js" data-calc="acme"&gt;&lt;/script&gt;
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: mkt.accent,
+          color: "rgba(255,255,255,1)",
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Publish & copy embed <ArrowRight size={16} />
+      </div>
+    </TourBrowserFrame>
+  );
+}
 
 /* ─── Page Component ─── */
 //
@@ -361,18 +574,18 @@ export default function QuoteCalculatorDemo() {
               margin: "0 auto clamp(20px, 3vw, 28px)",
             }}
           >
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                paddingBottom: "56.25%", // 16:9
-                borderRadius: 14,
-                overflow: "hidden",
-                background: "#000",
-                border: `1px solid ${mkt.onDarkBorder}`,
-              }}
-            >
-              {!videoFailed && (
+            {!videoFailed ? (
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  paddingBottom: "56.25%", // 16:9
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  background: "#000",
+                  border: `1px solid ${mkt.onDarkBorder}`,
+                }}
+              >
                 <video
                   ref={videoRef}
                   key={pov}
@@ -391,77 +604,32 @@ export default function QuoteCalculatorDemo() {
                     objectFit: "cover",
                   }}
                 />
-              )}
-              {videoFailed && (
-                // BE-3 — honest absent-asset state. When the tour MP4 isn't
-                // present the video element errors; instead of a dead play
-                // button that promises a video that can't play, show a real
-                // "See it live" panel whose CTA opens the actual builder.
-                <div
-                  data-testid="tour-video-fallback"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 14,
-                    padding: "24px clamp(16px, 5vw, 32px)",
-                    textAlign: "center",
-                    background:
-                      "linear-gradient(160deg, rgba(13,60,252,0.16), rgba(13,21,20,0.92))",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "clamp(15px, 2.4vw, 18px)",
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.96)",
-                      lineHeight: 1.4,
-                      margin: 0,
-                      maxWidth: 380,
-                    }}
-                  >
-                    See it live — build a working quote calculator in 60 seconds.
-                  </p>
-                  <Link
-                    href="/wizard"
-                    className="tour-cta"
-                    data-testid="tour-video-fallback-cta"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "12px 24px",
-                      borderRadius: 12,
-                      background: mkt.accent,
-                      color: "rgba(255,255,255,1)",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      textDecoration: "none",
-                    }}
-                  >
-                    Try the builder <ArrowRight size={16} />
-                  </Link>
-                </div>
-              )}
 
-              {/* Wave 52 — Per-POV badge slots. 4 positioned overlays for the
-                  active POV. Copy lives in BADGE_COPY above; activation =
-                  add .is-visible + render the .text. CSS in <style> handles
-                  positioning + fade hooks. */}
-              {BADGE_COPY[pov].map((badge, i) => (
-                <div
-                  key={`${pov}-${badge.position}`}
-                  className={`tour-badge tour-badge--${badge.position}`}
-                  data-testid={`tour-badge-${pov}-${i + 1}`}
-                  aria-hidden="true"
-                >
-                  {badge.text}
-                </div>
-              ))}
-            </div>
+                {/* Wave 52 — Per-POV badge slots. 4 positioned overlays for the
+                    active POV. Copy lives in BADGE_COPY above; activation =
+                    add .is-visible + render the .text. CSS in <style> handles
+                    positioning + fade hooks. */}
+                {BADGE_COPY[pov].map((badge, i) => (
+                  <div
+                    key={`${pov}-${badge.position}`}
+                    className={`tour-badge tour-badge--${badge.position}`}
+                    data-testid={`tour-badge-${pov}-${i + 1}`}
+                    aria-hidden="true"
+                  >
+                    {badge.text}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // BE-3 / Wave 53 — honest absent-asset state. When the tour MP4
+              // isn't present the video errors; instead of an empty box we
+              // render a distinct, representative product mock per POV so the
+              // Homeowner/Trade toggle actually shows two different things.
+              // The single primary CTA below covers the "try it" action.
+              <div data-testid="tour-video-fallback">
+                {pov === "homeowner" ? <HomeownerMock /> : <TradeMock />}
+              </div>
+            )}
             <p
               data-testid="tour-video-caption"
               style={{
