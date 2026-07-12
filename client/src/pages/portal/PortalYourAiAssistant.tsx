@@ -94,6 +94,7 @@ interface AiStatus {
     id: number;
     business_name: string;
     slug: string;
+    plan_tier: string;
     enabled: boolean;
     active: boolean;
     aiChatVisibility: "off" | "rescue" | "always";
@@ -191,6 +192,14 @@ export default function PortalYourAiAssistant() {
 
   const calc = statusQ.data?.calculator ?? null;
   const businessName = calc?.business_name || "your business";
+  // Paid tiers can use the 'Always' visibility mode; free tier is downgraded to
+  // 'rescue' by calculator.tsx on render, so we gate the option here too rather
+  // than let the owner pick something that silently won't stick. Mirrors the
+  // paid check in calculator.tsx (pro | business | starter).
+  const isPaidTier =
+    calc?.plan_tier === "pro" ||
+    calc?.plan_tier === "business" ||
+    calc?.plan_tier === "starter";
 
   /* ── calculator placement toggle ── */
   const calcToggleMut = useMutation({
@@ -410,7 +419,13 @@ export default function PortalYourAiAssistant() {
               <PlacementRow
                 icon={<Calculator className="h-5 w-5 text-muted-foreground" />}
                 title="Calculator widget"
-                blurb="Helps visitors finish a quote on your published calculator and hands off to you when a human's needed."
+                blurb={
+                  statusQ.data?.hasCalculator && calc
+                    ? `Answers on your live calculator “${calc.business_name}”${
+                        calc.slug ? ` (${calc.slug})` : ""
+                      } and hands off to you when a human's needed.`
+                    : "Helps visitors finish a quote on your published calculator and hands off to you when a human's needed."
+                }
                 state={calcState}
                 toggle={
                   statusQ.data?.hasCalculator ? (
@@ -833,9 +848,19 @@ export default function PortalYourAiAssistant() {
                   value={widget.visibility ?? "rescue"}
                   options={[
                     { value: "rescue", label: "Smart" },
-                    { value: "always", label: "Always" },
+                    {
+                      value: "always",
+                      label: "Always",
+                      disabled: !isPaidTier,
+                      badge: !isPaidTier ? "Paid" : undefined,
+                    },
                   ]}
-                  onChange={(v) => patchWidget({ visibility: v as AiWidgetStyle["visibility"] })}
+                  onChange={(v) => {
+                    // Belt-and-braces: never persist 'always' on a free tier —
+                    // calculator.tsx would silently downgrade it to 'rescue'.
+                    if (v === "always" && !isPaidTier) return;
+                    patchWidget({ visibility: v as AiWidgetStyle["visibility"] });
+                  }}
                   testid="widget-visibility"
                 />
 
@@ -912,7 +937,7 @@ function SegmentedField({
   label: string;
   help?: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean; badge?: string }[];
   onChange: (v: string) => void;
   testid: string;
 }) {
@@ -923,20 +948,33 @@ function SegmentedField({
       <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
         {options.map((o) => {
           const selected = value === o.value;
+          const locked = o.disabled === true;
           return (
             <button
               key={o.value}
               type="button"
-              onClick={() => onChange(o.value)}
+              disabled={locked}
+              onClick={() => {
+                if (!locked) onChange(o.value);
+              }}
               aria-pressed={selected}
+              aria-disabled={locked}
+              title={locked ? "Available on paid plans" : undefined}
               data-testid={`${testid}-${o.value}`}
-              className={`rounded-md border bg-transparent px-3 py-1.5 text-xs font-medium transition-colors ${
-                selected
-                  ? "border-brand-blue text-brand-blue ring-1 ring-brand-blue/40"
-                  : "border-border text-muted-foreground hover:border-brand-blue/50"
+              className={`inline-flex items-center gap-1.5 rounded-md border bg-transparent px-3 py-1.5 text-xs font-medium transition-colors ${
+                locked
+                  ? "cursor-not-allowed border-border text-muted-foreground/60"
+                  : selected
+                    ? "border-brand-blue text-brand-blue ring-1 ring-brand-blue/40"
+                    : "border-border text-muted-foreground hover:border-brand-blue/50"
               }`}
             >
               {o.label}
+              {o.badge && (
+                <span className="rounded-full border border-border px-1.5 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+                  {o.badge}
+                </span>
+              )}
             </button>
           );
         })}

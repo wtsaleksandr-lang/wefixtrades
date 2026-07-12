@@ -277,6 +277,13 @@ export default function AIChatBubble({
     // Favicon is all-blue, so keep a light chip behind it on either theme.
     avatarChip: dark ? '#e2e8f0' : '#fff',
     panelShadow: dark ? '0 8px 32px rgba(0,0,0,0.45)' : '0 8px 32px rgba(0,0,0,0.18)',
+    // Typing-indicator dots. Light byte-identical to the historic '#bbb'; the
+    // dark tone reads on the slate bubble without going pure white.
+    typingDot: dark ? '#94a3b8' : '#bbb',
+    // Secondary/caption text (step-status line, hand-off note + done-sub,
+    // hand-off field hints). Light byte-identical to the historic '#6b7280';
+    // the dark tone clears WCAG 4.5:1 on the slate surfaces.
+    secondaryText: dark ? '#cbd5e1' : '#6b7280',
   };
   // Semantic HTML theme attribute for the panel. Kept dynamic so global
   // [data-theme] tokens apply; the pill below keeps a LITERAL data-theme="light"
@@ -1054,13 +1061,13 @@ export default function AIChatBubble({
             {isLoading && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }} data-testid="chat-typing-indicator">
                 <div style={{ background: palette.bubbleBg, padding: '10px 14px', borderRadius: '16px 16px 16px 4px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0s' }} />
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.2s' }} />
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.4s' }} />
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: palette.typingDot, animation: 'ai-dot-bounce 1.2s infinite 0s' }} />
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: palette.typingDot, animation: 'ai-dot-bounce 1.2s infinite 0.2s' }} />
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: palette.typingDot, animation: 'ai-dot-bounce 1.2s infinite 0.4s' }} />
                 </div>
                 {stepStatus && (
                   <div
-                    style={{ fontSize: '11px', color: '#6b7280', padding: '2px 6px', fontStyle: 'italic' }}
+                    style={{ fontSize: '11px', color: palette.secondaryText, padding: '2px 6px', fontStyle: 'italic' }}
                     title={stepStatus}
                     data-testid="chat-step-status"
                   >
@@ -1079,6 +1086,8 @@ export default function AIChatBubble({
               <HandoffLeadForm
                 calculatorId={calculatorId}
                 accentColor={accentColor}
+                accentFg={accentFg}
+                palette={palette}
                 businessName={businessName}
                 defaultName={customerName}
                 defaultEmail={customerEmail}
@@ -1355,6 +1364,17 @@ function ProactiveToast({ copy, accentColor, anchorBottom, anchorLeft, onAccept,
 interface HandoffLeadFormProps {
   calculatorId: number;
   accentColor: string;
+  /** Accent-derived button foreground (dark on bright accent, else white). */
+  accentFg: string;
+  /** Surface palette threaded from the parent so custom+dark renders correctly. */
+  palette: {
+    surface: string;
+    border: string;
+    inputText: string;
+    secondaryText: string;
+    disabledBg: string;
+    disabledFg: string;
+  };
   businessName: string;
   defaultName?: string;
   defaultEmail?: string;
@@ -1364,6 +1384,8 @@ interface HandoffLeadFormProps {
 function HandoffLeadForm({
   calculatorId,
   accentColor,
+  accentFg,
+  palette,
   businessName,
   defaultName,
   defaultEmail,
@@ -1429,17 +1451,17 @@ function HandoffLeadForm({
       <div
         data-testid="chat-handoff-done"
         style={{
-          background: '#fff',
-          border: '1px solid #e5e7eb',
+          background: palette.surface,
+          border: `1px solid ${palette.border}`,
           borderRadius: '12px',
           padding: '12px 14px',
           fontSize: '13px',
-          color: '#1a1a1a',
+          color: palette.inputText,
           boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
         }}
       >
         <strong style={{ fontWeight: 700 }}>Thanks — you&apos;re all set.</strong>
-        <div style={{ color: '#6b7280', marginTop: '2px' }}>
+        <div style={{ color: palette.secondaryText, marginTop: '2px' }}>
           {businessName} will be in touch shortly.
         </div>
       </div>
@@ -1450,11 +1472,11 @@ function HandoffLeadForm({
     width: '100%',
     padding: '9px 12px',
     borderRadius: '10px',
-    border: '1px solid #e5e7eb',
+    border: `1px solid ${palette.border}`,
     outline: 'none',
     fontSize: '14px',
-    color: '#1a1a1a',
-    background: '#fff',
+    color: palette.inputText,
+    background: palette.surface,
     boxSizing: 'border-box',
     fontFamily: 'inherit',
   };
@@ -1464,8 +1486,8 @@ function HandoffLeadForm({
       onSubmit={onSubmit}
       data-testid="chat-handoff-lead-form"
       style={{
-        background: '#fff',
-        border: '1px solid #e5e7eb',
+        background: palette.surface,
+        border: `1px solid ${palette.border}`,
         borderRadius: '12px',
         padding: '12px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
@@ -1506,7 +1528,7 @@ function HandoffLeadForm({
         aria-label="Phone"
       />
       {note && (
-        <div style={{ fontSize: '12px', color: '#6b7280', padding: '2px 2px 0' }} data-testid="chat-handoff-note">
+        <div style={{ fontSize: '12px', color: palette.secondaryText, padding: '2px 2px 0' }} data-testid="chat-handoff-note">
           {note}
         </div>
       )}
@@ -1518,8 +1540,8 @@ function HandoffLeadForm({
           padding: '10px 12px',
           borderRadius: '10px',
           border: 'none',
-          background: status === 'submitting' ? '#e5e7eb' : accentColor,
-          color: status === 'submitting' ? '#9ca3af' : (isBrightColor(accentColor) ? 'rgb(17,17,17)' : '#fff'),
+          background: status === 'submitting' ? palette.disabledBg : accentColor,
+          color: status === 'submitting' ? palette.disabledFg : accentFg,
           fontSize: '14px',
           fontWeight: 600,
           cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
