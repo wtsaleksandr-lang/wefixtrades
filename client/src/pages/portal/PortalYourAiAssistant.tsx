@@ -22,8 +22,10 @@
  *   - Teach your assistant → existing tradeline_knowledge_base CRUD
  *     (/api/portal/tradeline/knowledge). Business notes = a single kind:"doc"
  *     entry; Q&A pairs = kind:"faq" entries. ONE place, applies everywhere.
- *   - Appearance (smart-timing) → links to the wizard Style tab; never
- *     duplicated here.
+ *   - Appearance & timing → grouped with Teach under one "Assistant settings"
+ *     area (Phase 1 consolidation). Still links to the wizard Style tab for the
+ *     real controls; never duplicated here. Phase 2 gives the chat widget its
+ *     own persisted styling and slots inline where the TODO(phase-2) marks.
  *
  * DS compliance: title-in-field inputs, help cue top-left, theme-aware (NO
  * hard-coded colors), selected = outline not bright fill, ≤3 decisions on the
@@ -41,6 +43,7 @@ import {
   Phone,
   ShieldCheck,
   GraduationCap,
+  Palette,
   Plus,
   Trash2,
   Save,
@@ -215,6 +218,7 @@ export default function PortalYourAiAssistant() {
   const [newQ, setNewQ] = useState("");
   const [newA, setNewA] = useState("");
   const [teachOpen, setTeachOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
 
   const saveNotesMut = useMutation({
     mutationFn: async (content: string) => {
@@ -417,8 +421,26 @@ export default function PortalYourAiAssistant() {
           </div>
         </Card>
 
-        {/* ── 4. Teach your assistant (single optional knowledge surface) ── */}
-        <Card className="overflow-hidden">
+        {/* ── 4. Assistant settings — Teach + Appearance & timing, one coherent area ──
+         *
+         * Phase 1 (this PR): the two previously-scattered controls — the inline
+         * "Teach" expander and the punt-out "Appearance & timing" card — are grouped
+         * under one "Assistant settings" heading as two matching collapsible rows, so
+         * the owner configures the assistant in one place instead of bouncing to the
+         * calculator wizard. Appearance/timing still links to the wizard (that's where
+         * the real controls live today) because aiChatVisibility is derived read-only
+         * from wizard settings — writing it here would need a wizard-settings refactor,
+         * out of scope for Phase 1. */}
+        <section className="space-y-3" data-testid="section-assistant-settings">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Assistant settings</h2>
+            <p className="text-xs text-muted-foreground">
+              Teach it what to say, and control how it looks and when it appears — all in one place.
+            </p>
+          </div>
+
+          {/* Teach your assistant (collapsible) */}
+          <Card className="overflow-hidden">
           <button
             type="button"
             onClick={() => setTeachOpen((o) => !o)}
@@ -585,27 +607,74 @@ export default function PortalYourAiAssistant() {
               </div>
             </div>
           )}
-        </Card>
+          </Card>
 
-        {/* ── 5. Appearance (link to wizard, never duplicated) ── */}
-        <Card className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-foreground">Appearance &amp; timing</h2>
-            <p className="text-sm text-muted-foreground">
-              {calc?.aiChatVisibility === "off"
-                ? "The chat assistant is turned off on your calculator."
-                : calc?.aiChatVisibility === "always"
-                  ? "Set to always show the chat bubble on your calculator."
-                  : "Set to smart timing — the bubble appears only when a visitor looks stuck."}{" "}
-              Change this on the wizard's Settings tab.
-            </p>
-          </div>
-          <Button asChild variant="outline" size="sm" data-testid="link-appearance-wizard">
-            <Link href="/wizard">
-              Open Style tab <ExternalLink className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </Card>
+          {/* Appearance & timing (collapsible — matches the Teach row) */}
+          <Card className="overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setAppearanceOpen((o) => !o)}
+              className="flex w-full items-center justify-between gap-3 p-5 text-left"
+              aria-expanded={appearanceOpen}
+              data-testid="toggle-appearance-expander"
+            >
+              <span className="flex items-center gap-2">
+                <Palette className="h-5 w-5 text-brand-blue" />
+                <span className="text-sm font-semibold text-foreground">Appearance &amp; timing</span>
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${appearanceOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {appearanceOpen && (
+              <div className="space-y-4 border-t border-border p-5">
+                {/* help cue — top-left, single per block */}
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Info className="h-3.5 w-3.5" /> Controls how the chat bubble looks and when it
+                  appears to visitors.
+                </p>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-w-0 text-sm text-muted-foreground">
+                    {calc?.aiChatVisibility === "off"
+                      ? "The chat assistant is turned off on your calculator."
+                      : calc?.aiChatVisibility === "always"
+                        ? "Set to always show the chat bubble on your calculator."
+                        : "Set to smart timing — the bubble appears only when a visitor looks stuck."}{" "}
+                    These controls live on the wizard's Settings tab for now.
+                  </p>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0"
+                    data-testid="link-appearance-wizard"
+                  >
+                    <Link href="/wizard">
+                      Open appearance &amp; timing <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+
+                {/* Phase-2 note — set expectations without over-promising */}
+                <p className="text-xs text-muted-foreground">
+                  Fuller chat-widget styling for your assistant — its own colours, avatar, and
+                  greeting, independent of the calculator theme — is coming soon.
+                </p>
+
+                {/* TODO(phase-2): independent chat-widget styling controls slot in HERE.
+                 * Phase 2 gives AIChatBubble.tsx its own persisted look (colour/avatar/
+                 * greeting) decoupled from the calculator theme + removes its light-lock.
+                 * When those settings exist, replace the wizard link + "coming soon" note
+                 * above with the inline controls (and surface smart-timing inline once it
+                 * has its own read/write endpoint rather than being derived from wizard
+                 * settings.advanced.style.aiChatVisibility). No backend exists yet — Phase 1
+                 * deliberately keeps the functional link so nothing regresses. */}
+              </div>
+            )}
+          </Card>
+        </section>
       </div>
     </PortalLayout>
   );
