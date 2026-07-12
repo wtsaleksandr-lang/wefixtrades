@@ -126,7 +126,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Confirmations, reminders, nurture sequences, review requests. Every lead gets the right message at the right time — without you remembering to send it.",
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto", gap: 16, maxWidth: 720, width: "100%" }}>
-          <StatTile value="5467894" label="Lead captured" color="cyanSoft" badge={<span style={{ fontSize: 10, fontFamily: MONO, padding: "3px 8px", borderRadius: 999, background: TILE.pink.bg, color: TILE.pink.ink, letterSpacing: "0.08em" }}>NEW</span>} />
+          <StatTile value="47" label="Leads captured" color="cyanSoft" badge={<span style={{ fontSize: 10, fontFamily: MONO, padding: "3px 8px", borderRadius: 999, background: TILE.pink.bg, color: TILE.pink.ink, letterSpacing: "0.08em" }}>NEW</span>} />
           <StatTile value="$185.00" label="Estimated value" color="pink" />
           <FlowCard
             title="Follow-up plan"

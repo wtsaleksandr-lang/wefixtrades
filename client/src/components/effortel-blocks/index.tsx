@@ -763,8 +763,12 @@ function isCountable(value: string): boolean {
   return !isNaN(parseValue(value).num);
 }
 
-function formatNum(n: number, sep: string, hasDecimal: boolean): string {
-  if (hasDecimal) return n.toFixed(1);
+function formatNum(n: number, sep: string, decimals: number): string {
+  // Preserve the SAME number of decimal places the source value declared, so a
+  // currency value like "$185.00" counts up through "$154.50" (2dp) rather than
+  // the mangled single-decimal "$154.5". A rating "4.9" keeps its single
+  // decimal. Whole numbers (decimals === 0) round and get thousands separators.
+  if (decimals > 0) return n.toFixed(decimals);
   const rounded = Math.round(n);
   if (sep === ",") return rounded.toLocaleString("en-US");
   if (sep === " ") return rounded.toLocaleString("fr-FR").replace(/ /g, " ");
@@ -795,7 +799,12 @@ export function Ticker({
   // a static literal. Reduced-motion already renders the literal below.
   const countable = isCountable(value);
   const parsed = parseValue(value);
-  const hasDecimal = String(parsed.num).includes(".") || value.includes(".");
+  // Number of decimal places declared in the source value ("$185.00" → 2,
+  // "4.9★" → 1, "240+" → 0). The count-up formats to this same precision so it
+  // never drops or invents digits mid-flight (e.g. currency staying 2dp).
+  const decimals = value.includes(".")
+    ? (value.split(".")[1]?.match(/^\d+/)?.[0].length ?? 0)
+    : 0;
   // Start the count-up partway (not at 0) so a fast scroll never catches a
   // jarring "$0M / 0★ / <0s" frame — the tile always reads as a real number
   // that ticks up to target.
@@ -803,14 +812,14 @@ export function Ticker({
   const [current, setCurrent] = useState(
     reduced || !countable || isNaN(parsed.num)
       ? value
-      : parsed.prefix + formatNum(parsed.num * START_FRACTION, parsed.sep, hasDecimal) + parsed.suffix
+      : parsed.prefix + formatNum(parsed.num * START_FRACTION, parsed.sep, decimals) + parsed.suffix
   );
 
   useEffect(() => {
     if (!inView || reduced || !countable || isNaN(parsed.num)) return;
     const controls = animate(parsed.num * START_FRACTION, parsed.num, {
       duration, delay, ease: [0.22, 1, 0.36, 1],
-      onUpdate: (n) => setCurrent(parsed.prefix + formatNum(n, parsed.sep, hasDecimal) + parsed.suffix),
+      onUpdate: (n) => setCurrent(parsed.prefix + formatNum(n, parsed.sep, decimals) + parsed.suffix),
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
