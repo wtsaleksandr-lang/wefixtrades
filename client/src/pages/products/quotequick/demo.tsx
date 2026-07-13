@@ -21,14 +21,20 @@ const VIDEO_PATHS = {
   trade: "/videos/quotequick-tour-trade.mp4",
 } as const;
 
+// Wave 52 — VP9/webm variant (served first where supported, mp4 fallback).
+const WEBM_PATHS = {
+  homeowner: "/videos/quotequick-tour-homeowner.webm",
+  trade: "/videos/quotequick-tour-trade.webm",
+} as const;
+
 const POSTER_PATHS = {
   homeowner: "/videos/quotequick-tour-homeowner-poster.jpg",
   trade: "/videos/quotequick-tour-trade-poster.jpg",
 } as const;
 
 const VIDEO_CAPTIONS = {
-  homeowner: "60-second tour of the customer experience",
-  trade: "60-second tour of the trade setup flow",
+  homeowner: "Watch a customer get an instant quote",
+  trade: "See a calculator built in seconds",
 } as const;
 
 const TAB_CAPTIONS = {
@@ -315,6 +321,18 @@ export default function QuoteCalculatorDemo() {
     setVideoFailed(false);
   }, [pov]);
 
+  // Accessibility — honour prefers-reduced-motion: pause the autoplay loop so
+  // the poster/first frame stays put (the tour remains fully visible, just still).
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const v = videoRef.current;
+    if (v) {
+      v.autoplay = false;
+      v.pause();
+    }
+  }, [pov]);
+
   const switchTab = (next: Pov) => {
     setPov(next);
     if (typeof window === "undefined") return;
@@ -327,7 +345,7 @@ export default function QuoteCalculatorDemo() {
     <MarketingLayout>
       <PageMeta
         title="See how QuoteQuick works"
-        description="Watch a 60-second tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
+        description="Take a quick tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
         canonical="/products/quickquotepro/demo"
         keywords={["quotequick tour", "quote calculator tour", "how quotequick works"]}
       />
@@ -471,7 +489,7 @@ export default function QuoteCalculatorDemo() {
                 marginRight: "auto",
               }}
             >
-              A 60-second tour of what your customers see — then build your own
+              A quick look at what your customers see — then build your own
               for free.
             </p>
           </div>
@@ -589,12 +607,13 @@ export default function QuoteCalculatorDemo() {
                 <video
                   ref={videoRef}
                   key={pov}
-                  src={VIDEO_PATHS[pov]}
                   poster={POSTER_PATHS[pov]}
                   autoPlay
                   loop
                   muted
                   playsInline
+                  preload="metadata"
+                  aria-label={VIDEO_CAPTIONS[pov]}
                   onError={() => setVideoFailed(true)}
                   style={{
                     position: "absolute",
@@ -603,7 +622,12 @@ export default function QuoteCalculatorDemo() {
                     height: "100%",
                     objectFit: "cover",
                   }}
-                />
+                >
+                  {/* webm (VP9) first, mp4 fallback. If neither loads (asset
+                      absent), the <video> error event fires → mock fallback. */}
+                  <source src={WEBM_PATHS[pov]} type="video/webm" />
+                  <source src={VIDEO_PATHS[pov]} type="video/mp4" />
+                </video>
 
                 {/* Wave 52 — Per-POV badge slots. 4 positioned overlays for the
                     active POV. Copy lives in BADGE_COPY above; activation =
