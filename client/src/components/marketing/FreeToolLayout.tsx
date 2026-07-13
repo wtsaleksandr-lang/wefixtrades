@@ -48,6 +48,13 @@ interface FreeToolLayoutProps {
   heroImageSrc?: string;
   /** Alt text for the hero image (required when heroImageSrc is set). */
   heroImageAlt?: string;
+  /**
+   * Optional rich hero visual (e.g. a <DemoVideo> captured tool loop) rendered
+   * in the right-hand hero slot in place of `heroImageSrc`. When supplied it
+   * takes precedence over the image and gets the same wide two-column hero
+   * treatment. Renders its own framing, so it is dropped straight in.
+   */
+  heroMedia?: ReactNode;
 }
 
 export default function FreeToolLayout({
@@ -61,7 +68,9 @@ export default function FreeToolLayout({
   children,
   heroImageSrc,
   heroImageAlt,
+  heroMedia,
 }: FreeToolLayoutProps) {
+  const hasVisual = Boolean(heroMedia) || Boolean(heroImageSrc);
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
     { name: "Free Tools", url: `${SITE_URL}/tools/free-audit` },
@@ -131,7 +140,7 @@ export default function FreeToolLayout({
         }
       `}</style>
       <div className="ftool-page" data-theme="light">
-        <div className={`ftool-container${heroImageSrc ? " ftool-container--wide" : ""}`}>
+        <div className={`ftool-container${hasVisual ? " ftool-container--wide" : ""}`}>
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
@@ -142,7 +151,7 @@ export default function FreeToolLayout({
 
           {/* Hero — title-left / visual-right (hard rules 4/5). On mobile the
               DOM order gives title → form → illustration. */}
-          <div className={`ftool-hero${heroImageSrc ? " ftool-hero--with-visual" : ""}`}>
+          <div className={`ftool-hero${hasVisual ? " ftool-hero--with-visual" : ""}`}>
             <div>
               <div style={{ marginBottom: 24 }}>
                 <div style={{
@@ -194,30 +203,34 @@ export default function FreeToolLayout({
               <div className="ftool-card">{form}</div>
             </div>
 
-            {heroImageSrc && (
-              <div
-                style={{
-                  borderRadius: 18,
-                  overflow: "clip",
-                  border: "1px solid rgba(13,60,252,0.18)",
-                  background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
-                  boxShadow: "0 14px 40px rgba(13,60,252,0.10)",
-                  aspectRatio: "16 / 9",
-                }}
-              >
-                <img
-                  src={heroImageSrc}
-                  alt={heroImageAlt ?? ""}
-                  loading="lazy"
-                  decoding="async"
+            {heroMedia ? (
+              <div>{heroMedia}</div>
+            ) : (
+              heroImageSrc && (
+                <div
                   style={{
-                    display: "block",
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
+                    borderRadius: 18,
+                    overflow: "clip",
+                    border: "1px solid rgba(13,60,252,0.18)",
+                    background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
+                    boxShadow: "0 14px 40px rgba(13,60,252,0.10)",
+                    aspectRatio: "16 / 9",
                   }}
-                />
-              </div>
+                >
+                  <img
+                    src={heroImageSrc}
+                    alt={heroImageAlt ?? ""}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              )
             )}
           </div>
 

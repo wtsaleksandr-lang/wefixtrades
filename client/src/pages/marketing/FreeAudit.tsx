@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { colors, mkt } from "@/theme/tokens";
 import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown, MapPin, Gauge, Users } from "lucide-react";
 import ReportView from "./ReportView";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 import AuditGate from "@/components/marketing/AuditGate";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShell";
@@ -359,20 +360,63 @@ function AuditFaqSection() {
 }
 
 /* ─── Section RIGHT: Decorative mock report card ─── */
-function AuditMockReportCard() {
-  // Animate bars on mount
+interface AuditMockRow {
+  label: string;
+  score: number;
+  color: string;
+}
+interface AuditMockData {
+  initial?: string;
+  businessName?: string;
+  location?: string;
+  score?: number;
+  grade?: string;
+  gradeColor?: string;
+  rows?: AuditMockRow[];
+  footerText?: string;
+  footerNote?: string;
+  /**
+   * Deterministic reveal fraction 0..1. When provided the card renders the
+   * ring + bars at exactly this fraction with NO CSS transition — used by the
+   * throwaway video-capture harness so each frame is exact. When omitted the
+   * card keeps its original mount-then-animate behaviour (the DemoVideo
+   * fallback path relies on this).
+   */
+  reveal?: number;
+}
+
+const AUDIT_MOCK_DEFAULT_ROWS: AuditMockRow[] = [
+  { label: "GBP Health", score: 58, color: "#D97706" },
+  { label: "Site Speed", score: 44, color: "#EF4444" },
+  { label: "Reviews", score: 72, color: "#22C55E" },
+  { label: "vs Competitors", score: 61, color: "#D97706" },
+];
+
+export function AuditMockReportCard({
+  initial = "M",
+  businessName = "Mike's Plumbing Co.",
+  location = "Austin, TX",
+  score = 68,
+  grade = "C",
+  gradeColor = "#D97706",
+  rows = AUDIT_MOCK_DEFAULT_ROWS,
+  footerText = "4 priority fixes found",
+  footerNote = "Full plan inside",
+  reveal,
+}: AuditMockData = {}) {
+  // Animate bars on mount (original behaviour). When a `reveal` fraction is
+  // supplied the capture harness drives the reveal deterministically instead.
+  const driven = reveal != null;
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    if (driven) return;
     const t = setTimeout(() => setMounted(true), 80);
     return () => clearTimeout(t);
-  }, []);
+  }, [driven]);
 
-  const rows = [
-    { label: "GBP Health", score: 58, color: "#D97706" },
-    { label: "Site Speed", score: 44, color: "#EF4444" },
-    { label: "Reviews", score: 72, color: "#22C55E" },
-    { label: "vs Competitors", score: 61, color: "#D97706" },
-  ];
+  const rf = driven ? Math.max(0, Math.min(1, reveal)) : mounted ? 1 : 0;
+  const transition = driven ? "none" : undefined;
+  const shownScore = driven ? Math.round(score * rf) : score;
 
   return (
     <div
@@ -406,34 +450,34 @@ function AuditMockReportCard() {
           color: "#fff",
           flexShrink: 0,
         }}>
-          M
+          {initial}
         </div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#F9F9F9", lineHeight: 1.2 }}>
-            Mike's Plumbing Co.
+            {businessName}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 2 }}>
-            Austin, TX
+            {location}
           </div>
         </div>
       </div>
 
-      {/* Grade — static SVG ring style (score 68, grade C, amber) */}
+      {/* Grade — SVG ring; fill sweeps to `score` (grade-coloured). */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
           <svg width="56" height="56" viewBox="0 0 56 56" style={{ transform: "rotate(-90deg)" }}>
             {/* Track */}
             <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
-            {/* Fill — 68% = 138.23 of 138.23*100/100 circumference */}
+            {/* Fill — circumference 138.23; offset encodes score * reveal. */}
             <circle
               cx="28" cy="28" r="22"
               fill="none"
-              stroke="#D97706"
+              stroke={gradeColor}
               strokeWidth="5"
               strokeDasharray="138.23"
-              strokeDashoffset={mounted ? 138.23 * (1 - 68 / 100) : 138.23}
+              strokeDashoffset={138.23 * (1 - (score / 100) * rf)}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease" }}
+              style={{ transition: transition ?? "stroke-dashoffset 1.2s ease" }}
             />
           </svg>
           <div style={{
@@ -444,14 +488,14 @@ function AuditMockReportCard() {
             justifyContent: "center",
             fontSize: 11,
             fontWeight: 700,
-            color: "#D97706",
+            color: gradeColor,
           }}>
-            68
+            {shownScore}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#D97706", letterSpacing: "-0.02em", lineHeight: 1 }}>
-            C
+          <div style={{ fontSize: 22, fontWeight: 800, color: gradeColor, letterSpacing: "-0.02em", lineHeight: 1 }}>
+            {grade}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.40)", marginTop: 2 }}>
             Overall score
@@ -488,12 +532,12 @@ function AuditMockReportCard() {
                     height: "100%",
                     background: row.color,
                     borderRadius: 4,
-                    width: mounted ? `${row.score}%` : "0%",
-                    transition: "width 1.2s ease",
+                    width: `${row.score * rf}%`,
+                    transition: transition ?? "width 1.2s ease",
                   }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: row.color, flexShrink: 0, width: 24, textAlign: "right" }}>
-                  {row.score}
+                  {driven ? Math.round(row.score * rf) : row.score}
                 </span>
               </div>
             </div>
@@ -518,11 +562,11 @@ function AuditMockReportCard() {
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#D97706", flexShrink: 0 }} />
-          4 priority fixes found
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: gradeColor, flexShrink: 0 }} />
+          {footerText}
         </span>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 500, flexShrink: 0 }}>
-          Full plan inside
+          {footerNote}
         </span>
       </div>
     </div>
@@ -1680,10 +1724,19 @@ export default function FreeAudit() {
               )}
             </div>
 
-            {/* RIGHT column — mock report card */}
+            {/* RIGHT column — captured audit-result loop (Mike's Plumbing Co.,
+                seeded example data). Falls back to the static mock card if the
+                video asset fails to load. */}
             {!reportReady && (
               <div className="audit-hero-right" style={{ display: "flex", justifyContent: "flex-end", overflow: "clip" }}>
-                <AuditMockReportCard />
+                <DemoVideo
+                  src="/videos/freeaudit-tool.mp4"
+                  webm="/videos/freeaudit-tool.webm"
+                  poster="/videos/freeaudit-tool-poster.jpg"
+                  label="Free Audit example — Mike's Plumbing Co. scores an A (92) with a green score breakdown across GBP, website, search visibility, reviews and competitors."
+                  maxWidth={440}
+                  fallback={<AuditMockReportCard />}
+                />
               </div>
             )}
           </div>
