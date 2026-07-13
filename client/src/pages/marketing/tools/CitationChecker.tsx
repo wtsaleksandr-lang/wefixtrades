@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/visual-primitives";
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
 import { mkt } from "@/theme/tokens";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/citation-checker";
 
@@ -370,6 +371,15 @@ export default function CitationChecker() {
         breadcrumbLabel="Citation Checker"
         form={form}
         result={resultPanel}
+        heroMedia={
+          <DemoVideo
+            src="/videos/citationchecker-tool.mp4"
+            webm="/videos/citationchecker-tool.webm"
+            poster="/videos/citationchecker-tool-poster.jpg"
+            label="Citation Checker — a directory presence grid for the sample business lighting up green Found on 8 of 10 directories (Yelp, BBB, Angi, Thumbtack, YellowPages, Houzz, MapQuest, Manta) and red Missing on HomeAdvisor and Foursquare, with a found-vs-missing donut."
+            maxWidth={520}
+          />
+        }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E", marginTop: 0 }}>What is a business citation?</h2>
         <p>
