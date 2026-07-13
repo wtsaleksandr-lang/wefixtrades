@@ -19,6 +19,7 @@ import {
   envPresent,
   fetchWithTimeout,
   ProviderUnavailableError,
+  QuotaExhaustedError,
   type SerpProviderCall,
 } from "./types";
 
@@ -27,6 +28,21 @@ export const MONTHLY_LIMIT = 2_500;        // 2500 free credits one-time bucket
 export const SUPPORTED_ENGINES = new Set(["google_web", "google_maps"]);
 
 const BASE = process.env.SERPER_BASE_URL || "https://google.serper.dev";
+
+/** Translate a non-OK Serper response into the right error. Serper returns a
+ *  credit-exhaustion failure once the 2500-credit bucket is spent (HTTP 402,
+ *  or a body like "Not enough credits"); classify that as QuotaExhaustedError
+ *  so the orchestrator trips its cooldown circuit-breaker instead of retrying
+ *  a dead provider on every call. Everything else stays a generic status error. */
+async function throwForResponse(res: Response): Promise<never> {
+  const errBody = await res.text().catch(() => "");
+  if (res.status === 402 || /\b(credit|quota|not enough|insufficient)\b/i.test(errBody)) {
+    throw new QuotaExhaustedError(ID);
+  }
+  const err: any = new Error(`${res.status}: ${errBody.slice(0, 200)}`);
+  err.status = res.status;
+  throw err;
+}
 
 export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number): Promise<SerpResult> => {
   const apiKey = process.env.SERPER_API_KEY;
@@ -62,10 +78,7 @@ export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number
       body: JSON.stringify(body),
     }, timeoutMs);
     if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
-      const err: any = new Error(`${res.status}: ${errBody.slice(0, 200)}`);
-      err.status = res.status;
-      throw err;
+      await throwForResponse(res);
     }
     const json: any = await res.json();
     const places: any[] = Array.isArray(json?.places) ? json.places : [];
@@ -93,10 +106,7 @@ export const call: SerpProviderCall = async (req: SerpRequest, timeoutMs: number
     body: JSON.stringify(body),
   }, timeoutMs);
   if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    const err: any = new Error(`${res.status}: ${errBody.slice(0, 200)}`);
-    err.status = res.status;
-    throw err;
+    await throwForResponse(res);
   }
   const json: any = await res.json();
   const organicRaw: any[] = Array.isArray(json?.organic) ? json.organic : [];

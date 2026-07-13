@@ -37,6 +37,15 @@ interface QuotaEntry {
 }
 
 const state: Map<string, QuotaEntry> = new Map();
+
+/** Per-provider temporary cooldown (epoch ms until which the provider is
+ *  skipped). Set when a provider signals credit/quota exhaustion (e.g. Serper
+ *  "Not enough credits", any 429) so the orchestrator stops wasting a failing
+ *  round-trip on that dead provider for every subsequent call. In-memory only
+ *  — self-heals on restart or when the window elapses (credits refilled, or a
+ *  higher-priority provider like Google CSE gets configured). */
+const cooldowns: Map<string, number> = new Map();
+
 let hydrated = false;
 let persistTimer: NodeJS.Timeout | null = null;
 
@@ -159,6 +168,25 @@ export async function ensureHydrated(): Promise<void> {
   await hydrate();
 }
 
+/** Put a provider into a temporary cooldown so the orchestrator skips it on
+ *  subsequent calls. Called when the provider signals credit/quota exhaustion
+ *  (a hard, sticky failure) rather than a transient network error. */
+export function markProviderCooldown(providerId: string, ms: number): void {
+  cooldowns.set(providerId, Date.now() + ms);
+}
+
+/** True while a provider is inside its exhaustion cooldown window. Expired
+ *  entries are cleaned up lazily so the provider is retried after the window. */
+export function inCooldown(providerId: string): boolean {
+  const until = cooldowns.get(providerId);
+  if (until === undefined) return false;
+  if (Date.now() >= until) {
+    cooldowns.delete(providerId);
+    return false;
+  }
+  return true;
+}
+
 /** Remaining calls for the month. Returns Infinity if monthlyLimit <= 0
  *  (no quota tracking — pay-as-you-go providers). */
 export function quotaRemaining(providerId: string, monthlyLimit: number): number {
@@ -209,6 +237,7 @@ export function getSnapshot(): QuotaSnapshot[] {
 /** Reset in-process state. Test-only. */
 export function __resetQuotaTrackerState(): void {
   state.clear();
+  cooldowns.clear();
   hydrated = false;
   if (persistTimer) {
     clearTimeout(persistTimer);

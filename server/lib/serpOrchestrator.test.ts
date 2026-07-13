@@ -17,6 +17,7 @@
  *   3. Fall-through when CSE + Serper unavailable → Brave picks up.
  *   4. Cache hit avoids any fetch call.
  *   5. All providers unavailable → SerpOrchestratorAllProvidersFailed.
+ *   6. Credit-exhausted provider is cooled down and skipped on the next call.
  */
 
 import assert from "node:assert/strict";
@@ -198,6 +199,37 @@ async function run() {
       "should throw SerpOrchestratorAllProvidersFailed when nothing is configured",
     );
     assert.equal(fetchCalls.length, 0, "should not have made any HTTP call");
+  });
+
+  await test("Credit-exhausted provider is cooled down and skipped next call", async () => {
+    resetEnv();
+    resetState();
+    process.env.SERPER_API_KEY = "serper-key";
+    process.env.BRAVE_SEARCH_API_KEY = "brave-key";
+    let serperHits = 0;
+    fetchResponder = (url) => {
+      if (url.includes("google.serper.dev")) {
+        serperHits++;
+        return mockJson({ message: "Not enough credits" }, 402);
+      }
+      if (url.includes("api.search.brave.com")) {
+        return mockJson({
+          web: { total: 1, results: [{ title: "Brave Hit", url: "https://b.example/a", description: "d" }] },
+        });
+      }
+      return mockJson({}, 500);
+    };
+    // First call: Serper 402 (credits) → QuotaExhaustedError → cooldown, then
+    // falls through to Brave.
+    const first = await searchSerp({ query: "cooldown q1", country: "us" });
+    assert.equal(first.provider, "brave");
+    assert.equal(serperHits, 1, "Serper is tried once on the first call");
+
+    // Second call (new query so no cache hit): Serper is cooling down and must
+    // be skipped entirely — no second failing round-trip.
+    const second = await searchSerp({ query: "cooldown q2", country: "us" });
+    assert.equal(second.provider, "brave");
+    assert.equal(serperHits, 1, "Serper is skipped on the second call (still cooling down)");
   });
 
   // Restore real fetch.
