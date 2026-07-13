@@ -59,10 +59,13 @@ function generateToken(): string {
  *   stripe_subscription_id — billing identifier.
  *   user_id                — internal owner FK.
  *   slug_release_warned_at — internal slug-lifecycle cron state.
+ *   owner_phone            — owner's SMS-notify number; no public consumer
+ *                            renders it (only wizard/edit surfaces read it) and
+ *                            the server reads it from the DB, not this payload.
  *
  * Stripped (calculator_settings): see sanitizePublicCalculatorSettings.
  *
- * Kept: business_name, trade_type, tagline, logo_url, owner_email, owner_phone,
+ * Kept: business_name, trade_type, tagline, logo_url, owner_email,
  * website_url, primary_color, cta_button_text, lead_thank_you_message,
  * pricing_config, theme_overrides, plan_tier, slug, total_views,
  * show_powered_by_badge, is_duplicated, token_expires_at, created_at,
@@ -75,6 +78,7 @@ function toPublicCalculator(calculator: any): any {
     stripe_subscription_id: _stripeSub,
     user_id: _userId,
     slug_release_warned_at: _slugWarned,
+    owner_phone: _ownerPhone,
     calculator_settings,
     ...rest
   } = calculator;
@@ -82,6 +86,7 @@ function toPublicCalculator(calculator: any): any {
   void _stripeSub;
   void _userId;
   void _slugWarned;
+  void _ownerPhone;
   return {
     ...rest,
     calculator_settings: sanitizePublicCalculatorSettings(calculator_settings),
