@@ -27,6 +27,7 @@ import BookFlowDemo from "@/components/product-demos/BookFlowDemo";
 import WebCareDemo from "@/components/product-demos/WebCareDemo";
 import WebFixDemo from "@/components/product-demos/WebFixDemo";
 import SiteLaunchDemo from "@/components/product-demos/SiteLaunchDemo";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 export interface ProductMockupSection {
   number: string;
@@ -409,7 +410,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="+18" label="Page-1 wins, 90d" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
             <StatTile value="+38%" label="Organic clicks" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
           </div>
-          <RankFlowDemo />
+          <DemoVideo
+            src="/videos/rankflow-demo.mp4"
+            webm="/videos/rankflow-demo.webm"
+            poster="/videos/rankflow-demo-poster.jpg"
+            label="Product demo: a free SEO health check scans example.com and returns an A grade with 100 mobile and desktop performance scores and green Core Web Vitals."
+            fallback={<RankFlowDemo />}
+          />
         </div>
       ),
     },
@@ -585,7 +592,14 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="23 → 1" label="Issues fixed" color="cyanSoft" size="sm" icon={<ShieldCheck size={14} />} />
             <StatTile value="+184%" label="Organic traffic (example)" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
           </div>
-          <WebFixDemo />
+          <DemoVideo
+            src="/videos/webfix-demo.mp4"
+            webm="/videos/webfix-demo.webm"
+            poster="/videos/webfix-demo-poster.jpg"
+            label="Product demo: a Lighthouse performance gauge climbing from 42 to 98 as WebFix fixes site issues, with issues dropping 23 to 1 and LCP 4.8s to 1.8s."
+            fallback={<WebFixDemo />}
+            maxWidth={400}
+          />
         </div>
       ),
     },
