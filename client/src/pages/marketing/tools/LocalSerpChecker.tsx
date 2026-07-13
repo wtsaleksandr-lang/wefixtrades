@@ -35,6 +35,7 @@ import { BarComparisonCard } from "@/components/ui/visual-primitives";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/local-serp-checker";
 
@@ -607,6 +608,15 @@ export default function LocalSerpChecker() {
         breadcrumbLabel="Local SERP Checker"
         form={form}
         result={resultPanel}
+        heroMedia={
+          <DemoVideo
+            src="/videos/serpchecker-tool.mp4"
+            webm="/videos/serpchecker-tool.webm"
+            poster="/videos/serpchecker-tool-poster.jpg"
+            label="Local SERP Checker — a Google Local Pack for 'emergency plumber' in Denver, CO, with the sample business ranking #1 above two competitors, each with star ratings and review counts."
+            maxWidth={520}
+          />
+        }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>What this tool does</h2>
         <p>

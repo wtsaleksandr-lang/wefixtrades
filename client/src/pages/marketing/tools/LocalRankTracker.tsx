@@ -40,6 +40,7 @@ import { Link } from "wouter";
 import { MonthlyBarSeries } from "@/components/ui/visual-primitives";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/local-rank-tracker";
 
@@ -646,6 +647,15 @@ export default function LocalRankTracker() {
           </div>
         }
         result={resultPanel}
+        heroMedia={
+          <DemoVideo
+            src="/videos/ranktracker-tool.mp4"
+            webm="/videos/ranktracker-tool.webm"
+            poster="/videos/ranktracker-tool-poster.jpg"
+            label="Local Rank Tracker — the sample business ranks across three engines at once: #1 on Google Maps, #3 on Google Web, and #6 on the national web index, each flagged Top 10, with a visibility bar chart above."
+            maxWidth={520}
+          />
+        }
       >
         {WhyPartner}
 

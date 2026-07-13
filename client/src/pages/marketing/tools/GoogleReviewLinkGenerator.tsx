@@ -30,6 +30,7 @@ import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Copy, CheckCircle2, AlertCircle, ArrowRight, Info } from "lucide-react";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/google-review-link-generator";
 
@@ -358,6 +359,15 @@ export default function GoogleReviewLinkGenerator() {
         breadcrumbLabel="Google Review Link Generator"
         form={form}
         result={resultPanel}
+        heroMedia={
+          <DemoVideo
+            src="/videos/reviewlink-tool.mp4"
+            webm="/videos/reviewlink-tool.webm"
+            poster="/videos/reviewlink-tool-poster.jpg"
+            label="Google Review Link Generator — a match-found card for the sample business showing its one-click Google review URL, a large scannable QR code labelled Scan to review, and its Place ID."
+            maxWidth={520}
+          />
+        }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>What is a Google review link?</h2>
         <p>
