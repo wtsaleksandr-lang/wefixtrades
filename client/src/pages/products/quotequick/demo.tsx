@@ -33,8 +33,8 @@ const POSTER_PATHS = {
 } as const;
 
 const VIDEO_CAPTIONS = {
-  homeowner: "60-second tour of the customer experience",
-  trade: "60-second tour of the trade setup flow",
+  homeowner: "Watch a customer get an instant quote",
+  trade: "See a calculator built in seconds",
 } as const;
 
 const TAB_CAPTIONS = {
@@ -345,7 +345,7 @@ export default function QuoteCalculatorDemo() {
     <MarketingLayout>
       <PageMeta
         title="See how QuoteQuick works"
-        description="Watch a 60-second tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
+        description="Take a quick tour of QuoteQuick — the online quote calculator that captures leads and bookings while you sleep."
         canonical="/products/quickquotepro/demo"
         keywords={["quotequick tour", "quote calculator tour", "how quotequick works"]}
       />
@@ -489,7 +489,7 @@ export default function QuoteCalculatorDemo() {
                 marginRight: "auto",
               }}
             >
-              A 60-second tour of what your customers see — then build your own
+              A quick look at what your customers see — then build your own
               for free.
             </p>
           </div>
