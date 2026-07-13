@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import {
   Zap, Calendar, Bot, MessageSquare, LayoutDashboard, Palette,
@@ -232,6 +233,22 @@ function AnalyticsMockup() {
   );
 }
 
+/* Captured, seeded portal-dashboard loop — a fictional "Summit Plumbing Co."
+ * QuoteQuick command center with KPIs animating in. Falls back to the static
+ * AnalyticsMockup if the video asset fails to load. */
+function AnalyticsDashboardVideo() {
+  return (
+    <DemoVideo
+      src="/videos/portal-dashboard-demo.mp4"
+      webm="/videos/portal-dashboard-demo.webm"
+      poster="/videos/portal-dashboard-demo-poster.jpg"
+      label="Product demo: a sample QuoteQuick command center for Summit Plumbing Co. fills in live — 47 quotes sent this month (+18%), $18,400 in Stripe deposits, a 62% quote conversion rate, a 14% deposit-paid rate, and rising quotes-per-month, all animating up on one dashboard."
+      fallback={<AnalyticsMockup />}
+      maxWidth={440}
+    />
+  );
+}
+
 function TemplateMockup() {
   const templates = [
     { name: "Classic Single", color: colors.accent.blueTint, accent: colors.accent.blue },
@@ -333,7 +350,7 @@ const DEEP_SECTIONS: DeepSection[] = [
     bulletColor: "#D97706",
     ctaColor: "#D97706",
     testId: "deep-section-analytics",
-    mockup: AnalyticsMockup,
+    mockup: AnalyticsDashboardVideo,
   },
   {
     id: "templates",
