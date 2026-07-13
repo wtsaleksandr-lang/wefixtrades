@@ -104,6 +104,19 @@ const SCORE_BAND_COLORS = {
   HIGH: "#EF4444",
 } as const;
 
+/**
+ * Text-safe darker band colours — the vivid SCORE_BAND_COLORS are fine as
+ * gauge/bar FILLS (graphical bands) but fail WCAG AS TEXT on white: HIGH
+ * #EF4444 = 3.76:1, MEDIUM #F59E0B ≈1.9:1, LOW #22C55E ≈1.9:1. The gauge's big
+ * numeral + band label are text, so they use these ≥4.5:1 variants (red-700 /
+ * amber-700 / green-700) while the arc bands keep the vivid palette.
+ */
+const SCORE_BAND_TEXT_COLORS = {
+  LOW: "#15803D",   // green-700  ≈ 4.9:1 on white
+  MEDIUM: "#B45309", // amber-700 ≈ 4.9:1 on white
+  HIGH: "#B91C1C",   // red-700   ≈ 5.9:1 on white
+} as const;
+
 export function colorForScore10(score10: number): string {
   // Color boundaries MUST match the band-label boundaries (HIGH ≥8, MEDIUM
   // 3–8, LOW <3) so a bar's colour never disagrees with its printed band.
@@ -112,6 +125,13 @@ export function colorForScore10(score10: number): string {
   if (score10 >= 8) return SCORE_BAND_COLORS.HIGH;
   if (score10 >= 3) return SCORE_BAND_COLORS.MEDIUM;
   return SCORE_BAND_COLORS.LOW;
+}
+
+/** Contrast-safe (≥4.5:1 on white) band colour for TEXT — value + band label. */
+export function textColorForScore10(score10: number): string {
+  if (score10 >= 8) return SCORE_BAND_TEXT_COLORS.HIGH;
+  if (score10 >= 3) return SCORE_BAND_TEXT_COLORS.MEDIUM;
+  return SCORE_BAND_TEXT_COLORS.LOW;
 }
 
 export default function LocalRankflux() {
@@ -343,6 +363,7 @@ export default function LocalRankflux() {
             poster="/videos/rankflux-tool-poster.jpg"
             label="Local Rankflux — the volatility gauge sweeps to today's Google Local score with a 7-day trend."
             maxWidth={520}
+            fallback={<VolatilityGauge score10={6.2} />}
           />
         }
       >
@@ -414,6 +435,9 @@ export function VolatilityGauge({ score10 }: { score10: number }) {
   const needleX = 120 + needleLength * Math.cos(angleRad);
   const needleY = 130 + needleLength * Math.sin(angleRad);
   const color = colorForScore10(safeScore);
+  // Text-safe deepened variant for the numeral + band label (the vivid `color`
+  // is fine for the icon/arc fills but fails WCAG as text on white).
+  const textColor = textColorForScore10(safeScore);
   const band = safeScore >= 8 ? "HIGH" : safeScore >= 3 ? "MEDIUM" : "LOW";
 
   return (
@@ -442,11 +466,11 @@ export function VolatilityGauge({ score10 }: { score10: number }) {
       </svg>
       <div style={{ marginTop: -6, display: "flex", alignItems: "baseline", gap: 8 }}>
         <Activity size={20} color={color} />
-        <span data-testid="text-rankflux-score" style={{ fontSize: 36, fontWeight: 900, color, letterSpacing: "-0.02em" }}>
+        <span data-testid="text-rankflux-score" style={{ fontSize: 36, fontWeight: 900, color: textColor, letterSpacing: "-0.02em" }}>
           {safeScore.toFixed(1)}
         </span>
         <span style={{ fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.55)" }}>/ 10</span>
-        <span data-testid="text-rankflux-band" style={{ fontSize: 14, fontWeight: 700, color }}>{band}</span>
+        <span data-testid="text-rankflux-band" style={{ fontSize: 14, fontWeight: 700, color: textColor }}>{band}</span>
       </div>
     </div>
   );

@@ -1735,7 +1735,21 @@ export default function FreeAudit() {
                   poster="/videos/freeaudit-tool-poster.jpg"
                   label="Free Audit example — Mike's Plumbing Co. scores an A (92) with a green score breakdown across GBP, website, search visibility, reviews and competitors."
                   maxWidth={440}
-                  fallback={<AuditMockReportCard />}
+                  fallback={
+                    <AuditMockReportCard
+                      score={92}
+                      grade="A"
+                      gradeColor="#22C55E"
+                      rows={[
+                        { label: "GBP Health", score: 94, color: "#22C55E" },
+                        { label: "Site Speed", score: 90, color: "#22C55E" },
+                        { label: "Search Visibility", score: 88, color: "#22C55E" },
+                        { label: "Reviews", score: 96, color: "#22C55E" },
+                        { label: "vs Competitors", score: 91, color: "#22C55E" },
+                      ]}
+                      footerText="2 quick wins found"
+                    />
+                  }
                 />
               </div>
             )}

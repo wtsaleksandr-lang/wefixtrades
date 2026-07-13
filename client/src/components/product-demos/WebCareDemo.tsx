@@ -48,8 +48,8 @@ export default function WebCareDemo() {
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           <Mini label="Checks 30d" value="2,880" color="#10B981" />
-          <Mini label="Updates" value="47" color={mkt.accent} />
-          <Mini label="Security checks" value="OK" color={mkt.accent} />
+          <Mini label="Updates" value="47" color={mkt.accentOnDark} />
+          <Mini label="Security checks" value="OK" color={mkt.accentOnDark} />
         </div>
 
         {/* Auto-update toast */}

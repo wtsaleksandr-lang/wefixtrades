@@ -59,6 +59,26 @@ const TOOL_PATH = "/tools/local-rank-grid";
  *  (a loss) or green (a win). */
 const NEUTRAL_PIN = "#94a3b8";
 
+/** Static representative hero shown if the tool video fails to load — a live
+ *  RankGridHero seeded with a plausible 25-cell scan (mix of Local-Pack,
+ *  page-1 and dead-zone cells) so the fallback still reads as a real scan. */
+const FALLBACK_HERO_RANKS: (number | null)[] = [
+  1, 2, 3, 4, 5,
+  2, 1, 3, 6, 8,
+  1, 2, 4, 10, 12,
+  3, 5, 7, 15, 20,
+  2, 1, 9, null, null,
+];
+const FALLBACK_HERO_HML = FALLBACK_HERO_RANKS.reduce(
+  (acc, r) => {
+    if (r == null || r > 10) acc.low++;
+    else if (r <= 3) acc.high++;
+    else acc.med++;
+    return acc;
+  },
+  { high: 0, med: 0, low: 0 },
+);
+
 const FAQ_ITEMS = [
   {
     question: "What is a geo-grid rank scan?",
@@ -770,6 +790,15 @@ export default function LocalRankGrid() {
             poster="/videos/rankgrid-tool-poster.jpg"
             label="Local Rank Grid — a 5x5 geo-grid heatmap paints in green-to-red across the city with SoLV, ARP and ATRP stats."
             maxWidth={520}
+            fallback={
+              <RankGridHero
+                ranks={FALLBACK_HERO_RANKS}
+                high={FALLBACK_HERO_HML.high}
+                med={FALLBACK_HERO_HML.med}
+                low={FALLBACK_HERO_HML.low}
+                total={FALLBACK_HERO_RANKS.length}
+              />
+            }
           />
         }
       >

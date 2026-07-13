@@ -79,7 +79,7 @@ export default function BookFlowDemo() {
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: `1px solid ${mkt.onDarkBorder}` }}>
           <span style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>Today's revenue</span>
-          <span style={{ fontSize: 18, fontWeight: 700, color: mkt.accent, fontVariantNumeric: "tabular-nums" }}>${bookedCount * 310}</span>
+          <span style={{ fontSize: 18, fontWeight: 700, color: mkt.accentOnDark, fontVariantNumeric: "tabular-nums" }}>${bookedCount * 310}</span>
         </div>
       </div>
     </DemoFrame>

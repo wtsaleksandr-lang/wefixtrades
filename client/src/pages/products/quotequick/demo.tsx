@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
+import { useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, colors } from "@/theme/tokens";
@@ -301,6 +302,10 @@ export default function QuoteCalculatorDemo() {
   // so the page still looks intentional.
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Compute reduced-motion at RENDER so autoPlay is never true for a
+  // reduced-motion user — a post-mount pause would still flash a frame of
+  // autoplay. Mirrors DemoVideo's `autoPlay={!reduced}` pattern.
+  const reduced = useReducedMotion();
 
   // Wave 52 — POV tabs. Default homeowner; ?tab=trade deep-links to the
   // trade view. URL is rewritten via replaceState on tab change so deep
@@ -321,17 +326,17 @@ export default function QuoteCalculatorDemo() {
     setVideoFailed(false);
   }, [pov]);
 
-  // Accessibility — honour prefers-reduced-motion: pause the autoplay loop so
-  // the poster/first frame stays put (the tour remains fully visible, just still).
+  // Accessibility — honour prefers-reduced-motion. autoPlay is already gated at
+  // render (`autoPlay={!reduced}`); this belt-and-suspenders pause covers a
+  // runtime setting change and a fresh <video> element on POV switch.
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!reduced) return;
     const v = videoRef.current;
     if (v) {
       v.autoplay = false;
       v.pause();
     }
-  }, [pov]);
+  }, [pov, reduced]);
 
   const switchTab = (next: Pov) => {
     setPov(next);
@@ -608,7 +613,7 @@ export default function QuoteCalculatorDemo() {
                   ref={videoRef}
                   key={pov}
                   poster={POSTER_PATHS[pov]}
-                  autoPlay
+                  autoPlay={!reduced}
                   loop
                   muted
                   playsInline
