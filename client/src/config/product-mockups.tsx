@@ -475,7 +475,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
                 the FAQ confirms ("Do I own the website? Yes."). */}
             <StatTile value="You own it" label="Site, design & content" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
           </div>
-          <SiteLaunchDemo />
+          <DemoVideo
+            src="/videos/sitelaunch-demo.mp4"
+            webm="/videos/sitelaunch-demo.webm"
+            poster="/videos/sitelaunch-demo-poster.jpg"
+            label="Product demo: a wireframe morphs into a finished trade homepage, the URL flips from a dev preview to https://your-trade.com Live, and it launches with a Lighthouse score of 98, indexed by Google."
+            fallback={<SiteLaunchDemo />}
+          />
         </div>
       ),
     },
@@ -532,7 +538,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="2,880" label="Checks / month" color="cyanSoft" size="sm" icon={<Clock size={14} />} />
             <StatTile value="< 30s" label="Alert latency" color="lavender" size="sm" icon={<Zap size={14} />} />
           </div>
-          <WebCareDemo />
+          <DemoVideo
+            src="/videos/webcare-demo.mp4"
+            webm="/videos/webcare-demo.webm"
+            poster="/videos/webcare-demo-poster.jpg"
+            label="Product demo: uptime checks fill all-green across the last 4.5 hours, showing 2,880 checks, 47 updates and security OK, then a WordPress plugin auto-updates from WP Forms 1.8.4 to 1.8.5 and the security and SSL check passes."
+            fallback={<WebCareDemo />}
+          />
         </div>
       ),
     },
@@ -777,7 +789,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="0" label="Phone-tag rounds" color="mint" size="sm" icon={<ShieldCheck size={14} />} />
             <StatTile value="Same day" label="Funds available" color="lavender" size="sm" icon={<Clock size={14} />} />
           </div>
-          <BookFlowDemo />
+          <DemoVideo
+            src="/videos/bookflow-demo.mp4"
+            webm="/videos/bookflow-demo.webm"
+            poster="/videos/bookflow-demo-poster.jpg"
+            label="Product demo: open calendar slots flip to booked as customers self-book through the week, Chris T. books Wednesday at 13:00, and today's revenue ticks up to $1240."
+            fallback={<BookFlowDemo />}
+          />
         </div>
       ),
     },
