@@ -243,7 +243,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <StatTile value="12" label="Issues fixed" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
           <StatTile value="#3" label="Map pack rank" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
         </div>
-        <MapGuardDemo />
+        <DemoVideo
+          src="/videos/mapguard-demo.mp4"
+          webm="/videos/mapguard-demo.webm"
+          poster="/videos/mapguard-demo-poster.jpg"
+          label="Product demo: a 5×5 local-rank heatmap fills from red to green as average Maps rank climbs from 8.2 to 3.1 and a Top 3 chip pulses."
+          fallback={<MapGuardDemo />}
+        />
       </div>,
     },
     {
@@ -299,7 +305,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="< 30m" label="Avg reply time" color="lavender" size="sm" icon={<MessageSquare size={14} />} />
             <StatTile value="+1.2★" label="30-day lift" color="mint" size="sm" icon={<TrendingUp size={14} />} />
           </div>
-          <ReputationShieldDemo />
+          <DemoVideo
+            src="/videos/reputationshield-demo.mp4"
+            webm="/videos/reputationshield-demo.webm"
+            poster="/videos/reputationshield-demo-poster.jpg"
+            label="Product demo: a 1-star review is intercepted, AI drafts and posts a personal reply, and the star rating climbs from 4.2 to 4.9."
+            fallback={<ReputationShieldDemo />}
+          />
         </div>
       ),
     },
@@ -357,7 +369,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="4" label="Channels per click" color="lavender" size="sm" icon={<Send size={14} />} />
             <StatTile value="+340%" label="Engagement lift (example)" color="mint" size="sm" icon={<TrendingUp size={14} />} />
           </div>
-          <SocialSyncDemo />
+          <DemoVideo
+            src="/videos/socialsync-demo.mp4"
+            webm="/videos/socialsync-demo.webm"
+            poster="/videos/socialsync-demo-poster.jpg"
+            label="Product demo: three branded trade posts appear in a weekly content calendar and publish to Facebook, Instagram, Google Business, and LinkedIn at once — +340% engagement."
+            fallback={<SocialSyncDemo />}
+          />
         </div>
       ),
     },
