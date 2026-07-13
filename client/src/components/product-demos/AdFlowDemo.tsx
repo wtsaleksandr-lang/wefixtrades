@@ -61,12 +61,17 @@ export default function AdFlowDemo() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10, height: 80, padding: "8px 4px", borderRadius: 10, background: "rgba(255,255,255,0.02)", border: `1px solid ${mkt.onDarkBorder}` }}>
           {WEEKS.map((w, i) => {
             const visible = loop.step >= i;
-            const height = (w.cpl / WEEKS[0].cpl) * 100;
+            // Pixel height (not %) so the bar has a definite size — a percentage
+            // height resolves against the auto-height flex column (align-items:
+            // flex-end keeps it content-sized), which collapses every bar to
+            // minHeight. Max ~44px sits inside the 64px chart body, leaving room
+            // for the week label beneath it.
+            const height = (w.cpl / WEEKS[0].cpl) * 44;
             return (
               <div key={w.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
-                  animate={visible ? { height: `${height}%`, opacity: 1 } : { height: 0, opacity: 0 }}
+                  animate={visible ? { height, opacity: 1 } : { height: 0, opacity: 0 }}
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   style={{ width: "100%", background: w.color, borderRadius: "4px 4px 0 0", minHeight: 4 }}
                 />

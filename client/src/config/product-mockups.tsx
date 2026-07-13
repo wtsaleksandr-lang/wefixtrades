@@ -104,7 +104,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="< 30s" label="Avg pick-up" color="lavender" size="sm" />
             <StatTile value="240+" label="Trades businesses" color="mint" size="sm" />
           </div>
-          <TradeLineChatDemo />
+          <DemoVideo
+            src="/videos/tradeline-demo.mp4"
+            webm="/videos/tradeline-demo.webm"
+            poster="/videos/tradeline-demo-poster.jpg"
+            label="Product demo: a customer texts about a burst pipe at 2:47 AM, TradeLine quotes $185–$240, and auto-books a technician — ✓ Booked, tech ETA 41 minutes, +$185 captured."
+            fallback={<TradeLineChatDemo />}
+          />
         </div>
       ),
     },
@@ -670,7 +676,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="~1 hr" label="Your time / month" color="lavender" size="sm" icon={<Clock size={14} />} />
             <StatTile value="+184%" label="Organic traffic (example)" color="mint" size="sm" icon={<TrendingUp size={14} />} />
           </div>
-          <ContentFlowDemo />
+          <DemoVideo
+            src="/videos/contentflow-demo.mp4"
+            webm="/videos/contentflow-demo.webm"
+            poster="/videos/contentflow-demo-poster.jpg"
+            label="Product demo: a trade blog article drafts itself in real time, then publishes to your-trade.com/blog and auto-distributes to Facebook, Instagram, LinkedIn, and Google Business."
+            fallback={<ContentFlowDemo />}
+          />
         </div>
       ),
     },
@@ -730,7 +742,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
             <StatTile value="3.2×" label="ROAS" color="mint" size="sm" icon={<Zap size={14} />} />
             <StatTile value="+340%" label="vs DIY ads (example)" color="lavender" size="sm" icon={<Sparkles size={14} />} />
           </div>
-          <AdFlowDemo />
+          <DemoVideo
+            src="/videos/adflow-demo.mp4"
+            webm="/videos/adflow-demo.webm"
+            poster="/videos/adflow-demo-poster.jpg"
+            label="Product demo: managed Google + Meta ad campaigns drive cost-per-lead down from $42 to $19 over four weeks — a 55% drop — while leads rise to 38 per week at $722 spend and 3.2× ROAS."
+            fallback={<AdFlowDemo />}
+          />
         </div>
       ),
     },
