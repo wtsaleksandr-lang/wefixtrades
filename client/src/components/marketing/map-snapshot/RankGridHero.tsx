@@ -45,6 +45,15 @@ export interface RankGridHeroProps {
 }
 
 const rgb = (r: number, g: number, b: number) => `rgb(${r}, ${g}, ${b})`;
+/**
+ * Darken an rgb triple toward black by factor `f` (0..1, lower = darker) so a
+ * saturated accent (esp. the mid-gradient orange/yellow) is legible AS TEXT on
+ * the light `accentSoft` tint. The tint background keeps the original bright
+ * accent; only the big numeral text is deepened. f=0.5 clears WCAG ≥4.5:1
+ * across the whole green→yellow→red gradient on a near-white surface.
+ */
+const darkenRgb = ([r, g, b]: [number, number, number], f: number) =>
+  rgb(Math.round(r * f), Math.round(g * f), Math.round(b * f));
 const INK = "rgb(17, 24, 39)";
 const SUBTLE = "rgb(100, 116, 139)";
 
@@ -55,6 +64,7 @@ function StatCell({
   caption,
   accent,
   accentSoft,
+  accentText,
   big,
   compact,
 }: {
@@ -64,6 +74,8 @@ function StatCell({
   caption: string;
   accent: string;
   accentSoft: string;
+  /** Deepened accent used for the big numeral text (contrast-safe on the tint). */
+  accentText: string;
   big?: boolean;
   compact?: boolean;
 }) {
@@ -107,14 +119,14 @@ function StatCell({
             fontSize: big ? (compact ? 30 : 38) : compact ? 22 : 28,
             fontWeight: 900,
             lineHeight: 1,
-            color: big ? accent : INK,
+            color: big ? accentText : INK,
             letterSpacing: "-0.02em",
           }}
         >
           {value}
         </span>
         {unit && (
-          <span style={{ fontSize: big ? 16 : 13, fontWeight: 800, color: big ? accent : SUBTLE }}>
+          <span style={{ fontSize: big ? 16 : 13, fontWeight: 800, color: big ? accentText : SUBTLE }}>
             {unit}
           </span>
         )}
@@ -155,6 +167,11 @@ export function RankGridHero({
     metrics.solv == null ? null : Math.max(1, Math.round(20 - (metrics.solv / 100) * 19));
   const [r, g, b] = rankPinRgb(solvRank);
   const accent = rgb(r, g, b);
+  // Deepened variant for the big numeral TEXT — the bright accent (esp. the
+  // mid-gradient orange ≈2.5:1) fails WCAG as text on the light tint; darkening
+  // toward black clears ≥4.5:1 across the whole gradient while the tint/border
+  // keep the original hue.
+  const accentText = darkenRgb([r, g, b], 0.5);
   const accentSoft = `rgba(${r}, ${g}, ${b}, 0.10)`;
   const accentRing = `rgba(${r}, ${g}, ${b}, 0.28)`;
 
@@ -204,6 +221,7 @@ export function RankGridHero({
           compact={compact}
           accent={accent}
           accentSoft={accentSoft}
+          accentText={accentText}
           value={metrics.solv == null ? "—" : String(metrics.solv)}
           unit={metrics.solv == null ? undefined : "%"}
           label="SoLV"
@@ -213,6 +231,7 @@ export function RankGridHero({
           compact={compact}
           accent={accent}
           accentSoft={accentSoft}
+          accentText={accentText}
           value={fmt1(metrics.arp)}
           label="ARP"
           caption="Avg rank where you appear"
@@ -221,6 +240,7 @@ export function RankGridHero({
           compact={compact}
           accent={accent}
           accentSoft={accentSoft}
+          accentText={accentText}
           value={fmt1(metrics.atrp)}
           label="ATRP"
           caption="Avg rank across every cell"

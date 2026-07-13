@@ -132,7 +132,7 @@ export default function TradeLineChatDemo() {
               style={{ marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${mkt.onDarkBorder}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}
             >
               <div style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: "monospace" }}>2:47 AM • Auto-handled</div>
-              <div style={{ fontSize: 11, color: mkt.accent, fontWeight: 600 }}>+$185 captured</div>
+              <div style={{ fontSize: 11, color: mkt.accentOnDark, fontWeight: 600 }}>+$185 captured</div>
             </motion.div>
           )}
         </div>
