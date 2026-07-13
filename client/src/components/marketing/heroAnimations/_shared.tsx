@@ -85,16 +85,17 @@ export function AnimationFrame({
   aspect?: "square" | "auto";
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const isAuto = aspect === "auto";
   return (
     <div
       ref={ref}
       role="img"
       aria-label={ariaLabel}
       data-testid="hero-animation-frame"
-      style={aspect === "auto" ? { ...frameStyle, aspectRatio: "auto", minHeight: 300 } : frameStyle}
+      style={isAuto ? frameAutoStyle : frameStyle}
     >
       <div style={dotGridStyle} aria-hidden="true" />
-      <div style={frameInnerStyle}>{children}</div>
+      <div style={isAuto ? frameInnerAutoStyle : frameInnerStyle}>{children}</div>
     </div>
   );
 }
@@ -123,6 +124,32 @@ const dotGridStyle: CSSProperties = {
 const frameInnerStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 24,
+};
+
+/* Auto-height variant. The default `frameInnerStyle` is `position: absolute`,
+   which takes the content out of flow so it can never give the frame any
+   height — under `aspect="auto"` that pinned the frame to `minHeight: 300`
+   and `overflow: hidden` clipped taller content (MapGuard's header + 5×5 grid
+   + rank-tick row is ~490px). Here the frame is a flex box that centers its
+   in-flow inner, so the frame grows to fit its content while `minHeight: 300`
+   stays a floor and short content (SocialSync/WebCare) stays vertically
+   centered. */
+const frameAutoStyle: CSSProperties = {
+  ...frameStyle,
+  aspectRatio: "auto",
+  minHeight: 300,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const frameInnerAutoStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
