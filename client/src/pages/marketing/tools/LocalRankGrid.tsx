@@ -50,6 +50,7 @@ import {
 } from "@/components/marketing/map-snapshot/CellDrillDown";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
@@ -762,6 +763,15 @@ export default function LocalRankGrid() {
         breadcrumbLabel="Local Rank Grid"
         form={form}
         result={resultPanel}
+        heroMedia={
+          <DemoVideo
+            src="/videos/rankgrid-tool.mp4"
+            webm="/videos/rankgrid-tool.webm"
+            poster="/videos/rankgrid-tool-poster.jpg"
+            label="Local Rank Grid — a 5x5 geo-grid heatmap paints in green-to-red across the city with SoLV, ARP and ATRP stats."
+            maxWidth={520}
+          />
+        }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>Why one address isn't enough</h2>
         <p>

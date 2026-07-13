@@ -39,6 +39,7 @@ import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Activity, ShieldCheck, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 
 import { ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
+import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/local-rankflux";
 
@@ -103,7 +104,7 @@ const SCORE_BAND_COLORS = {
   HIGH: "#EF4444",
 } as const;
 
-function colorForScore10(score10: number): string {
+export function colorForScore10(score10: number): string {
   // Color boundaries MUST match the band-label boundaries (HIGH ≥8, MEDIUM
   // 3–8, LOW <3) so a bar's colour never disagrees with its printed band.
   // The old intermediate orange step at ≥6 turned bars orange while the label
@@ -335,6 +336,15 @@ export default function LocalRankflux() {
         path={TOOL_PATH}
         breadcrumbLabel="Local Rankflux"
         form={form}
+        heroMedia={
+          <DemoVideo
+            src="/videos/rankflux-tool.mp4"
+            webm="/videos/rankflux-tool.webm"
+            poster="/videos/rankflux-tool-poster.jpg"
+            label="Local Rankflux — the volatility gauge sweeps to today's Google Local score with a 7-day trend."
+            maxWidth={520}
+          />
+        }
       >
         {/* Borrowed-credibility band — per Alex Q3, NO fake testimonials,
             NO fake customer counts, NO fake star ratings. Tech-stack
@@ -393,7 +403,7 @@ export default function LocalRankflux() {
  * green/yellow/orange/red mirror the bar-chart palette. SVG keeps the
  * bundle lean (no extra dep) and renders crisply at any size.
  */
-function VolatilityGauge({ score10 }: { score10: number }) {
+export function VolatilityGauge({ score10 }: { score10: number }) {
   // SVG canvas: 240x140, semicircle centered at (120, 130), radius 100.
   // The needle starts pointing at -180° (left) and rotates clockwise to
   // 0° (right). MozCast score 0..10 → angle -180..0.
