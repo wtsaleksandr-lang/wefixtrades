@@ -41,6 +41,8 @@ import {
   quotaRemaining,
   recordError,
   recordSuccess,
+  markProviderCooldown,
+  inCooldown,
   getSnapshot,
   type QuotaSnapshot,
 } from "./serpQuotaTracker";
@@ -140,6 +142,14 @@ const PROVIDER_ORDER: Record<SerpEngine, string[]> = {
 };
 
 const REQUEST_TIMEOUT_MS = 5_000;
+
+// When a provider signals hard credit/quota exhaustion (QuotaExhaustedError or
+// a 429), skip it for this long instead of re-attempting the dead provider on
+// every subsequent call. Self-heals after the window (credits refill, quota
+// month rolls over, or a higher-priority provider is configured). In-memory —
+// a restart clears it. 30 min balances "stop wasting failing round-trips" with
+// "recover reasonably quickly".
+const PROVIDER_COOLDOWN_MS = 30 * 60 * 1_000;
 
 // P1-7: aggregate ceiling for a single searchSerp() call. Without this the
 // provider loop tries up to 6 providers at REQUEST_TIMEOUT_MS each
@@ -331,6 +341,15 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
       continue;
     }
 
+    // Circuit-breaker: skip a provider that recently signalled credit/quota
+    // exhaustion so we don't burn a guaranteed-failing round-trip (and a noisy
+    // error log) on every call until its cooldown window elapses.
+    if (inCooldown(providerId)) {
+      log.debug(`[serp] ${providerId} skipped: cooling down after recent exhaustion`);
+      errors.push({ provider: providerId, error: "cooling down (recent exhaustion)" });
+      continue;
+    }
+
     // Quota check (Infinity for pay-as-you-go).
     const remaining = quotaRemaining(providerId, mod.MONTHLY_LIMIT);
     if (remaining <= 0) {
@@ -368,15 +387,17 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
         continue;
       }
       if (err instanceof QuotaExhaustedError) {
-        log.warn(`[serp] ${providerId} quota exhausted at provider`);
+        log.warn(`[serp] ${providerId} quota exhausted at provider — cooling down`);
         errors.push({ provider: providerId, error: "quota exhausted at provider" });
         recordError(providerId, mod.MONTHLY_LIMIT, "quota exhausted");
+        markProviderCooldown(providerId, PROVIDER_COOLDOWN_MS);
         continue;
       }
       // 429 from provider → treat as quota exhaustion for this cycle.
       if (status === 429) {
-        log.warn(`[serp] ${providerId} returned 429 — falling through`);
+        log.warn(`[serp] ${providerId} returned 429 — cooling down and falling through`);
         recordError(providerId, mod.MONTHLY_LIMIT, `429: ${message}`);
+        markProviderCooldown(providerId, PROVIDER_COOLDOWN_MS);
         errors.push({ provider: providerId, error: `429: ${message}` });
         continue;
       }
