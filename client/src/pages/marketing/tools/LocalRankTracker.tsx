@@ -288,7 +288,7 @@ export default function LocalRankTracker() {
           width: "100%",
           padding: "14px 16px",
           borderRadius: 12,
-          background: loading ? "rgba(34,197,94,0.6)" : "rgb(34,197,94)",
+          background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
           color: "rgb(255,255,255)",
           fontSize: 15,
           fontWeight: 700,

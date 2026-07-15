@@ -113,6 +113,30 @@ export default function SiteChatWidget() {
     return () => io.disconnect();
   }, [location]);
 
+  /* Tools-polish (#hero-cta): on tall phones (~812/844px) the fixed launcher's
+   * bottom-right band overlaps the SplitHero CTA pair ("Get Started", "See
+   * Pricing", etc.) at rest — the 2nd CTA's bottom-right corner sits under it.
+   * A static offset can't fix this (the CTA is a fixed distance from the TOP,
+   * the launcher from the BOTTOM — they only collide in a ~750–850px window and
+   * a lift regresses other heights). So we reuse the exact footer pattern: while
+   * a hero CTA cluster sits in the launcher's band, fade + disable the launcher
+   * (CSS-gated to ≤640px). It returns the moment the user scrolls past the hero. */
+  const [heroCtaUnderFab, setHeroCtaUnderFab] = useState(false);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const cluster = document.querySelector('[data-testid="split-hero-cta-cluster"]');
+    if (!cluster) {
+      setHeroCtaUnderFab(false);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => setHeroCtaUnderFab(entries[0]?.isIntersecting ?? false),
+      { rootMargin: "-85% 0px 0px 0px" },
+    );
+    io.observe(cluster);
+    return () => io.disconnect();
+  }, [location]);
+
   /* P1-2 (night audit 2026-06-11): GLOBAL guarantee that the launcher never
    * covers a form control the user is interacting with at phone widths.
    * The route lift above fixes the auth forms' resting layout, but ANY
@@ -276,7 +300,7 @@ export default function SiteChatWidget() {
         <button
           onClick={openChat}
           aria-label={showDot ? "Open chat, 1 unread message" : "Open chat"}
-          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}${footerUnderFab ? " wft-chat-bubble--footer-clear" : ""}${formControlFocused ? " wft-chat-bubble--form-focus" : ""}`}
+          className={`wft-chat-bubble${onConversionForm ? " wft-chat-bubble--lifted" : ""}${footerUnderFab ? " wft-chat-bubble--footer-clear" : ""}${heroCtaUnderFab ? " wft-chat-bubble--hero-clear" : ""}${formControlFocused ? " wft-chat-bubble--form-focus" : ""}`}
           style={{
             position: "fixed",
             right: 24,
@@ -709,6 +733,13 @@ export default function SiteChatWidget() {
           .wft-chat-bubble--form-focus {
             opacity: 0 !important;
             transform: translateY(12px) !important;
+            pointer-events: none !important;
+          }
+          /* Hero CTA pair sits in the launcher's band on tall phones — yield so
+             the primary/secondary CTAs stay fully tappable. Mobile only: on
+             desktop the hero CTAs are top-left, nowhere near the launcher. */
+          .wft-chat-bubble--hero-clear {
+            opacity: 0 !important;
             pointer-events: none !important;
           }
         }

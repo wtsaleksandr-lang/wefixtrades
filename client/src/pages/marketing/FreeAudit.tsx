@@ -1497,6 +1497,43 @@ export default function FreeAudit() {
                     )}
                   </div>
 
+                  {/* Primary submit — mirrors the input's Enter behaviour so the
+                      affordance is explicit (input alone read as a weak CTA). */}
+                  <button
+                    type="button"
+                    data-testid="button-audit-submit"
+                    disabled={loadingSearch}
+                    onClick={() => {
+                      if (predictions.length > 0) {
+                        if (highlightedIndex >= 0 && highlightedIndex < predictions.length) {
+                          runAudit(predictions[highlightedIndex], lastTradeRef.current || undefined);
+                        } else if (predictions.length === 1) {
+                          runAudit(predictions[0], lastTradeRef.current || undefined);
+                        } else {
+                          setDropdownOpen(true);
+                          setHighlightedIndex(0);
+                        }
+                      } else if (query.trim().length >= 3) {
+                        runSearch(query);
+                      }
+                    }}
+                    style={{
+                      marginTop: 12,
+                      width: "100%",
+                      minHeight: 52,
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: loadingSearch ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
+                      color: "rgb(255,255,255)",
+                      fontSize: 15,
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: loadingSearch ? "default" : "pointer",
+                    }}
+                  >
+                    {loadingSearch ? "Searching…" : "Run my audit"}
+                  </button>
+
                   {/* Autocomplete dropdown */}
                   {dropdownOpen && !loadingSearch && searchDone && (
                     <div

@@ -440,12 +440,13 @@ export default function GoogleReviewLinkGenerator() {
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "rgb(13,60,252)",
-              color: "rgb(255,255,255)",
+              background: "rgba(13,60,252,0.10)",
+              color: "rgb(13,60,252)",
               padding: "8px 14px",
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
+              border: "1px solid rgba(13,60,252,0.25)",
               textDecoration: "none",
             }}
           >

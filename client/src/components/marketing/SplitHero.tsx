@@ -207,9 +207,22 @@ export default function SplitHero({
         }
         @media (max-width: 560px) {
           /* Mobile CTAs stay INLINE (side-by-side) as an equal-width pair on
-             one row — owner rule: 2 buttons inline on desktop AND mobile. */
+             one row — owner rule: 2 buttons inline on desktop AND mobile.
+             Tighten type/letter-spacing/padding/gap so short labels
+             ("Get Started →", "Fix My Website", "Start SocialSync") fit on
+             ONE line inside a ~155px button without wrapping or clipping.
+             !important is required to beat the inline CTA styles. */
           .split-hero-cta-cluster { flex-wrap: nowrap !important; }
-          .split-hero-cta-cluster > a { flex: 1 1 0; min-width: 0; }
+          .split-hero-cta-cluster > a {
+            flex: 1 1 0;
+            min-width: 0;
+            font-size: 12px !important;
+            letter-spacing: 0.02em !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            gap: 6px !important;
+            white-space: nowrap !important;
+          }
         }
       `}</style>
     </section>
