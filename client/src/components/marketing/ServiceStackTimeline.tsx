@@ -15,13 +15,26 @@ import { useRef, type ReactNode } from "react";
 import { motion, useScroll, useTransform, useInView, useReducedMotion } from "framer-motion";
 import { Link } from "wouter";
 import { ArrowRight, Globe, ShieldCheck, Megaphone, Calendar, Check } from "lucide-react";
-import { Ticker, MONO, SANS, TILE } from "@/components/effortel-blocks";
+import { Ticker, MONO, SANS } from "@/components/effortel-blocks";
 
 const BG = "#dfe8e6";
 const SURFACE = "#f5fcff";
 const INK = "#22282a";
 const MUTED = "#5f6f77";
 const ACCENT = "#3d5a5e";
+
+/**
+ * Stat-tile palette — reuses the site's semantic stat colours (the same soft
+ * green / amber pills the home page already uses in StickyStackCards &
+ * CapabilitiesShowcase, plus the brand blue) instead of the generic pastel
+ * set, so these KPIs read as on-brand indicators. green = win, amber =
+ * cost/spec, blue = neutral fact.
+ */
+const BRAND_TILE = {
+  green: { bg: "#d1fae5", ink: "#059669", muted: "rgba(5,150,105,0.72)" },
+  amber: { bg: "#fef3c7", ink: "#d97706", muted: "rgba(217,119,6,0.75)" },
+  blue: { bg: "#e0eaff", ink: "#0d3cfc", muted: "rgba(13,60,252,0.66)" },
+} as const;
 
 interface Service {
   number: string;
@@ -43,7 +56,7 @@ const SERVICES: Service[] = [
     href: "/products/sitelaunch",
     icon: Globe,
     bullets: ["5–7 days from kickoff to live", "Lighthouse 95+ on mobile", "Hosting + maintenance included"],
-    tile: <KpiTile a={{ value: "5–7", label: "Days to live", color: "cyanSoft" }} b={{ value: "98", label: "Lighthouse mobile", color: "mint" }} c={{ value: "$0", label: "Hosting fees", color: "lavender" }} />,
+    tile: <KpiTile a={{ value: "5–7", label: "Days to live", color: "blue" }} b={{ value: "98", label: "Lighthouse mobile", color: "green" }} c={{ value: "$0", label: "Hosting fees", color: "green" }} />,
   },
   {
     number: "02",
@@ -53,7 +66,7 @@ const SERVICES: Service[] = [
     href: "/products/webcare",
     icon: ShieldCheck,
     bullets: ["Uptime tracked 24/7", "Security & SSL checks", "Monthly health report"],
-    tile: <KpiTile a={{ value: "24/7", label: "Uptime monitoring", color: "mint" }} b={{ value: "15m", label: "Check interval", color: "cyanSoft" }} c={{ value: "< 30s", label: "Alert latency", color: "lavender" }} />,
+    tile: <KpiTile a={{ value: "24/7", label: "Uptime monitoring", color: "green" }} b={{ value: "15m", label: "Check interval", color: "blue" }} c={{ value: "< 30s", label: "Alert latency", color: "amber" }} />,
   },
   {
     number: "03",
@@ -63,7 +76,7 @@ const SERVICES: Service[] = [
     href: "/products/adflow",
     icon: Megaphone,
     bullets: ["Cost-per-lead drops weekly", "Trade-buyer creative", "Plain-English reports"],
-    tile: <KpiTile a={{ value: "$42→$19", label: "CPL, week 1 to 4", color: "pink" }} b={{ value: "3.2×", label: "ROAS", color: "mint" }} c={{ value: "+340%", label: "vs DIY ads", color: "lavender" }} />,
+    tile: <KpiTile a={{ value: "$42→$19", label: "CPL, week 1 to 4", color: "green" }} b={{ value: "3.2×", label: "ROAS", color: "amber" }} c={{ value: "+340%", label: "vs DIY ads", color: "green" }} />,
   },
   {
     number: "04",
@@ -73,15 +86,15 @@ const SERVICES: Service[] = [
     href: "/products/bookflow",
     icon: Calendar,
     bullets: ["Self-booked from any device", "8 payment methods", "Funds available next day"],
-    tile: <KpiTile a={{ value: "62%", label: "Self-booked", color: "cyanSoft" }} b={{ value: "8", label: "Payment methods", color: "mint" }} c={{ value: "Same day", label: "Funds available", color: "lavender" }} />,
+    tile: <KpiTile a={{ value: "62%", label: "Self-booked", color: "green" }} b={{ value: "8", label: "Payment methods", color: "blue" }} c={{ value: "Same day", label: "Funds available", color: "green" }} />,
   },
 ];
 
-function KpiTile({ a, b, c }: { a: { value: string; label: string; color: keyof typeof TILE }; b: { value: string; label: string; color: keyof typeof TILE }; c: { value: string; label: string; color: keyof typeof TILE } }) {
+function KpiTile({ a, b, c }: { a: { value: string; label: string; color: keyof typeof BRAND_TILE }; b: { value: string; label: string; color: keyof typeof BRAND_TILE }; c: { value: string; label: string; color: keyof typeof BRAND_TILE } }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
       {[a, b, c].map((s) => {
-        const t = TILE[s.color];
+        const t = BRAND_TILE[s.color];
         return (
           <div key={s.label} style={{ background: t.bg, borderRadius: 14, padding: "14px 12px" }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: t.ink, letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 6, fontFamily: SANS }}>
