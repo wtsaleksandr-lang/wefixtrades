@@ -254,7 +254,7 @@ export default function LocalRankGrid() {
           onChange={setKeyword}
           required
           hideHelpCue
-          topRightCue={<KeywordExamplesModal triggerTestId="rankgrid-keyword-examples" />}
+          topRightCue={<KeywordExamplesModal onPick={setKeyword} triggerTestId="rankgrid-keyword-examples" />}
           placeholder="plumber near me"
           testId="input-rankgrid-keyword"
           helpText="Which keyword to check ranks against — e.g. 'plumber near me'."

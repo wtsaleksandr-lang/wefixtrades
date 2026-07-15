@@ -90,11 +90,16 @@ function CueTrigger({ testid }: { testid?: string }) {
 
 export interface KeywordExamplesModalProps {
   triggerTestId?: string;
+  /** Called with the keyword the user taps — the tool wires this to its target-
+   *  keyword input. Tapping a chip fills the field and closes the modal. */
+  onPick?: (keyword: string) => void;
 }
 
 export function KeywordExamplesModal({
   triggerTestId = "keyword-examples-trigger",
+  onPick,
 }: KeywordExamplesModalProps) {
+  const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const trade = q.trim();
   const tl = trade.toLowerCase();
@@ -102,8 +107,12 @@ export function KeywordExamplesModal({
   const filtered = trade
     ? EXAMPLES.filter((e) => e.trade.toLowerCase().includes(tl) || e.keywords.some((k) => k.includes(tl)))
     : EXAMPLES;
+  const pick = (k: string) => {
+    onPick?.(k);
+    setOpen(false);
+  };
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <span>
           <CueTrigger testid={triggerTestId} />
@@ -139,7 +148,7 @@ export function KeywordExamplesModal({
             }}
           />
           <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, margin: "6px 0 0" }}>
-            Type your trade for instant keyword ideas, or browse the examples below.
+            Type your trade for instant keyword ideas, then <strong>tap any keyword to use it</strong>.
             Add your city for stronger local intent — e.g. <strong>"plumber Denver"</strong>.
           </p>
         </div>
@@ -161,9 +170,17 @@ export function KeywordExamplesModal({
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {ideas.map((k) => (
-                  <span key={k} style={{ fontSize: 12, fontWeight: 600, color: BRAND_PRIMARY, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 999, padding: "4px 10px" }}>
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => pick(k)}
+                    title={`Use "${k}"`}
+                    style={{ fontSize: 12, fontWeight: 600, color: BRAND_PRIMARY, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 999, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#dbe3ff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#eef2ff"; }}
+                  >
                     {k}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -175,9 +192,17 @@ export function KeywordExamplesModal({
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {e.keywords.map((k) => (
-                  <span key={k} style={{ fontSize: 12, fontWeight: 600, color: "#334155", background: "#eef2ff", border: "1px solid #dbe3ff", borderRadius: 999, padding: "4px 10px" }}>
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => pick(k)}
+                    title={`Use "${k}"`}
+                    style={{ fontSize: 12, fontWeight: 600, color: "#334155", background: "#eef2ff", border: "1px solid #dbe3ff", borderRadius: 999, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#dbe3ff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#eef2ff"; }}
+                  >
                     {k}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

@@ -229,7 +229,7 @@ export default function LocalRankTracker() {
           onChange={setKeyword}
           required
           hideHelpCue
-          topRightCue={<KeywordExamplesModal triggerTestId="rt-keyword-examples" />}
+          topRightCue={<KeywordExamplesModal onPick={setKeyword} triggerTestId="rt-keyword-examples" />}
           placeholder="emergency plumber"
           testId="input-rt-keyword"
           helpText="The phrase you want to rank for. Try a high-intent query a customer would actually type."
