@@ -254,7 +254,7 @@ export default function FreeToolLayout({
 
           {children && (
             <div style={{
-              maxWidth: 640,
+              maxWidth: 820,
               margin: "48px auto 0",
               paddingTop: 28,
               borderTop: "1px solid rgba(0,0,0,0.07)",
@@ -270,7 +270,7 @@ export default function FreeToolLayout({
               tool funnels into the upgrade path; keeps the free tool
               honest as a lead magnet rather than a dead-end utility. */}
           <div style={{
-            maxWidth: 640,
+            maxWidth: 820,
             margin: "40px auto 0",
             padding: "18px 20px",
             borderRadius: 16,

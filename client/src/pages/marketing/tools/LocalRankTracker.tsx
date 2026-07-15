@@ -18,6 +18,7 @@
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import KeywordExamplesModal from "@/components/marketing/KeywordExamplesModal";
 import ToolFaq from "@/components/marketing/ToolFaq";
 import {
   FreeToolFormField,
@@ -253,6 +254,7 @@ export default function LocalRankTracker() {
           value={businessName}
           onChange={setBusinessName}
           required
+          hideHelpCue
           placeholder="Joe's Plumbing"
           testId="input-rt-business"
           helpText="Your business name as it appears on your Google Business Profile. Include city if your name is generic."
@@ -263,6 +265,8 @@ export default function LocalRankTracker() {
           value={keyword}
           onChange={setKeyword}
           required
+          hideHelpCue
+          topRightCue={<KeywordExamplesModal triggerTestId="rt-keyword-examples" />}
           placeholder="emergency plumber"
           testId="input-rt-keyword"
           helpText="The phrase you want to rank for. Try a high-intent query a customer would actually type."
@@ -273,6 +277,7 @@ export default function LocalRankTracker() {
           value={location}
           onChange={setLocation}
           required
+          hideHelpCue
           placeholder="Austin, TX"
           testId="input-rt-location"
           helpText="City + state, postcode, or any locality string. The search is run from this location."
