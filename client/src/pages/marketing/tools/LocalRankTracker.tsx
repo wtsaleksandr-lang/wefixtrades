@@ -91,6 +91,16 @@ const ENGINES: EngineCardData[] = [
 /** Sample positions shown in the hero preview card (Summit Peak Plumbing). */
 const TRACKER_PREVIEW: Record<EngineKey, number> = { googleMaps: 1, googleWeb: 3, braveWeb: 6 };
 
+/** Sample 8-week rank history per engine (ends at TRACKER_PREVIEW) — feeds the
+ *  hero preview's "rank over time" sparkline (lower = better). */
+const TRACKER_HISTORY: Record<EngineKey, number[]> = {
+  googleMaps: [4, 3, 3, 2, 2, 1, 1, 1],
+  googleWeb: [8, 7, 6, 5, 4, 4, 3, 3],
+  braveWeb: [11, 10, 9, 8, 7, 7, 6, 6],
+};
+const HIST_N = 8;
+const HIST_MAX = 12; // rank scale floor for the y-axis
+
 const FAQ_ITEMS = [
   {
     question: "How is this different from the Local Rank Grid?",
@@ -616,6 +626,8 @@ export default function LocalRankTracker() {
             aria-label="Sample rank check: Summit Peak Plumbing across three engines"
             style={{
               width: "100%",
+              height: "100%",
+              boxSizing: "border-box",
               background: "rgb(255,255,255)",
               border: "1px solid rgba(0,0,0,0.08)",
               borderRadius: 20,
@@ -669,6 +681,44 @@ export default function LocalRankTracker() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Rank over time — 8-week trend per engine (lower = better). Gives
+                the preview the BrightLocal-style history graph and fills the
+                card so it lines up with the left column. */}
+            <div style={{ marginTop: "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(0,0,0,0.45)" }}>
+                  Rank over time
+                </span>
+                <span style={{ fontSize: 10, color: "rgba(0,0,0,0.4)" }}>Last 8 weeks · lower is better</span>
+              </div>
+              <div style={{ position: "relative", background: "rgb(248,250,252)", border: "1px solid rgb(238,242,247)", borderRadius: 12, padding: "10px 12px", height: 108, boxSizing: "border-box" }}>
+                <svg viewBox="0 0 320 88" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: "100%" }} aria-label="Sample 8-week rank trend across engines">
+                  {/* #1 (top) + #10 reference guides */}
+                  {[1, 10].map((rank) => {
+                    const y = 8 + ((rank - 1) / (HIST_MAX - 1)) * (88 - 16);
+                    return <line key={rank} x1={0} x2={320} y1={y} y2={y} stroke="rgba(0,0,0,0.06)" strokeWidth={1} />;
+                  })}
+                  {ENGINES.map((eng) => {
+                    const hist = TRACKER_HISTORY[eng.key];
+                    const pts = hist
+                      .map((r, i) => `${(i / (HIST_N - 1)) * 320},${(8 + ((r - 1) / (HIST_MAX - 1)) * (88 - 16)).toFixed(1)}`)
+                      .join(" ");
+                    const last = hist[hist.length - 1];
+                    const lx = 320;
+                    const ly = 8 + ((last - 1) / (HIST_MAX - 1)) * (88 - 16);
+                    return (
+                      <g key={eng.key}>
+                        <polyline points={pts} fill="none" stroke={eng.accent} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                        <circle cx={lx - 3} cy={ly} r={3.5} fill={eng.accent} />
+                      </g>
+                    );
+                  })}
+                </svg>
+                <span style={{ position: "absolute", top: 6, left: 12, fontSize: 9, fontWeight: 700, color: "rgba(0,0,0,0.35)" }}>#1</span>
+                <span style={{ position: "absolute", bottom: 8, left: 12, fontSize: 9, fontWeight: 700, color: "rgba(0,0,0,0.35)" }}>#10</span>
+              </div>
             </div>
           </div>
         }
