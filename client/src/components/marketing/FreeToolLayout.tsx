@@ -139,6 +139,10 @@ export default function FreeToolLayout({
           .ftool-hero--wide-visual {
             grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
             gap: 48px;
+            /* Stretch both columns to equal height so the preview card lines up
+               top-and-bottom with the left column (title → form → trust) instead
+               of floating shorter beside it. */
+            align-items: stretch;
           }
         }
         .ftool-card {
@@ -223,7 +227,7 @@ export default function FreeToolLayout({
             </div>
 
             {heroMedia ? (
-              <div>{heroMedia}</div>
+              <div style={{ height: "100%" }}>{heroMedia}</div>
             ) : (
               heroImageSrc && (
                 <div

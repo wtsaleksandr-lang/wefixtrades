@@ -25,6 +25,13 @@ const RANKS: (number | null)[] = [
 ];
 const CENTER = 12; // the "You" pin (row 2, col 2)
 
+/** Zone split of the 25 points (matches SoLV 44%): Top 3 / 4–10 / 11+ or absent. */
+const ZONES = [
+  { label: "Top 3", count: 11, color: "rgb(22, 163, 74)" },
+  { label: "4–10", count: 8, color: "rgb(234, 179, 8)" },
+  { label: "11+", count: 6, color: "rgb(220, 38, 38)" },
+];
+
 function pinColor(r: number | null): string {
   if (r == null || r > 20) return "rgb(220, 38, 38)";
   if (r <= 3) return "rgb(22, 163, 74)";
@@ -54,6 +61,9 @@ export function RankGridDemoLoop() {
       aria-label="Local Rank Grid — sample scan from business name to heatmap"
       style={{
         width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
         background: "rgb(255, 255, 255)",
         border: "1px solid rgba(0,0,0,0.08)",
         borderRadius: 20,
@@ -83,8 +93,9 @@ export function RankGridDemoLoop() {
         <span style={{ marginLeft: 8, fontSize: 11, color: MUTED, fontWeight: 600 }}>wefixtrades.com · Local Rank Grid</span>
       </div>
 
-      {/* Stage — fixed height, phases crossfade so the card never jumps. */}
-      <div style={{ position: "relative", minHeight: 384, padding: 18 }}>
+      {/* Stage — fills the column (so the card matches the left column's height,
+          tops + bottoms aligned) and crossfades phases so it never jumps. */}
+      <div style={{ position: "relative", flex: 1, minHeight: 408, padding: 18 }}>
         {/* Phase 0 — seed the form */}
         <PhaseWrap active={phase === 0}>
           <SeedForm run={phase === 0} />
@@ -175,7 +186,7 @@ function Result({ run }: { run: boolean }) {
     { label: "ATRP", value: "6.6", cap: "Avg rank across every cell" },
   ];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%" }}>
       <div style={{ display: "flex", gap: 8 }}>
         {kpis.map((k, i) => (
           <div key={k.label} className={run ? "rgd-anim" : undefined} style={{ flex: 1, minWidth: 0, borderRadius: 12, padding: "8px 10px", background: k.big ? "rgba(234,179,8,0.10)" : "rgb(248,250,252)", border: k.big ? "1px solid rgba(234,179,8,0.28)" : "1px solid rgb(238,242,247)", animation: run ? `rgd-rise 0.45s ease ${i * 0.08}s both` : undefined }}>
@@ -189,10 +200,29 @@ function Result({ run }: { run: boolean }) {
         ))}
       </div>
 
-      {/* Heatmap on a faint "city" backdrop */}
+      {/* Zone breakdown — how the 25 grid points split across rank bands (part
+          of the real report: the High/Med/Low bar). */}
+      <div className={run ? "rgd-anim" : undefined} style={{ display: "flex", alignItems: "center", gap: 10, animation: run ? "rgd-rise 0.45s ease 0.24s both" : undefined }}>
+        <div style={{ display: "flex", height: 8, flex: 1, borderRadius: 999, overflow: "hidden" }}>
+          {ZONES.map((z) => (
+            <span key={z.label} style={{ width: `${(z.count / 25) * 100}%`, background: z.color }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          {ZONES.map((z) => (
+            <span key={z.label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, color: MUTED }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: z.color }} />
+              {z.label} {z.count}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Heatmap on the real Denver map */}
       <div style={{ position: "relative", flex: 1, borderRadius: 14, overflow: "hidden", background: "rgb(238,242,247)", border: "1px solid rgba(0,0,0,0.06)" }}>
-        <div aria-hidden="true" style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(148,163,184,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.18) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridTemplateRows: "repeat(5, 1fr)", padding: 14, placeItems: "center" }}>
+        <img src="/marketing/rankgrid-demo-map.png" alt="" aria-hidden="true" loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.16)" }} />
+        <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridTemplateRows: "repeat(5, 1fr)", padding: 16, placeItems: "center" }}>
           {RANKS.map((r, i) => {
             const isYou = i === CENTER;
             return (
@@ -205,12 +235,13 @@ function Result({ run }: { run: boolean }) {
                   borderRadius: 999,
                   background: isYou ? BLUE : pinColor(r),
                   color: "rgb(255,255,255)",
+                  border: "2px solid rgba(255,255,255,0.9)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 11,
                   fontWeight: 800,
-                  boxShadow: "0 2px 5px rgba(15,23,42,0.25)",
+                  boxShadow: "0 2px 6px rgba(15,23,42,0.35)",
                   animation: run ? `rgd-pin 0.4s ease ${Math.min(i * 0.04, 0.9)}s both` : undefined,
                 }}
               >
@@ -221,7 +252,7 @@ function Result({ run }: { run: boolean }) {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED }}>
-        <Search size={12} aria-hidden="true" /> Sample scan · your service area
+        <Search size={12} aria-hidden="true" /> Sample scan · hover any point for the top 3 competitors ranking there
       </div>
     </div>
   );
