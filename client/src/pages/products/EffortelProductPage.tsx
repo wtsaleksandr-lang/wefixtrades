@@ -302,6 +302,9 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         </section>
 
         <Testimonials items={getProductTestimonials(slug)} />
+        <Faq items={cfg.faq ?? []} />
+        {/* Pricing is the LAST content section before the final CTA. Keeps the
+            comingSoon WaitlistForm adjacent to Pricing; #pricing anchor preserved. */}
         <Pricing
           pricing={cfg.pricingSection}
           primaryCta={effectiveCfg.primaryCTA}
@@ -311,7 +314,6 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         {isComingSoon && (
           <WaitlistForm productSlug={cfg.slug} productName={cfg.name} />
         )}
-        <Faq items={cfg.faq ?? []} />
         <FinalCta cfg={effectiveCfg} comingSoon={isComingSoon} oneTime={isOneTime} />
         {/* TradeLine: sticky chat-input launcher replaces the standard
             sticky-mobile CTA + global SiteChatWidget. */}
@@ -483,12 +485,12 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
                 </p>
               </Reveal>
               <Reveal delay={0.16}>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="tlhp-cta-cluster" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
                     {cfg.primaryCTA.label} <ArrowRight size={16} />
                   </CtaLink>
                   {cfg.secondaryCTA && (
-                    <CtaLink href={cfg.secondaryCTA.href} style={ctaGhost}>
+                    <CtaLink href={cfg.secondaryCTA.href} className="wft-hover-border-white" style={ctaGhost}>
                       {cfg.secondaryCTA.label}
                     </CtaLink>
                   )}
@@ -539,6 +541,10 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
             .tlhp-body { order: 3; display: flex; flex-direction: column; align-items: center; }
             .tlhp-split-text h1,
             .tlhp-split-text p { margin-left: auto !important; margin-right: auto !important; }
+            /* Hero CTAs stay INLINE (side-by-side) as an equal-width pair on
+               one row at mobile — owner rule: 2 buttons inline desktop AND mobile. */
+            .tlhp-cta-cluster { flex-wrap: nowrap !important; width: 100%; max-width: 420px; }
+            .tlhp-cta-cluster > a { flex: 1 1 0; min-width: 0; justify-content: center; }
           }
         `}</style>
       </section>

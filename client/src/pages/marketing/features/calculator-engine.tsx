@@ -26,8 +26,8 @@ function EngineMockup() {
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: "#F5F3FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Settings2 size={20} color={"#7C3AED"} />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Settings2 size={20} color={mkt.accent} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Pricing Formula Builder</div>
@@ -43,15 +43,15 @@ function EngineMockup() {
           <div key={name} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "10px 14px", borderRadius: 10,
-            background: active ? "#F5F3FF" : mkt.surface,
-            border: `1.5px solid ${active ? "#7C3AED" : mkt.border}`,
+            background: active ? mkt.accentTint : mkt.surface,
+            border: `1.5px solid ${active ? mkt.accent : mkt.border}`,
             cursor: "pointer",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 16, height: 16, borderRadius: "50%", background: active ? "#7C3AED" : mkt.border, border: `2px solid ${active ? "#7C3AED" : mkt.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", background: active ? mkt.accent : mkt.border, border: `2px solid ${active ? mkt.accent : mkt.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FFFFFF" }} />}
               </div>
-              <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "#7C3AED" : mkt.text }}>{name}</span>
+              <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? mkt.accent : mkt.text }}>{name}</span>
             </div>
             <span style={{ fontSize: 11, color: mkt.onDarkMuted }}>{example}</span>
           </div>
@@ -74,10 +74,10 @@ function EngineMockup() {
       </div>
 
       {/* Preview */}
-      <div style={{ background: "#F5F3FF", borderRadius: 12, padding: "14px 18px" }}>
+      <div style={{ background: mkt.accentTint, borderRadius: 12, padding: "14px 18px" }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: mkt.onDarkMuted, marginBottom: 6 }}>Formula Preview — 12m²</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#7C3AED", fontFamily: "monospace" }}>
-          $200 + (12 × $45) = <span style={{ color: "#6D28D9" }}>$740</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: mkt.accent, fontFamily: "monospace" }}>
+          $200 + (12 × $45) = <span style={{ color: mkt.accentDark }}>$740</span>
         </div>
         <div style={{ fontSize: 11, color: mkt.onDarkMuted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
       </div>
@@ -89,11 +89,11 @@ const config: FeaturePageConfig = {
   meta: { title: "Calculator Engine — QuoteQuick™ | Build a Pricing Calculator for Any Trade" },
   hero: {
     badge: "Calculator Engine",
-    badgeColor: "#7C3AED",
+    badgeColor: mkt.accent,
     headline: "Build a Pricing Calculator for Any Trade, Any Job",
     highlightedWords: ["Any Trade", "Any Job"],
     sub: "10 flexible pricing formula types, AI-validated configuration, and instant results — built for the complexity of real-world trades pricing.",
-    accentColor: "#7C3AED",
+    accentColor: mkt.accent,
   },
   demo: {
     label: "Formula Builder",
@@ -105,7 +105,7 @@ const config: FeaturePageConfig = {
       "AI validates your formula against real-world scenarios before publishing",
       "Configurable output range (e.g. ±10%) to account for real-world variation",
     ],
-    bulletColor: "#7C3AED",
+    bulletColor: mkt.accent,
     mockup: EngineMockup,
   },
   benefits: [
@@ -113,7 +113,7 @@ const config: FeaturePageConfig = {
       icon: Settings2,
       title: "10 Formula Types",
       body: "Every pricing model a trades business needs — from simple per-hour rates to complex multi-variable formulas with conditional pricing logic.",
-      color: "#7C3AED", bg: "#F5F3FF",
+      color: mkt.accent, bg: mkt.accentTint,
     },
     {
       icon: Bot,

@@ -78,7 +78,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     // section (#pricing) instead of leaking off to /pricing — keeps visitors
     // inside TradeLine's own funnel. Per-tier checkout buttons are unaffected.
     primaryCTA: { label: "Get Started", href: "#pricing" },
-    secondaryCTA: { label: "See It in Action", href: "/demo" },
+    secondaryCTA: { label: "See It Live", href: "/demo" },
     highlights: [
       "24/7 call and chat answering \u2014 AI picks up every call, day or night. No voicemail.",
       "Instant estimates \u2014 Quotes callers using your pricing formulas.",
@@ -133,8 +133,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Your customers get instant prices on your website. You get qualified leads with every quote. Live in 5 minutes. No platform switch. Start free \u2014 no card required.",
     category: "core",
     heroVisualType: "calculator",
-    primaryCTA: { label: "Start Free \u2014 No Card", href: "/wizard" },
-    secondaryCTA: { label: "Try a Live Demo", href: "/products/quickquotepro/demo" },
+    primaryCTA: { label: "Start Free", href: "/wizard" },
+    secondaryCTA: { label: "Live Demo", href: "/products/quickquotepro/demo" },
     highlights: [
       "Customers get instant prices, 24/7 \u2014 even when you\u2019re on a job site.",
       "Every quote becomes a lead \u2014 name, email, phone captured automatically.",
@@ -270,7 +270,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Get a professional, mobile-first trade website with built-in lead capture \u2014 custom designed, SEO-ready, and live in 5 business days. You own it. No contracts.",
     category: "core",
     heroVisualType: "website",
-    primaryCTA: { label: "Get Your Website Built", href: "#pricing" },
+    primaryCTA: { label: "Build My Site", href: "#pricing" },
     secondaryCTA: { label: "See Pricing", href: "#pricing" },
     highlights: [
       "Mobile-first design \u2014 Most of your customers will find you on their phone. Your site works perfectly on every screen.",
@@ -365,7 +365,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: `Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From ${formatPrice(REPUTATIONSHIELD.tiers[0].price)}/mo.`,
     category: "reputation",
     heroVisualType: "reviews",
-    primaryCTA: { label: "Start Getting Reviews", href: "/wizard" },
+    primaryCTA: { label: "Get Reviews", href: "/wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [
       "Customers get a friendly SMS or email after every job \u2014 automatically",
@@ -413,7 +413,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/wizard" },
-    secondaryCTA: { label: "Try Free SEO Check", href: "/demos/rankflow" },
+    secondaryCTA: { label: "Free SEO Check", href: "/demos/rankflow" },
     highlights: [
       "Keyword research targeting your services and service area",
       "On-page optimization \u2014 titles, descriptions, and page structure",
@@ -508,7 +508,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "social",
     primaryCTA: { label: "Get Started", href: "/wizard" },
-    secondaryCTA: { label: "See How It Works", href: "#pricing" },
+    secondaryCTA: { label: "How It Works", href: "#pricing" },
     highlights: [
       "AI article generation — Blog posts, service pages, and local content written in your brand voice.",
       "Social media posts — Facebook, Instagram, and Google Business posts created and scheduled automatically.",
@@ -608,7 +608,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "core",
     heroVisualType: "dashboard",
     primaryCTA: { label: "See QuoteQuick", href: "/products/quickquotepro" },
-    secondaryCTA: { label: "See QuoteQuick Pricing", href: "/pricing/quotequick" },
+    secondaryCTA: { label: "Pricing", href: "/pricing/quotequick" },
     highlights: [
       "Bundled inside QuoteQuick — every QuoteQuick plan includes the booking flow at no extra cost.",
       "Customers book online 24/7 — straight from your quote widget, hosted page, or chat.",

@@ -177,7 +177,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
       if (idx === -1) return;
       if (idx > 0) parts.push(<span key={key++}>{text.substring(0, idx)}</span>);
       parts.push(
-        <span key={key++} style={{ color: "#6EE7B7" }}>
+        <span key={key++} style={{ color: "#7CA9FF" }}>
           {word}
         </span>
       );
@@ -227,7 +227,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 border: `1px solid ${hero.accentColor}50`,
                 borderRadius: 20, padding: "5px 14px", marginBottom: 28,
               }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.02em" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#7CA9FF", letterSpacing: "0.02em" }}>
                   ✦ {hero.badge}
                 </span>
               </div>

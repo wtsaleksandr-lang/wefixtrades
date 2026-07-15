@@ -206,10 +206,10 @@ export default function SplitHero({
           .split-hero-text p { max-width: 100% !important; }
         }
         @media (max-width: 560px) {
-          /* Mobile CTAs stack full-width so the primary + secondary read as an
-             equal pair, instead of one full-width button and one narrow one
-             sized to its (shorter) label. */
-          .split-hero-cta-cluster > a { flex: 1 0 100%; }
+          /* Mobile CTAs stay INLINE (side-by-side) as an equal-width pair on
+             one row — owner rule: 2 buttons inline on desktop AND mobile. */
+          .split-hero-cta-cluster { flex-wrap: nowrap !important; }
+          .split-hero-cta-cluster > a { flex: 1 1 0; min-width: 0; }
         }
       `}</style>
     </section>
