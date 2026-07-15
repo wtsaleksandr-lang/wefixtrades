@@ -28,6 +28,7 @@
 import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import FreeToolLayout from "@/components/marketing/FreeToolLayout";
+import KeywordExamplesModal from "@/components/marketing/KeywordExamplesModal";
 import ToolFaq from "@/components/marketing/ToolFaq";
 import {
   FreeToolFormField,
@@ -241,6 +242,7 @@ export default function LocalRankGrid() {
           onChange={setKeyword}
           required
           hideHelpCue
+          topRightCue={<KeywordExamplesModal triggerTestId="rankgrid-keyword-examples" />}
           placeholder="plumber near me"
           testId="input-rankgrid-keyword"
           helpText="Which keyword to check ranks against — e.g. 'plumber near me'."

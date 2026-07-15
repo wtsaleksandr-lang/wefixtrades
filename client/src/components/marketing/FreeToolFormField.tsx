@@ -65,6 +65,9 @@ interface BaseFieldProps {
   disabled?: boolean;
   /** Optional inline style override on the wrapper. */
   wrapperStyle?: CSSProperties;
+  /** Optional cue rendered in the input's TOP-RIGHT corner (e.g. an "Examples"
+   *  modal trigger). Distinct from the top-left `?` help cue. */
+  topRightCue?: ReactNode;
   /** Optional theme override — defaults to "light". */
   theme?: "light" | "dark";
 }
@@ -117,6 +120,7 @@ function FieldWrapper({
   children,
   testId,
   trailing,
+  topRightCue,
 }: {
   htmlFor: string;
   label: string;
@@ -128,6 +132,7 @@ function FieldWrapper({
   children: ReactNode;
   testId?: string;
   trailing?: ReactNode;
+  topRightCue?: ReactNode;
 }) {
   return (
     <div
@@ -158,6 +163,14 @@ function FieldWrapper({
             label={`Help: ${label}`}
             testid={testId ? `${testId}-help` : undefined}
           />
+        </div>
+      )}
+
+      {/* Top-right cue (e.g. "Examples" modal trigger) — sits in the input's
+          top-right corner, distinct from the top-left help cue. */}
+      {topRightCue && (
+        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 3 }}>
+          {topRightCue}
         </div>
       )}
 
@@ -212,6 +225,7 @@ export function FreeToolFormField({
   pattern,
   autoFocus,
   trailing,
+  topRightCue,
   fieldStyle,
 }: InputFieldProps) {
   const generatedId = useId();
@@ -227,6 +241,7 @@ export function FreeToolFormField({
       wrapperStyle={wrapperStyle}
       testId={testId}
       trailing={trailing}
+      topRightCue={topRightCue}
     >
       <input
         id={fieldId}
@@ -254,7 +269,7 @@ export function FreeToolFormField({
         aria-label={label}
         data-testid={testId}
         className="ftool-form-field__field"
-        style={{ ...(trailing ? { paddingRight: 44 } : {}), ...(fieldStyle || {}) }}
+        style={{ ...(trailing || topRightCue ? { paddingRight: 44 } : {}), ...(fieldStyle || {}) }}
       />
     </FieldWrapper>
   );
