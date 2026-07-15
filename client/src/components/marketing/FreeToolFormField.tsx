@@ -136,7 +136,7 @@ function FieldWrapper({
 }) {
   return (
     <div
-      className={`ftool-form-field ftool-form-field--${theme}`}
+      className={`ftool-form-field ftool-form-field--${theme}${hideHelpCue ? " ftool-form-field--no-cue" : ""}`}
       style={{
         position: "relative",
         // Room on the left for the `?` help cue. Matches FreeAudit hero
@@ -178,7 +178,6 @@ function FieldWrapper({
 
       <label htmlFor={htmlFor} className="ftool-form-field__label">
         {label}
-        {required && <span className="ftool-form-field__required"> *</span>}
       </label>
 
       {/* Trailing adornment (password eye, etc.) — after the label so the
@@ -518,6 +517,10 @@ export function FreeToolFormFieldStyles() {
         letter-spacing: 0.06em;
       }
       .ftool-form-field__required { color: rgb(239,68,68); }
+      /* No help cue → the label aligns with the input's own text padding (14px)
+         instead of the 40px reserved for the top-left cue. */
+      .ftool-form-field--no-cue .ftool-form-field__label { left: 14px; }
+      .ftool-form-field--no-cue .ftool-form-field__label { max-width: calc(100% - 28px); }
 
       /* Dark-surface variant for the contact page (white-on-dark form).
          NOTE: background-COLOR longhand on purpose — the \`background:\`

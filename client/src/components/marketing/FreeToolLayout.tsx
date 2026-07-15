@@ -126,7 +126,7 @@ export default function FreeToolLayout({
           display: grid;
           grid-template-columns: minmax(0, 1fr);
           gap: 28px;
-          align-items: center;
+          align-items: start;
           margin-bottom: 16px;
         }
         @media (min-width: 900px) {
@@ -199,24 +199,27 @@ export default function FreeToolLayout({
                   margin: "0 0 4px",
                   lineHeight: 1.55,
                 }}>{subtitle}</p>
-                <div style={{
-                  marginTop: 10,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "rgba(0,0,0,0.48)",
-                }}>
-                  <span>100% free</span>
-                  <span style={{ opacity: 0.4 }}>·</span>
-                  <span>No signup</span>
-                  <span style={{ opacity: 0.4 }}>·</span>
-                  <span>Results in seconds</span>
-                </div>
               </div>
 
               <div className="ftool-card">{form}</div>
+
+              {/* Trust strip — moved BELOW the CTA (was above the card). */}
+              <div style={{
+                marginTop: 14,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 500,
+                color: "rgba(0,0,0,0.48)",
+              }}>
+                <span>100% free</span>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span>No signup</span>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span>Results in seconds</span>
+              </div>
             </div>
 
             {heroMedia ? (

@@ -51,7 +51,7 @@ import {
 } from "@/components/marketing/map-snapshot/CellDrillDown";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
-import DemoVideo from "@/components/product-demos/DemoVideo";
+import { RankGridMap } from "@/components/mapguard/RankGridMap";
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
@@ -79,6 +79,15 @@ const FALLBACK_HERO_HML = FALLBACK_HERO_RANKS.reduce(
   },
   { high: 0, med: 0, low: 0 },
 );
+/** Geo-placed cells for the hero preview map (5×5 around a sample centre). */
+const FALLBACK_HERO_CELLS = FALLBACK_HERO_RANKS.map((rank, i) => ({
+  row: Math.floor(i / 5),
+  col: i % 5,
+  rank,
+  delta7d: null,
+  lat: 39.7392 + (Math.floor(i / 5) - 2) * 0.018,
+  lng: -104.9903 + ((i % 5) - 2) * 0.022,
+}));
 
 const FAQ_ITEMS = [
   {
@@ -316,7 +325,7 @@ export default function LocalRankGrid() {
         disabled={loading}
         data-testid="button-rankgrid-submit"
         style={{
-          marginTop: 2,
+          marginTop: 14,
           width: "100%",
           padding: "14px 16px",
           borderRadius: 12,
@@ -896,22 +905,9 @@ export default function LocalRankGrid() {
         result={resultPanel}
         wideVisual
         heroMedia={
-          <DemoVideo
-            src="/videos/rankgrid-tool.mp4"
-            webm="/videos/rankgrid-tool.webm"
-            poster="/videos/rankgrid-tool-poster.jpg"
-            label="Local Rank Grid — a 5x5 geo-grid heatmap paints in green-to-red across the city with SoLV, ARP and ATRP stats."
-            maxWidth={640}
-            fallback={
-              <RankGridHero
-                ranks={FALLBACK_HERO_RANKS}
-                high={FALLBACK_HERO_HML.high}
-                med={FALLBACK_HERO_HML.med}
-                low={FALLBACK_HERO_HML.low}
-                total={FALLBACK_HERO_RANKS.length}
-              />
-            }
-          />
+          /* RankGridMap already renders the KPIs (SoLV/ARP/ATRP + High/Med/Low)
+             ON TOP and the heatmap below — mobile-first, matching the result. */
+          <RankGridMap cells={FALLBACK_HERO_CELLS} centerLabel="Sample scan · your service area" />
         }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>Why one address isn't enough</h2>
