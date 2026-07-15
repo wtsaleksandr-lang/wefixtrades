@@ -9754,6 +9754,16 @@ export interface AdvStyle {
   success?: string;
   /** W-AO-6b — error / validation-failure colour. */
   error?: string;
+  /**
+   * COLOUR-PICKER — user-saved custom colours, reusable across every
+   * ColourSwatch (hex strings, max ~16). Populated by the "＋ Save" button
+   * in any colour popover; every swatch's "Your colours" grid reads from
+   * this single shared list, so a colour saved from Accent shows up under
+   * Background, Text, etc. Round-trips through localStorage + the DB
+   * automatically (both persistence paths spread the whole `style` object)
+   * — no migration required.
+   */
+  savedColors?: string[];
   fontFamily?: AdvFontFamily;
   fieldStyle?: AdvFieldStyle;
   /**
@@ -10264,6 +10274,9 @@ type AdvStyleOptionalOnly =
   // accent/result-tinted CTA derivation (no regression).
   | 'ctaColor'
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
+  // COLOUR-PICKER — user-saved custom colours. Optional and absent from
+  // DEFAULT_ADV_STYLE (a fresh calculator starts with no saved colours).
+  | 'savedColors'
   | 'logoPlacement' | 'logoSize' | 'titleAlign'
   | 'headingWeight' | 'bodyWeight' | 'fontSize'
   // Owner toggle, optional — absent/true → trust-badge strip shows.

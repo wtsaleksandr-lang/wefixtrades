@@ -20,6 +20,11 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+// COLOUR-PICKER — tiny (2.8 kB), zero-dependency draggable saturation+hue
+// picker. Ships its own CSS by INJECTING a <style> tag at runtime (there is
+// no separate CSS file to import); on-brand sizing/overrides live in the
+// StyleTab <style> block below (.qq-style-picker scope).
+import { HexColorPicker } from 'react-colorful';
 import {
   MousePointerClick, Square, Type, Receipt,
   Layers, Box, Frame, CheckCircle2, XCircle,
@@ -324,6 +329,12 @@ export default function StyleTab({
     (next: Partial<ShellStyle>) => onChange({ ...style, ...next }),
     [style, onChange],
   );
+
+  /* COLOUR-PICKER — shared saved-colours wrapper. `Swatch` injects the shared
+   * `style.savedColors` list + a saver into every ColourSwatch, so a colour
+   * saved from one swatch is reusable from all of them. See
+   * `useSavedColorSwatch` for why the wrapper identity stays stable. */
+  const Swatch = useSavedColorSwatch(style, patch);
 
   const accent = style.accent ?? DEFAULT_SHELL_STYLE.accent;
   const background = style.background ?? DEFAULT_SHELL_STYLE.background;
@@ -700,7 +711,7 @@ export default function StyleTab({
               suggested-colour swatch when AA fails. The runtime guard
               (CONTRAST-1) still auto-corrects on render so this layer is
               informational, never blocking. */}
-          <ColourSwatch
+          <Swatch
             icon={MousePointerClick}
             label="Accent"
             testid="style-input-accent"
@@ -721,7 +732,7 @@ export default function StyleTab({
           hint="background, text, surface, border, success, error, result panel"
         >
           <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-more-row">
-            <ColourSwatch
+            <Swatch
               icon={Square}
               label="Background"
               testid="style-input-background"
@@ -732,7 +743,7 @@ export default function StyleTab({
               pairLabel="body text"
               pairRole="bg"
             />
-            <ColourSwatch
+            <Swatch
               icon={Type}
               label="Text"
               testid="style-input-text"
@@ -743,7 +754,7 @@ export default function StyleTab({
               pairLabel="surface"
               pairRole="fg"
             />
-            <ColourSwatch
+            <Swatch
               icon={Box}
               label="Surface"
               testid="style-input-surface"
@@ -754,7 +765,7 @@ export default function StyleTab({
               pairLabel="body text"
               pairRole="bg"
             />
-            <ColourSwatch
+            <Swatch
               icon={Frame}
               label="Border"
               testid="style-input-border"
@@ -762,7 +773,7 @@ export default function StyleTab({
               fallback={TOKEN_FALLBACKS.border}
               onChange={(v) => patch({ border: v })}
             />
-            <ColourSwatch
+            <Swatch
               icon={CheckCircle2}
               label="Success"
               testid="style-input-success"
@@ -774,7 +785,7 @@ export default function StyleTab({
               pairLabel="badge text"
               pairRole="bg"
             />
-            <ColourSwatch
+            <Swatch
               icon={XCircle}
               label="Error"
               testid="style-input-error"
@@ -786,7 +797,7 @@ export default function StyleTab({
               pairLabel="badge text"
               pairRole="bg"
             />
-            <ColourSwatch
+            <Swatch
               icon={Receipt}
               label="Results bg"
               testid="style-input-resultsbg"
@@ -1575,6 +1586,13 @@ export default function StyleTab({
           border-radius: 10px;
           box-shadow: 0 16px 40px rgba(15,23,42,0.18);
           display: flex; flex-direction: column; gap: 8px;
+          /* COLOUR-PICKER — the picker makes the popover ~380px tall. On a
+           * short viewport (e.g. 375px mobile in landscape) cap the height and
+           * scroll internally so the picker + Save button stay reachable rather
+           * than spilling off-screen. Paired with the top-clamp in the measure
+           * effect (POP_H). */
+          max-height: calc(100vh - 16px);
+          overflow-y: auto;
         }
         .qq-style-swatch-popover-h {
           font-size: 11.5px; font-weight: 700;
@@ -1886,6 +1904,73 @@ export default function StyleTab({
         }
         .qq-editor-shell[data-theme="dark"] .qq-style-preset:hover {
           border-color: rgba(255,255,255,0.55);
+        }
+        /* COLOUR-PICKER — draggable saturation+hue picker (react-colorful).
+         * react-colorful injects its own base CSS at runtime; these rules just
+         * size it to the popover width and make the surround on-brand. */
+        .qq-style-picker {
+          margin: 2px 0 4px;
+        }
+        .qq-style-picker .react-colorful {
+          width: 100%;
+          height: 164px;
+          gap: 8px;
+        }
+        .qq-style-picker .react-colorful__saturation {
+          border-radius: 8px;
+          border: 1px solid ${p.colors.border};
+        }
+        .qq-style-picker .react-colorful__hue {
+          height: 16px;
+          border-radius: 8px;
+          margin-top: 8px;
+        }
+        .qq-style-picker .react-colorful__pointer {
+          width: 16px; height: 16px;
+        }
+        /* COLOUR-PICKER — "Your colours" shared saved-swatch section. */
+        .qq-style-saved {
+          display: flex; flex-direction: column; gap: 6px;
+          margin: 2px 0 4px;
+        }
+        .qq-style-saved-head {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 8px;
+        }
+        .qq-style-saved-title {
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .qq-style-saved-add {
+          font-size: 11px; font-weight: 600;
+          color: ${p.colors.accent};
+          background: transparent;
+          border: 1px solid ${p.colors.border};
+          border-radius: 999px;
+          padding: 2px 8px;
+          cursor: pointer;
+          transition: background 0.12s ease, border-color 0.12s ease;
+        }
+        .qq-style-saved-add:hover {
+          border-color: ${p.colors.accent};
+          background: color-mix(in srgb, ${p.colors.accent} 10%, transparent);
+        }
+        .qq-style-saved-grid {
+          display: grid;
+          grid-template-columns: repeat(8, 1fr);
+          gap: 6px;
+        }
+        .qq-style-saved-swatch {
+          width: 20px; height: 20px;
+        }
+        .qq-style-saved-empty {
+          margin: 0;
+          font-size: 11px;
+          color: ${p.colors.muted};
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-saved-add {
+          border-color: var(--qq-border);
         }
         .qq-style-colour-row {
           display: flex; align-items: stretch; gap: 8px;
@@ -2425,6 +2510,10 @@ function BrandStudioGroup({
 }) {
   // FIX 3 — local open/setOpen removed; useFoldablePanels owns the fold.
   const bgImageInputRef = useRef<HTMLInputElement | null>(null);
+  // COLOUR-PICKER — same shared saved-colours wrapper as StyleTab, so the
+  // gradient + result-panel swatches here read/write the SAME `savedColors`
+  // list as Accent/Background/etc.
+  const Swatch = useSavedColorSwatch(style, patch);
 
   const customCss = style.customCss ?? '';
   const bgMode: AdvBgMode = style.bgMode ?? 'solid';
@@ -2602,7 +2691,7 @@ function BrandStudioGroup({
             {bgMode === 'gradient' && (
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div className="qq-style-swatches" style={{ paddingBottom: 0 }}>
-                  <ColourSwatch
+                  <Swatch
                     icon={Layers}
                     label="From"
                     testid="style-bs-bg-grad-from"
@@ -2613,7 +2702,7 @@ function BrandStudioGroup({
                     pairLabel="body text"
                     pairRole="bg"
                   />
-                  <ColourSwatch
+                  <Swatch
                     icon={Layers}
                     label="To"
                     testid="style-bs-bg-grad-to"
@@ -2731,7 +2820,7 @@ function BrandStudioGroup({
               results background tokens.
             </p>
             <div className="qq-style-swatches" style={{ paddingBottom: 0 }}>
-              <ColourSwatch
+              <Swatch
                 icon={MousePointerClick}
                 label="Accent"
                 testid="style-bs-rp-accent"
@@ -2742,7 +2831,7 @@ function BrandStudioGroup({
                 pairLabel="CTA text"
                 pairRole="bg"
               />
-              <ColourSwatch
+              <Swatch
                 icon={Receipt}
                 label="Background"
                 testid="style-bs-rp-bg"
@@ -3088,6 +3177,62 @@ function BrandStudioGroup({
   );
 }
 
+/* ─── useSavedColorSwatch — shared saved-colours wrapper ─────────────
+ *
+ * COLOUR-PICKER. Returns a `Swatch` component that wraps `ColourSwatch`,
+ * injecting the shared `style.savedColors` list + a saver. Using ONE list on
+ * `style` (reused by every swatch) is what makes a colour saved from Accent
+ * instantly reusable from Background, Text, gradient stops, etc. Both
+ * persistence paths (localStorage + DB) already spread the whole `style`
+ * object, so this round-trips with no migration.
+ *
+ * The wrapper reads fresh values from refs and is created ONCE (useMemo with
+ * empty deps) so its component identity never changes between renders. That
+ * matters: if the wrapper type changed whenever `savedColors` updated, React
+ * would remount the ColourSwatch on every Save — closing its popover
+ * mid-interaction. Stable identity + ref reads means the "Your colours" grid
+ * re-renders the instant a colour is saved, WITHOUT closing the popover.
+ * Cap at 16 (most-recent wins), de-duplicated case-insensitively.
+ *
+ * `patch` already merges into the full `style` object, so this works from both
+ * the main StyleTab scope and the nested BrandStudioGroup (gradient + result-
+ * panel swatches) — each just calls the hook with its own style + patch. */
+function useSavedColorSwatch(
+  style: ShellStyle,
+  patch: (next: Partial<ShellStyle>) => void,
+) {
+  const styleRef = useRef(style);
+  styleRef.current = style;
+  const savedColorsRef = useRef<string[]>(style.savedColors ?? []);
+  savedColorsRef.current = style.savedColors ?? [];
+  const patchRef = useRef(patch);
+  patchRef.current = patch;
+  const saveColorRef = useRef<(hex: string) => void>(() => {});
+  saveColorRef.current = (hex: string) => {
+    const h = (safeHex(hex) || hex).toLowerCase();
+    if (!h) return;
+    const rest = (styleRef.current.savedColors ?? []).filter(
+      (c) => c.toLowerCase() !== h,
+    );
+    patchRef.current({ savedColors: [...rest, h].slice(-16) });
+  };
+  return useMemo(() => {
+    return function SwatchWithSaved(
+      props: Omit<Parameters<typeof ColourSwatch>[0], 'savedColors' | 'onSaveColor'>,
+    ) {
+      return (
+        <ColourSwatch
+          {...props}
+          savedColors={savedColorsRef.current}
+          onSaveColor={(hex) => saveColorRef.current(hex)}
+        />
+      );
+    };
+    // Refs are stable; the wrapper intentionally never re-creates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
 /* ─── ColourSwatch — Wave L S1 single-row picker ─────────────────────
  *
  * Compact circle showing the current colour. Click opens a portaled
@@ -3097,13 +3242,22 @@ function BrandStudioGroup({
  * getBoundingClientRect of the trigger. */
 function ColourSwatch({
   label, value, fallback, onChange, testid, icon: Icon, onOpen,
-  pairColour, pairLabel, pairRole,
+  pairColour, pairLabel, pairRole, savedColors, onSaveColor,
 }: {
   label: string;
   value: string;
   fallback: string;
   onChange: (v: string) => void;
   testid: string;
+  /** COLOUR-PICKER — the shared list of user-saved custom colours. Rendered
+   *  as the "Your colours" grid inside the popover; the SAME list is passed to
+   *  every swatch (via the local <Swatch> wrapper), so a colour saved from one
+   *  swatch is instantly reusable from every other. Optional so the base
+   *  component still works standalone. */
+  savedColors?: string[];
+  /** COLOUR-PICKER — persist the current colour to the shared saved list.
+   *  The "＋ Save" button calls this with the popover's live hex. */
+  onSaveColor?: (hex: string) => void;
   /** W-AF-4 — optional element-type icon rendered centred in the swatch
    *  circle so the row reads as "Accent / Background / Text / Results bg"
    *  without relying on the tiny label alone. */
@@ -3170,11 +3324,26 @@ function ColourSwatch({
       if (!t) return;
       const r = t.getBoundingClientRect();
       const POP_W = 240;
-      const POP_H = 140;
+      // COLOUR-PICKER — the draggable HexColorPicker (+ "Your colours" grid +
+      // Save button) adds ~330px over the old preset-only popover, so the
+      // flip-up threshold must account for the taller box or lower swatches
+      // (e.g. Background, behind "More colours") would open clipped off the
+      // bottom. Measured full height with the contrast row + 4-row preset grid
+      // present ≈ heading + contrast(~44) + presets(~132) + picker(~188) +
+      // saved grid(~50) + colour row(~44) + padding/gaps ≈ 470. The
+      // max-height + overflow-y on .qq-style-swatch-popover is the backstop
+      // for the rare even-taller case (contrast WARNING shown).
+      const POP_H = 470;
       let left = r.left;
       if (left + POP_W > window.innerWidth - 8) left = window.innerWidth - POP_W - 8;
       let top = r.bottom + 6;
+      // Prefer opening below; flip above when it would overflow the bottom.
       if (top + POP_H > window.innerHeight - 8) top = r.top - POP_H - 6;
+      // Never let the popover start above the viewport top — when neither
+      // placement fully fits (very short viewport / tall popover) clamp to 8
+      // and let the popover's own max-height + overflow-y scroll handle the
+      // remainder. This guarantees the picker stays reachable on 375px mobile.
+      top = Math.max(8, top);
       setPos({ top, left: Math.max(8, left) });
     };
     measure();
@@ -3323,6 +3492,63 @@ function ColourSwatch({
               );
             })}
           </div>
+          {/* COLOUR-PICKER — draggable saturation+hue picker. Live-updates the
+              colour as the pointer drags (onChange fires continuously), so the
+              preview pane repaints in real time. Scoped/sized by .qq-style-picker
+              in the StyleTab <style> block; react-colorful injects its base CSS
+              at runtime. */}
+          <div className="qq-style-picker" data-testid={`${testid}-picker`}>
+            <HexColorPicker color={expandedHex} onChange={onChange} />
+          </div>
+          {/* COLOUR-PICKER — "Your colours": the shared saved-swatch grid. Same
+              clickable-swatch pattern as the preset grid, but sourced from the
+              cross-swatch `savedColors` list. A "＋ Save" pill stores the popover's
+              current colour. Rendered only when the wrapper wired the props. */}
+          {(savedColors !== undefined || onSaveColor) && (
+            <div className="qq-style-saved" data-testid={`${testid}-saved`}>
+              <div className="qq-style-saved-head">
+                <span className="qq-style-saved-title">Your colours</span>
+                {onSaveColor && (
+                  <button
+                    type="button"
+                    className="qq-style-saved-add"
+                    aria-label="Save current colour"
+                    title="Save this colour for reuse"
+                    data-testid={`${testid}-save`}
+                    onClick={() => onSaveColor(expandedHex)}
+                  >＋ Save</button>
+                )}
+              </div>
+              {savedColors && savedColors.length > 0 ? (
+                <div
+                  className="qq-style-saved-grid"
+                  role="listbox"
+                  aria-label="Your saved colours"
+                >
+                  {savedColors.map((hex, i) => {
+                    const isActive = expandedHex.toLowerCase() === hex.toLowerCase();
+                    return (
+                      <button
+                        key={`${hex}-${i}`}
+                        type="button"
+                        className={`qq-style-preset qq-style-saved-swatch${isActive ? ' is-active' : ''}`}
+                        style={{ background: hex }}
+                        aria-label={hex}
+                        aria-pressed={isActive}
+                        title={hex}
+                        data-testid={`${testid}-saved-${hex.slice(1)}`}
+                        onClick={() => onChange(hex)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="qq-style-saved-empty">
+                  Save a colour to reuse it on any swatch.
+                </p>
+              )}
+            </div>
+          )}
           <div className="qq-style-colour-row">
             <input
               type="color"
