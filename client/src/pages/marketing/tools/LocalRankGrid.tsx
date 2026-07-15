@@ -51,7 +51,7 @@ import {
 } from "@/components/marketing/map-snapshot/CellDrillDown";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
-import { RankGridMap } from "@/components/mapguard/RankGridMap";
+import { RankGridDemoLoop } from "@/components/marketing/RankGridDemoLoop";
 
 const TOOL_PATH = "/tools/local-rank-grid";
 
@@ -905,9 +905,9 @@ export default function LocalRankGrid() {
         result={resultPanel}
         wideVisual
         heroMedia={
-          /* RankGridMap already renders the KPIs (SoLV/ARP/ATRP + High/Med/Low)
-             ON TOP and the heatmap below — mobile-first, matching the result. */
-          <RankGridMap cells={FALLBACK_HERO_CELLS} centerLabel="Sample scan · your service area" />
+          /* Single unified card that loops the whole flow: seed the form → scan
+             → heatmap + KPIs result (~4s), so visitors see the tool "work". */
+          <RankGridDemoLoop />
         }
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "rgb(30,30,30)", marginTop: 0 }}>Why one address isn't enough</h2>

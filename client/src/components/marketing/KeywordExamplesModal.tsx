@@ -111,6 +111,14 @@ export function KeywordExamplesModal({
     onPick?.(k);
     setOpen(false);
   };
+  // Lock the page behind the modal so scrolling stays inside it (the Dialog's
+  // own lock wasn't holding here — the body scrolled behind).
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
