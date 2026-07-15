@@ -33,6 +33,24 @@ const EXAMPLES: { trade: string; keywords: string[] }[] = [
   { trade: "Locksmith", keywords: ["locksmith near me", "emergency locksmith", "car lockout", "rekey locks"] },
 ];
 
+/** Generate the common local-search keyword patterns for any trade the user
+ *  types (works for niches not in the curated list). */
+function keywordIdeas(t: string): string[] {
+  const s = t.replace(/\s+/g, " ").trim();
+  if (!s) return [];
+  return [
+    `${s} near me`,
+    `emergency ${s}`,
+    `best ${s} near me`,
+    `affordable ${s}`,
+    `24 hour ${s}`,
+    `local ${s}`,
+    `${s} services`,
+    `${s} cost`,
+    `${s} prices`,
+  ];
+}
+
 function CueTrigger({ testid }: { testid?: string }) {
   return (
     <button
@@ -77,6 +95,13 @@ export interface KeywordExamplesModalProps {
 export function KeywordExamplesModal({
   triggerTestId = "keyword-examples-trigger",
 }: KeywordExamplesModalProps) {
+  const [q, setQ] = React.useState("");
+  const trade = q.trim();
+  const tl = trade.toLowerCase();
+  const ideas = trade ? keywordIdeas(tl) : [];
+  const filtered = trade
+    ? EXAMPLES.filter((e) => e.trade.toLowerCase().includes(tl) || e.keywords.some((k) => k.includes(tl)))
+    : EXAMPLES;
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -95,47 +120,73 @@ export function KeywordExamplesModal({
           </DialogTitle>
         </DialogHeader>
 
-        <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: "0 0 4px" }}>
-          Enter the exact phrase a customer would type into Google. Add your city
-          for stronger local intent — e.g. <strong>"plumber near me"</strong> or{" "}
-          <strong>"plumber Denver"</strong>.
-        </p>
+        <div>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Enter your trade — e.g. plumber, roofer, mobile mechanic"
+            aria-label="Your trade or service"
+            data-testid="keyword-search-input"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "11px 13px",
+              borderRadius: 10,
+              border: "1px solid #dbe3ff",
+              fontSize: 14,
+              color: BRAND_INK,
+              outline: "none",
+            }}
+          />
+          <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, margin: "6px 0 0" }}>
+            Type your trade for instant keyword ideas, or browse the examples below.
+            Add your city for stronger local intent — e.g. <strong>"plumber Denver"</strong>.
+          </p>
+        </div>
 
         <div
           style={{
             display: "grid",
             gap: 12,
-            marginTop: 8,
-            maxHeight: "56vh",
+            marginTop: 12,
+            maxHeight: "50vh",
             overflowY: "auto",
             paddingRight: 4,
           }}
         >
-          {EXAMPLES.map((e) => (
+          {trade && (
+            <div data-testid="keyword-ideas">
+              <div style={{ fontSize: 13, fontWeight: 700, color: BRAND_PRIMARY, marginBottom: 6 }}>
+                Keyword ideas for &ldquo;{trade}&rdquo;
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {ideas.map((k) => (
+                  <span key={k} style={{ fontSize: 12, fontWeight: 600, color: BRAND_PRIMARY, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 999, padding: "4px 10px" }}>
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {filtered.map((e) => (
             <div key={e.trade}>
               <div style={{ fontSize: 13, fontWeight: 700, color: BRAND_INK, marginBottom: 6 }}>
                 {e.trade}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {e.keywords.map((k) => (
-                  <span
-                    key={k}
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#334155",
-                      background: "#eef2ff",
-                      border: "1px solid #dbe3ff",
-                      borderRadius: 999,
-                      padding: "4px 10px",
-                    }}
-                  >
+                  <span key={k} style={{ fontSize: 12, fontWeight: 600, color: "#334155", background: "#eef2ff", border: "1px solid #dbe3ff", borderRadius: 999, padding: "4px 10px" }}>
                     {k}
                   </span>
                 ))}
               </div>
             </div>
           ))}
+          {trade && filtered.length === 0 && (
+            <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
+              No curated examples for that trade — use the ideas above as your starting point.
+            </p>
+          )}
         </div>
 
         <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, margin: "10px 0 0", paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>

@@ -41,7 +41,6 @@ import { Link } from "wouter";
 import { MonthlyBarSeries } from "@/components/ui/visual-primitives";
 
 import { ToolLeadCapture, ToolUpsellCTA } from "@/components/marketing/ToolLeadCapture";
-import DemoVideo from "@/components/product-demos/DemoVideo";
 
 const TOOL_PATH = "/tools/local-rank-tracker";
 
@@ -88,6 +87,9 @@ const ENGINES: EngineCardData[] = [
     accent: "rgb(251,113,36)",
   },
 ];
+
+/** Sample positions shown in the hero preview card (Summit Peak Plumbing). */
+const TRACKER_PREVIEW: Record<EngineKey, number> = { googleMaps: 1, googleWeb: 3, braveWeb: 6 };
 
 const FAQ_ITEMS = [
   {
@@ -204,45 +206,6 @@ export default function LocalRankTracker() {
   }
 
   /* ─── Hero illustration — 3 engine circles with icons ───────────────── */
-  const HeroIllustration = () => (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        right: -8,
-        top: 0,
-        display: "none",
-        pointerEvents: "none",
-      }}
-      className="lrt-hero-illustration"
-    >
-      <style>{`
-        @media (min-width: 900px) {
-          .lrt-hero-illustration { display: flex !important; }
-        }
-      `}</style>
-      {ENGINES.map((eng, i) => (
-        <div
-          key={eng.key}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(255,255,255,0.85)",
-            border: `1.5px solid ${eng.accent}`,
-            color: eng.accent,
-            marginLeft: i === 0 ? 0 : -12,
-            boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-          }}
-        >
-          {eng.icon}
-        </div>
-      ))}
-    </div>
-  );
 
   const form = (
     <form onSubmit={submit}>
@@ -645,21 +608,69 @@ export default function LocalRankTracker() {
         subtitle="Local Rank Tracker shows where you stand on Google, Brave (Bing-equivalent index), and Google Maps. Real-time visibility, no signup."
         path={TOOL_PATH}
         breadcrumbLabel="Local Rank Tracker"
-        form={
-          <div style={{ position: "relative" }}>
-            <HeroIllustration />
-            {form}
-          </div>
-        }
+        form={form}
         result={resultPanel}
+        wideVisual
         heroMedia={
-          <DemoVideo
-            src="/videos/ranktracker-tool.mp4"
-            webm="/videos/ranktracker-tool.webm"
-            poster="/videos/ranktracker-tool-poster.jpg"
-            label="Local Rank Tracker — the sample business ranks across three engines at once: #1 on Google Maps, #3 on Google Web, and #6 on the national web index, each flagged Top 10, with a visibility bar chart above."
-            maxWidth={520}
-          />
+          <div
+            aria-label="Sample rank check: Summit Peak Plumbing across three engines"
+            style={{
+              width: "100%",
+              background: "rgb(255,255,255)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 20,
+              padding: 24,
+              boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <span style={{ fontSize: 17, fontWeight: 800, color: "rgb(17,24,39)" }}>Summit Peak Plumbing</span>
+              <span style={{ fontSize: 13, color: "rgba(0,0,0,0.5)", marginLeft: 8 }}>&ldquo;emergency plumber&rdquo; &middot; Denver, CO</span>
+            </div>
+
+            {/* Visibility across engines — KPI bars ON TOP (mobile-first). */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgb(34,197,94)", marginBottom: 8 }}>
+                Visibility across engines
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                {ENGINES.map((eng) => {
+                  const pos = TRACKER_PREVIEW[eng.key];
+                  const vis = Math.max(0, 21 - pos);
+                  return (
+                    <div key={eng.key} style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ height: 48, background: "rgb(241,245,249)", borderRadius: 8, display: "flex", alignItems: "flex-end", overflow: "hidden" }}>
+                        <div style={{ width: "100%", height: `${(vis / 20) * 100}%`, background: eng.accent, borderRadius: "8px 8px 0 0" }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: "rgba(0,0,0,0.5)", marginTop: 4, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eng.shortLabel}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Per-engine position — full colour, not greyed. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+              {ENGINES.map((eng) => {
+                const pos = TRACKER_PREVIEW[eng.key];
+                return (
+                  <div key={eng.key} style={{ background: "rgb(255,255,255)", border: `1px solid ${eng.accent}`, borderRadius: 14, padding: 12, boxShadow: `0 8px 20px ${eng.accent}14`, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: `${eng.accent}14`, color: eng.accent, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{eng.icon}</div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgb(17,24,39)", lineHeight: 1.2, minWidth: 0 }}>{eng.shortLabel}</span>
+                    </div>
+                    <div style={{ fontSize: 30, fontWeight: 900, color: eng.accent, lineHeight: 1 }}>#{pos}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: eng.accent, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <Trophy size={12} /> Top 10
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         }
       >
         {WhyPartner}
