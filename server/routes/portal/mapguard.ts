@@ -281,6 +281,8 @@ export function registerPortalMapguardRoutes(app: Express) {
         has_description: mapguardSnapshots.has_description,
         keywords_in_local_pack: mapguardSnapshots.keywords_in_local_pack,
         keywords_in_top_10: mapguardSnapshots.keywords_in_top_10,
+        avg_organic_rank: mapguardSnapshots.avg_organic_rank,
+        best_local_pack_position: mapguardSnapshots.best_local_pack_position,
         score_total: mapguardSnapshots.score_total,
         score_grade: mapguardSnapshots.score_grade,
         score_google_maps: mapguardSnapshots.score_google_maps,
@@ -317,6 +319,8 @@ export function registerPortalMapguardRoutes(app: Express) {
         review_count: s.review_count,
         keywords_in_local_pack: s.keywords_in_local_pack,
         keywords_in_top_10: s.keywords_in_top_10,
+        avg_organic_rank: s.avg_organic_rank,
+        best_local_pack_position: s.best_local_pack_position,
       }));
 
       // Compute simple deltas for display

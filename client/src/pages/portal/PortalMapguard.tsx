@@ -80,6 +80,8 @@ interface MapguardData {
     review_count: number | null;
     keywords_in_local_pack: number | null;
     keywords_in_top_10: number | null;
+    avg_organic_rank: number | null;
+    best_local_pack_position: number | null;
   }>;
   /**
    * Present when the customer has a completed mapguard-setup but no
@@ -407,6 +409,29 @@ export default function PortalMapguard() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+              </Card>
+            )}
+
+            {/* Average Google Position Chart — lower rank is better, so the
+                Y-axis is inverted (position 1 sits at the top). */}
+            {data.snapshots.length >= 2 && data.snapshots.some(s => s.avg_organic_rank != null) && (
+              <Card className="p-5">
+                <h2 className="text-sm font-semibold text-foreground mb-4">Average Google Position Over Time</h2>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.snapshots.map(s => ({
+                      date: new Date(s.captured_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                      Position: s.avg_organic_rank,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} />
+                      <YAxis reversed domain={[1, "auto"]} allowDecimals tick={{ fontSize: 11, fill: "#9ca3af" }} />
+                      <Tooltip content={<ChartTooltipContent />} />
+                      <Line type="monotone" dataKey="Position" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: "#16a34a" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Lower is better — position&nbsp;1 is the top of Google.</p>
               </Card>
             )}
 
