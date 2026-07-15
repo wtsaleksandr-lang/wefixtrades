@@ -10,10 +10,21 @@
  */
 import * as React from "react";
 import { MapPin, Search, Loader2 } from "lucide-react";
+import { MONO, SANS } from "@/components/effortel-blocks";
 
-const INK = "rgb(17, 24, 39)";
-const MUTED = "rgb(100, 116, 139)";
+// Effortel palette (matches the home ServiceStackTimeline): ink/muted/accent +
+// brand stat-tile pills, so the demo reads in the same design language.
+const INK = "rgb(34, 40, 42)";
+const MUTED = "rgb(95, 111, 119)";
+const ACCENT = "rgb(61, 90, 94)";
 const BLUE = "rgb(13, 60, 252)";
+
+/** Brand stat-tile pills — same green/amber/blue the home KPIs use. */
+const EFF_TILE = {
+  green: { bg: "rgb(209,250,229)", ink: "rgb(5,150,105)", muted: "rgba(5,150,105,0.72)" },
+  amber: { bg: "rgb(254,243,199)", ink: "rgb(217,119,6)", muted: "rgba(217,119,6,0.75)" },
+  blue: { bg: "rgb(224,234,255)", ink: "rgb(13,60,252)", muted: "rgba(13,60,252,0.66)" },
+} as const;
 
 /** 5×5 sample ranks (row-major). null = not in top 20. */
 const RANKS: (number | null)[] = [
@@ -90,7 +101,7 @@ export function RankGridDemoLoop() {
         <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgb(226,232,240)" }} />
         <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgb(226,232,240)" }} />
         <span style={{ width: 9, height: 9, borderRadius: 999, background: "rgb(226,232,240)" }} />
-        <span style={{ marginLeft: 8, fontSize: 11, color: MUTED, fontWeight: 600 }}>wefixtrades.com · Local Rank Grid</span>
+        <span style={{ marginLeft: 8, fontSize: 11, color: MUTED, fontWeight: 600, fontFamily: MONO, letterSpacing: "0.03em" }}>wefixtrades.com · Local Rank Grid</span>
       </div>
 
       {/* Stage — fills the column (so the card matches the left column's height,
@@ -135,8 +146,8 @@ function PhaseWrap({ active, children }: { active: boolean; children: React.Reac
 function Field({ label, value, typed, run }: { label: string; value: string; typed?: boolean; run: boolean }) {
   return (
     <div style={{ position: "relative", border: "1px solid rgba(0,0,0,0.10)", borderRadius: 12, padding: "10px 14px", background: "rgb(255,255,255)" }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BLUE }}>{label}</div>
-      <div style={{ marginTop: 3, fontSize: 15, fontWeight: 600, color: INK, whiteSpace: "nowrap", overflow: "hidden", display: "inline-flex", alignItems: "center" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: ACCENT, fontFamily: MONO }}>{label}</div>
+      <div style={{ marginTop: 3, fontSize: 15, fontWeight: 600, color: INK, fontFamily: SANS, whiteSpace: "nowrap", overflow: "hidden", display: "inline-flex", alignItems: "center" }}>
         {typed && run ? (
           <span className="rgd-anim" style={{ display: "inline-block", overflow: "hidden", whiteSpace: "nowrap", animation: "rgd-type 0.9s steps(24) both", ["--w" as any]: `${value.length}ch` }}>{value}</span>
         ) : (
@@ -157,7 +168,7 @@ function SeedForm({ run }: { run: boolean }) {
       <button
         type="button"
         tabIndex={-1}
-        style={{ marginTop: 4, width: "100%", padding: "13px 16px", borderRadius: 12, background: BLUE, color: "rgb(255,255,255)", fontSize: 14, fontWeight: 700, border: "none" }}
+        style={{ marginTop: 4, width: "100%", padding: "13px 16px", borderRadius: 12, background: BLUE, color: "rgb(255,255,255)", fontSize: 12, fontWeight: 700, border: "none", fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase" }}
       >
         Scan rank across 5×5 grid
       </button>
@@ -169,7 +180,7 @@ function Scanning({ run }: { run: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, height: "100%" }}>
       <Loader2 className={run ? "rgd-anim" : undefined} size={24} color={BLUE} style={{ animation: run ? "rgd-spin 0.9s linear infinite" : undefined }} aria-hidden="true" />
-      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>Scanning 25 grid points across Denver…</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: INK, fontFamily: SANS }}>Scanning 25 grid points across Denver…</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, width: 220 }}>
         {RANKS.map((_, i) => (
           <span key={i} className={run ? "rgd-anim" : undefined} style={{ width: 18, height: 18, borderRadius: 999, background: "rgb(203,213,225)", margin: "0 auto", animation: run ? `rgd-pulse 1.1s ease ${(i % 5) * 0.08}s infinite` : undefined }} />
@@ -181,23 +192,26 @@ function Scanning({ run }: { run: boolean }) {
 
 function Result({ run }: { run: boolean }) {
   const kpis = [
-    { label: "SoLV", value: "44", unit: "%", big: true, cap: "Cells where you're Top 3" },
-    { label: "ARP", value: "5.5", cap: "Avg rank where you appear" },
-    { label: "ATRP", value: "6.6", cap: "Avg rank across every cell" },
+    { label: "SoLV", value: "44", unit: "%", tone: "green" as const, big: true, cap: "Cells where you're Top 3" },
+    { label: "ARP", value: "5.5", tone: "amber" as const, cap: "Avg rank where you appear" },
+    { label: "ATRP", value: "6.6", tone: "blue" as const, cap: "Avg rank across every cell" },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%" }}>
       <div style={{ display: "flex", gap: 8 }}>
-        {kpis.map((k, i) => (
-          <div key={k.label} className={run ? "rgd-anim" : undefined} style={{ flex: 1, minWidth: 0, borderRadius: 12, padding: "8px 10px", background: k.big ? "rgba(234,179,8,0.10)" : "rgb(248,250,252)", border: k.big ? "1px solid rgba(234,179,8,0.28)" : "1px solid rgb(238,242,247)", animation: run ? `rgd-rise 0.45s ease ${i * 0.08}s both` : undefined }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED }}>{k.label}</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
-              <span style={{ fontSize: k.big ? 26 : 22, fontWeight: 900, color: INK, lineHeight: 1 }}>{k.value}</span>
-              {k.unit && <span style={{ fontSize: 13, fontWeight: 800, color: MUTED }}>{k.unit}</span>}
+        {kpis.map((k, i) => {
+          const t = EFF_TILE[k.tone];
+          return (
+            <div key={k.label} className={run ? "rgd-anim" : undefined} style={{ flex: 1, minWidth: 0, borderRadius: 14, padding: "8px 10px", background: t.bg, animation: run ? `rgd-rise 0.45s ease ${i * 0.08}s both` : undefined }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: t.muted, fontFamily: MONO }}>{k.label}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+                <span style={{ fontSize: k.big ? 26 : 22, fontWeight: 800, color: t.ink, lineHeight: 1, fontFamily: SANS }}>{k.value}</span>
+                {k.unit && <span style={{ fontSize: 13, fontWeight: 800, color: t.ink, fontFamily: SANS }}>{k.unit}</span>}
+              </div>
+              <div style={{ fontSize: 9.5, color: t.muted, lineHeight: 1.3, marginTop: 2, fontFamily: MONO }}>{k.cap}</div>
             </div>
-            <div style={{ fontSize: 9.5, color: MUTED, lineHeight: 1.3, marginTop: 2 }}>{k.cap}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Zone breakdown — how the 25 grid points split across rank bands (part
@@ -210,7 +224,7 @@ function Result({ run }: { run: boolean }) {
         </div>
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
           {ZONES.map((z) => (
-            <span key={z.label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, color: MUTED }}>
+            <span key={z.label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, color: MUTED, fontFamily: MONO }}>
               <span style={{ width: 8, height: 8, borderRadius: 999, background: z.color }} />
               {z.label} {z.count}
             </span>
@@ -251,7 +265,7 @@ function Result({ run }: { run: boolean }) {
           })}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: MUTED, fontFamily: MONO, letterSpacing: "0.02em" }}>
         <Search size={12} aria-hidden="true" /> Sample scan · hover any point for the top 3 competitors ranking there
       </div>
     </div>

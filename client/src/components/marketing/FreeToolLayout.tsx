@@ -18,8 +18,14 @@ import { type ReactNode, useEffect } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Search } from "lucide-react";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
+import { MONO, SANS } from "@/components/effortel-blocks";
 
 const SITE_URL = "https://wefixtrades.com";
+
+/* Effortel accent tokens — opt-in via the `effortel` prop (page-scoped). */
+const EFF_INK = "#22282a";
+const EFF_MUTED = "#5f6f77";
+const EFF_ACCENT = "#3d5a5e";
 
 interface FreeToolLayoutProps {
   /** Short eyebrow above the H1 — e.g. "Free Tool". */
@@ -62,6 +68,14 @@ interface FreeToolLayoutProps {
    * untouched.
    */
   wideVisual?: boolean;
+  /**
+   * Opt-in "effortel" accent styling (page-scoped). When set, the eyebrow +
+   * CTA use Et Mono, the title uses Satoshi, text picks up the effortel
+   * ink/muted/accent palette, cards get a cream surface, and the "Go deeper"
+   * CTA becomes a mono + arrow + accent-underline link. Background is left
+   * unchanged so the page stays consistent with sibling tool pages.
+   */
+  effortel?: boolean;
 }
 
 export default function FreeToolLayout({
@@ -77,6 +91,7 @@ export default function FreeToolLayout({
   heroImageAlt,
   heroMedia,
   wideVisual = false,
+  effortel = false,
 }: FreeToolLayoutProps) {
   const hasVisual = Boolean(heroMedia) || Boolean(heroImageSrc);
   const wide = wideVisual && hasVisual;
@@ -154,6 +169,12 @@ export default function FreeToolLayout({
           position: relative;
           overflow: clip;
         }
+        /* Effortel accent: cream surface + softer rounded corners. */
+        .ftool-card--effortel {
+          background: #f5fcff;
+          border-color: rgba(34,40,42,0.10);
+          border-radius: 22px;
+        }
         @keyframes ftool-spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) {
           @keyframes ftool-spin { to { transform: none; } }
@@ -180,9 +201,10 @@ export default function FreeToolLayout({
                   gap: 6,
                   fontSize: 11,
                   fontWeight: 700,
-                  letterSpacing: "0.12em",
+                  letterSpacing: effortel ? "0.14em" : "0.12em",
                   textTransform: "uppercase",
-                  color: "#0d3cfc",
+                  color: effortel ? EFF_ACCENT : "#0d3cfc",
+                  fontFamily: effortel ? MONO : undefined,
                   marginBottom: 10,
                 }}>
                   <Search size={12} strokeWidth={2.2} />
@@ -190,22 +212,23 @@ export default function FreeToolLayout({
                 </div>
                 <h1 style={{
                   fontSize: "clamp(28px, 4.6vw, 38px)",
-                  fontWeight: 900,
+                  fontWeight: effortel ? 700 : 900,
                   letterSpacing: "-0.02em",
-                  color: "#1E1E1E",
+                  color: effortel ? EFF_INK : "#1E1E1E",
+                  fontFamily: effortel ? SANS : undefined,
                   margin: "0 0 10px",
                   lineHeight: 1.08,
                 }}>{title}</h1>
                 <p style={{
                   fontSize: 16,
-                  color: "rgba(0,0,0,0.62)",
+                  color: effortel ? EFF_MUTED : "rgba(0,0,0,0.62)",
                   maxWidth: "60ch",
                   margin: "0 0 4px",
                   lineHeight: 1.55,
                 }}>{subtitle}</p>
               </div>
 
-              <div className="ftool-card">{form}</div>
+              <div className={`ftool-card${effortel ? " ftool-card--effortel" : ""}`}>{form}</div>
 
               {/* Trust strip — moved BELOW the CTA (was above the card). */}
               <div style={{
@@ -280,14 +303,14 @@ export default function FreeToolLayout({
             maxWidth: 820,
             margin: "40px auto 0",
             padding: "18px 20px",
-            borderRadius: 16,
-            background: "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
-            border: "1px solid rgba(13,60,252,0.18)",
+            borderRadius: effortel ? 20 : 16,
+            background: effortel ? "#f5fcff" : "linear-gradient(135deg, rgba(13,60,252,0.06), rgba(13,60,252,0.02))",
+            border: effortel ? `1px solid ${EFF_ACCENT}22` : "1px solid rgba(13,60,252,0.18)",
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0d3cfc", marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: effortel ? "0.1em" : "0.08em", textTransform: "uppercase", color: effortel ? EFF_ACCENT : "#0d3cfc", fontFamily: effortel ? MONO : undefined, marginBottom: 4 }}>
               Go deeper
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: effortel ? EFF_INK : "#111827", fontFamily: effortel ? SANS : undefined, marginBottom: 6 }}>
               Full WeFixTrades Audit — $9.80
             </div>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.62)", marginBottom: 12, lineHeight: 1.55 }}>
@@ -297,7 +320,20 @@ export default function FreeToolLayout({
             </div>
             <Link
               href="/tools/free-audit"
-              style={{
+              style={effortel ? {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                color: EFF_INK,
+                padding: "10px 0",
+                fontFamily: MONO,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                borderBottom: `1px solid ${EFF_ACCENT}`,
+                textDecoration: "none",
+              } : {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,

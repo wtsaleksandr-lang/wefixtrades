@@ -37,6 +37,12 @@ import {
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { AlertCircle, ArrowRight, Lock, Star, Trophy } from "lucide-react";
+import { MONO, SANS } from "@/components/effortel-blocks";
+
+/* Effortel accent tokens for this page (accents-only, page-scoped). */
+const EFF_INK = "#22282a";
+const EFF_MUTED = "#5f6f77";
+const EFF_ACCENT = "#3d5a5e";
 import { BarComparisonCard } from "@/components/ui/visual-primitives";
 import {
   fitRankGridMap,
@@ -220,8 +226,17 @@ export default function LocalRankGrid() {
   }
 
   const form = (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} className="rankgrid-effortel">
       <FreeToolFormFieldStyles />
+      {/* Effortel accents (page-scoped): field labels pick up Et Mono + the
+          accent ink/focus, matching the home ServiceStackTimeline. Placeholder
+          (resting) label stays sans so it still reads like a placeholder. */}
+      <style>{`
+        .rankgrid-effortel .ftool-form-field__label { font-family: ${MONO}; color: ${EFF_ACCENT}; letter-spacing: 0.08em; }
+        .rankgrid-effortel .ftool-form-field__field:placeholder-shown + .ftool-form-field__label { font-family: ${SANS}; color: rgba(34,40,42,0.42); letter-spacing: normal; }
+        .rankgrid-effortel .ftool-form-field__field:focus { border-color: ${EFF_ACCENT}; box-shadow: 0 0 0 4px rgba(61,90,94,0.15); }
+        .rankgrid-effortel .ftool-form-field__field:focus + .ftool-form-field__label { color: ${EFF_ACCENT}; }
+      `}</style>
       {/* DESIGN-SYSTEM compliance (2026-05-25 audit). */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <FreeToolFormField
@@ -263,7 +278,7 @@ export default function LocalRankGrid() {
 
       {/* Grid size — 3×3 / 5×5 run free; 7×7 (49 points) is gated to MapGuard. */}
       <div style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.55)", marginBottom: 6, letterSpacing: "0.02em" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: EFF_ACCENT, marginBottom: 6, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: MONO }}>
           Grid size
         </div>
         <div role="group" aria-label="Grid size" style={{ display: "flex", gap: 6 }}>
@@ -277,18 +292,19 @@ export default function LocalRankGrid() {
               style={{
                 flex: 1,
                 padding: "8px 6px",
-                borderRadius: 10,
+                borderRadius: 12,
                 cursor: "pointer",
-                border: gridSize === n ? "1.5px solid rgb(13,60,252)" : "1px solid rgba(0,0,0,0.12)",
-                background: gridSize === n ? "rgba(13,60,252,0.06)" : "rgb(255,255,255)",
-                color: gridSize === n ? "rgb(13,60,252)" : "rgba(0,0,0,0.62)",
-                fontSize: 14,
+                border: gridSize === n ? `1.5px solid ${EFF_ACCENT}` : "1px solid rgba(34,40,42,0.14)",
+                background: gridSize === n ? "rgba(61,90,94,0.08)" : "#f5fcff",
+                color: gridSize === n ? EFF_ACCENT : EFF_MUTED,
+                fontSize: 15,
                 fontWeight: 800,
                 lineHeight: 1.2,
+                fontFamily: SANS,
               }}
             >
               {n}×{n}
-              <span style={{ display: "block", fontSize: 10.5, fontWeight: 500, opacity: 0.7 }}>{n * n} points</span>
+              <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.75, fontFamily: MONO, letterSpacing: "0.04em" }}>{n * n} points</span>
             </button>
           ))}
           <a
@@ -298,14 +314,15 @@ export default function LocalRankGrid() {
             style={{
               flex: 1,
               padding: "8px 6px",
-              borderRadius: 10,
+              borderRadius: 12,
               textDecoration: "none",
-              border: "1px dashed rgba(0,0,0,0.16)",
-              background: "rgb(250,251,252)",
-              color: "rgba(0,0,0,0.5)",
-              fontSize: 14,
+              border: "1px dashed rgba(34,40,42,0.20)",
+              background: "#f5fcff",
+              color: EFF_MUTED,
+              fontSize: 15,
               fontWeight: 800,
               lineHeight: 1.2,
+              fontFamily: SANS,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -315,7 +332,7 @@ export default function LocalRankGrid() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Lock size={12} aria-hidden="true" /> 7×7
             </span>
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: "rgb(13,60,252)" }}>MapGuard</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: EFF_ACCENT, fontFamily: MONO, letterSpacing: "0.06em", textTransform: "uppercase" }}>MapGuard</span>
           </a>
         </div>
       </div>
@@ -331,10 +348,13 @@ export default function LocalRankGrid() {
           borderRadius: 12,
           background: loading ? "rgba(13,60,252,0.6)" : "rgb(13,60,252)",
           color: "rgb(255,255,255)",
-          fontSize: 15,
+          fontSize: 12.5,
           fontWeight: 700,
           border: "none",
           cursor: loading ? "default" : "pointer",
+          fontFamily: MONO,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}
       >
         {loading ? `Scanning ${gridSize * gridSize} grid points…` : `Scan rank across ${gridSize}×${gridSize} grid`}
@@ -904,6 +924,7 @@ export default function LocalRankGrid() {
         form={form}
         result={resultPanel}
         wideVisual
+        effortel
         heroMedia={
           /* Single unified card that loops the whole flow: seed the form → scan
              → heatmap + KPIs result (~4s), so visitors see the tool "work". */
