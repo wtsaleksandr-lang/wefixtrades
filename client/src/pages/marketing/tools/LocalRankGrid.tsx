@@ -36,7 +36,7 @@ import {
 } from "@/components/marketing/FreeToolFormField";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { AlertCircle, ArrowRight, Star, Trophy } from "lucide-react";
+import { AlertCircle, ArrowRight, Lock, Star, Trophy } from "lucide-react";
 import { BarComparisonCard } from "@/components/ui/visual-primitives";
 import {
   fitRankGridMap,
@@ -162,6 +162,9 @@ export default function LocalRankGrid() {
   const [businessName, setBusinessName] = useState("");
   const [city, setCity] = useState("");
   const [keyword, setKeyword] = useState("");
+  /** Grid size the free tool runs. 3×3 and 5×5 are free; 7×7 is gated to
+   *  MapGuard (paid) — each point is 2 SERP calls, so 7×7 = 98 vs 5×5 = 50. */
+  const [gridSize, setGridSize] = useState<3 | 5>(5);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RankGridResult | null>(null);
@@ -190,7 +193,7 @@ export default function LocalRankGrid() {
       const r = await fetch("/api/tools/local-rank-grid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessName, city, keyword }),
+        body: JSON.stringify({ businessName, city, keyword, gridSize }),
       });
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Scan failed.");
@@ -248,6 +251,66 @@ export default function LocalRankGrid() {
           helpText="Which keyword to check ranks against — e.g. 'plumber near me'."
         />
       </div>
+
+      {/* Grid size — 3×3 / 5×5 run free; 7×7 (49 points) is gated to MapGuard. */}
+      <div style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.55)", marginBottom: 6, letterSpacing: "0.02em" }}>
+          Grid size
+        </div>
+        <div role="group" aria-label="Grid size" style={{ display: "flex", gap: 6 }}>
+          {([3, 5] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setGridSize(n)}
+              aria-pressed={gridSize === n}
+              data-testid={`gridsize-${n}`}
+              style={{
+                flex: 1,
+                padding: "8px 6px",
+                borderRadius: 10,
+                cursor: "pointer",
+                border: gridSize === n ? "1.5px solid rgb(13,60,252)" : "1px solid rgba(0,0,0,0.12)",
+                background: gridSize === n ? "rgba(13,60,252,0.06)" : "rgb(255,255,255)",
+                color: gridSize === n ? "rgb(13,60,252)" : "rgba(0,0,0,0.62)",
+                fontSize: 14,
+                fontWeight: 800,
+                lineHeight: 1.2,
+              }}
+            >
+              {n}×{n}
+              <span style={{ display: "block", fontSize: 10.5, fontWeight: 500, opacity: 0.7 }}>{n * n} points</span>
+            </button>
+          ))}
+          <a
+            href="/products/mapguard?utm_source=rank-grid&utm_medium=grid-size&utm_campaign=7x7-upsell"
+            aria-label="7 by 7 grid — available in MapGuard"
+            data-testid="gridsize-7-upsell"
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 10,
+              textDecoration: "none",
+              border: "1px dashed rgba(0,0,0,0.16)",
+              background: "rgb(250,251,252)",
+              color: "rgba(0,0,0,0.5)",
+              fontSize: 14,
+              fontWeight: 800,
+              lineHeight: 1.2,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Lock size={12} aria-hidden="true" /> 7×7
+            </span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: "rgb(13,60,252)" }}>MapGuard</span>
+          </a>
+        </div>
+      </div>
+
       <button
         type="submit"
         disabled={loading}
@@ -265,7 +328,7 @@ export default function LocalRankGrid() {
           cursor: loading ? "default" : "pointer",
         }}
       >
-        {loading ? "Scanning 25 grid points…" : "Scan rank across 5×5 grid"}
+        {loading ? `Scanning ${gridSize * gridSize} grid points…` : `Scan rank across ${gridSize}×${gridSize} grid`}
       </button>
       {error && (
         <div style={{ marginTop: 8, color: "rgb(185,28,28)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
@@ -296,7 +359,23 @@ export default function LocalRankGrid() {
       )
     : { high: 0, med: 0, low: 0 };
 
-  // Build the 5x5 heatmap from the response's 25 grid points. Points come
+  // "Average Map Rank" (ATRP) — BrightLocal's headline metric: the mean rank
+  // across EVERY checked cell, with unranked / beyond-top-20 cells counted as
+  // 21 (an honest ceiling) rather than dropped. Distinct from the hero's
+  // avg-where-you-appear number; this is the harder, truer visibility score.
+  const avgMapRank = result
+    ? (() => {
+        const vals = result.gridPoints
+          .filter((p) => p.status !== "unavailable")
+          .map((p) => {
+            const r = p.mapRank ?? p.rank;
+            return r == null || r > 20 ? 21 : r;
+          });
+        return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
+      })()
+    : null;
+
+  // Build the heatmap from the response's grid points. Points come
   // back in row-major order (top-left → bottom-right) — we render them
   // straight into a CSS grid so the spatial relationship reads at a glance.
   const resultPanel = result ? (
@@ -316,6 +395,32 @@ export default function LocalRankGrid() {
           <strong style={{ color: "rgb(185,28,28)" }}>{result.summary.missedCount}</strong> dead zones
         </div>
       </div>
+
+      {/* Average Map Rank (ATRP) — BrightLocal-parity headline metric: the mean
+          rank across every checked point (unranked = 21). */}
+      {avgMapRank != null && (
+        <div
+          data-testid="rankgrid-avg-map-rank"
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            gap: 10,
+            marginBottom: 12,
+            padding: "10px 16px",
+            borderRadius: 12,
+            background: "rgba(13,60,252,0.06)",
+            border: "1px solid rgba(13,60,252,0.18)",
+          }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgb(13,60,252)" }}>
+            Average Map Rank
+          </span>
+          <strong style={{ fontSize: 26, fontWeight: 900, lineHeight: 1, color: "rgb(30,30,30)" }}>{avgMapRank}</strong>
+          <span style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+            across all {result.summary.totalPoints ?? result.gridPoints.length} points
+          </span>
+        </div>
+      )}
 
       {/* Honest partial-result banner — some grid points couldn't be checked
           (provider throttling on 25 parallel calls). We surface that instead of
@@ -519,6 +624,7 @@ export default function LocalRankGrid() {
                           point={p}
                           displayRank={display}
                           cellIndex={i}
+                          size={Math.round(Math.sqrt(result.gridPoints.length))}
                         />
                       )}
                     </div>
@@ -766,7 +872,7 @@ export default function LocalRankGrid() {
       {/* Cell drill-down — the ranked Local Pack list at the clicked scan point,
           our business highlighted. Slide-out on desktop, bottom-sheet at 375px. */}
       <CellDrillDown
-        data={drillCell != null ? buildDrillData(result.gridPoints[drillCell], drillCell, businessName) : null}
+        data={drillCell != null ? buildDrillData(result.gridPoints[drillCell], drillCell, businessName, Math.round(Math.sqrt(result.gridPoints.length))) : null}
         onClose={() => setDrillCell(null)}
       />
     </div>
@@ -860,12 +966,13 @@ export default function LocalRankGrid() {
 
 /* ─── Drill-down data builder ───────────────────────────────────────── */
 
-/** 5×5 grid (row-major) → compass direction of a cell from the center (2,2). */
-function gridCellDirection(cellIndex: number): string {
-  const row = Math.floor(cellIndex / 5);
-  const col = cellIndex % 5;
-  const dr = row - 2;
-  const dc = col - 2;
+/** N×N grid (row-major) → compass direction of a cell from the center. */
+function gridCellDirection(cellIndex: number, size: number): string {
+  const row = Math.floor(cellIndex / size);
+  const col = cellIndex % size;
+  const center = (size - 1) / 2;
+  const dr = row - center;
+  const dc = col - center;
   if (dr === 0 && dc === 0) return "at the center";
   const ns = dr < 0 ? "north" : dr > 0 ? "south" : "";
   const ew = dc < 0 ? "west" : dc > 0 ? "east" : "";
@@ -884,6 +991,7 @@ function buildDrillData(
   point: GridPoint,
   cellIndex: number,
   businessName: string,
+  size: number,
 ): CellDrillDownData {
   const yourRank = point.mapRank ?? point.rank;
   const bizLower = businessName.trim().toLowerCase();
@@ -898,7 +1006,7 @@ function buildDrillData(
   }));
   return {
     cellLabel: `Cell ${cellIndex + 1}`,
-    locationLine: `${gridCellDirection(cellIndex)} · live Google search from this exact point`,
+    locationLine: `${gridCellDirection(cellIndex, size)} · live Google search from this exact point`,
     yourRank: yourRank ?? null,
     entries,
     isUnavailable: point.status === "unavailable",
@@ -917,14 +1025,16 @@ function GridPinPopover({
   point,
   displayRank,
   cellIndex,
+  size,
 }: {
   point: GridPoint;
   displayRank: number | null;
   cellIndex: number;
+  size: number;
 }) {
-  const isRightEdge = cellIndex % 5 === 4;
-  const isLeftEdge = cellIndex % 5 === 0;
-  const isTopRow = cellIndex < 5;
+  const isRightEdge = cellIndex % size === size - 1;
+  const isLeftEdge = cellIndex % size === 0;
+  const isTopRow = cellIndex < size;
   return (
     <div
       onClick={(e) => e.stopPropagation()}

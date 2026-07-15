@@ -792,18 +792,24 @@ async function geocodeCity(
   }
 }
 
+/** `size` evenly-spaced multipliers from -1..+1 (e.g. 3 → [-1,0,1];
+ *  5 → [-1,-0.5,0,0.5,1]; 7 → [-1,-⅔,-⅓,0,⅓,⅔,1]). */
+function gridSteps(size: number): number[] {
+  if (size <= 1) return [0];
+  return Array.from({ length: size }, (_, i) => -1 + (2 * i) / (size - 1));
+}
+
 /**
- * 5x5 grid centred on (lat, lng), spread across a ~5km radius. We use a
- * simple "1 degree latitude ≈ 111 km" approximation — accurate enough at
- * city scale and fast enough to compute inline. Longitude is scaled by
+ * size×size grid centred on (lat, lng), spread across a ~radiusKm half-extent.
+ * We use a simple "1 degree latitude ≈ 111 km" approximation — accurate enough
+ * at city scale and fast enough to compute inline. Longitude is scaled by
  * cos(lat) so the grid stays roughly square at any latitude.
  */
-function buildGrid(lat: number, lng: number, radiusKm = 5): { lat: number; lng: number }[] {
+function buildGrid(lat: number, lng: number, radiusKm = 5, size = 5): { lat: number; lng: number }[] {
   const points: { lat: number; lng: number }[] = [];
   const latDelta = radiusKm / 111;
   const lngDelta = radiusKm / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
-  // 5 evenly spaced steps from -radius to +radius in each axis.
-  const steps = [-1, -0.5, 0, 0.5, 1];
+  const steps = gridSteps(size);
   for (const dy of steps) {
     for (const dx of steps) {
       points.push({ lat: lat + dy * latDelta, lng: lng + dx * lngDelta });
@@ -887,9 +893,18 @@ async function localRankGridHandler(req: Request, res: Response) {
     return res.status(404).json({ ok: false, error: "Could not geocode that city. Try \"City, State\"." });
   }
 
-  const grid = buildGrid(geo.lat, geo.lng, 5);
+  // Grid size — free tool offers 3×3 and 5×5; 7×7 is gated to MapGuard
+  // (paid), since each point fires 2 SERP calls (7×7 = 98 vs 5×5 = 50) and
+  // would burn the free-tier providers. Anything but 3 falls back to 5.
+  const gridSize = Number(req.body?.gridSize) === 3 ? 3 : 5;
+  // Spacing = distance between adjacent grid points, BrightLocal-style
+  // (miles). Half-extent radius = spacing × (size − 1) / 2. Clamp sane.
+  const spacingRaw = Number(req.body?.spacingMiles);
+  const spacingMiles = Number.isFinite(spacingRaw) ? Math.min(5, Math.max(0.25, spacingRaw)) : 1.5;
+  const radiusKm = (spacingMiles * 1.60934 * (gridSize - 1)) / 2;
+  const grid = buildGrid(geo.lat, geo.lng, radiusKm, gridSize);
 
-  // 25 parallel searches via the multi-provider orchestrator (Wave 6.5).
+  // size×size parallel searches via the multi-provider orchestrator (Wave 6.5).
   // Each request carries per-point lat/lng — Serper consumes them
   // directly; other providers ignore them and fall back to the city
   // location text. We dual-call web + maps per point (Local Pack rank is
@@ -1023,6 +1038,8 @@ async function localRankGridHandler(req: Request, res: Response) {
     city,
     keyword,
     center: { lat: geo.lat, lng: geo.lng, address: geo.address },
+    gridSize,
+    spacingMiles,
     gridPoints: points,
     summary: { avgRank, top3Count, missedCount, unavailableCount, checkedCount, totalPoints: points.length },
     competitors,
