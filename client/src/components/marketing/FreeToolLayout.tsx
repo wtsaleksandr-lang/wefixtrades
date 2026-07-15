@@ -55,6 +55,13 @@ interface FreeToolLayoutProps {
    * treatment. Renders its own framing, so it is dropped straight in.
    */
   heroMedia?: ReactNode;
+  /**
+   * Give the right-hand hero visual extra width (and a wider container) so a
+   * large preview doesn't sit dwarfed next to a tall left column (e.g. tools
+   * with a 3-field form). Opt-in per page; leaves the other tool heroes
+   * untouched.
+   */
+  wideVisual?: boolean;
 }
 
 export default function FreeToolLayout({
@@ -69,8 +76,10 @@ export default function FreeToolLayout({
   heroImageSrc,
   heroImageAlt,
   heroMedia,
+  wideVisual = false,
 }: FreeToolLayoutProps) {
   const hasVisual = Boolean(heroMedia) || Boolean(heroImageSrc);
+  const wide = wideVisual && hasVisual;
   useBreadcrumbSchema([
     { name: "Home", url: `${SITE_URL}/` },
     { name: "Free Tools", url: `${SITE_URL}/tools/free-audit` },
@@ -112,6 +121,7 @@ export default function FreeToolLayout({
            the FORM above the decorative illustration (P2-5: the input must
            not land below the fold behind artwork). */
         .ftool-container--wide { max-width: 1080px; }
+        .ftool-container--xwide { max-width: 1180px; }
         .ftool-hero {
           display: grid;
           grid-template-columns: minmax(0, 1fr);
@@ -123,6 +133,12 @@ export default function FreeToolLayout({
           .ftool-hero--with-visual {
             grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
             gap: 44px;
+          }
+          /* wideVisual: shift the balance toward the visual so a large preview
+             matches the left column's weight instead of floating small. */
+          .ftool-hero--wide-visual {
+            grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+            gap: 48px;
           }
         }
         .ftool-card {
@@ -140,7 +156,7 @@ export default function FreeToolLayout({
         }
       `}</style>
       <div className="ftool-page" data-theme="light">
-        <div className={`ftool-container${hasVisual ? " ftool-container--wide" : ""}`}>
+        <div className={`ftool-container${hasVisual ? (wide ? " ftool-container--xwide" : " ftool-container--wide") : ""}`}>
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
@@ -151,7 +167,7 @@ export default function FreeToolLayout({
 
           {/* Hero — title-left / visual-right (hard rules 4/5). On mobile the
               DOM order gives title → form → illustration. */}
-          <div className={`ftool-hero${hasVisual ? " ftool-hero--with-visual" : ""}`}>
+          <div className={`ftool-hero${hasVisual ? " ftool-hero--with-visual" : ""}${wide ? " ftool-hero--wide-visual" : ""}`}>
             <div>
               <div style={{ marginBottom: 24 }}>
                 <div style={{

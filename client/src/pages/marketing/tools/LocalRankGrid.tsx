@@ -217,6 +217,7 @@ export default function LocalRankGrid() {
           value={businessName}
           onChange={setBusinessName}
           required
+          hideHelpCue
           autoComplete="organization"
           testId="input-rankgrid-business"
           helpText="Your Google Business Profile name exactly — we match it inside each grid-point search to find your rank."
@@ -227,6 +228,7 @@ export default function LocalRankGrid() {
           value={city}
           onChange={setCity}
           required
+          hideHelpCue
           placeholder="Denver, CO"
           autoComplete="address-level2"
           testId="input-rankgrid-city"
@@ -238,6 +240,7 @@ export default function LocalRankGrid() {
           value={keyword}
           onChange={setKeyword}
           required
+          hideHelpCue
           placeholder="plumber near me"
           testId="input-rankgrid-keyword"
           helpText="Which keyword to check ranks against — e.g. 'plumber near me'."
@@ -783,13 +786,14 @@ export default function LocalRankGrid() {
         breadcrumbLabel="Local Rank Grid"
         form={form}
         result={resultPanel}
+        wideVisual
         heroMedia={
           <DemoVideo
             src="/videos/rankgrid-tool.mp4"
             webm="/videos/rankgrid-tool.webm"
             poster="/videos/rankgrid-tool-poster.jpg"
             label="Local Rank Grid — a 5x5 geo-grid heatmap paints in green-to-red across the city with SoLV, ARP and ATRP stats."
-            maxWidth={520}
+            maxWidth={640}
             fallback={
               <RankGridHero
                 ranks={FALLBACK_HERO_RANKS}
