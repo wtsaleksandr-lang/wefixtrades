@@ -4,11 +4,11 @@ Pre-filled with WeFixTrades details. Where information is unknown, a `[TODO: Ale
 
 ## Business Verification (prerequisite)
 
-- [ ] Legal business name: `WeFixTrades Inc.`
-- [ ] Country of registration: `[TODO: Alex confirms country of incorporation — Canada vs. US]`
+- [ ] Legal business name: `MR Holdings & Trade LLC, d/b/a WeFixTrades`
+- [ ] Country of registration: `United States` (Wyoming LLC)
 - [ ] Business registration / incorporation number: `[TODO: Alex confirms corp number]`
 - [ ] Tax ID / EIN / BN: `[TODO: Alex confirms tax ID]`
-- [ ] Business address: `[TODO: Alex confirms registered address]`
+- [ ] Business address: `30 N Gould St, Ste R, Sheridan, WY 82801, United States`
 - [ ] Business phone: `[TODO: Alex confirms business phone listed on incorporation docs]`
 - [ ] Business website: `https://wefixtrades.com`
 - [ ] Verification document type (one of): `Articles of incorporation` / `Business license` / `Tax document`

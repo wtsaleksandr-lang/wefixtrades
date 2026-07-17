@@ -29,7 +29,7 @@ These four unlock most of the launch. Do them in this order.
 1. Go to https://dashboard.stripe.com/register
 2. Sign up with your business email (use the same email you'd want customers to see on receipts)
 3. Complete **business verification**:
-   - Business name: `WeFixTrades Inc.`
+   - Business name: `MR Holdings & Trade LLC, d/b/a WeFixTrades`
    - Business structure: pick the one that matches your actual registration
    - Tax ID (EIN for US, CRA BN for Canada)
    - Industry: **Software/SaaS → Business services**

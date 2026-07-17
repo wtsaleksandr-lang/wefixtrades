@@ -225,7 +225,7 @@
     "nav_font": "DM Mono, monospace, 13px, uppercase",
     "mobile_breakpoint": 900,
     "footer_bg": "#0a0d0f",
-    "company_info": "WeFixTrades Inc., 1200 Market Street Suite 400 Wilmington DE 19801",
+    "company_info": "MR Holdings & Trade LLC, d/b/a WeFixTrades, 30 N Gould St, Ste R, Sheridan, WY 82801, United States",
     "trust_badges": ["SOC 2 Compliant", "256-bit SSL Encrypted", "GDPR Ready"]
   },
   "global_css": {

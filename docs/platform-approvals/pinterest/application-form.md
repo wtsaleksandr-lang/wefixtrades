@@ -6,8 +6,8 @@ Pinterest API access has two tiers: **Trial Access** (instant) and **Standard Ac
 
 - [ ] Pinterest Developer account email: `support@wefixtrades.com`
 - [ ] Pinterest Business account: `[TODO: Alex confirms — Pinterest Business account exists for WeFixTrades, or one will be created]`
-- [ ] Organization: `WeFixTrades Inc.`
-- [ ] Country: `[TODO: Alex confirms]`
+- [ ] Organization: `MR Holdings & Trade LLC, d/b/a WeFixTrades`
+- [ ] Country: `United States` (Wyoming LLC)
 - [ ] Industry: `Software / SaaS`
 
 ## App Details

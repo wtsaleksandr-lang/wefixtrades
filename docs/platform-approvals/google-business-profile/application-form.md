@@ -20,8 +20,8 @@ Both reference the same Google Cloud project.
 
 This is the unique GBP API gate. The application form lives at https://support.google.com/business/contact/api_default.
 
-- [ ] Company name: `WeFixTrades Inc.`
-- [ ] Country of incorporation: `[TODO: Alex confirms]`
+- [ ] Company name: `MR Holdings & Trade LLC, d/b/a WeFixTrades`
+- [ ] Country of incorporation: `United States` (Wyoming LLC)
 - [ ] Company website: `https://wefixtrades.com`
 - [ ] Contact name: `Aleksandr [TODO: Alex confirms last name]`
 - [ ] Contact email: `support@wefixtrades.com` (must match the Google account that owns the GCP project)

@@ -114,8 +114,9 @@ with `handled_by: "supplier"` that moves to `in_progress` will auto-email
 them the brief.
 
 ### HI-5. Populate real business address + phone on Terms and Privacy
-- [ ] The footer currently says "1200 Market Street, Suite 400, Wilmington, DE"
-      (virtual Delaware address). That's fine as legal registered office but:
+- [ ] The registered office is MR Holdings & Trade LLC (d/b/a WeFixTrades),
+      30 N Gould St, Ste R, Sheridan, WY 82801, United States (a Wyoming LLC).
+      That's fine as legal registered office but:
 - [ ] Update `/terms` and `/privacy` pages with the real ToS and Privacy
       Policy — current text may be placeholder
 

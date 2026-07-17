@@ -5,8 +5,8 @@
 ## Developer Account Setup
 
 - [ ] TikTok Developer account email: `support@wefixtrades.com`
-- [ ] Organization name: `WeFixTrades Inc.`
-- [ ] Country: `[TODO: Alex confirms country of incorporation]`
+- [ ] Organization name: `MR Holdings & Trade LLC, d/b/a WeFixTrades`
+- [ ] Country: `United States` (Wyoming LLC)
 - [ ] Industry: `Software / SaaS`
 - [ ] Company website: `https://wefixtrades.com`
 
