@@ -1,0 +1,64 @@
+{
+  "assistants": [
+    {
+      "label": "OpenAI gpt-4o-mini-tts (Nova, steered)",
+      "short": "OpenAI TTS (Nova)",
+      "slug": "openai-tts-nova",
+      "voice": {
+        "provider": "openai",
+        "voiceId": "nova",
+        "model": "gpt-4o-mini-tts",
+        "instructions": "Warm, upbeat front-desk receptionist. Friendly and unhurried, with natural pauses. Never robotic."
+      },
+      "name": "TradeLine Voice — OpenAI TTS (Nova)",
+      "assistantId": "5c1a2c33-fec7-49ff-8ea1-864379ef92f1",
+      "ok": true
+    },
+    {
+      "label": "ElevenLabs Turbo v2.5 (Rachel)",
+      "short": "ElevenLabs (Rachel)",
+      "slug": "elevenlabs-rachel",
+      "voice": {
+        "provider": "11labs",
+        "voiceId": "21m00Tcm4TlvDq8ikWAM",
+        "model": "eleven_turbo_v2_5",
+        "stability": 0.4,
+        "similarityBoost": 0.8,
+        "speed": 0.96
+      },
+      "name": "TradeLine Voice — ElevenLabs (Rachel)",
+      "assistantId": "f800a0c0-cf16-4116-8c90-99671b723be0",
+      "ok": true
+    },
+    {
+      "label": "Cartesia Sonic-3",
+      "short": "Cartesia Sonic-3",
+      "slug": "cartesia-sonic3",
+      "voice": {
+        "provider": "cartesia",
+        "voiceId": "a0e99841-438c-4a64-b679-ae501e7d6091",
+        "model": "sonic-3"
+      },
+      "name": "TradeLine Voice — Cartesia Sonic-3",
+      "assistantId": "8882a0c7-73b3-4e3f-a04c-d466225e04f7",
+      "ok": true
+    },
+    {
+      "label": "OpenAI Realtime (Cedar, speech-to-speech)",
+      "short": "Realtime (Cedar)",
+      "slug": "openai-realtime-cedar",
+      "realtime": true,
+      "voice": {
+        "provider": "openai",
+        "voiceId": "cedar"
+      },
+      "model": {
+        "provider": "openai",
+        "model": "gpt-realtime-2025-08-28"
+      },
+      "name": "TradeLine Voice — Realtime (Cedar)",
+      "assistantId": "02a79c4a-67d0-41eb-bd9b-5615ba25ad27",
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "publicKeyHint": "VAPI_PUBLIC_KEY",
+  "assistants": [
+    {
+      "label": "GPT-4o (baseline)",
+      "slug": "gpt-4o",
+      "provider": "openai",
+      "model": "gpt-4o",
+      "costInPerM": 2.5,
+      "costOutPerM": 10,
+      "name": "TradeLine Bench — GPT-4o (baseline)",
+      "assistantId": "0659093d-f9a6-45e9-91d7-a8d3ae305ac1"
+    },
+    {
+      "label": "Gemini 2.5 Flash",
+      "slug": "gemini-2-5-flash",
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+      "costInPerM": 0.15,
+      "costOutPerM": 0.6,
+      "name": "TradeLine Bench — Gemini 2.5 Flash",
+      "assistantId": "8bbb8f99-1515-434a-aa9e-b3edcdc9bfd1"
+    },
+    {
+      "label": "Groq Llama-3.3-70B",
+      "slug": "groq-llama-3-3-70b",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "costInPerM": 0.59,
+      "costOutPerM": 0.79,
+      "name": "TradeLine Bench — Groq Llama-3.3-70B",
+      "assistantId": "61ab9105-ea9b-43a2-8d63-799f540d2193"
+    },
+    {
+      "label": "Claude Haiku 4.5",
+      "slug": "claude-haiku-4-5",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "costInPerM": 1,
+      "costOutPerM": 5,
+      "name": "TradeLine Bench — Claude Haiku 4.5",
+      "assistantId": "7676d7bb-6bd6-4a7b-964e-50f47b485ca9"
+    },
+    {
+      "label": "GPT-4o-mini",
+      "slug": "gpt-4o-mini",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "costInPerM": 0.15,
+      "costOutPerM": 0.6,
+      "name": "TradeLine Bench — GPT-4o-mini",
+      "assistantId": "ff6337da-f271-463d-9626-7f3cef8ea43c"
+    }
+  ]
+}

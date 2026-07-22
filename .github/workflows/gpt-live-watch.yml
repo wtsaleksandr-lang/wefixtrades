@@ -1,0 +1,65 @@
+name: GPT-Live watch (TradeLine)
+
+# Watches Vapi's model list for GPT-Live (or any new OpenAI realtime model).
+# When it appears, the watcher auto-provisions a demo assistant and this job
+# opens a GitHub issue so Alex is notified to test + decide on customer rollout.
+# Runs in CI so it keeps watching for weeks, independent of any local session.
+
+on:
+  schedule:
+    - cron: "17 13 * * *"   # ~09:17 ET daily (off-minute)
+    - cron: "17 1 * * *"    # and once overnight, for faster detection
+  workflow_dispatch: {}       # manual "check now" button
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: gpt-live-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+
+      - name: Check Vapi for GPT-Live
+        id: check
+        env:
+          VAPI_API_KEY: ${{ secrets.VAPI_API_KEY }}
+        run: |
+          OUT="$(node scripts/vapi/bench/watch-gpt-live.mjs || true)"
+          echo "$OUT"
+          LINE="$(echo "$OUT" | grep '^GPTLIVE_RESULT=' | head -1 | sed 's/^GPTLIVE_RESULT=//')"
+          echo "result=$LINE" >> "$GITHUB_OUTPUT"
+
+      - name: Notify if GPT-Live is here (first time only)
+        if: ${{ contains(steps.check.outputs.result, '"found":true') && contains(steps.check.outputs.result, '"alreadyProvisioned":false') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          MODEL="$(echo "$RESULT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).model||"?")}catch{console.log("?")}})')"
+          AID="$(echo "$RESULT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).assistantId||"?")}catch{console.log("?")}})')"
+          gh issue create \
+            --title "🎙️ GPT-Live is available on Vapi — TradeLine demo is ready to test" \
+            --body "$(cat <<EOF
+          **A new OpenAI realtime model just appeared in Vapi: \`$MODEL\`.**
+
+          I auto-created a speech-to-speech demo assistant with the tuned TradeLine config:
+          - **Assistant:** \`TradeLine — GPT-Live (auto)\`
+          - **ID:** \`$AID\`
+          - **Model:** \`$MODEL\` · voice \`cedar\` · native audio (no transcriber) · office ambience · tight endpointing + barge-in
+
+          ### Test it
+          Vapi dashboard → **Assistants** → **TradeLine — GPT-Live (auto)** → **Talk to Assistant**.
+          (Or ask the orchestrator for a shareable web-call URL.)
+
+          ### Then decide
+          If it sounds ready, reply here (or tell the orchestrator) to **roll it out to customers** — swapping the live Riley assistant onto \`$MODEL\` is a one-line config change in the bench framework.
+          EOF
+          )"

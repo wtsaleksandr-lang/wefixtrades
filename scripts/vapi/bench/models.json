@@ -1,0 +1,12 @@
+{
+  "_comment": "TradeLine model benchmark set. Add a model = add an entry here, then re-run provision.mjs + run-bench.mjs. Only provider/model change; everything else is cloned from the live Riley assistant. costPerMinUsd is an estimate for reporting (verify against provider pricing).",
+  "baseAssistantId": "34aa037e-38f7-4cbb-a48e-9c3c5d10bcfa",
+  "namePrefix": "TradeLine Bench",
+  "models": [
+    { "label": "GPT-4o (baseline)", "slug": "gpt-4o", "provider": "openai", "model": "gpt-4o", "costInPerM": 2.5, "costOutPerM": 10.0 },
+    { "label": "Gemini 2.5 Flash", "slug": "gemini-2-5-flash", "provider": "google", "model": "gemini-2.5-flash", "costInPerM": 0.15, "costOutPerM": 0.6 },
+    { "label": "Groq Llama-3.3-70B", "slug": "groq-llama-3-3-70b", "provider": "groq", "model": "llama-3.3-70b-versatile", "costInPerM": 0.59, "costOutPerM": 0.79 },
+    { "label": "Claude Haiku 4.5", "slug": "claude-haiku-4-5", "provider": "anthropic", "model": "claude-haiku-4-5-20251001", "costInPerM": 1.0, "costOutPerM": 5.0 },
+    { "label": "GPT-4o-mini", "slug": "gpt-4o-mini", "provider": "openai", "model": "gpt-4o-mini", "costInPerM": 0.15, "costOutPerM": 0.6 }
+  ]
+}
