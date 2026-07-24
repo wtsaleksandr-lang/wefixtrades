@@ -31,7 +31,7 @@ const KNOWN = new Set([
 
 async function vapi(method, path, body) {
   const res = await fetch(`${API}${path}`, { method, headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const t = await res.text(); let d = null; try { d = t ? JSON.parse(t) : null; } catch {}
+  const t = await res.text(); let d = null; try { d = t ? JSON.parse(t) : null; } catch { d = null; }
   if (!res.ok) throw new Error(`${method} ${path} ${res.status}: ${(d ? JSON.stringify(d) : t).slice(0, 200)}`);
   return d;
 }

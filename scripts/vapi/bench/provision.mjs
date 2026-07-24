@@ -60,7 +60,7 @@ async function vapi(method, path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
-  let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = null; }
   if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}: ${data ? JSON.stringify(data) : text}`);
   return data;
 }
