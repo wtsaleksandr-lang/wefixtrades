@@ -42,7 +42,7 @@ const VARIANTS = [
 
 async function vapi(method, path, body) {
   const res = await fetch(`${API}${path}`, { method, headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const text = await res.text(); let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  const text = await res.text(); let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = null; }
   if (!res.ok) throw new Error(`${res.status}: ${data ? JSON.stringify(data).slice(0,300) : text.slice(0,300)}`);
   return data;
 }

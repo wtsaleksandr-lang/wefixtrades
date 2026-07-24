@@ -123,9 +123,9 @@ const geminiProvider: ProviderImpl<TextInput, TextOutput> = {
   ready: () => !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY),
   invoke: async (input) => {
     const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY!;
-    const model = input.tier === "premium" ? "gemini-2.5-pro"
+    const model = input.tier === "premium" ? "gemini-pro-latest"
       : input.tier === "fast" ? "gemini-2.5-flash"
-      : "gemini-2.5-pro";
+      : "gemini-pro-latest";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",

@@ -331,13 +331,13 @@ type VisionProvider = {
   invoke: (image: Buffer, mediaType: MediaType) => Promise<string>;
 };
 
-/** Gemini 2.0 Flash — cheapest vision model on the bundle. */
+/** Gemini 2.5 Flash — cheapest vision model on the bundle. */
 const geminiProvider: VisionProvider = {
-  name: "gemini-2.0-flash",
+  name: "gemini-2.5-flash",
   ready: () => !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY),
   invoke: async (image, mediaType) => {
     const key = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY) as string;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
