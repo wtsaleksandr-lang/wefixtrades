@@ -40,8 +40,8 @@ function EmbedSnippetStep({ state, setState }: WizardRenderContext) {
   const slug = businessName
     ? businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")
     : "your-business";
-  const inlineSnippet = `<script src="https://wefixtrades.com/qq-widget.js" data-slug="${slug}" data-mode="inline"></script>\n<div id="quotequick-widget"></div>`;
-  const floatingSnippet = `<script src="https://wefixtrades.com/qq-widget.js" data-slug="${slug}" data-mode="floating"></script>`;
+  const inlineSnippet = `<script src="https://wefixtrades.com/embed-widget.js" data-calculator-slug="${slug}" async></script>\n<div id="quotequick-widget"></div>`;
+  const floatingSnippet = `<script src="https://wefixtrades.com/embed-widget.js" data-calculator-slug="${slug}" data-mode="popup" data-button-label="Get a Free Quote" async></script>`;
 
   return (
     <div className="flex flex-col gap-2">
