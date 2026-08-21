@@ -7,6 +7,7 @@ import { tiersSchema } from "@shared/tiers";
 import { QUOTEQUICK_PLAN_REVENUE_CENTS, ALL_PRODUCTS } from "@shared/pricing";
 import { automationConfigSchema } from "@shared/automationConfig";
 import { engineConfigSchema } from "@shared/engineConfig";
+import { extendTrialBodySchema, computeExtendedTrialEnd } from "./adminExtendTrial";
 import { z } from "zod";
 
 const featuresSchema = z.array(z.string().min(1).max(400)).max(40);
@@ -1108,6 +1109,58 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json(client);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to update client" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/clients/:id/extend-trial
+   * Admin shortcut to extend a client's Pro trial by a fixed number of days
+   * (7/14/21/30). New expiry = max(now, existing trial_pro_expires_at) + N days
+   * — a lapsed/null trial restarts from now; an active trial adds to the tail.
+   * Also (re-)enables trial_pro_features_enabled. Never throws to the client —
+   * a DB failure is logged and returned as a clean 500.
+   */
+  app.post("/api/admin/crm/clients/:id/extend-trial", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(String(req.params.id) as string);
+      const parse = extendTrialBodySchema.safeParse(req.body);
+      if (!parse.success) {
+        return res.status(400).json({ error: "days must be one of 7, 14, 21, 30" });
+      }
+      const days = parse.data.days;
+      const existing = await storage.getClientById(id);
+      if (!existing) return res.status(404).json({ error: "Client not found" });
+
+      const now = new Date();
+      const newExpiry = computeExtendedTrialEnd(now, existing.trial_pro_expires_at, days);
+      const client = await storage.updateClient(id, {
+        trial_pro_expires_at: newExpiry,
+        trial_pro_features_enabled: true,
+      });
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "client.extendTrial",
+        entity_type: "client",
+        entity_id: id,
+        summary: `Extended Pro trial by ${days} days for "${client.business_name}"`,
+        metadata: {
+          days,
+          trial_pro_expires_at: {
+            before: existing.trial_pro_expires_at
+              ? new Date(existing.trial_pro_expires_at).toISOString()
+              : null,
+            after: newExpiry.toISOString(),
+          },
+        },
+      });
+      res.json(client);
+    } catch (err: any) {
+      log.error("[admin-crm] Extend trial error:", err.message);
+      res.status(500).json({ error: "Failed to extend trial" });
     }
   });
 

@@ -57,6 +57,8 @@ interface Client {
   source: string | null;
   automation_enabled: boolean;
   human_override: boolean;
+  trial_pro_expires_at: string | null;
+  trial_pro_features_enabled: boolean;
   created_at: string;
 }
 
@@ -402,6 +404,19 @@ export default function ClientDetailPage() {
       toast({ title: "Client updated", description: `Status changed to ${status}` });
     },
     onError: (err: Error) => { toast({ title: "Failed to update status", description: err.message, variant: "destructive" }); },
+  });
+
+  // Extend the client's Pro trial by a fixed increment (7/14/21/30 days).
+  const extendTrial = useMutation({
+    mutationFn: async (days: number) => {
+      const res = await apiRequest("POST", `/api/admin/crm/clients/${clientId}/extend-trial`, { days });
+      return res.json();
+    },
+    onSuccess: (_data, days) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
+      toast({ title: "Trial extended", description: `Pro trial extended by ${days} days` });
+    },
+    onError: (err: Error) => { toast({ title: "Failed to extend trial", description: err.message, variant: "destructive" }); },
   });
 
   // Edit client
@@ -831,6 +846,31 @@ export default function ClientDetailPage() {
                 {client.created_at && (
                   <span className="text-muted-foreground/70">Since {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
                 )}
+              </div>
+              {/* Pro-trial expiry + quick-extend shortcut (+7/+14/+21/+30 days) */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3">
+                <span className="text-sm text-muted-foreground">
+                  Trial ends:{" "}
+                  <span className="font-medium text-foreground">
+                    {client.trial_pro_expires_at
+                      ? new Date(client.trial_pro_expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "—"}
+                  </span>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {[7, 14, 21, 30].map((d) => (
+                    <Button
+                      key={d}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      disabled={extendTrial.isPending}
+                      onClick={() => extendTrial.mutate(d)}
+                    >
+                      +{d}d
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
