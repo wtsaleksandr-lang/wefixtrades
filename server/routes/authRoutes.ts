@@ -29,6 +29,12 @@ import {
   exchangeCodeForProfile,
   isGoogleSigninConfigured,
 } from "../lib/googleSignin";
+import {
+  getAppleSigninConfig,
+  exchangeAppleCodeForProfile,
+  parseAppleUserName,
+  APPLE_AUTHORIZE_URL,
+} from "../lib/appleSignin";
 import { getDemoSession, markDemoSessionConsumed } from "./aiDemoRoutes";
 import { buildCalculatorFromDemoTemplate } from "@shared/aiDemoTemplate";
 import { slugify } from "@shared/slugUtils";
@@ -1058,6 +1064,181 @@ export function registerAuthRoutes(app: Express) {
     } catch (err: any) {
       log.error("Facebook sign-in callback error", { error: String(err) });
       return res.redirect("/login?facebook_error=internal");
+    }
+  });
+
+  /* ─── Sign in with Apple ───
+   *
+   * Placed right after the Facebook block to minimise merge friction with
+   * other in-flight branches. Mirrors the Google/Facebook flow but Apple
+   * differs in two ways (see server/lib/appleSignin.ts for the crypto):
+   *   1. The callback is a POST (response_mode=form_post), so it's an
+   *      app.post — the global express.urlencoded parser (server/index.ts)
+   *      leaves the fields on req.body.
+   *   2. The display name arrives ONLY on the first consent, in the POST
+   *      `user` field (a JSON string) — parsed via parseAppleUserName().
+   *
+   * Account resolution (same precedence as Google):
+   *   - apple_sub matches a user          → log in
+   *   - email matches an existing account → link apple_sub + log in, but
+   *     ONLY if Apple reports the email verified
+   *   - no match                          → create the user (+ its clients
+   *     row, exactly like the Google / password signup) and log in
+   *
+   * Reuses the shared HMAC-state helpers (signState / verifyState) and the
+   * generic completeSocialLogin() defined above. If any of the four APPLE_*
+   * env vars are missing, /start returns a clean "not_configured" redirect
+   * rather than crashing — Alex adds the creds to Doppler when the Services
+   * ID + .p8 key are provisioned in the Apple Developer console.
+   *
+   * Required env vars (Doppler, per env):
+   *   APPLE_OAUTH_CLIENT_ID (Services ID), APPLE_TEAM_ID, APPLE_KEY_ID,
+   *   APPLE_PRIVATE_KEY (.p8 PKCS#8). APPLE_OAUTH_REDIRECT_URI is optional
+   *   (defaults to https://wefixtrades.com/api/auth/apple/callback).
+   */
+
+  const APPLE_STATE_CONTEXT = "wft_apple_signin_state";
+
+  app.get("/api/auth/apple/start", (req, res) => {
+    const cfg = getAppleSigninConfig();
+    if (!cfg.configured) {
+      return res.redirect("/login?apple_error=not_configured");
+    }
+    try {
+      const payload = JSON.stringify({
+        mode: req.query.mode === "signup" ? "signup" : "login",
+        ts: Date.now(),
+      });
+      const params = new URLSearchParams({
+        client_id: cfg.servicesId!,
+        redirect_uri: cfg.redirectUri,
+        response_type: "code",
+        // form_post is REQUIRED to receive the first-consent `user` field.
+        response_mode: "form_post",
+        scope: "name email",
+        state: signState(payload, APPLE_STATE_CONTEXT),
+      });
+      return res.redirect(`${APPLE_AUTHORIZE_URL}?${params.toString()}`);
+    } catch (err: any) {
+      log.error("Apple sign-in start failed", { error: err?.message });
+      return res.redirect("/login?apple_error=start_failed");
+    }
+  });
+
+  app.post("/api/auth/apple/callback", async (req, res, next) => {
+    // Apple form_posts these fields (urlencoded → req.body). `user` is
+    // present only on the very first consent.
+    const { code, state, error: oauthError, user: userField } = req.body || {};
+
+    if (oauthError) {
+      // User cancelled the Apple sheet, or Apple returned an error.
+      return res.redirect(`/login?apple_error=${encodeURIComponent(String(oauthError))}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.redirect("/login?apple_error=missing_code");
+    }
+    if (!verifyState(String(state), APPLE_STATE_CONTEXT)) {
+      log.warn("Apple sign-in callback: state HMAC verification failed");
+      return res.redirect("/login?apple_error=invalid_state");
+    }
+    const cfg = getAppleSigninConfig();
+    if (!cfg.configured) {
+      return res.redirect("/login?apple_error=not_configured");
+    }
+
+    let profile: { sub: string; email: string; email_verified: boolean; name: string | null };
+    try {
+      const appleName = parseAppleUserName(userField);
+      profile = await exchangeAppleCodeForProfile(code, appleName, {
+        servicesId: cfg.servicesId!,
+        teamId: cfg.teamId!,
+        keyId: cfg.keyId!,
+        privateKey: cfg.privateKey!,
+        redirectUri: cfg.redirectUri,
+      });
+    } catch (err: any) {
+      log.error("Apple sign-in code exchange failed", { error: err?.message });
+      return res.redirect("/login?apple_error=exchange_failed");
+    }
+
+    try {
+      // 1. Known Apple identity → straight in (honors the 2FA gate).
+      const [byApple] = await db
+        .select()
+        .from(users)
+        .where(eq(users.apple_sub, profile.sub))
+        .limit(1);
+      if (byApple) return completeSocialLogin(req, res, next, byApple.id, "apple");
+
+      // 2. Email matches an existing account → auto-link, but only when
+      //    Apple vouches the email is verified (same rule as Google).
+      const byEmail = await storage.getUserByEmail(profile.email);
+      if (byEmail) {
+        if (!profile.email_verified) {
+          return res.redirect("/login?apple_error=email_unverified");
+        }
+        await db.update(users).set({ apple_sub: profile.sub }).where(eq(users.id, byEmail.id));
+        log.info("Linked Apple identity to existing account", { userId: byEmail.id });
+        return completeSocialLogin(req, res, next, byEmail.id, "apple");
+      }
+
+      // 3. Brand-new user → create the account + its clients row, exactly
+      //    like the Google / password self-serve signup. Apple gives us a
+      //    verified email + (first-consent only) name; default the business
+      //    name to that name (falling back to the email local-part) — the
+      //    user can rename it in portal settings.
+      const displayName = profile.name || profile.email.split("@")[0];
+      // Apple-created users get a random unusable password; they can claim a
+      // real one later via the forgot-password flow.
+      const randomPassword = randomBytes(32).toString("hex");
+      const user = await storage.createUser({
+        email: profile.email,
+        password_hash: hashPassword(randomPassword),
+        name: displayName,
+        role: "client",
+        apple_sub: profile.sub,
+      });
+
+      const TRIAL_DAYS = 14;
+      const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      const client = await storage.createClient({
+        business_name: displayName,
+        contact_name: user.name || "",
+        contact_email: profile.email,
+        contact_phone: null,
+        user_id: user.id,
+        status: "lead",
+        source: "website",
+        trial_pro_features_enabled: true,
+        trial_pro_expires_at: trialExpiresAt,
+      });
+
+      log.info("Apple self-serve signup completed", { userId: user.id, clientId: client.id });
+
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Apple Sign-In",
+        action: "client.signup",
+        entity_type: "client",
+        entity_id: client.id,
+        summary: `Free account created via Apple for "${displayName}" (${profile.email})`,
+      });
+
+      sendSelfServeWelcome({ user, client }).catch((err) =>
+        log.warn("[apple-signup] welcome email failed", { userId: user.id, error: err?.message }),
+      );
+
+      // Funnel analytics — signup_completed via Apple (fire-and-forget).
+      trackEvent(userDistinctId(user.id), "signup_completed", { method: "apple", has_phone: false });
+
+      const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
+      return req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        return res.redirect(landingPathForRole(user.role));
+      });
+    } catch (err: any) {
+      log.error("Apple sign-in callback error", { error: String(err) });
+      return res.redirect("/login?apple_error=internal");
     }
   });
 

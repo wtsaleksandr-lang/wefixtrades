@@ -10,6 +10,7 @@ import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
+import AppleSignInButton from "@/components/auth/AppleSignInButton";
 import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 import { ga4Event } from "@/lib/ga4";
 import {
@@ -165,6 +166,7 @@ export default function SignupPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <GoogleSignInButton mode="signup" />
             <FacebookSignInButton mode="signup" />
+            <AppleSignInButton mode="signup" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
             <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
