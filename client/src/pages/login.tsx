@@ -11,6 +11,7 @@ import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
+import AppleSignInButton from "@/components/auth/AppleSignInButton";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 
@@ -24,6 +25,17 @@ const GOOGLE_ERROR_COPY: Record<string, string> = {
   start_failed: "Couldn't start Google sign-in. Please try again.",
   account_lookup_failed: "Something went wrong finding your account. Please try again.",
   internal: "Google sign-in hit an unexpected error. Please try again.",
+};
+
+/** Friendly copy for the ?apple_error= codes the Apple callback may return. */
+const APPLE_ERROR_COPY: Record<string, string> = {
+  not_configured: "Apple sign-in isn't available right now. Please use email or password.",
+  email_unverified: "Your Apple account's email isn't verified. Please sign in with email or password instead.",
+  invalid_state: "Apple sign-in couldn't be verified. Please try again.",
+  missing_code: "Apple sign-in didn't complete. Please try again.",
+  exchange_failed: "We couldn't complete sign-in with Apple. Please try again.",
+  start_failed: "Couldn't start Apple sign-in. Please try again.",
+  internal: "Apple sign-in hit an unexpected error. Please try again.",
 };
 
 /**
@@ -59,6 +71,7 @@ export default function LoginPage() {
   const [tokenLoginError, setTokenLoginError] = useState<string | null>(null);
   const [tokenLoginPending, setTokenLoginPending] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [appleError, setAppleError] = useState<string | null>(null);
   const [, navigate] = useLocation();
   usePageTitle("Sign In");
 
@@ -149,6 +162,11 @@ export default function LoginPage() {
     const gErr = params.get("google_error");
     if (gErr) {
       setGoogleError(GOOGLE_ERROR_COPY[gErr] || "Google sign-in didn't complete. Please try again.");
+      window.history.replaceState({}, "", "/login");
+    }
+    const aErr = params.get("apple_error");
+    if (aErr) {
+      setAppleError(APPLE_ERROR_COPY[aErr] || "Apple sign-in didn't complete. Please try again.");
       window.history.replaceState({}, "", "/login");
     }
     if (params.get("verify2fa") === "1") {
@@ -337,7 +355,7 @@ export default function LoginPage() {
 
             {/* Token-login error surfaces at the top — usually expired
                 or already-used link. */}
-            {(tokenLoginError || googleError) && (
+            {(tokenLoginError || googleError || appleError) && (
               <div
                 role="alert"
                 style={{
@@ -350,7 +368,7 @@ export default function LoginPage() {
                   color: "#FCA5A5",
                 }}
               >
-                {tokenLoginError || googleError}
+                {tokenLoginError || googleError || appleError}
               </div>
             )}
 
@@ -388,6 +406,7 @@ export default function LoginPage() {
                         type="email"
                         placeholder="john@smithplumbing.com"
                         helpText="The email on your account — we'll send a one-time sign-in link there. It expires in 15 minutes."
+                        hideHelpCue
                         value={email}
                         onChange={setEmail}
                         inputMode="email"
@@ -525,6 +544,7 @@ export default function LoginPage() {
                         helpText={useRecoveryCode
                           ? "One of the single-use recovery codes you saved when enabling 2FA."
                           : "The 6-digit code currently shown in your authenticator app."}
+                        hideHelpCue
                         value={totpCode}
                         onChange={(v) =>
                           setTotpCode(
@@ -621,6 +641,7 @@ export default function LoginPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <GoogleSignInButton mode="login" />
                   <FacebookSignInButton mode="login" />
+                  <AppleSignInButton mode="login" />
                 </div>
               </>
             )}

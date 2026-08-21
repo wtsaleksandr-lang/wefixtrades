@@ -55,6 +55,12 @@ export const users = pgTable("users", {
    * Same semantics as `google_sub`. See migration 0045_social_login_subs.sql.
    */
   facebook_sub: text("facebook_sub").unique(),
+  /**
+   * Apple account subject ID — the stable `sub` claim from Apple's verified
+   * id_token. Set when a user signs in via "Continue with Apple". Same
+   * semantics as `google_sub`. See migration 0092_users_apple_sub.sql.
+   */
+  apple_sub: text("apple_sub").unique(),
   // Phase 3e-ii: how the AI escalates to this user. "dashboard" = an agenda
   // notice only; "sms" / "whatsapp" also ping ai_contact_phone via Twilio.
   ai_contact_method: varchar("ai_contact_method", { length: 20 }).notNull().default("dashboard"),
@@ -86,6 +92,10 @@ export const users = pgTable("users", {
   facebookSubIdx: uniqueIndex("users_facebook_sub_idx")
     .on(table.facebook_sub)
     .where(sql`${table.facebook_sub} IS NOT NULL`),
+  // Partial UNIQUE index from migrations/0092_users_apple_sub.sql.
+  appleSubIdx: uniqueIndex("users_apple_sub_idx")
+    .on(table.apple_sub)
+    .where(sql`${table.apple_sub} IS NOT NULL`),
 }));
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });
