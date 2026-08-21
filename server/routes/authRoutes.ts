@@ -29,6 +29,8 @@ import {
   exchangeCodeForProfile,
   isGoogleSigninConfigured,
 } from "../lib/googleSignin";
+import { ensureClientReferralCode } from "../affiliate/codes";
+import { linkReferralOnSignup } from "../affiliate/attribution";
 import { getDemoSession, markDemoSessionConsumed } from "./aiDemoRoutes";
 import { buildCalculatorFromDemoTemplate } from "@shared/aiDemoTemplate";
 import { slugify } from "@shared/slugUtils";
@@ -472,6 +474,20 @@ export function registerAuthRoutes(app: Express) {
 
       log.info("Self-serve signup completed", { userId: user.id, clientId: client.id });
 
+      // Referral program (0091): every client gets a shareable code, and any
+      // pending ?ref/​/ref cookie is linked to this signup (referee trial → 30d,
+      // referrer free-month credit queued). Non-fatal — signup must succeed even
+      // if attribution fails.
+      try {
+        await ensureClientReferralCode(client.id);
+        await linkReferralOnSignup({ req, clientId: client.id, signupEmail: normalised });
+      } catch (referralErr) {
+        log.warn("[signup] referral linking failed (non-fatal)", {
+          clientId: client.id,
+          error: referralErr instanceof Error ? referralErr.message : String(referralErr),
+        });
+      }
+
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Self-Serve Signup",
@@ -782,6 +798,19 @@ export function registerAuthRoutes(app: Express) {
       });
 
       log.info("Google self-serve signup completed", { userId: user.id, clientId: client.id });
+
+      // Referral program (0091): mint the client's code + link any pending
+      // ?ref/​/ref attribution cookie (same as the password signup path).
+      // Non-fatal — signup must succeed even if attribution fails.
+      try {
+        await ensureClientReferralCode(client.id);
+        await linkReferralOnSignup({ req, clientId: client.id, signupEmail: pending.email });
+      } catch (referralErr) {
+        log.warn("[google-signup] referral linking failed (non-fatal)", {
+          clientId: client.id,
+          error: referralErr instanceof Error ? referralErr.message : String(referralErr),
+        });
+      }
 
       await storage.logAdminActivity({
         actor_type: "system",

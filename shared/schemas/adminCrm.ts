@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, numeric, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -134,9 +134,18 @@ export const clients = pgTable("clients", {
   // to both the live React preview and the PDFKit renderer.
   default_invoice_template_slug: text("default_invoice_template_slug").default("classic-minimal"),
   invoice_accent_color: text("invoice_accent_color").default("#0d3cfc"),
+  // 0091 — double-sided referral program. Every client owns a shareable
+  // referral code (lazily minted by ensureClientReferralCode on signup /
+  // first portal referral-card load). Used in `/ref/<code>` + `?ref=<code>`.
+  // See shared/schemas/affiliate.ts + server/affiliate/*.
+  referral_code: text("referral_code"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, (t) => ({
+  // Must match migrations/0091_affiliate_referral.sql:
+  //   CREATE UNIQUE INDEX clients_referral_code_idx ON clients(referral_code).
+  referralCodeIdx: uniqueIndex("clients_referral_code_idx").on(t.referral_code),
+}));
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, created_at: true, updated_at: true });
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
