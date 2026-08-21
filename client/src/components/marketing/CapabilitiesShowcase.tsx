@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Calculator, PhoneCall, MapPin, Gauge, Check, Clock } from "lucide-react";
+import { RankGridResultCard, AUSTIN_PRESET } from "@/components/marketing/RankGridDemoLoop";
 
 const TABS = [
   {
@@ -189,57 +190,13 @@ function TradeLineMockup() {
   );
 }
 
-/** MapGuard — a local-rank geo-grid + Google Business Profile health. */
+/** MapGuard — the REAL local-rank map grid (Google static map + overlaid 5×5
+ *  rank pins + SoLV/ARP/ATRP), keyed to a non-Denver demo company/city so it's
+ *  varied across surfaces. Reuses the shared RankGridResultCard. */
 function MapGuardMockup() {
-  // 5×5 rank grid — greens (top-3), ambers (mid), one red gap.
-  const grid = [
-    1, 1, 2, 3, 1,
-    1, 2, 1, 4, 2,
-    2, 1, 1, 2, 3,
-    1, 3, 2, 5, 11,
-    2, 1, 4, 8, 14,
-  ];
-  const dotColor = (r: number) => (r <= 3 ? "#16a34a" : r <= 10 ? "#eab308" : "#dc2626");
   return (
-    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div style={{
-        position: "absolute", left: "50%", top: "50%",
-        transform: "translate(-50%, -50%)",
-        width: 238, background: "rgba(255,255,255,0.94)", borderRadius: 16,
-        padding: "16px 16px", boxShadow: CARD_SHADOW,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#9CA3AF", textTransform: "uppercase" }}>Local rank grid</span>
-          <span style={{ fontSize: 10, background: "rgba(22,163,74,0.12)", color: "#16a34a", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>Top 3</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 7, marginBottom: 14 }}>
-          {grid.map((r, i) => (
-            <div key={i} style={{
-              aspectRatio: "1 / 1", borderRadius: 999, background: dotColor(r),
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 9, fontWeight: 800, color: "white",
-            }}>{r >= 21 ? "20+" : r}</div>
-          ))}
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Avg map rank</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: "#16a34a", letterSpacing: "-0.02em" }}>1.3</span>
-        </div>
-      </div>
-      <div style={{
-        position: "absolute", right: 0, bottom: 0,
-        background: "#22282a", borderRadius: 16, padding: "12px 14px",
-        boxShadow: CARD_SHADOW, minWidth: 150,
-      }}>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 7 }}>Profile health</div>
-        {[["Hours", true], ["Photos", true], ["Posts", true]].map(([label]) => (
-          <div key={label as string} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <Check size={12} color="#34D399" strokeWidth={3} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#F9FAFB" }}>{label}</span>
-          </div>
-        ))}
-        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>Monitored weekly</div>
-      </div>
+    <div data-theme="light" style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <RankGridResultCard preset={AUSTIN_PRESET} />
     </div>
   );
 }

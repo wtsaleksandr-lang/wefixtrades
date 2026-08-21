@@ -12,7 +12,7 @@ import GenericTradeHeroAnimation from "./GenericTradeHeroAnimation";
 
 /* ─── Per-product animations ─────────────────────────────────── */
 const PRODUCT_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
-  mapguard: lazy(() => import("./MapGuardHeroAnimation")),
+  mapguard: lazy(() => import("./MapGuardRankGridHero")),
   tradeline: lazy(() => import("./TradeLineHeroAnimation")),
   quickquotepro: lazy(() => import("./QuoteQuickHeroAnimation")),
   contentflow: lazy(() => import("./ContentFlowHeroAnimation")),
