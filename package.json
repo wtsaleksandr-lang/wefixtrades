@@ -55,6 +55,7 @@
     "check:quote-widget-upload": "tsx server/routes/quoteWidgetUploadRoutes.test.ts",
     "check:roofquote-cost-gating": "tsx server/routes/roofQuoteRoutes.test.ts",
     "check:client-chat-access": "tsx server/services/clientChatAccess.test.ts",
+    "check:portal-overview": "tsx server/routes/portalOverview.test.ts",
     "check:tradeline-route-order": "tsx server/routes/portalTradelineKnowledgeRoutes.routeOrder.test.ts",
     "check:matrix-rate": "tsx client/src/components/quote-widget/MatrixField.resolveRate.test.ts",
     "check:trades-sync": "tsx client/src/site/__tests__/trades.sync.test.ts",
