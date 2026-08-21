@@ -265,7 +265,7 @@ export function RankGridResultCard({ preset = DENVER_PRESET }: { preset?: RankGr
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, fontFamily: SANS, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{preset.company}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: MUTED, fontFamily: MONO, marginTop: 1 }}>
-            <MapPin size={11} aria-hidden="true" /> {preset.city}
+            <MapPin size={12} aria-hidden="true" /> {preset.city}
           </div>
         </div>
         <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: ACCENT, fontFamily: MONO, background: "rgba(61,90,94,0.08)", borderRadius: 999, padding: "4px 9px" }}>
