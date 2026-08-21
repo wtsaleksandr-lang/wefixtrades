@@ -68,3 +68,4 @@ export * from "./serpAwareGenerator";
 export * from "./aiActionAuditLog";
 export * from "./smsTemplateOverrides";
 export * from "./outreachSending";
+export * from "./affiliate";

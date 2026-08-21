@@ -1,7 +1,7 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, HelpCircle, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy, Inbox, Calculator, Calendar, FileText } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, HelpCircle, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy, Inbox, Calculator, Calendar, FileText, Gift, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -845,6 +845,9 @@ function PortalDashboardInner() {
           })()}
           {/* Wave 36 — SocialSync setup CTA deleted (audit: duplicates Services catalogue + nav). */}
 
+          {/* Refer a friend — double-sided referral program (0091). */}
+          <ReferralCard />
+
           {/* Recent activity — Wave 36: hidden in Simple mode. Ask the
               AI Copilot "what changed?" to surface this. */}
           <AdvancedOnly product="portal" elementId="portal.recent-activity-feed">
@@ -1205,6 +1208,128 @@ function SimplifiedDashboardBanner() {
       >
         <span aria-hidden="true">×</span>
       </button>
+    </Card>
+  );
+}
+
+/* ─── Refer a friend — double-sided referral program (0091) ────────────────
+ * Reads GET /api/client/referral: the client's shareable /ref/<code> link +
+ * click / signup / credit stats. Copy-to-clipboard on the link. Uses design
+ * tokens only (no hardcoded colors); help cue top-left per the hard UI rule. */
+interface ReferralData {
+  code: string | null;
+  link: string | null;
+  freeMonthsPerReferral: number;
+  previewMode?: boolean;
+  stats: {
+    clicks: number;
+    signups: number;
+    creditsPendingMonths: number;
+    creditsAppliedMonths: number;
+  };
+}
+
+function ReferralCard() {
+  const [copied, setCopied] = useState(false);
+  const { data, isLoading } = useQuery<ReferralData>({
+    queryKey: ["/api/client/referral"],
+    queryFn: async () => {
+      const res = await fetch("/api/client/referral", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load referral details");
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="p-5">
+        <Skeleton className="h-5 w-40 mb-3" />
+        <Skeleton className="h-9 w-full" />
+      </Card>
+    );
+  }
+  if (!data || !data.link || !data.code) return null;
+
+  const link = data.link;
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable (insecure context / denied) — link stays visible to copy manually */
+    }
+  };
+
+  const { clicks, signups, creditsPendingMonths, creditsAppliedMonths } = data.stats;
+
+  return (
+    <Card className="relative p-5" data-testid="referral-card">
+      {/* Help cue — top-left of the component per DESIGN-SYSTEM hard rule */}
+      <span className="absolute top-1 left-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-muted-foreground/70 cursor-default shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-xs">
+            Share your link. When a trade you refer joins and becomes a paying customer, you get{" "}
+            {data.freeMonthsPerReferral} free month{data.freeMonthsPerReferral === 1 ? "" : "s"} — and they
+            get an extended 30-day Pro trial plus 20% off their first 3 months.
+          </TooltipContent>
+        </Tooltip>
+      </span>
+
+      <div className="flex items-center gap-3 mb-1">
+        <div className="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center shrink-0">
+          <Gift className="w-5 h-5 text-brand-blue" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">Refer a friend</h2>
+          <p className="text-xs text-muted-foreground">
+            Get {data.freeMonthsPerReferral} free month{data.freeMonthsPerReferral === 1 ? "" : "s"} for every
+            business you refer.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-stretch gap-2">
+        <div className="flex-1 min-w-0 flex items-center rounded-lg border border-border bg-muted/40 px-3 py-2">
+          <span className="text-sm text-foreground truncate" title={link}>
+            {link}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={copyLink}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+          aria-label="Copy referral link"
+          data-testid="referral-copy-btn"
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-border p-3 text-center">
+          <p className="text-lg font-semibold text-foreground">{clicks}</p>
+          <p className="text-[10px] text-muted-foreground">Link clicks</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <p className="text-lg font-semibold text-foreground">{signups}</p>
+          <p className="text-[10px] text-muted-foreground">Signups</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <p className="text-lg font-semibold text-foreground">
+            {creditsAppliedMonths}
+            {creditsPendingMonths > 0 && (
+              <span className="text-xs font-normal text-muted-foreground"> +{creditsPendingMonths}</span>
+            )}
+          </p>
+          <p className="text-[10px] text-muted-foreground">Free months</p>
+        </div>
+      </div>
     </Card>
   );
 }

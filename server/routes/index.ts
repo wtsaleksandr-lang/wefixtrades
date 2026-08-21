@@ -59,6 +59,7 @@ import { registerPortalFreetoolsRoutes } from "./portalFreetoolsRoutes";
 import { registerPortalReviewReplyRoutes } from "./portalReviewReplyRoutes";
 import { registerPortalQuoteWriterRoutes } from "./portalQuoteWriterRoutes";
 import { registerReviewFunnelRoutes } from "./reviewFunnelRoutes";
+import { registerPartnersRoutes } from "./partnersRoutes";
 import { registerPortalReviewLinkRoutes } from "./portalReviewLinkRoutes";
 import { registerServiceAreaMapRoutes } from "./serviceAreaMapRoutes";
 import { registerMapguardRoutes } from "./mapguardRoutes";
@@ -162,6 +163,10 @@ export async function registerRoutes(
   registerHealthzRoute(app);
 
   registerAuthRoutes(app);
+  // Affiliate + Referral (Phase 1): ?ref= capture middleware, /ref/:code short
+  // link, and GET /api/client/referral. Registered early — before the SPA
+  // catch-all — so /ref/:code resolves server-side.
+  registerPartnersRoutes(app);
   registerMarketingRoutes(app);
   registerMarketingWaitlistRoutes(app);
   registerMarketingChatRoutes(app);
