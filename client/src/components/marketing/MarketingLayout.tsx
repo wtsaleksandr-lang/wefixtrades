@@ -273,6 +273,8 @@ function MarketingFooter() {
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
+            {/* Partner programs — referral + affiliate self-serve surface. */}
+            <FtLink href="/partners">Affiliates & Referrals</FtLink>
           </FooterColumn>
 
           {/* Tools — demos + free tools.

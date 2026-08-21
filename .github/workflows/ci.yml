@@ -161,6 +161,10 @@ jobs:
         run: npm run check:availability-sync
       - name: BookFlow working-hours sync guard (P0 — calculator create/update UPSERTS appearance.scheduling into bookflow_settings.working_hours, the table the LIVE slot picker + QuoteQuick copilot actually read via bookflowService.getAvailableSlots; an EXISTING row is UPDATED not lazy-once-frozen; only working_hours/slot/buffer touched so deposit/slug/is_active are preserved; enabled-falsy / no-client → no-op; deliberate-failure fixture — a lazy-only impl never updates → red)
         run: npm run check:bookflow-hours-sync
+      - name: Affiliate dashboard aggregation guard (buildAffiliateDashboard turns raw click/signup/commission aggregates into the correct tier/rate/earnings view-model using only programs.ts terms; base <10 counts toward pro, pro is top-of-ladder, hand-set partner rate wins, commission rows bucket into pending/approved/paid, garbage clamps to 0)
+        run: npm run check:affiliate-dashboard
+      - name: Affiliate self-serve signup guard (registerAffiliate is idempotent on email — a repeat submit returns the existing row with no mint/insert; a new email mints a code and inserts tier=base/status=pending at the base commission rate; owner + payout fields flow through; a no-row insert throws; the route Zod shape rejects bad email/payout method)
+        run: npm run check:affiliate-signup
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
