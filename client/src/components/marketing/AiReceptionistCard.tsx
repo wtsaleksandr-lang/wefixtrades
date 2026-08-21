@@ -69,6 +69,12 @@ export default function AiReceptionistCard({ data, readMoreHref, readMoreNewTab,
         </div>
 
         <h3 className="airx-heading">{data.label} AI Receptionist</h3>
+        {/* AI↔TradeLine bridge — every AI receptionist IS TradeLine, so name the
+            relationship explicitly (the product page + pricing call it TradeLine,
+            this gallery calls it "AI Receptionist" — this line ties them). */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#0d3cfc", marginTop: -3, letterSpacing: "0.01em" }}>
+          Part of TradeLine™
+        </div>
 
         <div className="airx-feats">
           {data.cardBenefits.map((b, i) => (
