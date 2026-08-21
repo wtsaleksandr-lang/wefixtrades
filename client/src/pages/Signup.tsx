@@ -9,7 +9,6 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
-import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
 import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { FreeToolFormField, FreeToolFormFieldStyles } from "@/components/marketing/FreeToolFormField";
 import { ga4Event } from "@/lib/ga4";
@@ -165,7 +164,6 @@ export default function SignupPage() {
               prompt. Falls through to the full form below. */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <GoogleSignInButton mode="signup" />
-            <MicrosoftSignInButton mode="signup" />
             <FacebookSignInButton mode="signup" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>

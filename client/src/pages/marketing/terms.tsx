@@ -266,7 +266,7 @@ export default function TermsPage() {
           The Service depends on third-party platforms, including (but not
           limited to): Stripe (payments), Anthropic Claude (AI), Vapi (voice),
           Twilio (SMS, where applicable), SendGrid or similar (email), Google
-          (sign-in, Maps, Business Profile, Search Console), Microsoft (sign-in),
+          (sign-in, Maps, Business Profile, Search Console),
           Meta (sign-in, Facebook, Instagram), and ElevenLabs (voice synthesis).
           Your use of those platforms through us is also subject to their terms.
         </p>

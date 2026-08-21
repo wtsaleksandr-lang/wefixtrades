@@ -5,7 +5,7 @@ import { LegalShell, LegalSection, type TocItem } from "@/components/marketing/l
  * Privacy Policy — MR Holdings & Trade LLC (operating as "WeFixTrades")
  *
  * AI-drafted baseline covering the main US/Canada requirements plus a
- * reasonable GDPR posture. Includes OAuth sign-in (Google/Microsoft/Facebook),
+ * reasonable GDPR posture. Includes OAuth sign-in (Google/Facebook),
  * Google API Limited-Use, an explicit data-deletion path (required by Meta,
  * Apple, and Google Play), and a mobile-app section. Have an attorney review
  * before regulated verticals, enterprise, or EU market entry.
@@ -23,7 +23,7 @@ const TOC: TocItem[] = [
   { id: "use", label: "3. How we use it" },
   { id: "bases", label: "4. Legal bases (EU/UK)" },
   { id: "share", label: "5. How we share" },
-  { id: "signin", label: "6. Signing in with Google, Microsoft & Facebook" },
+  { id: "signin", label: "6. Signing in with Google & Facebook" },
   { id: "google-api", label: "7. Google API — Limited Use" },
   { id: "retention", label: "8. How long we keep it" },
   { id: "rights", label: "9. Your rights" },
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
 
         <p><strong>Information we receive from third parties:</strong></p>
         <ul style={ul}>
-          <li>Sign-in providers — Google, Microsoft, and Facebook/Meta — when you sign in with them (see section 6)</li>
+          <li>Sign-in providers — Google and Facebook/Meta — when you sign in with them (see section 6)</li>
           <li>Google (Business Profile data, Search Console metrics) when you connect these</li>
           <li>Meta (Facebook/Instagram Page info) when you connect these</li>
           <li>Stripe (payment confirmations, subscription status)</li>
@@ -127,7 +127,6 @@ export default function PrivacyPage() {
           <li><strong>ElevenLabs / Deepgram</strong> — voice synthesis and speech-to-text for TradeLine</li>
           <li><strong>SendGrid / SMTP providers</strong> — transactional email</li>
           <li><strong>Google</strong> — sign-in, Business Profile, Maps, analytics</li>
-          <li><strong>Microsoft</strong> — sign-in (identity)</li>
           <li><strong>Meta</strong> — sign-in, Facebook / Instagram posting APIs</li>
           <li><strong>White-label service partners</strong> — third-party agencies and freelancers who fulfill specific services. We share only the minimum business info they need.</li>
           <li><strong>Hosting and infrastructure providers</strong> — AWS (hosting), Cloudflare (CDN &amp; security), monitoring</li>
@@ -137,11 +136,11 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="signin" title="6. Signing in with Google, Microsoft & Facebook">
+      <LegalSection id="signin" title="6. Signing in with Google & Facebook">
         <p>
           You can create or access your WeFixTrades account using <strong>"Sign in with
-          Google"</strong>, <strong>"Sign in with Microsoft"</strong>, or <strong>"Sign in
-          with Facebook"</strong>. When you do, we receive a limited set of profile
+          Google"</strong> or <strong>"Sign in with Facebook"</strong>. When you do, we
+          receive a limited set of profile
           information from that provider — typically your <strong>name, email address, and a
           profile identifier</strong> (and, where the provider supplies it, your profile
           picture).
@@ -155,7 +154,6 @@ export default function PrivacyPage() {
         <p style={{ marginTop: 12 }}>Your use of each provider's sign-in is also governed by that provider's own privacy policy:</p>
         <ul style={ul}>
           <li>Google — <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={a}>Google Privacy Policy</a></li>
-          <li>Microsoft — <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer" style={a}>Microsoft Privacy Statement</a></li>
           <li>Facebook/Meta — <a href="https://www.facebook.com/privacy/policy" target="_blank" rel="noopener noreferrer" style={a}>Meta Privacy Policy</a></li>
         </ul>
         <p style={{ marginTop: 12 }}>
@@ -246,7 +244,7 @@ export default function PrivacyPage() {
           We permanently delete or anonymize your personal data within <strong>30 days</strong>
           {" "}of a verified request, except where we must retain certain records for legal,
           tax, or accounting reasons (see section 8). If you signed in or connected via
-          Google, Microsoft, or Facebook/Meta, deleting your WeFixTrades account also removes
+          Google or Facebook/Meta, deleting your WeFixTrades account also removes
           the profile data we received from them — and you can additionally revoke our access
           in each provider's own settings.
         </p>

@@ -197,7 +197,7 @@ async function resetFailedLogins(userId: number): Promise<void> {
 
 /**
  * 2FA parity helper. Mirrors the inline TOTP gate used by
- * /api/auth/login + the Google/Microsoft/Facebook OAuth callbacks so
+ * /api/auth/login + the Google/Facebook OAuth callbacks so
  * token-login and checkout-login can't be used to bypass a second factor
  * the user chose to enable. Returns true if a 2FA challenge was emitted
  * (in which case the caller MUST NOT proceed with req.logIn). Returns
@@ -829,38 +829,34 @@ export function registerAuthRoutes(app: Express) {
     res.json({ pending: true, email: pending.email, name: pending.name });
   });
 
-  /* ─── "Sign in with Microsoft" + "Sign in with Facebook" ───
+  /* ─── "Sign in with Facebook" ───
    *
    * Scaffold (PR landing 2026-05-24): mirrors the Google flow above but
    * inlined here rather than split into per-provider lib files, to keep
    * the surface area of this PR small. Behavior on callback:
-   *   1. Known <provider>_sub  → log in.
-   *   2. Email matches existing → auto-link the sub (only when the
-   *      provider vouched for email verification — Microsoft's `email`
-   *      claim from /v2.0/me is presumed verified for work/school
-   *      tenants; Facebook's email is presumed verified by FB.)
-   *   3. Brand-new identity → redirect to /signup?social=<provider>
+   *   1. Known facebook_sub  → log in.
+   *   2. Email matches existing → auto-link the sub (Facebook's email is
+   *      presumed verified by FB.)
+   *   3. Brand-new identity → redirect to /signup?social=facebook
    *      &email=<addr>&name=<name>, so the existing signup form can
    *      be prefilled. (We don't reuse the Google "pending signup +
    *      business-name page" flow here to avoid touching that page
-   *      in this scaffold PR; brand-new MS/FB users complete the
+   *      in this scaffold PR; brand-new FB users complete the
    *      standard signup form, which links the sub on first
    *      authenticated visit.)
    *
    * If client ID / secret env vars are missing, /start returns a clean
    * "not_configured" redirect rather than crashing. Alex adds creds to
-   * Doppler when the apps are registered in Entra + Meta Developers.
+   * Doppler when the app is registered in Meta Developers.
    *
    * Required env vars (Doppler, per env):
-   *   MICROSOFT_OAUTH_CLIENT_ID, MICROSOFT_OAUTH_CLIENT_SECRET
-   *   MICROSOFT_OAUTH_REDIRECT_URI (defaults to prod URL)
    *   FACEBOOK_OAUTH_CLIENT_ID, FACEBOOK_OAUTH_CLIENT_SECRET
    *   FACEBOOK_OAUTH_REDIRECT_URI (defaults to prod URL)
    */
 
   // Shared HMAC-state helpers — same pattern as googleSignin.ts but with
   // a per-provider context string so a state minted for Google can't be
-  // replayed against the Microsoft or Facebook callback.
+  // replayed against the Facebook callback.
   const hmacState = (payload: string, context: string): Buffer => {
     const secret = process.env.SESSION_SECRET || "wft-oauth-default-key-change-me";
     const { createHmac } = require("crypto");
@@ -934,180 +930,6 @@ export function registerAuthRoutes(app: Express) {
       });
     })();
   };
-
-  /* ───── Microsoft (Entra ID) ───── */
-
-  const MS_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
-  const MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-  const MS_USERINFO_URL = "https://graph.microsoft.com/oidc/userinfo";
-  const MS_STATE_CONTEXT = "wft_microsoft_signin_state";
-
-  const getMicrosoftConfig = () => ({
-    clientId: process.env.MICROSOFT_OAUTH_CLIENT_ID || null,
-    clientSecret: process.env.MICROSOFT_OAUTH_CLIENT_SECRET || null,
-    redirectUri:
-      process.env.MICROSOFT_OAUTH_REDIRECT_URI ||
-      "https://wefixtrades.com/api/auth/microsoft/callback",
-  });
-
-  app.get("/api/auth/microsoft/start", (req, res) => {
-    const cfg = getMicrosoftConfig();
-    if (!cfg.clientId || !cfg.clientSecret) {
-      return res.redirect("/login?microsoft_error=not_configured");
-    }
-    try {
-      const payload = JSON.stringify({ mode: req.query.mode === "signup" ? "signup" : "login", ts: Date.now() });
-      const params = new URLSearchParams({
-        client_id: cfg.clientId,
-        redirect_uri: cfg.redirectUri,
-        response_type: "code",
-        scope: "openid email profile",
-        state: signState(payload, MS_STATE_CONTEXT),
-        prompt: "select_account",
-        response_mode: "query",
-      });
-      return res.redirect(`${MS_AUTH_URL}?${params.toString()}`);
-    } catch (err: any) {
-      log.error("Microsoft sign-in start failed", { error: err?.message });
-      return res.redirect("/login?microsoft_error=start_failed");
-    }
-  });
-
-  app.get("/api/auth/microsoft/callback", async (req, res, next) => {
-    const { code, state, error: oauthError } = req.query;
-    if (oauthError) {
-      return res.redirect(`/login?microsoft_error=${encodeURIComponent(String(oauthError))}`);
-    }
-    if (!code || typeof code !== "string") {
-      return res.redirect("/login?microsoft_error=missing_code");
-    }
-    if (!verifyState(String(state), MS_STATE_CONTEXT)) {
-      log.warn("Microsoft sign-in callback: state HMAC verification failed");
-      return res.redirect("/login?microsoft_error=invalid_state");
-    }
-    const cfg = getMicrosoftConfig();
-    if (!cfg.clientId || !cfg.clientSecret) {
-      return res.redirect("/login?microsoft_error=not_configured");
-    }
-
-    let profile: { sub: string; email: string; email_verified: boolean; name: string | null };
-    try {
-      const tokenRes = await fetch(MS_TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          code,
-          client_id: cfg.clientId,
-          client_secret: cfg.clientSecret,
-          redirect_uri: cfg.redirectUri,
-          grant_type: "authorization_code",
-          scope: "openid email profile",
-        }).toString(),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(
-          `Microsoft token exchange failed: ${(err as any)?.error_description || (err as any)?.error || tokenRes.statusText}`,
-        );
-      }
-      const tokenData = (await tokenRes.json()) as { access_token?: string; id_token?: string };
-      if (!tokenData.access_token) throw new Error("Microsoft token exchange returned no access_token");
-
-      const infoRes = await fetch(MS_USERINFO_URL, {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!infoRes.ok) {
-        throw new Error(`Microsoft userinfo fetch failed: ${infoRes.status} ${infoRes.statusText}`);
-      }
-      const info = (await infoRes.json()) as {
-        sub?: string;
-        email?: string;
-        name?: string;
-      };
-      if (!info.sub || !info.email) throw new Error("Microsoft userinfo missing sub or email");
-
-      // P1 fix: Microsoft Graph /oidc/userinfo does NOT include
-      // `email_verified`. We extract it from the id_token's claims —
-      // the token came directly from Microsoft's HTTPS token endpoint
-      // (TLS is the trust anchor for the auth-code flow), so a payload
-      // decode without signature verification is acceptable here
-      // (matches what googleSignin.ts does with the userinfo response).
-      //
-      // Microsoft sets `xms_edov: true` (email domain owner verified)
-      // for cloud-issued tokens whose tenant proves the email — that's
-      // the canonical "is this email actually theirs" signal. Standard
-      // `email_verified` is also honored as a fallback.
-      let emailVerified = false;
-      if (tokenData.id_token) {
-        try {
-          const parts = tokenData.id_token.split(".");
-          if (parts.length >= 2) {
-            const payloadStr = Buffer.from(
-              parts[1].replace(/-/g, "+").replace(/_/g, "/") +
-                "=".repeat((4 - (parts[1].length % 4)) % 4),
-              "base64",
-            ).toString("utf-8");
-            const claims = JSON.parse(payloadStr) as {
-              email_verified?: boolean;
-              xms_edov?: boolean;
-            };
-            emailVerified = claims.email_verified === true || claims.xms_edov === true;
-          }
-        } catch (e) {
-          log.warn("Microsoft id_token decode failed", { error: String(e) });
-        }
-      }
-
-      profile = {
-        sub: info.sub,
-        email: info.email.toLowerCase().trim(),
-        email_verified: emailVerified,
-        name: info.name?.trim() || null,
-      };
-      log.info("Microsoft sign-in profile resolved", { sub: profile.sub, email_verified: profile.email_verified });
-    } catch (err: any) {
-      log.error("Microsoft sign-in code exchange failed", { error: err?.message });
-      return res.redirect("/login?microsoft_error=exchange_failed");
-    }
-
-    try {
-      // 1. Known Microsoft identity.
-      const [byMs] = await db.select().from(users).where(eq(users.microsoft_sub, profile.sub)).limit(1);
-      if (byMs) return completeSocialLogin(req, res, next, byMs.id, "microsoft");
-
-      // 2. Email matches existing account → auto-link.
-      const byEmail = await storage.getUserByEmail(profile.email);
-      if (byEmail) {
-        // P1 fix (parity with Google callback at line ~359): refuse to
-        // attach a Microsoft identity to an existing password account
-        // when Microsoft hasn't vouched for the email. Without this an
-        // attacker could create an Entra tenant for victim@example.com
-        // and silently link to the victim's WeFixTrades account.
-        if (!profile.email_verified) {
-          log.warn("Microsoft sign-in: refusing auto-link to existing account (email unverified)", {
-            userId: byEmail.id,
-          });
-          return res.redirect("/login?microsoft_error=email_unverified");
-        }
-        await db.update(users).set({ microsoft_sub: profile.sub }).where(eq(users.id, byEmail.id));
-        log.info("Linked Microsoft identity to existing account", { userId: byEmail.id });
-        return completeSocialLogin(req, res, next, byEmail.id, "microsoft");
-      }
-
-      // 3. Brand-new → bounce to standard signup form with email prefilled.
-      const params = new URLSearchParams({
-        social: "microsoft",
-        email: profile.email,
-      });
-      if (profile.name) params.set("name", profile.name);
-      return res.redirect(`/signup?${params.toString()}`);
-    } catch (err: any) {
-      log.error("Microsoft sign-in callback error", { error: String(err) });
-      return res.redirect("/login?microsoft_error=internal");
-    }
-  });
 
   /* ───── Facebook ───── */
 
