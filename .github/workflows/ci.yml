@@ -77,6 +77,8 @@ jobs:
         run: npm run check:roofquote-cost-gating
       - name: Client-chat access guard (free-activated widget AI proceeds on pinned Haiku; disabled → 403; per-calc daily conv cap → graceful 503; trial machinery dormant)
         run: npm run check:client-chat-access
+      - name: Portal overview guard (dashboard leads-series scopes calculators by user_id — there is no calculators.client_id; c.client_id 500'd the whole client dashboard for every client)
+        run: npm run check:portal-overview
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)
         run: npm run check:tradeline-route-order
       - name: TradeLine number-unification guard (client's Twilio number → Vapi inbound URL not the dead route; Vapi import payload carries number+creds+assistant not a fresh BUY; readiness honest when assistant absent)

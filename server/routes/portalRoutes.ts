@@ -155,6 +155,7 @@ export function registerPortalRoutes(app: Express) {
 
       // Client info
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
 
       // Active services count
       const [activeCount] = await db
@@ -201,9 +202,17 @@ export function registerPortalRoutes(app: Express) {
         .limit(10);
 
       // 14-day daily leads series for the dashboard hero sparkline. Leads
-      // belong to the client's calculators (leads.calculator_id → calculators
-      // .client_id). generate_series gives a zero-filled row per day so the
-      // sparkline has 14 contiguous points (no gaps) even on a quiet account.
+      // belong to the client's calculators — and calculators are owned by a
+      // USER (calculators.user_id -> users.id), NOT by a client directly: the
+      // calculators table has no client_id column. We therefore scope by the
+      // client's user_id, exactly like /api/portal/quotequick/summary does.
+      // Filtering the calculators join on a non-existent client_id column
+      // previously threw a "column does not exist" error and 500'd the entire
+      // dashboard for every client.
+      // generate_series gives a zero-filled row per day so the sparkline has 14
+      // contiguous points (no gaps) even on a quiet account. A client with no
+      // linked user_id yields an empty (all-zero) series rather than an error.
+      const ownerUserId = client?.user_id ?? 0;
       const leadsSeriesResult = await db.execute(sql`
         WITH days AS (
           SELECT generate_series(
@@ -216,7 +225,7 @@ export function registerPortalRoutes(app: Express) {
           SELECT date_trunc('day', l.created_date)::date AS d, COUNT(*)::int AS n
           FROM ${leads} l
           JOIN ${calculators} c ON c.id = l.calculator_id
-          WHERE c.client_id = ${clientId}
+          WHERE c.user_id = ${ownerUserId}
             AND l.created_date >= NOW() - INTERVAL '14 days'
           GROUP BY 1
         )
