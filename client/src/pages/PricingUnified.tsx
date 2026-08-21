@@ -675,7 +675,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
    ONE-TIME CARD (standardized format)
    ═══════════════════════════════════════════ */
 
-function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: ProductDef; yearly: boolean; onCheckout: () => void; onInfo?: () => void; bestFor?: string }) {
+function OneTimeCard({ product, onCheckout, onInfo, bestFor, anchorId }: { product: ProductDef; yearly: boolean; onCheckout: () => void; onInfo?: () => void; bestFor?: string; anchorId?: string }) {
   const tier = product.tiers[0];
   const [hover, setHover] = useState(false);
   const isHighlighted = product.id === "sitelaunch";
@@ -684,9 +684,11 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
   return (
     <div
       className="pricing-card"
+      id={anchorId}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
+        scrollMarginTop: 96,
         background: CARD_BG,
         border: isRecommended ? `1px solid rgba(13,60,252,0.25)` : isHighlighted ? `1px solid rgba(13,60,252,0.15)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
@@ -750,7 +752,7 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
    SERVICE CARD
    ═══════════════════════════════════════════ */
 
-function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void; bestFor?: string }) {
+function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor, anchorId }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void; bestFor?: string; anchorId?: string }) {
   const isTradelineProduct = product.id === "tradeline";
   const isRecommended = bestFor === "Recommended for you";
   const monthlyTiers = product.tiers.filter(t => t.billingPeriod === "monthly");
@@ -767,9 +769,11 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
   return (
     <div
       className="pricing-card"
+      id={anchorId}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
+        scrollMarginTop: 96,
         background: CARD_BG,
         border: isRecommended ? `1px solid rgba(13,60,252,0.25)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
@@ -800,8 +804,20 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
       )}
 
       {/* Name + info icon */}
-      <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ ...TITLE_STYLE, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span>{product.name}</span>
+        {/* AI↔TradeLine bridge — TradeLine IS the AI receptionist product, so
+            tag its pricing card as such. Someone who knows the product as
+            "AI receptionist" recognizes this is the SKU to buy. */}
+        {product.id === "tradeline" && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, color: mkt.accentOnDark,
+            background: mkt.accentTint, border: "1px solid rgba(13,60,252,0.18)",
+            padding: "2px 8px", borderRadius: 999, letterSpacing: "0.02em", whiteSpace: "nowrap",
+          }}>
+            AI Receptionist
+          </span>
+        )}
         {onInfo && <InfoIconTrigger onClick={onInfo} />}
       </div>
 
@@ -1291,6 +1307,49 @@ export default function PricingUnified() {
     setCheckoutOpen(true);
   }, []);
 
+  /* ─── Product deep-link → scroll to that product's pricing card ──────────────
+   * A product page's "See pricing" CTA links to `/pricing#price-<productId>`
+   * (e.g. MapGuard → /pricing#price-mapguard). Service cards live inside
+   * category tabs and ONLY the active tab's cards are mounted, so we first
+   * switch to the tab that owns the product, then scroll to the card once it
+   * paints. Product-page URL slugs that differ from the pricing product id
+   * (e.g. /products/quickquotepro → quotequick) are aliased. Runs on mount and
+   * on hashchange; respects prefers-reduced-motion. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const PRODUCT_TO_CATEGORY: Record<string, string> = {};
+    for (const p of ALL_PRODUCTS) PRODUCT_TO_CATEGORY[p.id] = p.category;
+    // Product-page slugs / legacy AI aliases → canonical pricing product id.
+    const SLUG_TO_PRODUCT_ID: Record<string, string> = {
+      quickquotepro: "quotequick",
+      "ai-chat": "tradeline",
+      "ai-voice": "tradeline",
+      "ai-receptionist": "tradeline",
+    };
+
+    const scrollToProductHash = () => {
+      const raw = (window.location.hash || "").replace(/^#/, "");
+      if (!raw.startsWith("price-")) return;
+      const key = raw.slice("price-".length);
+      const productId = SLUG_TO_PRODUCT_ID[key] ?? key;
+      const cat = PRODUCT_TO_CATEGORY[productId];
+      if (!cat) return;
+      setActiveCat(cat);
+      const reduce = typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Two rAFs: let the newly-activated tab mount + paint before scrolling.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = document.getElementById(`price-${productId}`);
+        if (el) el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      }));
+    };
+
+    scrollToProductHash();
+    window.addEventListener("hashchange", scrollToProductHash);
+    return () => window.removeEventListener("hashchange", scrollToProductHash);
+  }, []);
+
   function openBundleCheckout(bundle: BundleDef) {
     setCheckoutTitle(bundle.name);
     setCheckoutItems(bundle.includes.map(i => ({
@@ -1712,7 +1771,7 @@ function SystemBuilder({ yearly, onCheckout }: {
                 {monthlyProducts.length > 0 && (
                 <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
                   {monthlyProducts.map((product) => (
-                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={recommendedProducts.includes(product.id) ? "Recommended for you" : SERVICE_INFO[product.id]?.bestFor} />
+                    <ServiceCard key={product.id} anchorId={`price-${product.id}`} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={recommendedProducts.includes(product.id) ? "Recommended for you" : SERVICE_INFO[product.id]?.bestFor} />
                   ))}
                 </div>
                 )}
@@ -1730,8 +1789,8 @@ function SystemBuilder({ yearly, onCheckout }: {
                     </div>
                     <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
                       {/* Q5c: hero cards render from merged data so admin-edited name/tagline/tier-price flows through. */}
-                      <OneTimeCard product={mergedProducts.find(p => p.id === "webfix") ?? WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={recommendedProducts.includes("webfix") ? "Recommended for you" : SERVICE_INFO["webfix"]?.bestFor} />
-                      <OneTimeCard product={mergedProducts.find(p => p.id === "sitelaunch") ?? SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={recommendedProducts.includes("sitelaunch") ? "Recommended for you" : SERVICE_INFO["sitelaunch"]?.bestFor} />
+                      <OneTimeCard anchorId="price-webfix" product={mergedProducts.find(p => p.id === "webfix") ?? WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={recommendedProducts.includes("webfix") ? "Recommended for you" : SERVICE_INFO["webfix"]?.bestFor} />
+                      <OneTimeCard anchorId="price-sitelaunch" product={mergedProducts.find(p => p.id === "sitelaunch") ?? SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={recommendedProducts.includes("sitelaunch") ? "Recommended for you" : SERVICE_INFO["sitelaunch"]?.bestFor} />
                     </div>
                   </>
                 )}

@@ -182,7 +182,9 @@ export const PRODUCT_PAGES: ProductPage[] = [
     // W-AN-2 — blocked on GBP API verification + 60-day GBP account-age window.
     comingSoon: true,
     primaryCTA: { label: "Get Started", href: "/wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    // Deep-link to MapGuard's own card on /pricing instead of dumping the
+    // visitor at the top of the page (which defaults to the Lead-Gen tab).
+    secondaryCTA: { label: "See Pricing", href: "/pricing#price-mapguard" },
     highlights: [
       "Full Google Business Profile optimization and rebuild",
       "Weekly visibility monitoring with automatic issue detection",
@@ -225,7 +227,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "#pricing" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    // Deep-link to WebCare's own card on /pricing (was bare /pricing → top).
+    secondaryCTA: { label: "See Pricing", href: "/pricing#price-webcare" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
       "Security patches and SSL health checks applied automatically",
@@ -556,7 +559,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    // Deep-link to AdFlow's own card on /pricing (was bare /pricing → top).
+    secondaryCTA: { label: "See Pricing", href: "/pricing#price-adflow" },
     highlights: [
       "Agency-managed campaigns — Our partner agency handles setup, targeting, creative, and ongoing optimization.",
       "Monthly performance reports — Clear reports delivered to your inbox showing leads, spend, and cost per lead.",
