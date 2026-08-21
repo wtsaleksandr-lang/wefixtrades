@@ -18,13 +18,31 @@
  */
 import type { Express, Request, Response, NextFunction } from "express";
 import { and, count, eq, ne, isNotNull, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "../db";
 import { clients } from "@shared/schemas/adminCrm";
-import { referralAttributions, referralCredits } from "@shared/schemas/affiliate";
+import { affiliates, referralAttributions, referralCredits } from "@shared/schemas/affiliate";
 import { requireClient } from "../auth";
-import { REFERRER_FREE_MONTHS, normalizeCode, isValidCodeShape } from "../affiliate/programs";
+import {
+  REFERRER_FREE_MONTHS,
+  REFEREE_TRIAL_DAYS,
+  REFEREE_DISCOUNT_PCT,
+  REFEREE_DISCOUNT_MONTHS,
+  AFFILIATE_BASE_RATE,
+  AFFILIATE_PRO_RATE,
+  AFFILIATE_PARTNER_RATE,
+  AFFILIATE_PRO_THRESHOLD,
+  AFFILIATE_PRO_DURATION_MONTHS,
+  AFFILIATE_MIN_PAYOUT_CENTS,
+  AFFILIATE_PAYOUT_CADENCE,
+  REF_COOKIE_DAYS,
+  normalizeCode,
+  isValidCodeShape,
+} from "../affiliate/programs";
 import { captureRefClick } from "../affiliate/attribution";
-import { ensureClientReferralCode } from "../affiliate/codes";
+import { ensureClientReferralCode, mintUniqueCode } from "../affiliate/codes";
+import { loadAffiliateDashboard } from "../affiliate/dashboard";
+import { registerAffiliate } from "../affiliate/signup";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("PartnersRoutes");
@@ -42,6 +60,39 @@ async function resolveClientId(userId: number): Promise<number | null> {
   const [row] = await db.select({ id: clients.id }).from(clients).where(eq(clients.user_id, userId)).limit(1);
   return row?.id ?? null;
 }
+
+/**
+ * Both programs' published NUMBERS, surfaced to the React marketing pages so
+ * they render the terms from the ONE source of truth (programs.ts) and can
+ * never drift from the DB/billing layer. Percentages are whole numbers for copy.
+ */
+export function programTerms() {
+  return {
+    referral: {
+      referrerFreeMonths: REFERRER_FREE_MONTHS,
+      refereeTrialDays: REFEREE_TRIAL_DAYS,
+      refereeDiscountPct: Math.round(REFEREE_DISCOUNT_PCT * 100),
+      refereeDiscountMonths: REFEREE_DISCOUNT_MONTHS,
+    },
+    affiliate: {
+      baseRatePct: Math.round(AFFILIATE_BASE_RATE * 100),
+      proRatePct: Math.round(AFFILIATE_PRO_RATE * 100),
+      partnerRatePct: Math.round(AFFILIATE_PARTNER_RATE * 100),
+      proThreshold: AFFILIATE_PRO_THRESHOLD,
+      proDurationMonths: AFFILIATE_PRO_DURATION_MONTHS,
+      cookieDays: REF_COOKIE_DAYS,
+      minPayoutCents: AFFILIATE_MIN_PAYOUT_CENTS,
+      payoutCadence: AFFILIATE_PAYOUT_CADENCE,
+    },
+  };
+}
+
+const AffiliateSignupSchema = z.object({
+  email: z.string().trim().email().max(200),
+  name: z.string().trim().max(120).optional(),
+  payoutMethod: z.enum(["paypal", "stripe", "bank"]).optional(),
+  payoutDetails: z.string().trim().max(300).optional(),
+});
 
 export function registerPartnersRoutes(app: Express): void {
   // ── ?ref=<code> capture (any GET request) ────────────────────────────────
@@ -69,13 +120,95 @@ export function registerPartnersRoutes(app: Express): void {
     return res.redirect(302, "/");
   });
 
-  // ── PHASE C SEAMS (affiliate UI — built by PR C, not here) ───────────────
-  //   GET  /partners                → public landing (both programs + signup form)
-  //   GET  /partners/terms          → full program terms
-  //   GET  /partners/dashboard      → an affiliate's dashboard (?code=… gate)
-  //   POST /api/partners/signup     → self-serve affiliate signup (email → code)
-  // These read the `affiliates` table + mintUniqueCode/resolveCodeOwner already
-  // shipped in this PR. Intentionally NOT implemented here.
+  // ── PHASE C — affiliate UI JSON endpoints ────────────────────────────────
+  // The public /partners, /partners/terms and /partners/dashboard *pages* are
+  // React routes (client/src/pages/marketing/Partners*.tsx) — the SPA catch-all
+  // renders them. These endpoints feed those pages. All program NUMBERS come
+  // from programs.ts via programTerms(); nothing here hardcodes a term.
+
+  // Published terms for BOTH programs (drives the marketing copy).
+  app.get("/api/partners/program-terms", (_req: Request, res: Response) => {
+    res.json(programTerms());
+  });
+
+  // Self-serve affiliate registration. Idempotent on email (a repeat submit
+  // returns the existing row — never a duplicate, never a 500 on duplicate).
+  app.post("/api/partners/signup", async (req: Request, res: Response) => {
+    const parsed = AffiliateSignupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+    const email = parsed.data.email.toLowerCase();
+    try {
+      // Link to the account owning this email: prefer the logged-in user, else
+      // match a client by contact email (a customer who is also an affiliate).
+      const userId = (req.user as { id: number } | undefined)?.id ?? null;
+      let ownerClientId: number | null = userId ? await resolveClientId(userId) : null;
+      let ownerUserId: number | null = userId;
+      if (ownerClientId == null) {
+        const byEmail = (
+          await db.select({ id: clients.id, userId: clients.user_id }).from(clients).where(eq(clients.contact_email, email)).limit(1)
+        )[0];
+        if (byEmail) {
+          ownerClientId = byEmail.id;
+          ownerUserId = ownerUserId ?? byEmail.userId ?? null;
+        }
+      }
+
+      const result = await registerAffiliate(
+        {
+          email,
+          name: parsed.data.name || null,
+          payoutMethod: parsed.data.payoutMethod ?? null,
+          payoutDetails: parsed.data.payoutDetails ?? null,
+          ownerClientId,
+          ownerUserId,
+        },
+        {
+          findByEmail: async (e) =>
+            (await db.select({ code: affiliates.code, status: affiliates.status }).from(affiliates).where(eq(affiliates.email, e)).limit(1))[0] ?? null,
+          mint: () => mintUniqueCode(),
+          insert: async (values) =>
+            (await db.insert(affiliates).values(values).returning({ code: affiliates.code, status: affiliates.status }))[0] ?? null,
+        },
+      );
+      return res.json({ code: result.code, referralLink: referralLink(result.code), status: result.status, existing: result.existing });
+    } catch (err) {
+      // Unique-violation race on email/code → treat as already-registered.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/duplicate key|unique/i.test(msg)) {
+        const again = (
+          await db.select().from(affiliates).where(eq(affiliates.email, email)).limit(1)
+        )[0];
+        if (again) {
+          return res.json({ code: again.code, referralLink: referralLink(again.code), status: again.status, existing: true });
+        }
+      }
+      log.error("POST /api/partners/signup failed", { error: msg });
+      return res.status(500).json({ error: "Could not create your affiliate account. Please try again." });
+    }
+  });
+
+  // Public read of an affiliate's own dashboard by code (404 if unknown). Only
+  // aggregate stats + the affiliate's own name/email/tier/link are returned.
+  app.get("/api/partners/dashboard", async (req: Request, res: Response) => {
+    try {
+      const code = normalizeCode(req.query.code);
+      if (!code || !isValidCodeShape(code)) {
+        return res.status(400).json({ error: "Enter your affiliate code." });
+      }
+      const dash = await loadAffiliateDashboard(code);
+      if (!dash) {
+        return res.status(404).json({ error: "No affiliate found for that code." });
+      }
+      return res.json(dash);
+    } catch (err) {
+      log.error("GET /api/partners/dashboard failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return res.status(500).json({ error: "Could not load the affiliate dashboard." });
+    }
+  });
 
   // ── Logged-in client referral surface (portal "Refer a friend" card) ─────
   app.get("/api/client/referral", requireClient, async (req: Request, res: Response) => {

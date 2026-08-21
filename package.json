@@ -97,6 +97,8 @@
     "check:legacy-booking-bookflow": "tsx server/routes/bookingRoutes.bookflow.test.ts",
     "check:admin-recent-bookflow": "tsx server/routes/bookingApiRoutes.bookflow.test.ts",
     "check:bookflow-hours-sync": "tsx server/services/booking/syncBookflowWorkingHours.test.ts",
+    "check:affiliate-dashboard": "tsx server/affiliate/dashboard.test.ts",
+    "check:affiliate-signup": "tsx server/affiliate/signup.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

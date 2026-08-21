@@ -69,6 +69,9 @@ const MarketingPrivacy = lazy(() => import("@/pages/marketing/privacy"));
 const MarketingTerms = lazy(() => import("@/pages/marketing/terms"));
 const MarketingSecurity = lazy(() => import("@/pages/marketing/security"));
 const MarketingCookies = lazy(() => import("@/pages/marketing/cookies"));
+const MarketingPartners = lazy(() => import("@/pages/marketing/Partners"));
+const MarketingPartnersTerms = lazy(() => import("@/pages/marketing/PartnersTerms"));
+const MarketingPartnersDashboard = lazy(() => import("@/pages/marketing/PartnersDashboard"));
 const MarketingAiReceptionists = lazy(() => import("@/pages/marketing/aiReceptionists"));
 const MarketingAiReceptionistDetail = lazy(() => import("@/pages/marketing/aiReceptionistDetail"));
 const MarketingSmsConsentDisclosure = lazy(() => import("@/pages/marketing/SmsConsentDisclosure"));
@@ -701,6 +704,11 @@ function Router() {
       <Route path="/terms" component={MarketingTerms} />
       <Route path="/security" component={MarketingSecurity} />
       <Route path="/cookies" component={MarketingCookies} />
+      {/* Partner programs — referral + affiliate marketing surface. Pages are
+          React; the JSON endpoints live in server/routes/partnersRoutes.ts. */}
+      <Route path="/partners/terms" component={MarketingPartnersTerms} />
+      <Route path="/partners/dashboard" component={MarketingPartnersDashboard} />
+      <Route path="/partners" component={MarketingPartners} />
       <Route path="/sms-consent-disclosure" component={MarketingSmsConsentDisclosure} />
       <Route path="/features/instant-quotes" component={FeatureInstantQuotes} />
       <Route path="/features/booking" component={FeatureBooking} />
