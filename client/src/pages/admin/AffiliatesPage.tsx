@@ -142,12 +142,12 @@ export default function AffiliatesPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <span title="Public affiliates who earn recurring commission on referred customers. Activate a pending affiliate to start crediting their referrals." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <span title="Public affiliates who earn recurring commission on referred customers. Activate a pending affiliate to start crediting their referrals." className="inline-flex"><HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" /></span>
               <Share2 className="w-5 h-5" />
               Affiliates
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Manage affiliate status, tier &amp; commission · {total} total
             </p>
           </div>
@@ -202,7 +202,7 @@ export default function AffiliatesPage() {
                 ))
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                     {status === "all" ? "No affiliates yet." : `No ${status} affiliates.`}
                   </TableCell>
                 </TableRow>
@@ -210,11 +210,11 @@ export default function AffiliatesPage() {
                 rows.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
-                      <div className="font-medium text-gray-900">{r.name || "-"}</div>
-                      <a href={`mailto:${r.email}`} className="text-xs text-brand-blue hover:underline">{r.email}</a>
+                      <div className="font-medium text-foreground">{r.name || "-"}</div>
+                      <a href={`mailto:${r.email}`} className="text-xs text-brand-blue hover:underline block truncate max-w-[200px]" title={r.email}>{r.email}</a>
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs font-mono text-gray-700 bg-muted/60 rounded px-1.5 py-0.5">{r.code}</code>
+                      <code className="text-xs font-mono text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5">{r.code}</code>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <Select value={r.tier} onValueChange={(v) => setAffiliateTier(r, v as AffiliateTier)} disabled={mutation.isPending}>
@@ -230,13 +230,13 @@ export default function AffiliatesPage() {
                     </TableCell>
                     <TableCell>{statusBadge(r.status)}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      <span className="text-sm text-gray-700">{pct(r.commission_rate)}</span>
+                      <span className="text-sm text-muted-foreground">{pct(r.commission_rate)}</span>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <span className="text-sm text-gray-600">{r.stats.clicks} / {r.stats.signups}</span>
+                      <span className="text-sm text-muted-foreground">{r.stats.clicks} / {r.stats.signups}</span>
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">
-                      <span className="text-xs text-gray-500">{formatTimestamp(r.created_at)}</span>
+                      <span className="text-xs text-muted-foreground">{formatTimestamp(r.created_at)}</span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1.5 justify-end">
@@ -270,7 +270,7 @@ export default function AffiliatesPage() {
             <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
               ← Newer
             </Button>
-            <span className="text-xs text-gray-500">Page {page + 1}</span>
+            <span className="text-xs text-muted-foreground">Page {page + 1}</span>
             <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={!hasNext}>
               Older →
             </Button>
