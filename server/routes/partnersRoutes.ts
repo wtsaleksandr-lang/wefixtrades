@@ -189,8 +189,11 @@ export function registerPartnersRoutes(app: Express): void {
     }
   });
 
-  // Public read of an affiliate's own dashboard by code (404 if unknown). Only
-  // aggregate stats + the affiliate's own name/email/tier/link are returned.
+  // Public read of an affiliate's dashboard by code (404 if unknown). SECURITY:
+  // `code` is the PUBLIC `?ref=` share value — anyone holding a partner's link
+  // can call this — so the response MUST NOT leak PII. We return ONLY aggregate
+  // stats + tier + rate + the referral link, and strip the affiliate's email,
+  // real name, id, and payout method/details from the public projection.
   app.get("/api/partners/dashboard", async (req: Request, res: Response) => {
     try {
       const code = normalizeCode(req.query.code);
@@ -201,7 +204,18 @@ export function registerPartnersRoutes(app: Express): void {
       if (!dash) {
         return res.status(404).json({ error: "No affiliate found for that code." });
       }
-      return res.json(dash);
+      // Public-safe projection — drop id/email/name/payoutMethod (PII).
+      const publicDash = {
+        ...dash,
+        affiliate: {
+          code: dash.affiliate.code,
+          tier: dash.affiliate.tier,
+          status: dash.affiliate.status,
+          commissionRate: dash.affiliate.commissionRate,
+          link: dash.affiliate.link,
+        },
+      };
+      return res.json(publicDash);
     } catch (err) {
       log.error("GET /api/partners/dashboard failed", {
         error: err instanceof Error ? err.message : String(err),
