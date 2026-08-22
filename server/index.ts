@@ -35,6 +35,7 @@ import { setupPassport, impersonationMiddleware } from "./auth";
 import { createLogger } from "./lib/logger";
 import { mountRaisedBodyLimits } from "./lib/bodyLimits";
 import { requestId } from "./middleware/requestId";
+import { cookieParser } from "./middleware/cookieParser";
 import { HOSTING_DOMAIN } from "@shared/slugUtils";
 // res2: AI provider readiness diagnostics at boot. readyFallbackProviders()
 // only reads env (key presence) — safe to call synchronously in validateEnv().
@@ -593,6 +594,18 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+/* ─── Cookie parsing ───
+ *
+ * Express does not populate req.cookies on its own and this repo ships no
+ * cookie-parser dependency. The referral/affiliate attribution layer
+ * (server/affiliate/attribution.ts reads the `wft_ref` cookie on every signup)
+ * and the SEO OAuth state-cookie check both READ req.cookies — mount this
+ * BEFORE registerRoutes / the SPA catch-all so the cookie a visitor received
+ * on their `?ref=` click is actually read back at signup time. Without it,
+ * `wft_ref` is written but never read and referral attribution silently dies.
+ */
+app.use(cookieParser);
 
 /* ─── Session + Passport ─── */
 const PgStore = connectPgSimple(session);

@@ -1244,6 +1244,19 @@ export function registerAuthRoutes(app: Express) {
 
       log.info("Apple self-serve signup completed", { userId: user.id, clientId: client.id });
 
+      // Referral program (0091): mint the client's code + link any pending
+      // ?ref/​/ref attribution cookie (same as the password + Google signup
+      // paths). Non-fatal — signup must succeed even if attribution fails.
+      try {
+        await ensureClientReferralCode(client.id);
+        await linkReferralOnSignup({ req, clientId: client.id, signupEmail: profile.email });
+      } catch (referralErr) {
+        log.warn("[apple-signup] referral linking failed (non-fatal)", {
+          clientId: client.id,
+          error: referralErr instanceof Error ? referralErr.message : String(referralErr),
+        });
+      }
+
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Apple Sign-In",

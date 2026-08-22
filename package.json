@@ -99,6 +99,8 @@
     "check:bookflow-hours-sync": "tsx server/services/booking/syncBookflowWorkingHours.test.ts",
     "check:affiliate-dashboard": "tsx server/affiliate/dashboard.test.ts",
     "check:affiliate-signup": "tsx server/affiliate/signup.test.ts",
+    "check:cookie-parser": "tsx server/middleware/cookieParser.test.ts",
+    "check:apple-referral": "tsx server/routes/authRoutes.appleReferral.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

@@ -4,8 +4,9 @@
  * Reads GET /api/partners/dashboard?code=… (code from the URL query or the
  * lookup form). Shows clicks / signups / tier + progress / commission +
  * payout stats. Public read by design (a marketer checks their own stats by
- * code); the endpoint returns only aggregate stats + the affiliate's own
- * name/email/tier/link.
+ * code) — because the code is the public ?ref= share value, the endpoint
+ * returns only aggregate stats + tier/rate/link and NO PII (no email, real
+ * name, or payout method).
  */
 import { useEffect, useState } from "react";
 import { Link, useSearch } from "wouter";
@@ -90,7 +91,7 @@ function DashboardView({ dash }: { dash: AffiliateDashboardSummary }) {
       <div style={{ ...cardStyle, padding: "26px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark }}>{affiliate.name || affiliate.email}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark }}>Your affiliate dashboard</div>
             <div style={{ fontSize: 13, color: mkt.onDarkMuted, marginTop: 4 }}>
               Code <strong style={{ color: mkt.onDark }}>{affiliate.code}</strong>
               {affiliate.status === "pending" && " · pending approval"}
