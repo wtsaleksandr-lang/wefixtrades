@@ -27,16 +27,15 @@ export interface ProgramTerms {
 }
 
 export interface AffiliateDashboardSummary {
+  // Public-by-code projection: NO PII (no email / real name / payout method).
+  // GET /api/partners/dashboard?code= is reachable by anyone with the public
+  // ?ref= share link, so the server intentionally omits those fields.
   affiliate: {
-    id: number;
-    email: string;
-    name: string | null;
     code: string;
     tier: "base" | "pro" | "partner";
     status: string;
     commissionRate: number;
     link: string;
-    payoutMethod: string | null;
   };
   stats: {
     clicks: number;

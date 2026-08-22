@@ -169,6 +169,10 @@ jobs:
         run: npm run check:product-cta-routing
       - name: Routed-page pricing-CTA deep-link guard (per-product demo/detail/suite pages + product-mockups/comparisons/siteMap catalogs never bare-link /pricing; every #price-<id> anchor resolves to a real card)
         run: npm run check:pricing-cta-deeplink
+      - name: Cookie-parser referral guard (req.cookies is populated so wft_ref attribution links at signup — proven from a real Cookie header, not injected)
+        run: npm run check:cookie-parser
+      - name: Apple referral-hook guard (the Apple signup branch mints a referral code + links attribution like the password/Google paths)
+        run: npm run check:apple-referral
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
