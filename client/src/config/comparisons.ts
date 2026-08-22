@@ -110,7 +110,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     ],
     savingsHighlight: "Save $250+/mo compared to Ruby Receptionists",
     ctaLabel: "Try TradeLine Free",
-    ctaHref: "/pricing",
+    ctaHref: "/pricing#price-tradeline",
     productPageHref: "/products/tradeline",
   },
 

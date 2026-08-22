@@ -1055,7 +1055,7 @@ export default function ReputationShieldDemo() {
                 Get Started
               </Link>
               <Link
-                href="/pricing"
+                href="/pricing#price-reputationshield"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

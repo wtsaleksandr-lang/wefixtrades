@@ -856,7 +856,7 @@ export default function SocialSyncDemo() {
                 Get Started
               </Link>
               <Link
-                href="/pricing"
+                href="/pricing#price-socialsync"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

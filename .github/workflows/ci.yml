@@ -165,6 +165,14 @@ jobs:
         run: npm run check:affiliate-dashboard
       - name: Affiliate self-serve signup guard (registerAffiliate is idempotent on email — a repeat submit returns the existing row with no mint/insert; a new email mints a code and inserts tier=base/status=pending at the base commission rate; owner + payout fields flow through; a no-row insert throws; the route Zod shape rejects bad email/payout method)
         run: npm run check:affiliate-signup
+      - name: Product-catalog pricing-CTA routing guard (every PRODUCT_PAGES "See pricing" CTA deep-links to /pricing#price-<id>, never bare /pricing)
+        run: npm run check:product-cta-routing
+      - name: Routed-page pricing-CTA deep-link guard (per-product demo/detail/suite pages + product-mockups/comparisons/siteMap catalogs never bare-link /pricing; every #price-<id> anchor resolves to a real card)
+        run: npm run check:pricing-cta-deeplink
+      - name: Cookie-parser referral guard (req.cookies is populated so wft_ref attribution links at signup — proven from a real Cookie header, not injected)
+        run: npm run check:cookie-parser
+      - name: Apple referral-hook guard (the Apple signup branch mints a referral code + links attribution like the password/Google paths)
+        run: npm run check:apple-referral
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
