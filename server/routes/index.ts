@@ -60,6 +60,7 @@ import { registerPortalReviewReplyRoutes } from "./portalReviewReplyRoutes";
 import { registerPortalQuoteWriterRoutes } from "./portalQuoteWriterRoutes";
 import { registerReviewFunnelRoutes } from "./reviewFunnelRoutes";
 import { registerPartnersRoutes } from "./partnersRoutes";
+import { registerAdminAffiliatesRoutes } from "./adminAffiliatesRoutes";
 import { registerPortalReviewLinkRoutes } from "./portalReviewLinkRoutes";
 import { registerServiceAreaMapRoutes } from "./serviceAreaMapRoutes";
 import { registerMapguardRoutes } from "./mapguardRoutes";
@@ -187,6 +188,7 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerAdminRoutes(app);
   registerAdminCrmRoutes(app);
+  registerAdminAffiliatesRoutes(app);
   registerAdminClientCostsRoutes(app);
   registerAdminToolRoutes(app);
   registerAiChannelSettingsRoutes(app);
