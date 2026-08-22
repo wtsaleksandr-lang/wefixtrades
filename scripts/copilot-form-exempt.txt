@@ -330,3 +330,4 @@ client/src/pages/portal/FreeTools/MarginCalculator.tsx
 # Invoice / Quote PDF builder — fields feed a client-side print-to-PDF preview,
 # not a copilot-fillable lead form. No backend submission.
 client/src/pages/portal/FreeTools/InvoicePdf.tsx
+client/src/pages/admin/AffiliatesPage.tsx

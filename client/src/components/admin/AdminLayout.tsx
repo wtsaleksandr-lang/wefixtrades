@@ -219,6 +219,7 @@ const FINANCE_ITEMS: NavItem[] = [
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
   { label: "Audit Leads", href: "/admin/crm/audit-leads", icon: ClipboardList },
+  { label: "Affiliates", href: "/admin/crm/affiliates", icon: Share2 },
 ];
 
 const OUTBOUND_ITEMS: NavItem[] = [

@@ -160,6 +160,7 @@ const AdminAuditLogPage = lazy(() => import("@/pages/admin/AdminAuditLogPage"));
 const WaitlistPage = lazy(() => import("@/pages/admin/WaitlistPage"));
 const AuditLogPage = lazy(() => import("@/pages/admin/AuditLogPage"));
 const AuditLeadsPage = lazy(() => import("@/pages/admin/AuditLeadsPage"));
+const AffiliatesPage = lazy(() => import("@/pages/admin/AffiliatesPage"));
 const AdminChatHistoryPage = lazy(() => import("@/pages/admin/AdminChatHistoryPage"));
 const IntegrationHealthPage = lazy(() => import("@/pages/admin/IntegrationHealthPage"));
 const DeploymentHealthPage = lazy(() => import("@/pages/admin/DeploymentHealthPage"));
@@ -421,6 +422,7 @@ function Router() {
       {/* AI-3c audit log */}
       <Route path="/admin/audit-log">{() => <RequirePortal><AuditLogPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/audit-leads">{() => <RequirePortal><AuditLeadsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/affiliates">{() => <RequirePortal><AffiliatesPage /></RequirePortal>}</Route>
       <Route path="/admin/chat-history">{() => <RequirePortal><AdminChatHistoryPage /></RequirePortal>}</Route>
       <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
       <Route path="/admin/integrations/google">{() => <RequirePortal><SeoIntegrationsPage /></RequirePortal>}</Route>
