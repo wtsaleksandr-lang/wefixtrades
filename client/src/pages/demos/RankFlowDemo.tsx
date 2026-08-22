@@ -980,7 +980,7 @@ export default function RankFlowDemo() {
                 Get Started
               </Link>
               <Link
-                href="/pricing"
+                href="/pricing#price-rankflow"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

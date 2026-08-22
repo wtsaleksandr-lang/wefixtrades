@@ -131,7 +131,7 @@ export default function MapGuardSuitePage() {
           sub="Four products designed to find, fix, and monitor your local presence — from Google Business Profile to citation directories."
           ctas={[
             { label: "See MapGuard Core", href: "/products/mapguard" },
-            { label: "See Pricing", href: "/pricing" },
+            { label: "See Pricing", href: "/pricing#price-mapguard" },
           ]}
         />
 

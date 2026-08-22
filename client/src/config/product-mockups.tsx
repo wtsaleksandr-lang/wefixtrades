@@ -118,7 +118,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "02",
       title: "Instant Estimates",
       description: "Configure your pricing once — flat, hourly, tiered, per-unit. TradeLine quotes every caller using your real numbers. No callbacks, no lost leads.",
-      cta: { label: "See Pricing", href: "/pricing" },
+      cta: { label: "See Pricing", href: "/pricing#price-tradeline" },
       mockup: <Wide>
         <StatTrio
           a={{ value: "$185", label: "Drain unblock", color: "cyanSoft", icon: <Mic size={16} /> }}

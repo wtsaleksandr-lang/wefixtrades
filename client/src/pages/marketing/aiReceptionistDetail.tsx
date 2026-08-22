@@ -157,7 +157,7 @@ export default function AiReceptionistDetailPage() {
             <button type="button" onClick={() => setPreview({ mode: "chat" })} style={primaryBtn}>
               Try it now <ArrowRight size={16} />
             </button>
-            <Link href="/pricing" style={secondaryLink}>See pricing</Link>
+            <Link href="/pricing#price-tradeline" style={secondaryLink}>See pricing</Link>
           </div>
         </section>
       </V7PageShell>
