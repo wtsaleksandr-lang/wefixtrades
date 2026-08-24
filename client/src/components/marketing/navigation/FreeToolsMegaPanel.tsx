@@ -14,8 +14,8 @@
  */
 
 import { Link } from "wouter";
-import type { FC } from "react";
-import { Lock } from "lucide-react";
+import { useState, type FC } from "react";
+import { Lock, ChevronDown } from "lucide-react";
 import type { NavItemChild, NavSubgroup } from "@/site/navigation";
 import { NavIcon } from "./NavIcon";
 import { mkt } from "@/theme/tokens";
@@ -32,43 +32,46 @@ interface Props {
 }
 
 export const FreeToolsMegaPanel: FC<Props> = ({ subgroups, hubHref, onNavigate }) => {
-  const totalCount = subgroups.reduce((n, g) => n + g.items.length, 0);
-
   return (
-    <div className="ft-mega">
+    <div className="ft-mega" data-testid="free-tools-panel">
       <div className="ft-mega__cols">
         {subgroups.map((group) => (
-          <Column key={group.heading} group={group} onNavigate={onNavigate} />
+          <Column
+            key={group.heading}
+            group={group}
+            hubHref={hubHref}
+            onNavigate={onNavigate}
+          />
         ))}
       </div>
-
-      <Link
-        href={hubHref}
-        onClick={onNavigate}
-        className="ft-mega__seeall"
-        data-testid="nav-free-tools-see-all"
-      >
-        See all {totalCount} free tools
-        <span aria-hidden className="ft-mega__seeall-arrow">{"→"}</span>
-      </Link>
 
       <style>{CSS}</style>
     </div>
   );
 };
 
+/** slugify a heading for a stable aria-controls / element id. */
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
 function Column({
   group,
+  hubHref,
   onNavigate,
 }: {
   group: NavSubgroup;
+  /** Fallback hub link when the group itself declares no hubAnchor. */
+  hubHref: string;
   onNavigate: () => void;
 }) {
-  // Cards are full-size now (88px) — cap tighter so the panel stays compact;
-  // the rest fall under "+ N more" and the "See all free tools" footer.
   const cap = group.maxShown ?? 4;
   const shown = group.items.slice(0, cap);
-  const hiddenCount = Math.max(0, group.items.length - cap);
+  const hidden = group.items.slice(cap);
+  // Long-tail folds IN PLACE (collapsed by default). Nothing is dropped —
+  // "Show N more" reveals the rest without leaving the menu; the hub link
+  // below still points to the canonical full page for depth + SEO.
+  const [open, setOpen] = useState(false);
+  const panelId = `ftcol-${slug(group.heading)}`;
+  const hub = group.hubAnchor ?? hubHref;
 
   return (
     <div className="ft-mega__col">
@@ -81,13 +84,41 @@ function Column({
           </li>
         ))}
       </ul>
-      {hiddenCount > 0 && group.hubAnchor && (
-        <Link
-          href={group.hubAnchor}
-          onClick={onNavigate}
-          className="ft-mega__more"
-        >
-          + {hiddenCount} more
+
+      {hidden.length > 0 && (
+        <>
+          <div className="ft-mega__collapse" data-open={open} id={panelId}>
+            <div>
+              <ul className="ft-mega__list ft-mega__list--more">
+                {hidden.map((it) => (
+                  <li key={it.href}>
+                    <FreeToolsItem item={it} onNavigate={onNavigate} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="ft-mega__toggle"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? "Show less" : `Show ${hidden.length} more`}
+            <ChevronDown
+              size={13}
+              strokeWidth={2.4}
+              className={`ft-mega__toggle-icon${open ? " is-open" : ""}`}
+              aria-hidden
+            />
+          </button>
+        </>
+      )}
+
+      {hub && (
+        <Link href={hub} onClick={onNavigate} className="ft-mega__more">
+          See all
           <span aria-hidden className="ft-mega__more-arrow">{"→"}</span>
         </Link>
       )}
@@ -263,6 +294,61 @@ const CSS = `
 }
 .ft-mega__more:hover .ft-mega__more-arrow {
   transform: translateX(2px);
+}
+
+/* In-place fold — the long-tail items unfold below the primary set via the
+   grid 0fr→1fr technique (no fixed max-height, no JS measurement). */
+.ft-mega__collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ft-mega__collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.ft-mega__collapse > div {
+  overflow: hidden;
+  min-height: 0;
+}
+.ft-mega__list--more {
+  padding-top: 8px;
+}
+
+/* "Show N more" / "Show less" — in-place expander toggle. Keyboard-operable
+   <button>, aria-expanded + aria-controls wired in the component. */
+.ft-mega__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: ${mkt.onDarkMuted};
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+.ft-mega__toggle:hover {
+  color: ${mkt.accent};
+  border-color: ${mkt.onDarkBorder};
+  background: rgba(255, 255, 255, 0.04);
+}
+.ft-mega__toggle-icon {
+  transition: transform 200ms ease;
+}
+.ft-mega__toggle-icon.is-open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ft-mega__collapse { transition: none; }
+  .ft-mega__toggle-icon { transition: none; }
 }
 
 .ft-mega__seeall {

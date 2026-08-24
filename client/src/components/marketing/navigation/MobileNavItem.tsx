@@ -30,7 +30,8 @@ export function MobileNavItem({
   // label/shortLabel; a non-empty query hides the featured cards and shows a
   // compact result list.
   const [tradeQuery, setTradeQuery] = useState("");
-  const isSolutions = label === "Solutions";
+  // Renamed top-level label in the IA restructure ("Solutions" → "Industries").
+  const isSolutions = label === "Industries";
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
@@ -169,7 +170,7 @@ export function MobileNavItem({
                       textDecoration: "none",
                     }}
                   >
-                    See all free tools <span aria-hidden>{"→"}</span>
+                    See all <span aria-hidden>{"→"}</span>
                   </Link>
                 </>
               ) : (
