@@ -38,6 +38,10 @@ const StickyStackCards = lazy(() => import("@/components/marketing/StickyStackCa
 const ServiceStackTimeline = lazy(() => import("@/components/marketing/ServiceStackTimeline"));
 const ReviewsSection = lazy(() => import("@/components/home/ReviewsSection"));
 const AutomationDiagram = lazy(() => import("@/components/marketing/AutomationDiagram"));
+/* QuoteIQ-inspired sections placed directly under the hero — lazy + deferred
+ * like the other below-fold sections so they never compete with the hero LCP. */
+const ToolShowcase = lazy(() => import("@/components/marketing/ToolShowcase"));
+const CostCompare = lazy(() => import("@/components/marketing/CostCompare"));
 /* Wave 69 — Self-Service Drag-Drop interactive element. Lazy + deferred
  * because it sits below the IntegrationsTrustStrip (still part of the
  * hero zone visually, but well below the fold on mobile). The component
@@ -771,6 +775,21 @@ export default function HomePage() {
        * meets the outer dark backdrop. */}
       <div aria-hidden="true" className="hero-warm-fade" />
       </div>{/* end warm-canvas hero zone */}
+
+      {/* QuoteIQ-inspired "Every tool you need" tap-to-expand showcase — placed
+       * directly under the hero per Alex. Lazy + deferred like the sections below. */}
+      <DeferUntilNear minHeight={720}>
+        <Suspense fallback={lazyFallback(720)}>
+          <ToolShowcase />
+        </Suspense>
+      </DeferUntilNear>
+
+      {/* Cost-comparison calculator — WeFixTrades vs the competitor stack. */}
+      <DeferUntilNear minHeight={720}>
+        <Suspense fallback={lazyFallback(720)}>
+          <CostCompare />
+        </Suspense>
+      </DeferUntilNear>
 
       {/* "Compete with the big brands" — interactive coverage map. Replaces the
        * old static "big chains" comparison table (IntegrationsTrustStrip) per
