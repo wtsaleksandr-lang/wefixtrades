@@ -177,7 +177,7 @@ function MarketingFooter() {
       <div className="mkt-consent-bar">
         <div className="mkt-consent-inner">
           <div className="mkt-consent-msg">
-            <ShieldCheck size={15} strokeWidth={1.8} style={{ color: mkt.accent, flexShrink: 0 }} aria-hidden />
+            <ShieldCheck size={16} strokeWidth={1.8} style={{ color: mkt.accent, flexShrink: 0 }} aria-hidden />
             <span>We use cookies to run the site and improve your experience — you control what you share.</span>
           </div>
           <div className="mkt-consent-links">
@@ -334,7 +334,7 @@ function MarketingFooter() {
                 data-testid="footer-phone"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.6)", textDecoration: "none", fontWeight: 500 }}
               >
-                <Phone size={13} color={mkt.accent} strokeWidth={2} />
+                <Phone size={14} color={mkt.accent} strokeWidth={2} />
                 +1 (915) 615-3280
               </a>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Answered 24/7</span>
