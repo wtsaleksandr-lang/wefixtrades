@@ -24,6 +24,7 @@ import TrustSection from "@/components/marketing/TrustSection";
 import CTASection from "@/components/marketing/CTASection";
 import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
 import { Check, ArrowRight, Star } from "lucide-react";
+import { PRIMARY_CTA } from "@/site/cta";
 
 /* ─── Below-the-fold heavy components — lazy-loaded ───
  *
@@ -491,7 +492,7 @@ export default function HomePage() {
       {/* Outer page background behind hero shell — kept dark slate so the
        * cream hero reads as a "warm canvas island" framed by the rest of
        * the site palette (Alex variant 04 / W-HERO). */}
-      <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "6px 6px 0", position: "relative" as const, zIndex: 1 }}>
+      <div className="hero-shell-backdrop" style={{ background: `radial-gradient(120% 78% at 14% 0%, rgba(13,60,252,0.10) 0%, rgba(13,60,252,0.03) 38%, transparent 66%), radial-gradient(92% 70% at 86% 6%, rgba(124,58,237,0.09) 0%, rgba(6,182,212,0.05) 42%, transparent 72%), ${mkt.darkBg}`, padding: "6px 6px 0", position: "relative" as const, zIndex: 1 }}>
       {/* Warm-canvas hero zone — cream base + low-opacity canvas noise.
        * IntegrationsTrustStrip lives OUTSIDE this zone (on dark) so the
        * cream doesn't have to deal with white-text integration logos. */}
@@ -677,7 +678,7 @@ export default function HomePage() {
                     className="wf-underline mkt-gradient-text"
                     style={{ position: "relative", zIndex: 2 }}
                   >
-                    WeFixTrades runs your office.
+                    The AI office that books jobs while you're on the tools.
                   </span>
 
                   <span
@@ -714,13 +715,11 @@ export default function HomePage() {
 
               <div className="hero-enter hero-cta-row">
                 <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
-                  {/* Hero /wizard CTA label — intentionally made explicit so it's
-                   * obvious the click opens the calculator builder. The compact nav
-                   * pills + product-page CTAs keep the shorter "Start free — no card"
-                   * (nowrap, fixed width). On ≤640px the warm CTA row clamps with
-                   * white-space:nowrap + ellipsis, so a longer label degrades cleanly;
-                   * the "no card" promise is reinforced by hero-cta-note below. */}
-                  <span>Build your free calculator</span>
+                  {/* Unified primary CTA — reuses the canonical PRIMARY_CTA
+                   * ("Start free — no card" → /wizard) so the hero matches the
+                   * nav + sticky bar exactly (one label, one destination). Prior
+                   * "Build your free calculator" conflicted with the nav CTA. */}
+                  <span>{PRIMARY_CTA.label}</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
                 <Link href="/demo" className="hero-cta-secondary-warm" data-testid="hero-cta-secondary">
@@ -730,6 +729,27 @@ export default function HomePage() {
               <div className="hero-enter" style={{ marginTop: 12 }}>
                 <span className="hero-cta-note-warm">
                   Free plan — no card needed · Cancel anytime · Setup in under 10 minutes
+                </span>
+              </div>
+
+              {/* Above-the-fold trust strip — honest proof, reusing the exact
+               * numbers from TrustSection (240+ businesses, 4.9★). Kept small
+               * and muted on the SOLID cream surface (no glass behind copy). */}
+              <div
+                className="hero-enter"
+                data-testid="hero-trust-strip"
+                style={{ marginTop: 14 }}
+              >
+                <span
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    lineHeight: 1.5,
+                    color: mkt.onWarmMuted,
+                    fontFamily: typography.fontFamily,
+                  }}
+                >
+                  Trusted by 240+ trade businesses · 4.9★ average
                 </span>
               </div>
             </div>

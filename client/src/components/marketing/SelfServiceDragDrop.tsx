@@ -2185,7 +2185,7 @@ function SelfServiceCanvas({ hideHeader = false }: { hideHeader?: boolean } = {}
                   margin: 0,
                 }}
               >
-                <div>From any pricing doc</div>
+                <div>From any pricing doc{" "}</div>
                 <div>to a live calculator</div>
               </h2>
               <div
