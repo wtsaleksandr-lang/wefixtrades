@@ -51,10 +51,11 @@ export type NavSubgroup = {
    *  the AI Content column we link to /free-tools#ai-content. */
   hubAnchor?: string;
   /** Tools shown directly in this column. Anything beyond `maxShown` is
-   *  hidden behind a "+ N more →" link to `hubAnchor`. */
+   *  hidden behind an in-place "Show N more" expander (desktop) / the
+   *  accordion (mobile) — nothing is dropped, everything stays reachable. */
   items: NavItemChild[];
-  /** Cap for items shown in the dropdown column before the "more" link
-   *  takes over. Defaults to 7. */
+  /** Cap for items shown in the dropdown column before the in-place
+   *  "Show more" expander takes over. Defaults to 4. */
   maxShown?: number;
 };
 
@@ -64,12 +65,11 @@ export type NavItem = {
   children?: NavItemChild[];
   /** When set, the desktop nav renders a multi-column mega-menu and the
    *  mobile sheet renders nested accordions, one per subgroup. Used by
-   *  the Free Tools entry (Wave 14) so the navbar item unfolds inline
-   *  while /free-tools stays the canonical hub for SEO + full detail. */
+   *  the Products entry so the navbar item unfolds inline while the hub
+   *  pages stay canonical for SEO + full detail. */
   subgroups?: NavSubgroup[];
   /** Optional CTA links rendered as pill buttons in a footer strip at the
-   *  bottom of the dropdown tray (desktop only). Not used on Free Tools
-   *  (has its own mega-panel) or Resources. */
+   *  bottom of the dropdown tray (desktop only). */
   footer?: { label: string; href: string }[];
   /** Flagship trio — our three home-grown ("built from scratch") tools.
    *  Rendered as full-bleed rich cards (real product screenshot poster +
@@ -85,98 +85,75 @@ export type NavItem = {
  * because the nav's horizontal items need more room.
  *
  * At 900, items crop on intermediate widths (~900–1024) before the hamburger
- * kicks in. Lifted to 1024 so the desktop nav always has room for: logo + 6
+ * kicks in. Lifted to 1024 so the desktop nav always has room for: logo + 4
  * top-level menus + auth CTA.
  *
- * Raised 1130 → 1256 (FIX 4). The nav's inner row is clamped to maxWidth:1280;
- * as the viewport narrows the clamped row keeps shrinking, but the right CTA
- * cluster (Login + Start free + TradeLine Demo) hits its intrinsic min
- * content-width around ~1251px and stops shrinking — so below ~1251 the demo
- * pill overran the row's right edge (+22px@1230 … +121px@1131) and got clipped
- * by an overflow:clip ancestor, also pushing "Start free" off-edge. Compression
- * (FIX 2) reclaims well under the ~120px needed at the bottom of the band.
- * Instead of cramming, we hand the whole cluster to the hamburger earlier:
- * 1256–1440 shows both CTAs in the desktop bar (they fit — the squeeze only
- * starts at 1251); below 1256 the hamburger carries BOTH CTAs in the mobile
- * menu (already works). Demo CTA is therefore reachable at every width — bar
- * or hamburger, never neither, never clipped. See MarketingNav FIX 2/FIX 4.
+ * Kept at 1256 (FIX 4). The nav's inner row is clamped to maxWidth:1280; as the
+ * viewport narrows the clamped row keeps shrinking, but the right CTA cluster
+ * (Login + primary + demo) hits its intrinsic min content-width and stops
+ * shrinking. The IA restructure to 4 top-level items dissolves most of the
+ * horizontal pressure, but the breakpoint is retained so the CTA cluster is
+ * never clipped — below 1256 the hamburger carries BOTH CTAs in the mobile
+ * menu (already works). See MarketingNav FIX 2/FIX 4.
  */
 export const NAV_MOBILE_BREAKPOINT = 1256;
 
 export const NAV_LINKS: NavItem[] = [
   {
-    // Wave 11D D5 \u2014 MapGuard Suite group surfaces FIRST in the dropdown so
-    // the 4 paid local-SEO products are visible together. Free Tools is now
-    // a separate top-level nav item (parallel to Products), not a sub-item
-    // here. BookFlow removed as standalone (bundled into QuoteQuick per D2).
+    // IA restructure (QuoteIQ-style) — the whole product + tools + templates
+    // surface now lives under ONE "Products" mega-menu, organised into
+    // job-grouped COLUMNS (Products / Free Tools / Templates). Each column
+    // shows a few primary items and folds its long-tail behind an in-place
+    // "Show N more" expander (FreeToolsMegaPanel), so the default view is
+    // clean but EVERY destination stays reachable without leaving the menu.
+    // Free Tools + Templates are no longer separate top-level items; they are
+    // folded in here as columns. Nothing was removed — only regrouped.
     label: "Products",
-    href: "/products/tradeline",
-    // Our three home-grown flagship tools, surfaced FIRST as rich
-    // screenshot cards above the full product grid. These are the tools we
-    // built from scratch: an AI receptionist, a quote-wizard builder, and a
-    // free local-SEO audit. See <ToolsRichCards>.
-    flagship: [
-      { label: "TradeLine™", href: "/products/tradeline", description: "AI receptionist — answers every call & chat, books the job.", icon: "workflow" },
-      { label: "QuoteQuick™", href: "/products/quickquotepro/demo", description: "Instant-quote calculator builder for your site.", icon: "calculator" },
-      { label: "LocalScore", href: "/tools/free-audit", description: "Free website + Google Business audit in 30 seconds.", icon: "shieldCheck" },
-    ],
-    children: [
-      { label: "MapGuard Suite\u2122", href: "/mapguard-suite", description: "Local SEO platform \u2014 4 paid products.", icon: "mapPinned" },
-      { label: "CiteTrack", href: "/citation-tracker", description: "Monitor citations across directories.", icon: "search" },
-      { label: "CiteFlow", href: "/citation-builder", description: "One-time citation submission service.", icon: "layers" },
-      { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
-      { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
-      { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
-      { label: "RankFlow\u2122", href: "/products/rankflow", description: "Ongoing SEO for trades.", icon: "trendingUp" },
-      { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
-      { label: "WebCare\u2122", href: "/products/webcare", description: "Website maintenance & monitoring.", icon: "wrench" },
-      { label: "WebFix\u2122", href: "/products/webfix", description: "One-time website fixes.", icon: "hammer" },
-      { label: "AdFlow\u2122", href: "/products/adflow", description: "Managed ad campaigns.", icon: "target" },
-    ],
-    footer: [
-      { label: "Compare all products", href: "/products" },
-      { label: "See pricing", href: "/pricing" },
-    ],
-  },
-  {
-    // Wave 14 \u2014 Free Tools navbar mega-menu unfold. The hub at
-    // /free-tools stays canonical for SEO + full detail; the navbar item
-    // unfolds inline to preview the 3 sub-categories so users can jump
-    // straight to any tool. Pattern matches Linear / Stripe / BrightLocal:
-    // discoverability inside the menu, depth on the hub page.
-    label: "Free Tools",
-    href: "/free-tools",
+    href: "/products",
     subgroups: [
       {
-        heading: "Local SEO Tools",
-        hubAnchor: "/free-tools#local-seo",
+        // Column 1 — all products. The three home-grown flagship tools show
+        // first (primary); the remaining paid products fold under "Show more".
+        heading: "Products",
+        hubAnchor: "/products",
+        maxShown: 3,
         items: [
+          { label: "TradeLine™", href: "/products/tradeline", icon: "workflow" },
+          { label: "QuoteQuick™", href: "/products/quickquotepro/demo", icon: "calculator" },
           { label: "LocalScore", href: "/tools/free-audit", icon: "shieldCheck" },
-          { label: "Citation Checker", href: "/tools/citation-checker", icon: "search" },
-          { label: "Local Rank Grid", href: "/tools/local-rank-grid", icon: "mapPinned" },
-          { label: "Local Rank Tracker", href: "/tools/local-rank-tracker", icon: "trendingUp" },
-          // Visible label de-jargoned for non-technical trades owners; the
-          // /tools/local-serp-checker slug/route is unchanged for SEO.
-          { label: "Google Ranking Checker", href: "/tools/local-serp-checker", icon: "search" },
-          { label: "Local Rankflux", href: "/tools/local-rankflux", icon: "trendingUp" },
-          { label: "Google Review Link Gen", href: "/tools/google-review-link-generator", icon: "shieldCheck" },
+          { label: "MapGuard Suite™", href: "/mapguard-suite", icon: "mapPinned" },
+          { label: "CiteTrack", href: "/citation-tracker", icon: "search" },
+          { label: "CiteFlow", href: "/citation-builder", icon: "layers" },
+          { label: "ContentFlow™", href: "/products/contentflow", icon: "sparkles" },
+          { label: "ReputationShield™", href: "/products/reputationshield", icon: "shieldCheck" },
+          { label: "SocialSync™", href: "/products/socialsync", icon: "share2" },
+          { label: "RankFlow™", href: "/products/rankflow", icon: "trendingUp" },
+          { label: "SiteLaunch™", href: "/products/sitelaunch", icon: "layout" },
+          { label: "WebCare™", href: "/products/webcare", icon: "wrench" },
+          { label: "WebFix™", href: "/products/webfix", icon: "hammer" },
+          { label: "AdFlow™", href: "/products/adflow", icon: "target" },
         ],
       },
       {
-        heading: "AI Content Tools",
-        hubAnchor: "/free-tools#ai-content",
+        // Column 2 — Free Tools (was its own top-level item). Top few show;
+        // the full 19-tool set folds under "Show more". Hub at /free-tools
+        // stays canonical for SEO + full detail.
+        heading: "Free Tools",
+        hubAnchor: "/free-tools",
+        maxShown: 4,
         items: [
+          { label: "LocalScore", href: "/tools/free-audit", icon: "shieldCheck" },
+          { label: "Google Ranking Checker", href: "/tools/local-serp-checker", icon: "search" },
+          { label: "Citation Checker", href: "/tools/citation-checker", icon: "search" },
+          { label: "Local Rank Grid", href: "/tools/local-rank-grid", icon: "mapPinned" },
+          { label: "Local Rank Tracker", href: "/tools/local-rank-tracker", icon: "trendingUp" },
+          { label: "Local Rankflux", href: "/tools/local-rankflux", icon: "trendingUp" },
+          { label: "Google Review Link Gen", href: "/tools/google-review-link-generator", icon: "shieldCheck" },
           { label: "Plumbing Prompts", href: "/tools/plumbing-ai-content-prompts", icon: "wrench" },
           { label: "HVAC Prompts", href: "/tools/hvac-ai-content-prompts", icon: "fan" },
           { label: "Electrical Prompts", href: "/tools/electrical-ai-content-prompts", icon: "zap" },
           { label: "Roofing Prompts", href: "/tools/roofing-ai-content-prompts", icon: "home" },
           { label: "Landscaping Prompts", href: "/tools/landscaping-ai-content-prompts", icon: "trees" },
-        ],
-      },
-      {
-        heading: "Widgets",
-        hubAnchor: "/free-tools#widgets",
-        items: [
           { label: "Schema Generator", href: "/portal/free-tools/schema", icon: "fileText", portalGated: true },
           { label: "FAQ Widget", href: "/portal/free-tools/faq", icon: "messageSquare", portalGated: true },
           { label: "Hours Widget", href: "/portal/free-tools/hours", icon: "layout", portalGated: true },
@@ -186,10 +163,28 @@ export const NAV_LINKS: NavItem[] = [
           { label: "Service Area Map", href: "/portal/free-tools/service-area", icon: "mapPinned", portalGated: true },
         ],
       },
+      {
+        // Column 3 — Templates (was its own top-level item). Both galleries
+        // show; hub at /templates for the full library.
+        heading: "Templates",
+        hubAnchor: "/templates",
+        maxShown: 4,
+        items: [
+          { label: "Quote Calculators", href: "/templates", icon: "calculator" },
+          { label: "AI Receptionists", href: "/ai-receptionists", icon: "phoneCall" },
+        ],
+      },
+    ],
+    footer: [
+      { label: "Compare all products", href: "/products" },
+      { label: "See pricing", href: "/pricing" },
     ],
   },
   {
-    label: "Solutions",
+    // "Industries" (was "Solutions") — trade-specific landing pages. The
+    // "Find your trade" typeahead (keyed on this label) searches all 40
+    // trades; the footer CTA links to the full catalogue.
+    label: "Industries",
     href: "/solutions/for-plumbers",
     children: [
       { label: "For Plumbers", href: "/solutions/for-plumbers", description: "Win more plumbing leads.", icon: "wrench" },
@@ -208,25 +203,6 @@ export const NAV_LINKS: NavItem[] = [
     footer: [
       { label: "See all 40 trades", href: "/solutions" },
       { label: "Compare products for your trade", href: "/products" },
-    ],
-  },
-  // Wave 11D D5 — top-level "Free Audit" entry removed; the audit now lives
-  // as one entry inside the Free Tools hub (/free-tools, with sections for
-  // Local SEO / AI Content / Widgets). The /tools/free-audit page itself
-  // is unchanged.
-  {
-    // Shared "Templates" umbrella — two ready-to-use template types: the
-    // QuoteQuick calculator gallery (/templates) and the AI receptionist
-    // gallery (/ai-receptionists). Both are also surfaced in the portal +
-    // admin so the naming stays consistent across all three surfaces.
-    label: "Templates",
-    href: "/templates",
-    children: [
-      { label: "Quote Calculators", href: "/templates", description: "Instant-quote calculator templates by trade.", icon: "calculator" },
-      { label: "AI Receptionists", href: "/ai-receptionists", description: "Ready-made AI phone & chat receptionists by trade.", icon: "phoneCall" },
-    ],
-    footer: [
-      { label: "Browse all templates", href: "/templates" },
     ],
   },
   { label: "Pricing", href: "/pricing" },

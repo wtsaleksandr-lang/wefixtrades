@@ -24,11 +24,12 @@ import { PRIMARY_CTA } from "@/site/cta";
 import { useAuth } from "@/hooks/useAuth";
 import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
-// Pull the canonical entries for the items we want to surface — Products,
-// Free Tools, Solutions, Pricing — so the bottom bar inherits exactly what
-// the top nav shows. (Was "Tools", which matches no NAV_LINKS label — the
-// canonical label is "Free Tools" — so the entry silently dropped.)
-const PICK = ["Products", "Free Tools", "Solutions", "Pricing"] as const;
+// Pull the canonical entries for the items we want to surface so the bottom
+// bar inherits exactly what the top nav shows. Post IA-restructure the
+// top-level set is Products / Industries / Pricing / Resources; Free Tools +
+// Templates are folded INTO the Products mega-menu (reachable there), so the
+// bar surfaces the two dropdown menus (Products, Industries) plus Pricing.
+const PICK = ["Products", "Industries", "Pricing"] as const;
 const STICKY_LINKS = PICK
   .map((label) => NAV_LINKS.find((l) => l.label === label))
   .filter((x): x is (typeof NAV_LINKS)[number] => Boolean(x));

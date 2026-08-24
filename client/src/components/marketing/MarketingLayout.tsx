@@ -77,16 +77,6 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
-/** A plain footer column — heading + always-visible link list. */
-function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mkt-footer-col">
-      <div style={ftHeading}>{title}</div>
-      <div className="mkt-ft-list">{children}</div>
-    </div>
-  );
-}
-
 /**
  * A footer column that shows the first half of its links, with the rest
  * hidden behind a toggle. The remainder unfolds smoothly via the grid
@@ -113,6 +103,9 @@ function ExpandableFooterColumn({
   );
   const visible = links.slice(0, splitAt);
   const hidden = links.slice(splitAt);
+  // Stable id so the toggle button can reference the collapsible region via
+  // aria-controls (a11y — screen readers announce the expand/collapse target).
+  const panelId = `ftcol-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
   return (
     <div className="mkt-footer-col">
       <div style={ftHeading}>{title}</div>
@@ -125,7 +118,7 @@ function ExpandableFooterColumn({
       {hidden.length > 0 && (
         <>
           {/* Second half — unfolds below the visible half */}
-          <div className="mkt-ft-collapse" data-open={open}>
+          <div className="mkt-ft-collapse" data-open={open} id={panelId}>
             <div>
               <div className="mkt-ft-list">
                 {hidden.map((l) => (
@@ -138,6 +131,7 @@ function ExpandableFooterColumn({
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
+            aria-controls={panelId}
             className="mkt-ft-expand"
             style={{
               ...ftLink,
@@ -176,6 +170,26 @@ function MarketingFooter() {
         color: "rgba(255,255,255,0.5)",
       }}
     >
+      {/* ── Privacy / consent bar ─────────────────────────────────────
+          Dedicated Do-Not-Sell / cookie-consent style bar ABOVE the footer
+          proper. Static + link-driven (no new routes) so cookie preferences,
+          do-not-sell, and the privacy policy are all one click away. */}
+      <div className="mkt-consent-bar">
+        <div className="mkt-consent-inner">
+          <div className="mkt-consent-msg">
+            <ShieldCheck size={15} strokeWidth={1.8} style={{ color: mkt.accent, flexShrink: 0 }} aria-hidden />
+            <span>We use cookies to run the site and improve your experience — you control what you share.</span>
+          </div>
+          <div className="mkt-consent-links">
+            <Link href="/cookies" className="mkt-ft-soft mkt-consent-link">Cookie Preferences</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/privacy" className="mkt-ft-soft mkt-consent-link">Do Not Sell or Share My Info</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/privacy" className="mkt-ft-soft mkt-consent-link">Privacy Policy</Link>
+          </div>
+        </div>
+      </div>
+
       {/* ── Brand strip ─────────────────────────────────────────────
           Wave 49 — logo + tagline above the column grid. Provides the
           top padding for the footer; the grid container below now starts
@@ -212,225 +226,181 @@ function MarketingFooter() {
       {/* ── Main footer grid ───────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
         <div className="mkt-footer-grid">
-          {/* Wave 11D D5 — MapGuard Suite + Free Tools surface at the top
-              of the Products column. BookFlow standalone link dropped (bundled
-              inside QuoteQuick per D2). */}
+          {/* IA restructure — the footer mirrors the slimmed 4-item nav.
+              Every link is preserved: a few primary links show per column and
+              the long-tail folds IN PLACE behind an accessible "Show more"
+              toggle (ExpandableFooterColumn). Nothing was relocated to the
+              sitemap; the collapsed view is tidy but contains everything. */}
           <ExpandableFooterColumn
             title="Products"
-            toggleLabel="All Products"
+            toggleLabel="Show all products"
+            visibleCount={5}
             links={[
-              { href: "/mapguard-suite", label: "MapGuard Suite™" },
-              { href: "/free-tools", label: "Free Tools (Hub)" },
               { href: "/products/tradeline", label: "TradeLine™" },
               { href: "/products/quickquotepro", label: "QuoteQuick™" },
-              { href: "/products/mapguard", label: "MapGuard™" },
+              { href: "/mapguard-suite", label: "MapGuard Suite™" },
+              { href: "/products/contentflow", label: "ContentFlow™" },
               { href: "/products/reputationshield", label: "ReputationShield™" },
+              { href: "/products/mapguard", label: "MapGuard™" },
               { href: "/products/socialsync", label: "SocialSync™" },
               { href: "/products/rankflow", label: "RankFlow™" },
               { href: "/products/sitelaunch", label: "SiteLaunch™" },
               { href: "/products/webcare", label: "WebCare™" },
               { href: "/products/webfix", label: "WebFix™" },
-              { href: "/products/contentflow", label: "ContentFlow™" },
               { href: "/products/adflow", label: "AdFlow™" },
               { href: "/citation-tracker", label: "CiteTrack" },
               { href: "/citation-builder", label: "CiteFlow" },
+              { href: "/free-tools", label: "Free Tools (Hub)" },
             ]}
           />
 
-          {/* Solutions — top 8 trades + a single "All industries →" link to
-              the /solutions catalogue. The full 40-trade dump used to unfold
-              behind "All Solutions" here, which stretched the footer far past
-              the other columns; discovery of the long tail now lives on the
-              catalogue page and the nav "Find your trade" typeahead. */}
-          <FooterColumn title="Solutions">
-            <FtLink href="/solutions/for-plumbers">Plumbers</FtLink>
-            <FtLink href="/solutions/for-hvac">HVAC</FtLink>
-            <FtLink href="/solutions/for-electricians">Electricians</FtLink>
-            <FtLink href="/solutions/for-roofers">Roofers</FtLink>
-            <FtLink href="/solutions/for-cleaners">Cleaners</FtLink>
-            <FtLink href="/solutions/for-landscapers">Landscapers</FtLink>
-            <FtLink href="/solutions/for-pest-control">Pest Control</FtLink>
-            <FtLink href="/solutions/for-garage-door">Garage Door</FtLink>
-            <FtLink href="/solutions">All industries →</FtLink>
-          </FooterColumn>
+          {/* Industries (was Solutions) — top trades visible; the rest fold
+              in place. Full 40-trade catalogue still linked via "All
+              industries →" and reachable on /solutions. */}
+          <ExpandableFooterColumn
+            title="Industries"
+            toggleLabel="More trades"
+            visibleCount={5}
+            links={[
+              { href: "/solutions/for-plumbers", label: "Plumbers" },
+              { href: "/solutions/for-hvac", label: "HVAC" },
+              { href: "/solutions/for-electricians", label: "Electricians" },
+              { href: "/solutions/for-roofers", label: "Roofers" },
+              { href: "/solutions/for-cleaners", label: "Cleaners" },
+              { href: "/solutions/for-landscapers", label: "Landscapers" },
+              { href: "/solutions/for-pest-control", label: "Pest Control" },
+              { href: "/solutions/for-garage-door", label: "Garage Door" },
+              { href: "/solutions", label: "All industries →" },
+            ]}
+          />
 
-          {/* For You — audience landing pages (Brightlocal-style). Sits
-              between Solutions and Resources because the buyer persona is
-              the next-most-specific filter after "what trade are you in". */}
-          <FooterColumn title="For You">
-            <FtLink href="/for-agencies">For Agencies</FtLink>
-            <FtLink href="/for-franchises">For Franchises</FtLink>
-            <FtLink href="/for-solo-traders">For Solo Traders</FtLink>
-            <FtLink href="/contentflow">For Marketers</FtLink>
-          </FooterColumn>
+          {/* Free Tools — a few visible; the full 19-tool set folds in place.
+              Hub still linked via "All Free Tools". */}
+          <ExpandableFooterColumn
+            title="Free Tools"
+            toggleLabel="Show all free tools"
+            visibleCount={5}
+            links={[
+              { href: "/free-tools", label: "All Free Tools" },
+              { href: "/tools/free-audit", label: "LocalScore" },
+              { href: "/tools/local-serp-checker", label: "Rank Checker" },
+              { href: "/tools/citation-checker", label: "Citation Checker" },
+              { href: "/tools/local-rank-grid", label: "Rank Grid" },
+              { href: "/tools/google-review-link-generator", label: "Review Links" },
+              { href: "/tools/local-rank-tracker", label: "Rank Tracker" },
+              { href: "/tools/local-rankflux", label: "Rankflux" },
+              { href: "/products/quickquotepro/demo", label: "Quote Demo" },
+              { href: "/products/quickquotepro/build-with-ai", label: "Build with AI" },
+              { href: "/tools/plumbing-ai-content-prompts", label: "Prompt Library" },
+            ]}
+          />
 
-          {/* Resources — Wave 49: Citation Builder dropped (dupe; already in
-              Products and it's a paid service, not a free resource).
-              Competitor comparisons moved to the dedicated "Compare" row.
-              Login / Dashboard / Sitemap / API Docs moved to the small
-              utility row above the divider. */}
-          <FooterColumn title="Resources">
-            <FtLink href="/about">About Us</FtLink>
-            <FtLink href="/contact">Contact Sales</FtLink>
-            <FtLink href="/pricing">Pricing</FtLink>
-            {/* Partner programs — referral + affiliate self-serve surface. */}
-            <FtLink href="/partners">Affiliates & Referrals</FtLink>
-          </FooterColumn>
+          {/* Company — Resources + For You + Compare + account/legal utility
+              links, consolidated so nothing is lost. A few show; the rest
+              fold in place. */}
+          <ExpandableFooterColumn
+            title="Company"
+            toggleLabel="More links"
+            visibleCount={5}
+            links={[
+              { href: "/about", label: "About Us" },
+              { href: "/contact", label: "Contact Sales" },
+              { href: "/pricing", label: "Pricing" },
+              { href: "/partners", label: "Affiliates & Referrals" },
+              { href: "/for-agencies", label: "For Agencies" },
+              { href: "/for-franchises", label: "For Franchises" },
+              { href: "/for-solo-traders", label: "For Solo Traders" },
+              { href: "/contentflow", label: "For Marketers" },
+              { href: "/wefixtrades-vs-jobber", label: "vs Jobber" },
+              { href: "/wefixtrades-vs-housecall-pro", label: "vs Housecall Pro" },
+              { href: "/wefixtrades-vs-servicetitan", label: "vs ServiceTitan" },
+              { href: isAuthenticated ? "/dashboard" : "/login", label: isAuthenticated ? "Dashboard" : "Login" },
+              { href: "/docs/api", label: "API Docs" },
+              { href: "/security", label: "Security" },
+              { href: "/cookies", label: "Cookie Policy" },
+              { href: "/sms-consent-disclosure", label: "SMS Consent" },
+              { href: "/sitemap", label: "Sitemap" },
+            ]}
+          />
 
-          {/* Tools — demos + free tools.
-              Tools-consolidation: missed-call deleted, MapSnapshot folded
-              into the Free Audit "Rank Grid" tab, Quote Demo + Build-with-AI
-              relocated under the QuoteQuick product family.
-              Wave 11D D5 — top entry now links to the /free-tools hub. */}
-          <FooterColumn title="Free Tools">
-            <FtLink href="/free-tools">All Free Tools</FtLink>
-            <FtLink href="/tools/free-audit">LocalScore</FtLink>
-            {/* Free Tools Wave 1 — Brightlocal-style standalone tools, each
-                with its own /tools/* URL + lead-magnet page. */}
-            {/* Wave 49 — labels shortened so each fits one line at the
-                current column width. hrefs unchanged. Night-audit P-A:
-                shortened again ("Review Link Generator" / "Google Ranking
-                Checker" still wrapped to 2 lines on desktop AND mobile —
-                hard layout rule 1). */}
-            <FtLink href="/tools/google-review-link-generator">Review Links</FtLink>
-            {/* Wave 6E — BrightLocal-parity SERP viewer (Google + Maps, multi-country / language).
-                /tools/local-serp-checker slug/route is unchanged for SEO. */}
-            <FtLink href="/tools/local-serp-checker">Rank Checker</FtLink>
-            {/* Wave 6F — single-business multi-engine rank snapshot (Google + Brave + Maps). */}
-            <FtLink href="/tools/local-rank-tracker">Rank Tracker</FtLink>
-            <FtLink href="/tools/citation-checker">Citation Checker</FtLink>
-            <FtLink href="/tools/local-rankflux">Rankflux</FtLink>
-            {/* Wave 2 — single-shot 5x5 geo-grid rank scan; upsell to MapGuard. */}
-            <FtLink href="/tools/local-rank-grid">Rank Grid</FtLink>
-            <FtLink href="/products/quickquotepro/demo">Quote Demo</FtLink>
-            {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
-            <FtLink href="/products/quickquotepro/build-with-ai">Build with AI</FtLink>
-            <FtLink href="/tools/plumbing-ai-content-prompts">Prompt Library</FtLink>
-          </FooterColumn>
-
-          {/* Wave 110 — Compare column. Was a standalone row below the
-              5-column grid; folded back in as a 6th column next to Free
-              Tools per Alex. Three competitor comparison pages. */}
-          <FooterColumn title="Compare">
-            <FtLink href="/wefixtrades-vs-jobber">vs Jobber</FtLink>
-            <FtLink href="/wefixtrades-vs-housecall-pro">vs Housecall Pro</FtLink>
-            <FtLink href="/wefixtrades-vs-servicetitan">vs ServiceTitan</FtLink>
-          </FooterColumn>
-        </div>
-      </div>
-
-      {/* ── Utility row ─────────────────────────────────────────────
-          Wave 49 — small Linear/Vercel-style row above the divider for
-          Login / API Docs. No heading, low-opacity, dot-separated,
-          centred.
-          Wave 110 — Sitemap dropped from this row (it's already in the
-          legal links row at the very bottom; the duplicate was Alex's
-          flag). Gap below tightened ~50% (marginTop on divider went
-          from 36 → 18) so the utility row sits closer to the divider. */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-        <div
-          className="mkt-footer-util-row"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            marginTop: 28,
-            fontSize: 11,
-            color: "rgba(255,255,255,0.55)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0 16px", flexWrap: "wrap" }}>
-            {!isAuthenticated && <Link href="/login" className="mkt-ft-util">Login</Link>}
-            {isAuthenticated && <Link href="/dashboard" className="mkt-ft-util">Dashboard</Link>}
-            <span style={{ opacity: 0.3 }}>·</span>
-            <Link href="/docs/api" className="mkt-ft-util">API Docs</Link>
+          {/* Contact — WFT's 24/7 phone + dual email as a dedicated column
+              (promoted out of the old cramped bottom bar). */}
+          <div className="mkt-footer-col">
+            <div style={ftHeading}>Contact</div>
+            <div className="mkt-ft-list" style={{ gap: 8 }}>
+              <a
+                href="tel:+19156153280"
+                className="mkt-ft-soft"
+                data-testid="footer-phone"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.6)", textDecoration: "none", fontWeight: 500 }}
+              >
+                <Phone size={13} color={mkt.accent} strokeWidth={2} />
+                +1 (915) 615-3280
+              </a>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Answered 24/7</span>
+              <a
+                href="mailto:sales@wefixtrades.com"
+                className="mkt-ft-soft"
+                style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", textDecoration: "none", fontWeight: 500 }}
+              >
+                ✉️ sales@wefixtrades.com
+              </a>
+              <a
+                href="mailto:support@wefixtrades.com"
+                className="mkt-ft-soft"
+                style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", textDecoration: "none", fontWeight: 500 }}
+              >
+                ✉️ support@wefixtrades.com
+              </a>
+            </div>
           </div>
-          {/* App badges fill the empty band on the right (desktop); wrap below
-              the links on mobile. */}
-          <AppStoreBadges inline />
+
+          {/* Trusted by / Get the app — social-proof column. The app-store
+              badges are promoted here from the old utility row, alongside a
+              trust line + the security badges. */}
+          <div className="mkt-footer-col">
+            <div style={ftHeading}>Trusted by pros</div>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0 0 12px", lineHeight: 1.5, maxWidth: 220 }}>
+              Growing trades across North America run their front office on WeFixTrades.
+            </p>
+            <div className="mkt-footer-trust-col" style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
+                <ShieldCheck size={14} strokeWidth={1.5} />
+                <span>SOC 2-certified infrastructure</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
+                <Lock size={14} strokeWidth={1.5} />
+                <span>256-bit SSL Encrypted</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
+                <Award size={14} strokeWidth={1.5} />
+                <span>GDPR Ready</span>
+              </div>
+            </div>
+            <AppStoreBadges />
+          </div>
         </div>
       </div>
 
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 18 }} />
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 8 }} />
       </div>
 
       {/* ── Corporate bottom bar ─────────────────────────────────────
-          Wave 110 — vertical rhythm tightened so contact + branding
-          read as one block instead of three drifting rows. Previous
-          trust badges marginBottom of 16 → 10; bottom flex gap 16 → 10;
-          contact-link strip marginBottom 8 → 4; trust + contact +
-          copyright now stack cleanly on mobile with no empty bands. */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px 24px 14px" }}>
-        {/* Trust badges */}
-        <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
-            <ShieldCheck size={14} strokeWidth={1.5} />
-            {/* We don't hold our own SOC 2 audit — the claim is that our
-                infrastructure (AWS, Cloudflare) is SOC 2 / ISO 27001 certified.
-                Stating it this way is accurate; "SOC 2 Compliant" implied we
-                were audited, which would be a false claim. */}
-            <span>SOC 2-certified infrastructure</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
-            <Lock size={14} strokeWidth={1.5} />
-            <span>256-bit SSL Encrypted</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
-            <Award size={14} strokeWidth={1.5} />
-            <span>GDPR Ready</span>
-          </div>
-        </div>
-
-        {/* Company info + copyright */}
-        <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ display: "flex", gap: 14, marginBottom: 4, flexWrap: "wrap" }}>
-              <a
-                href="tel:+19156153280"
-                className="mkt-ft-soft"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
-                data-testid="footer-phone"
-              >
-                <Phone size={12} color={mkt.accent} strokeWidth={2} />
-                +1 (915) 615-3280 · answered 24/7
-              </a>
-              {/* Both emails kept together on one line (nowrap) so they never
-                  split across two rows on mobile. */}
-              <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
-                <a
-                  href="mailto:sales@wefixtrades.com"
-                  className="mkt-ft-soft"
-                  style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
-                >
-                  ✉️ sales@wefixtrades.com
-                </a>
-                <a
-                  href="mailto:support@wefixtrades.com"
-                  className="mkt-ft-soft"
-                  style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
-                >
-                  ✉️ support@wefixtrades.com
-                </a>
-              </div>
-            </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.45 }}>
-              &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
-            </p>
-          </div>
+          IA restructure — trust badges + contact info promoted into the
+          column grid above; the bottom bar is now just copyright + a small
+          set of core legal links (the full legal set lives in the Company
+          column + the privacy/consent bar, so nothing is lost). */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px 24px 20px" }}>
+        <div className="mkt-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.45 }}>
+            &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
+          </p>
           <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 6 }}>
             <Link href="/privacy" className="mkt-ft-soft" style={legalLinkStyle}>Privacy</Link>
             <span style={legalDividerStyle} />
             <Link href="/terms" className="mkt-ft-soft" style={legalLinkStyle}>Terms</Link>
-            <span style={legalDividerStyle} />
-            <Link href="/security" className="mkt-ft-soft" style={legalLinkStyle}>Security</Link>
-            <span style={legalDividerStyle} />
-            <Link href="/cookies" className="mkt-ft-soft" style={legalLinkStyle}>Cookies</Link>
-            <span style={legalDividerStyle} />
-            <Link href="/sms-consent-disclosure" className="mkt-ft-soft" style={legalLinkStyle}>SMS Consent</Link>
             <span style={legalDividerStyle} />
             <Link href="/sitemap" className="mkt-ft-soft" style={legalLinkStyle}>Sitemap</Link>
             {isAuthenticated && (
@@ -581,6 +551,53 @@ function MarketingFooter() {
         }
         .mkt-ft-collapse > div {
           overflow: hidden;
+        }
+        /* Reduced-motion — no unfold animation for users who ask for less. */
+        @media (prefers-reduced-motion: reduce) {
+          .mkt-ft-collapse { transition: none; }
+        }
+
+        /* ── Privacy / consent bar ─────────────────────────────────── */
+        .mkt-consent-bar {
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.02);
+        }
+        .mkt-consent-inner {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px 24px;
+          flex-wrap: wrap;
+        }
+        .mkt-consent-msg {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          line-height: 1.4;
+          color: rgba(255,255,255,0.6);
+        }
+        .mkt-consent-links {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          row-gap: 6px;
+        }
+        .mkt-consent-link {
+          font-size: 11px;
+          font-family: 'DM Mono', monospace;
+          letter-spacing: 0.05em;
+          color: rgba(255,255,255,0.6);
+          text-decoration: none;
+          white-space: nowrap;
+          margin: 0 8px;
+        }
+        @media (max-width: 640px) {
+          .mkt-consent-inner { justify-content: flex-start; }
+          .mkt-consent-link:first-child { margin-left: 0; }
         }
 
         @media (max-width: 768px) {
