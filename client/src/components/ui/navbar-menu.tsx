@@ -286,7 +286,9 @@ export const MenuItem = ({
   // Solutions typeahead: when a query is active we hide the featured grid so
   // the search results own the panel. Reset whenever the dropdown closes.
   const [searchingSolutions, setSearchingSolutions] = useState(false);
-  const isSolutions = item === "Solutions";
+  // Keyed on the "Industries" top-level label (renamed from "Solutions" in the
+  // IA restructure). Drives the "Find your trade" typeahead in this dropdown.
+  const isSolutions = item === "Industries";
   useEffect(() => {
     if (!isOpen) setSearchingSolutions(false);
   }, [isOpen]);
@@ -529,7 +531,7 @@ export const MenuItem = ({
                 )}
                 </>
               )}
-              {footer && footer.length > 0 && !hasSubgroups && item !== "Tools" && (
+              {footer && footer.length > 0 && item !== "Tools" && (
                 /* Wayfinding footer CTAs — accent-blue fill matching the Free
                    Tools "see all" button style (.ft-mega__seeall). Each button
                    gets flex:1 so one button fills the row and two split evenly.
