@@ -52,7 +52,6 @@ const CARDS_DATA = [
 
 /* ── Effortel color tokens ───────────────────────────────────────────── */
 const BG = "#dfe8e6";        // --color--background (section + overlay)
-const CARD_BG = "#f5fcff";   // --color--background-secondary (card)
 const TEXT = "#22282a";      // --swatch--n-800
 const TEXT_MUTED = "#5f6f77"; // --swatch--n-600
 
@@ -296,7 +295,12 @@ export default function StickyStackCards() {
     <section
       data-testid="sticky-stack-cards"
       style={{
-        background: BG,
+        /* Subtle light wash behind the frosted card stack — faint accent-blue +
+         * low-alpha violet over the sage base so the frost reads. Kept light. */
+        background:
+          "radial-gradient(110% 70% at 10% 0%, rgba(13,60,252,0.055), transparent 58%)," +
+          "radial-gradient(100% 80% at 95% 100%, rgba(124,58,237,0.045), transparent 55%)," +
+          BG,
         /* compression: trimmed vertical padding (was 96/64) so the section
          * doesn't dominate the scroll. Heading margin + sticky gap also
          * tightened below — see PR `polish/home-page-compression`. */
@@ -346,10 +350,12 @@ export default function StickyStackCards() {
                 willChange: mobile ? "auto" : "transform",
               }}
             >
-              {/* .large__card */}
+              {/* .large__card — LIGHT frosted-glass frame. The text column's
+                  dark heading/body copy sits ON the frosted-white panel (AA-safe
+                  at 0.55 tint); the visual column keeps its own solid #fff. */}
               <div
+                className="wft-glass-light wft-glass-lift"
                 style={{
-                  background: CARD_BG,
                   /* Standardized to the 16–20px premium radius scale (was 24)
                    * so every home card frame shares one corner treatment. */
                   borderRadius: 20,
@@ -359,7 +365,6 @@ export default function StickyStackCards() {
                   flexDirection: mobile ? "column" : (card.reversed ? "row-reverse" : "row") as "row" | "row-reverse" | "column",
                   minHeight: mobile ? "auto" : 340,
                   boxShadow: "0 4px 32px rgba(34,40,42,0.08)",
-                  border: "1px solid rgba(213,225,231,0.6)",
                 }}
               >
                 {/* col-33: text */}
