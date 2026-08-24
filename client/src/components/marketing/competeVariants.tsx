@@ -1517,7 +1517,9 @@ export function CompeteCoverageMap() {
       className="ccm-section"
       // Horizontal padding 24px (16px on mobile, via the media query below) so
       // this card matches the QuoteQuick container's width directly beneath it.
-      style={{ background: mkt.bg, padding: "clamp(48px, 6vw, 88px) 24px" }}
+      // Vibrant gradient backdrop (accent-blue + violet/cyan) so the glass
+      // radar card refracts a premium wash over the dark base.
+      style={{ background: `radial-gradient(100% 88% at 10% 0%, rgba(13,60,252,0.16) 0%, rgba(13,60,252,0.05) 42%, transparent 72%), radial-gradient(88% 80% at 90% 8%, rgba(124,58,237,0.12) 0%, rgba(6,182,212,0.06) 48%, transparent 78%), ${mkt.bg}`, padding: "clamp(48px, 6vw, 88px) 24px" }}
       aria-label="Compete with the big brands — claim the map"
     >
       {modal && <BigBrandsModal onClose={() => setModal(false)} />}
@@ -1555,14 +1557,17 @@ export function CompeteCoverageMap() {
             its axis; the polygon grows toward the dashed outer "big brands"
             ring. Badge click also opens a product popover. */}
         <div
-          className="ccm-radar-card"
+          className="ccm-radar-card wft-glass-regular wft-glass-lift"
           data-theme="dark"
           style={{
             position: "relative",
-            backgroundColor: mkt.sectionLight,
+            /* Glass frame via .wft-glass-regular (background-color +
+             * backdrop-filter + border come from the shared utility). The
+             * dot-grid stays as an inline background-image layer on top of
+             * the glass tint; the radar SVG + white labels remain fully
+             * legible (functional content untouched). */
             backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
             backgroundSize: "16px 16px",
-            border: `1px solid ${mkt.onDarkBorder}`,
             borderRadius: 18,
             padding: "clamp(40px, 5vw, 60px) clamp(20px, 4vw, 44px) clamp(44px, 5vw, 64px)",
             boxShadow: "0 18px 50px rgba(8,12,30,0.28)",

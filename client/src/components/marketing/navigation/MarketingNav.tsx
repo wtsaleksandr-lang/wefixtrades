@@ -214,9 +214,10 @@ export function MarketingNav() {
             // left a visible 4px gap between the browser chrome and the card).
             marginTop: 0,
             borderRadius: 12,
-            background: "rgba(34,40,42,0.72)",
-            backdropFilter: "blur(30px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(30px) saturate(1.2)",
+            /* Glass bar background + backdrop-filter live in the .mkt-nav-bar
+             * CSS rule below (with an @supports solid fallback) so unsupported
+             * browsers still get an opaque, legible nav instead of transparent
+             * text on a see-through bar. */
             border: "1px solid rgba(255,255,255,0.10)",
             boxShadow: scrolled
               ? "0 8px 24px rgba(0,0,0,0.25)"
@@ -395,6 +396,18 @@ export function MarketingNav() {
       </nav>
 
       <style>{`
+        /* Glass nav bar — standardized to saturate(1.4) (was 1.2) to match the
+         * shared .wft-glass-* utilities. @supports fallback keeps the bar
+         * opaque where backdrop-filter is unsupported so nav text never sits on
+         * a transparent bar. */
+        .mkt-nav-bar {
+          background: rgba(34,40,42,0.72);
+          backdrop-filter: blur(30px) saturate(1.4);
+          -webkit-backdrop-filter: blur(30px) saturate(1.4);
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .mkt-nav-bar { background: rgba(34,40,42,0.96); }
+        }
         @media (max-width: 768px) {
           .mkt-nav-bar { border-radius: 20px !important; }
         }
