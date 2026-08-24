@@ -427,7 +427,7 @@ export default function CapabilitiesShowcase() {
               lineHeight: 1.05,
               color: "#394247",
             }}>
-              The four tools
+              The four tools{" "}
             </span>
             <span style={{
               display: "block",

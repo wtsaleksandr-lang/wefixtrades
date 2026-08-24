@@ -125,12 +125,18 @@ export default function HeroProductPreview() {
   return (
     <div
       data-testid="hero-product-preview"
+      className="wft-glass-lift"
       style={{
         width: "100%",
         maxWidth: 480,
+        /* Signature glass surface. Kept darker than the shared
+         * .wft-glass-regular (0.62) because this card sits on the LIGHT
+         * cream hero island — the white KPI text needs the darker base for
+         * contrast. Adds saturate() to the blur; @supports solid fallback
+         * lives in the <style> block below. */
         background: "rgba(13,18,22,0.85)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        backdropFilter: "blur(20px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.3)",
         border: "1px solid rgba(255,255,255,0.10)",
         borderRadius: 20,
         padding: 20,
@@ -240,6 +246,11 @@ export default function HeroProductPreview() {
         @keyframes preview-slide-in {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Solid fallback when backdrop-filter is unsupported — keep the card
+         * legible instead of near-transparent over the cream island. */
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          [data-testid="hero-product-preview"] { background: rgba(13,18,22,0.96) !important; }
         }
       `}</style>
     </div>
