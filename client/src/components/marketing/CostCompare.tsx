@@ -58,6 +58,8 @@ interface Competitor {
   footNote?: string;
   /** why the add-on set is short (e.g. all-in-one already includes them) */
   scopeNote?: string;
+  /** value line rendered under the savings figure (the "and it does more" beat) */
+  winLine?: string;
 }
 
 interface Addon {
@@ -123,24 +125,45 @@ const COMPETITORS: Competitor[] = [
     name: "QuoteIQ",
     base: {
       kind: "tiered",
+      // To MATCH WeFixTrades' managed suite (reviews, quotes, maps, marketing)
+      // a QuoteIQ user needs the feature-complete Elite plan — Essentials
+      // ($29.99) doesn't include the automation. Elite ≤10 users / Max above.
       tiers: [
-        { maxUsers: 3,   price: 29.99, label: "QuoteIQ Essentials" },
-        { maxUsers: 10,  price: 299,   label: "QuoteIQ Elite" },
-        { maxUsers: 999, price: 699,   label: "QuoteIQ Max" },
+        { maxUsers: 10,  price: 299, label: "QuoteIQ Elite" },
+        { maxUsers: 999, price: 699, label: "QuoteIQ Max" },
       ],
     },
-    // QuoteIQ is all-in-one — reviews / maps / social / quotes are built in.
-    // The one thing it doesn't do is true AI voice call-answering.
+    // QuoteIQ is a DIY all-in-one — reviews / maps / quotes are built into Elite.
+    // The one thing it doesn't do at any tier is true AI voice call-answering.
     addons: ["ai"],
-    scopeNote: "QuoteIQ bundles reviews, quotes & marketing already — the gap vs WeFixTrades is live AI voice.",
+    scopeNote: "Reviews, quotes & marketing need QuoteIQ's Elite plan; live AI voice answering isn't included at any tier.",
+    winLine: "Cheaper than QuoteIQ — and one managed office, not five logins, with real AI voice its DIY app doesn't include.",
   },
 ];
 
-/* WeFixTrades' own price — REAL, from shared/pricing.ts managed bundles. */
+/* WeFixTrades' own price ladder.
+ *  • Starter $199/mo is the calculator's ANCHOR — the "starts at" price that
+ *    undercuts QuoteIQ ($299 all-in) on every row. It's a metered entry tier:
+ *    a monthly credit allowance keeps the low price margin-safe (mirrors
+ *    QuoteIQ's "IQ Credits"). Working number — see PR notes.
+ *  • Growth $449 / Pro $549 are the REAL managed-bundle tiers from
+ *    shared/pricing.ts (BUNDLE_GROWTH / BUNDLE_PRO); they stay in the ladder as
+ *    the higher-volume upgrades, not the headline comparand. */
 const WFT_PLANS = [
-  { maxUsers: 10,  name: "WeFixTrades Growth System", price: 449, sub: "AI voice + reviews + maps + social + instant quotes — all managed for you." },
-  { maxUsers: 999, name: "WeFixTrades Pro System",    price: 549, sub: "Full automation for larger crews — every channel handled, one bill." },
+  {
+    id: "starter",
+    anchor: true,
+    name: "WeFixTrades Starter",
+    price: 199,
+    sub: "One managed AI office — AI voice, reviews, maps, social & instant quotes.",
+    credits: "Includes ~300 AI-answered call minutes + core done-for-you tasks each month; heavy usage upgrades to Growth.",
+  },
+  { id: "growth", anchor: false, name: "WeFixTrades Growth System", price: 449, sub: "More minutes + full managed channels for busy crews.", credits: "" },
+  { id: "pro",    anchor: false, name: "WeFixTrades Pro System",    price: 549, sub: "Full automation at volume — every channel handled, one bill.", credits: "" },
 ];
+
+const WFT_ANCHOR = WFT_PLANS.find((p) => p.anchor) ?? WFT_PLANS[0];
+const WFT_PREMIUM = WFT_PLANS.filter((p) => !p.anchor);
 
 const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
@@ -152,6 +175,8 @@ interface CalcResult {
   wftName: string;
   wftSub: string;
   wftPrice: number;
+  wftCredits: string;
+  winLine: string;
   monthSavings: number;
   yearSavings: number;
 }
@@ -187,7 +212,8 @@ function calc(competitor: Competitor, users: number): CalcResult {
   if (extra > 0) lines.push({ key: "extra", label: extraLabel, amount: extra });
 
   const current = lines.reduce((s, l) => s + l.amount, 0);
-  const plan = WFT_PLANS.find((p) => users <= p.maxUsers) ?? WFT_PLANS[WFT_PLANS.length - 1];
+  // WeFixTrades Starter ($199) is the fixed anchor comparand on every row.
+  const plan = WFT_ANCHOR;
   const monthSavings = current - plan.price;
   const yearSavings = monthSavings * 12;
 
@@ -198,6 +224,8 @@ function calc(competitor: Competitor, users: number): CalcResult {
     wftName: plan.name,
     wftSub: plan.sub,
     wftPrice: plan.price,
+    wftCredits: plan.credits,
+    winLine: competitor.winLine ?? "Replaces your CRM plus five point tools with one done-for-you AI office.",
     monthSavings,
     yearSavings,
   };
@@ -265,7 +293,7 @@ export default function CostCompare() {
           <div className="wft-cc-eyebrow">The math on your tool stack</div>
           <h2 className="wft-cc-h2">
             Stop paying five vendors.<br />
-            <em>Run it all for one price.</em>
+            <em>Run it all from $199/mo.</em>
           </h2>
           <p className="wft-cc-sub">
             Most trades businesses pay for a CRM <em>plus</em> a receptionist, a review tool, a
@@ -356,11 +384,21 @@ export default function CostCompare() {
               </div>
 
               <div className="wft-cc-plan" data-testid="cc-plan">
-                <div>
-                  <div className="wft-cc-plan-name">{result.wftName}</div>
-                  <div className="wft-cc-plan-sub">{result.wftSub}</div>
+                <div className="wft-cc-plan-row">
+                  <div>
+                    <div className="wft-cc-plan-name">{result.wftName}</div>
+                    <div className="wft-cc-plan-sub">{result.wftSub}</div>
+                  </div>
+                  <div className="wft-cc-plan-price" data-testid="cc-wft-price">
+                    ${fmt(result.wftPrice)}<small>/mo</small>
+                  </div>
                 </div>
-                <div className="wft-cc-plan-price">${fmt(result.wftPrice)}<small>/mo</small></div>
+                {result.wftCredits && <div className="wft-cc-plan-credits">{result.wftCredits}</div>}
+                <div className="wft-cc-plan-ladder">
+                  Need more volume? {WFT_PREMIUM.map((p, i) => (
+                    <span key={p.id}>{i > 0 ? " · " : ""}{p.name.replace("WeFixTrades ", "")} ${fmt(p.price)}/mo</span>
+                  ))}
+                </div>
               </div>
 
               {saves ? (
@@ -370,6 +408,7 @@ export default function CostCompare() {
                   <div className="wft-cc-savings-sub">
                     That's ${fmt(result.monthSavings)}/month staying in your business.
                   </div>
+                  <div className="wft-cc-savings-win">{result.winLine}</div>
                 </div>
               ) : (
                 <div className="wft-cc-even" data-testid="cc-savings">
@@ -522,10 +561,14 @@ const scoped = `
 .wft-cc-bd-total span:last-child { font-size:1.15rem; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
 .wft-cc-bd-foot { margin-top:12px; font-size:11.5px; line-height:1.5; color:#8b94a6; font-style:italic; }
 
-.wft-cc-plan { display:flex; justify-content:space-between; align-items:center; gap:16px;
-  background:rgba(47,107,255,0.08); border:1px solid rgba(47,107,255,0.35); border-radius:14px; padding:16px 20px; }
+.wft-cc-plan { background:rgba(47,107,255,0.08); border:1px solid rgba(47,107,255,0.35);
+  border-radius:14px; padding:16px 20px; }
+.wft-cc-plan-row { display:flex; justify-content:space-between; align-items:center; gap:16px; }
 .wft-cc-plan-name { font-size:15px; font-weight:800; color:${TXT}; letter-spacing:-0.01em; }
 .wft-cc-plan-sub { font-size:12px; color:#aeb9cc; margin-top:3px; line-height:1.4; }
+.wft-cc-plan-credits { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.10);
+  font-size:11.5px; line-height:1.5; color:#9aa5b8; }
+.wft-cc-plan-ladder { margin-top:8px; font-size:11px; color:#7a8598; letter-spacing:0.01em; }
 .wft-cc-plan-price { font-size:1.5rem; font-weight:800; color:${TXT}; white-space:nowrap;
   font-variant-numeric:tabular-nums; }
 .wft-cc-plan-price small { font-size:0.8rem; color:${MUTED}; font-weight:600; }
@@ -537,6 +580,8 @@ const scoped = `
 .wft-cc-savings-num { font-size:2.5rem; font-weight:900; color:${TXT}; line-height:1; margin-top:6px;
   letter-spacing:-0.03em; font-variant-numeric:tabular-nums; }
 .wft-cc-savings-sub { font-size:13px; color:#e4ecff; margin-top:8px; font-weight:600; }
+.wft-cc-savings-win { font-size:12px; color:#cfdcff; margin-top:10px; line-height:1.5;
+  padding-top:10px; border-top:1px solid rgba(255,255,255,0.18); }
 
 .wft-cc-even { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10);
   border-radius:16px; padding:24px; text-align:center; }
