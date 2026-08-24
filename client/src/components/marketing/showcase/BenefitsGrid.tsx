@@ -285,6 +285,12 @@ export default function BenefitsGrid({
           box-shadow: 0 10px 24px -14px rgba(20,35,60,.18);
           z-index: 2;
         }
+        /* Align hover-lift with the shared .wft-glass-lift motion contract:
+         * no transform for reduced-motion users. Cards stay SOLID (readability
+         * rule) — only the lift is guarded. */
+        @media (prefers-reduced-motion: reduce) {
+          .bg-card-${uid}:hover { transform: none; }
+        }
 
         /* ── Icon animations (respects prefers-reduced-motion) ── */
         @media (prefers-reduced-motion: no-preference) {

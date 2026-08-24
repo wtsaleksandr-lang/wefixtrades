@@ -2841,8 +2841,12 @@ export default function SelfServiceDragDrop() {
       style={{
         /* Mobile (Alex): no separate dark container — the bare mockup sits on
            the page background, no eyebrow/title/subtitle chrome. Desktop keeps
-           its framed dark band + headline. */
-        background: mobile ? mkt.bg : mkt.darkBg,
+           its framed dark band + headline. Desktop gets a vibrant accent-blue
+           → violet/cyan gradient backdrop behind the (solid) editor canvas so
+           the band reads premium; the canvas itself stays fully opaque. */
+        background: mobile
+          ? mkt.bg
+          : `radial-gradient(100% 92% at 8% 0%, rgba(13,60,252,0.15) 0%, rgba(13,60,252,0.05) 44%, transparent 74%), radial-gradient(90% 82% at 92% 6%, rgba(124,58,237,0.11) 0%, rgba(6,182,212,0.06) 48%, transparent 78%), ${mkt.darkBg}`,
         position: "relative",
         zIndex: 1,
         padding: mobile ? "8px 16px 28px" : "48px 24px 56px",

@@ -15,7 +15,10 @@ export function SurfaceSection({
     <section
       style={{
         width: "100%",
-        background: mkt.sectionLight,
+        /* Vibrant gradient backdrop so the glass inner panel refracts a
+         * subtle accent-blue → violet/cyan wash. Reuses the brand accent
+         * (#0d3cfc) + a violet/cyan secondary, over the dark sectionLight. */
+        background: `radial-gradient(120% 92% at 12% 0%, rgba(13,60,252,0.14) 0%, rgba(13,60,252,0.04) 40%, transparent 70%), radial-gradient(94% 84% at 90% 8%, rgba(124,58,237,0.12) 0%, rgba(6,182,212,0.06) 46%, transparent 76%), ${mkt.sectionLight}`,
         borderRadius: "28px 28px 0 0",
         marginTop: -28,
         position: "relative",
@@ -31,13 +34,11 @@ export function SurfaceSection({
         }}
       >
         <div
-          className={"wft-interactive " + innerClassName}
+          className={"wft-interactive wft-glass-regular " + innerClassName}
           style={{
             position: "relative",
             borderRadius: 20,
             overflow: "hidden",
-            background: mkt.sectionLight,
-            border: `1px solid ${mkt.cardBorder}`,
             boxShadow: "0 10px 20px #33314833",
           }}
         >

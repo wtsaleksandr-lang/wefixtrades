@@ -350,7 +350,9 @@ export default function StickyStackCards() {
               <div
                 style={{
                   background: CARD_BG,
-                  borderRadius: 24,
+                  /* Standardized to the 16–20px premium radius scale (was 24)
+                   * so every home card frame shares one corner treatment. */
+                  borderRadius: 20,
                   padding: 2,
                   overflow: "hidden",
                   display: "flex",
@@ -436,7 +438,7 @@ export default function StickyStackCards() {
                     flex: 1,
                     position: "relative",
                     background: "#fff",
-                    borderRadius: mobile ? "0 0 22px 22px" : (card.reversed ? "22px 0 0 22px" : "0 22px 22px 0"),
+                    borderRadius: mobile ? "0 0 18px 18px" : (card.reversed ? "18px 0 0 18px" : "0 18px 18px 0"),
                     overflow: "hidden",
                     minHeight: mobile ? 220 : 300,
                   }}
@@ -455,7 +457,7 @@ export default function StickyStackCards() {
                   position: "absolute",
                   inset: 0,
                   background: BG,
-                  borderRadius: 24,
+                  borderRadius: 20,
                   pointerEvents: "none",
                   zIndex: 5,
                   opacity: 0,

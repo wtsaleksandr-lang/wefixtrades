@@ -35,6 +35,19 @@ export default function TrustSection() {
         padding: "clamp(36px, 5vw, 52px) clamp(20px, 5vw, 80px) clamp(32px, 4vw, 48px)",
       }}
     >
+      <style>{`
+        /* Genuine frosted glass over the cream section — stat cards sit on a
+         * ≥0.7 white so the dark ink (#0d1514) stays well above AA. The
+         * @supports fallback bumps opacity for browsers without backdrop-filter
+         * so the cards never read as bare tinted rectangles. */
+        .wft-trust-stat {
+          backdrop-filter: blur(14px) saturate(1.3);
+          -webkit-backdrop-filter: blur(14px) saturate(1.3);
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .wft-trust-stat { background: rgba(255,255,255,0.9) !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 980, margin: "0 auto", textAlign: "center" }}>
         {/* Eyebrow */}
         <div style={{
@@ -82,7 +95,7 @@ export default function TrustSection() {
           marginBottom: 24,
         }}>
           {STATS.map(({ value, label }, i) => (
-            <div key={label} style={{
+            <div key={label} className="wft-trust-stat" style={{
               background: "rgba(255,255,255,0.7)",
               border: "1px solid rgba(255,255,255,0.85)",
               borderRadius: 18,

@@ -180,7 +180,8 @@ function ServicePanel({ service, index }: { service: Service; index: number; tot
       ref={ref}
       style={{
         background: SURFACE,
-        borderRadius: 24,
+        /* Standardized to the 16–20px premium radius scale (was 24). */
+        borderRadius: 20,
         border: `1px solid rgba(34,40,42,0.08)`,
         padding: 0,
         overflow: "hidden",
