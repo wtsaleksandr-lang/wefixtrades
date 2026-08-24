@@ -262,7 +262,7 @@ function MockupPanel({ tool }: { tool: Tool }) {
           color: mkt.accentOnDark,
         }}
       >
-        <Icon size={26} strokeWidth={1.8} />
+        <Icon size={24} strokeWidth={1.8} />
       </div>
       <div style={{ position: "relative", textAlign: "center" }}>
         <div
@@ -290,7 +290,7 @@ function MockupPanel({ tool }: { tool: Tool }) {
             fontFamily: typography.fontFamily,
           }}
         >
-          <ImageIcon size={13} strokeWidth={2} />
+          <ImageIcon size={14} strokeWidth={2} />
           Product screenshot coming soon
         </div>
       </div>
@@ -461,7 +461,7 @@ function AccordionCard({
                 }}
               >
                 See details
-                <ArrowRight size={15} strokeWidth={2.5} />
+                <ArrowRight size={16} strokeWidth={2.5} />
               </Link>
             </div>
           </div>

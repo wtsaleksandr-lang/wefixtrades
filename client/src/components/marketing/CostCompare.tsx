@@ -625,7 +625,7 @@ const scoped = `
 .wft-cc-btn { display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
   padding:13px 26px; border-radius:10px; text-decoration:none; white-space:nowrap; transition:all .18s ease;
   cursor:pointer; }
-.wft-cc-btn-primary { background:${BRAND}; color:#fff; box-shadow:0 6px 20px rgba(47,107,255,0.32); }
+.wft-cc-btn-primary { background:${BRAND}; color:${TXT}; box-shadow:0 6px 20px rgba(47,107,255,0.32); }
 .wft-cc-btn-primary:hover { background:#1f5cf5; transform:translateY(-2px); }
 .wft-cc-btn-secondary { background:rgba(255,255,255,0.06); color:${TXT}; border:1px solid rgba(255,255,255,0.18); }
 .wft-cc-btn-secondary:hover { background:rgba(255,255,255,0.12); transform:translateY(-2px); }
