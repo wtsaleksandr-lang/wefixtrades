@@ -323,7 +323,13 @@ export default function CapabilitiesShowcase() {
     <section
       data-testid="capabilities-showcase"
       style={{
-        background: "#92a6b0",
+        /* Subtle light wash so the frosted card frames read against the slate
+         * base: faint accent-blue + a low-alpha violet stop over #92a6b0.
+         * Kept lighter than the dark sections (light frost needs less). */
+        background:
+          "radial-gradient(120% 80% at 12% 0%, rgba(13,60,252,0.06), transparent 60%)," +
+          "radial-gradient(100% 90% at 100% 100%, rgba(124,58,237,0.05), transparent 55%)," +
+          "#92a6b0",
         /* compression: trimmed padding (was 80/64). */
         padding: isMobile ? "48px 16px" : "56px 28px",
         borderRadius: "28px 28px 0 0",
@@ -448,12 +454,18 @@ export default function CapabilitiesShowcase() {
               const Icon = t.icon;
               const isActive = i === active;
               return (
-                <div key={t.key} style={{
-                  borderRadius: 14,
-                  background: isActive ? "rgba(255,255,255,0.30)" : "transparent",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  overflow: "hidden",
-                }}>
+                <div
+                  key={t.key}
+                  className={isActive ? "wft-glass-light" : undefined}
+                  style={{
+                    borderRadius: 16,
+                    /* Active card = LIGHT frosted glass (0.55 tint keeps the
+                     * dark accordion copy AA-legible); inactive stays bare. */
+                    background: isActive ? undefined : "transparent",
+                    border: isActive ? undefined : "1px solid rgba(255,255,255,0.22)",
+                    overflow: "hidden",
+                  }}
+                >
                   {/* button strip */}
                   {/* aria fix: was role="button" with aria-selected (invalid
                    * combo per WAI-ARIA — aria-selected is allowed on tab /
@@ -554,12 +566,12 @@ export default function CapabilitiesShowcase() {
             height: SLIDER_H,
           }}
         >
-          {/* background card behind content area */}
-          <div style={{
+          {/* background card behind content area — LIGHT frosted-glass frame.
+           * Dark heading/body copy sits ON this frosted-white panel (AA-safe at
+           * the 0.55 tint). Non-interactive background layer, so no hover lift. */}
+          <div className="wft-glass-light" style={{
             position: "absolute",
             top: CARD_TOP + 2, left: 0, right: 0, bottom: 0,
-            background: "#f5fcff",
-            border: "1px solid #d5e1e7",
             borderRadius: 16,
             boxShadow: "0 1px 3px rgba(34,40,42,0.06)",
           }} />

@@ -117,7 +117,12 @@ export default function ServiceStackTimeline() {
     <section
       ref={sectionRef}
       style={{
-        background: BG,
+        /* Subtle light wash behind the frosted timeline panels — faint
+         * accent-blue + low-alpha violet over the sage base. Kept light. */
+        background:
+          "radial-gradient(110% 70% at 12% 0%, rgba(13,60,252,0.055), transparent 58%)," +
+          "radial-gradient(100% 80% at 95% 100%, rgba(124,58,237,0.045), transparent 55%)," +
+          BG,
         /* compression: trimmed padding (was 80-120) and heading margin
          * (was 80). Panels gap halved (was 40). */
         padding: "clamp(48px, 6vw, 72px) clamp(20px, 5vw, 40px)",
@@ -178,11 +183,13 @@ function ServicePanel({ service, index }: { service: Service; index: number; tot
   return (
     <motion.div
       ref={ref}
+      className="wft-glass-light wft-glass-lift"
       style={{
-        background: SURFACE,
+        /* LIGHT frosted-glass frame. The left text column's dark heading/body
+         * copy sits ON the frosted-white panel (AA-safe at the 0.55 tint); the
+         * right KPI column keeps its own solid BG so the data tiles stay crisp. */
         /* Standardized to the 16–20px premium radius scale (was 24). */
         borderRadius: 20,
-        border: `1px solid rgba(34,40,42,0.08)`,
         padding: 0,
         overflow: "hidden",
         boxShadow: "0 8px 32px rgba(34,40,42,0.06)",
