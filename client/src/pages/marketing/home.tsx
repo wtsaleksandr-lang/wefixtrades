@@ -794,7 +794,7 @@ export default function HomePage() {
       {/* "Compete with the big brands" — interactive coverage map. Replaces the
        * old static "big chains" comparison table (IntegrationsTrustStrip) per
        * Alex. Deferred + lazy like the other below-fold sections. */}
-      <DeferUntilNear minHeight={620}>
+      <DeferUntilNear minHeight={620} rootMargin="500px">
         <Suspense fallback={lazyFallback(620)}>
           <CompeteCoverageMap />
         </Suspense>
