@@ -28,14 +28,20 @@ interface DeferUntilNearProps {
   children: ReactNode;
   /** Reserved height while not mounted — should match the section's natural height. */
   minHeight: number;
-  /** How far ahead of the viewport (CSS units) to begin mounting. Default 600px. */
+  /** How far ahead of the viewport (CSS units) to begin mounting. Default 1200px. */
   rootMargin?: string;
 }
 
 export default function DeferUntilNear({
   children,
   minHeight,
-  rootMargin = "600px",
+  // 1200px (was 600) — a fast scroll or a slow mobile connection was outrunning
+  // the old 600px lead, so the visitor briefly saw the height-reserving empty
+  // placeholder before the lazy chunk hydrated (the "large empty space" gaps).
+  // 1200px gives every light below-fold section time to mount before it scrolls
+  // into view. The one genuinely heavy chunk (CompeteCoverageMap / Three.js
+  // globe) pins itself back to a small margin at its call site to protect LCP.
+  rootMargin = "1200px",
 }: DeferUntilNearProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState<boolean>(() => {

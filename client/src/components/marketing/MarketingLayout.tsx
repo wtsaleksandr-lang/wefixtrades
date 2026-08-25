@@ -377,14 +377,22 @@ function MarketingFooter() {
                 <span>GDPR Ready</span>
               </div>
             </div>
-            <AppStoreBadges />
           </div>
         </div>
       </div>
 
+      {/* ── Get-the-app strip ──────────────────────────────────────────
+          Relocated out of the narrow "Trusted by pros" column: at 6-col
+          width the two 135px store badges couldn't sit side-by-side and
+          wrapped (stacked). Promoted to a full-width row so the label and
+          both badges stay inline on desktop and mobile. */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "4px 24px 0" }}>
+        <AppStoreBadges inline />
+      </div>
+
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 8 }} />
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 14 }} />
       </div>
 
       {/* ── Corporate bottom bar ─────────────────────────────────────
