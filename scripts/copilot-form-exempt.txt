@@ -71,6 +71,10 @@ client/src/pages/portal/ChatWidgetInstallEntry.tsx
 client/src/pages/portal/ChatWidgetInstallOnboarding.tsx
 client/src/pages/portal/DispatchPage.tsx
 client/src/pages/portal/InvoicesPage.tsx
+# Portal CRM — customer database (searchable list + detail drawer). The only
+# inputs are a self-contained add-customer modal and an inline notes field,
+# mirroring InvoicesPage's create form; not a guided onboarding surface.
+client/src/pages/portal/CustomersPage.tsx
 # Citation Tracker — read-only dashboard (subscription status, alerts, listings).
 client/src/pages/portal/CitationTrackerDashboard.tsx
 # Citation Builder — read-only dashboard (one-time orders + progress bars).

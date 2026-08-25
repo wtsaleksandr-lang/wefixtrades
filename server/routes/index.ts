@@ -89,6 +89,7 @@ import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
 import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
+import { registerCustomerRoutes } from "./customerRoutes";
 import { registerInvoiceTemplateRoutes } from "./invoiceTemplateRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerAiActionsRoutes } from "./aiActionsRoutes";
@@ -289,6 +290,8 @@ export async function registerRoutes(
   registerDemoRoutes(app);
   registerBookingApiRoutes(app);
   registerBookflowRoutes(app);
+  // Portal CRM — client-facing customer database (hidden under account menu).
+  registerCustomerRoutes(app);
   registerInvoiceTemplateRoutes(app);
   registerAdminAlertRoutes(app);
   // Wave 34 — universal AI-action dispatcher + cross-product audit log.

@@ -33,6 +33,7 @@ import {
   Zap,
   ClipboardList,
   User,
+  Users,
   Moon,
   Sun,
   Rocket,
@@ -528,6 +529,13 @@ export default function PortalLayout({
                     </div>
                   )}
                   <DropdownMenuSeparator />
+                  {/* Portal CRM — customer database. Intentionally lives HERE
+                   *  under the account menu (not a primary sidebar item) so it
+                   *  doesn't overclutter the portal for clients who don't use
+                   *  it. See /portal/customers. */}
+                  <DropdownMenuItem onClick={() => navigate("/portal/customers")} data-testid="portal-account-customers">
+                    <Users className="w-4 h-4 mr-2 text-muted-foreground" /> Customers
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/portal/settings")}>
                     <User className="w-4 h-4 mr-2 text-muted-foreground" /> Profile &amp; Settings
                   </DropdownMenuItem>

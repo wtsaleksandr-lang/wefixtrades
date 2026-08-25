@@ -289,6 +289,7 @@ const PortalContentFlowDashboard = lazy(() => import("@/pages/portal/contentflow
 const ContentFlowLibrary = lazy(() => import("@/pages/portal/contentflow/ContentFlowLibrary"));
 const PortalChatHistoryPage = lazy(() => import("@/pages/portal/PortalChatHistoryPage"));
 const DispatchPage = lazy(() => import("@/pages/portal/DispatchPage"));
+const CustomersPage = lazy(() => import("@/pages/portal/CustomersPage"));
 const InvoicesPage = lazy(() => import("@/pages/portal/InvoicesPage"));
 const InvoiceDetailPage = lazy(() => import("@/pages/portal/InvoiceDetailPage"));
 const PaymentMethodsPage = lazy(() => import("@/pages/portal/PaymentMethodsPage"));
@@ -586,6 +587,8 @@ function Router() {
       <Route path="/portal/socialsync">{() => <RequireClient><SocialSyncDashboard /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
+      {/* Portal CRM — customer database. Reachable only via the account menu. */}
+      <Route path="/portal/customers">{() => <RequireClient><CustomersPage /></RequireClient>}</Route>
       <Route path="/portal/invoices/:id">{() => <RequireClient><InvoiceDetailPage /></RequireClient>}</Route>
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>
