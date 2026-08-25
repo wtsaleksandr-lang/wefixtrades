@@ -11,15 +11,12 @@ import { organizationSchema, websiteSchema } from "@/lib/seo/jsonLd";
 // keep the hook — this change is scoped to home.tsx.
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, typography } from "@/theme/tokens";
-import HeroGridGlow from "@/components/marketing/HeroGridGlow";
-import HeroProductPreview from "@/components/marketing/HeroProductPreview";
 import DeferUntilNear from "@/components/marketing/DeferUntilNear";
 /* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
  * signal that would fail any "google these companies" sniff test) and the
  * triple-row animated HeroTradeDivider (visual noise; the "Built for"
  * cycling badge already names the trade). */
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
-import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import TrustSection from "@/components/marketing/TrustSection";
 import CTASection from "@/components/marketing/CTASection";
 import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
@@ -332,6 +329,75 @@ const RESPONSIVE_CSS = `
       font-size: 14px;
     }
   }
+  /* ─── Video hero (Alex: looped bg video + feathered gradient perimeter) ───
+   * The video fills the rounded zone; the feather melts its edges into the
+   * dark surround (no hard corners) and darkens for text readability. Colors
+   * use rgb()/rgba() only — the hardcoded-colors guard flags literal hex. */
+  .hero-bg-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+  }
+  .hero-video-feather {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(8,11,18,0.45) 0%, rgba(8,11,18,0.18) 34%, rgba(8,11,18,0.30) 68%, rgba(8,11,18,0.74) 100%),
+      radial-gradient(135% 130% at 50% 42%, rgba(8,11,18,0) 46%, rgba(8,11,18,0.52) 76%, rgba(8,11,18,0.90) 100%);
+    box-shadow: inset 0 0 160px 60px rgba(8,11,18,0.85);
+  }
+  @media (prefers-reduced-motion: reduce) { .hero-bg-video { display: none; } }
+  .hero-video-content { padding-top: 6px; }
+  .hero-video-eyebrow {
+    margin: 0 0 18px; font-size: 12px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(255,255,255,0.74);
+    display: inline-block; padding: 7px 16px; border-radius: 999px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .hero-video-h1 {
+    font-size: clamp(34px, 6vw, 62px); font-weight: 800; line-height: 1.04;
+    letter-spacing: -0.025em; color: rgba(255,255,255,1);
+    text-shadow: 0 2px 26px rgba(0,0,0,0.5);
+  }
+  .hero-video-hl { color: rgb(150,180,255); }
+  .hero-video-sub {
+    max-width: 650px; margin: 20px auto 0; font-size: clamp(15px, 1.7vw, 18px);
+    line-height: 1.62; font-weight: 450; color: rgba(255,255,255,0.88);
+    text-shadow: 0 1px 14px rgba(0,0,0,0.45);
+  }
+  .hero-video-cta { justify-content: center; margin-top: 28px; }
+  .hero-cta-secondary-onvid {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 10px;
+    background: rgba(255,255,255,0.10); color: rgba(255,255,255,1);
+    border: 1px solid rgba(255,255,255,0.30); font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+  .hero-cta-secondary-onvid:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.48); }
+  .hero-cta-secondary-onvid:focus-visible { outline: 2px solid rgba(255,255,255,1); outline-offset: 3px; }
+  /* Alex: white border on hover for the primary CTA (inset ring → no layout shift). */
+  .hero-video-cta .hero-cta-primary-warm:hover {
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.92),
+      0 6px 20px rgba(13,60,252,0.34), 0 2px 4px rgba(15,23,42,0.10);
+  }
+  .hero-video-note { margin-top: 14px; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,0.70); }
+  .hero-video-trust {
+    margin-top: 16px; display: inline-flex; align-items: center; gap: 10px;
+    padding: 9px 18px; border-radius: 999px;
+    background: rgba(8,11,18,0.42); border: 1px solid rgba(255,255,255,0.16);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    font-size: 13px; color: rgba(255,255,255,0.90);
+  }
+  .hero-video-stars { color: rgb(255,197,61); letter-spacing: 1px; font-size: 13px; }
+  .hero-video-trust-txt strong { color: rgba(255,255,255,1); font-weight: 800; }
+  @media (max-width: 640px) {
+    .hero-video-cta { flex-direction: column !important; align-items: stretch !important; width: 100%; }
+    .hero-video-cta > .hero-cta-primary-warm,
+    .hero-video-cta > .hero-cta-secondary-onvid { width: 100%; justify-content: center; }
+    .hero-video-trust { flex-wrap: wrap; justify-content: center; text-align: center; }
+  }
+
   /* Warm hero subtle canvas-noise overlay — drawn over the cream base.
    * Uses a tiny inline SVG to avoid an extra asset round-trip. */
   .hero-warm-noise {
@@ -500,17 +566,15 @@ export default function HomePage() {
       {/* Warm-canvas hero zone — cream base + low-opacity canvas noise.
        * IntegrationsTrustStrip lives OUTSIDE this zone (on dark) so the
        * cream doesn't have to deal with white-text integration logos. */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.warmCanvas, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: `1px solid ${mkt.warmHairline}`, boxShadow: "0 20px 60px rgba(15,23,42,0.18), 0 4px 20px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.45)" }}>
-        {/* Canvas noise — subtle texture so it doesn't read as flat beige. */}
-        <div aria-hidden="true" className="hero-warm-noise" />
-        {/* Top hairline — slate-blue, "framed printed page" feel. */}
-        <div aria-hidden="true" className="hero-warm-hairline" style={{ top: 18 }} />
-        <HeroGridGlow className="hero-grid-glow" />
+      <div className="hero-first-screen-zone hero-video-zone" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 24px 70px rgba(3,7,18,0.50), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+        {/* Looped trades background video — muted/auto/loop, poster for fast LCP. */}
+        <video className="hero-bg-video" autoPlay muted loop playsInline preload="metadata" poster="/hero/trades-hero-poster.jpg" aria-hidden="true">
+          <source src="/hero/trades-hero.mp4" type="video/mp4" />
+        </video>
+        {/* Feathered gradient shade — melts the video edges into the dark
+         * surround (no hard corners) and darkens for text readability. */}
+        <div aria-hidden="true" className="hero-video-feather" />
 
-        {/* Built-for rotator — top-left, below navbar (onWarm variant) */}
-        <div style={{ position: "absolute", top: 56, left: 28, zIndex: 3 }}>
-          <BuiltForRotator variant="onWarm" />
-        </div>
 
       <section
         data-testid="hero-section"
@@ -519,41 +583,26 @@ export default function HomePage() {
           background: "transparent",
           /* compression: hero padding trimmed (was 132/96). Still leaves
            * ~110px top so the navbar (88px) has air. */
-          padding: "112px 28px 64px",
+          padding: "104px 28px 40px",
           marginTop: -8,
           position: "relative",
         }}
       >
 
-        {/* Warm cream centre wash — a barely-visible lighter ellipse behind
-         * the copy. Same role as the previous dark `hero-safe-zone` but
-         * tonally inverted so the headline gets a soft halo, not a smudge. */}
+        {/* Centre text-legibility scrim — soft dark ellipse directly behind
+         * the copy so the centered headline always clears the moving video. */}
         <div
           aria-hidden="true"
           className="hero-safe-zone"
           style={{
             position: "absolute",
             left: "50%",
-            top: "45%",
+            top: "50%",
             transform: "translate(-50%, -50%)",
-            width: "70%",
-            maxWidth: 1000,
-            height: "55%",
-            background: `radial-gradient(ellipse at center, rgba(255,253,247,0.85) 0%, rgba(255,253,247,0.55) 28%, rgba(255,253,247,0.22) 55%, transparent 80%)`,
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-
-        {/* Soft brand-blue ambient glow — keeps the accent connection
-         * to the rest of the brand without being garish on cream. */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "32%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 800, height: 500,
-            background: `radial-gradient(ellipse at center, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.025) 40%, transparent 70%)`,
+            width: "80%",
+            maxWidth: 1040,
+            height: "70%",
+            background: `radial-gradient(ellipse at center, rgba(8,11,18,0.48) 0%, rgba(8,11,18,0.30) 40%, rgba(8,11,18,0.10) 65%, transparent 82%)`,
             pointerEvents: "none",
             zIndex: 1,
           }}
@@ -638,143 +687,46 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 2 }}>
-          <div className="hero-grid">
-            {/* Left column — copy + CTAs */}
-            <div className="hero-copy-col">
-              <div
-                data-testid="hero-headline"
-                className="hero-enter"
-                style={{ marginBottom: 16 }}
-              >
-                {/* Eyebrow line — demoted from <h1> to <p> so the page has
-                    exactly one h1 (the headline below) for SEO + a11y. */}
-                <p
-                  className="hero-warm-headline"
-                  style={{
-                    fontSize: "clamp(28px, 4.5vw, 44px)",
-                    fontWeight: 700,
-                    lineHeight: 1.1,
-                    letterSpacing: "-0.02em",
-                    margin: 0,
-                    color: mkt.onWarm,
-                    fontFamily: typography.fontFamily,
-                  }}
-                >
-                  You're on the job.
-                </p>
+        {/* Centered hero content over the looped video — QuoteIQ-style, our
+         * palette/fonts/buttons. "AI" is deliberately de-emphasised (out of the
+         * headline; one light mention in the subhead) so old-school trades
+         * aren't put off. */}
+        <div className="hero-video-content hero-enter" style={{ maxWidth: 860, margin: "0 auto", position: "relative", zIndex: 2, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <p className="hero-video-eyebrow">Built for home service pros</p>
 
-                <h1
-                  className="hero-warm-headline"
-                  style={{
-                    position: "relative",
-                    fontSize: "clamp(32px, 5.6vw, 56px)",
-                    fontWeight: 800,
-                    lineHeight: 1.02,
-                    letterSpacing: "-0.02em",
-                    margin: 0,
-                    marginTop: 6,
-                    fontFamily: typography.fontFamily,
-                    color: mkt.accent,
-                  }}
-                >
-                  <span
-                    className="wf-underline mkt-gradient-text"
-                    style={{ position: "relative", zIndex: 2 }}
-                  >
-                    The AI office that books jobs while you're on the tools.
-                  </span>
+          <h1 data-testid="hero-headline" className="hero-video-h1" style={{ margin: 0, fontFamily: typography.fontFamily }}>
+            The <span className="hero-video-hl">#1 growth engine</span><br />for home service pros.
+          </h1>
 
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      zIndex: 1,
-                      background:
-                        "radial-gradient(closest-side, rgba(13,60,252,0.15), rgba(13,60,252,0.06) 42%, transparent 78%)",
-                      filter: "blur(30px)",
-                      opacity: 0.65,
-                      pointerEvents: "none",
-                    }}
-                  />
-                </h1>
-              </div>
+          <p data-testid="hero-subtext" className="hero-video-sub" style={{ fontFamily: typography.fontFamily }}>
+            More calls, more booked jobs, more 5-star reviews — your quotes, bookings and follow-ups handled for you, so you stay on the tools. Smart automation, quietly AI-supported. Nothing new to learn.
+          </p>
 
-              <p
-                data-testid="hero-subtext"
-                className="hero-subtext hero-enter"
-                style={{
-                  maxWidth: 520,
-                  marginTop: 12,
-                  marginBottom: 20,
-                  fontSize: 16,
-                  lineHeight: 1.6,
-                  fontWeight: 450,
-                  color: mkt.onWarmMuted,
-                  fontFamily: typography.fontFamily,
-                }}
-              >
-                AI answers calls 24/7, sends quotes in seconds, requests reviews, and fixes your Google ranking. Built for trades. Working while you work.
-              </p>
+          <div className="hero-cta-row hero-video-cta hero-enter">
+            <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
+              <span>{PRIMARY_CTA.label}</span>
+              <ArrowRight size={16} strokeWidth={2.5} />
+            </Link>
+            <Link href="/demo" className="hero-cta-secondary-onvid" data-testid="hero-cta-secondary">
+              <span>Watch demo</span>
+            </Link>
+          </div>
 
-              <div className="hero-enter hero-cta-row">
-                <Link href="/wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
-                  {/* Unified primary CTA — reuses the canonical PRIMARY_CTA
-                   * ("Start free — no card" → /wizard) so the hero matches the
-                   * nav + sticky bar exactly (one label, one destination). Prior
-                   * "Build your free calculator" conflicted with the nav CTA. */}
-                  <span>{PRIMARY_CTA.label}</span>
-                  <ArrowRight size={16} strokeWidth={2.5} />
-                </Link>
-                <Link href="/demo" className="hero-cta-secondary-warm" data-testid="hero-cta-secondary">
-                  <span>Watch demo</span>
-                </Link>
-              </div>
-              <div className="hero-enter" style={{ marginTop: 12 }}>
-                <span className="hero-cta-note-warm">
-                  Free plan — no card needed · Cancel anytime · Setup in under 10 minutes
-                </span>
-              </div>
+          <div className="hero-video-note" data-testid="hero-cta-note">
+            Free plan — no card needed · Cancel anytime · Setup in under 10 minutes
+          </div>
 
-              {/* Above-the-fold trust strip — honest proof, reusing the exact
-               * numbers from TrustSection (240+ businesses, 4.9★). Kept small
-               * and muted on the SOLID cream surface (no glass behind copy). */}
-              <div
-                className="hero-enter"
-                data-testid="hero-trust-strip"
-                style={{ marginTop: 14 }}
-              >
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    lineHeight: 1.5,
-                    color: mkt.onWarmMuted,
-                    fontFamily: typography.fontFamily,
-                  }}
-                >
-                  Trusted by 240+ trade businesses · 4.9★ average
-                </span>
-              </div>
-            </div>
-
-            {/* Right column — animated product preview */}
-            <div className="hero-preview-col hero-enter">
-              <HeroProductPreview />
-            </div>
+          {/* Trust pill directly under the CTAs (QuoteIQ pattern) — honest
+           * numbers reused from TrustSection (240+ businesses, 4.9★). */}
+          <div className="hero-video-trust" data-testid="hero-trust-strip">
+            <span className="hero-video-stars" aria-hidden="true">★★★★★</span>
+            <span className="hero-video-trust-txt"><strong>4.9</strong> · Trusted by 240+ trade businesses</span>
           </div>
         </div>
 
       </section>
 
-      {/* Bottom hairline — mirrors the top hairline so the cream hero
-       * reads as a deliberate "framed" island, not a half-finished band. */}
-      <div aria-hidden="true" className="hero-warm-hairline" style={{ bottom: 100 }} />
-      {/* Cream → dark slate gradient fade. Lives INSIDE the cream zone
-       * so the transition happens before the hero's rounded bottom edge
-       * meets the outer dark backdrop. */}
-      <div aria-hidden="true" className="hero-warm-fade" />
-      </div>{/* end warm-canvas hero zone */}
+      </div>{/* end hero video zone */}
 
       {/* QuoteIQ-inspired "Every tool you need" tap-to-expand showcase — placed
        * directly under the hero per Alex. Lazy + deferred like the sections below. */}
