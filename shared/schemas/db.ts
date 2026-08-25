@@ -1129,6 +1129,11 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
   // Populated by the post-job worker after a quotequick-source booking
   // flips to status='completed'. Forward-only; legacy rows stay NULL.
   post_job_thank_you_sent_at: timestamp("post_job_thank_you_sent_at"),
+  // Portal CRM (0093) — optional link to a saved customer record. Nullable
+  // and additive: existing inline appointments keep customer_id NULL. Set
+  // when a booking is created for / attached to a saved customer so the
+  // customer detail page can join their booking history.
+  customer_id: integer("customer_id"),
 }, (table) => ({
   // migrations/0050_perf_indexes.sql: (client_id, start_time) — ASC.
   clientStartIdx: index("idx_bookflow_appointments_client_start").on(
@@ -1147,6 +1152,8 @@ export const bookflowAppointments = pgTable("bookflow_appointments", {
   postJobPendingIdx: index("idx_bookflow_appointments_postjob_pending")
     .on(table.updated_at)
     .where(sql`${table.post_job_thank_you_sent_at} IS NULL AND ${table.status} = 'completed' AND ${table.source} = 'quotequick'`),
+  // Portal CRM (0093) — backs the customer-detail booking-history join.
+  customerIdx: index("idx_bookflow_appointments_customer").on(table.customer_id),
 }));
 
 export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppointments).omit({
@@ -1198,6 +1205,12 @@ export const bookflowInvoices = pgTable(
     // REFERENCES contacts(id) ON DELETE SET NULL. Using `uuid()` to match the
     // physical column type so drizzle-kit push doesn't propose to alter it.
     contact_id: uuid("contact_id"),
+    // Portal CRM (0093) — optional link to a saved customer record (integer
+    // FK to customers(id)). Distinct from contact_id, which points at the
+    // INTERNAL admin address book. Nullable + additive; legacy invoices stay
+    // NULL. Set when an invoice is raised against a saved customer so the
+    // customer detail page can join their invoice history.
+    customer_id: integer("customer_id"),
     created_at: timestamp("created_at").defaultNow(),
     updated_at: timestamp("updated_at").defaultNow(),
   },
@@ -1210,6 +1223,8 @@ export const bookflowInvoices = pgTable(
       t.client_id,
       t.created_at.desc().nullsFirst(),
     ),
+    // Portal CRM (0093) — backs the customer-detail invoice-history join.
+    customerIdx: index("idx_bookflow_invoices_customer").on(t.customer_id),
   }),
 );
 
@@ -1218,6 +1233,52 @@ export const insertBookflowInvoiceSchema = createInsertSchema(bookflowInvoices).
 });
 export type InsertBookflowInvoice = z.infer<typeof insertBookflowInvoiceSchema>;
 export type BookflowInvoice = typeof bookflowInvoices.$inferSelect;
+
+/* ─── Customers (Portal CRM) ─────────────────────────────────────────
+ *
+ * Migration 0093. The client-facing customer database — the unified
+ * customer record a trades business keeps when they move their whole
+ * operation onto WeFixTrades. This is DISTINCT from `contacts`
+ * (shared/schemas/contacts.ts), which is WFT's INTERNAL admin address
+ * book. Customers are tenant-scoped by `client_id` exactly the way
+ * bookflow_appointments / bookflow_invoices are (plain integer, no FK,
+ * matching the sibling tables — the app always filters by the resolved
+ * client_id from the authenticated session).
+ *
+ * bookflow_appointments.customer_id and bookflow_invoices.customer_id are
+ * nullable back-references so the customer detail page can join a saved
+ * customer's booking + invoice history. Both are additive — legacy inline
+ * rows stay NULL.
+ * ─────────────────────────────────────────────────────────────────── */
+export const customers = pgTable(
+  "customers",
+  {
+    id: serial("id").primaryKey(),
+    client_id: integer("client_id").notNull(),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    notes: text("notes"),
+    // Optional free-form labels, e.g. ["repeat", "commercial"]. Stored as a
+    // JSON string array; the API caps count + length.
+    tags: jsonb("tags"),
+    created_at: timestamp("created_at").defaultNow(),
+    updated_at: timestamp("updated_at").defaultNow(),
+  },
+  (t) => ({
+    // Names + shape must match migrations/0093_portal_customers.sql.
+    clientIdx: index("idx_customers_client").on(t.client_id),
+    // Backs the list-page search sort (client_id + name prefix).
+    clientNameIdx: index("idx_customers_client_name").on(t.client_id, t.name),
+  }),
+);
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Customer = typeof customers.$inferSelect;
 
 /* ─── Invoice Templates (0042) ──────────────────────────────────────────
  *
