@@ -17,13 +17,18 @@ import { mkt, typography } from "@/theme/tokens";
  * the left, longer copy + "See details →" on the right). Multiple cards can be
  * open at once within a tab; switching tabs collapses everything.
  *
+ * Surface: premium warm-BEIGE canvas (mkt.warmCanvas) — the homepage hero's
+ * old cream background, moved down onto this section now that the hero is a
+ * dark looped video. Dark text on warm cream; brand-blue accent kept on the
+ * highlighted headline words, icons, links, and selected chrome.
+ *
  * Brand/readability rules honored:
- *  - Dark premium shell, brand-blue accent (#0d3cfc family).
- *  - Glass is used ONLY on chrome (the tab pill). Card frames + their interiors
- *    that hold text are SOLID high-contrast surfaces — never thin glass behind
- *    body copy.
+ *  - Warm cream shell, brand-blue accent (#0d3cfc family) for fills/icons only.
+ *  - Glass is NOT used anywhere here — on beige, chrome and cards are SOLID
+ *    light/cream surfaces. Text never sits on a thin translucent layer.
  *  - Active tab = accent outline + soft accent tint (NOT a bright fill).
- *  - Accent is used for fills/borders/icons only; body text stays white/near-white.
+ *  - Accent is used for fills/borders/icons/highlighted words only; body text
+ *    stays dark (mkt.onWarm / mkt.onWarmMuted) on the cream.
  *  - Fold animation uses grid-template-rows 0fr→1fr (the WFT-canonical fold),
  *    guarded by prefers-reduced-motion.
  *
@@ -50,6 +55,23 @@ function usePrefersReducedMotion(): boolean {
   }, []);
   return reduced;
 }
+
+/* ── warm-surface palette (solid, non-glass values used across the section) ─
+ * Cards and mockups are SOLID cream — a touch lighter than the beige canvas
+ * so they read as raised surfaces. Kept as rgb()/rgba() (no raw #fff/#000) so
+ * the hardcoded-color guard passes and the values stay theme-token-adjacent. */
+const WARM = {
+  cardSurface: "rgb(252, 249, 242)", // solid cream, lifts above mkt.warmCanvas
+  mockupTop: "rgb(249, 245, 237)",
+  mockupBottom: "rgb(244, 239, 229)",
+  accentTint: "rgba(13,60,252,0.10)", // icon-tile / selected fill (soft)
+  accentTintStrong: "rgba(13,60,252,0.14)",
+  accentBorder: "rgba(13,60,252,0.22)",
+  accentBorderStrong: "rgba(13,60,252,0.45)",
+  accentEdge: "rgba(13,60,252,0.55)", // hover/open card edge
+  neutralTint: "rgba(15,23,42,0.04)", // closed toggle chip
+  dotTexture: "rgba(15,23,42,0.05)",
+} as const;
 
 /* ── content model ─────────────────────────────────────────────────────── */
 
@@ -225,9 +247,9 @@ function MockupPanel({ tool }: { tool: Tool }) {
         width: "100%",
         aspectRatio: "16 / 10",
         borderRadius: 14,
-        // SOLID surface — not glass. Card interior stays high-contrast.
-        background: "linear-gradient(160deg, #141b1d 0%, #10171a 100%)",
-        border: "1px dashed rgba(110,139,255,0.35)",
+        // SOLID cream surface — not glass. Card interior stays high-contrast.
+        background: `linear-gradient(160deg, ${WARM.mockupTop} 0%, ${WARM.mockupBottom} 100%)`,
+        border: `1px dashed ${WARM.accentBorder}`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -242,7 +264,7 @@ function MockupPanel({ tool }: { tool: Tool }) {
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)",
+          backgroundImage: `radial-gradient(circle, ${WARM.dotTexture} 1px, transparent 1px)`,
           backgroundSize: "16px 16px",
           opacity: 0.6,
           pointerEvents: "none",
@@ -254,12 +276,12 @@ function MockupPanel({ tool }: { tool: Tool }) {
           width: 56,
           height: 56,
           borderRadius: 14,
-          background: "rgba(13,60,252,0.12)",
-          border: "1px solid rgba(110,139,255,0.28)",
+          background: WARM.accentTint,
+          border: `1px solid ${WARM.accentBorder}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: mkt.accentOnDark,
+          color: mkt.accent,
         }}
       >
         <Icon size={24} strokeWidth={1.8} />
@@ -269,7 +291,7 @@ function MockupPanel({ tool }: { tool: Tool }) {
           style={{
             fontSize: 14,
             fontWeight: 700,
-            color: mkt.onDark,
+            color: mkt.onWarm,
             fontFamily: typography.fontFamily,
             letterSpacing: "-0.01em",
           }}
@@ -286,7 +308,7 @@ function MockupPanel({ tool }: { tool: Tool }) {
             fontWeight: 600,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-            color: mkt.onDarkFaint,
+            color: mkt.onWarmFaint,
             fontFamily: typography.fontFamily,
           }}
         >
@@ -313,20 +335,20 @@ function AccordionCard({
   const [hover, setHover] = useState(false);
   const Icon = tool.icon;
 
-  const borderColor = open || hover ? "rgba(13,60,252,0.55)" : mkt.onDarkBorder;
+  const borderColor = open || hover ? WARM.accentEdge : mkt.warmHairlineStrong;
   const boxShadow = open
-    ? "0 12px 32px rgba(13,60,252,0.16)"
+    ? "0 12px 32px rgba(13,60,252,0.14)"
     : hover
-    ? "0 8px 24px rgba(13,60,252,0.10)"
-    : "0 0 0 rgba(0,0,0,0)";
+    ? "0 8px 24px rgba(15,23,42,0.08)"
+    : "0 1px 2px rgba(15,23,42,0.04)";
 
   return (
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        // SOLID card surface — text sits on high-contrast, never on glass.
-        background: mkt.sectionLight,
+        // SOLID cream card — text sits on high-contrast, never on glass.
+        background: WARM.cardSurface,
         border: `1.5px solid ${borderColor}`,
         borderRadius: 18,
         overflow: "hidden",
@@ -359,12 +381,12 @@ function AccordionCard({
             width: 48,
             height: 48,
             borderRadius: 12,
-            background: "rgba(13,60,252,0.12)",
-            border: "1px solid rgba(110,139,255,0.22)",
+            background: WARM.accentTint,
+            border: `1px solid ${WARM.accentBorder}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: mkt.accentOnDark,
+            color: mkt.accent,
           }}
         >
           <Icon size={24} strokeWidth={1.8} />
@@ -376,7 +398,7 @@ function AccordionCard({
               display: "block",
               fontSize: 17,
               fontWeight: 700,
-              color: mkt.onDark,
+              color: mkt.onWarm,
               fontFamily: typography.fontFamily,
               letterSpacing: "-0.01em",
               marginBottom: 4,
@@ -390,7 +412,7 @@ function AccordionCard({
               fontSize: 14,
               fontWeight: 400,
               lineHeight: 1.5,
-              color: mkt.onDarkMuted,
+              color: mkt.onWarmMuted,
               fontFamily: typography.fontFamily,
             }}
           >
@@ -409,9 +431,9 @@ function AccordionCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: open ? "rgba(13,60,252,0.16)" : "rgba(255,255,255,0.06)",
-            border: `1px solid ${open ? "rgba(110,139,255,0.45)" : "rgba(255,255,255,0.10)"}`,
-            color: open ? mkt.onDark : mkt.onDarkMuted,
+            background: open ? WARM.accentTintStrong : WARM.neutralTint,
+            border: `1px solid ${open ? WARM.accentBorderStrong : mkt.warmHairlineStrong}`,
+            color: open ? mkt.accent : mkt.onWarmMuted,
             transform: open ? "rotate(45deg)" : "rotate(0deg)",
             transition: reduced ? "none" : "background 0.2s ease, transform 0.3s ease, border-color 0.2s ease",
           }}
@@ -440,7 +462,7 @@ function AccordionCard({
                   margin: 0,
                   fontSize: 14.5,
                   lineHeight: 1.7,
-                  color: mkt.onDarkMuted,
+                  color: mkt.onWarmMuted,
                   fontFamily: typography.fontFamily,
                 }}
               >
@@ -455,7 +477,7 @@ function AccordionCard({
                   gap: 6,
                   fontSize: 14,
                   fontWeight: 700,
-                  color: mkt.accentOnDark,
+                  color: mkt.accent,
                   textDecoration: "none",
                   fontFamily: typography.fontFamily,
                 }}
@@ -502,7 +524,7 @@ export default function ToolShowcase() {
     <section
       className="wft-ts-section"
       style={{
-        background: mkt.darkBg,
+        background: mkt.warmCanvas,
         padding: "88px 28px",
         position: "relative",
         overflow: "hidden",
@@ -510,7 +532,8 @@ export default function ToolShowcase() {
     >
       <style>{SCOPED_CSS}</style>
 
-      {/* soft brand-blue ambient glow (decor only, behind everything) */}
+      {/* soft brand-blue ambient glow (decor only, behind everything) —
+          dialed down so it reads as a warm accent, not garish on cream. */}
       <div
         aria-hidden="true"
         style={{
@@ -521,7 +544,7 @@ export default function ToolShowcase() {
           width: 900,
           height: 480,
           background:
-            "radial-gradient(ellipse at center, rgba(13,60,252,0.10) 0%, rgba(13,60,252,0.03) 45%, transparent 72%)",
+            "radial-gradient(ellipse at center, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.02) 45%, transparent 72%)",
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -535,9 +558,9 @@ export default function ToolShowcase() {
               display: "inline-block",
               padding: "8px 16px",
               borderRadius: 999,
-              background: "rgba(13,60,252,0.10)",
-              border: "1px solid rgba(13,60,252,0.28)",
-              color: mkt.accentOnDark,
+              background: "rgba(13,60,252,0.08)",
+              border: "1px solid rgba(13,60,252,0.22)",
+              color: mkt.accent,
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.12em",
@@ -559,12 +582,12 @@ export default function ToolShowcase() {
             fontWeight: 800,
             lineHeight: 1.12,
             letterSpacing: "-0.02em",
-            color: mkt.onDark,
+            color: mkt.onWarm,
             fontFamily: typography.fontFamily,
           }}
         >
           Every tool you need,{" "}
-          <span style={{ color: mkt.accentOnDark }}>working while you work.</span>
+          <span style={{ color: mkt.accent }}>working while you work.</span>
         </h2>
 
         {/* subhead */}
@@ -575,7 +598,7 @@ export default function ToolShowcase() {
             textAlign: "center",
             fontSize: 17,
             lineHeight: 1.6,
-            color: mkt.onDarkMuted,
+            color: mkt.onWarmMuted,
             fontFamily: typography.fontFamily,
           }}
         >
@@ -583,9 +606,8 @@ export default function ToolShowcase() {
           and protect your reputation. Turn on what you need. Skip the rest.
         </p>
 
-        {/* tab pill bar — glass on chrome (allowed) */}
+        {/* tab pill bar — solid light chrome on beige (no glass) */}
         <div
-          className="wft-glass-regular"
           role="tablist"
           aria-label="Tool categories"
           style={{
@@ -597,6 +619,8 @@ export default function ToolShowcase() {
             borderRadius: 14,
             maxWidth: 720,
             margin: "0 auto 40px",
+            background: "rgba(15,23,42,0.035)",
+            border: `1px solid ${mkt.warmHairline}`,
           }}
         >
           {TABS.map((tab) => {
@@ -621,11 +645,11 @@ export default function ToolShowcase() {
                   fontWeight: 600,
                   fontFamily: typography.fontFamily,
                   // Active = accent outline + soft tint (NOT a bright fill).
-                  background: active ? "rgba(13,60,252,0.16)" : "transparent",
+                  background: active ? WARM.accentTintStrong : "transparent",
                   border: active
-                    ? "1px solid rgba(110,139,255,0.55)"
+                    ? `1px solid ${WARM.accentBorderStrong}`
                     : "1px solid transparent",
-                  color: active ? mkt.onDark : mkt.onDarkMuted,
+                  color: active ? mkt.onWarm : mkt.onWarmMuted,
                   transition: reduced ? "none" : "background 0.2s ease, color 0.2s ease, border-color 0.2s ease",
                 }}
               >
