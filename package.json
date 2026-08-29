@@ -30,6 +30,8 @@
     "check:no-prod-drizzle-config": "node scripts/check-no-prod-drizzle-config.mjs",
     "check:drizzle-kit-is-dev-dep": "node scripts/check-drizzle-kit-is-dev-dep.mjs",
     "check:no-silent-catch": "node scripts/check-no-silent-catch.mjs",
+    "check:account-deletion": "tsx scripts/check-account-deletion-coverage.ts",
+    "check:account-deletion-scope": "tsx server/services/accountDeletion/deleteAccount.test.ts",
     "check:pricing-truth": "tsx server/services/knowledgeBase.test.ts",
     "check:trial-truth": "tsx server/jobs/trialLifecycleWorker.test.ts",
     "check:incomplete-signup-emails": "tsx server/jobs/incompleteSignupWorker.test.ts",

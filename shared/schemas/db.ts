@@ -79,8 +79,22 @@ export const users = pgTable("users", {
   // future. NULL = not locked.
   failed_login_attempts: integer("failed_login_attempts").notNull().default(0),
   locked_until: timestamp("locked_until", { withTimezone: true }),
+  /**
+   * Set when the customer deletes their account from Settings → Account
+   * (migration 0097). The row itself survives — `admin_impersonations` holds
+   * ON DELETE RESTRICT foreign keys into `users`, and retained invoices point
+   * at the linked `clients` row — so deletion anonymises every personal field
+   * and stamps this tombstone instead. NULL = a live account. Login refuses a
+   * stamped row outright; see server/auth.ts.
+   */
+  deleted_at: timestamp("deleted_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
 }, (table) => ({
+  // Partial index from migrations/0097_account_deletion.sql — deleted accounts
+  // are a small minority, so the login-path check stays cheap.
+  deletedAtIdx: index("users_deleted_at_idx")
+    .on(table.deleted_at)
+    .where(sql`${table.deleted_at} IS NOT NULL`),
   // Partial UNIQUE index from migrations/0045_social_login_subs.sql.
   // The migration creates `CREATE UNIQUE INDEX ... WHERE microsoft_sub IS NOT NULL`.
   // The column-level `.unique()` above creates an additional unrelated

@@ -237,16 +237,35 @@ export default function PrivacyPage() {
       <LegalSection id="deletion" title="10. Deleting your data">
         <p>You can delete your WeFixTrades account and the personal data we hold at any time:</p>
         <ul style={ul}>
-          <li><strong>In the app:</strong> go to <em>Settings → Account</em> and choose "Delete account".</li>
-          <li><strong>By email:</strong> contact <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> from (or naming) the email address on your account and ask us to delete your data.</li>
+          <li><strong>In the app:</strong> sign in, go to <em>Settings → Account</em>, scroll to <em>Delete account</em> and choose "Delete account". You'll confirm with your password (or, if you sign in with Google, Microsoft, Facebook or Apple, by retyping your email address) and by typing the word DELETE. The deletion runs <strong>immediately</strong> and <strong>cannot be undone</strong>.</li>
+          <li><strong>Export first, if you want a copy:</strong> the same screen has a "Download my data" button that gives you everything we hold about your account as a single JSON file.</li>
+          <li><strong>By email:</strong> contact <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> from (or naming) the email address on your account and ask us to delete your data. We complete verified email requests within 30 days.</li>
+          <li><strong>From Facebook or Instagram:</strong> removing the WeFixTrades app in your Meta settings sends us a deletion request automatically. We delete the Facebook and Instagram data held for you and give you a confirmation code you can use to check the status.</li>
         </ul>
         <p style={{ marginTop: 12 }}>
-          We permanently delete or anonymize your personal data within <strong>30 days</strong>
-          {" "}of a verified request, except where we must retain certain records for legal,
-          tax, or accounting reasons (see section 8). If you signed in or connected via
-          Google or Facebook/Meta, deleting your WeFixTrades account also removes
-          the profile data we received from them — and you can additionally revoke our access
-          in each provider's own settings.
+          <strong>What in-app deletion erases.</strong> Your login and any linked Google, Microsoft,
+          Facebook or Apple sign-in; your business profile, logo and branding; every calculator,
+          widget and site you built and every lead, customer record, booking and quote they
+          captured; your reviews, review requests, rankings, listings and Map monitoring history;
+          connected social and Google Business accounts including their access tokens; call
+          recordings, voicemails, SMS history and mobile devices; and your support tickets, chat
+          history and AI assistant conversations. Your account and business records themselves are
+          irreversibly anonymized — every field that could identify you or your business is erased.
+        </p>
+        <p style={{ marginTop: 12 }}>
+          <strong>What we keep, and why.</strong> We will not tell you data is gone when it is not.
+          Three things survive deletion:
+        </p>
+        <ul style={ul}>
+          <li><strong>Paid invoices, orders and payment records</strong> — retained for 7 years to meet tax and accounting obligations (see section 8). They stay attached to the anonymized account record, which no longer identifies you.</li>
+          <li><strong>Do-not-contact and unsubscribe records</strong> — if we deleted the record of your opt-out, we could lawfully be re-added to a mailing or texting list. Keeping it is what makes your opt-out permanent.</li>
+          <li><strong>The security audit log of staff access to your account</strong> — it stores account ID numbers only, which identify nobody once the account is anonymized.</li>
+        </ul>
+        <p style={{ marginTop: 12 }}>
+          Nothing else is kept. If any of your records are under a legal hold (for example an active
+          dispute), the in-app deletion will tell you so rather than partially completing, and we'll
+          handle your request manually within 30 days. You can also revoke our access directly in
+          Google's, Microsoft's, Meta's or Apple's own settings at any time.
         </p>
       </LegalSection>
 
