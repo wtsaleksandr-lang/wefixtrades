@@ -2169,6 +2169,8 @@ export class DatabaseStorage implements IStorage {
   async approveRankflowTask(taskId: number, actualCost?: string): Promise<RankflowTask | undefined> { return rankflowImpl.approveRankflowTask(taskId, actualCost); }
   async rejectRankflowTask(taskId: number, rejectionReason: string): Promise<RankflowTask | undefined> { return rankflowImpl.rejectRankflowTask(taskId, rejectionReason); }
   async listPendingAITasks(planId: number): Promise<RankflowTask[]> { return rankflowImpl.listPendingAITasks(planId); }
+  async saveRankflowTaskArtifact(taskId: number, artifact: Record<string, unknown>): Promise<void> { return rankflowImpl.saveRankflowTaskArtifact(taskId, artifact); }
+  async handOffRankflowTaskToHuman(taskId: number, reason: string, blocker: string): Promise<RankflowTask | undefined> { return rankflowImpl.handOffRankflowTaskToHuman(taskId, reason, blocker); }
   async upsertMonthlyProgress(clientId: number, month: string, data: Partial<InsertRankflowProgress>): Promise<RankflowProgress> { return rankflowImpl.upsertMonthlyProgress(clientId, month, data); }
   async getMonthlyProgress(clientId: number, month: string): Promise<RankflowProgress | undefined> { return rankflowImpl.getMonthlyProgress(clientId, month); }
 
@@ -2219,6 +2221,7 @@ export class DatabaseStorage implements IStorage {
   async upsertPage(clientId: number, url: string, data: Partial<InsertRankflowPage>): Promise<RankflowPage> { return rankflowImpl.upsertPage(clientId, url, data); }
   async listPagesByClient(clientId: number): Promise<RankflowPage[]> { return rankflowImpl.listPagesByClient(clientId); }
   async updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> { return rankflowImpl.updatePageIndexStatus(pageId, indexed); }
+  async touchPageChecked(pageId: number): Promise<void> { return rankflowImpl.touchPageChecked(pageId); }
   async upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> { return rankflowImpl.upsertSignalSummary(clientId, data); }
   async getSignalSummary(clientId: number): Promise<RankflowSignal | undefined> { return rankflowImpl.getSignalSummary(clientId); }
   // ─── TradeLine (continued, impl in ./storage/tradeline.ts) ───

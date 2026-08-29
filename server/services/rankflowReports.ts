@@ -571,8 +571,13 @@ function buildDefaultRecommendations(d: RankflowMonthlyReportData): string[] {
     recs.push("Reinforce the winners — we'll add internal links and supporting content to the keywords that moved up.");
   }
   if (d.pages_created > 0 && d.pages_indexed < d.pages_created) {
-    const unindexed = d.pages_created - d.pages_indexed;
-    recs.push(`Push ${unindexed} new page${unindexed === 1 ? "" : "s"} into Google's index — submitting via Search Console and earning at least one inbound link each.`);
+    const unconfirmed = d.pages_created - d.pages_indexed;
+    // `pages_indexed` counts only pages whose indexation we actually measured
+    // via Search Console. A page missing from that count may simply never have
+    // been measured (Search Console not connected) rather than be absent from
+    // Google, so this recommendation says "not yet confirmed" instead of
+    // asserting an un-indexed state we never checked.
+    recs.push(`Confirm ${unconfirmed} new page${unconfirmed === 1 ? "" : "s"} ${unconfirmed === 1 ? "is" : "are"} in Google's index — connect Search Console so we can verify indexing directly, then earn at least one inbound link each.`);
   }
   if (d.total_keywords > 0 && d.keywords_top_10 / d.total_keywords < 0.3) {
     recs.push("Focus on the top-20 keywords that are 1-3 spots away from the top-10 — those are the highest-leverage rank gains.");

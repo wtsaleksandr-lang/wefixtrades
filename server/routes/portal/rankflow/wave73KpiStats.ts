@@ -23,26 +23,40 @@ const log = createLogger("PortalRankflowWave73KpiStats");
 const TTL_MS = 5 * 60_000;
 type Cached<T> = { at: number; payload: T };
 
+/**
+ * `data_status` semantics:
+ *   "real"  — every point is a measurement of this client's own data.
+ *   "empty" — this client has no ranking data yet. `data` is [] and the
+ *             dashboard renders an empty state. NOTHING is invented.
+ *
+ * "illustrative" is deliberately gone from this endpoint. It used to mean
+ * "here is a synthetic upward-trending curve with a small badge on it", and
+ * both branches below manufactured one: `Math.round(2 + i * 1.2)` for the
+ * monthly bars and a hardcoded `[40, 45, 50, ...]` climb for the sparkline.
+ * A new customer opening their dashboard saw a rising rank chart built from
+ * arithmetic on the array index. A badge does not make invented data honest —
+ * the chart still tells a success story that never happened.
+ */
 interface MonthlySeriesResponse {
   data: Array<{ label: string; value: number; highlighted?: boolean }>;
-  data_status: "real" | "illustrative";
+  data_status: "real" | "empty";
 }
 interface PeakSeriesResponse {
   data: number[];
   peakLabel: string;
   peakIndex: number;
-  data_status: "real" | "illustrative";
+  data_status: "real" | "empty";
 }
 
 const monthlyCache = new Map<string, Cached<MonthlySeriesResponse>>();
 const peakCache = new Map<string, Cached<PeakSeriesResponse>>();
 
-const EMPTY_MONTHLY: MonthlySeriesResponse = { data: [], data_status: "illustrative" };
+const EMPTY_MONTHLY: MonthlySeriesResponse = { data: [], data_status: "empty" };
 const EMPTY_PEAK: PeakSeriesResponse = {
   data: [],
   peakLabel: "",
   peakIndex: 0,
-  data_status: "illustrative",
+  data_status: "empty",
 };
 
 function monthLabels(months: number): { label: string; start: Date; end: Date }[] {
@@ -72,16 +86,8 @@ export async function computeRankflowMonthlyTop10(
   const keywordIds = keywordRows.map((r) => r.id);
 
   const labels = monthLabels(months);
-  if (keywordIds.length === 0) {
-    return {
-      data: labels.map((m, i) => ({
-        label: m.label,
-        value: Math.round(2 + i * 1.2),
-        highlighted: i === labels.length - 1,
-      })),
-      data_status: "illustrative",
-    };
-  }
+  // No keywords tracked yet → no data. Say so.
+  if (keywordIds.length === 0) return EMPTY_MONTHLY;
 
   // For each month, count distinct keywords with at least one ranking
   // observation at position <= 10 in that month.
@@ -114,17 +120,12 @@ export async function computeRankflowMonthlyTop10(
       highlighted: idx === labels.length - 1,
     };
   });
+  // Keywords exist but no ranking observation has landed in the window yet.
+  // An all-zero series is a real measurement of "not ranking anywhere yet",
+  // but it is indistinguishable from "we haven't checked", so render empty
+  // rather than a flat zero line that reads as a result.
   const anyData = data.some((d) => d.value > 0);
-  if (!anyData) {
-    return {
-      data: labels.map((m, i) => ({
-        label: m.label,
-        value: Math.round(2 + i * 1.2),
-        highlighted: i === labels.length - 1,
-      })),
-      data_status: "illustrative",
-    };
-  }
+  if (!anyData) return EMPTY_MONTHLY;
   return { data, data_status: "real" };
 }
 
@@ -140,16 +141,7 @@ export async function computeRankflowWeeklyBestRankSpike(
     .where(eq(rankflowKeywords.client_id, clientId));
   const keywordIds = keywordRows.map((r) => r.id);
 
-  if (keywordIds.length === 0) {
-    const synthetic = [40, 45, 50, 48, 60, 65, 70, 75, 72, 80, 85, 82];
-    const peakIndex = synthetic.indexOf(Math.max(...synthetic));
-    return {
-      data: synthetic,
-      peakLabel: `Best rank: top ${100 - Math.max(...synthetic)}`,
-      peakIndex,
-      data_status: "illustrative",
-    };
-  }
+  if (keywordIds.length === 0) return EMPTY_PEAK;
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -190,16 +182,7 @@ export async function computeRankflowWeeklyBestRankSpike(
   });
 
   const anyData = weeklyScores.some((v) => v > 0);
-  if (!anyData) {
-    const synthetic = [40, 45, 50, 48, 60, 65, 70, 75, 72, 80, 85, 82];
-    const peakIndex = synthetic.indexOf(Math.max(...synthetic));
-    return {
-      data: synthetic,
-      peakLabel: `Best rank: top ${100 - Math.max(...synthetic)}`,
-      peakIndex,
-      data_status: "illustrative",
-    };
-  }
+  if (!anyData) return EMPTY_PEAK;
   const peakValue = Math.max(...weeklyScores);
   const peakIndex = weeklyScores.indexOf(peakValue);
   return {

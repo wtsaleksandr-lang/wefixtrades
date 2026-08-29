@@ -1,14 +1,49 @@
 /**
  * Page index checker.
  *
- * Data source priority:
- *   1. Google Search Console URL Inspection API (if client has OAuth connected
- *      and GOOGLE_SEARCH_CONSOLE_ENABLED=true)
- *   2. HTML "site:" scraping fallback (if ENABLE_RANK_SCRAPING=true)
- *   3. Direct HEAD request fallback (confirms page is live, not a true index check)
+ * ─── Indexation is NOT reachability ──────────────────────────────────
  *
- * The URL Inspection API provides authoritative, per-URL indexing verdicts
- * directly from Google. Rate limit: 2000 inspections/day per property.
+ * This module used to return `indexed: true` for any URL that answered a
+ * HEAD request with a 2xx. That measures whether a page is *reachable*,
+ * which says nothing about whether Google has it in its index — a page can
+ * serve 200 to the whole world and be entirely absent from Google. That
+ * boolean flowed into `rankflow_pages.indexed`, then into
+ * `rankflow_signals.pages_indexed`, and finally into customer-facing copy:
+ * "N pages indexed on Google" in the portal and "(N indexed by Google)" in
+ * the monthly RankFlow report email. We were reporting a Google fact we had
+ * never asked Google about.
+ *
+ * `indexed` is now a THREE-state value and only ever set from a source that
+ * actually measures indexation:
+ *
+ *   true  — a real indexation source said this URL is indexed
+ *   false — a real indexation source said it is NOT indexed
+ *   null  — we did not measure indexation (do not claim either way)
+ *
+ * Reachability is still useful (an unreachable page cannot be indexed), so
+ * it is reported separately as `reachable` and never conflated.
+ *
+ * Data source priority:
+ *   1. Google Search Console URL Inspection API — authoritative per-URL
+ *      verdicts straight from Google. Measures indexation.
+ *   2. HTML "site:" scraping (ENABLE_RANK_SCRAPING=true) — a real, if
+ *      fragile, indexation signal. Measures indexation. Off by default.
+ *   3. HEAD request — measures REACHABILITY ONLY. Always yields
+ *      `indexed: null`.
+ *
+ * ─── Search Console feasibility for customer sites ───────────────────
+ *
+ * Path 1 is per-client OAuth: `getCredentialsForClient(wftClientId)` reads
+ * the tokens the customer granted us, and `hasSearchConsoleAccess()` checks
+ * the property is actually readable. That is the only way to measure a
+ * customer's indexation, and it requires the customer to connect Search
+ * Console during onboarding (RankFlowSetup already offers this). The
+ * `qf-search-console@quotefleet.iam.gserviceaccount.com` service account is
+ * authorised for quotefleet.net only and is NOT usable for customer
+ * properties. So: clients with GSC connected get real indexation numbers;
+ * clients without it get `null` and we say nothing rather than guessing.
+ *
+ * URL Inspection rate limit: 2000 inspections/day per property.
  */
 
 import { createLogger } from "../../lib/logger";
@@ -26,7 +61,19 @@ const SCRAPING_ENABLED = process.env.ENABLE_RANK_SCRAPING === "true";
 
 export interface IndexCheckResult {
   url: string;
-  indexed: boolean;
+  /**
+   * Whether Google has this URL indexed.
+   *
+   * `null` means WE DID NOT MEASURE IT — not "no". Callers must never
+   * coerce null to false, count it in an "indexed" total, or render it as
+   * a Google fact. Only `search_console` and `scrape` can ever set this.
+   */
+  indexed: boolean | null;
+  /**
+   * Whether the URL answered an HTTP request. This is reachability, a
+   * strictly weaker property than indexation. `null` when not probed.
+   */
+  reachable: boolean | null;
   checked_at: string;
   /** The raw verdict from Search Console, if available. */
   verdict?: string;
@@ -34,6 +81,18 @@ export interface IndexCheckResult {
   coverageState?: string;
   /** Data source used for this check. */
   source?: "search_console" | "scrape" | "head_check";
+  /**
+   * What this result actually measured. `reachability` results carry no
+   * indexation information at all.
+   */
+  measures: "indexation" | "reachability";
+  /** Present when indexation could not be measured — why not. */
+  unmeasured_reason?: string;
+}
+
+/** True only when this result carries a real, measured indexation verdict. */
+export function hasMeasuredIndexation(r: IndexCheckResult): boolean {
+  return r.measures === "indexation" && r.indexed !== null;
 }
 
 // ─── Search Console URL Inspection ───────────────────────────────────
@@ -63,10 +122,12 @@ async function checkViaSearchConsole(
     return {
       url,
       indexed,
+      reachable: null,
       checked_at: result.inspectedAt,
       verdict: result.verdict,
       coverageState: result.coverageState,
       source: "search_console",
+      measures: "indexation",
     };
   } catch (err: any) {
     log.warn("Search Console index check failed", { url, error: err.message });
@@ -87,7 +148,17 @@ async function checkViaScrape(url: string): Promise<IndexCheckResult> {
   const checkedAt = new Date().toISOString();
 
   if (!SCRAPING_ENABLED) {
-    return { url, indexed: false, checked_at: checkedAt, source: "scrape" };
+    // Scraping disabled means we did not measure indexation — it does NOT
+    // mean the page is unindexed.
+    return {
+      url,
+      indexed: null,
+      reachable: null,
+      checked_at: checkedAt,
+      source: "scrape",
+      measures: "reachability",
+      unmeasured_reason: "site: scraping is disabled",
+    };
   }
 
   try {
@@ -108,41 +179,70 @@ async function checkViaScrape(url: string): Promise<IndexCheckResult> {
       const html = await resp.text();
       const notIndexed = /did not match any documents|no results found|your search.*did not match/i.test(html);
       if (notIndexed) {
-        return { url, indexed: false, checked_at: checkedAt, source: "scrape" };
+        return {
+          url, indexed: false, reachable: null, checked_at: checkedAt,
+          source: "scrape", measures: "indexation",
+        };
       }
       const cleanUrl = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
       if (html.includes(cleanUrl)) {
-        return { url, indexed: true, checked_at: checkedAt, source: "scrape" };
+        return {
+          url, indexed: true, reachable: null, checked_at: checkedAt,
+          source: "scrape", measures: "indexation",
+        };
       }
-      const hasResults = /<div class="g"/.test(html) || /data-hveid/.test(html);
-      return { url, indexed: hasResults, checked_at: checkedAt, source: "scrape" };
+      // Google answered but neither confirmed nor denied this specific URL.
+      // "The SERP had some results" is not evidence about THIS page — a
+      // blocked/CAPTCHA page also renders result-ish markup. Report unmeasured.
+      return {
+        url,
+        indexed: null,
+        reachable: null,
+        checked_at: checkedAt,
+        source: "scrape",
+        measures: "reachability",
+        unmeasured_reason: "site: query returned no verdict for this URL",
+      };
     }
 
-    return await fallbackCheck(url, checkedAt);
+    return await fallbackCheck(url, checkedAt, `site: query returned HTTP ${resp.status}`);
   } catch {
-    return await fallbackCheck(url, checkedAt);
+    return await fallbackCheck(url, checkedAt, "site: query failed");
   }
 }
 
 // ─── Direct HEAD request fallback ────────────────────────────────────
 
 /**
- * Fallback: just check if the page is live and serves content.
- * Not a true index check, but confirms the page exists and could be indexed.
+ * Reachability probe. Confirms the page answers an HTTP request.
+ *
+ * This is NOT an index check and never reports one. It previously returned
+ * `indexed: true` on a 2xx, which is how a reachability probe ended up being
+ * published to customers as "pages indexed on Google". `indexed` is always
+ * null here — the only honest value, because we did not ask Google anything.
  */
-async function fallbackCheck(url: string, checkedAt: string): Promise<IndexCheckResult> {
+async function fallbackCheck(
+  url: string,
+  checkedAt: string,
+  reason = "no indexation source available (Search Console not connected, scraping disabled)",
+): Promise<IndexCheckResult> {
+  const base = {
+    url,
+    indexed: null,
+    checked_at: checkedAt,
+    source: "head_check" as const,
+    measures: "reachability" as const,
+    unmeasured_reason: reason,
+  };
   try {
     const resp = await fetch(url, {
       method: "HEAD",
       signal: AbortSignal.timeout(10000),
       redirect: "follow",
     });
-    if (resp.ok) {
-      return { url, indexed: true, checked_at: checkedAt, source: "head_check" };
-    }
-    return { url, indexed: false, checked_at: checkedAt, source: "head_check" };
+    return { ...base, reachable: resp.ok };
   } catch {
-    return { url, indexed: false, checked_at: checkedAt, source: "head_check" };
+    return { ...base, reachable: false };
   }
 }
 
@@ -151,8 +251,10 @@ async function fallbackCheck(url: string, checkedAt: string): Promise<IndexCheck
 /**
  * Check if a URL is indexed by Google.
  *
- * Tries Search Console URL Inspection API first (if available),
- * then falls back to site: scraping or HEAD check.
+ * Tries Search Console URL Inspection API first (if available), then site:
+ * scraping, then a reachability probe. Read `measures` before trusting
+ * `indexed`: a `reachability` result carries no indexation information and
+ * its `indexed` is always null.
  */
 export async function checkIndexStatus(
   url: string,
@@ -223,10 +325,12 @@ export async function checkIndexStatuses(
               results.push({
                 url: scr.url,
                 indexed: scr.verdict === "PASS",
+                reachable: null,
                 checked_at: scr.inspectedAt,
                 verdict: scr.verdict,
                 coverageState: scr.coverageState,
                 source: "search_console",
+                measures: "indexation",
                 page_id: pageId,
               });
             }
@@ -244,11 +348,16 @@ export async function checkIndexStatuses(
   }
 
   // ── Fallback: check one by one ──
-  for (const page of urls) {
-    const result = await checkIndexStatus(page.url);
+  // Pass the client/site context through so a per-URL Search Console lookup
+  // is still possible. The old code dropped both arguments here, which meant
+  // that once the batch path missed, every page silently degraded to a HEAD
+  // probe even for clients who HAD connected Search Console.
+  for (let i = 0; i < urls.length; i++) {
+    const page = urls[i]!;
+    const result = await checkIndexStatus(page.url, wftClientId, siteUrl);
     results.push({ ...result, page_id: page.id });
 
-    if (urls.indexOf(page) < urls.length - 1) {
+    if (i < urls.length - 1) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }

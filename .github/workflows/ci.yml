@@ -97,6 +97,8 @@ jobs:
         run: npm run check:public-serp-spend
       - name: AdFlow action-honesty guard (no "campaign paused" claim without an ad-platform integration; requests create a real fulfillment task; @example.com suppliers blocked on both assign + send; MapGuard grid never fabricates pin geography)
         run: npm run check:adflow-action-honesty
+      - name: RankFlow honesty guard (no canned "completed by AI engine" proof — the 4 stubbed task types run real executors and un-automatable ones become real manual tasks; only deliverable_ready auto-approves; a HEAD 200 is reachability NOT "indexed by Google"; KPI charts render an empty state instead of a synthetic rank climb, server AND client; executors never opt into paid SERP)
+        run: npm run check:rankflow-honesty
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)
         run: npm run check:tradeline-route-order
       - name: TradeLine number-unification guard (client's Twilio number → Vapi inbound URL not the dead route; Vapi import payload carries number+creds+assistant not a fresh BUY; readiness honest when assistant absent)

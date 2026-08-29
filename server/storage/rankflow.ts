@@ -175,6 +175,79 @@ export async function listPendingAITasks(planId: number): Promise<RankflowTask[]
   );
 }
 
+/**
+ * Merge a real executor artifact into a task's metadata.
+ *
+ * The artifact is the structured deliverable (the rewritten title/meta, the
+ * JSON-LD block, the internal-link plan, the content brief) that backs the
+ * human-readable proof. Stored under `metadata.artifact` so the admin queue
+ * and the QA reviewer can render the actual output rather than a summary.
+ */
+export async function saveRankflowTaskArtifact(
+  taskId: number,
+  artifact: Record<string, unknown>,
+): Promise<void> {
+  const [existing] = await db
+    .select({ metadata: rankflowTasks.metadata })
+    .from(rankflowTasks)
+    .where(eq(rankflowTasks.id, taskId))
+    .limit(1);
+  const base = (existing?.metadata as Record<string, unknown> | null) || {};
+  await db
+    .update(rankflowTasks)
+    .set({ metadata: { ...base, artifact, artifact_saved_at: new Date().toISOString() } })
+    .where(eq(rankflowTasks.id, taskId));
+}
+
+/**
+ * Hand a task that could NOT be automated to a human, truthfully.
+ *
+ * This is the honest counterpart to the old behaviour, where an executor
+ * that had nothing to work with still wrote "completed by AI engine" and
+ * moved the task to done. Instead the task becomes a real fulfillment task:
+ * execution_mode flips to `manual_admin`, it returns to the `pending` queue
+ * unassigned, and the concrete blocker is recorded in both qa_notes and
+ * metadata so whoever picks it up knows exactly what is missing.
+ *
+ * Nothing here reports work as completed, and proof_data is left null —
+ * there is no proof, because no work happened.
+ */
+export async function handOffRankflowTaskToHuman(
+  taskId: number,
+  reason: string,
+  blocker: string,
+): Promise<RankflowTask | undefined> {
+  const [existing] = await db
+    .select({ metadata: rankflowTasks.metadata })
+    .from(rankflowTasks)
+    .where(eq(rankflowTasks.id, taskId))
+    .limit(1);
+  const base = (existing?.metadata as Record<string, unknown> | null) || {};
+
+  const [row] = await db
+    .update(rankflowTasks)
+    .set({
+      status: "pending",
+      execution_mode: "manual_admin",
+      assigned_to: null,
+      assigned_at: null,
+      submitted_at: null,
+      proof_data: null,
+      qa_status: null,
+      qa_notes: `Automation could not complete this task: ${reason}`,
+      metadata: {
+        ...base,
+        automation_blocked: true,
+        automation_blocker: blocker,
+        automation_blocked_reason: reason,
+        automation_blocked_at: new Date().toISOString(),
+      },
+    })
+    .where(eq(rankflowTasks.id, taskId))
+    .returning();
+  return row;
+}
+
 // ─── QA Checks ──────────────────────────────────────────────────────────
 
 export async function createQACheck(data: InsertRankflowQaCheck): Promise<RankflowQaCheck> {
@@ -358,8 +431,27 @@ export async function listPagesByClient(clientId: number): Promise<RankflowPage[
     .orderBy(desc(rankflowPages.created_at));
 }
 
+/**
+ * Persist a REAL indexation verdict.
+ *
+ * Only call this when the check actually measured indexation (Search Console
+ * URL Inspection, or a site: query that returned a verdict). A reachability
+ * probe must use `touchPageChecked` instead — writing its result here is what
+ * turned "the page answered HTTP 200" into "indexed by Google" in the portal
+ * and the monthly report email.
+ */
 export async function updatePageIndexStatus(pageId: number, indexed: boolean): Promise<void> {
   await db.update(rankflowPages).set({ indexed, last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
+}
+
+/**
+ * Record that we looked at a page WITHOUT asserting anything about its
+ * indexation. Bumps `last_checked_at` and deliberately leaves `indexed`
+ * exactly as it was, so an unmeasured page never counts toward
+ * `rankflow_signals.pages_indexed`.
+ */
+export async function touchPageChecked(pageId: number): Promise<void> {
+  await db.update(rankflowPages).set({ last_checked_at: new Date() }).where(eq(rankflowPages.id, pageId));
 }
 
 export async function upsertSignalSummary(clientId: number, data: Partial<InsertRankflowSignal>): Promise<RankflowSignal> {
