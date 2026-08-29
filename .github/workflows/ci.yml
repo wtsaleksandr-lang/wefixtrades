@@ -85,6 +85,8 @@ jobs:
         run: npm run check:webcare-honest-kpis
       - name: Citation-evidence guard (unimplemented directories are skipped not reported "not found"; a failed scrape is never a removal; removed_listing needs 2 consecutive confirmed negatives; marketing quotes the monitored count)
         run: npm run check:citation-evidence
+      - name: MapSnapshot rank-honesty guard (public snapshot never publishes an unmeasured rank; RNG grid + invented audit cards stay deleted; legacy synthetic rows downgraded on read; anonymous visitors cannot reach a paid SERP provider)
+        run: npm run check:mapsnapshot-rank-honesty
       - name: AdFlow action-honesty guard (no "campaign paused" claim without an ad-platform integration; requests create a real fulfillment task; @example.com suppliers blocked on both assign + send; MapGuard grid never fabricates pin geography)
         run: npm run check:adflow-action-honesty
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)

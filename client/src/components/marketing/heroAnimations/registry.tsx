@@ -27,8 +27,13 @@ const PRODUCT_ANIMATIONS: Record<string, ReturnType<typeof lazy>> = {
   // the QuoteQuick quote flow (which read as the wrong product). Lead with the
   // self-booking calendar demo used lower on the page.
   bookflow: lazy(() => import("@/components/product-demos/BookFlowDemo")),
-  // Citation tracker is the MapGuard Suite bonus animation.
-  "citation-tracker": lazy(() => import("./CitationTrackerHeroAnimation")),
+  // NOTE: keys here MUST be real slugs from client/src/config/products.ts.
+  // PRODUCT_ANIMATIONS is only ever read by ProductHeroAnimation, which is
+  // only mounted by EffortelProductPage on /products/:slug — a slug with no
+  // products.ts entry 404s before any animation can render. A "citation-tracker"
+  // key lived here with no matching product and was removed (its component was
+  // deleted with it); CiteTrack's real page is /citation-tracker, whose hero
+  // carries its own bespoke CitationTrackerHeroPreview.
 };
 
 /* ─── Per-trade animations ───────────────────────────────────── */

@@ -30,13 +30,34 @@ export function SuiteBreadcrumb({ productName, variant = "dark" }: SuiteBreadcru
   return (
     <nav
       aria-label="Breadcrumb"
+      className="suite-breadcrumb"
       style={{
-        padding: "20px 24px 0",
+        // Longhands only — NO `padding` shorthand and NO paddingTop here. The
+        // shorthand would set padding-top inline (even to 0), and an inline
+        // value always beats the :first-child clearance rule in the <style>
+        // block below.
+        paddingLeft: 24,
+        paddingRight: 24,
+        paddingBottom: 0,
         maxWidth: 1180,
         margin: "0 auto",
         width: "100%",
       }}
     >
+      {/* MarketingLayout's nav is `position: fixed` (68px desktop / 74px
+          mobile) while <main> starts at y=24, so a breadcrumb rendered as the
+          FIRST thing on a page sits entirely underneath it and is invisible
+          regardless of colour. /products/mapguard only escapes this by
+          accident — its ComingSoonBanner happens to sit above and push it
+          clear. The :first-child rule adds clearance exactly when nothing
+          above already provides it, so pages that do keep their tight spacing. */}
+      <style>{`
+        .suite-breadcrumb { padding-top: 20px; }
+        .suite-breadcrumb:first-child { padding-top: 64px; }
+        @media (max-width: 640px) {
+          .suite-breadcrumb:first-child { padding-top: 68px; }
+        }
+      `}</style>
       <ol
         style={{
           listStyle: "none",

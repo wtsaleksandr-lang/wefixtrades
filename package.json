@@ -59,6 +59,7 @@
     "check:portal-overview": "tsx server/routes/portalOverview.test.ts",
     "check:webcare-honest-kpis": "tsx server/routes/portal/webcare/dashboardKpis.test.ts",
     "check:citation-evidence": "tsx server/services/citationTracker/monitor.test.ts",
+    "check:mapsnapshot-rank-honesty": "tsx server/routes/mapSnapshotRoutes.rankHonesty.test.ts",
     "check:adflow-action-honesty": "tsx server/services/aiActions/handlers/adflow.test.ts",
     "check:tradeline-route-order": "tsx server/routes/portalTradelineKnowledgeRoutes.routeOrder.test.ts",
     "check:matrix-rate": "tsx client/src/components/quote-widget/MatrixField.resolveRate.test.ts",

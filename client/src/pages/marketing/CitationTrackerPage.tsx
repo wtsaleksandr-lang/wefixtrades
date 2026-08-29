@@ -125,7 +125,13 @@ export default function CitationTrackerPage() {
       />
 
       <div data-theme="light">
-        <SuiteBreadcrumb productName="CiteTrack" variant="light" />
+        {/* variant MUST stay "dark": the `data-theme="light"` wrapper sets no
+            background of its own (there is no global [data-theme="light"]
+            reset in index.css — only .qq-editor-shell-scoped rules), so this
+            breadcrumb actually paints onto MarketingLayout's dark `mkt.bg`.
+            The "light" variant's near-black ink (rgba(15,23,42,0.92)) scored
+            ~1.05:1 there — effectively invisible. */}
+        <SuiteBreadcrumb productName="CiteTrack" variant="dark" />
         <CitationTrackerHero />
         <CitationTrackerThreeColumnHelps />
         <CitationTrackerFeatures />
@@ -170,11 +176,11 @@ function CitationTrackerHero() {
         className="citation-hero-grid"
       >
         <div>
-          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginBottom: 14 }}>
-            <Link href="/" style={{ color: "rgba(255,255,255,0.55)", textDecoration: "none" }}>Home</Link>
-            <span style={{ margin: "0 6px" }}>›</span>
-            <span style={{ color: "rgb(255,255,255)" }}>CiteTrack</span>
-          </nav>
+          {/* The hero's own "Home › CiteTrack" breadcrumb was removed: it
+              duplicated SuiteBreadcrumb directly above (which additionally
+              names the MapGuard Suite). Both were only ever on screen at once
+              because the SuiteBreadcrumb was invisible — dark-on-dark AND
+              behind the fixed nav. With that fixed, one breadcrumb is right. */}
           {/* Pill badge — BrightLocal-style "category" tag. */}
           <div
             style={{
