@@ -79,6 +79,12 @@ jobs:
         run: npm run check:client-chat-access
       - name: Portal overview guard (dashboard leads-series scopes calculators by user_id — there is no calculators.client_id; c.client_id 500'd the whole client dashboard for every client)
         run: npm run check:portal-overview
+      - name: WebCare honest-KPI guard (no KPI scored from never-written metadata; unmeasured security/performance/backups report null not 0/F; empty uptime history is unknown not 100%; monthly digest omits an unmeasured grade)
+        run: npm run check:webcare-honest-kpis
+      - name: Citation-evidence guard (unimplemented directories are skipped not reported "not found"; a failed scrape is never a removal; removed_listing needs 2 consecutive confirmed negatives; marketing quotes the monitored count)
+        run: npm run check:citation-evidence
+      - name: AdFlow action-honesty guard (no "campaign paused" claim without an ad-platform integration; requests create a real fulfillment task; @example.com suppliers blocked on both assign + send; MapGuard grid never fabricates pin geography)
+        run: npm run check:adflow-action-honesty
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)
         run: npm run check:tradeline-route-order
       - name: TradeLine number-unification guard (client's Twilio number → Vapi inbound URL not the dead route; Vapi import payload carries number+creds+assistant not a fresh BUY; readiness honest when assistant absent)

@@ -25,6 +25,7 @@ import {
   CITATION_TRACKER_PRICING,
 } from "@shared/schema";
 import { getSubscriptionForCustomer } from "../services/citationTracker/monitor";
+import { CITATION_TRACKER_MONITORED_COUNT } from "../services/citationTracker/directories";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("CitationTrackerRoutes");
@@ -170,6 +171,10 @@ export function registerCitationTrackerRoutes(app: Express): void {
         summary: {
           total_listings,
           unread_alerts,
+          // The number of directories we genuinely scrape. The registry
+          // holds many more as roadmap entries; quoting that larger figure
+          // would claim monitoring we don't perform.
+          directories_monitored: CITATION_TRACKER_MONITORED_COUNT,
         },
       });
     } catch (err: any) {

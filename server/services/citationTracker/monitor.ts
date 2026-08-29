@@ -2,16 +2,30 @@
  * Citation Tracker — daily scan logic.
  *
  * For each active subscription:
- *   1. Iterate the directory registry.
+ *   1. Iterate the directory registry, SKIPPING any directory without an
+ *      implemented scraper (those are never checked and never reported).
  *   2. Find the existing listing row (or create one on first sight).
- *   3. Invoke the per-directory scrape stub.
+ *   3. Invoke the per-directory scraper.
  *   4. Diff against the stored NAP. On drift, write an alert and
  *      dispatch via alerts.ts.
  *   5. Update last_checked_at + current_nap.
  *
- * Wave 3 ships with no-op scrapers (see directories.ts). The diff
- * pipeline is fully wired so Wave 4 only fills in the scrape function
- * bodies — no orchestration changes needed.
+ * EVIDENCE RULES (see the guard in monitor.test.ts)
+ * -------------------------------------------------
+ * There are three distinct outcomes and they must never be collapsed:
+ *
+ *   a) not checked   — no scraper implemented. Produces nothing at all.
+ *   b) check failed  — scraper returned an `error` (timeout, 403/429
+ *                      rate-limit, Cloudflare challenge, parse failure).
+ *                      Tells us nothing; we record the error and move on.
+ *   c) confirmed absent — scrape completed cleanly and found no listing.
+ *                      Only this counts toward a removal, and only after
+ *                      CONSECUTIVE_MISSES_BEFORE_ALERT consecutive
+ *                      occurrences.
+ *
+ * Collapsing (a) or (b) into (c) is what emailed customers "Citation
+ * Tracker alert — Citation removed" (severity: high) every time a
+ * scraper timed out or a directory had no scraper at all.
  */
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
@@ -35,9 +49,23 @@ export interface NapSnapshot {
   website?: string;
 }
 
+/**
+ * A listing must come back absent on this many CONSECUTIVE clean scrapes
+ * before we tell the customer it was removed. Scrapes that errored do not
+ * count and do not reset the streak — they are simply not evidence.
+ */
+export const CONSECUTIVE_MISSES_BEFORE_ALERT = 2;
+
 interface ScanStats {
   subscriptions_processed: number;
+  /** Directories we actually scraped (implemented scrapers only). */
   listings_checked: number;
+  /** Registry entries skipped because no scraper is implemented. */
+  directories_not_checked: number;
+  /** Scrapes that errored — status unknown, never treated as "removed". */
+  scrape_failures: number;
+  /** Clean scrapes that found nothing but haven't hit the confirm threshold. */
+  unconfirmed_misses: number;
   alerts_created: number;
   errors: number;
 }
@@ -81,6 +109,9 @@ export async function scanSubscription(sub: CitationTrackerSubscription): Promis
   const stats: ScanStats = {
     subscriptions_processed: 1,
     listings_checked: 0,
+    directories_not_checked: 0,
+    scrape_failures: 0,
+    unconfirmed_misses: 0,
     alerts_created: 0,
     errors: 0,
   };
@@ -97,18 +128,40 @@ export async function scanSubscription(sub: CitationTrackerSubscription): Promis
 
   for (const dir of CITATION_TRACKER_DIRECTORIES) {
     try {
+      // Directories with no implemented scraper are NOT checked. Skipping
+      // before any DB work guarantees they can never produce a listing row,
+      // a "missing" status, or an alert — and keeps them out of every
+      // customer-visible "directories checked" count.
+      if (!dir.scrape) {
+        stats.directories_not_checked += 1;
+        continue;
+      }
+
       stats.listings_checked += 1;
       const row = byDirectory.get(dir.id);
-      const scrape: ScrapeResult = dir.scrape
-        ? await dir.scrape({
-            business_name: sub.business_name,
-            phone: canonical.phone,
-            address: canonical.address,
-            website: canonical.website,
-          })
-        : { found: false };
+      const scrape: ScrapeResult = await dir.scrape({
+        business_name: sub.business_name,
+        phone: canonical.phone,
+        address: canonical.address,
+        website: canonical.website,
+      });
 
-      // No listing tracked yet + scraper didn't find one: do nothing.
+      // A scraper that errored tells us NOTHING about the listing. Record
+      // the failure for ops and move on — never let a timeout, a 403/429
+      // rate-limit, a Cloudflare challenge or a parse error be read as
+      // "the listing is gone".
+      if (scrape.error) {
+        stats.scrape_failures += 1;
+        if (row) {
+          await db
+            .update(citationTrackerListings)
+            .set({ last_scrape_error: scrape.error })
+            .where(eq(citationTrackerListings.id, row.id));
+        }
+        continue;
+      }
+
+      // No listing tracked yet + scraper confirmed none exists: do nothing.
       if (!row && !scrape.found) continue;
 
       // First time we see the listing → insert + emit "new_listing" alert.
@@ -140,21 +193,41 @@ export async function scanSubscription(sub: CitationTrackerSubscription): Promis
 
       if (!row) continue;
 
-      // Listing was tracked but scraper now says it's gone → "removed_listing".
-      if (row && !scrape.found && row.status !== "missing") {
+      // Listing was tracked and this scrape completed cleanly without
+      // finding it. That is a CONFIRMED negative — but a single one is
+      // still not enough: directories reshuffle URLs, and a one-off miss
+      // used to email the customer "Citation removed" at high severity.
+      // Require CONSECUTIVE_MISSES_BEFORE_ALERT confirmed negatives.
+      if (row && !scrape.found) {
+        const misses = (row.consecutive_missing_count ?? 0) + 1;
+        const confirmed = misses >= CONSECUTIVE_MISSES_BEFORE_ALERT;
+
         await db
           .update(citationTrackerListings)
-          .set({ status: "missing", last_checked_at: new Date() })
+          .set({
+            // Only claim "missing" once confirmed; until then the listing
+            // keeps its previous status and we simply count the misses.
+            ...(confirmed ? { status: "missing" } : {}),
+            consecutive_missing_count: misses,
+            last_checked_at: new Date(),
+            last_scrape_ok_at: new Date(),
+            last_scrape_error: null,
+          })
           .where(eq(citationTrackerListings.id, row.id));
-        await createAlert({
-          subscription_id: sub.id,
-          listing_id: row.id,
-          alert_type: "removed_listing",
-          old_value: { directory: dir.name, nap: row.current_nap as any } as any,
-          new_value: null,
-          severity: "high",
-        });
-        stats.alerts_created += 1;
+
+        if (confirmed && row.status !== "missing") {
+          await createAlert({
+            subscription_id: sub.id,
+            listing_id: row.id,
+            alert_type: "removed_listing",
+            old_value: { directory: dir.name, nap: row.current_nap as any } as any,
+            new_value: null,
+            severity: "high",
+          });
+          stats.alerts_created += 1;
+        } else if (!confirmed) {
+          stats.unconfirmed_misses += 1;
+        }
         continue;
       }
 
@@ -176,6 +249,10 @@ export async function scanSubscription(sub: CitationTrackerSubscription): Promis
             last_checked_at: new Date(),
             status: newStatus,
             listing_url: scrape.listing_url ?? row.listing_url,
+            // Seeing the listing clears any pending "might be gone" streak.
+            consecutive_missing_count: 0,
+            last_scrape_ok_at: new Date(),
+            last_scrape_error: null,
           })
           .where(eq(citationTrackerListings.id, row.id));
 
@@ -257,6 +334,9 @@ export async function runDailyScan(): Promise<ScanStats> {
   const totals: ScanStats = {
     subscriptions_processed: 0,
     listings_checked: 0,
+    directories_not_checked: 0,
+    scrape_failures: 0,
+    unconfirmed_misses: 0,
     alerts_created: 0,
     errors: 0,
   };

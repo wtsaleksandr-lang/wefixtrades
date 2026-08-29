@@ -43,8 +43,10 @@ interface DigestResult {
 }
 
 interface MonthlyStats {
-  uptimePct: number;
-  securityLetter: string;
+  /** null when no uptime checks were recorded for the period. */
+  uptimePct: number | null;
+  /** null when no health sweep ran — the email then omits the grade entirely. */
+  securityLetter: string | null;
   updatesApplied: number;
   threatsBlocked: number;
   backupsTaken: number;
@@ -72,12 +74,15 @@ async function gatherMonthlyStats(
 ): Promise<MonthlyStats> {
   // 1. Pull the live dashboard KPIs (uptime% is 90-day rolling — we use
   //    it as a proxy when no per-month uptime tracking exists).
-  let uptimePct = 0;
-  let securityLetter = "F";
+  // Both start as "unknown". The old defaults were 0% uptime and letter "F",
+  // and since nothing ever wrote the security state, EVERY monthly digest
+  // went out with "F grade" in its subject line.
+  let uptimePct: number | null = null;
+  let securityLetter: string | null = null;
   try {
     const dashboard = await computeWebcareDashboardKpis(clientId);
     uptimePct = dashboard.kpis.uptimePct;
-    securityLetter = dashboard.kpis.securityGrade.letter;
+    securityLetter = dashboard.kpis.securityGrade?.letter ?? null;
   } catch (err: any) {
     log.warn("digest gather: dashboard kpis failed", {
       clientId,

@@ -119,7 +119,7 @@ const FAQ_ITEMS = [
   {
     question: "How does this differ from MapGuard?",
     answer:
-      "This is a one-shot snapshot — useful to see where you stand right now. MapGuard runs the same grid (plus more keywords) every day, stores the history, surfaces rank drops, posts to your GBP, and responds to reviews. This tool answers \"where do I rank?\" — MapGuard answers \"how do I rank higher, automatically?\"",
+      "This tool is a one-shot geo-grid snapshot — useful to see where you stand right now. MapGuard is the ongoing service: it tracks your keyword ranks for your city every week, stores the history, surfaces rank drops, posts to your GBP, and responds to reviews. This tool answers \"where do I rank across my area?\" — MapGuard answers \"how do I rank higher, automatically?\"",
   },
 ];
 

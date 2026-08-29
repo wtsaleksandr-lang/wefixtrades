@@ -4,16 +4,17 @@
  * Wave 3 add-on product (PR series). Distinct from Citation Builder
  * (PR #815) which is a one-shot $79-$299 service. Citation Tracker is a
  * recurring $19/mo standalone (or $5/mo bundle with MapGuard) that
- * continuously diff-checks the customer's existing citations across
- * 50+ directories.
+ * continuously diff-checks the customer's existing citations across the
+ * directories we have real scrapers for.
  *
  *   1. citation_tracker_subscriptions — one row per active sub
  *   2. citation_tracker_listings      — discovered citations per sub
  *   3. citation_tracker_alerts        — drift detections + dispatch log
  *
- * The actual per-directory scraping logic is structurally placed in
- * server/services/citationTracker/directories.ts but the scrapers
- * themselves are stubbed (Wave 4).
+ * Per-directory scraping lives in server/services/citationTracker/. Only
+ * directories with a non-null `scrape` are checked — see
+ * CITATION_TRACKER_MONITORED_COUNT, the only count customer-facing copy
+ * may quote.
  */
 import { pgTable, text, varchar, serial, integer, timestamp, jsonb, uuid, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -66,6 +67,16 @@ export const citationTrackerListings = pgTable("citation_tracker_listings", {
   last_checked_at: timestamp("last_checked_at"),
   /** "active" | "missing" | "inconsistent" */
   status: varchar("status", { length: 20 }).notNull().default("active"),
+  /**
+   * Consecutive scrapes that COMPLETED SUCCESSFULLY and found no listing.
+   * Failed scrapes (timeout / rate-limit / parse error) must not increment
+   * this — see migration 0094. A `removed_listing` alert requires >= 2.
+   */
+  consecutive_missing_count: integer("consecutive_missing_count").notNull().default(0),
+  /** Transport/parse error from the most recent scrape attempt, if any. */
+  last_scrape_error: text("last_scrape_error"),
+  /** Last time a scrape completed without error (found or not). */
+  last_scrape_ok_at: timestamp("last_scrape_ok_at"),
   first_seen_at: timestamp("first_seen_at").notNull().defaultNow(),
 }, (table) => ({
   subIdx: index("idx_citation_tracker_listings_sub").on(table.subscription_id),

@@ -859,7 +859,7 @@ export default function CitationBuilderPage() {
                 maxWidth: 520,
               }}
             >
-              Directories drift. CiteTrack watches all 50+ daily and alerts you the moment something changes — $19/mo, or $5/mo as a MapGuard add-on.
+              Directories drift. CiteTrack rechecks your monitored listings daily and alerts you the moment something changes — $19/mo, or $5/mo as a MapGuard add-on.
             </p>
             <Link
               href="/citation-tracker"

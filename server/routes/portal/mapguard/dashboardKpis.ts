@@ -172,12 +172,21 @@ function gradeFromHealthRatio(found: number, total: number): "A" | "B" | "C" | "
 /**
  * Translate the jsonb keywords_data array into 25 grid cells (row 0..4, col 0..4).
  *
- * The scraper writes one entry per keyword × pin with shape:
- *   { keyword, organicRank, localPackPosition, isInLocalPack, pinRow, pinCol }
+ * A geo grid requires one measurement PER PIN — the scan must run the same
+ * keyword from 25 different coordinates. Entries therefore only qualify when
+ * they carry an explicit `pinRow`/`pinCol` written by a geo-aware scan.
  *
- * We collapse multiple keywords at the same pin to their best (lowest) rank.
- * If pinRow/pinCol aren't present we fall back to a deterministic synthetic
- * layout so the grid still renders during the migration window.
+ * HISTORY / DO NOT REINTRODUCE: this used to fall back to
+ * `Math.floor(idx / 5) % 5` and `idx % 5` when those fields were absent. They
+ * are absent for every row mapguardMonitor writes — it issues city-wide
+ * queries (`"${keyword} ${city}"`, no coordinates) and returns
+ * `{ keyword, organicRank, localPackPosition, isInLocalPack }`. So the grid
+ * silently smeared ~12 city-wide keyword ranks across 25 map pins by array
+ * index, and the portal drew them on a real Google map as if keyword #7's
+ * rank had been measured at a specific street corner. It had not.
+ *
+ * With no per-pin data we return an EMPTY grid; the dashboard then shows its
+ * "not measured here" state instead of an invented map.
  */
 function buildGrid(
   currentKeywords: unknown,
@@ -188,16 +197,13 @@ function buildGrid(
   ): Map<string, number> => {
     const map = new Map<string, number>();
     if (!Array.isArray(raw)) return map;
-    raw.forEach((entry: any, idx: number) => {
+    raw.forEach((entry: any) => {
       if (!entry || typeof entry !== "object") return;
-      const row =
-        typeof entry.pinRow === "number"
-          ? entry.pinRow
-          : Math.floor(idx / 5) % 5;
-      const col =
-        typeof entry.pinCol === "number"
-          ? entry.pinCol
-          : idx % 5;
+      // No pin identity → this reading was not taken at a location.
+      if (typeof entry.pinRow !== "number" || typeof entry.pinCol !== "number") return;
+      const row = entry.pinRow;
+      const col = entry.pinCol;
+      if (row < 0 || row > 4 || col < 0 || col > 4) return;
       const key = `${row}:${col}`;
       const rank =
         typeof entry.localPackPosition === "number" && entry.localPackPosition > 0
@@ -215,6 +221,9 @@ function buildGrid(
   const cur = ofPin(currentKeywords);
   const prev = ofPin(previousKeywords);
 
+  // Nothing was measured per-pin — render no grid rather than a fabricated one.
+  if (cur.size === 0) return [];
+
   const cells: GridCell[] = [];
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
@@ -228,19 +237,44 @@ function buildGrid(
   return cells;
 }
 
-function computeAvgRank(cells: GridCell[]): number {
-  const ranked = cells
-    .map((c) => c.rank)
-    .filter((r): r is number => r != null);
-  if (ranked.length === 0) return 0;
-  const sum = ranked.reduce((a, b) => a + b, 0);
-  return Math.round((sum / ranked.length) * 10) / 10;
+/**
+ * Best (lowest) rank per keyword from a city-wide scan. This is the rank data
+ * we genuinely have: one reading per keyword for the whole city, with no
+ * location dimension.
+ */
+function cityWideRanks(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const out: number[] = [];
+  for (const entry of raw as any[]) {
+    if (!entry || typeof entry !== "object") continue;
+    const rank =
+      typeof entry.localPackPosition === "number" && entry.localPackPosition > 0
+        ? entry.localPackPosition
+        : typeof entry.organicRank === "number" && entry.organicRank > 0
+          ? entry.organicRank
+          : null;
+    if (rank != null) out.push(rank);
+  }
+  return out;
 }
 
-function computeTop3Coverage(cells: GridCell[]): number {
-  const total = cells.length || 25;
-  const inTop3 = cells.filter((c) => c.rank != null && c.rank <= 3).length;
-  return Math.round((inTop3 / total) * 100);
+function computeAvgRank(ranks: number[]): number {
+  if (ranks.length === 0) return 0;
+  const sum = ranks.reduce((a, b) => a + b, 0);
+  return Math.round((sum / ranks.length) * 10) / 10;
+}
+
+/**
+ * Share of TRACKED KEYWORDS ranking in the top 3.
+ *
+ * Previously this divided by a fixed 25 (the grid size) even though at most
+ * ~12 keywords are ever scanned, structurally halving the number. Denominator
+ * is now the keywords we actually measured.
+ */
+function computeTop3Coverage(ranks: number[]): number {
+  if (ranks.length === 0) return 0;
+  const inTop3 = ranks.filter((r) => r <= 3).length;
+  return Math.round((inTop3 / ranks.length) * 100);
 }
 
 /**
@@ -308,8 +342,12 @@ export async function computeMapguardDashboardKpis(
     });
   }
 
-  const avgRank = computeAvgRank(grid);
-  const top3Coverage = computeTop3Coverage(grid);
+  // Rank KPIs come from the city-wide keyword scan we genuinely run, NOT from
+  // the grid. Deriving them from the grid meant they inherited the grid's
+  // fabricated pin assignment and its fixed /25 denominator.
+  const ranks = latest ? cityWideRanks(latest.keywords_data) : [];
+  const avgRank = computeAvgRank(ranks);
+  const top3Coverage = computeTop3Coverage(ranks);
 
   // Citation health — derived from citation_tracker_listings via the
   // client's user_id linkage. We do an indirect lookup since the listings

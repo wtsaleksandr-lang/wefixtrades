@@ -34,20 +34,24 @@ export interface SecurityFactor {
 }
 
 export interface SecurityScoreCardProps {
-  score: number;
-  letter: string;
+  /**
+   * null when no health sweep has run. Renders the neutral "not measured"
+   * badge — never a 0/F, which is what every customer used to see because
+   * the score was computed from metadata keys nothing wrote.
+   */
+  score: number | null;
   factors: SecurityFactor[];
   emptyState?: boolean;
 }
 
 export function SecurityScoreCard({
   score,
-  letter,
   factors,
   emptyState,
 }: SecurityScoreCardProps) {
   const [open, setOpen] = useState(false);
   const passed = factors.filter((f) => f.ok).length;
+  const notMeasured = emptyState || score === null || factors.length === 0;
 
   return (
     <Card
@@ -65,17 +69,17 @@ export function SecurityScoreCard({
               Security grade
             </p>
             <p className="text-xs text-muted-foreground">
-              {emptyState
-                ? "Awaiting your first scan — grade refreshes within 15 minutes."
+              {notMeasured
+                ? "Not measured yet — your grade appears after the first site health sweep."
                 : `${passed} of ${factors.length} security checks passing.`}
             </p>
           </div>
         </div>
         <LetterGradeBadge
-          score={emptyState ? 0 : score}
+          score={notMeasured ? 0 : score!}
           size="lg"
-          showScore={!emptyState}
-          emptyState={emptyState}
+          showScore={!notMeasured}
+          emptyState={notMeasured}
         />
       </div>
 
@@ -84,7 +88,7 @@ export function SecurityScoreCard({
         size="sm"
         className="h-7 self-start px-2 text-[11px]"
         onClick={() => setOpen((o) => !o)}
-        disabled={emptyState || factors.length === 0}
+        disabled={notMeasured}
         data-testid="webcare-security-expander"
         aria-expanded={open}
       >

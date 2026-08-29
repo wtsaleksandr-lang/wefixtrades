@@ -26,36 +26,63 @@ interface SupplierSeed {
   notes?: string;
 }
 
+/* The starter roster is a set of PLACEHOLDER slots, not real vendors. Their
+ * @example.com addresses are RFC-2606 reserved and belong to nobody, so they
+ * must never be dispatch targets: `autoAssignSupplier` matched them by
+ * supported_services and `dispatchViaEmail` mailed briefs — including the
+ * customer's full SiteLaunch onboarding answers — straight to example.com.
+ * They are now seeded INACTIVE. Replace contact_email with a real vendor
+ * address and flip is_active before any work routes to them. A runtime guard
+ * (services/supplierPlaceholder.ts) blocks them regardless. */
+const PLACEHOLDER_NOTE =
+  "PLACEHOLDER — not a real vendor. Replace contact_email with the real address, " +
+  "then set is_active=true. Dispatch to @example.com is blocked at runtime.";
+
 const SUPPLIER_SEEDS: SupplierSeed[] = [
   {
     name: "Website Design Agency",
     type: "white_label",
     contact_email: "design@example.com",
     supported_services: ["sitelaunch", "sitelaunch-template"],
+    status: "inactive",
+    is_active: false,
+    notes: PLACEHOLDER_NOTE,
   },
   {
     name: "SEO Specialist",
     type: "freelancer",
     contact_email: "seo@example.com",
     supported_services: ["rankflow-starter", "rankflow-growth", "rankflow-pro", "webfix"],
+    status: "inactive",
+    is_active: false,
+    notes: PLACEHOLDER_NOTE,
   },
   {
     name: "Content Writer",
     type: "freelancer",
     contact_email: "content@example.com",
     supported_services: ["socialsync", "contentflow"],
+    status: "inactive",
+    is_active: false,
+    notes: PLACEHOLDER_NOTE,
   },
   {
     name: "Google Ads Manager",
     type: "freelancer",
     contact_email: "ads@example.com",
     supported_services: [],
+    status: "inactive",
+    is_active: false,
+    notes: PLACEHOLDER_NOTE,
   },
   {
     name: "Ad Campaign Agency",
     type: "white_label",
     contact_email: "adflow-agency@example.com",
     supported_services: ["adflow-starter", "adflow-growth", "adflow-pro"],
+    status: "inactive",
+    is_active: false,
+    notes: PLACEHOLDER_NOTE,
   },
   /* W-AM-3: AL-3 Fiverr sourcing leads. Seeded as inactive/unverified — Alex
    * must vet each in a Fiverr browser session (confirm Top Rated badge, 500+

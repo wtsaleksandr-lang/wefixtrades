@@ -4,8 +4,10 @@
  * Anyword-style 3-variant generator. Each variant card shows:
  *   - headline, body, CTA
  *   - KpiGauge size="sm" predictive performance score (0-100)
- *   - "Use this variant" button → pushes to ContentFlow + kicks off a live
- *      ad campaign update via the run-action flow
+ *   - "Use this variant" button → opens the composer via the run-action
+ *      flow. It does NOT update a live ad campaign: there is no ad-platform
+ *      API integration, so any campaign change is made by hand by the ads
+ *      team. Do not reword this to imply otherwise.
  *
  * Plus a bottom "Regenerate all 3" action.
  *

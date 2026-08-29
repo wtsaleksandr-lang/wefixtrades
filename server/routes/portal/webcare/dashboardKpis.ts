@@ -3,32 +3,46 @@
  *
  * GET /api/portal/webcare/dashboard-kpis
  *
- * Returns the hero KPIs for the new /portal/webcare/dashboard surface:
+ * Returns the hero KPIs for the /portal/webcare/dashboard surface.
  *
- *   1. securityGrade        — A-F letter grade + numeric score from the
- *                             weighted formula (malware, SSL, WP core,
- *                             plugins, themes, 2FA, weak-passwords).
- *   2. uptimePct            — rolling 90-day uptime %, with last-incident
- *                             metadata + a target threshold of 99.9.
- *   3. daysWithoutIncident  — gamified counter; resets to 0 on incidents,
- *                             tracks best streak in client metadata.
- *   4. performanceScore     — daily Google Lighthouse avg (desktop + mobile)
- *                             pulled from client_service metadata if wired,
- *                             else falls back to a fresh estimate.
- *   5. pendingUpdates       — count of plugin/theme/core updates available.
+ * HONESTY CONTRACT (see the guard in dashboardKpis.test.ts)
+ * ---------------------------------------------------------
+ * Every number here must come from something we ACTUALLY measured. A KPI
+ * we do not measure is reported as `null` ("Not measured") — never as a
+ * zero, never as a score computed from absent inputs.
  *
- *  Plus auxiliary data:
- *   - securityFactors: array of {key, weight, label, ok} feeding the
- *     "Why this grade?" expander on the SecurityScoreCard.
- *   - backupTimeline30d: 30 daily entries {date, status, sizeBytes?, retentionDays?}
- *     for the BackupTimeline strip.
- *   - lastIncident: { kindLabel, daysAgo, durationMinutes } | null
- *   - bestStreakDays: highest historical days-without-incident value
+ * A previous version scored security from seven `webcare_security_state`
+ * flags (malware, SSL, WP core, plugins, themes, 2FA, weak passwords)
+ * that NOTHING in the codebase ever wrote. Absent flags read as `false`,
+ * so the weighted total was always 0 → every paying WebCare customer saw
+ * a security grade of "F" (0/100) regardless of their site's real state.
+ * The same class of bug zeroed performance, pending updates and backups,
+ * and reported "100% uptime" for sites we had never once checked.
  *
- * Source: aggregated from `clients.metadata.webcare_*` + `client_service.metadata`
- * (uptime_history, last_*_at) populated by the existing webcareHealthWorker
- * / webcareMaintenanceWorker. When no WebCare service exists, an empty
- * preview shape renders the dashboard gracefully.
+ * What we genuinely measure today:
+ *   - uptime_history        ← webcareHealthWorker, HTTP check every 15 min
+ *   - last_health_report    ← webcareMaintenanceWorker (WordPress only):
+ *                             ssl_valid, security_headers, outdated_plugins,
+ *                             total_plugins, wordpress_version, checked_at
+ *   - last_plugin_update    ← webcareMaintenanceWorker: updates_available
+ *
+ * What we do NOT measure (reported as null, never scored):
+ *   - malware scanning, admin 2FA, weak-password auditing
+ *   - WordPress-core currency (we store the site's version but have no
+ *     "latest release" reference to compare it against)
+ *   - Lighthouse / performance scores
+ *   - backup runs
+ *
+ * Response:
+ *   securityGrade      { score, letter } | null   — null until measured
+ *   securityFactors    only MEASURED factors; an unmeasured check is
+ *                      omitted entirely rather than rendered as failing
+ *   uptimePct          number | null              — null with no checks
+ *   daysWithoutIncident number | null
+ *   performanceScore   null                       — not measured
+ *   pendingUpdates     number | null              — real plugin updates
+ *   backupTimeline30d  []                         — see backupsTracked
+ *   backupsTracked     false                      — we run no backup job
  *
  * Auth: requireClient. adminPreviewSafe-wrapped.
  */
@@ -67,32 +81,43 @@ interface LastIncident {
 interface DashboardResponse {
   previewMode?: boolean;
   kpis: {
-    securityGrade: { score: number; letter: string };
-    uptimePct: number;
-    daysWithoutIncident: number;
-    performanceScore: { desktop: number; mobile: number; avg: number };
-    pendingUpdates: number;
+    /** null until a real health report exists. Never a score from absent data. */
+    securityGrade: { score: number; letter: string } | null;
+    /** null until the health worker has recorded at least one check. */
+    uptimePct: number | null;
+    daysWithoutIncident: number | null;
+    /** Always null — we run no Lighthouse/performance measurement. */
+    performanceScore: { desktop: number; mobile: number; avg: number } | null;
+    /** Real plugin updates awaiting the next sweep; null until measured. */
+    pendingUpdates: number | null;
   };
+  /** Only checks we actually ran. An unmeasured check is omitted, not failed. */
   securityFactors: SecurityFactor[];
   backupTimeline30d: BackupEntry[];
+  /** False = we do not run backups, so an empty strip must not read as "0 taken". */
+  backupsTracked: boolean;
+  /** True once uptime checks exist, so "never" can be distinguished from "unknown". */
+  incidentHistoryTracked: boolean;
   lastIncident: LastIncident | null;
-  bestStreakDays: number;
+  bestStreakDays: number | null;
   hasWebcareService: boolean;
 }
 
 const EMPTY_RESPONSE = {
   previewMode: true,
   kpis: {
-    securityGrade: { score: 0, letter: "F" },
-    uptimePct: 0,
-    daysWithoutIncident: 0,
-    performanceScore: { desktop: 0, mobile: 0, avg: 0 },
-    pendingUpdates: 0,
+    securityGrade: null,
+    uptimePct: null,
+    daysWithoutIncident: null,
+    performanceScore: null,
+    pendingUpdates: null,
   },
   securityFactors: [] as SecurityFactor[],
   backupTimeline30d: [] as BackupEntry[],
+  backupsTracked: false,
+  incidentHistoryTracked: false,
   lastIncident: null as LastIncident | null,
-  bestStreakDays: 0,
+  bestStreakDays: null,
   hasWebcareService: false,
 } satisfies Record<string, unknown>;
 
@@ -136,41 +161,95 @@ function bool(v: unknown, fallback = false): boolean {
 }
 
 /**
- * Compute the weighted security score (0-100) from the latest health
- * snapshot stored on client_service.metadata.webcare_security_state.
- * If the worker hasn't written one yet, every factor is treated as
- * "warning" — score 50, letter "F".
+ * Shape of `client_service.metadata.last_health_report`, written by
+ * webcareMaintenanceWorker from services/wordpressMaintenance.HealthReport.
+ * WordPress sites only — absent for every other stack.
  */
-function computeSecurity(state: Record<string, unknown>): {
-  score: number;
-  factors: SecurityFactor[];
-} {
-  const factorDefs: Array<Omit<SecurityFactor, "ok"> & { state_key: string }> = [
-    { key: "malware_clean", label: "No malware detected", weight: 25, state_key: "malware_clean" },
-    { key: "ssl_valid",      label: "SSL valid & not expiring soon", weight: 15, state_key: "ssl_valid" },
-    { key: "wp_core_current", label: "WordPress core up-to-date", weight: 15, state_key: "wp_core_current" },
-    { key: "plugins_current", label: "All plugins up-to-date",    weight: 15, state_key: "plugins_current" },
-    { key: "themes_current",  label: "All themes up-to-date",     weight: 10, state_key: "themes_current" },
-    { key: "admin_2fa",       label: "Admin 2FA enabled",         weight: 10, state_key: "admin_2fa" },
-    { key: "passwords_clean", label: "No weak passwords flagged", weight: 10, state_key: "passwords_clean" },
-  ];
-
-  let score = 0;
-  const factors: SecurityFactor[] = factorDefs.map((d) => {
-    const ok = bool(state[d.state_key], false);
-    if (ok) score += d.weight;
-    return {
-      key: d.key,
-      label: d.label,
-      weight: d.weight,
-      ok,
-    };
-  });
-  return { score, factors };
+interface HealthReportSnapshot {
+  ssl_valid?: unknown;
+  security_headers?: unknown;
+  outdated_plugins?: unknown;
+  total_plugins?: unknown;
+  checked_at?: unknown;
 }
 
-function computeUptime(history: UptimeEntry[]): { pct: number; incident: LastIncident | null } {
-  if (history.length === 0) return { pct: 100, incident: null };
+/**
+ * Derive the security grade from checks we ACTUALLY ran.
+ *
+ * Only three signals are genuinely measured (webcareMaintenanceWorker →
+ * runSiteHealthCheck): TLS validity, plugin patch level, and which
+ * security response headers the site sends. Malware scanning, admin 2FA
+ * and password auditing are NOT implemented, so they are not listed as
+ * factors at all — showing them as failing checks would tell a customer
+ * their site failed a test we never ran.
+ *
+ * Returns `grade: null` when no health report exists (no sweep yet, or a
+ * non-WordPress site). Callers must render "not measured", never a 0/F.
+ */
+export function computeSecurity(csMeta: Record<string, unknown>): {
+  grade: { score: number; letter: string } | null;
+  factors: SecurityFactor[];
+} {
+  const report = csMeta.last_health_report as HealthReportSnapshot | undefined;
+  if (!report || typeof report !== "object") {
+    return { grade: null, factors: [] };
+  }
+
+  const factors: SecurityFactor[] = [];
+
+  if (typeof report.ssl_valid === "boolean") {
+    factors.push({
+      key: "ssl_valid",
+      label: "SSL certificate valid",
+      weight: 40,
+      ok: report.ssl_valid,
+    });
+  }
+
+  const outdated = report.outdated_plugins;
+  const total = report.total_plugins;
+  if (typeof outdated === "number" && Number.isFinite(outdated)) {
+    factors.push({
+      key: "plugins_current",
+      label: "All plugins up-to-date",
+      weight: 35,
+      ok: outdated === 0,
+      detail: typeof total === "number"
+        ? `${outdated} of ${total} plugins need an update`
+        : `${outdated} plugin update(s) pending`,
+    });
+  }
+
+  const headers = report.security_headers;
+  if (headers && typeof headers === "object" && !Array.isArray(headers)) {
+    const values = Object.values(headers as Record<string, unknown>);
+    if (values.length > 0) {
+      const present = values.filter((v) => v === true).length;
+      factors.push({
+        key: "security_headers",
+        label: "Security headers present",
+        weight: 25,
+        ok: present === values.length,
+        detail: `${present} of ${values.length} recommended headers set`,
+      });
+    }
+  }
+
+  if (factors.length === 0) return { grade: null, factors: [] };
+
+  // Renormalise over the checks we actually ran so a partial sweep is not
+  // silently penalised for the checks it could not perform.
+  const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
+  const earned = factors.reduce((sum, f) => (f.ok ? sum + f.weight : sum), 0);
+  const score = Math.round((earned / totalWeight) * 100);
+
+  return { grade: { score, letter: letterFor(score) }, factors };
+}
+
+function computeUptime(history: UptimeEntry[]): { pct: number | null; incident: LastIncident | null } {
+  // No checks recorded → we do not know the uptime. Reporting 100% here
+  // would claim perfect availability for a site we have never polled.
+  if (history.length === 0) return { pct: null, incident: null };
   const upCount = history.filter((h) => h.status === "up").length;
   const pct = Math.round((upCount / history.length) * 10_000) / 100;
 
@@ -201,39 +280,35 @@ function computeUptime(history: UptimeEntry[]): { pct: number; incident: LastInc
   };
 }
 
+/**
+ * Build the backup strip from RECORDED backup runs only.
+ *
+ * The old version padded every un-recorded day with a "pending" dot so the
+ * strip always showed 30 entries. Nothing in this codebase runs or records
+ * a backup, so that rendered 30 dots implying 30 scheduled-but-unfinished
+ * jobs. We now emit only days we have a real record for — which today is
+ * none — and the caller sets `backupsTracked: false` so the UI can say
+ * "not tracked" instead of "0 backups taken".
+ */
 function buildBackupTimeline(backups: Array<Record<string, unknown>>): BackupEntry[] {
-  // Build 30 entries terminating at today; pull whatever's present, fill
-  // missing dates with "pending" so the strip always renders 30 dots.
   const out: BackupEntry[] = [];
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const byDate = new Map<string, Record<string, unknown>>();
+  const cutoff = Date.now() - 30 * 86_400_000;
   for (const b of backups) {
     const ts = typeof b.recorded_at === "string" ? b.recorded_at : null;
     if (!ts) continue;
     const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) continue;
-    const key = d.toISOString().slice(0, 10);
-    byDate.set(key, b);
-  }
-  for (let offset = 29; offset >= 0; offset -= 1) {
-    const d = new Date(today.getTime() - offset * 86_400_000);
-    const key = d.toISOString().slice(0, 10);
-    const rec = byDate.get(key);
-    if (!rec) {
-      out.push({ date: key, status: "pending" });
-      continue;
-    }
-    const status = (rec.status === "success" || rec.status === "failed")
-      ? (rec.status as "success" | "failed")
+    if (Number.isNaN(d.getTime()) || d.getTime() < cutoff) continue;
+    const status = (b.status === "success" || b.status === "failed" || b.status === "pending")
+      ? (b.status as BackupEntry["status"])
       : "pending";
     out.push({
-      date: key,
+      date: d.toISOString().slice(0, 10),
       status,
-      sizeBytes: typeof rec.size_bytes === "number" ? rec.size_bytes : undefined,
-      retentionDays: typeof rec.retention_days === "number" ? rec.retention_days : undefined,
+      sizeBytes: typeof b.size_bytes === "number" ? b.size_bytes : undefined,
+      retentionDays: typeof b.retention_days === "number" ? b.retention_days : undefined,
     });
   }
+  out.sort((a, b) => a.date.localeCompare(b.date));
   return out;
 }
 
@@ -262,53 +337,54 @@ export async function computeWebcareDashboardKpis(
       kpis: EMPTY_RESPONSE.kpis,
       securityFactors: EMPTY_RESPONSE.securityFactors,
       backupTimeline30d: EMPTY_RESPONSE.backupTimeline30d,
+      backupsTracked: false,
+      incidentHistoryTracked: false,
       lastIncident: null,
-      bestStreakDays: 0,
+      bestStreakDays: null,
       hasWebcareService: false,
     };
   }
 
   const csMeta: Record<string, unknown> = (svc.cs_metadata as Record<string, unknown>) ?? {};
-  const securityState = (csMeta.webcare_security_state as Record<string, unknown>) ?? {};
   const history = Array.isArray(csMeta.uptime_history)
     ? (csMeta.uptime_history as UptimeEntry[])
     : [];
 
-  const { score: secScore, factors: secFactors } = computeSecurity(securityState);
+  const { grade: securityGrade, factors: secFactors } = computeSecurity(csMeta);
   const { pct: uptimePct, incident } = computeUptime(history);
 
-  // Days without incident — derived from lastIncident or stored streak.
-  let daysWithoutIncident: number;
+  // Days without incident — only meaningful once we have uptime checks to
+  // count from. With no history at all this is unknown, not zero.
+  const incidentHistoryTracked = history.length > 0;
+  let daysWithoutIncident: number | null = null;
   if (incident) {
     daysWithoutIncident = incident.daysAgo;
-  } else {
-    const startedAt = typeof csMeta.webcare_incident_clean_since === "string"
-      ? new Date(csMeta.webcare_incident_clean_since).getTime()
+  } else if (incidentHistoryTracked) {
+    const firstTs = new Date(history[0]!.ts).getTime();
+    daysWithoutIncident = Number.isFinite(firstTs)
+      ? Math.max(0, Math.floor((Date.now() - firstTs) / 86_400_000))
       : null;
-    daysWithoutIncident = startedAt
-      ? Math.max(0, Math.floor((Date.now() - startedAt) / 86_400_000))
-      : 0;
   }
 
-  const bestStreakDays = Math.max(
-    daysWithoutIncident,
-    num(csMeta.webcare_best_streak_days),
-  );
+  // No best-streak is persisted anywhere, so the only defensible value is
+  // the current streak. Reporting a separate "record" would invent history.
+  const bestStreakDays = daysWithoutIncident;
 
-  // Performance score — Lighthouse averages. Stored by an existing worker
-  // hook; defaults to 0 (empty-state in the gauge) until it lands.
-  const perfState = (csMeta.webcare_perf_state as Record<string, unknown>) ?? {};
-  const perfDesktop = num(perfState.desktop_score);
-  const perfMobile = num(perfState.mobile_score);
-  const perfAvg = perfDesktop > 0 && perfMobile > 0
-    ? Math.round((perfDesktop + perfMobile) / 2)
-    : Math.max(perfDesktop, perfMobile);
+  // Performance: we run no Lighthouse job and nothing writes a perf score.
+  // Reporting 0 rendered as "0/100 performance" for every customer.
+  const performanceScore = null;
 
-  // Pending updates from the latest maintenance snapshot.
-  const updates = (csMeta.webcare_pending_updates as Record<string, unknown>) ?? {};
-  const pendingUpdates = num(updates.plugin_count)
-    + num(updates.theme_count)
-    + num(updates.core_count);
+  // Pending updates — read the REAL maintenance snapshot. The old code read
+  // `webcare_pending_updates`, a key nothing writes, so this always summed to
+  // 0 and rendered a green "all clear" gauge even for sites with a dozen
+  // outdated plugins. webcareMaintenanceWorker genuinely writes
+  // `last_plugin_update.updates_available` on every monthly sweep.
+  const lastPluginUpdate = csMeta.last_plugin_update as Record<string, unknown> | undefined;
+  const pendingUpdates =
+    lastPluginUpdate && typeof lastPluginUpdate === "object"
+      && typeof lastPluginUpdate.updates_available === "number"
+      ? num(lastPluginUpdate.updates_available)
+      : null;
 
   const backupTimeline30d = buildBackupTimeline(
     Array.isArray(csMeta.webcare_backups)
@@ -318,18 +394,18 @@ export async function computeWebcareDashboardKpis(
 
   return {
     kpis: {
-      securityGrade: { score: secScore, letter: letterFor(secScore) },
+      securityGrade,
       uptimePct,
       daysWithoutIncident,
-      performanceScore: {
-        desktop: perfDesktop,
-        mobile: perfMobile,
-        avg: perfAvg,
-      },
+      performanceScore,
       pendingUpdates,
     },
     securityFactors: secFactors,
     backupTimeline30d,
+    // We run no backup job at all, so an empty strip means "not tracked",
+    // never "zero backups succeeded".
+    backupsTracked: backupTimeline30d.length > 0,
+    incidentHistoryTracked,
     lastIncident: incident,
     bestStreakDays,
     hasWebcareService: true,

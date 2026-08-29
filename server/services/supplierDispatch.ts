@@ -24,6 +24,7 @@ import { storage } from "../storage";
 import type { FulfillmentTask, Supplier } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { chat } from "./aiService";
+import { isUndeliverablePlaceholderEmail } from "./supplierPlaceholder";
 
 const log = createLogger("SupplierDispatch");
 
@@ -180,6 +181,25 @@ async function dispatchViaEmail(
   if (!supplier.contact_email) {
     log.warn(`Supplier #${supplier.id} (${supplier.name}) has no contact_email — skipping email dispatch`);
     return { dispatched: false, dispatch_method: "email", reason: "supplier_no_email", supplier_id: supplier.id };
+  }
+
+  // HARD STOP: never send a brief to a reserved/placeholder domain. Briefs
+  // carry customer business details and (for SiteLaunch) full onboarding
+  // answers; example.com is not ours, so this would be a data leak. Enforced
+  // here as well as at assignment time because rows seeded before this guard
+  // may still be flagged active in an existing database.
+  if (isUndeliverablePlaceholderEmail(supplier.contact_email)) {
+    log.error(
+      `BLOCKED supplier dispatch for task #${task.id}: supplier #${supplier.id} ` +
+      `("${supplier.name}") has a placeholder contact_email. Set a real address ` +
+      `or deactivate the supplier.`,
+    );
+    return {
+      dispatched: false,
+      dispatch_method: "email",
+      reason: "supplier_placeholder_email",
+      supplier_id: supplier.id,
+    };
   }
 
   const transporter = getEmailTransporter();

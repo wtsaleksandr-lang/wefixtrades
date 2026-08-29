@@ -28,7 +28,7 @@ export const SCRAPER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /** Per-request timeout. 8s lines up with the wave brief and keeps the
- * worst-case daily-scan within a reasonable window for 50+ directories. */
+ * worst-case daily-scan within a reasonable window across the monitored directories. */
 export const SCRAPER_TIMEOUT_MS = 8_000;
 
 /** Politeness delay window. Each fetch sleeps a uniformly-random amount
