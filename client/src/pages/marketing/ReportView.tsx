@@ -744,8 +744,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   // BF-6 → tools-consolidation: "Rank Grid" tab merged from /tools/map-snapshot.
-  // Lives between Google Maps and Website so visitors see the 5×5 GBP rank-grid
-  // adjacent to the rest of their Maps health data. Lazy-rendered (only mounts
+  // Lives between Google Maps and Website so visitors see the GBP rank-grid
+  // adjacent to the rest of their Maps health data. The grid is 3×3 (nine real
+  // SERP measurements) — see the COST note in server/routes/mapSnapshotRoutes.ts;
+  // it was a 5×5 only while the ranks were synthesised and therefore free.
+  // Lazy-rendered (only mounts
   // MapSnapshotShell when the tab is opened) so the audit page doesn't fire a
   // second backend call unless the visitor actually asks for it.
   // Tab order: Maps → Rank Grid → SEO Checklist → Site Speed → Website
