@@ -257,8 +257,9 @@ export default function PrivacyPage() {
           Three things survive deletion:
         </p>
         <ul style={ul}>
-          <li><strong>Paid invoices, orders and payment records</strong> — retained for 7 years to meet tax and accounting obligations (see section 8). They stay attached to the anonymized account record, which no longer identifies you.</li>
+          <li><strong>Paid invoices, orders, subscription records and payment history</strong> — retained for 7 years to meet tax and accounting obligations (see section 8). They stay attached to the anonymized account record, which no longer identifies you.</li>
           <li><strong>Do-not-contact and unsubscribe records</strong> — if we deleted the record of your opt-out, we could lawfully be re-added to a mailing or texting list. Keeping it is what makes your opt-out permanent.</li>
+          <li><strong>Referral credit earned by whoever referred you</strong> — that record belongs to the referring account, not yours; deleting it would revoke a credit somebody else earned. It holds no personal data of yours.</li>
           <li><strong>The security audit log of staff access to your account</strong> — it stores account ID numbers only, which identify nobody once the account is anonymized.</li>
         </ul>
         <p style={{ marginTop: 12 }}>

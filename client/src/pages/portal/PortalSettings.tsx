@@ -543,7 +543,6 @@ interface DeletionPreview {
 
 function DeleteAccountSection() {
   const { toast } = useToast();
-  const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [phrase, setPhrase] = useState("");
   const [password, setPassword] = useState("");
@@ -598,7 +597,12 @@ function DeleteAccountSection() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-red-200 dark:border-red-900/60 p-5">
+    /* Light-locked, like every other card on this page. The Settings surface
+       is wrapped in data-theme="light" but Tailwind's darkMode is class-based
+       off <html>, so a `dark:text-*` variant on a `bg-white` card fires while
+       the card stays white — pale grey on white, ~1.5:1. Don't reintroduce
+       `dark:` colour variants here. */
+    <div className="bg-white rounded-xl border border-red-200 p-5 text-gray-900">
       <HelpCueRow
         cue={
           <InfoCue
@@ -606,11 +610,11 @@ function DeleteAccountSection() {
             testid="account-delete"
           />
         }
-        title="Delete account"
+        title={<span className="text-gray-900">Delete account</span>}
       />
 
-      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-xs text-gray-600 dark:text-gray-300">
+      <div className="pt-2 border-t border-gray-200">
+        <p className="text-xs text-gray-600">
           This permanently deletes your WeFixTrades account
           {preview.businesses.length > 0 && (
             <> and everything under <span className="font-medium">{preview.businesses.join(", ")}</span></>
@@ -618,37 +622,44 @@ function DeleteAccountSection() {
           . It happens straight away and <span className="font-semibold">cannot be undone</span>.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+        {/* items-start so the shorter column doesn't stretch into a hollow box. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 items-start">
+          <div className="rounded-lg border border-gray-200 p-3">
+            <p className="text-xs sm:text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
               Deleted immediately
             </p>
-            <ul className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 list-disc pl-4 space-y-0.5">
+            {/* 12px on phones, 11px from sm up: this is legally-consequential
+                disclosure copy, so it stays comfortably readable on mobile. */}
+            <ul className="text-xs sm:text-[11px] leading-relaxed text-gray-600 list-disc pl-4 space-y-0.5">
               {preview.deletes.map((d) => (
                 <li key={d}>{d}</li>
               ))}
             </ul>
           </div>
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+          <div className="rounded-lg border border-gray-200 p-3">
+            <p className="text-xs sm:text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
               Kept, and why
             </p>
-            <ul className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 space-y-1.5">
+            <ul className="text-xs sm:text-[11px] leading-relaxed text-gray-600 space-y-1.5">
               {preview.retains.map((r) => (
                 <li key={r.what}>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{r.what}</span>
-                  <span className="block text-gray-500 dark:text-gray-400">{r.why}</span>
+                  <span className="font-medium text-gray-800">{r.what}</span>
+                  <span className="block text-gray-500">{r.why}</span>
                 </li>
               ))}
             </ul>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-gray-200">
           <Button
             type="button"
             variant="outline"
-            className="text-xs"
+            /* text-gray-700 is load-bearing: the outline variant is
+               bg-transparent with no colour of its own, so without this it
+               inherits the root's text-foreground and goes white-on-white
+               when the app is in dark mode. */
+            className="text-xs text-gray-700"
             data-testid="button-export-account-data"
             onClick={() => {
               window.location.href = "/api/portal/account/export";
@@ -659,7 +670,7 @@ function DeleteAccountSection() {
           <Button
             type="button"
             variant="outline"
-            className="text-xs border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+            className="text-xs border-red-300 text-red-700 hover:bg-red-50"
             data-testid="button-delete-account"
             onClick={() => {
               reset();
@@ -679,7 +690,9 @@ function DeleteAccountSection() {
         }}
       >
         <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
+          {/* shadcn's AlertDialogHeader is `text-center sm:text-left`; the
+              repo rule is left-aligned headers at every width. */}
+          <AlertDialogHeader className="text-left">
             <AlertDialogTitle>Permanently delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
               This erases your data now. It cannot be undone, and we cannot restore it for you.
@@ -695,7 +708,7 @@ function DeleteAccountSection() {
                 label="Your account email"
                 type="email"
                 autoComplete="off"
-                className="pl-0"
+                inputClassName="text-gray-900"
                 value={confirmEmail}
                 onChange={setConfirmEmail}
                 help={`You sign in with a linked account, so type ${preview.email} to confirm it is you.`}
@@ -707,7 +720,7 @@ function DeleteAccountSection() {
                 label="Your password"
                 type="password"
                 autoComplete="current-password"
-                className="pl-0"
+                inputClassName="text-gray-900"
                 value={password}
                 onChange={setPassword}
                 help="Confirms it is you, not someone using your open session."
@@ -718,7 +731,7 @@ function DeleteAccountSection() {
               id="delete-confirm-phrase"
               label={`Type ${preview.confirm_phrase} to confirm`}
               autoComplete="off"
-              className="pl-0"
+              inputClassName="text-gray-900"
               value={phrase}
               onChange={setPhrase}
               help="A deliberate step, so this can never happen by a stray click."
@@ -732,10 +745,14 @@ function DeleteAccountSection() {
             </p>
           )}
 
-          <AlertDialogFooter>
+          {/* shadcn's footer is `flex-col-reverse sm:flex-row`, which on a
+              phone stacks the filled-red irreversible action ABOVE the cancel
+              and makes it read as the default. Force natural order so "Keep my
+              account" stays on top at 375px; desktop is unchanged. */}
+          <AlertDialogFooter className="flex-col sm:flex-row">
             <AlertDialogCancel>Keep my account</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 text-white"
               disabled={!canSubmit || deleteMutation.isPending}
               data-testid="button-confirm-delete-account"
               onClick={(e) => {

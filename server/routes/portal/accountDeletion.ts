@@ -139,14 +139,21 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
             "Call recordings, voicemails, SMS history and mobile devices",
             "Support tickets, chat history and AI assistant conversations",
           ],
+          /* Every `keep` entry in the plan must be represented here. If you add
+             one, add it to this list, to privacy.tsx §10 and to its prerender
+             twin — otherwise the product claims data is gone that is not. */
           retains: [
             {
-              what: "Paid invoices, orders and payment records",
+              what: "Paid invoices, orders, subscription records and payment history",
               why: "We must keep financial records for 7 years to meet tax and accounting obligations. They stay linked to an anonymised account that no longer identifies you.",
             },
             {
               what: "Do-not-contact and unsubscribe lists",
               why: "If we deleted the record of your opt-out we could email or text you again. Keeping it is what makes the opt-out permanent.",
+            },
+            {
+              what: "Referral credit earned by whoever referred you",
+              why: "That record belongs to the other account, not to yours. Deleting it would revoke a credit somebody else earned. It holds no personal data of yours.",
             },
             {
               what: "Security audit log of staff access to your account",
