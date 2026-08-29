@@ -87,6 +87,8 @@ jobs:
         run: npm run check:citation-evidence
       - name: MapSnapshot rank-honesty guard (public snapshot never publishes an unmeasured rank; RNG grid + invented audit cards stay deleted; legacy synthetic rows downgraded on read; anonymous visitors cannot reach a paid SERP provider)
         run: npm run check:mapsnapshot-rank-honesty
+      - name: Public SERP spend-cap guard (MONTHLY_LIMIT 0 means NO free allowance not unlimited, so the quota gate can actually bind the one provider that bills; paid providers are DEFAULT-DENY — reachable only via an explicit allowPaidProviders opt-in, which no public/anonymous surface carries; the free rank-grid keeps a bounded per-IP + per-day fan-out and degrades unfunded points to "unavailable" with no number)
+        run: npm run check:public-serp-spend
       - name: AdFlow action-honesty guard (no "campaign paused" claim without an ad-platform integration; requests create a real fulfillment task; @example.com suppliers blocked on both assign + send; MapGuard grid never fabricates pin geography)
         run: npm run check:adflow-action-honesty
       - name: TradeLine route-order guard (literal /knowledge,/voices,/settings must not be shadowed by the :clientServiceId param route → no NaN 400; numeric ids still served)

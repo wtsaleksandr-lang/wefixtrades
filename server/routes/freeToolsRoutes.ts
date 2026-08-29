@@ -26,9 +26,17 @@
  *     → { ok, gridPoints: [{ lat, lng, rank, mapRank }], summary, center }
  *
  * Rate limit: shared with the existing /api/audit/* tab tools — 20 req /
- * hour / IP per tool. Implemented in-memory; not horizontally safe but
- * fine for the single-instance Replit deploy. Rotation of historical
- * rankflux data is P2 (see Rankflux page docstring).
+ * hour / IP per tool (local-rank-grid is tighter, see RANK_GRID_HOURLY_MAX).
+ * Implemented in-memory; not horizontally safe but fine for the
+ * single-instance Replit deploy. Rotation of historical rankflux data is P2
+ * (see Rankflux page docstring).
+ *
+ * COST: every tool here is PUBLIC and ANONYMOUS, so none of them may pass
+ * `allowPaidProviders` to searchSerp(). The orchestrator default-denies
+ * pay-as-you-go providers, so these routes are structurally incapable of
+ * billing; `npm run check:public-serp-spend` fails the build if that ever
+ * changes. When the free pool runs dry the orchestrator throws and the
+ * handlers report the result as unchecked — never an estimate.
  */
 
 import type { Express, Request, Response } from "express";
@@ -39,6 +47,7 @@ import { sql } from "drizzle-orm";
 import { queueEmail } from "../services/emailQueueService";
 import { storage } from "../storage";
 import { searchSerp } from "../lib/serpOrchestrator";
+import { reserveDailyCalls } from "../lib/publicSerpBudget";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
 import { chat, NoAIProviderError, validateConfig } from "../services/aiService";
 
@@ -87,7 +96,12 @@ const buckets = new Map<string, Bucket>();
 const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_MAX = 20;
 
-function rateOk(tool: string, req: Request, res: Response): boolean {
+/**
+ * `max` overrides the default 20/hour for a tool whose per-request fan-out is
+ * large enough that 20 submits is not a sane worst case (see
+ * RANK_GRID_HOURLY_MAX).
+ */
+function rateOk(tool: string, req: Request, res: Response, max = RATE_MAX): boolean {
   const ip = (req.ip || req.socket.remoteAddress || "unknown").toString();
   const key = `${tool}:${ip}`;
   const now = Date.now();
@@ -97,7 +111,7 @@ function rateOk(tool: string, req: Request, res: Response): boolean {
     buckets.set(key, b);
   }
   b.count++;
-  if (b.count > RATE_MAX) {
+  if (b.count > max) {
     res.status(429).json({
       ok: false,
       error: "Too many requests — try again in an hour.",
@@ -874,8 +888,34 @@ async function enrichCompetitor(
   }
 }
 
+/* ─── Rank-grid spend ceiling ─────────────────────────────────────────
+ *
+ * This endpoint is PUBLIC and ANONYMOUS, and one submit fans out to
+ * `gridSize² × 2` orchestrator calls. At the shared 20/hour/IP default that
+ * was 20 × 50 = 1,000 SERP calls per hour per IP — and, before the
+ * default-deny cost gate in server/lib/serpOrchestrator.ts, those could fall
+ * through to the pay-as-you-go provider. Two ceilings now bound it:
+ *
+ *   1. Money: the orchestrator default-denies paid providers, so nothing this
+ *      handler does can bill. (It never passes `allowPaidProviders`, and the
+ *      CI guard `npm run check:public-serp-spend` fails if it ever does.)
+ *   2. Free pool: a tighter per-IP hourly cap plus a process-wide daily
+ *      ledger, so this lead magnet takes a slice of the ~2,600/month free
+ *      google_maps capacity rather than the whole thing.
+ *
+ * Worst case per IP: 6 × 50 = 300 free-tier SERP calls/hour, $0.
+ * Worst case for the tool overall: RANK_GRID_DAILY_CALL_BUDGET/UTC day across
+ * every visitor. Points past the budget come back "unavailable" — the client
+ * already renders those grey, with no number, and excludes them from the
+ * dead-zone count.
+ */
+const RANK_GRID_HOURLY_MAX = 6;
+const RANK_GRID_CALLS_PER_POINT = 2;   // google_web + google_maps
+const RANK_GRID_DAILY_CALL_BUDGET = 600;
+const RANK_GRID_BUDGET_BUCKET = "tools:local-rank-grid";
+
 async function localRankGridHandler(req: Request, res: Response) {
-  if (!rateOk("rank-grid", req, res)) return;
+  if (!rateOk("rank-grid", req, res, RANK_GRID_HOURLY_MAX)) return;
   const businessName = strField(req.body?.businessName, 120);
   const city = strField(req.body?.city, 80);
   const keyword = strField(req.body?.keyword, 120);
@@ -904,18 +944,48 @@ async function localRankGridHandler(req: Request, res: Response) {
   const radiusKm = (spacingMiles * 1.60934 * (gridSize - 1)) / 2;
   const grid = buildGrid(geo.lat, geo.lng, radiusKm, gridSize);
 
+  // Reserve this scan's share of the tool's daily free-tier slice. Points we
+  // cannot fund are returned "unavailable" WITHOUT a provider call — the same
+  // honest degrade the handler already uses when both providers fail. Never a
+  // fabricated or interpolated rank.
+  const grantedCalls = reserveDailyCalls(
+    RANK_GRID_BUDGET_BUCKET,
+    RANK_GRID_DAILY_CALL_BUDGET,
+    grid.length * RANK_GRID_CALLS_PER_POINT,
+  );
+  const fundedPointCount = Math.floor(grantedCalls / RANK_GRID_CALLS_PER_POINT);
+  if (fundedPointCount < grid.length) {
+    log.warn("[rank-grid] daily free-tier budget limits this scan", {
+      requestedPoints: grid.length,
+      fundedPoints: fundedPointCount,
+    });
+  }
+  const unfundedPoint = (pt: { lat: number; lng: number }) => ({
+    lat: pt.lat,
+    lng: pt.lng,
+    rank: null as number | null,
+    mapRank: null as number | null,
+    status: "unavailable" as "ranked" | "not-found" | "unavailable",
+    topResults: [] as Array<{ rank: number; name: string; rating: number | null; reviewsCount: number | null }>,
+  });
+
   // size×size parallel searches via the multi-provider orchestrator (Wave 6.5).
   // Each request carries per-point lat/lng — Serper consumes them
   // directly; other providers ignore them and fall back to the city
   // location text. We dual-call web + maps per point (Local Pack rank is
   // what matters for trades; organic rank is the fallback signal).
   //
+  // No `allowPaidProviders` here, deliberately and permanently: this is an
+  // anonymous public endpoint, so it must be structurally incapable of
+  // reaching a provider that bills. Guarded by check:public-serp-spend.
+  //
   // Wave 6A: also retain the top-3 Local Pack results per point so the
   // frontend can render a hover popover ("who's #1/2/3 at this exact
   // lat/lng") and aggregate the most-frequent #1s into a competitor
   // sidebar.
   const points = await Promise.all(
-    grid.map(async (pt) => {
+    grid.map(async (pt, index) => {
+      if (index >= fundedPointCount) return unfundedPoint(pt);
       try {
         const [searchResp, mapsResp] = await Promise.allSettled([
           searchSerp({
@@ -1041,7 +1111,18 @@ async function localRankGridHandler(req: Request, res: Response) {
     gridSize,
     spacingMiles,
     gridPoints: points,
-    summary: { avgRank, top3Count, missedCount, unavailableCount, checkedCount, totalPoints: points.length },
+    summary: {
+      avgRank,
+      top3Count,
+      missedCount,
+      unavailableCount,
+      checkedCount,
+      totalPoints: points.length,
+      // True when the tool's daily free-tier slice — not a provider hiccup —
+      // is what left points unchecked. The client says so plainly instead of
+      // telling the visitor to retry in a minute, which would not help.
+      budgetLimited: fundedPointCount < grid.length,
+    },
     competitors,
   });
 }

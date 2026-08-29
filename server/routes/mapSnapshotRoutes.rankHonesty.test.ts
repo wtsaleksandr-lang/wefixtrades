@@ -269,10 +269,20 @@ async function main(): Promise<void> {
     const orch = readFileSync("server/lib/serpOrchestrator.ts", "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
+    // The gate is now DEFAULT-DENY (strictly stronger than the original
+    // freeTierOnly opt-out): a pay-as-you-go provider is skipped unless the
+    // caller explicitly opted in. `freeTierOnly` remains a hard refusal that
+    // out-ranks any opt-in. Full coverage lives in
+    // server/lib/serpOrchestrator.spendCap.test.ts (check:public-serp-spend).
     assert.match(
       orch,
-      /req\.freeTierOnly\s*&&\s*mod\.MONTHLY_LIMIT\s*<=\s*0/,
-      "the orchestrator must skip pay-as-you-go providers when freeTierOnly is set",
+      /if\s*\(providerIsPayAsYouGo\(mod\)\)\s*\{\s*if\s*\(!paidProvidersAllowed\(req\)\)/,
+      "the orchestrator must default-deny pay-as-you-go providers",
+    );
+    assert.match(
+      orch,
+      /req\.freeTierOnly === true\) return false/,
+      "freeTierOnly must stay a hard 'never paid'",
     );
   });
 

@@ -168,6 +168,10 @@ interface RankGridResult {
     /** Points successfully checked (totalPoints − unavailableCount). */
     checkedCount?: number;
     totalPoints?: number;
+    /** True when this tool's daily free-tier measurement budget — not a
+     *  provider hiccup — is why points went unchecked. Retrying won't help,
+     *  so the banner must not suggest it. */
+    budgetLimited?: boolean;
   };
   center: { lat: number; lng: number; address?: string };
   competitors: Competitor[];
@@ -474,8 +478,19 @@ export default function LocalRankGrid() {
           <span>
             <strong>{result.summary.unavailableCount}</strong> of{" "}
             {result.summary.totalPoints ?? result.gridPoints.length} points couldn&rsquo;t be
-            checked (search provider was rate-limited). They&rsquo;re shown in grey and
-            excluded from the dead-zone count — re-run in a minute for full coverage.
+            checked{" "}
+            {result.summary.budgetLimited ? (
+              <>
+                &mdash; this free tool&rsquo;s daily measurement budget is spent. They&rsquo;re
+                shown in grey and excluded from the dead-zone count; full coverage resets
+                tomorrow.
+              </>
+            ) : (
+              <>
+                (search provider was rate-limited). They&rsquo;re shown in grey and excluded
+                from the dead-zone count &mdash; re-run in a minute for full coverage.
+              </>
+            )}
           </span>
         </div>
       )}

@@ -196,8 +196,13 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
   const promises = keywords.map(async (keyword): Promise<KeywordResult> => {
     try {
       const [searchSettled, mapsSettled] = await Promise.allSettled([
-        searchSerp({ query: `${keyword} ${city}`, num: 20, country: "au", language: "en", engine: "google_web" }),
-        searchSerp({ query: `${keyword} ${city}`, country: "au", language: "en", engine: "google_maps" }),
+        // Scheduled monitoring for provisioned MapGuard clients — not
+        // anonymous traffic, and the keyword set is bounded by the client's
+        // own configuration. Opt in to the paid fallback so behaviour is
+        // unchanged by the default-deny cost gate that now protects the
+        // public/anonymous surfaces.
+        searchSerp({ query: `${keyword} ${city}`, num: 20, country: "au", language: "en", engine: "google_web", allowPaidProviders: true }),
+        searchSerp({ query: `${keyword} ${city}`, country: "au", language: "en", engine: "google_maps", allowPaidProviders: true }),
       ]);
       if (searchSettled.status !== "fulfilled" && mapsSettled.status !== "fulfilled") {
         console.warn(`[mapguard-monitor] serp orchestrator failed for "${keyword}"`);

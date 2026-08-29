@@ -32,7 +32,7 @@ server/services/contentflow/imageOrchestrator.ts:482:38	silent-catch	.catch(() =
 server/services/contentflow/imageOrchestrator.ts:538:34	silent-catch	.catch(() => null)
 server/services/contentflow/imageOrchestrator.ts:961:34	silent-catch	.catch(() => null)
 server/services/contentflow/infographicService.ts:190:42	silent-catch	.catch(() => {})
-server/services/contentflow/serpAwareGenerator/briefBuilder.ts:282:40	empty-catch-block	} catch {}
+server/services/contentflow/serpAwareGenerator/briefBuilder.ts:286:40	empty-catch-block	} catch {}
 server/services/contentflow/videoContentService.ts:188:71	silent-catch	.catch(() => {})
 server/services/contentflow/videoOrchestrator.ts:198:4	silent-catch	.catch(() => null)
 server/services/contentflow/videoOrchestrator.ts:200:30	silent-catch	.catch(() => null)
