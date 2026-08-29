@@ -6,6 +6,7 @@ import type {
   WidgetAnswers,
 } from './types';
 import type { WizardFlow, StepDefinition } from '@shared/wizardSchema';
+import { rebuildEstimateInputs } from '@shared/quoteRecompute';
 import { evaluateVisibility, getNearestVisibleStepIndex } from './visibility';
 
 /* ─── Initial State ─── */
@@ -95,45 +96,14 @@ function updateEstimateInputs(
 /**
  * Rebuild estimateInputs from scratch by replaying all remaining answers
  * against question definitions. Used after clearing hidden answers.
+ *
+ * Wave QQ-INT — the implementation MOVED to shared/quoteRecompute.ts (imported
+ * at the top of this file) so the server can reproduce this widget's own number
+ * when it verifies a submitted quote_amount. It is imported rather than
+ * duplicated on purpose: two copies of this mapping would drift, and a drifted
+ * copy means the server "corrects" a correct customer quote. Keep it in
+ * shared/ — do not re-inline it here.
  */
-function rebuildEstimateInputs(
-  flow: WizardFlow,
-  answers: WidgetAnswers,
-): WidgetState['estimateInputs'] {
-  const inputs: WidgetState['estimateInputs'] = {
-    quantity: 1,
-    selectedTierIndex: 0,
-    selectedAddOnIds: [],
-    selectedDifficultyId: '',
-    isAfterHours: false,
-  };
-  for (const step of flow.steps) {
-    if (!Array.isArray(step.questions)) continue;
-    for (const q of step.questions) {
-      const val = answers[q.id];
-      if (val !== undefined && q.maps_to) {
-        switch (q.maps_to) {
-          case 'quantity':
-            inputs.quantity = typeof val === 'number' ? val : Number(val) || 1;
-            break;
-          case 'selected_tier_index':
-            inputs.selectedTierIndex = typeof val === 'number' ? val : Number(val) || 0;
-            break;
-          case 'selected_add_on_ids':
-            inputs.selectedAddOnIds = Array.isArray(val) ? val : [String(val)];
-            break;
-          case 'selected_difficulty_id':
-            inputs.selectedDifficultyId = String(val);
-            break;
-          case 'is_after_hours':
-            inputs.isAfterHours = Boolean(val);
-            break;
-        }
-      }
-    }
-  }
-  return inputs;
-}
 
 /* ─── Reducer ─── */
 

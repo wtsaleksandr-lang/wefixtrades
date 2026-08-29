@@ -624,6 +624,21 @@ export default function WizardShell({ embed = false }: Props) {
   // visitors default to 'free'. No leak: the endpoint returns only id,
   // slug, plan_tier, business_name.
   const [planTier, setPlanTier] = useState<string>('free');
+  /* Wave QQ-INT — SERVER-COMPUTED feature allow-map from /api/calculators/me.
+   *
+   * The wizard renders its tier locks from this rather than re-deriving the
+   * tier table client-side. Re-deriving is how the five server-side "is this
+   * account paid?" predicates drifted apart in the first place, and a client
+   * that disagrees with the server either offers a control the server will
+   * reject or hides one the customer has paid for.
+   *
+   * Defaults to all-locked so a failed/slow fetch never briefly offers a paid
+   * control (fail closed, same posture as useIsPaid). */
+  const [featureAllow, setFeatureAllow] = useState<Record<string, boolean>>({
+    lead_webhook: false,
+    booking_deposits: false,
+    sms_followups: false,
+  });
   // IA-1 (2026-05-22) — minimal calculator identity captured from
   // /api/calculators/me. Used by the minimize-to-dashboard handler to
   // build a resumable session for the floating badge.
@@ -676,6 +691,14 @@ export default function WizardShell({ embed = false }: Props) {
           if (cancelled) return;
           if (typeof data?.plan_tier === 'string') {
             setPlanTier(data.plan_tier);
+          }
+          // Wave QQ-INT — adopt the server's entitlement verdict verbatim.
+          if (data?.features && typeof data.features === 'object') {
+            setFeatureAllow({
+              lead_webhook: data.features.lead_webhook === true,
+              booking_deposits: data.features.booking_deposits === true,
+              sms_followups: data.features.sms_followups === true,
+            });
           }
           // Capture minimal identity for the minimize handler — id +
           // business_name only. /api/calculators/me already restricts
@@ -2362,6 +2385,7 @@ export default function WizardShell({ embed = false }: Props) {
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                       planTier={planTier}
+                      featureAllow={featureAllow}
                       editToken={editToken}
                       /* ROOF-WIDGET — the widget owns its own lead form; trim
                          the calculator lead-form-fields builder, keep notify. */
@@ -2660,6 +2684,7 @@ export default function WizardShell({ embed = false }: Props) {
                     settings={state.settings ?? {}}
                     onChange={setSettings}
                     planTier={planTier}
+                    featureAllow={featureAllow}
                     editToken={editToken}
                     isRoofWidget={isRoofWidget}
                   />

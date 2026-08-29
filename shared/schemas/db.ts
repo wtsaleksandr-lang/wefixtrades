@@ -214,6 +214,13 @@ export const leads = pgTable("leads", {
   phone: text("phone"),
   company: text("company"),
   quote_amount: integer("quote_amount"),
+  // Wave QQ-INT (migrations/0098) — server-side quote recompute audit trail.
+  // `quote_amount` is now the SERVER's number wherever it can be faithfully
+  // recomputed; `quote_amount_client` preserves what the browser posted so a
+  // correction stays provable after the fact. `quote_recompute_status` records
+  // which engine ran and what it concluded. NULL on pre-Wave rows.
+  quote_amount_client: integer("quote_amount_client"),
+  quote_recompute_status: varchar("quote_recompute_status", { length: 32 }),
   answers: jsonb("answers"),
   status: varchar("status", { length: 20 }).default("new").notNull(),
   sms_consent: boolean("sms_consent").default(false),
@@ -263,6 +270,13 @@ export const leads = pgTable("leads", {
   expiresSoonPendingIdx: index("idx_leads_expires_soon_pending")
     .on(table.quote_expires_at)
     .where(sql`${table.expires_soon_sent_at} IS NULL AND ${table.quote_expires_at} IS NOT NULL AND ${table.status} = 'new'`),
+  // migrations/0098_lead_quote_recompute.sql — partial index over the rare
+  // rows where the server overrode the browser's quote_amount, so "show me
+  // every corrected quote" stays cheap without carrying an index entry for
+  // every ordinary lead.
+  quoteRecomputeMismatchIdx: index("leads_quote_recompute_mismatch_idx")
+    .on(table.calculator_id, table.created_date)
+    .where(sql`${table.quote_recompute_status} = 'corrected'`),
 }));
 
 export const notificationQueue = pgTable("notification_queue", {

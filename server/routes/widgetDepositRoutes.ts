@@ -20,6 +20,11 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import { widgetDeposits } from "@shared/schema";
+import {
+  checkQuoteQuickFeature,
+  featureGateErrorBody,
+  QQ_FEATURE_GATE_STATUS,
+} from "@shared/quotequickEntitlements";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("WidgetDeposit");
@@ -85,6 +90,34 @@ export function registerWidgetDepositRoutes(app: Express): void {
           return res
             .status(400)
             .json({ error: "Deposit collection is not enabled" });
+        }
+
+        /* Wave QQ-INT — Business tier gate.
+         *
+         * shared/pricing.ts sells "Online booking + deposits" as a Business
+         * bullet, but this route previously required only depositCfg.enabled
+         * plus a connected Stripe account, so a free-tier calculator could
+         * collect deposits (and the platform booked its application fee on
+         * them). The wizard PATCH now strips the enable-toggle for
+         * unentitled plans, and this is the runtime backstop for a row that
+         * was enabled before the gate existed or written by another path.
+         *
+         * Grandfathering runs through the same helper, so an explicitly
+         * grandfathered calculator still takes deposits. */
+        const gate = checkQuoteQuickFeature(
+          calc.plan_tier,
+          "booking_deposits",
+          settings,
+        );
+        if (!gate.allowed) {
+          log.info("Wave QQ-INT gate — blocked deposit session on an unentitled plan", {
+            calculator_id: calc.id,
+            plan_tier: gate.planTier,
+            required_tier: gate.requiredTier,
+          });
+          return res
+            .status(QQ_FEATURE_GATE_STATUS)
+            .json(featureGateErrorBody("booking_deposits"));
         }
 
         // Stripe Connect account is stored alongside booking settings (set
