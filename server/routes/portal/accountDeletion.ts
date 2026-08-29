@@ -313,21 +313,41 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
 
       // End the session. The deletion transaction already removed every
       // `session` row for this user; this clears the cookie on the way out.
+      //
+      // The account IS deleted by this point, so every path below must still
+      // answer 200 — a teardown hiccup is not a deletion failure, and reporting
+      // one would send the customer back to retry something already done.
+      // `respond` is called exactly once from whichever branch we land in;
+      // never guard it with `?.`, which would silently hang the request.
+      let answered = false;
+      const respond = () => {
+        if (answered) return;
+        answered = true;
+        res.clearCookie("connect.sid");
+        res.json({
+          ok: true,
+          deleted_tables: Object.keys(receipt.deleted).length,
+          deleted_rows: receipt.total_rows_deleted,
+          sessions_revoked: receipt.sessions_revoked,
+          retained: receipt.retained,
+          completed_at: receipt.completed_at,
+        });
+      };
+
       req.logout((logoutErr) => {
         if (logoutErr) {
-          // The account IS deleted — reporting a failure here would be a lie.
           log.error("logout after account deletion failed", { error: String(logoutErr) });
         }
-        req.session?.destroy(() => {
-          res.clearCookie("connect.sid");
-          res.json({
-            ok: true,
-            deleted_tables: Object.keys(receipt.deleted).length,
-            deleted_rows: receipt.total_rows_deleted,
-            sessions_revoked: receipt.sessions_revoked,
-            retained: receipt.retained,
-            completed_at: receipt.completed_at,
-          });
+        // passport's logout can leave req.session undefined depending on the
+        // session middleware's state; in that case there is nothing to destroy.
+        if (!req.session) return respond();
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            log.error("session destroy after account deletion failed", {
+              error: String(destroyErr),
+            });
+          }
+          respond();
         });
       });
     } catch (err) {

@@ -274,9 +274,14 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
     /* 1. Sessions. connect-pg-simple's table has no user column — the id sits
      *    inside the `sess` JSON blob — so a foreign key could never reach it.
      *    Revoking first means that even if a later statement throws, the
-     *    rollback restores a consistent account rather than a signed-in one. */
+     *    rollback restores a consistent account rather than a signed-in one.
+     *
+     *    Compared as TEXT, not `::int`. `->>` already yields text, so this is
+     *    exactly as precise — and a single malformed session blob would make
+     *    the cast raise and roll back the entire deletion, which is a far worse
+     *    failure than skipping one stale row. */
     const sessionResult = await t.execute(sql`
-      DELETE FROM session WHERE (sess->'passport'->>'user')::int = ${userId}
+      DELETE FROM session WHERE sess->'passport'->>'user' = ${String(userId)}
     `);
     const sessionsRevoked = sessionResult.rowCount ?? 0;
 
