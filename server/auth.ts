@@ -66,6 +66,10 @@ export function setupPassport() {
       try {
         const user = await storage.getUserByEmail(email.toLowerCase().trim());
         if (!user) return done(null, false, { message: "Invalid email or password" });
+        // A deleted account's password_hash is already an unverifiable value,
+        // so this check is belt-and-braces — but it makes the intent explicit
+        // and keeps the refusal correct if the hash format ever changes.
+        if (user.deleted_at) return done(null, false, { message: "Invalid email or password" });
         if (!verifyPassword(password, user.password_hash))
           return done(null, false, { message: "Invalid email or password" });
         return done(null, { id: user.id, email: user.email, role: user.role, name: user.name });
@@ -83,6 +87,10 @@ export function setupPassport() {
     try {
       const user = await storage.getUserById(id);
       if (!user) return done(null, false);
+      // Deletion revokes every session row in the same transaction, so this
+      // should be unreachable — but a session restored from a backup must not
+      // resurrect a deleted account.
+      if (user.deleted_at) return done(null, false);
       done(null, { id: user.id, email: user.email, role: user.role, name: user.name });
     } catch (err) {
       done(err);

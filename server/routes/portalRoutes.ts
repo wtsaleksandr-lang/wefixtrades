@@ -42,6 +42,7 @@ import { registerPortalRankflowDashboardRoutes } from "./portal/rankflow/index";
 import { registerPortalCatalogRoutes } from "./portal/catalog";
 import { registerPortalTicketsRoutes } from "./portal/tickets";
 import { registerPortalSettingsRoutes } from "./portal/settings";
+import { registerPortalAccountDeletionRoutes } from "./portal/accountDeletion";
 import { registerPortalUniversalNotificationsRoutes } from "./portal/notifications";
 import { registerPortalLeadAnalyticsRoutes } from "./portal/leadAnalytics";
 
@@ -127,6 +128,10 @@ export function registerPortalRoutes(app: Express) {
   registerPortalCatalogRoutes(app);
   registerPortalTicketsRoutes(app);
   registerPortalSettingsRoutes(app);
+  // Self-service account deletion + data export (privacy policy §10,
+  // GDPR Art. 17 + Art. 20). Literal paths under /api/portal/account/*, so
+  // they must be registered before any /api/portal/:param route.
+  registerPortalAccountDeletionRoutes(app);
   // Wave 32: universal notifications surface — central registry +
   // dispatcher + web-push channel. Coexists with the per-product
   // notification-settings routes shipped in Waves 27-31; the unified

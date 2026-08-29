@@ -411,6 +411,11 @@ export default function PortalSettings() {
                   light progressive-disclosure tooltips re-appear on each
                   page. Useful for customers who want a refresher tour. */}
               <ResetOnboardingTipsCard />
+
+              {/* Delete account — the control the privacy policy §10 points
+                  customers at ("Settings → Account"). Last card on the tab so
+                  it is never the first thing a thumb reaches. */}
+              <DeleteAccountSection />
             </TabsContent>
 
             {/* ─── Notifications ─── */}
@@ -508,6 +513,259 @@ function ResetOnboardingTipsCard() {
       >
         {resetting ? "Resetting…" : "Reset onboarding tips"}
       </Button>
+    </div>
+  );
+}
+
+/* ─── Delete Account Section ───
+ *
+ * The in-app deletion path documented in the privacy policy §10
+ * ("Settings → Account → Delete account") and in the Meta App Dashboard's
+ * data-deletion instructions URL, /privacy#data-deletion.
+ *
+ * Two honesty rules govern this card:
+ *   1. It never claims data is gone that we keep. The kept categories and the
+ *      reason for each come from the server (`/deletion-preview`), which reads
+ *      them from the same plan the deletion itself runs — so the disclosure
+ *      cannot drift away from the behaviour.
+ *   2. It says the deletion is immediate and irreversible, because it is.
+ *      There is no grace window to walk back into.
+ */
+interface DeletionPreview {
+  email: string;
+  requires: "password" | "email";
+  confirm_phrase: string;
+  businesses: string[];
+  deletes: string[];
+  retains: { what: string; why: string }[];
+  already_deleted: boolean;
+}
+
+function DeleteAccountSection() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [phrase, setPhrase] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [error, setError] = useState("");
+
+  const { data: preview, isLoading } = useQuery<DeletionPreview>({
+    queryKey: ["/api/portal/account/deletion-preview"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          confirm: phrase.trim(),
+          password: password || undefined,
+          confirm_email: confirmEmail || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to delete account");
+      return body;
+    },
+    onSuccess: () => {
+      setOpen(false);
+      toast({
+        title: "Your account has been deleted",
+        description: "You have been signed out. Thank you for using WeFixTrades.",
+      });
+      // Full reload so no cached authenticated state survives.
+      window.location.href = "/";
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  if (isLoading || !preview) return null;
+
+  const needsEmail = preview.requires === "email";
+  const secondFactorFilled = needsEmail
+    ? confirmEmail.trim().toLowerCase() === preview.email.toLowerCase()
+    : password.length > 0;
+  const canSubmit = phrase.trim() === preview.confirm_phrase && secondFactorFilled;
+
+  function reset() {
+    setPhrase("");
+    setPassword("");
+    setConfirmEmail("");
+    setError("");
+  }
+
+  return (
+    /* Light-locked, like every other card on this page. The Settings surface
+       is wrapped in data-theme="light" but Tailwind's darkMode is class-based
+       off <html>, so a `dark:text-*` variant on a `bg-white` card fires while
+       the card stays white — pale grey on white, ~1.5:1. Don't reintroduce
+       `dark:` colour variants here. */
+    <div className="bg-white rounded-xl border border-red-200 p-5 text-gray-900">
+      <HelpCueRow
+        cue={
+          <InfoCue
+            text="Deleting your account erases your data immediately and permanently. Download a copy first if you want to keep it."
+            testid="account-delete"
+          />
+        }
+        title={<span className="text-gray-900">Delete account</span>}
+      />
+
+      <div className="pt-2 border-t border-gray-200">
+        <p className="text-xs text-gray-600">
+          This permanently deletes your WeFixTrades account
+          {preview.businesses.length > 0 && (
+            <> and everything under <span className="font-medium">{preview.businesses.join(", ")}</span></>
+          )}
+          . It happens straight away and <span className="font-semibold">cannot be undone</span>.
+        </p>
+
+        {/* items-start so the shorter column doesn't stretch into a hollow box. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 items-start">
+          <div className="rounded-lg border border-gray-200 p-3">
+            <p className="text-xs sm:text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+              Deleted immediately
+            </p>
+            {/* 12px on phones, 11px from sm up: this is legally-consequential
+                disclosure copy, so it stays comfortably readable on mobile. */}
+            <ul className="text-xs sm:text-[11px] leading-relaxed text-gray-600 list-disc pl-4 space-y-0.5">
+              {preview.deletes.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-3">
+            <p className="text-xs sm:text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+              Kept, and why
+            </p>
+            <ul className="text-xs sm:text-[11px] leading-relaxed text-gray-600 space-y-1.5">
+              {preview.retains.map((r) => (
+                <li key={r.what}>
+                  <span className="font-medium text-gray-800">{r.what}</span>
+                  <span className="block text-gray-500">{r.why}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-gray-200">
+          <Button
+            type="button"
+            variant="outline"
+            /* text-gray-700 is load-bearing: the outline variant is
+               bg-transparent with no colour of its own, so without this it
+               inherits the root's text-foreground and goes white-on-white
+               when the app is in dark mode. */
+            className="text-xs text-gray-700"
+            data-testid="button-export-account-data"
+            onClick={() => {
+              window.location.href = "/api/portal/account/export";
+            }}
+          >
+            Download my data
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+            data-testid="button-delete-account"
+            onClick={() => {
+              reset();
+              setOpen(true);
+            }}
+          >
+            Delete account
+          </Button>
+        </div>
+      </div>
+
+      <AlertDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) reset();
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          {/* shadcn's AlertDialogHeader is `text-center sm:text-left`; the
+              repo rule is left-aligned headers at every width. */}
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle>Permanently delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This erases your data now. It cannot be undone, and we cannot restore it for you.
+              Paid invoices, opt-out records and the staff-access audit log are kept for the legal
+              reasons listed on the previous screen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-[2px]">
+            {needsEmail ? (
+              <TitleInField
+                id="delete-confirm-email"
+                label="Your account email"
+                type="email"
+                autoComplete="off"
+                inputClassName="text-gray-900"
+                value={confirmEmail}
+                onChange={setConfirmEmail}
+                help={`You sign in with a linked account, so type ${preview.email} to confirm it is you.`}
+                testid="input-delete-confirm-email"
+              />
+            ) : (
+              <TitleInField
+                id="delete-confirm-password"
+                label="Your password"
+                type="password"
+                autoComplete="current-password"
+                inputClassName="text-gray-900"
+                value={password}
+                onChange={setPassword}
+                help="Confirms it is you, not someone using your open session."
+                testid="input-delete-confirm-password"
+              />
+            )}
+            <TitleInField
+              id="delete-confirm-phrase"
+              label={`Type ${preview.confirm_phrase} to confirm`}
+              autoComplete="off"
+              inputClassName="text-gray-900"
+              value={phrase}
+              onChange={setPhrase}
+              help="A deliberate step, so this can never happen by a stray click."
+              testid="input-delete-confirm-phrase"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-red-600" data-testid="text-delete-account-error">
+              {error}
+            </p>
+          )}
+
+          {/* shadcn's footer is `flex-col-reverse sm:flex-row`, which on a
+              phone stacks the filled-red irreversible action ABOVE the cancel
+              and makes it read as the default. Force natural order so "Keep my
+              account" stays on top at 375px; desktop is unchanged. */}
+          <AlertDialogFooter className="flex-col sm:flex-row">
+            <AlertDialogCancel>Keep my account</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!canSubmit || deleteMutation.isPending}
+              data-testid="button-confirm-delete-account"
+              onClick={(e) => {
+                e.preventDefault();
+                setError("");
+                deleteMutation.mutate();
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete my account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

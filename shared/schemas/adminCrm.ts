@@ -139,6 +139,12 @@ export const clients = pgTable("clients", {
   // first portal referral-card load). Used in `/ref/<code>` + `?ref=<code>`.
   // See shared/schemas/affiliate.ts + server/affiliate/*.
   referral_code: text("referral_code"),
+  /**
+   * Set when the owning user deletes their account (migration 0097). The row
+   * survives, scrubbed, because the invoices and orders we keep for 7 years
+   * reference it. NULL = a live client. See shared/accountDeletion/plan.ts.
+   */
+  deleted_at: timestamp("deleted_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (t) => ({

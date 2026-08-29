@@ -28,7 +28,9 @@ When you connect your Facebook Page and/or linked Instagram Business account to 
 
 - You can disconnect at any time from your WeFixTrades portal (SocialSync → Connections → Disconnect) or directly from Facebook Business Settings → Business Integrations.
 - On disconnect, your stored access token is wiped within 24 hours and SocialSync stops all publishing for that account immediately.
-- You can request deletion of all SocialSync data associated with your account by emailing support@wefixtrades.com or via the in-portal "Delete my data" button.
+- You can delete all SocialSync data associated with your account from the WeFixTrades portal: **Settings → Account → Delete account**. It runs immediately and also erases the rest of your account. To remove only the SocialSync connection, use SocialSync → Connections → Disconnect instead.
+- Removing the WeFixTrades app from your Facebook or Instagram settings sends us Meta's data-deletion callback (`POST /api/meta/data-deletion`); we erase the stored connection and return a confirmation code you can check at the status URL.
+- You can also email support@wefixtrades.com and we will delete your data within 30 days.
 
 **Data retention:**
 
