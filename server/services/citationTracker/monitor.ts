@@ -351,6 +351,12 @@ export async function runDailyScan(): Promise<ScanStats> {
       const stats = await scanSubscription(sub);
       totals.subscriptions_processed += stats.subscriptions_processed;
       totals.listings_checked += stats.listings_checked;
+      // Roll these up too — scrape_failures rising while alerts stay flat is
+      // the signal that a directory started blocking us, which is exactly what
+      // used to be misread as customers' listings being removed.
+      totals.directories_not_checked += stats.directories_not_checked;
+      totals.scrape_failures += stats.scrape_failures;
+      totals.unconfirmed_misses += stats.unconfirmed_misses;
       totals.alerts_created += stats.alerts_created;
       totals.errors += stats.errors;
     } catch (err: any) {
