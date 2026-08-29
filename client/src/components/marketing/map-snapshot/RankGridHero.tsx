@@ -163,9 +163,19 @@ export function RankGridHero({
   // SoLV drives the accent color (green when you own the pack, red when you
   // don't) — it's the headline number. Map 0–100% onto the rank gradient
   // inversely (100% SoLV ≈ rank 1, 0% ≈ deep red).
+  // `total === 0` means NOTHING was measured (every cell was omitted as
+  // unchecked). That is not evidence of poor ranking — it is the absence of
+  // evidence — so neither the colour nor the verdict below may read as a
+  // finding.
+  const nothingMeasured = metrics.total === 0 || metrics.atrp == null;
+
   const solvRank =
     metrics.solv == null ? null : Math.max(1, Math.round(20 - (metrics.solv / 100) * 19));
-  const [r, g, b] = rankPinRgb(solvRank);
+  // `rankPinRgb(null)` is red — correct for "checked, not ranking", wrong for
+  // "not measured". Red is a verdict, and we have no verdict. Neutral slate
+  // instead, matching the grey used for unchecked pins.
+  const NEUTRAL: [number, number, number] = [148, 163, 184];
+  const [r, g, b] = nothingMeasured ? NEUTRAL : rankPinRgb(solvRank);
   const accent = rgb(r, g, b);
   // Deepened variant for the big numeral TEXT — the bright accent (esp. the
   // mid-gradient orange ≈2.5:1) fails WCAG as text on the light tint; darkening
@@ -175,14 +185,13 @@ export function RankGridHero({
   const accentSoft = `rgba(${r}, ${g}, ${b}, 0.10)`;
   const accentRing = `rgba(${r}, ${g}, ${b}, 0.28)`;
 
-  const verdict =
-    metrics.atrp == null || metrics.total === 0
-      ? "Not ranking in the top 20 anywhere yet"
-      : (metrics.solv ?? 0) > 0
-        ? `Top 3 in ${metrics.top3} of ${metrics.total} zones`
-        : metrics.appeared > 0
-          ? `Appearing in ${metrics.appeared} zones · none in the Local Pack`
-          : `Outside the top 20 across all ${metrics.total} zones`;
+  const verdict = nothingMeasured
+    ? "No points measured — no ranking figures to report"
+    : (metrics.solv ?? 0) > 0
+      ? `Top 3 in ${metrics.top3} of ${metrics.total} zones`
+      : metrics.appeared > 0
+        ? `Appearing in ${metrics.appeared} zones · none in the Local Pack`
+        : `Outside the top 20 across all ${metrics.total} zones`;
 
   const denom = Math.max(high + med + low, 1);
   const seg = [
@@ -259,43 +268,50 @@ export function RankGridHero({
         >
           {verdict}
         </div>
-        <div
-          aria-hidden="true"
-          style={{
-            display: "flex",
-            marginTop: 8,
-            height: 7,
-            borderRadius: 999,
-            overflow: "hidden",
-            background: "rgb(238, 242, 247)",
-          }}
-        >
-          {seg.map((s, i) =>
-            s.w > 0 ? (
-              <span key={i} style={{ width: `${s.w}%`, background: s.color }} />
-            ) : null,
-          )}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 14,
-            marginTop: 6,
-            fontSize: 11,
-            color: SUBTLE,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          <span>
-            <strong style={{ color: "rgb(22, 163, 74)" }}>{high}</strong> High
-          </span>
-          <span>
-            <strong style={{ color: "rgb(202, 138, 4)" }}>{med}</strong> Med
-          </span>
-          <span>
-            <strong style={{ color: "rgb(220, 38, 38)" }}>{low}</strong> Low
-          </span>
-        </div>
+        {/* Hidden when nothing was measured: a "0 High · 0 Med · 0 Low" row
+            reads as three measured zeros, which is a finding we don't have.
+            Same "not tracked is not zero" rule as BackupTimeline. */}
+        {!nothingMeasured && (
+          <>
+            <div
+              aria-hidden="true"
+              style={{
+                display: "flex",
+                marginTop: 8,
+                height: 7,
+                borderRadius: 999,
+                overflow: "hidden",
+                background: "rgb(238, 242, 247)",
+              }}
+            >
+              {seg.map((s, i) =>
+                s.w > 0 ? (
+                  <span key={i} style={{ width: `${s.w}%`, background: s.color }} />
+                ) : null,
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 14,
+                marginTop: 6,
+                fontSize: 11,
+                color: SUBTLE,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              <span>
+                <strong style={{ color: "rgb(22, 163, 74)" }}>{high}</strong> High
+              </span>
+              <span>
+                <strong style={{ color: "rgb(202, 138, 4)" }}>{med}</strong> Med
+              </span>
+              <span>
+                <strong style={{ color: "rgb(220, 38, 38)" }}>{low}</strong> Low
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

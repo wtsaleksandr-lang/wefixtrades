@@ -76,6 +76,23 @@ export type SerpRequest = {
    *  other providers ignore them and fall back to `location` text. */
   latitude?: number;
   longitude?: number;
+  /**
+   * Hard cost ceiling: when true, providers with no tracked monthly cap
+   * (`MONTHLY_LIMIT <= 0`, i.e. pay-as-you-go — currently DataForSEO) are
+   * skipped entirely. `quotaRemaining()` returns Infinity for those, so the
+   * normal quota gate can never stop them; without this flag a public,
+   * anonymous, un-authenticated endpoint can bill unbounded paid SERP calls.
+   *
+   * Set it on any path an anonymous visitor can trigger (see
+   * server/lib/localRankMeasurement.ts). When every free provider is
+   * exhausted the call throws `SerpOrchestratorAllProvidersFailed` and the
+   * caller must report the measurement as unavailable rather than guess.
+   *
+   * Deliberately NOT part of the cache key: a cached result is a real
+   * measurement whichever provider produced it, so free- and paid-tier
+   * callers can safely share cache slots.
+   */
+  freeTierOnly?: boolean;
 };
 
 export type SerpOrganicResult = {
@@ -338,6 +355,16 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
     // Env vars / configuration check — silent skip (debug log).
     if (!envPresentForProvider(providerId)) {
       log.debug(`[serp] ${providerId} skipped: env not configured`);
+      continue;
+    }
+
+    // Cost ceiling for anonymous/public callers. `MONTHLY_LIMIT <= 0` marks a
+    // pay-as-you-go provider, for which quotaRemaining() returns Infinity — so
+    // the quota gate below can never stop it. Skip those outright when the
+    // caller asked for free tiers only.
+    if (req.freeTierOnly && mod.MONTHLY_LIMIT <= 0) {
+      log.debug(`[serp] ${providerId} skipped: pay-as-you-go and caller set freeTierOnly`);
+      errors.push({ provider: providerId, error: "skipped (paid provider, freeTierOnly)" });
       continue;
     }
 

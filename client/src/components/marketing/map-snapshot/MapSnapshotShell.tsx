@@ -19,7 +19,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, MapPin, Maximize2, X } from "lucide-react";
+import { AlertCircle, ExternalLink, MapPin, Maximize2, X } from "lucide-react";
 import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
 import { RankGridHero } from "@/components/marketing/map-snapshot/RankGridHero";
 import {
@@ -30,13 +30,28 @@ import {
 const BRAND_PRIMARY = "#0d3cfc";
 const BRAND_INK = "#1E1E1E";
 
+/**
+ * Mirrors the honesty contract in server/routes/mapSnapshotRoutes.ts.
+ *
+ *   "ranked"      → `rank` is a real measured Local Pack position.
+ *   "not-found"   → checked cleanly, business absent from the pack. Real data.
+ *   "unavailable" → could NOT be checked. Render NO number, neutral grey, and
+ *                   exclude from every average / percentage / bucket count.
+ *
+ * Do NOT add `?? 0` or `?? 21` defaults to `rank` — an unmeasured cell that
+ * renders as a number is exactly the bug this contract exists to prevent.
+ */
+export type RankCellStatus = "ranked" | "not-found" | "unavailable";
+
 export type HeatmapCell = {
   row: number;
   col: number;
   lat: number;
   lng: number;
   keyword: string;
-  rank: number;
+  /** Real measured position, or null. Never a placeholder or an estimate. */
+  rank: number | null;
+  status: RankCellStatus;
   distanceKm: number;
 };
 
@@ -49,6 +64,24 @@ export type AuditCard = {
   ctaCardName?: string;
 };
 
+/** Something the scan does NOT check. Carries no score — it is not a finding. */
+export type NotAssessedItem = {
+  id: string;
+  label: string;
+  details: string;
+  ctaCardName?: string;
+};
+
+export type MeasurementSummary = {
+  totalCells: number;
+  measuredCells: number;
+  rankedCells: number;
+  notFoundCells: number;
+  unavailableCells: number;
+  complete: boolean;
+  note?: string;
+};
+
 export type SnapshotResult = {
   slug: string;
   businessName: string;
@@ -56,10 +89,17 @@ export type SnapshotResult = {
   lat: number;
   lng: number;
   keywords: string[];
+  measuredKeyword?: string;
   heatmap: HeatmapCell[];
   audit: AuditCard[];
-  source: "real" | "mock";
+  notAssessed?: NotAssessedItem[];
+  measurement?: MeasurementSummary;
+  /** "measured" = real ranks. "unmeasured" = legacy row, downgraded on read. */
+  source: "measured" | "unmeasured";
 };
+
+/** Neutral tone for "we could not measure this" — deliberately not red. */
+const NEUTRAL_PIN = "#94a3b8";
 
 /* ─── Tokens helper ─── */
 const sticky = {
@@ -378,26 +418,35 @@ const rankPinFill = (rank: number): { gradient: string; shadow: string } => {
  */
 function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string }) {
   const cells = result.heatmap;
-  const grid = 5;
+  // Grid side length is derived from the data, not hardcoded — the measured
+  // grid is 3×3 (see GRID_SIZE in server/routes/mapSnapshotRoutes.ts) and
+  // older payloads are 5×5.
+  const grid = Math.max(1, ...cells.map((c) => Math.max(c.row, c.col) + 1));
   // Compute summary stats once. Distances are already in km from the API;
   // we present miles for North-American visitors (the audit copy is US-/EU-
   // friendly but mph + ZIPs read more familiar than km outside Europe).
   const kmToMi = (km: number) => km * 0.621371;
   const stats = useMemo(() => {
-    const total = cells.length;
+    // ONLY cells with a real result take part. A cell we couldn't check is
+    // not a ranking gap and must not move any of these numbers.
+    const measuredCells = cells.filter((c) => c.status !== "unavailable");
+    const total = measuredCells.length;
     let top3 = 0;
     let top10 = 0; // top-10 inclusive of top-3
     let top20 = 0; // top-20 inclusive of top-10
-    let best = cells[0];
-    let worst = cells[0];
+    let best: HeatmapCell | undefined;
+    let worst: HeatmapCell | undefined;
     let rankSum = 0;
-    for (const c of cells) {
-      if (c.rank <= 3) top3++;
-      if (c.rank <= 10) top10++;
-      if (c.rank <= 20) top20++;
-      if (!best || c.rank < best.rank) best = c;
-      if (!worst || c.rank > worst.rank) worst = c;
-      rankSum += Math.min(c.rank, 21);
+    for (const c of measuredCells) {
+      // A "not-found" cell is a real observation: checked, genuinely absent
+      // from the top 20. It anchors at 21 for the average.
+      const r = c.rank ?? 21;
+      if (r <= 3) top3++;
+      if (r <= 10) top10++;
+      if (r <= 20) top20++;
+      if (c.rank != null && (!best || c.rank < (best.rank ?? Infinity))) best = c;
+      if (!worst || r > (worst.rank ?? 21)) worst = c;
+      rankSum += Math.min(r, 21);
     }
     const beyond = total - top20;
     const avg = total > 0 ? rankSum / total : 0;
@@ -483,32 +532,48 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
     let high = 0;
     let med = 0;
     let low = 0;
+    let unchecked = 0;
     for (const c of cells) {
-      if (c.rank <= 3) high++;
-      else if (c.rank <= 10) med++;
+      if (c.status === "unavailable") {
+        // Not a bucket — we have no evidence for this point at all.
+        unchecked++;
+        continue;
+      }
+      const r = c.rank ?? 21;
+      if (r <= 3) high++;
+      else if (r <= 10) med++;
       else low++;
     }
-    return { high, med, low, max: Math.max(high, med, low, 1) };
+    return { high, med, low, unchecked, max: Math.max(high, med, low, 1) };
   }, [cells]);
 
   const query =
     result.keywords?.[0] || (trade ? `${trade} near me` : "near me");
 
   const directionFromCenter = (row: number, col: number): string => {
-    // 5×5 grid → center is (2, 2). Map row/col delta to a compass direction.
-    const dr = row - 2;
-    const dc = col - 2;
+    // Centre of an N×N grid is ((N-1)/2, (N-1)/2). Map the delta to a compass
+    // direction.
+    const mid = (grid - 1) / 2;
+    const dr = row - mid;
+    const dc = col - mid;
     if (dr === 0 && dc === 0) return "right at your address";
     const ns = dr < 0 ? "north" : dr > 0 ? "south" : "";
     const ew = dc < 0 ? "west" : dc > 0 ? "east" : "";
     return `${ns}${ew}`.trim() || "nearby";
   };
 
+  /** Human label for a cell's rank. Never invents one for an unchecked cell. */
+  const rankLabel = (c: HeatmapCell): string => {
+    if (c.status === "unavailable") return "Not checked";
+    if (c.rank == null) return "Not in top 20";
+    return `Rank #${c.rank}`;
+  };
+
   const describeCell = (c: HeatmapCell): string => {
     const miles = kmToMi(c.distanceKm);
     const dir = directionFromCenter(c.row, c.col);
     const milesLabel = miles < 0.15 ? "right here" : `${miles.toFixed(1)} mi ${dir}`;
-    return `Rank #${c.rank >= 21 ? "20+" : c.rank} · ${milesLabel}`;
+    return `${rankLabel(c)} · ${milesLabel}`;
   };
 
   // Map img + average badge + numbered pins + your-business marker. Shared by
@@ -538,7 +603,10 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
           the drill-down panel. */}
       {cells.map((c) => {
         const p = map.project(c.lat, c.lng);
-        const label = c.rank >= 21 ? "20+" : String(c.rank);
+        // An unchecked cell shows a dash, never a number and never "20+" —
+        // "20+" is a claim that we looked and you weren't there.
+        const unchecked = c.status === "unavailable";
+        const label = unchecked ? "–" : c.rank == null ? "20+" : String(c.rank);
         const cascadeIdx = c.row * grid + c.col;
         const delayMs = Math.min(cascadeIdx * 24, 600);
         const key = `${c.row}-${c.col}`;
@@ -566,11 +634,14 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
               height: "clamp(20px, 4.6vw, 28px)",
               padding: 0,
               borderRadius: 999,
-              background: rankPinFill(c.rank).gradient,
+              background: unchecked ? NEUTRAL_PIN : rankPinFill(c.rank ?? 21).gradient,
               border: isHovered ? "2px solid #0d3cfc" : "1.5px solid rgba(255,255,255,0.92)",
               boxShadow: isHovered
                 ? "0 0 0 2px #0d3cfc, 0 6px 18px rgba(0,0,0,0.22)"
-                : rankPinFill(c.rank).shadow,
+                : unchecked
+                  ? "0 2px 6px rgba(0,0,0,0.14)"
+                  : rankPinFill(c.rank ?? 21).shadow,
+              opacity: unchecked ? 0.72 : 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -723,9 +794,21 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
           style={{ display: "grid", gap: 6, minWidth: 210 }}
         >
           {[
-            { label: "High-ranking Points", count: hml.high, color: "#16a34a" },
-            { label: "Med-ranking Points", count: hml.med, color: "#eab308" },
-            { label: "Low-ranking Points", count: hml.low, color: "#dc2626" },
+            // The three ranking buckets are suppressed entirely when nothing
+            // was measured: "0 / 0 / 0" reads as three measured zeros, which
+            // is a finding we don't have. Only "Not checked" is true then.
+            ...(hml.high + hml.med + hml.low > 0
+              ? [
+                  { label: "High-ranking Points", count: hml.high, color: "#16a34a" },
+                  { label: "Med-ranking Points", count: hml.med, color: "#eab308" },
+                  { label: "Low-ranking Points", count: hml.low, color: "#dc2626" },
+                ]
+              : []),
+            // Shown only when it's non-zero, and in neutral grey — a point we
+            // couldn't check is not a low-ranking point.
+            ...(hml.unchecked > 0
+              ? [{ label: "Not checked", count: hml.unchecked, color: NEUTRAL_PIN }]
+              : []),
           ].map((row) => (
             <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: "#475569", width: 118, flexShrink: 0 }}>
@@ -769,11 +852,50 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
         </div>
       </div>
 
+      {/* Honest partial-coverage banner. Points we couldn't check are stated
+          plainly rather than folded into the low-ranking bucket — mirrors the
+          same banner on /tools/local-rank-grid. */}
+      {hml.unchecked > 0 && (
+        <div
+          data-testid="snapshot-unavailable-banner"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            margin: "12px 0",
+            padding: "10px 14px",
+            borderRadius: 12,
+            background: "rgba(148,163,184,0.12)",
+            border: "1px solid rgba(148,163,184,0.35)",
+            fontSize: 13,
+            color: "rgba(0,0,0,0.7)",
+            lineHeight: 1.45,
+          }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2, color: NEUTRAL_PIN }} />
+          <span>
+            {result.measurement?.note ? (
+              result.measurement.note
+            ) : (
+              <>
+                <strong>{hml.unchecked}</strong> of {cells.length} points couldn&rsquo;t be
+                checked against live search results. They&rsquo;re shown in grey with no
+                rank, and excluded from every figure above — we don&rsquo;t estimate them.
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Average-rank HERO — promoted from the old small map-corner badge to a
           full hero block (big color number + verdict + High/Med/Low ratio bar).
           Shared component, identical across all three rank-grid surfaces. */}
       <RankGridHero
-        ranks={cells.map((c) => (c.rank >= 21 ? null : c.rank))}
+        // Per RankGridHeroProps: cells that couldn't be checked are OMITTED
+        // entirely (not passed as null, which means "checked, not ranking").
+        ranks={cells
+          .filter((c) => c.status !== "unavailable")
+          .map((c) => c.rank)}
         avg={stats.avg || null}
         high={hml.high}
         med={hml.med}
@@ -939,7 +1061,7 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
               Biggest opportunity
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: BRAND_INK, marginTop: 4 }}>
-              Rank #{stats.worst.rank >= 21 ? "20+" : stats.worst.rank}
+              {stats.worst.rank == null ? "Not in top 20" : `Rank #${stats.worst.rank}`}
             </div>
             <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
               {kmToMi(stats.worst.distanceKm).toFixed(1)} mi{" "}
@@ -947,24 +1069,29 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
             </div>
           </div>
         )}
-        <div
-          style={{
-            padding: "12px 14px",
-            border: "1px solid #e0e7ff",
-            background: "#eef2ff",
-            borderRadius: 12,
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND_PRIMARY }}>
-            Quick win
+        {/* "near the red cells" only makes sense once we have measured some
+            weak cells. On an all-unchecked grid there ARE no red cells, so the
+            card would be advice derived from nothing. */}
+        {hml.low > 0 && (
+          <div
+            style={{
+              padding: "12px 14px",
+              border: "1px solid #e0e7ff",
+              background: "#eef2ff",
+              borderRadius: 12,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND_PRIMARY }}>
+              Quick win
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: BRAND_INK, marginTop: 4, lineHeight: 1.4 }}>
+              Earn reviews from customers near the red cells
+            </div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+              Each local review nudges those areas up.
+            </div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: BRAND_INK, marginTop: 4, lineHeight: 1.4 }}>
-            Earn reviews from customers near the red cells
-          </div>
-          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
-            Each local review nudges those areas up.
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Cell drill-down — clicking a pin opens the ranked detail at that scan
@@ -981,9 +1108,12 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
                   drillCell.row,
                   drillCell.col,
                 )} · "${query}"`,
-                yourRank: drillCell.rank >= 21 ? null : drillCell.rank,
+                yourRank: drillCell.status === "ranked" ? drillCell.rank : null,
                 entries: [],
-                isMock: result.source === "mock",
+                // No sample/mock competitor data is ever shown any more —
+                // this panel only reports what was actually measured.
+                isMock: false,
+                isUnavailable: drillCell.status === "unavailable",
               } as CellDrillDownData)
             : null
         }
@@ -994,13 +1124,52 @@ function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string
 }
 
 /* ─── Audit scorecard ─── */
-function AuditScorecard({ audit, slug }: { audit: AuditCard[]; slug?: string }) {
+/**
+ * Scored cards come ONLY from measured grid cells (server-side `buildAudit`).
+ * When too few cells were measured the server returns [] and we say so rather
+ * than filling the space.
+ *
+ * `notAssessed` items are NOT findings — they describe checks this free scan
+ * doesn't perform and must never render a score, a status colour, or any
+ * claim about the business.
+ */
+function AuditScorecard({
+  audit,
+  notAssessed,
+  slug,
+}: {
+  audit: AuditCard[];
+  notAssessed?: NotAssessedItem[];
+  slug?: string;
+}) {
+  const utm = (name: string) =>
+    `/products/mapguard?utm_source=map-snapshot&utm_medium=audit-card&utm_campaign=${name}${slug ? `&utm_content=${slug}` : ""}`;
   return (
     <div
       role="region"
       aria-label="Audit scorecard"
       style={{ display: "grid", gap: 10, marginTop: 20 }}
     >
+      {audit.length === 0 && (
+        <div
+          data-testid="snapshot-no-narrative"
+          style={{
+            border: "1px solid #e5e7eb",
+            borderLeft: `4px solid ${NEUTRAL_PIN}`,
+            borderRadius: 10,
+            padding: "12px 14px",
+            background: "#f8fafc",
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600, color: BRAND_INK }}>
+            Not enough measured points to score your coverage
+          </div>
+          <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4, lineHeight: 1.45 }}>
+            We only report figures we actually measured, so there&rsquo;s no coverage
+            score for this scan. Try again shortly.
+          </div>
+        </div>
+      )}
       {audit.map((card) => {
         const color =
           card.status === "good" ? "#16a34a" : card.status === "warn" ? "#f59e0b" : "#dc2626";
@@ -1064,6 +1233,55 @@ function AuditScorecard({ audit, slug }: { audit: AuditCard[]; slug?: string }) 
           </div>
         );
       })}
+
+      {/* What this free scan does NOT check. Neutral styling on purpose: no
+          score, no red/amber status, no assertion about this business — the
+          previous build scored these from a random number generator and told
+          visitors their review velocity and photo freshness were failing. */}
+      {notAssessed && notAssessed.length > 0 && (
+        <div
+          data-testid="snapshot-not-assessed"
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            padding: "12px 14px",
+            background: "#f8fafc",
+            marginTop: 4,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600, color: BRAND_INK }}>
+            Not checked by this free scan
+          </div>
+          <div style={{ fontSize: 12, color: "#4b5563", marginTop: 2, lineHeight: 1.45 }}>
+            This snapshot measures your Local Pack position only. A full MapGuard
+            audit also covers:
+          </div>
+          <ul style={{ margin: "8px 0 0", padding: "0 0 0 18px", display: "grid", gap: 6 }}>
+            {notAssessed.map((item) => (
+              <li key={item.id} style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.45 }}>
+                <span style={{ fontWeight: 600, color: BRAND_INK }}>{item.label}</span>
+                {" — "}
+                {item.details}
+              </li>
+            ))}
+          </ul>
+          <a
+            href={utm("not-assessed")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 12,
+              fontWeight: 600,
+              color: BRAND_PRIMARY,
+              marginTop: 10,
+              textDecoration: "none",
+            }}
+          >
+            See a full audit with MapGuard <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -1322,7 +1540,11 @@ export function MapSnapshotShell({
 
             <HeatmapView result={result} trade={trade} />
             <div style={{ marginTop: 24 }}>
-              <AuditScorecard audit={result.audit} slug={result.slug} />
+              <AuditScorecard
+                audit={result.audit}
+                notAssessed={result.notAssessed}
+                slug={result.slug}
+              />
             </div>
 
             <div
