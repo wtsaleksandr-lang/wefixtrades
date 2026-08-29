@@ -54,6 +54,12 @@ export const AI_SURFACES = {
   // kill switch. Demo traffic on /products/tradeline stays on tradeline_demo.
   // Gate row lazy-creates on first call via ensureGateRow().
   tradeline_widget_chat: "tradeline_widget_chat",
+  // RankFlow monthly SEO task execution. Replaces the canned-sentence stub
+  // that used to "complete" meta_fix / internal_linking / content_support /
+  // schema_basic without doing any work. Authenticated paid-customer path
+  // only (the weekly worker, over enabled RankFlow profiles) — never a
+  // public surface. Bounded by WORKER_LIMITS.ai_tasks_max_per_run.
+  rankflow_tasks: "rankflow_tasks",
 } as const;
 
 export type AiSurface = (typeof AI_SURFACES)[keyof typeof AI_SURFACES];
@@ -99,6 +105,11 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   // a $20/mo soft cap on top of the per-IP rate limiter. Gate-blocked
   // requests degrade to lead capture, never silence.
   tradeline_widget_chat: 2000,
+  // RankFlow task execution. Volume is structurally bounded: the weekly
+  // worker processes at most WORKER_LIMITS.ai_tasks_max_per_run tasks per
+  // run, and each task is a single short completion. Modest cap so a
+  // runaway plan generator pauses the surface instead of billing.
+  rankflow_tasks: 2000,
 };
 
 /** Human-readable display label used in the admin gates dashboard. */
@@ -126,4 +137,5 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   ai_insights: "AI Insights (MapGuard)",
   wft_marketing_chat: "Marketing Chat Widget (Anonymous)",
   tradeline_widget_chat: "TradeLine Website Chat (Owner Sites)",
+  rankflow_tasks: "RankFlow Task Execution",
 };

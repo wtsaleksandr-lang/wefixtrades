@@ -70,7 +70,6 @@ import {
   type AIBrainRecommendation,
 } from "@/components/rankflow/AIBrainPanel";
 import { getMetricMeta } from "@shared/copilot/metricRegistry";
-import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
 
 /* Wave 26.6: registry-driven gauge meta. Same strings the Copilot reads. */
 const META = {
@@ -229,15 +228,18 @@ export default function RankFlowDashboard() {
   });
 
   /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  // "empty" replaces the old "illustrative": the endpoint no longer ships a
+  // synthetic curve for clients with no data, so there is nothing to badge —
+  // there is simply nothing to chart yet, and we say that instead.
   type RfMonthlyResponse = {
     data: MonthlyBar[];
-    data_status: "real" | "illustrative";
+    data_status: "real" | "empty";
   };
   type RfPeakResponse = {
     data: number[];
     peakLabel: string;
     peakIndex: number;
-    data_status: "real" | "illustrative";
+    data_status: "real" | "empty";
   };
   const monthlyStatsQuery = useQuery<RfMonthlyResponse>({
     queryKey: ["portal", "rankflow", "stats", "monthly"],
@@ -339,64 +341,19 @@ export default function RankFlowDashboard() {
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
   // Monthly top-10 keywords — Wave 73a: backed by /stats/monthly.
-  const top10MonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
-    const now = new Date();
-    const labels: string[] = [];
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      labels.push(d.toLocaleString(undefined, { month: "short" }));
-    }
-    const anchor = Math.max(kpis?.keywordsTop10 ?? 0, 1);
-    return labels.map((label, idx) => {
-      const isCurrent = idx === labels.length - 1;
-      const ratio = isCurrent ? 1 : 0.55 + idx * 0.08;
-      return {
-        label,
-        value: Math.max(0, Math.round(anchor * ratio)),
-        highlighted: isCurrent,
-      };
-    });
-  }, [kpis?.keywordsTop10]);
-  const top10MonthlyUsingFallback = !(
-    monthlyStatsQuery.data?.data && monthlyStatsQuery.data.data.length > 0
-  );
-  const top10MonthlyBars: MonthlyBar[] = top10MonthlyUsingFallback
-    ? top10MonthlyBarsFallback
-    : monthlyStatsQuery.data!.data;
-  // Wave K2: badge whenever the synthetic fallback bars render.
-  const top10MonthlyIllustrative =
-    monthlyStatsQuery.data?.data_status === "illustrative" ||
-    top10MonthlyUsingFallback;
+  //
+  // The client-side synthetic fallbacks that used to live here are gone. They
+  // shadowed the server fix: even once the endpoint stopped inventing data,
+  // an empty `data` array fell through to a locally-manufactured curve
+  // (`anchor * 0.55 + idx * 0.08` bars, and a 12-point `anchor * [0.4 … 1]`
+  // sparkline). Both drew a rising trend for a customer with no rankings at
+  // all. Now: real data charts, no data shows an empty state.
+  const top10MonthlyBars: MonthlyBar[] = monthlyStatsQuery.data?.data ?? [];
+  const top10MonthlyEmpty = top10MonthlyBars.length === 0;
 
   // Best-ranking spike — Wave 73a: backed by /stats/peak.
-  const bestSpikeFallback = useMemo(() => {
-    const anchor = Math.max(kpis?.keywordsImproved ?? 0, 1);
-    return [
-      anchor * 0.4,
-      anchor * 0.5,
-      anchor * 0.45,
-      anchor * 0.7,
-      anchor * 0.6,
-      anchor * 0.8,
-      anchor * 0.9,
-      anchor * 0.75,
-      anchor * 0.95,
-      anchor * 0.88,
-      anchor * 1,
-      anchor * 0.92,
-    ].map((v) => Math.round(v));
-  }, [kpis?.keywordsImproved]);
-  const bestSpikeUsingFallback = !(
-    peakStatsQuery.data?.data && peakStatsQuery.data.data.length > 0
-  );
-  const bestSpikeSeries = bestSpikeUsingFallback
-    ? bestSpikeFallback
-    : peakStatsQuery.data!.data;
-  // Wave K2: the fallback is a hardcoded synthetic curve, so badge whenever it
-  // renders.
-  const bestSpikeIllustrative =
-    peakStatsQuery.data?.data_status === "illustrative" ||
-    bestSpikeUsingFallback;
+  const bestSpikeSeries: number[] = peakStatsQuery.data?.data ?? [];
+  const bestSpikeEmpty = bestSpikeSeries.length === 0;
 
   // Page-1 vs Page-2 keywords for the comparison card.
   const page1Count = kpis?.keywordsTop10 ?? 0;
@@ -532,23 +489,36 @@ export default function RankFlowDashboard() {
               <div className="text-xs text-muted-foreground uppercase tracking-wide">
                 Top-10 keywords per month
               </div>
-              <IllustrativeDataBadge show={top10MonthlyIllustrative} />
             </div>
-            <MonthlyBarSeries
-              bars={top10MonthlyBars}
-              fillWidth
-              lede={`${top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0}`}
-              caption={(() => {
-                const cur = top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0;
-                const prev = top10MonthlyBars[top10MonthlyBars.length - 2]?.value ?? 0;
-                if (prev === 0) return "Fresh start this month";
-                const delta = ((cur - prev) / prev) * 100;
-                const sign = delta >= 0 ? "+" : "";
-                return `${sign}${delta.toFixed(0)}% vs prior month`;
-              })()}
-              color="emerald"
-              ariaLabel="RankFlow keywords ranking in top 10 per month"
-            />
+            {top10MonthlyEmpty ? (
+              <div
+                className="flex h-[140px] flex-col items-center justify-center gap-1 text-center"
+                data-testid="rf-monthly-bars-empty"
+              >
+                <div className="text-sm font-medium text-foreground">
+                  No ranking data yet
+                </div>
+                <div className="text-xs text-muted-foreground max-w-[24ch]">
+                  This chart fills in once your keywords have been checked.
+                </div>
+              </div>
+            ) : (
+              <MonthlyBarSeries
+                bars={top10MonthlyBars}
+                fillWidth
+                lede={`${top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0}`}
+                caption={(() => {
+                  const cur = top10MonthlyBars[top10MonthlyBars.length - 1]?.value ?? 0;
+                  const prev = top10MonthlyBars[top10MonthlyBars.length - 2]?.value ?? 0;
+                  if (prev === 0) return "Fresh start this month";
+                  const delta = ((cur - prev) / prev) * 100;
+                  const sign = delta >= 0 ? "+" : "";
+                  return `${sign}${delta.toFixed(0)}% vs prior month`;
+                })()}
+                color="emerald"
+                ariaLabel="RankFlow keywords ranking in top 10 per month"
+              />
+            )}
           </Card>
 
           {/* Advanced — best-ranking spike sparkline */}
@@ -558,15 +528,29 @@ export default function RankFlowDashboard() {
                 <div className="text-xs text-muted-foreground uppercase tracking-wide">
                   Best-ranking spike (12 weeks)
                 </div>
-                <IllustrativeDataBadge show={bestSpikeIllustrative} />
               </div>
-              <SparklineWithPeak
-                data={bestSpikeSeries}
-                color="sapphire"
-                fillWidth
-                height={140}
-                ariaLabel="Best ranking spike across recent weeks"
-              />
+              {bestSpikeEmpty ? (
+                <div
+                  className="flex h-[140px] flex-col items-center justify-center gap-1 text-center"
+                  data-testid="rf-best-spike-sparkline-empty"
+                >
+                  <div className="text-sm font-medium text-foreground">
+                    No ranking history yet
+                  </div>
+                  <div className="text-xs text-muted-foreground max-w-[26ch]">
+                    We need a few weeks of rank checks before this trend means
+                    anything.
+                  </div>
+                </div>
+              ) : (
+                <SparklineWithPeak
+                  data={bestSpikeSeries}
+                  color="sapphire"
+                  fillWidth
+                  height={140}
+                  ariaLabel="Best ranking spike across recent weeks"
+                />
+              )}
             </Card>
           </AdvancedOnly>
 

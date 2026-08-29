@@ -70,13 +70,28 @@ function startOfThisMonth(): Date {
 /**
  * Compute an aggregate 0..100 site-wide SEO score from rankflow_signals.
  *
- * Three sub-scores blended with simple weights:
+ * Sub-scores blended with simple weights:
  *  - top10 coverage  = keywords_top_10 / total          (0..1, weight 0.55)
  *  - top20 coverage  = keywords_top_20 / total          (0..1, weight 0.20)
  *  - indexing rate   = pages_indexed / pages_total      (0..1, weight 0.25)
  *
  * If `total` is 0 (no keywords yet) we return 0 so the gauge shows empty
  * rather than NaN.
+ *
+ * ─── Why indexing is conditionally excluded ──────────────────────────
+ *
+ * `pages_indexed` now only counts pages whose indexation we ACTUALLY
+ * measured via Search Console (see server/services/rankflow/indexChecker.ts —
+ * it used to count any page that answered HTTP 200). For a client who has
+ * not connected Search Console we therefore have no indexation measurement
+ * at all, and `pages_indexed` is 0.
+ *
+ * Feeding that 0 into the blend would dock up to 25 points from a
+ * customer-facing score because of a measurement we never took — the same
+ * dishonesty as the old bug, just pointing the other way. When there is no
+ * measured indexation we drop the component and renormalise the remaining
+ * weights, which is the house rule for unmeasured signals: exclude, never
+ * impute.
  */
 function computeSeoScore(input: {
   total: number;
@@ -89,7 +104,15 @@ function computeSeoScore(input: {
   if (total <= 0) return 0;
   const top10Ratio = Math.min(1, top10 / total);
   const top20Ratio = Math.min(1, top20 / total);
-  const indexRatio = pagesTotal > 0 ? Math.min(1, pagesIndexed / pagesTotal) : 0;
+
+  // No confirmed-indexed page → we have no indexation measurement to blend.
+  const hasIndexMeasurement = pagesTotal > 0 && pagesIndexed > 0;
+  if (!hasIndexMeasurement) {
+    const renormalised = (top10Ratio * 0.55 + top20Ratio * 0.2) / 0.75;
+    return Math.round(renormalised * 100);
+  }
+
+  const indexRatio = Math.min(1, pagesIndexed / pagesTotal);
   const blended = top10Ratio * 0.55 + top20Ratio * 0.2 + indexRatio * 0.25;
   return Math.round(blended * 100);
 }

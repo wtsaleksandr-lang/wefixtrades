@@ -1,6 +1,6 @@
 import { storage } from "../storage";
 import { checkKeywordRanks } from "../services/rankflow/rankTracker";
-import { checkIndexStatuses } from "../services/rankflow/indexChecker";
+import { checkIndexStatuses, hasMeasuredIndexation } from "../services/rankflow/indexChecker";
 import { WORKER_LIMITS, keywordCapForTier, prioritizeProfiles } from "../services/rankflow/scalingConfig";
 import { createLogger } from "../lib/logger";
 
@@ -15,6 +15,9 @@ export async function processRankFlowTracking(): Promise<{
   clients_processed: number;
   keywords_checked: number;
   pages_checked: number;
+  /** Pages we probed but could NOT measure indexation for (no Search Console
+   *  connection). These are excluded from every "indexed" number we publish. */
+  pages_index_unmeasured: number;
 }> {
   const allProfiles = await storage.listEnabledRankFlowProfiles();
   const sorted = prioritizeProfiles(allProfiles);
@@ -22,6 +25,7 @@ export async function processRankFlowTracking(): Promise<{
 
   let keywords_checked = 0;
   let pages_checked = 0;
+  let pages_index_unmeasured = 0;
   let globalKwBudget = WORKER_LIMITS.tracking_max_keywords;
   let globalPageBudget = WORKER_LIMITS.tracking_max_pages;
 
@@ -106,10 +110,29 @@ export async function processRankFlowTracking(): Promise<{
 
         if (pageLimit > 0) {
           const pageInputs = pages.slice(0, pageLimit).map(p => ({ id: p.id, url: p.url }));
-          const indexResults = await checkIndexStatuses(pageInputs);
+          // Pass client + site so the Search Console URL Inspection path is
+          // reachable. Without these the checker can only probe reachability,
+          // which is not indexation and must never be stored as such.
+          const indexResults = await checkIndexStatuses(
+            pageInputs,
+            2000,
+            profile.client_id,
+            domain,
+          );
 
           for (const result of indexResults) {
-            await storage.updatePageIndexStatus(result.page_id, result.indexed);
+            if (hasMeasuredIndexation(result)) {
+              // A real indexation verdict — safe to persist as `indexed`.
+              await storage.updatePageIndexStatus(result.page_id, result.indexed === true);
+            } else {
+              // We only measured reachability (or nothing). Record that we
+              // looked, but leave `indexed` untouched — writing `false` would
+              // assert Google does not have the page, which we never checked,
+              // and writing `true` is the bug that published a 200 response as
+              // "indexed on Google".
+              await storage.touchPageChecked(result.page_id);
+              pages_index_unmeasured++;
+            }
             pages_checked++;
             globalPageBudget--;
           }
@@ -129,7 +152,12 @@ export async function processRankFlowTracking(): Promise<{
     log.info(`[tracking-worker] Tracked ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.tracking_max_clients})`);
   }
 
-  return { clients_processed: batch.length, keywords_checked, pages_checked };
+  return {
+    clients_processed: batch.length,
+    keywords_checked,
+    pages_checked,
+    pages_index_unmeasured,
+  };
 }
 
 /**
