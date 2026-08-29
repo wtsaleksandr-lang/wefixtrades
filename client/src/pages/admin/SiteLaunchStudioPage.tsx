@@ -144,6 +144,12 @@ export default function SiteLaunchStudioPage() {
  * Capability banner — renders the server's honest capability report
  * ══════════════════════════════════════════════════════════════════════ */
 
+/** The server's `reason` already ends in a period; trim it before we append
+ *  our own sentence, or the banner reads "…is not set.. Sites still…". */
+function trimPeriod(text: string | null | undefined): string {
+  return (text ?? "").trim().replace(/\.+$/, "");
+}
+
 function CapabilityNotice({ meta }: { meta?: MetaResponse }) {
   if (!meta) return null;
   return (
@@ -152,8 +158,8 @@ function CapabilityNotice({ meta }: { meta?: MetaResponse }) {
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p className="m-0">
-            AI copy generation is off — {meta.generation.reason}. Sites still generate with the
-            deterministic structure and fallback copy.
+            AI copy generation is off — {trimPeriod(meta.generation.reason)}. Sites still generate
+            with the deterministic structure and fallback copy.
           </p>
         </div>
       )}
@@ -313,7 +319,7 @@ function SiteList() {
           <div className="mt-4">
             <AreaField label="What makes them different" value={form.usp} onChange={set("usp")} testId="input-usp" />
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto">
             <Button
               onClick={() => createMutation.mutate()}
               disabled={!form.businessName.trim() || createMutation.isPending}
@@ -524,8 +530,8 @@ function SiteEditor({ siteId }: { siteId: number }) {
         <div className="mb-5 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p className="m-0">
-            Last generation note: {site.last_generation_error} — the draft uses deterministic copy
-            for any slot the model did not fill.
+            Last generation note: {trimPeriod(site.last_generation_error)} — the draft uses
+            deterministic copy for any slot the model did not fill.
           </p>
         </div>
       )}
@@ -534,7 +540,7 @@ function SiteEditor({ siteId }: { siteId: number }) {
         {/* ── Review + approve ── */}
         <Card className="p-5 lg:col-span-2" data-section>
           <h2 className="mb-3 text-base font-semibold text-foreground">Review</h2>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto [&>*]:justify-center">
             <a
               className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               href={data.preview_url}
