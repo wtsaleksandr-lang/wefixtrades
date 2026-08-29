@@ -116,6 +116,16 @@ interface Props {
   onChange: (next: ShellSettings) => void;
   /** Owner plan tier — drives the "Pro" hint on coming-soon rows. */
   planTier?: string;
+  /**
+   * Wave QQ-INT — SERVER-computed feature allow-map from /api/calculators/me.
+   *
+   * The three paid features configured on this tab (deposits, owner SMS,
+   * outbound webhook) are enforced server-side; this map is what the server
+   * said, so the UI locks exactly what the server would reject. Never
+   * re-derive these from `planTier` here — a client-side tier table is how the
+   * server's own predicates drifted apart. Absent → treat as locked.
+   */
+  featureAllow?: Record<string, boolean>;
   /** Calculator edit token — the Integrations panel uses it to read/save its
    *  outbound-webhook config. Empty in the pre-save create flow. */
   editToken?: string;
@@ -130,8 +140,14 @@ interface Props {
 }
 
 export default function ActionTab({
-  settings, onChange, editToken = '', isRoofWidget = false,
+  settings, onChange, editToken = '', isRoofWidget = false, featureAllow,
 }: Props) {
+  // Wave QQ-INT — fail CLOSED. An absent map (pre-save create flow, or a
+  // /api/calculators/me fetch that hasn't landed) locks the paid controls
+  // rather than briefly offering something the server will refuse.
+  const canUseDeposits = featureAllow?.booking_deposits === true;
+  const canUseOwnerSms = featureAllow?.sms_followups === true;
+  const canUseWebhook = featureAllow?.lead_webhook === true;
   const patch = useCallback(
     (next: Partial<ShellSettings>) => onChange({ ...settings, ...next }),
     [settings, onChange],
@@ -279,6 +295,7 @@ export default function ActionTab({
           invalid={leadSmsPhoneInvalid}
           onToggle={(next) => patch({ leadSmsEnabled: next })}
           onPhoneChange={(next) => patch({ leadSmsPhone: next })}
+          allowed={canUseOwnerSms}
         />
 
         {/* Integrations — outbound lead webhook (Zapier / Make / HubSpot /
@@ -286,7 +303,7 @@ export default function ActionTab({
             /api/roofquote/lead, which now fires this SAME signed webhook — so
             CRM/Zapier delivery works for the 3D widget exactly as it does for a
             generic calculator. Reuses the generic tab's IntegrationsPanel. */}
-        <IntegrationsPanel editToken={editToken} />
+        <IntegrationsPanel editToken={editToken} allowed={canUseWebhook} />
 
         <style>{`
           .qq-action-panel {
@@ -630,9 +647,10 @@ export default function ActionTab({
                 Disables itself when no Stripe account is connected. Testids
                 preserved from SettingsTab so existing tests resolve here. */}
             <div
-              className={`qq-action-card${stripeConnected ? '' : ' is-disabled'}`}
+              className={`qq-action-card${stripeConnected && canUseDeposits ? '' : ' is-disabled'}`}
               data-testid="settings-group-deposit"
               data-stripe-connected={stripeConnected ? 'true' : 'false'}
+              data-feature-allowed={canUseDeposits ? 'true' : 'false'}
               /* Click-to-edit anchor — a tap on the preview deposit badge
                  (data-component-type="deposit") resolves here. Mirrors the
                  online-booking card below. */
@@ -650,7 +668,22 @@ export default function ActionTab({
                 />
               </div>
               <div className="qq-action-card-body">
-                {!stripeConnected && (
+                {/* Wave QQ-INT — Business gate, mirroring the server. Shown
+                    ahead of the Stripe hint because an upgrade is the first
+                    thing that must happen; connecting Stripe wouldn't help. */}
+                {!canUseDeposits && (
+                  <p
+                    className="qq-action-seg-hint"
+                    data-testid="settings-deposit-tier-locked"
+                    style={{ margin: '0 0 10px' }}
+                  >
+                    Deposits are part of the Business plan.{' '}
+                    <a href="/pricing/quotequick" data-testid="settings-deposit-upgrade">
+                      Upgrade to Business ($79/mo) →
+                    </a>
+                  </p>
+                )}
+                {canUseDeposits && !stripeConnected && (
                   <p
                     className="qq-action-seg-hint"
                     data-testid="settings-deposit-no-stripe"
@@ -662,12 +695,15 @@ export default function ActionTab({
 
                 <label
                   className="qq-action-toggle"
-                  style={{ cursor: stripeConnected ? 'pointer' : 'not-allowed', opacity: stripeConnected ? 1 : 0.55 }}
+                  style={{
+                    cursor: stripeConnected && canUseDeposits ? 'pointer' : 'not-allowed',
+                    opacity: stripeConnected && canUseDeposits ? 1 : 0.55,
+                  }}
                 >
                   <input
                     type="checkbox"
                     checked={deposit.enabled === true}
-                    disabled={!stripeConnected}
+                    disabled={!stripeConnected || !canUseDeposits}
                     onChange={(e) => patchDeposit({ enabled: e.target.checked })}
                     data-testid="settings-deposit-enabled"
                     aria-label="Collect a deposit when customers book"
@@ -779,6 +815,7 @@ export default function ActionTab({
               invalid={leadSmsPhoneInvalid}
               onToggle={(next) => patch({ leadSmsEnabled: next })}
               onPhoneChange={(next) => patch({ leadSmsPhone: next })}
+              allowed={canUseOwnerSms}
             />
 
             {/* Online booking — RELOCATED from SettingsTab. The PERSISTED
@@ -981,7 +1018,7 @@ export default function ActionTab({
 
             {/* Integrations — real outbound lead webhook (Zapier / Make /
                 HubSpot / Google Sheets / Slack / custom). Free for all tiers. */}
-            <IntegrationsPanel editToken={editToken} />
+            <IntegrationsPanel editToken={editToken} allowed={canUseWebhook} />
           </AdvancedSection>
         </>
       )}
@@ -1681,16 +1718,22 @@ function LeadFieldEditor({
    (enqueueLeadNotificationsAndFollowups) reads to text the owner on every lead.
    Same card chrome / testid conventions as the Email-notifications card. */
 function OwnerSmsCard({
-  enabled, phone, invalid, onToggle, onPhoneChange,
+  enabled, phone, invalid, onToggle, onPhoneChange, allowed,
 }: {
   enabled: boolean;
   phone: string;
   invalid: boolean;
   onToggle: (next: boolean) => void;
   onPhoneChange: (next: string) => void;
+  /** Wave QQ-INT — server's `sms_followups` verdict. Fails closed. */
+  allowed: boolean;
 }) {
   return (
-    <div className="qq-action-card" data-testid="action-group-sms">
+    <div
+      className={`qq-action-card${allowed ? '' : ' is-disabled'}`}
+      data-testid="action-group-sms"
+      data-feature-allowed={allowed ? 'true' : 'false'}
+    >
       <div className="qq-action-card-head">
         <span className="qq-action-card-headicon" aria-hidden="true">
           <MessageSquare size={16} />
@@ -1702,10 +1745,28 @@ function OwnerSmsCard({
         />
       </div>
       <div className="qq-action-card-body">
-        <label className="qq-action-toggle">
+        {/* Wave QQ-INT — Pro gate, mirroring the server. Email notifications
+            stay free; only the SMS leg is gated. */}
+        {!allowed && (
+          <p
+            className="qq-action-seg-hint"
+            data-testid="action-sms-tier-locked"
+            style={{ margin: '0 0 10px' }}
+          >
+            Text notifications are part of the Pro plan.{' '}
+            <a href="/pricing/quotequick" data-testid="action-sms-upgrade">
+              Upgrade to Pro ($19/mo) →
+            </a>
+          </p>
+        )}
+        <label
+          className="qq-action-toggle"
+          style={{ cursor: allowed ? 'pointer' : 'not-allowed', opacity: allowed ? 1 : 0.55 }}
+        >
           <input
             type="checkbox"
             checked={enabled}
+            disabled={!allowed}
             onChange={(e) => onToggle(e.target.checked)}
             data-testid="action-sms-enabled"
             aria-label="Text me on every new lead"
@@ -1749,7 +1810,13 @@ function OwnerSmsCard({
    Real outbound LEAD webhook config. Fires a signed POST to the owner's URL
    on every lead/quote submission — so it connects to Zapier, Make, n8n,
    HubSpot, GoHighLevel, Google Sheets, Slack, or any custom endpoint (they
-   all accept inbound webhooks). Free for all tiers.
+   all accept inbound webhooks).
+
+   Wave QQ-INT — BUSINESS TIER. shared/pricing.ts sells this as "Webhook / CRM
+   integration (Zapier, Stripe, HubSpot)"; the server now refuses to enable or
+   test it below Business, so `allowed` (the server's own verdict, via
+   /api/calculators/me) locks the controls to match. Reading an existing
+   config is never blocked, and neither is turning it OFF.
 
    The signing secret is generated + stored server-side; this panel reads,
    saves (on-blur / toggle), can "Send test", and can rotate the secret via
@@ -1759,7 +1826,7 @@ interface WebhookCfg { url: string; enabled: boolean; secret: string; }
 
 const URL_RE = /^https:\/\/[^\s]+$/i;
 
-function IntegrationsPanel({ editToken }: { editToken: string }) {
+function IntegrationsPanel({ editToken, allowed }: { editToken: string; allowed: boolean }) {
   const [cfg, setCfg] = useState<WebhookCfg>({ url: '', enabled: false, secret: '' });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1893,7 +1960,11 @@ function IntegrationsPanel({ editToken }: { editToken: string }) {
   const canTest = hasToken && !!cfg.url.trim() && !urlInvalid && !!cfg.secret;
 
   return (
-    <div className="qq-action-card qq-integ" data-testid="action-group-integrations">
+    <div
+      className={`qq-action-card qq-integ${allowed ? '' : ' is-disabled'}`}
+      data-testid="action-group-integrations"
+      data-feature-allowed={allowed ? 'true' : 'false'}
+    >
       <div className="qq-action-card-head">
         <span className="qq-action-card-headicon" aria-hidden="true">
           <Plug size={16} />
@@ -1906,17 +1977,32 @@ function IntegrationsPanel({ editToken }: { editToken: string }) {
         />
       </div>
       <div className="qq-action-card-body">
-        {!hasToken && (
+        {/* Wave QQ-INT — Business gate, mirroring the server. Takes priority
+            over the save-first hint: upgrading is the blocking step. */}
+        {!allowed && (
+          <p className="qq-integ-hint" data-testid="integ-tier-locked">
+            Webhook / CRM integration is part of the Business plan.{' '}
+            <a href="/pricing/quotequick" data-testid="integ-upgrade">
+              Upgrade to Business ($79/mo) →
+            </a>
+          </p>
+        )}
+        {allowed && !hasToken && (
           <p className="qq-integ-hint" data-testid="integ-needs-save">
             Save your calculator first, then connect a webhook here.
           </p>
         )}
 
-        <label className="qq-action-toggle">
+        <label
+          className="qq-action-toggle"
+          style={{ cursor: allowed ? 'pointer' : 'not-allowed', opacity: allowed ? 1 : 0.55 }}
+        >
           <input
             type="checkbox"
             checked={cfg.enabled}
-            disabled={!hasToken || saving || !loaded}
+            /* Never block turning it OFF — an owner who downgrades must still
+               be able to disconnect a webhook they can no longer use. */
+            disabled={!hasToken || saving || !loaded || (!allowed && !cfg.enabled)}
             onChange={(e) => onToggle(e.target.checked)}
             data-testid="integ-enabled"
             aria-label="Send a webhook on every new lead"
@@ -1957,7 +2043,10 @@ function IntegrationsPanel({ editToken }: { editToken: string }) {
             type="button"
             className="qq-integ-btn"
             onClick={onSendTest}
-            disabled={!canTest || testing}
+            /* Wave QQ-INT — a test send is a real outbound delivery, so it is
+               gated exactly like enabling. The server returns 402 regardless;
+               disabling here just avoids offering a button that always fails. */
+            disabled={!canTest || testing || !allowed}
             data-testid="integ-send-test"
           >
             <Send size={16} aria-hidden="true" />

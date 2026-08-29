@@ -233,6 +233,21 @@ function toNum(v: Val): number {
   return isFinite(f) ? f : 0;
 }
 
+/**
+ * Coerce an ARITHMETIC operand.
+ *
+ * Identical to toNum() except it refuses to launder a non-finite number into
+ * 0. toNum()'s `isFinite(v) ? v : 0` fallback is the right defensive choice
+ * for aggregates (SUM/MAX of a messy field), but on the arithmetic path it
+ * turns an overflow into a confident $0 quote. Arithmetic fails loudly.
+ */
+function arithOperand(v: Val): number {
+  if (typeof v === 'number' && !isFinite(v)) {
+    throw new FormulaError('Result is not a finite number');
+  }
+  return toNum(v);
+}
+
 function toBool(v: Val): boolean {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v !== 0;
@@ -289,17 +304,24 @@ function evalNode(node: Node, ctx: FormulaContext): Val {
     case 'bin': {
       const op = node.op;
       if (op === '+' || op === '-' || op === '*' || op === '/' || op === '^') {
-        const l = toNum(evalNode(node.l, ctx));
-        const r = toNum(evalNode(node.r, ctx));
+        const l = arithOperand(evalNode(node.l, ctx));
+        const r = arithOperand(evalNode(node.r, ctx));
+        let out: number;
         switch (op) {
-          case '+': return l + r;
-          case '-': return l - r;
-          case '*': return l * r;
+          case '+': out = l + r; break;
+          case '-': out = l - r; break;
+          case '*': out = l * r; break;
           case '/':
             if (r === 0) throw new FormulaError('Division by zero');
-            return l / r;
-          case '^': return Math.pow(l, r);
+            out = l / r; break;
+          default: out = Math.pow(l, r); break;
         }
+        /* Overflow must never be laundered into a number. Without this an
+         * overflowing sub-expression reaches toNum() on the way into the NEXT
+         * operation, becomes 0, and the whole formula quotes the customer $0
+         * with ok:true — e.g. `(10 ^ 400) * 2`. Fail loudly instead. */
+        if (!isFinite(out)) throw new FormulaError('Result is not a finite number');
+        return out;
       }
       // comparison
       const lv = evalNode(node.l, ctx);
@@ -398,7 +420,20 @@ export function evaluateFormula(expr: string, ctx: FormulaContext = {}): Formula
   try {
     if (!expr || !expr.trim()) return { ok: true, value: 0 };
     const ast = new Parser(tokenize(expr)).parse();
-    const num = toNum(evalNode(ast, ctx));
+    const raw = evalNode(ast, ctx);
+    /* Overflow guard — MUST run before toNum().
+     *
+     * toNum() deliberately launders a non-finite NUMBER to 0 (`isFinite(v) ? v : 0`)
+     * so that a stray Infinity inside a sub-expression can't poison an aggregate.
+     * At the TOP level that laundering is dangerous: an overflowing formula
+     * (e.g. `10 ^ 400`) would come back as `{ ok: true, value: 0 }` and quote the
+     * customer $0 — a confident wrong price. Checking the raw result first makes
+     * the pre-existing "not a finite number" branch reachable, so an overflow
+     * refuses to quote instead of silently zeroing. */
+    if (typeof raw === 'number' && !isFinite(raw)) {
+      return { ok: false, value: 0, error: 'Result is not a finite number' };
+    }
+    const num = toNum(raw);
     if (!isFinite(num)) return { ok: false, value: 0, error: 'Result is not a finite number' };
     return { ok: true, value: num };
   } catch (e) {

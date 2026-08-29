@@ -81,6 +81,10 @@ export const SENTINELS: SentinelProbe[] = [
   { ledgerFile: "0084_outbound_casl_consent.sql", table: "prospects", column: "consent_evidence" },
   { ledgerFile: "0084_outbound_casl_consent.sql", table: "prospects", column: "consent_expires_at" },
   { ledgerFile: "0084_outbound_casl_consent.sql", table: "outbound_send_state", column: null },
+  // 0098 — quote-recompute audit trail. Deploy-critical: leadRoutes writes both
+  // columns on EVERY capture, so a publish-trap drop would 500 lead submission.
+  { ledgerFile: "0098_lead_quote_recompute.sql", table: "leads", column: "quote_amount_client" },
+  { ledgerFile: "0098_lead_quote_recompute.sql", table: "leads", column: "quote_recompute_status" },
 ];
 
 /** Minimal query surface — satisfied by a pg PoolClient and by test fakes. */

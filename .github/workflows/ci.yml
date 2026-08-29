@@ -69,6 +69,14 @@ jobs:
         run: npm run check:audit-premium
       - name: Revenue-loss guard (honest per-business loss — real demand-gap or avg-ticket floor; isReal:false instead of a fake placeholder when zero)
         run: npm run check:revenue-loss
+      - name: Pricing-engine guard (all 10 pricing models; applyModifiers order — travel → after-hours × → difficulty × → add-ons → min-charge clamp; invalid config degrades to call_for_quote not a wrong price; hostile quantity never yields NaN/negative)
+        run: npm run check:calculate-estimate
+      - name: Formula-engine guard (no eval/new Function in the source; PEMDAS + right-assoc ^; all 17 functions; runCalculations chaining; malformed input never throws; overflow REFUSES to quote instead of silently returning $0)
+        run: npm run check:formula-engine
+      - name: QuoteQuick entitlement guard (feature→tier map matches the shared/pricing.ts bullets; unknown/blank plan_tier fails CLOSED; grandfathering is per-feature; allow-map agrees with the direct checks)
+        run: npm run check:qq-entitlements
+      - name: Quote-recompute guard (tampered quote_amount is corrected to the server value; the ADVANCED formula path is skipped not recomputed; call-for-quote/roof-visualiser/null are never zeroed; never throws)
+        run: npm run check:quote-recompute
       - name: Calculator-schema guard (advanced.fields[].type enum stays in sync with the 19-type FieldType union; bogus type rejected)
         run: npm run check:calculator-schema
       - name: Template formula-ref guard (every bracketed [ref] + result_calc in a preset resolves to a real field/calc name; unknown ref silently → 0 wrong quote, the door_installation class)

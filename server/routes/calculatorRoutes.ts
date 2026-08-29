@@ -6,6 +6,12 @@ import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema, isAiAssistantActive } from "@shared/schema";
 import { BRAND_STUDIO_STYLE_KEYS, FLOATING_LAUNCHER_PRO_KEYS } from "@shared/templatePresets";
+import {
+  buildFeatureAllowMap,
+  checkQuoteQuickFeature,
+  featureGateErrorBody,
+  QQ_FEATURE_GATE_STATUS,
+} from "@shared/quotequickEntitlements";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { noisyCatch } from "../lib/silentFailureGuard";
@@ -401,6 +407,12 @@ export function registerCalculatorRoutes(app: Express): void {
         slug: calc.slug,
         plan_tier: planTier,
         business_name: calc.business_name,
+        // Wave QQ-INT — server-computed feature allow-map. The wizard renders
+        // its locks from THIS rather than re-deriving the tier table client-
+        // side; that duplication is exactly how the five server-side "is
+        // paid?" predicates drifted apart. Grandfathering is folded in here
+        // too, so a grandfathered account sees an unlocked control.
+        features: buildFeatureAllowMap(planTier, calc.calculator_settings),
       });
     } catch (err: any) {
       log.error("calculators/me error:", err);
@@ -661,6 +673,71 @@ export function registerCalculatorRoutes(app: Express): void {
         if (droppedBrandStudio.length > 0) {
           res.setHeader('X-Brand-Studio-Stripped', droppedBrandStudio.join(','));
         }
+
+        /* Wave QQ-INT — tier gate on the two config-time paid features.
+         *
+         * shared/pricing.ts advertises "Online booking + deposits" as Business
+         * and "Email + SMS follow-ups" as Pro, but the wizard PATCH accepted
+         * both from any tier. Same STRIP strategy as the badge gate above: we
+         * delete the offending key from the patch BEFORE the deep merge, so
+         * the stored value is simply left as it was.
+         *
+         * That gives grandfathering for free and is why this is a strip rather
+         * than a 403: an account that already has the feature ON keeps it ON
+         * (the merge preserves the existing `true`), while a non-entitled
+         * account can never flip it from off to on. Turning a feature OFF is
+         * never blocked — `enabled: false` passes through untouched.
+         *
+         * NOTE: `appearance.scheduling` (calendar booking) is deliberately NOT
+         * gated here. It overlaps the separate BookFlow product and no audit
+         * finding covered it; only the money-moving deposit toggle is gated. */
+        const droppedFeatureGated: string[] = [];
+
+        const incomingDeposit = (updates.calculator_settings as any).appearance?.deposit;
+        if (incomingDeposit && incomingDeposit.enabled === true) {
+          const depositGate = checkQuoteQuickFeature(
+            calculator.plan_tier, "booking_deposits", currentSettings,
+          );
+          if (!depositGate.allowed) {
+            const { enabled: _dropped, ...restDeposit } = incomingDeposit;
+            void _dropped;
+            (updates.calculator_settings as any).appearance.deposit = restDeposit;
+            droppedFeatureGated.push('appearance.deposit.enabled');
+          }
+        }
+
+        const incomingFollowup = (updates.calculator_settings as any).followup;
+        if (incomingFollowup) {
+          const smsGate = checkQuoteQuickFeature(
+            calculator.plan_tier, "sms_followups", currentSettings,
+          );
+          if (!smsGate.allowed) {
+            // Owner SMS notification on every new lead.
+            if (incomingFollowup.notifications?.sms_enabled === true) {
+              const { sms_enabled: _s, ...restNotifications } = incomingFollowup.notifications;
+              void _s;
+              incomingFollowup.notifications = restNotifications;
+              droppedFeatureGated.push('followup.notifications.sms_enabled');
+            }
+            // SMS leg of the follow-up sequence.
+            if (incomingFollowup.channels?.sms === true) {
+              const { sms: _c, ...restChannels } = incomingFollowup.channels;
+              void _c;
+              incomingFollowup.channels = restChannels;
+              droppedFeatureGated.push('followup.channels.sms');
+            }
+          }
+        }
+
+        if (droppedFeatureGated.length > 0) {
+          log.info("Wave QQ-INT gate — stripped tier-gated feature toggles from the patch", {
+            calculator_id: calculator.id,
+            plan_tier: calculator.plan_tier ?? 'free',
+            dropped: droppedFeatureGated,
+          });
+          res.setHeader('X-Feature-Gate-Stripped', droppedFeatureGated.join(','));
+        }
+
         // Deep merge: preserve nested objects that aren't being replaced
         const merged = deepMergeSettings(currentSettings, updates.calculator_settings as Record<string, any>);
         try {
@@ -759,8 +836,16 @@ export function registerCalculatorRoutes(app: Express): void {
    * (same ownership credential the PATCH route uses). Config is stored in
    * calculator_settings.integrations.webhook = { url, enabled, secret }.
    * The signing secret is generated SERVER-SIDE and only ever leaves here
-   * through these endpoints (it is never accepted from the client). Free
-   * for all tiers — no plan gate.
+   * through these endpoints (it is never accepted from the client).
+   *
+   * Wave QQ-INT — TIER GATED (Business). shared/pricing.ts advertises
+   * "Webhook / CRM integration (Zapier, Stripe, HubSpot)" as a Business
+   * bullet, but until now these routes checked only the edit token, so any
+   * free-tier calculator could configure and fire webhooks. The gate blocks
+   * ENABLING and TESTING; reading stays open (owners must always be able to
+   * see their own config) and DISABLING stays open (never trap a user inside
+   * a feature they can no longer afford). See shared/quotequickEntitlements.ts
+   * for the policy switch and the pricing-page conflict note.
    * ──────────────────────────────────────────────────────────────────── */
 
   // Read current integrations config (secret returned so the owner can copy
@@ -775,10 +860,20 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(403).json({ error: "Edit access expired" });
       }
       const cfg = readWebhookConfig(calculator);
+      const gate = checkQuoteQuickFeature(
+        calculator.plan_tier,
+        "lead_webhook",
+        calculator.calculator_settings,
+      );
       return res.json({
         webhook: cfg
           ? { url: cfg.url, enabled: cfg.enabled, secret: cfg.secret }
           : { url: "", enabled: false, secret: "" },
+        // Reading is never blocked — the owner sees their own config plus
+        // whether their plan lets them turn it on.
+        allowed: gate.allowed,
+        required_tier: gate.requiredTier,
+        plan_tier: gate.planTier,
       });
     } catch (error: any) {
       log.error("Get integrations error:", error?.message);
@@ -804,6 +899,29 @@ export function registerCalculatorRoutes(app: Express): void {
       const current = readWebhookConfig(calculator);
       const url = (parsed.data.url ?? "").trim();
       const enabled = parsed.data.enabled === true;
+
+      /* Wave QQ-INT — Business gate on ENABLING only.
+       *
+       * A non-entitled owner may still save url:"" / enabled:false (turning
+       * the integration OFF must never require an upgrade), and an account
+       * that already had it enabled keeps working until it explicitly
+       * disables — we only block the transition INTO the paid feature. */
+      const gate = checkQuoteQuickFeature(
+        calculator.plan_tier,
+        "lead_webhook",
+        calculator.calculator_settings,
+      );
+      const alreadyEnabled = current?.enabled === true;
+      if (enabled && !gate.allowed && !alreadyEnabled) {
+        log.info("Wave QQ-INT gate — blocked webhook enable on an unentitled plan", {
+          calculator_id: calculator.id,
+          plan_tier: gate.planTier,
+          required_tier: gate.requiredTier,
+        });
+        return res
+          .status(QQ_FEATURE_GATE_STATUS)
+          .json(featureGateErrorBody("lead_webhook"));
+      }
 
       // Secret lifecycle: keep the existing one; mint a new one on first
       // enable (or when none exists yet but a URL is being saved); rotate on
@@ -854,6 +972,20 @@ export function registerCalculatorRoutes(app: Express): void {
       if (!calculator) return res.status(404).json({ error: "Calculator not found" });
       if (new Date() > new Date(calculator.token_expires_at)) {
         return res.status(403).json({ error: "Edit access expired" });
+      }
+
+      // Wave QQ-INT — Business gate. A test send is a real outbound delivery,
+      // so it is gated exactly like enabling. Checked BEFORE the rate limiter
+      // so a blocked call never burns the owner's test budget.
+      const testGate = checkQuoteQuickFeature(
+        calculator.plan_tier,
+        "lead_webhook",
+        calculator.calculator_settings,
+      );
+      if (!testGate.allowed) {
+        return res
+          .status(QQ_FEATURE_GATE_STATUS)
+          .json(featureGateErrorBody("lead_webhook"));
       }
 
       const allowed = await webhookTestRateLimiter.check(`wh-test:${calculator.id}`);

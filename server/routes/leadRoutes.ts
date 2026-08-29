@@ -24,6 +24,8 @@ import {
   buildQuotaUsage,
   FREE_MONTHLY_QUOTE_LIMIT,
 } from "@shared/quotequickQuota";
+import { hasQuoteQuickFeature } from "@shared/quotequickEntitlements";
+import { recomputeQuoteAmount } from "@shared/quoteRecompute";
 
 const log = createLogger("Leads");
 
@@ -194,19 +196,43 @@ export async function enqueueLeadNotificationsAndFollowups(lead: any, calculator
     }
   }
 
+  /* Wave QQ-INT — tier gates on the two advertised paid notification
+   * channels. shared/pricing.ts sells "Email + SMS follow-ups" as Pro and
+   * "Webhook / CRM integration" as Business; until now this function checked
+   * only the owner's own config flags, so a free-tier calculator got both.
+   *
+   * Resolved ONCE here and reused for the follow-up sequence below, so the
+   * owner-notification SMS and the sequence SMS can never disagree. Email
+   * notifications and the homeowner-facing transactional messages above are
+   * NOT gated — they are free-tier features. */
+  const smsEntitled = hasQuoteQuickFeature(calc.plan_tier, "sms_followups", settings);
+  const webhookEntitled = hasQuoteQuickFeature(calc.plan_tier, "lead_webhook", settings);
+
   if (notifications.sms_enabled && calc.owner_phone) {
-    await storage.enqueueNotification({
-      calculator_id: calculatorId,
-      lead_id: lead.id,
-      type: 'sms',
-      status: 'pending',
-      payload: {
-        owner_phone: calc.owner_phone,
-      },
-    });
+    if (!smsEntitled) {
+      log.info("[leads] Wave QQ-INT gate — owner SMS notification skipped (plan lacks SMS follow-ups)", {
+        calculator_id: calculatorId,
+        plan_tier: calc.plan_tier ?? 'free',
+      });
+    } else {
+      await storage.enqueueNotification({
+        calculator_id: calculatorId,
+        lead_id: lead.id,
+        type: 'sms',
+        status: 'pending',
+        payload: {
+          owner_phone: calc.owner_phone,
+        },
+      });
+    }
   }
 
-  if (notifications.webhook_enabled && notifications.webhook_url) {
+  if (notifications.webhook_enabled && notifications.webhook_url && !webhookEntitled) {
+    log.info("[leads] Wave QQ-INT gate — notification webhook skipped (plan lacks CRM integration)", {
+      calculator_id: calculatorId,
+      plan_tier: calc.plan_tier ?? 'free',
+    });
+  } else if (notifications.webhook_enabled && notifications.webhook_url) {
     await storage.enqueueNotification({
       calculator_id: calculatorId,
       lead_id: lead.id,
@@ -237,9 +263,17 @@ export async function enqueueLeadNotificationsAndFollowups(lead: any, calculator
     const personalization = followup.personalization || {};
     const channels = followup.channels || { email: true, sms: false };
 
-    // Need at least one channel with a reachable contact
+    // Need at least one channel with a reachable contact. The SMS leg also
+    // requires the Pro entitlement (Wave QQ-INT) — an unentitled account
+    // still gets the full EMAIL sequence, it just loses the SMS touches.
     const canEmail = channels.email && lead.email;
-    const canSms = channels.sms && lead.sms_consent && lead.phone;
+    const canSms = channels.sms && lead.sms_consent && lead.phone && smsEntitled;
+    if (channels.sms && lead.sms_consent && lead.phone && !smsEntitled) {
+      log.info("[leads] Wave QQ-INT gate — follow-up SMS leg skipped (plan lacks SMS follow-ups)", {
+        calculator_id: calculatorId,
+        plan_tier: calc.plan_tier ?? 'free',
+      });
+    }
 
     if (!canEmail && !canSms) {
       // No reachable followup channel — skip silently
@@ -400,7 +434,69 @@ export function registerLeadRoutes(app: Express): void {
         log.warn(`[leads] Non-finite quote_amount=${quoteAmount} for calculator ${parsed.data.calculator_id}, setting to null`);
       }
 
-      const safeQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
+      const clientQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
+
+      /* ── Wave QQ-INT — server-side quote recompute ─────────────────────────
+       * The browser used to be the sole authority on `quote_amount`: whatever
+       * it posted was stored, so the figure driving the owner's pipeline value
+       * and their CRM webhook was trivially tamperable.
+       *
+       * recomputeQuoteAmount() re-derives the price from the OWNER'S OWN
+       * stored pricing_config plus the submitted answers, using the exact
+       * mapper the widget itself uses (shared/quoteRecompute.ts). It only
+       * asserts authority where it can be faithful:
+       *
+       *   verified / corrected → simple pricing_config path; the SERVER value
+       *                          is stored (a `corrected` case is a real
+       *                          disagreement and is logged + flagged).
+       *   skipped_*            → advanced formula builder, roof visualiser,
+       *                          call-for-quote, or no amount at all. The
+       *                          client value stands, honestly labelled
+       *                          unverified rather than falsely "checked".
+       *   unavailable          → the recompute failed; fail OPEN and keep the
+       *                          client value. Never lose a real lead over a
+       *                          verification problem.
+       *
+       * See the module header for why the advanced path is deliberately not
+       * recomputed: without the client-side value mapping it would resolve
+       * every select-driven term to 0 and overwrite correct quotes with $0. */
+      const recompute = recomputeQuoteAmount({
+        pricingConfig: calculator.pricing_config,
+        calculatorSettings: calculator.calculator_settings,
+        answers: parsed.data.answers,
+        submittedAmount: clientQuoteAmount,
+      });
+
+      const safeQuoteAmount =
+        recompute.storedAmount != null && Number.isFinite(recompute.storedAmount)
+          ? recompute.storedAmount
+          : null;
+
+      if (recompute.mismatch) {
+        // A real disagreement between the browser and the owner's stored
+        // pricing. Could be tampering, could be an owner editing their prices
+        // mid-session. Either way the server value wins and the event is
+        // recorded loudly rather than silently accepted.
+        log.warn("[leads] quote_amount mismatch — stored the server recompute", {
+          calculatorId: parsed.data.calculator_id,
+          clientAmount: recompute.clientAmount,
+          serverAmount: recompute.serverAmount,
+          delta: recompute.delta,
+        });
+        try {
+          Sentry.captureMessage(
+            `[leads] quote_amount mismatch on calculator ${parsed.data.calculator_id}: client=${recompute.clientAmount} server=${recompute.serverAmount} delta=${recompute.delta}`,
+            "warning",
+          );
+        } catch {
+          // Sentry not initialised in some test envs — the log line above stands.
+        }
+      } else if (recompute.status === "unavailable") {
+        log.warn("[leads] quote recompute unavailable; keeping the client amount", {
+          calculatorId: parsed.data.calculator_id,
+          reason: recompute.reason,
+        });
+      }
 
       // Wave 79 — TCPA / privacy audit trail. Capture immutable context at the
       // moment of consent so we can defend a future challenge: which URL the
@@ -456,6 +552,11 @@ export function registerLeadRoutes(app: Express): void {
         phone,
         company,
         quote_amount: safeQuoteAmount,
+        // Wave QQ-INT — recompute paper trail (migrations/0098). The client's
+        // own number is preserved even when the server overrode it, so a
+        // correction stays provable and a tampering pattern is detectable.
+        quote_amount_client: recompute.clientAmount,
+        quote_recompute_status: recompute.status,
         answers: parsed.data.answers || null,
         status: 'new',
         sms_consent: parsed.data.sms_consent || false,
@@ -587,17 +688,23 @@ export function registerLeadRoutes(app: Express): void {
 
       // QuoteQuick Integrations — owner-configured OUTBOUND lead webhook
       // (Zapier/Make/n8n/HubSpot/GoHighLevel/Google Sheets/Slack/custom).
-      // Free for all tiers. Best-effort, signed (X-WFT-Signature), SSRF-guarded,
-      // and NON-BLOCKING: fireLeadWebhook never throws and logs its own outcome,
-      // so a failed/slow consumer can never affect lead capture above. No-op
-      // unless integrations.webhook.{enabled,url,secret} is configured.
-      void fireLeadWebhook(calculator, lead).catch((err) =>
-        log.error("[lead-webhook] fire threw unexpectedly", {
-          error: err?.message,
-          calculatorId: parsed.data.calculator_id,
-          leadId: lead.id,
-        }),
-      );
+      // Best-effort, signed (X-WFT-Signature), SSRF-guarded, and NON-BLOCKING:
+      // fireLeadWebhook never throws and logs its own outcome, so a failed/slow
+      // consumer can never affect lead capture above. No-op unless
+      // integrations.webhook.{enabled,url,secret} is configured.
+      //
+      // Wave QQ-INT — Business gate. Advertised on shared/pricing.ts as
+      // "Webhook / CRM integration"; the config endpoints now refuse to enable
+      // it below Business and this is the delivery-time backstop.
+      if (hasQuoteQuickFeature(calculator.plan_tier, "lead_webhook", calculator.calculator_settings)) {
+        void fireLeadWebhook(calculator, lead).catch((err) =>
+          log.error("[lead-webhook] fire threw unexpectedly", {
+            error: err?.message,
+            calculatorId: parsed.data.calculator_id,
+            leadId: lead.id,
+          }),
+        );
+      }
 
       // Wave 92: captureIntakeEvent feeds the audit trail. Previously a
       // `.catch(() => {})` swallowed write failures so lead-source attribution
