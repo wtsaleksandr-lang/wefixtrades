@@ -37,6 +37,7 @@
     "check:checkout-provisioning-order": "tsx server/routes/portal/catalog.test.ts",
     "check:cancel-keeps-free-live": "tsx server/routes/stripeBillingRoutes.subscriptionCancel.test.ts",
     "check:sitelaunch-notify": "tsx server/services/sitelaunchPaidOrderNotify.test.ts",
+    "check:sitelaunch-engine": "tsx server/services/sitelaunch/engine.test.ts",
     "check:funnel-analytics": "tsx server/lib/analytics.funnel.test.ts",
     "check:serp-country": "tsx shared/locationCountry.test.ts",
     "check:reviews-providers": "tsx server/lib/dataforseoReviews.test.ts",

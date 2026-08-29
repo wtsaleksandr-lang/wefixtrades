@@ -41,6 +41,8 @@ jobs:
         run: npm run check:cancel-keeps-free-live
       - name: SiteLaunch paid-order notify guard (paid order alerts Alex + creates a 5-day kickoff task, once, SiteLaunch-only)
         run: npm run check:sitelaunch-notify
+      - name: SiteLaunch engine guard (renderer emits a standalone responsive page with per-page title/meta/canonical/LocalBusiness JSON-LD; customer + LLM content escaped incl. the JSON-LD block; the 4 themes differ STRUCTURALLY not by colour; brand accent always clears WCAG AA on its own ink; a generated image can never reach a portfolio gallery; domain provisioning reports implemented:false even with the phase-2 flag on; the removed SSL setTimeout simulation can never be reported as an active certificate; drafts never auto-publish and never claim an unsupplied licence/years/reviews)
+        run: npm run check:sitelaunch-engine
       - name: Funnel-analytics guard (6 server PostHog funnel events stay instrumented; fire-and-forget no-op contract)
         run: npm run check:funnel-analytics
       - name: SERP-country guard (location string derives the country index)

@@ -193,6 +193,9 @@ const PRODUCTS_ITEMS: NavItem[] = [
     icon: Rocket,
     productId: "sitelaunch",
     children: [
+      /* The generator + review surface. Added with the SiteLaunch engine —
+       * before it, no admin screen could build or approve a site. */
+      { label: "Studio", href: "/admin/sitelaunch", icon: Rocket },
       { label: "Settings", href: "/admin/products/sitelaunch", icon: Settings },
     ],
   },
