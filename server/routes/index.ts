@@ -14,6 +14,7 @@ import { registerCalculatorRoutes } from "./calculatorRoutes";
 import { registerLeadRoutes } from "./leadRoutes";
 import { registerDashboardRoutes } from "./dashboardRoutes";
 import { registerDomainRoutes } from "./domainRoutes";
+import { registerSiteLaunchRoutes } from "./sitelaunchRoutes";
 import { registerBookingRoutes } from "./bookingRoutes";
 import { registerStripeRoutes } from "./stripeRoutes";
 import { registerTwilioRoutes } from "./twilioRoutes";
@@ -183,6 +184,7 @@ export async function registerRoutes(
   registerLeadRoutes(app);
   registerDashboardRoutes(app);
   registerDomainRoutes(app);
+  registerSiteLaunchRoutes(app);
   registerBookingRoutes(app);
   registerStripeRoutes(app);
   registerTwilioRoutes(app);
