@@ -37,7 +37,15 @@ const FAQ_ITEMS = [
   },
   {
     question: "Which directories do you cover?",
-    answer: "We actively monitor 5 directories today: Better Business Bureau, Houzz, BuildZoom, Yellowbook and Tupalo. We're adding more — you'll only ever be billed for, and alerted about, directories we genuinely check.",
+    answer: "We name every one: Google Business Profile, Better Business Bureau, BuildZoom, and — for Canadian trades — YellowPages.ca and n49. OpenStreetMap is supported and switched on per account. You'll only ever be billed for, and alerted about, directories we genuinely check.",
+  },
+  {
+    question: "Why do you check fewer directories than other tools advertise?",
+    answer: "Because the big coverage numbers are theatre. Google Business Profile alone carries more local-ranking weight than every other listing combined, and independent testing shows most low-tier directory listings drop out of Google's index within six months. We'd rather check a handful of sources properly than run dozens of fragile scrapers that report your listing as removed every time one of them rate-limits us.",
+  },
+  {
+    question: "Why isn't Yelp or Facebook on the list?",
+    answer: "They block automated checks outright — Facebook removed its page-search API in 2020 and both refuse non-browser traffic. Apple Maps and Bing Places have no public way to read a business's listing either. We could guess, but a guess dressed up as a status is worse than telling you we don't cover it.",
   },
   {
     question: "Can I bundle this with MapGuard?",
@@ -70,7 +78,7 @@ const PLANS: PlanOption[] = [
     priceLabel: "$19/mo",
     blurb: "Monitor your citations across the directories we actively check.",
     features: [
-      "Daily scan of 5 monitored directories",
+      "Daily scan of every directory we name — starting with Google Business Profile",
       "Email alerts on NAP changes",
       "New-citation discovery",
       "Removed-listing alerts",
@@ -119,9 +127,9 @@ export default function CitationTrackerPage() {
     <MarketingLayout>
       <PageMeta
         title="CiteTrack — continuous NAP drift monitoring for your business listings"
-        description="Catch NAP changes before they tank your local rankings. Daily monitoring of your BBB, Houzz, BuildZoom, Yellowbook and Tupalo listings. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
+        description="Catch NAP changes before they tank your local rankings. Daily checks on Google Business Profile, Better Business Bureau, BuildZoom, YellowPages.ca and n49 — we name every source and never report a status we didn't verify. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
         canonical={PAGE_PATH}
-        keywords={["citation tracker", "NAP monitoring", "local citation monitoring", "directory listing monitoring", "yelp BBB listing tracker"]}
+        keywords={["citation tracker", "NAP monitoring", "local citation monitoring", "directory listing monitoring", "google business profile listing tracker"]}
       />
 
       <div data-theme="light">
@@ -206,9 +214,10 @@ function CitationTrackerHero() {
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.55, color: "rgba(255,255,255,0.75)", margin: "0 0 22px", maxWidth: 560 }}>
             CiteTrack watches your business's name, address, and phone on the
-            directories we actively monitor — BBB, Houzz, BuildZoom, Yellowbook and
-            Tupalo — and alerts you the moment a listing drifts, a new citation
-            appears, or one is confirmed removed.
+            directories that actually move your ranking — starting with Google
+            Business Profile — and alerts you the moment a listing drifts, a new
+            citation appears, or one is confirmed removed. We name every source we
+            check, and we never report a status we didn't verify.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <Link
@@ -520,8 +529,8 @@ function CitationTrackerFeatures() {
     },
     {
       icon: Globe,
-      title: "Multi-directory coverage",
-      body: "Five directories today — Better Business Bureau, Houzz, BuildZoom, Yellowbook and Tupalo — spanning general, trade and local-discovery listings. More are being added.",
+      title: "Named coverage, not a headline number",
+      body: "Google Business Profile, Better Business Bureau and BuildZoom in the US; YellowPages.ca and n49 for Canadian trades; OpenStreetMap on request. Anyone can advertise a big coverage number — we tell you exactly which sources, and why each one is on the list.",
     },
   ];
   return (

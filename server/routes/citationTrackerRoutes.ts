@@ -25,7 +25,12 @@ import {
   CITATION_TRACKER_PRICING,
 } from "@shared/schema";
 import { getSubscriptionForCustomer } from "../services/citationTracker/monitor";
-import { CITATION_TRACKER_MONITORED_COUNT } from "../services/citationTracker/directories";
+import {
+  CITATION_TRACKER_DIRECTORIES,
+  getMonitoredCount,
+  getMonitoredDirectories,
+  isDirectoryCheckable,
+} from "../services/citationTracker/directories";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("CitationTrackerRoutes");
@@ -104,6 +109,40 @@ async function resolvePriceOrInline(
 
 export function registerCitationTrackerRoutes(app: Express): void {
 
+  /* ─── GET /api/citation-tracker/directories ────────────────────────
+   * Public and unauthenticated on purpose. "We check the directories that
+   * actually affect your ranking, and we name them" is only a stronger
+   * claim than a big number if the list is verifiable before you buy —
+   * so a prospect can read it without an account.
+   *
+   * `checked` is what we monitor on this deployment. `evaluated` is every
+   * directory we assessed and declined, each with the reason, so the page
+   * can show its work instead of quietly omitting the gaps.
+   *
+   * Static data, no DB, no external calls, and nothing that touches the
+   * paid SERP stack — so it is safe to expose anonymously. */
+  app.get("/api/citation-tracker/directories", (_req: Request, res: Response) => {
+    res.set("Cache-Control", "public, max-age=3600");
+    res.json({
+      checked: getMonitoredDirectories().map((d) => ({
+        id: d.id,
+        name: d.name,
+        url: d.url,
+        category: d.category,
+        markets: d.markets,
+        rationale: d.rationale,
+      })),
+      evaluated: CITATION_TRACKER_DIRECTORIES.filter((d) => !isDirectoryCheckable(d)).map((d) => ({
+        id: d.id,
+        name: d.name,
+        url: d.url,
+        category: d.category,
+        markets: d.markets,
+        reason: d.unavailableReason,
+      })),
+    });
+  });
+
   /* ─── POST /api/citation-tracker/subscribe ─────────────────────── */
   app.post("/api/citation-tracker/subscribe", requireClient, async (req: Request, res: Response) => {
     const parsed = subscribeSchema.safeParse(req.body);
@@ -171,10 +210,21 @@ export function registerCitationTrackerRoutes(app: Express): void {
         summary: {
           total_listings,
           unread_alerts,
-          // The number of directories we genuinely scrape. The registry
-          // holds many more as roadmap entries; quoting that larger figure
-          // would claim monitoring we don't perform.
-          directories_monitored: CITATION_TRACKER_MONITORED_COUNT,
+          // The number of directories we genuinely check on THIS
+          // deployment. The registry holds many more that we evaluated and
+          // declined; quoting that larger figure would claim monitoring we
+          // don't perform.
+          directories_monitored: getMonitoredCount(),
+          // Naming them is the product claim, so ship the names alongside
+          // the count rather than making the customer take it on trust.
+          directories: getMonitoredDirectories().map((d) => ({
+            id: d.id,
+            name: d.name,
+            url: d.url,
+            category: d.category,
+            markets: d.markets,
+            rationale: d.rationale,
+          })),
         },
       });
     } catch (err: any) {
