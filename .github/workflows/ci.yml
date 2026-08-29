@@ -33,6 +33,8 @@ jobs:
         run: npm run check:account-deletion
       - name: Account-deletion tenant-scoping guard (every generated DELETE is bound to the authenticated user id or to client ids resolved from clients.user_id — never an unscoped statement that would erase another tenant; a client-less account generates no client-scoped delete; the users/clients anchors are anonymised not deleted; deliberate-failure fixture)
         run: npm run check:account-deletion-scope
+      - name: Meta signed_request guard (the data-deletion callback Meta App Review requires — HMAC-SHA256 over the encoded payload verified with timingSafeEqual, non-HMAC-SHA256 algorithms rejected, tampered signature / wrong app secret / structural garbage all rejected; deliberate-failure fixture. The test existed but was never wired into CI)
+        run: npm run check:meta-signed-request
       - name: Pricing-truth guard (chat AI quotes canonical prices only)
         run: npm run check:pricing-truth
       - name: Trial-truth guard (free tools never pause; honest Pro-preview copy)
