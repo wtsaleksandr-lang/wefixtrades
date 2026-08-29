@@ -1,10 +1,18 @@
 /**
  * DataForSEO provider (Wave 6.5) — paid fallback.
  *
- * ~$0.001 per call, $25 minimum top-up (lasts ~25k calls). Only fires
- * when EVERY free-tier provider is exhausted or explicitly requested.
- * Tracked with monthlyLimit = 0 → quotaRemaining() returns Infinity so
- * the orchestrator never skips it for quota reasons.
+ * ~$0.001 per call, $25 minimum top-up (lasts ~25k calls).
+ *
+ * THIS IS THE ONLY PROVIDER THAT COSTS MONEY. It is reachable only from a
+ * caller that passed `allowPaidProviders: true` (default-deny cost gate in
+ * server/lib/serpOrchestrator.ts) AND only after every free-tier provider in
+ * the chain is exhausted or failing.
+ *
+ * `MONTHLY_LIMIT = 0` means "no FREE allowance", not "unlimited". It used to
+ * be read as the latter: `quotaRemaining()` returned Infinity for a 0 limit,
+ * so the orchestrator's quota gate could never stop the one provider that
+ * bills — every free provider was capped and the paid one was not. See
+ * `isPayAsYouGo` in server/lib/serpQuotaTracker.ts.
  *
  * Docs: https://docs.dataforseo.com/v3/serp/google/organic/live/regular/
  */
@@ -18,7 +26,10 @@ import {
 } from "./types";
 
 export const ID = "dataforseo";
-export const MONTHLY_LIMIT = 0;            // pay-as-you-go, no monthly cap tracked
+export const MONTHLY_LIMIT = 0;            // no FREE allowance (see header) — not "unlimited"
+/** Explicit: every call to this provider bills. The orchestrator's cost gate
+ *  keys off this (and off MONTHLY_LIMIT <= 0 as a backstop). */
+export const PAY_AS_YOU_GO = true;
 // Accuracy fix (2026-06-13): DataForSEO no longer claims `bing_equivalent`.
 // Its `google/organic` endpoint returns GOOGLE results — routing a
 // bing_equivalent request here silently returned Google organic dressed up

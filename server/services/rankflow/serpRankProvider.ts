@@ -36,7 +36,7 @@
 import { createLogger } from "../../lib/logger";
 import {
   ensureHydrated,
-  quotaRemaining,
+  freeQuotaRemaining,
   recordError,
   recordSuccess,
 } from "../../lib/serpQuotaTracker";
@@ -201,7 +201,7 @@ export async function checkKeywordRanksViaSerp(
       results.push(skippedResult(kw));
       continue;
     }
-    if (quotaRemaining(serper.ID, serper.MONTHLY_LIMIT) <= 0) {
+    if (freeQuotaRemaining(serper.ID, serper.MONTHLY_LIMIT) <= 0) {
       log.warn("Serper monthly quota exhausted — skipping remaining keywords this run");
       aborted = true;
       results.push(skippedResult(kw));

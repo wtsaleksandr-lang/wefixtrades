@@ -6,6 +6,14 @@
  * the pay-as-you-go DataForSEO provider. Goal: drive marginal SERP cost
  * toward zero by exhausting daily/monthly free-tier quotas first.
  *
+ * COST GATE — DEFAULT-DENY. A provider that bills per call is reachable only
+ * when the caller passes `allowPaidProviders: true`. Every other request —
+ * including every public, anonymous surface — is structurally incapable of
+ * spending money and degrades to `SerpOrchestratorAllProvidersFailed` (which
+ * callers must surface as "unavailable", never as an estimate) once the free
+ * pool is gone. See `paidProvidersAllowed` / `providerIsPayAsYouGo`, and the
+ * CI guard `npm run check:public-serp-spend`.
+ *
  * Mirrors the proven 4-orchestrator pattern shipped in PRs #786 (image),
  * #787 (humanization), #788 (email), #807 (video).
  *
@@ -38,7 +46,8 @@
 import { createLogger } from "./logger";
 import {
   ensureHydrated,
-  quotaRemaining,
+  freeQuotaRemaining,
+  isPayAsYouGo,
   recordError,
   recordSuccess,
   markProviderCooldown,
@@ -77,20 +86,31 @@ export type SerpRequest = {
   latitude?: number;
   longitude?: number;
   /**
-   * Hard cost ceiling: when true, providers with no tracked monthly cap
-   * (`MONTHLY_LIMIT <= 0`, i.e. pay-as-you-go — currently DataForSEO) are
-   * skipped entirely. `quotaRemaining()` returns Infinity for those, so the
-   * normal quota gate can never stop them; without this flag a public,
-   * anonymous, un-authenticated endpoint can bill unbounded paid SERP calls.
+   * DEFAULT-DENY COST GATE — explicit opt-in to pay-as-you-go providers
+   * (providers with no free allowance; currently only DataForSEO).
    *
-   * Set it on any path an anonymous visitor can trigger (see
-   * server/lib/localRankMeasurement.ts). When every free provider is
-   * exhausted the call throws `SerpOrchestratorAllProvidersFailed` and the
-   * caller must report the measurement as unavailable rather than guess.
+   * Omitted or false → the orchestrator skips every paid provider and this
+   * call is structurally incapable of spending money. Only set it on a
+   * surface that is authenticated / already paid for, and only after deciding
+   * that the spend is warranted.
    *
-   * Deliberately NOT part of the cache key: a cached result is a real
-   * measurement whichever provider produced it, so free- and paid-tier
-   * callers can safely share cache slots.
+   * Why opt-IN rather than opt-out: the previous shape (`freeTierOnly`) meant
+   * a caller that simply never thought about cost got the paid fallback for
+   * free. `/api/tools/local-rank-grid` — public, anonymous, 20 req/h/IP × up
+   * to 50 SERP calls — was exactly that caller, and the quota gate could not
+   * stop it because `MONTHLY_LIMIT = 0` reported Infinity remaining. Forgetting
+   * to think about cost must fail closed, not open.
+   *
+   * Deliberately NOT part of the cache key: a cached result is a real result
+   * whichever provider produced it, so free- and paid-tier callers can safely
+   * share cache slots.
+   */
+  allowPaidProviders?: boolean;
+  /**
+   * Hard "never paid", regardless of `allowPaidProviders`. Retained because
+   * several surfaces (server/lib/localRankMeasurement.ts) state the ceiling
+   * explicitly at the callsite, and an explicit refusal should out-rank an
+   * inherited permission. Redundant with the default — belt and braces.
    */
   freeTierOnly?: boolean;
 };
@@ -135,8 +155,36 @@ export type SerpResult = {
 interface ProviderModule {
   ID: string;
   MONTHLY_LIMIT: number;
+  /** Explicit "this provider bills per call". Derived from MONTHLY_LIMIT when
+   *  absent, but a provider module should say so out loud. */
+  PAY_AS_YOU_GO?: boolean;
   SUPPORTED_ENGINES: Set<string>;
   call: SerpProviderCall;
+}
+
+/* ─── Cost gate (pure, exported for the CI guard) ───────────────────── */
+
+/**
+ * True when calling this provider costs money.
+ *
+ * Either the module declares it (`PAY_AS_YOU_GO`) or it has no free monthly
+ * allowance (`MONTHLY_LIMIT <= 0` / missing / NaN). Both readings default to
+ * "paid" so a new or mis-configured provider is gated rather than waved through.
+ */
+export function providerIsPayAsYouGo(mod: { MONTHLY_LIMIT: number; PAY_AS_YOU_GO?: boolean }): boolean {
+  return mod.PAY_AS_YOU_GO === true || isPayAsYouGo(mod.MONTHLY_LIMIT);
+}
+
+/**
+ * May THIS request reach a paid provider? Default-deny: only an explicit
+ * `allowPaidProviders: true` grants it, and an explicit `freeTierOnly: true`
+ * revokes it again.
+ */
+export function paidProvidersAllowed(
+  req: Pick<SerpRequest, "allowPaidProviders" | "freeTierOnly">,
+): boolean {
+  if (req.freeTierOnly === true) return false;
+  return req.allowPaidProviders === true;
 }
 
 const PROVIDERS: Record<string, ProviderModule> = {
@@ -244,7 +292,12 @@ export interface ProviderDiagnostic {
   supportedEngines: SerpEngine[];
   monthlyCount: number;
   monthlyLimit: number;
-  remaining: number;             // Infinity for pay-as-you-go
+  /** FREE calls left this month. 0 for a pay-as-you-go provider — it has no
+   *  free allowance, which is NOT the same as an unlimited one. */
+  remaining: number;
+  /** True when this provider bills per call and is reachable only by a caller
+   *  that explicitly passed `allowPaidProviders`. */
+  payAsYouGo: boolean;
   lastUsedAt?: string;
   lastError?: string;
 }
@@ -275,14 +328,14 @@ export async function getProviderDiagnostics(): Promise<ProviderDiagnostic[]> {
   );
   return Object.values(PROVIDERS).map((p) => {
     const snap = snapshot.get(p.ID);
-    const remaining = quotaRemaining(p.ID, p.MONTHLY_LIMIT);
     return {
       name: p.ID,
       available: envPresentForProvider(p.ID),
       supportedEngines: Array.from(p.SUPPORTED_ENGINES) as SerpEngine[],
       monthlyCount: snap?.monthlyCount ?? 0,
       monthlyLimit: p.MONTHLY_LIMIT,
-      remaining: Number.isFinite(remaining) ? remaining : Number.MAX_SAFE_INTEGER,
+      remaining: freeQuotaRemaining(p.ID, p.MONTHLY_LIMIT),
+      payAsYouGo: providerIsPayAsYouGo(p),
       lastUsedAt: snap?.lastUsedAt,
       lastError: snap?.lastError,
     };
@@ -358,14 +411,17 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
       continue;
     }
 
-    // Cost ceiling for anonymous/public callers. `MONTHLY_LIMIT <= 0` marks a
-    // pay-as-you-go provider, for which quotaRemaining() returns Infinity — so
-    // the quota gate below can never stop it. Skip those outright when the
-    // caller asked for free tiers only.
-    if (req.freeTierOnly && mod.MONTHLY_LIMIT <= 0) {
-      log.debug(`[serp] ${providerId} skipped: pay-as-you-go and caller set freeTierOnly`);
-      errors.push({ provider: providerId, error: "skipped (paid provider, freeTierOnly)" });
-      continue;
+    // ── Cost gate (DEFAULT-DENY) ──────────────────────────────────────
+    // A pay-as-you-go provider bills real money per call and has no free
+    // allowance to burn down, so the quota gate below cannot bound it. It is
+    // reachable ONLY when the caller explicitly opted in. Anything that did
+    // not think about cost — every public, anonymous surface — fails closed.
+    if (providerIsPayAsYouGo(mod)) {
+      if (!paidProvidersAllowed(req)) {
+        log.debug(`[serp] ${providerId} skipped: pay-as-you-go, caller did not opt in`);
+        errors.push({ provider: providerId, error: "skipped (paid provider, no opt-in)" });
+        continue;
+      }
     }
 
     // Circuit-breaker: skip a provider that recently signalled credit/quota
@@ -377,12 +433,16 @@ export async function searchSerp(req: SerpRequest): Promise<SerpResult> {
       continue;
     }
 
-    // Quota check (Infinity for pay-as-you-go).
-    const remaining = quotaRemaining(providerId, mod.MONTHLY_LIMIT);
-    if (remaining <= 0) {
-      log.debug(`[serp] ${providerId} skipped: monthly quota exhausted`);
-      errors.push({ provider: providerId, error: "quota exhausted" });
-      continue;
+    // Free-allowance check. Pay-as-you-go providers report 0 free calls left
+    // (they never had any), so this gate only ever governs free-tier
+    // providers — permission to spend money is the cost gate's job, above.
+    if (!providerIsPayAsYouGo(mod)) {
+      const remaining = freeQuotaRemaining(providerId, mod.MONTHLY_LIMIT);
+      if (remaining <= 0) {
+        log.debug(`[serp] ${providerId} skipped: monthly quota exhausted`);
+        errors.push({ provider: providerId, error: "quota exhausted" });
+        continue;
+      }
     }
 
     // P1-7: stop trying further providers once the aggregate budget is spent.

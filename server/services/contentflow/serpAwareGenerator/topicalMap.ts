@@ -143,6 +143,11 @@ async function gatherCandidateKeywords(
       query: seed,
       location: location ?? undefined,
       num: 10,
+      // Authenticated ContentFlow (paid portal product) — one SERP call per
+      // topical-map build, on a surface the customer already pays for. Opt in
+      // to the paid fallback so behaviour is unchanged by the default-deny
+      // cost gate added for public/anonymous surfaces.
+      allowPaidProviders: true,
     });
     for (const r of res.organic ?? []) {
       // Take 2-4 word phrases from titles + snippets as candidate keywords.

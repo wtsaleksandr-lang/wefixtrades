@@ -3,8 +3,13 @@
  *
  * In-memory monthly counter per provider, hydrated from `serp_quota_state`
  * on first read and persisted asynchronously (debounced) after each
- * successful call. The orchestrator queries `quotaRemaining()` to decide
+ * successful call. The orchestrator queries `freeQuotaRemaining()` to decide
  * whether to skip a provider before the fetch.
+ *
+ * `freeQuotaRemaining()` reports FREE allowance only. A pay-as-you-go
+ * provider (`MONTHLY_LIMIT <= 0`, see `isPayAsYouGo`) reports 0, not Infinity
+ * — spending money is a separate, explicit decision made by the caller, not
+ * something a quota number can grant.
  *
  * Roll-over is automatic: every call compares `resetAt` against the
  * current calendar month (UTC). If we've crossed into a new month, the
@@ -187,11 +192,36 @@ export function inCooldown(providerId: string): boolean {
   return true;
 }
 
-/** Remaining calls for the month. Returns Infinity if monthlyLimit <= 0
- *  (no quota tracking — pay-as-you-go providers). */
-export function quotaRemaining(providerId: string, monthlyLimit: number): number {
+/**
+ * Does this provider have a tracked FREE monthly allowance?
+ *
+ * A provider configured with `MONTHLY_LIMIT <= 0` has **no free allowance** —
+ * it bills per call (pay-as-you-go). It does NOT have an unlimited one.
+ *
+ * This distinction used to be inverted: `quotaRemaining()` returned
+ * `Infinity` for `monthlyLimit <= 0`, which made the orchestrator's
+ * `remaining <= 0` gate structurally incapable of stopping the one provider
+ * that costs money (DataForSEO). Every free provider was gated; the paid one
+ * was not. See `isPayAsYouGo` + the cost gate in serpOrchestrator.ts.
+ *
+ * Default-deny on junk input: a NaN / undefined / negative limit is treated as
+ * pay-as-you-go, so a mis-configured future provider is gated, not waved through.
+ */
+export function isPayAsYouGo(monthlyLimit: number): boolean {
+  return !(Number.isFinite(monthlyLimit) && monthlyLimit > 0);
+}
+
+/**
+ * Remaining FREE calls for the month.
+ *
+ * Returns 0 — never Infinity — for a pay-as-you-go provider: it has no free
+ * allowance left because it never had one. Callers that legitimately want to
+ * spend money must say so explicitly (`allowPaidProviders`), they must not
+ * infer permission from an unbounded quota number.
+ */
+export function freeQuotaRemaining(providerId: string, monthlyLimit: number): number {
   const entry = getOrInit(providerId, monthlyLimit);
-  if (entry.monthlyLimit <= 0) return Number.POSITIVE_INFINITY;
+  if (isPayAsYouGo(entry.monthlyLimit)) return 0;
   return Math.max(0, entry.monthlyLimit - entry.monthlyCount);
 }
 

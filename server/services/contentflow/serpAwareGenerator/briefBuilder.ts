@@ -115,6 +115,10 @@ export async function buildBrief(input: {
       query: keyword,
       location: location ?? undefined,
       num: MAX_TOP_RESULTS,
+      // Authenticated ContentFlow (paid portal product), one call per brief
+      // and cached. Opt in to the paid fallback so behaviour is unchanged by
+      // the default-deny cost gate added for public/anonymous surfaces.
+      allowPaidProviders: true,
     });
     serpResults = (res.organic || []).slice(0, MAX_TOP_RESULTS);
   } catch (err: any) {
