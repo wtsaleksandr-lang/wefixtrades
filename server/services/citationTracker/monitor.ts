@@ -2,8 +2,10 @@
  * Citation Tracker — daily scan logic.
  *
  * For each active subscription:
- *   1. Iterate the directory registry, SKIPPING any directory without an
- *      implemented scraper (those are never checked and never reported).
+ *   1. Iterate the directory registry, SKIPPING any directory that is not
+ *      checkable — either no scraper is implemented, or its check needs a
+ *      credential this deployment lacks. Those are never checked and
+ *      never reported.
  *   2. Find the existing listing row (or create one on first sight).
  *   3. Invoke the per-directory scraper.
  *   4. Diff against the stored NAP. On drift, write an alert and
@@ -14,7 +16,8 @@
  * -------------------------------------------------
  * There are three distinct outcomes and they must never be collapsed:
  *
- *   a) not checked   — no scraper implemented. Produces nothing at all.
+ *   a) not checked   — no scraper implemented, or no credential for one
+ *                      that is. Produces nothing at all.
  *   b) check failed  — scraper returned an `error` (timeout, 403/429
  *                      rate-limit, Cloudflare challenge, parse failure).
  *                      Tells us nothing; we record the error and move on.
@@ -36,7 +39,12 @@ import {
   type CitationTrackerSubscription,
   type CitationTrackerListing,
 } from "@shared/schema";
-import { CITATION_TRACKER_DIRECTORIES, type DirectoryDef, type ScrapeResult } from "./directories";
+import {
+  CITATION_TRACKER_DIRECTORIES,
+  isDirectoryCheckable,
+  type DirectoryDef,
+  type ScrapeResult,
+} from "./directories";
 import { dispatchAlertEmail } from "./alerts";
 import { createLogger } from "../../lib/logger";
 
@@ -128,22 +136,30 @@ export async function scanSubscription(sub: CitationTrackerSubscription): Promis
 
   for (const dir of CITATION_TRACKER_DIRECTORIES) {
     try {
-      // Directories with no implemented scraper are NOT checked. Skipping
-      // before any DB work guarantees they can never produce a listing row,
-      // a "missing" status, or an alert — and keeps them out of every
-      // customer-visible "directories checked" count.
-      if (!dir.scrape) {
+      // Directories with no implemented scraper — or whose check needs a
+      // credential this deployment does not have — are NOT checked.
+      // Skipping before any DB work guarantees they can never produce a
+      // listing row, a "missing" status, or an alert, and keeps them out
+      // of every customer-visible "directories checked" count.
+      //
+      // The credential case matters as much as the missing-scraper case: a
+      // key absent from the environment must look like "we did not check",
+      // never like "the listing is not there".
+      if (!isDirectoryCheckable(dir)) {
         stats.directories_not_checked += 1;
         continue;
       }
 
       stats.listings_checked += 1;
       const row = byDirectory.get(dir.id);
-      const scrape: ScrapeResult = await dir.scrape({
+      const scrape: ScrapeResult = await dir.scrape!({
         business_name: sub.business_name,
         phone: canonical.phone,
         address: canonical.address,
         website: canonical.website,
+        // Lets a scraper re-check a listing it already located instead of
+        // re-running discovery. Cost-critical for the Google check.
+        known_listing_url: row?.listing_url ?? undefined,
       });
 
       // A scraper that errored tells us NOTHING about the listing. Record

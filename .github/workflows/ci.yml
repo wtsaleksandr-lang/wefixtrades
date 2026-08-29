@@ -97,8 +97,10 @@ jobs:
         run: npm run check:portal-overview
       - name: WebCare honest-KPI guard (no KPI scored from never-written metadata; unmeasured security/performance/backups report null not 0/F; empty uptime history is unknown not 100%; monthly digest omits an unmeasured grade)
         run: npm run check:webcare-honest-kpis
-      - name: Citation-evidence guard (unimplemented directories are skipped not reported "not found"; a failed scrape is never a removal; removed_listing needs 2 consecutive confirmed negatives; marketing quotes the monitored count)
+      - name: Citation-evidence guard (unimplemented or credential-gated directories are skipped not reported "not found"; a failed scrape or bot-wall interstitial is never a removal; removed_listing needs 2 consecutive confirmed negatives; every excluded directory records why; the Google field mask stays on the free SKU tier; marketing names the directories it checks)
         run: npm run check:citation-evidence
+      - name: Citation-scraper contract (each scraper distinguishes "not found" from "could not check" — challenge pages, timeouts, quota exhaustion and unrecognised markup all surface as errors, while only a cleanly parsed empty result counts as absence)
+        run: npm run check:citation-scrapers
       - name: MapSnapshot rank-honesty guard (public snapshot never publishes an unmeasured rank; RNG grid + invented audit cards stay deleted; legacy synthetic rows downgraded on read; anonymous visitors cannot reach a paid SERP provider)
         run: npm run check:mapsnapshot-rank-honesty
       - name: Public SERP spend-cap guard (MONTHLY_LIMIT 0 means NO free allowance not unlimited, so the quota gate can actually bind the one provider that bills; paid providers are DEFAULT-DENY — reachable only via an explicit allowPaidProviders opt-in, which no public/anonymous surface carries; the free rank-grid keeps a bounded per-IP + per-day fan-out and degrades unfunded points to "unavailable" with no number)

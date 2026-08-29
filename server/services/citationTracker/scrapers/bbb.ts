@@ -23,39 +23,38 @@
  */
 import * as cheerio from "cheerio";
 import type { ScrapeContext, ScrapeResult } from "../directories";
-import { fetchHtml, nameLooselyMatches } from "./httpClient";
+import { cityFromAddress, fetchHtml, nameLooselyMatches, stateFromAddress } from "./httpClient";
 
-/** Internal: extract a city token from a free-form `address` field. The
- * monitor stores address as a single string; we just look for the
- * last-but-one comma-separated token, which is almost always the city. */
-function cityFromContext(ctx: ScrapeContext): string | undefined {
-  if (!ctx.address) return undefined;
-  const parts = ctx.address.split(",").map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) return parts[parts.length - 2];
-  return parts[0];
-}
+/** Canadian province/territory codes. BBB scopes search by country, and a
+ * Canadian business searched without `find_country=CAN` returns US results
+ * — which would read as "not listed" for a customer who is in fact listed.
+ * Profile paths differ too (/ca/... vs /us/...), so we detect the country
+ * from the address rather than assuming US. */
+const CA_PROVINCES = new Set([
+  "ab", "bc", "mb", "nb", "nl", "ns", "nt", "nu", "on", "pe", "qc", "sk", "yt",
+  "alberta", "british columbia", "manitoba", "new brunswick", "newfoundland",
+  "nova scotia", "ontario", "quebec", "saskatchewan",
+]);
 
-/** Internal: state from address (best-effort — accepts "TX" or "Texas"). */
-function stateFromContext(ctx: ScrapeContext): string | undefined {
-  if (!ctx.address) return undefined;
-  const last = ctx.address.split(",").pop()?.trim();
-  if (!last) return undefined;
-  // Strip a trailing ZIP if present.
-  const m = last.match(/([A-Z]{2}|[A-Za-z]+)/);
-  return m?.[1];
+function isCanadian(ctx: ScrapeContext): boolean {
+  const state = stateFromAddress(ctx.address)?.toLowerCase().trim();
+  if (state && CA_PROVINCES.has(state)) return true;
+  return /\bcanada\b/i.test(ctx.address ?? "");
 }
 
 export async function scrapeBbb(
   ctx: ScrapeContext,
   opts: { politeDelayMs?: number } = {},
 ): Promise<ScrapeResult> {
-  const city = cityFromContext(ctx);
-  const state = stateFromContext(ctx);
+  const city = cityFromAddress(ctx.address);
+  const state = stateFromAddress(ctx.address);
   const loc = [city, state].filter(Boolean).join(", ");
+  const canadian = isCanadian(ctx);
   const url =
     "https://www.bbb.org/search?find_text=" +
     encodeURIComponent(ctx.business_name) +
-    (loc ? "&find_loc=" + encodeURIComponent(loc) : "");
+    (loc ? "&find_loc=" + encodeURIComponent(loc) : "") +
+    (canadian ? "&find_country=CAN" : "");
 
   const fetched = await fetchHtml(url, opts);
   if (!fetched.ok) {
