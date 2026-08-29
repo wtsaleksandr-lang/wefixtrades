@@ -49,8 +49,9 @@ const TONE_VAR: Record<AnomalySeverity, string> = {
 
 const ACTION_LABEL: Record<AnomalyAction, string> = {
   investigate: "Investigate",
-  "approve-pause": "Approve auto-pause",
-  "approve-boost": "Approve budget boost",
+  // "auto-" removed: a human applies the pause, nothing is automated.
+  "approve-pause": "Approve pause request",
+  "approve-boost": "Approve budget increase",
   dismiss: "Dismiss",
 };
 

@@ -148,16 +148,17 @@ export function CampaignCard({
                 data-testid={`campaign-pause-${id}`}
               >
                 <PauseCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                Pause campaign
+                Request pause
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Pause {name}?</AlertDialogTitle>
+                <AlertDialogTitle>Request a pause of {name}?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  You can resume anytime. Already-spent budget is not
-                  refunded. Pausing usually takes a few minutes to
-                  propagate to the ad platform.
+                  This sends a pause request to your ads team, who apply it
+                  in the ad platform by hand — it is not instant, and nothing
+                  changes on your campaign until they action it. You can resume
+                  anytime. Already-spent budget is not refunded.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -171,7 +172,7 @@ export function CampaignCard({
                   }}
                   data-testid={`campaign-pause-confirm-${id}`}
                 >
-                  Pause campaign
+                  Send pause request
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

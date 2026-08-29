@@ -53,7 +53,7 @@ const SUITE_PRODUCTS: SuiteProduct[] = [
     href: "/citation-tracker",
     icon: Search,
     price: "$19 / mo standalone · $5 / mo with MapGuard",
-    pitch: "Continuous NAP monitoring across 50+ directories. Catch citation drift before it costs rankings.",
+    pitch: "Continuous NAP monitoring across the directories we actively check. Catch citation drift before it costs rankings.",
   },
   {
     name: "CiteFlow",

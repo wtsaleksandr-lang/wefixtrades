@@ -1,7 +1,9 @@
 /**
  * /citation-tracker — CiteTrack subscription product (Wave 3).
  *
- * Continuous monitoring across 50+ directories. Distinct from
+ * Continuous monitoring across the directories we have real scrapers for
+ * (see CITATION_TRACKER_MONITORED_COUNT). Copy on this page must match
+ * that set — never the larger roadmap registry. Distinct from
  * /citation-builder which is the one-shot $79-$299 submission service.
  *
  * Pricing:
@@ -31,11 +33,11 @@ const FAQ_ITEMS = [
   },
   {
     question: "How often do you scan?",
-    answer: "Every directory is rechecked daily. The first full scan runs within 24 hours of subscribing.",
+    answer: "Every monitored directory is rechecked daily. The first full scan runs within 24 hours of subscribing.",
   },
   {
     question: "Which directories do you cover?",
-    answer: "50+ directories spanning general (Yelp, BBB, Yellow Pages, MapQuest), mapping (Bing Places, Apple Maps, HERE, Waze), social (Foursquare, Facebook, LinkedIn), data aggregators (Data Axle, ExpressUpdate), and trade-specific platforms (Angi, Thumbtack, HomeAdvisor, Houzz, Porch, GAF, plus per-trade niches).",
+    answer: "We actively monitor 5 directories today: Better Business Bureau, Houzz, BuildZoom, Yellowbook and Tupalo. We're adding more — you'll only ever be billed for, and alerted about, directories we genuinely check.",
   },
   {
     question: "Can I bundle this with MapGuard?",
@@ -66,9 +68,9 @@ const PLANS: PlanOption[] = [
     id: "standalone_monthly",
     title: "Standalone",
     priceLabel: "$19/mo",
-    blurb: "Monitor your citations across 50+ directories.",
+    blurb: "Monitor your citations across the directories we actively check.",
     features: [
-      "Daily scan of 50+ directories",
+      "Daily scan of 5 monitored directories",
       "Email alerts on NAP changes",
       "New-citation discovery",
       "Removed-listing alerts",
@@ -116,8 +118,8 @@ export default function CitationTrackerPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="CiteTrack — continuous NAP drift monitoring across 50+ directories"
-        description="Catch NAP changes before they tank your local rankings. Daily monitoring of 50+ business directories. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
+        title="CiteTrack — continuous NAP drift monitoring for your business listings"
+        description="Catch NAP changes before they tank your local rankings. Daily monitoring of your BBB, Houzz, BuildZoom, Yellowbook and Tupalo listings. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
         canonical={PAGE_PATH}
         keywords={["citation tracker", "NAP monitoring", "local citation monitoring", "directory listing monitoring", "yelp BBB listing tracker"]}
       />
@@ -197,10 +199,10 @@ function CitationTrackerHero() {
             Stay accurate everywhere customers find you.
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.55, color: "rgba(255,255,255,0.75)", margin: "0 0 22px", maxWidth: 560 }}>
-            CiteTrack watches your business's name, address, and phone across
-            50+ directories — Yelp, BBB, Bing Places, Apple Maps, Foursquare, Angi,
-            Houzz — and alerts you the moment a listing drifts, a new auto-citation
-            appears, or a directory removes you.
+            CiteTrack watches your business's name, address, and phone on the
+            directories we actively monitor — BBB, Houzz, BuildZoom, Yellowbook and
+            Tupalo — and alerts you the moment a listing drifts, a new citation
+            appears, or one is confirmed removed.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <Link
@@ -398,7 +400,7 @@ function CitationTrackerThreeColumnHelps() {
     {
       n: "03",
       title: "Reclaim your time",
-      body: "Stop manually re-checking 50 directories every quarter. CiteTrack does it daily and only pings you when something actually changes.",
+      body: "Stop manually re-checking your listings every quarter. CiteTrack does it daily and only pings you when something actually changes.",
     },
   ];
   return (
@@ -503,7 +505,7 @@ function CitationTrackerFeatures() {
     {
       icon: Activity,
       title: "Continuous monitoring",
-      body: "Daily scans across 50+ directories. The minute a directory edits your listing — by aggregator-spawn, scraper, or competitor edit — we see it.",
+      body: "Daily scans across every directory we monitor. The minute one edits your listing — by aggregator-spawn, scraper, or competitor edit — we see it.",
     },
     {
       icon: Bell,
@@ -513,7 +515,7 @@ function CitationTrackerFeatures() {
     {
       icon: Globe,
       title: "Multi-directory coverage",
-      body: "General (Yelp, BBB, YP), mapping (Bing, Apple, HERE), social (Foursquare, FB, LinkedIn), data aggregators, and trade-specific platforms (Angi, Houzz, Thumbtack).",
+      body: "Five directories today — Better Business Bureau, Houzz, BuildZoom, Yellowbook and Tupalo — spanning general, trade and local-discovery listings. More are being added.",
     },
   ];
   return (
@@ -645,7 +647,7 @@ function PlanCard({ plan }: { plan: PlanOption }) {
 function CitationTrackerHowItWorks() {
   const steps = [
     { n: 1, title: "Subscribe", body: "Pick standalone or bundle. Stripe handles billing. Setup takes 60 seconds." },
-    { n: 2, title: "We scan daily", body: "Every directory in our 50+ registry is checked daily for NAP drift, new auto-citations, and removals." },
+    { n: 2, title: "We scan daily", body: "Every directory we monitor is checked daily for NAP drift, new citations, and confirmed removals." },
     { n: 3, title: "You stay in front", body: "Email + dashboard alerts the moment anything moves. Fix it before Google notices." },
   ];
   return (

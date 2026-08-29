@@ -14,6 +14,7 @@ import { suppliers, clientServices } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "../storage";
 import { dispatchTaskToSupplier } from "./supplierDispatch";
+import { isUndeliverablePlaceholderEmail } from "./supplierPlaceholder";
 import { createLogger } from "../lib/logger";
 import type { FulfillmentTask } from "@shared/schema";
 
@@ -60,6 +61,17 @@ export async function autoAssignSupplier(task: FulfillmentTask): Promise<boolean
       .where(eq(suppliers.is_active, true));
 
     const matchingSupplier = activeSuppliers.find((s) => {
+      // Never route real customer work to a placeholder address. The seeded
+      // starter roster used @example.com with is_active:true, so SiteLaunch
+      // orders auto-assigned to it and mailed the customer's onboarding
+      // answers to a domain we do not own.
+      if (isUndeliverablePlaceholderEmail(s.contact_email)) {
+        log.warn(
+          `Skipping supplier "${s.name}" (#${s.id}) — placeholder contact_email. ` +
+          `Set a real address or deactivate it.`,
+        );
+        return false;
+      }
       const services = (s.supported_services as string[]) || [];
       return services.some(
         (prefix) => serviceId === prefix || serviceId.startsWith(prefix + "-"),

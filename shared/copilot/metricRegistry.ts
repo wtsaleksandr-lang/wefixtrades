@@ -260,7 +260,7 @@ const MAPGUARD: Record<string, MetricMeta> = {
   citationHealth: {
     label: "Citation health",
     helpText:
-      "Letter grade based on Found vs Missing vs Inconsistent listings across 50+ directories. A = 90%+ healthy.",
+      "Letter grade based on Found vs Missing vs Inconsistent listings across the directories CiteTrack actively monitors. A = 90%+ healthy.",
     improvementTips: [
       "Upgrade to Citation Builder to add missing directories",
       "Fix NAP-mismatched listings (one-click action available)",
@@ -444,12 +444,15 @@ const ADFLOW: Record<string, MetricMeta> = {
 const WEBCARE: Record<string, MetricMeta> = {
   securityGrade: {
     label: "Security grade",
+    // Must describe only the checks runSiteHealthCheck actually performs.
+    // This previously claimed malware scanning, 2FA and password hygiene —
+    // none of which WebCare measures.
     helpText:
-      "A-F letter grade summarising malware scans, SSL, WP-core/plugin patch level, 2FA, and password hygiene. A or better is safe.",
+      "A-F grade from the site health sweep: SSL certificate validity, plugin patch level, and security response headers. Shows as \"not measured\" until the first sweep runs.",
     improvementTips: [
-      "Enable admin 2FA in account settings (biggest single grade boost)",
       "Approve pending plugin & theme updates from the Maintenance Log",
-      "Rotate any password flagged in the last weekly scan",
+      "Renew or fix the SSL certificate if it is expired or mismatched",
+      "Ask us to add the missing security response headers to your site",
     ],
     unit: "/100",
   },
@@ -467,32 +470,29 @@ const WEBCARE: Record<string, MetricMeta> = {
   daysWithoutIncident: {
     label: "Days without incident",
     helpText:
-      "Days since the last security or uptime incident. Resets on any new incident; your best streak is tracked.",
+      "Days since the last uptime incident detected by our 15-minute checks. Counts from your first recorded check.",
     improvementTips: [
       "Approve hardening recommendations the moment they appear",
-      "Keep auto-backups daily so a single bad update can't extend the incident",
-      "Subscribe to security-incident push notifications so you act faster",
+      "Investigate the most recent uptime incident task so it does not recur",
+      "Move to a more reliable host tier if outages cluster",
     ],
     unit: "days",
   },
   performanceScore: {
     label: "Performance score",
+    // No Lighthouse job exists; this always renders "not measured".
     helpText:
-      "Google Lighthouse 0-100 score, averaged daily across mobile + desktop. Above 80 is good, above 90 is great.",
-    improvementTips: [
-      "Run the 1-click Optimize performance action — handles image + CSS compression",
-      "Remove any unused plugins flagged red in the Site Inventory",
-      "Move to a faster host tier if scores plateau under 70",
-    ],
+      "Page-speed scoring is not part of WebCare today, so this stays unmeasured. Ask us if you want it added to your plan.",
+    improvementTips: [],
     unit: "/100",
   },
   pendingUpdates: {
     label: "Pending updates",
+    // Sourced from last_plugin_update.updates_available — plugins only.
     helpText:
-      "Plugin, theme, and WordPress core updates available right now. Security patches are flagged separately.",
+      "Plugin updates found by the most recent maintenance sweep. Shows as \"not measured\" until that sweep has run at least once.",
     improvementTips: [
       "Approve 'Apply all pending updates' to clear them in one click",
-      "Enable auto-apply for minor / security updates",
       "Remove abandoned plugins that show repeated 'update available' churn",
     ],
     unit: "updates",

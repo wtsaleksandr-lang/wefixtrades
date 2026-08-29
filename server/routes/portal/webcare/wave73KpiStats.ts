@@ -15,6 +15,9 @@ import { clientServices, serviceCatalog } from "@shared/schema";
 import { webcareActionLog } from "@shared/schemas/adminCrm";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
+// Single source of truth for "what security did we actually measure" — see
+// the honesty contract in dashboardKpis.ts. Never re-derive a score here.
+import { computeSecurity } from "./dashboardKpis";
 
 const log = createLogger("PortalWebcareWave73KpiStats");
 
@@ -22,10 +25,11 @@ const TTL_MS = 5 * 60_000;
 type Cached<T> = { at: number; payload: T };
 
 interface ScoreResponse {
-  value: number;
+  /** null when we have measured nothing — never a placeholder number. */
+  value: number | null;
   verdict: string;
   advice: string;
-  data_status: "real" | "illustrative";
+  data_status: "real" | "illustrative" | "unavailable";
 }
 interface MonthlySeriesResponse {
   data: Array<{ label: string; value: number; highlighted?: boolean }>;
@@ -36,10 +40,10 @@ const scoreCache = new Map<string, Cached<ScoreResponse>>();
 const monthlyCache = new Map<string, Cached<MonthlySeriesResponse>>();
 
 const EMPTY_SCORE: ScoreResponse = {
-  value: 0,
-  verdict: "Action required",
+  value: null,
+  verdict: "Not measured yet",
   advice: "Provision WebCare to begin tracking site health.",
-  data_status: "illustrative",
+  data_status: "unavailable",
 };
 const EMPTY_MONTHLY: MonthlySeriesResponse = { data: [], data_status: "illustrative" };
 
@@ -58,46 +62,16 @@ function monthLabels(months: number): { label: string; start: Date; end: Date }[
   return out;
 }
 
-function num(v: unknown): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-function bool(v: unknown, fallback = false): boolean {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") return v === "true";
-  return fallback;
-}
-
 interface UptimeEntry {
   ts: string;
   status: "up" | "down";
 }
 
-function computeUptimePct(history: UptimeEntry[]): number {
-  if (history.length === 0) return 100;
+/** null with no checks — "we never polled it" is not "100% available". */
+function computeUptimePct(history: UptimeEntry[]): number | null {
+  if (history.length === 0) return null;
   const upCount = history.filter((h) => h.status === "up").length;
   return Math.round((upCount / history.length) * 10_000) / 100;
-}
-
-function securityScoreFromState(state: Record<string, unknown>): number {
-  const factors: Array<{ key: string; weight: number }> = [
-    { key: "malware_clean", weight: 25 },
-    { key: "ssl_valid", weight: 15 },
-    { key: "wp_core_current", weight: 15 },
-    { key: "plugins_current", weight: 15 },
-    { key: "themes_current", weight: 10 },
-    { key: "admin_2fa", weight: 10 },
-    { key: "passwords_clean", weight: 10 },
-  ];
-  let score = 0;
-  for (const f of factors) {
-    if (bool(state[f.key], false)) score += f.weight;
-  }
-  return score;
 }
 
 export async function computeWebcareSiteHealthScore(
@@ -121,47 +95,51 @@ export async function computeWebcareSiteHealthScore(
 
   if (!svc?.cs_id) {
     return {
-      value: 75,
-      verdict: "Improvements available",
-      advice: "Run pending updates and check the Lighthouse score to lift this above 80.",
-      data_status: "illustrative",
+      value: null,
+      verdict: "Not measured yet",
+      advice: "Provision WebCare to begin tracking site health.",
+      data_status: "unavailable",
     };
   }
 
   const csMeta = (svc.cs_metadata as Record<string, unknown>) ?? {};
-  const securityState = (csMeta.webcare_security_state as Record<string, unknown>) ?? {};
   const history = Array.isArray(csMeta.uptime_history)
     ? (csMeta.uptime_history as UptimeEntry[])
     : [];
-  const perfState = (csMeta.webcare_perf_state as Record<string, unknown>) ?? {};
 
+  // Blend ONLY measured components, weighted by what we actually have.
+  // The old formula was uptime*0.5 + perf*0.3 + security*0.2 where perf and
+  // security both read metadata keys nothing writes — so they contributed a
+  // hard 0 and the result (~50 for a perfectly healthy site) was returned
+  // with data_status:"real". Nothing may enter this average unmeasured.
   const uptimePct = computeUptimePct(history);
-  const sec = securityScoreFromState(securityState);
-  const perfDesktop = num(perfState.desktop_score);
-  const perfMobile = num(perfState.mobile_score);
-  const perfAvg = perfDesktop > 0 && perfMobile > 0
-    ? Math.round((perfDesktop + perfMobile) / 2)
-    : Math.max(perfDesktop, perfMobile);
+  const { grade } = computeSecurity(csMeta);
 
-  if (uptimePct + sec + perfAvg === 0) {
+  const parts: Array<{ value: number; weight: number }> = [];
+  if (uptimePct !== null) parts.push({ value: uptimePct, weight: 0.7 });
+  if (grade) parts.push({ value: grade.score, weight: 0.3 });
+
+  if (parts.length === 0) {
     return {
-      value: 75,
-      verdict: "Improvements available",
-      advice: "Workers haven't recorded any data yet — check back after the next maintenance cycle.",
-      data_status: "illustrative",
+      value: null,
+      verdict: "Not measured yet",
+      advice: "Your first uptime check and health sweep haven't run yet — this fills in automatically.",
+      data_status: "unavailable",
     };
   }
 
-  const value = Math.round(uptimePct * 0.5 + perfAvg * 0.3 + sec * 0.2);
+  const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+  const value = Math.round(parts.reduce((s, p) => s + p.value * p.weight, 0) / totalWeight);
+
   const verdict =
     value >= 80 ? "Healthy site"
       : value >= 50 ? "Improvements available"
         : "Action required";
   const advice =
     value >= 80
-      ? "Uptime, performance, and security all in good shape."
+      ? "Uptime and site security checks are both in good shape."
       : value >= 50
-        ? "Run pending updates and check the Lighthouse score to lift this above 80."
+        ? "Apply the pending plugin updates to lift this above 80."
         : "Apply security hardening and pending updates — site needs attention.";
 
   return { value, verdict, advice, data_status: "real" };

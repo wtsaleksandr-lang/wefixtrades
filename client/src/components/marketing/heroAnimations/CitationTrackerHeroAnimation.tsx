@@ -8,7 +8,9 @@ import { AnimationFrame, cardStyle, monoLabel, useBeat, useInView, usePrefersRed
 import { mkt } from "@/theme/tokens";
 import { MONO } from "@/components/effortel-blocks";
 
-const DIRECTORIES = ["Yelp", "Yellow Pages", "Foursquare", "BBB", "Angi", "HomeAdvisor"];
+// Must name only directories CiteTrack genuinely scrapes — see
+// CITATION_TRACKER_MONITORED_DIRECTORIES in server/services/citationTracker.
+const DIRECTORIES = ["BBB", "Houzz", "BuildZoom", "Yellowbook", "Tupalo"];
 
 export default function CitationTrackerHeroAnimation() {
   const ref = useRef<HTMLDivElement | null>(null);

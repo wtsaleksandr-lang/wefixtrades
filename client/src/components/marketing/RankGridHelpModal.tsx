@@ -115,8 +115,8 @@ function makeSections(trade?: string): Section[] {
           new local review nudges those red cells toward amber and beyond.
           <br />
           <br />
-          MapGuard runs this audit every week and fixes the gaps automatically,
-          so you don't have to think about it.
+          MapGuard tracks your keyword ranks every week and works the gaps
+          automatically, so you don't have to think about it.
         </>
       ),
     },

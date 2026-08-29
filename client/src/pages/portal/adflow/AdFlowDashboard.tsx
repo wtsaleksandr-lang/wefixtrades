@@ -175,29 +175,31 @@ interface DayPartingResponse {
 
 /* ─── Quick actions ──────────────────────────────────────────────────── */
 
+// Labels must read as REQUESTS. There is no ad-platform API integration —
+// each of these files a task for the ads team, who make the change by hand.
 const QUICK_ACTIONS = [
   {
     id: "pause-underperforming-campaign",
-    label: "Pause worst campaign",
-    description: "Stop the campaign with the lowest grade in the last 7 days.",
+    label: "Request: pause worst campaign",
+    description: "Ask your ads team to stop the lowest-grade campaign of the last 7 days.",
     icon: TrendingDown,
   },
   {
     id: "boost-winning-campaign",
-    label: "Boost top campaign",
-    description: "Shift budget to your highest-grade campaign.",
+    label: "Request: boost top campaign",
+    description: "Ask your ads team to shift budget to your highest-grade campaign.",
     icon: TrendingUp,
   },
   {
     id: "swap-ad-copy",
     label: "Refresh worst ad copy",
-    description: "Replace a stale creative with a fresh AI-suggested winner.",
+    description: "Open the composer to pick a fresh AI-suggested creative.",
     icon: Sparkles,
   },
   {
     id: "expand-to-new-platform",
-    label: "Expand to new platform",
-    description: "Duplicate your winning Google campaign to Meta.",
+    label: "Request: expand to new platform",
+    description: "Ask your ads team to scope duplicating your winning campaign to Meta.",
     icon: Zap,
   },
 ] as const;
@@ -321,8 +323,11 @@ export default function AdFlowDashboard() {
       });
     },
     onSuccess: (data: any) => {
+      // Title must not assert an outcome — the server message carries the
+      // truthful wording (request logged vs. navigation). AdFlow has no
+      // ad-platform integration, so nothing here changes a live campaign.
       toast({
-        title: "Action queued",
+        title: "Request logged",
         description: data?.message ?? "Done.",
       });
       if (data?.redirectUrl) setLocation(data.redirectUrl);
@@ -676,7 +681,7 @@ export default function AdFlowDashboard() {
               Quick AI actions
             </h2>
             <span className="text-[11px] text-muted-foreground">
-              1-click recommendations — your approval required
+              Sends a request to your ads team — campaigns aren&rsquo;t changed automatically
             </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

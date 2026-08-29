@@ -87,19 +87,27 @@ const META = {
 
 /* ─── API shapes ─────────────────────────────────────────────────────── */
 
+/**
+ * Mirrors the honesty contract in server/routes/portal/webcare/dashboardKpis.ts:
+ * a KPI we do not measure arrives as `null` and must render "not measured",
+ * never 0. Do not add `?? 0` defaults to these — that is exactly the bug that
+ * showed every WebCare customer a 0/100 "F" security grade.
+ */
 interface DashboardKpisResponse {
   previewMode?: boolean;
   kpis: {
-    securityGrade: { score: number; letter: string };
-    uptimePct: number;
-    daysWithoutIncident: number;
-    performanceScore: { desktop: number; mobile: number; avg: number };
-    pendingUpdates: number;
+    securityGrade: { score: number; letter: string } | null;
+    uptimePct: number | null;
+    daysWithoutIncident: number | null;
+    performanceScore: { desktop: number; mobile: number; avg: number } | null;
+    pendingUpdates: number | null;
   };
   securityFactors: SecurityFactor[];
   backupTimeline30d: BackupEntry[];
+  backupsTracked: boolean;
+  incidentHistoryTracked: boolean;
   lastIncident: { kindLabel: string; daysAgo: number; durationMinutes: number } | null;
-  bestStreakDays: number;
+  bestStreakDays: number | null;
   hasWebcareService: boolean;
 }
 
@@ -197,10 +205,11 @@ export default function WebCareDashboard() {
 
   /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
   type WcScoreResponse = {
-    value: number;
+    /** null when nothing has been measured — render the empty state, not 0. */
+    value: number | null;
     verdict: string;
     advice: string;
-    data_status: "real" | "illustrative";
+    data_status: "real" | "illustrative" | "unavailable";
   };
   type WcMonthlyResponse = {
     data: MonthlyBar[];
@@ -262,40 +271,21 @@ export default function WebCareDashboard() {
   /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
 
   // Site health composite — Wave 73a: backed by /stats/score.
-  const siteHealthScoreFallback = useMemo(() => {
-    const up = k?.uptimePct ?? 0;
-    const perf = k?.performanceScore.avg ?? 0;
-    const sec = k?.securityGrade.score ?? 0;
-    if (up + perf + sec === 0) return 0;
-    return Math.round(up * 0.5 + perf * 0.3 + sec * 0.2);
-  }, [k?.uptimePct, k?.performanceScore.avg, k?.securityGrade.score]);
-  const siteHealthUsingFallback = scoreStatsQuery.data?.value == null;
-  const siteHealthScore = scoreStatsQuery.data?.value ?? siteHealthScoreFallback;
-  // Wave K2: when the dedicated score endpoint is empty/errored we fall back to
-  // a client-computed score. Only flag illustrative when that fallback shows a
-  // non-zero figure (an empty account computes 0 — genuinely real).
-  const siteHealthIllustrative =
-    scoreStatsQuery.data?.data_status === "illustrative" ||
-    (siteHealthUsingFallback && siteHealthScoreFallback > 0);
-  // "Has data" for the headline gauge: a monitored service exists AND we have a
-  // real score (or a non-zero fallback). A brand-new/unmonitored account →
-  // empty-state, so it shows a neutral "Awaiting first scan" instead of the
-  // alarming "Action required" verdict.
-  const siteHealthHasData =
-    hasService && (!siteHealthUsingFallback || siteHealthScoreFallback > 0);
+  //
+  // The server is the ONLY place this is computed. The old client-side
+  // fallback re-blended uptime + performance + security locally, which
+  // resurrected the same fabricated-score bug the server just fixed
+  // (performance and security were always 0, so every account scored ~50 and
+  // was told "Improvements available"). If the endpoint has no measurement,
+  // we show the neutral empty state rather than inventing a number.
+  const siteHealthScore = scoreStatsQuery.data?.value ?? null;
+  const siteHealthHasData = hasService && siteHealthScore !== null;
+  const siteHealthIllustrative = scoreStatsQuery.data?.data_status === "illustrative";
 
-  const siteHealthVerdict =
-    scoreStatsQuery.data?.verdict ??
-    (siteHealthScore >= 80 ? "Healthy site"
-      : siteHealthScore >= 50 ? "Improvements available"
-        : "Action required");
+  const siteHealthVerdict = scoreStatsQuery.data?.verdict ?? "Not measured yet";
   const siteHealthAdvice =
     scoreStatsQuery.data?.advice ??
-    (siteHealthScore >= 80
-      ? "Uptime, performance, and security all in good shape."
-      : siteHealthScore >= 50
-        ? "Run pending updates and check the Lighthouse score to lift this above 80."
-        : "Apply security hardening and pending updates — site needs attention.");
+    "Your first uptime check and health sweep haven't run yet — this fills in automatically.";
 
   // Incidents per month — Wave 73a: backed by /stats/monthly.
   const incidentsMonthlyBarsFallback: MonthlyBar[] = useMemo(() => {
@@ -399,10 +389,9 @@ export default function WebCareDashboard() {
         {/* Hero strip — mixed primitives */}
         <div className="grid auto-rows-fr gap-3 lg:grid-cols-4">
           <SecurityScoreCard
-            score={k?.securityGrade.score ?? 0}
-            letter={k?.securityGrade.letter ?? "F"}
+            score={k?.securityGrade?.score ?? null}
             factors={kpis?.securityFactors ?? []}
-            emptyState={isEmptyState}
+            emptyState={isEmptyState || !k?.securityGrade}
           />
           <Card className="flex h-full flex-col items-center justify-center gap-1 p-3" data-testid="webcare-uptime-gauge">
             <KpiGauge
@@ -416,24 +405,28 @@ export default function WebCareDashboard() {
               color="auto"
               helpText={META.uptimePct.helpText}
               improvementTips={META.uptimePct.improvementTips}
-              emptyState={kpisLoading || (k?.uptimePct ?? 0) === 0}
+              emptyState={kpisLoading || k?.uptimePct == null}
             />
             <p className="text-[11px] text-muted-foreground">
               {kpis?.lastIncident
                 ? `Last incident: ${kpis.lastIncident.daysAgo} day${kpis.lastIncident.daysAgo === 1 ? "" : "s"} ago — ${kpis.lastIncident.durationMinutes}-min outage`
-                : "Last incident: never"}
+                : kpis?.incidentHistoryTracked
+                  ? "No incidents in the monitored period"
+                  : "Last incident: not monitored yet"}
             </p>
           </Card>
           <DaysWithoutIncident
             days={k?.daysWithoutIncident ?? 0}
             bestStreak={kpis?.bestStreakDays ?? 0}
-            emptyState={isEmptyState}
+            emptyState={isEmptyState || k?.daysWithoutIncident == null}
           />
-          {/* Performance gauge — power-user (Wave 36). */}
+          {/* Performance gauge — power-user (Wave 36).
+              We run no Lighthouse job, so `performanceScore` is always null.
+              Render the honest empty state rather than a 0/100 score. */}
           <AdvancedOnly product="webcare" elementId="webcare.performance-ring">
             <Card className="flex h-full flex-col items-center justify-center gap-1 p-3" data-testid="webcare-performance-ring">
               <ProgressRing
-                value={k?.performanceScore.avg ?? 0}
+                value={k?.performanceScore?.avg ?? 0}
                 max={100}
                 unit="/100"
                 label={META.performanceScore.label}
@@ -441,10 +434,12 @@ export default function WebCareDashboard() {
                 color="auto"
                 helpText={META.performanceScore.helpText}
                 improvementTips={META.performanceScore.improvementTips}
-                emptyState={kpisLoading || (k?.performanceScore.avg ?? 0) === 0}
+                emptyState={kpisLoading || k?.performanceScore == null}
               />
               <p className="text-[11px] text-muted-foreground">
-                Mobile {k?.performanceScore.mobile ?? 0} · Desktop {k?.performanceScore.desktop ?? 0}
+                {k?.performanceScore
+                  ? `Mobile ${k.performanceScore.mobile} · Desktop ${k.performanceScore.desktop}`
+                  : "Page-speed scoring isn't part of your plan yet"}
               </p>
             </Card>
           </AdvancedOnly>
@@ -458,7 +453,7 @@ export default function WebCareDashboard() {
               <IllustrativeDataBadge show={siteHealthIllustrative} />
             </div>
             <SemiGauge
-              value={siteHealthScore}
+              value={siteHealthScore ?? 0}
               max={100}
               label="Site health"
               verdict={siteHealthVerdict}
@@ -557,8 +552,11 @@ export default function WebCareDashboard() {
 
         {/* Backup timeline — power-user (Wave 36). */}
         <AdvancedOnly product="webcare" elementId="webcare.backup-timeline">
+          {/* `tracked` false = we run no backup job for this site, so the strip
+              must read "not tracked" rather than "0 backups taken". */}
           <BackupTimeline
             entries={kpis?.backupTimeline30d ?? []}
+            tracked={kpis?.backupsTracked ?? false}
             isMutating={runAction.isPending}
             onRunBackupNow={() => runAction.mutate({ action: "run-backup-now" })}
           />
@@ -578,7 +576,9 @@ export default function WebCareDashboard() {
               color={(k?.pendingUpdates ?? 0) === 0 ? "green" : "amber"}
               helpText={META.pendingUpdates.helpText}
               improvementTips={META.pendingUpdates.improvementTips}
-              emptyState={kpisLoading || !hasService}
+              // null = no maintenance sweep has run, so "0 updates pending"
+              // would render a green all-clear we have not earned.
+              emptyState={kpisLoading || !hasService || k?.pendingUpdates == null}
             />
             <Button
               size="sm"

@@ -38,6 +38,12 @@ export interface BackupEntry {
 
 export interface BackupTimelineProps {
   entries: BackupEntry[];
+  /**
+   * False when no backup job runs for this site. An empty `entries` array
+   * then means "we don't track this", NOT "zero backups succeeded" — the
+   * latter is an accusation we have no evidence for.
+   */
+  tracked?: boolean;
   onRunBackupNow?: () => void | Promise<void>;
   isMutating?: boolean;
 }
@@ -71,6 +77,7 @@ function formatDate(iso: string): string {
 
 export function BackupTimeline({
   entries,
+  tracked = true,
   onRunBackupNow,
   isMutating,
 }: BackupTimelineProps) {
@@ -79,6 +86,7 @@ export function BackupTimeline({
   const latestSuccess = [...entries]
     .reverse()
     .find((e) => e.status === "success");
+  const notTracked = !tracked || entries.length === 0;
 
   return (
     <Card className="flex flex-col gap-3 p-4" data-testid="webcare-backup-timeline">
@@ -90,8 +98,9 @@ export function BackupTimeline({
           </h2>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          {successCount} backups taken
-          {failedCount > 0 && ` · ${failedCount} failed`}
+          {notTracked
+            ? "Not tracked"
+            : `${successCount} backups taken${failedCount > 0 ? ` · ${failedCount} failed` : ""}`}
         </p>
       </div>
 
@@ -141,6 +150,15 @@ export function BackupTimeline({
               {latestSuccess.sizeBytes !== undefined &&
                 ` · ${formatSize(latestSuccess.sizeBytes)}`}
             </>
+          ) : notTracked ? (
+            <>
+              <CloudOff
+                className="mr-1 inline h-3 w-3 align-middle text-muted-foreground"
+                aria-hidden="true"
+              />
+              Backups aren&rsquo;t part of your plan yet, so there&rsquo;s nothing to
+              show here. Ask us to add them and this fills in.
+            </>
           ) : (
             <>
               <CloudOff
@@ -151,7 +169,9 @@ export function BackupTimeline({
             </>
           )}
         </p>
-        {onRunBackupNow && (
+        {/* Hidden while untracked — a "Backup now" button that starts nothing
+            is a false affordance. */}
+        {onRunBackupNow && !notTracked && (
           <Button
             size="sm"
             variant="outline"

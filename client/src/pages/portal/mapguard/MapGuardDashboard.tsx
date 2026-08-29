@@ -258,6 +258,10 @@ export default function MapGuardDashboard() {
   const gridHasGeo = grid.some(
     (c) => typeof c.lat === "number" && typeof c.lng === "number",
   );
+  // The location IS on file but no per-pin scan has produced readings. That is
+  // a different (and more accurate) message than "set your location" — our
+  // scans are currently city-wide, so we have no per-location rank to plot.
+  const locationSetButNoGridData = !gridHasGeo && kpisQuery.data?.geo != null;
   const events = alertsQuery.data?.events ?? [];
   const emptyAlerts = events.length === 0 && (alertsQuery.data?.previewMode || !alertsQuery.isLoading);
 
@@ -621,16 +625,18 @@ export default function MapGuardDashboard() {
                       aria-hidden
                     />
                     <p className="text-sm font-medium text-foreground">
-                      We&rsquo;ll show your live rank grid once your location is
-                      set
+                      {locationSetButNoGridData
+                        ? "We track your rankings city-wide, not yet pin-by-pin"
+                        : "We’ll show your live rank grid once your location is set"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Add your business address and service-area radius so we can
-                      map where you rank across your area.
+                      {locationSetButNoGridData
+                        ? "Your keyword ranks below are measured for your city as a whole. Per-location grid scanning isn’t running on your plan yet, so there’s no map to show."
+                        : "Add your business address and service-area radius so we can map where you rank across your area."}
                     </p>
                     <Link href="/portal/mapguard">
                       <Button variant="outline" size="sm">
-                        Set business location
+                        {locationSetButNoGridData ? "View keyword ranks" : "Set business location"}
                         <ArrowRight className="ml-1 h-3 w-3" />
                       </Button>
                     </Link>

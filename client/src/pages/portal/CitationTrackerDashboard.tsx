@@ -178,7 +178,7 @@ export default function CitationTrackerDashboard() {
           <div>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>CiteTrack</h2>
             <p style={{ margin: "2px 0 0", color: "var(--muted-foreground)", fontSize: 13 }}>
-              Continuous NAP drift monitoring across 50+ directories.
+              Continuous NAP drift monitoring across the directories we actively check.
             </p>
           </div>
         </header>

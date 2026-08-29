@@ -21,8 +21,10 @@ import { buildSemiGaugeCard } from "./reportShell";
 const log = createLogger("WebCareDigest");
 
 export interface MonthlyDigestStats {
-  uptimePct: number;
-  securityLetter: string;
+  /** null = no uptime checks recorded. Renders "—", never "0.0%". */
+  uptimePct: number | null;
+  /** null = no health sweep ran. Renders "Not measured", never "F". */
+  securityLetter: string | null;
   updatesApplied: number;
   threatsBlocked: number;
   backupsTaken: number;
@@ -51,21 +53,32 @@ function escapeHtml(s: string): string {
  *   - 70% weight: uptime percentage (0-100)
  *   - 30% weight: security letter grade (A=100, B=85, C=70, D=55, F=40)
  */
-function computeSiteHealthScore(stats: MonthlyDigestStats): number {
-  const uptime = Math.max(0, Math.min(100, stats.uptimePct));
+function computeSiteHealthScore(stats: MonthlyDigestStats): number | null {
+  // Only average over components we actually measured. Previously an
+  // unmeasured uptime counted as 0% and an unmeasured grade as "F" (40),
+  // producing a "Needs attention" verdict for healthy, unmonitored sites.
+  const parts: Array<{ value: number; weight: number }> = [];
+  if (stats.uptimePct !== null) {
+    parts.push({ value: Math.max(0, Math.min(100, stats.uptimePct)), weight: 0.7 });
+  }
   const letter = (stats.securityLetter || "").trim().toUpperCase()[0];
   const letterScore = letter === "A" ? 100
     : letter === "B" ? 85
     : letter === "C" ? 70
     : letter === "D" ? 55
     : letter === "F" ? 40
-    : 70; // unknown grades default to neutral
-  return Math.round(uptime * 0.7 + letterScore * 0.3);
+    : null;
+  if (letterScore !== null) parts.push({ value: letterScore, weight: 0.3 });
+
+  if (parts.length === 0) return null;
+  const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+  return Math.round(parts.reduce((s, p) => s + p.value * p.weight, 0) / totalWeight);
 }
 
 function buildDigestHtml(data: MonthlyDigestData, portalUrl: string, healthCardHtml: string): string {
   const { stats } = data;
-  const uptimeStr = `${stats.uptimePct.toFixed(1)}%`;
+  const uptimeStr = stats.uptimePct !== null ? `${stats.uptimePct.toFixed(1)}%` : "Not measured";
+  const securityStr = stats.securityLetter ?? "Not measured";
   return `
     <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
       <div style="max-width:560px;margin:0 auto;">
@@ -94,7 +107,7 @@ function buildDigestHtml(data: MonthlyDigestData, portalUrl: string, healthCardH
               <td style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">
                   <span style="font-size:13px;color:#CDD1D6;">Security grade</span>
-                  <span style="font-size:18px;font-weight:700;color:#F0F0F0;">${escapeHtml(stats.securityLetter)}</span>
+                  <span style="font-size:18px;font-weight:700;color:#F0F0F0;">${escapeHtml(securityStr)}</span>
                 </div>
               </td>
             </tr>
@@ -161,33 +174,46 @@ export async function sendWebcareMonthlyDigest(
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : "https://wefixtrades.com");
 
-  const subject = `Your WebCare report — ${data.periodLabel}: ${data.stats.securityLetter} grade, ${data.stats.uptimePct.toFixed(1)}% uptime`;
+  // Subject reports only what we measured. It used to interpolate the
+  // security letter unconditionally, and because the grade was computed from
+  // never-written metadata, every customer's monthly report arrived titled
+  // "... : F grade, 0.0% uptime".
+  const subjectParts: string[] = [];
+  if (data.stats.securityLetter) subjectParts.push(`${data.stats.securityLetter} grade`);
+  if (data.stats.uptimePct !== null) subjectParts.push(`${data.stats.uptimePct.toFixed(1)}% uptime`);
+  const subject = subjectParts.length > 0
+    ? `Your WebCare report — ${data.periodLabel}: ${subjectParts.join(", ")}`
+    : `Your WebCare report — ${data.periodLabel}`;
 
   // Wave 74: site-health semi-gauge KPI card. Generation failure is
-  // graceful — the card still renders with text-only fallback.
+  // graceful — the card still renders with text-only fallback. When nothing
+  // was measured we omit the gauge rather than draw a zeroed one.
   const healthScore = computeSiteHealthScore(data.stats);
-  const verdict = healthScore >= 80 ? "Excellent"
-    : healthScore >= 50 ? "Holding up"
-    : "Needs attention";
-  const advice = healthScore >= 80
-    ? "Site stayed online and patched. Nothing for you to do."
-    : healthScore >= 50
-    ? "Stable, with room to improve. We're tightening loose ends this cycle."
-    : "We're prioritizing recovery work this cycle — expect a follow-up.";
-  const periodSlug = data.periodLabel.replace(/\s+/g, "-").toLowerCase();
-  const gaugeUrl = await generateSemiGaugePng({
-    cacheKey: `webcare-health-${data.recipientEmail.split("@")[0]}-${periodSlug}`,
-    value: healthScore,
-    max: 100,
-  });
-  const healthCardHtml = buildSemiGaugeCard({
-    chartUrl: gaugeUrl,
-    label: "Site health score",
-    value: healthScore,
-    max: 100,
-    verdict,
-    advice,
-  });
+  let healthCardHtml = "";
+  if (healthScore !== null) {
+    const verdict = healthScore >= 80 ? "Excellent"
+      : healthScore >= 50 ? "Holding up"
+      : "Needs attention";
+    const advice = healthScore >= 80
+      ? "Site stayed online and patched. Nothing for you to do."
+      : healthScore >= 50
+      ? "Stable, with room to improve. We're tightening loose ends this cycle."
+      : "We're prioritizing recovery work this cycle — expect a follow-up.";
+    const periodSlug = data.periodLabel.replace(/\s+/g, "-").toLowerCase();
+    const gaugeUrl = await generateSemiGaugePng({
+      cacheKey: `webcare-health-${data.recipientEmail.split("@")[0]}-${periodSlug}`,
+      value: healthScore,
+      max: 100,
+    });
+    healthCardHtml = buildSemiGaugeCard({
+      chartUrl: gaugeUrl,
+      label: "Site health score",
+      value: healthScore,
+      max: 100,
+      verdict,
+      advice,
+    });
+  }
 
   try {
     await transporter.sendMail({

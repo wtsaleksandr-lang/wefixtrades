@@ -146,12 +146,17 @@ async function buildAdflowMetrics(clientId: number): Promise<DashboardMetric[]> 
 
 async function buildWebcareMetrics(clientId: number): Promise<DashboardMetric[]> {
   const { kpis } = await computeWebcareDashboardKpis(clientId);
+  // Unmeasured KPIs arrive as null and are dropped entirely — the Copilot
+  // must not be told "security 0 / performance 0" for checks we never ran,
+  // or it will confidently relay that to the customer as fact.
   return [
-    buildMetric("webcare", "securityGrade", kpis.securityGrade.score),
-    buildMetric("webcare", "uptimePct", kpis.uptimePct),
-    buildMetric("webcare", "daysWithoutIncident", kpis.daysWithoutIncident),
-    buildMetric("webcare", "performanceScore", kpis.performanceScore.avg),
-    buildMetric("webcare", "pendingUpdates", kpis.pendingUpdates),
+    kpis.securityGrade ? buildMetric("webcare", "securityGrade", kpis.securityGrade.score) : null,
+    kpis.uptimePct !== null ? buildMetric("webcare", "uptimePct", kpis.uptimePct) : null,
+    kpis.daysWithoutIncident !== null
+      ? buildMetric("webcare", "daysWithoutIncident", kpis.daysWithoutIncident)
+      : null,
+    kpis.performanceScore ? buildMetric("webcare", "performanceScore", kpis.performanceScore.avg) : null,
+    kpis.pendingUpdates !== null ? buildMetric("webcare", "pendingUpdates", kpis.pendingUpdates) : null,
   ].filter((m): m is DashboardMetric => m !== null);
 }
 
