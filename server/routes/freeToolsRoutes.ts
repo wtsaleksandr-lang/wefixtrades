@@ -16,7 +16,11 @@
  *
  *   POST /api/tools/citation-checker
  *     body  { businessName, city, phone? }
- *     → { ok, results: [{ source, label, status, url? }] }
+ *     → { ok, market, results: [{ id, label, status, listingUrl?, reason? }],
+ *         declined: [{ id, name, reason }], summary }
+ *     Runs the shared CiteTrack directory registry — real checks against
+ *     real directories, three-state (found / confirmed-absent /
+ *     could-not-check). Never SERP-inferred. See the handler's docblock.
  *
  *   GET  /api/tools/local-rankflux
  *     → { ok, volatility: "HIGH"|"MEDIUM"|"LOW", score: number, last7d[], updatedAt }
@@ -49,6 +53,17 @@ import { storage } from "../storage";
 import { searchSerp } from "../lib/serpOrchestrator";
 import { reserveDailyCalls } from "../lib/publicSerpBudget";
 import { deriveCountryFromLocation } from "@shared/locationCountry";
+// The free Citation Checker runs the SAME registry the paid CiteTrack
+// product runs (#2061). Importing it rather than keeping a second list is
+// the whole point: a directory proven unreachable cannot be "checked" by
+// the free tool while the paid product declines it.
+import {
+  CITATION_TRACKER_DIRECTORIES,
+  getMonitoredDirectories,
+  isDirectoryCheckable,
+  type DirectoryDef,
+  type ScrapeContext,
+} from "../services/citationTracker/directories";
 import { chat, NoAIProviderError, validateConfig } from "../services/aiService";
 
 const log = createLogger("free-tools");
@@ -289,7 +304,14 @@ async function localSearchCheckerHandler(req: Request, res: Response) {
   }
 }
 
-/* ─── 3. Citation Checker (Serper site: queries) ──────────────────────── */
+/* ─── 3. SERP-index directory probe (NAP Checker only) ───────────────────
+ *
+ * This list and `classifyCitationHit` used to power the free Citation
+ * Checker as well. They no longer do — see `citationCheckerHandler` below
+ * for why a SERP-index probe cannot answer "is this business listed?".
+ * Only the NAP Checker still uses them, and only to find a listing it can
+ * then read NAP fields off; it never reports an index miss as an absence.
+ */
 
 const CITATION_SOURCES: Array<{ source: string; label: string; domain: string }> = [
   { source: "yelp", label: "Yelp", domain: "yelp.com" },
@@ -327,7 +349,23 @@ const CITATION_SOURCES: Array<{ source: string; label: string; domain: string }>
  * its own, can lift an "unverified" host hit to "found" — this is the
  * "helps confirm your listing" use the field's helptext now promises.
  */
-type CitationStatus = "found" | "unverified" | "missing" | "unable-to-check";
+/**
+ * HONESTY FIX (2026-08-29): there is no "missing" verdict here any more.
+ *
+ * The classifier only ever sees the top ten organic results for one
+ * phrasing of one query. When none of them sit on the directory's domain
+ * that is an INDEX MISS, and an index miss is not evidence of absence:
+ * the listing may exist and simply not rank for that phrasing, the
+ * directory may be de-indexed for that query, or the provider may have
+ * returned a thin result set. Reporting "not listed on Yelp" off that
+ * signal is a fabricated status, which is exactly the class of bug #2061
+ * removed from the paid product. A directory we cannot see into is
+ * `unable-to-check`, and it is never counted as a gap.
+ *
+ * A genuine, verified absence requires contacting the directory itself —
+ * which is what the citation registry does. See `citationCheckerHandler`.
+ */
+type CitationStatus = "found" | "unverified" | "unable-to-check";
 
 function normPhoneDigits(s: string): string {
   return (s || "").replace(/\D+/g, "");
@@ -354,7 +392,10 @@ export function classifyCitationHit(
       return false;
     }
   });
-  if (hostHits.length === 0) return { status: "missing" };
+  // No result on this directory's domain in the top ten. That tells us the
+  // query did not surface a listing — NOT that no listing exists. Never a
+  // reported absence; see the CitationStatus note above.
+  if (hostHits.length === 0) return { status: "unable-to-check" };
 
   const phoneDigits = normPhoneDigits(phone);
   // A meaningful phone has at least 7 digits; ignore stubs so a "1" or area
@@ -382,82 +423,340 @@ export function classifyCitationHit(
   return { status: "unverified", url: firstHostUrl };
 }
 
+/* ─── 3b. Citation Checker — real checks, from the shared registry ───────
+ *
+ * WHAT THIS TOOL USED TO DO, AND WHY IT WAS REPLACED (2026-08-29)
+ * ---------------------------------------------------------------
+ * The free Citation Checker advertised checks against ten directories —
+ * Yelp, BBB, Angi, Thumbtack, YellowPages.com, Houzz, HomeAdvisor,
+ * MapQuest, Foursquare, Manta — and contacted none of them. Per directory
+ * it ran a single SERP query (`<name> <city> <directory>`) and filtered
+ * the ten organic results down to that directory's domain. Zero results on
+ * the domain returned `status: "missing"`, which the page rendered as a red
+ * "Missing" row and fed into a "N directories need attention" upsell.
+ *
+ * Two independent failures:
+ *
+ *   1. FABRICATION. An index miss is not an absence. A business genuinely
+ *      listed on Yelp is reported "Missing" whenever its listing does not
+ *      happen to rank in the top ten for that exact phrasing. On a public
+ *      lead magnet this told prospects they were absent from directories
+ *      they were on — the same class of bug #2061 removed from the paid
+ *      product, on a bigger audience.
+ *
+ *   2. IT COULD NOT RUN AT ALL. Since #2057 the public tools are
+ *      structurally barred from paid SERP providers, and this deployment
+ *      has no free-tier SERP credential (GOOGLE_CUSTOMSEARCH_CX is unset),
+ *      so in production all ten searchSerp() calls threw and every row came
+ *      back "unable to check". The tool had stopped producing results.
+ *
+ * WHAT IT DOES NOW
+ * ----------------
+ * It runs the SAME checks as the paid CiteTrack product, from the SAME
+ * registry (server/services/citationTracker/directories.ts) and the same
+ * bot-wall-aware httpClient. One source of truth: a directory #2061 proved
+ * unreachable cannot be "checked" here while the paid product declines it,
+ * because both read `getMonitoredDirectories()`.
+ *
+ * The three-state model is the registry's, unchanged:
+ *   found            — the directory returned this business's listing.
+ *   confirmed-absent — the directory answered cleanly and this business is
+ *                      not in it. A real, actionable gap.
+ *   could-not-check  — timeout, block, challenge page, quota, or budget.
+ *                      Reported distinctly, never counted as a gap.
+ *
+ * Directories we evaluated and cannot honestly check are returned in
+ * `declined`, each with the reason, so the page can name them instead of
+ * quietly dropping them. "Here is what we check and here is what nobody can
+ * check, with evidence" is a stronger claim than a bigger number.
+ *
+ * COST — a public tool has unbounded traffic, so this is bounded hard.
+ * ------------------------------------------------------------------
+ *   - No SERP. This handler never calls searchSerp(), so it cannot reach
+ *     the pay-as-you-go providers even by accident (#2057 default-deny is
+ *     a second line of defence, not the first).
+ *   - BBB, BuildZoom, YellowPages.ca, n49, OpenStreetMap — plain HTTP.
+ *     $0.00 per run, always, at any volume.
+ *   - Google Business Profile — one Places Text Search call, Pro tier,
+ *     whose free allowance is 5,000/month. This is the only line item that
+ *     could ever bill, so it is triple-bounded:
+ *       * per-IP:     CITATION_HOURLY_MAX scans/hour,
+ *       * per-tool:   CITATION_PLACES_DAILY_BUDGET calls/UTC-day via the
+ *                     shared #2057 ledger — a hard process-wide ceiling
+ *                     across every visitor,
+ *       * repeat use: a CITATION_CACHE_TTL_MS response cache, so re-running
+ *                     the same business costs nothing.
+ *     100/day is 3,100/month worst case, comfortably inside the 5,000 free
+ *     Pro allowance with room left for CiteTrack's own discovery calls.
+ *
+ *   WORST CASE, ALL VISITORS COMBINED: 100 Places calls per UTC day, so at
+ *   most 100 in any single hour = $0.00 (inside the free allowance). If the
+ *   shared free allowance were ever exhausted by another surface, the
+ *   absolute ceiling this tool could add is 100 × $0.032 = $3.20 per UTC
+ *   day. It cannot exceed that regardless of traffic.
+ */
+
+/** Scans per hour per IP. Tighter than the 20/hr default: each scan fans
+ * out to several third-party directories and one Places call. */
+const CITATION_HOURLY_MAX = 5;
+
+/** Process-wide Places Text Search ceiling per UTC day, across every
+ * visitor. See the cost note above for the arithmetic. */
+const CITATION_PLACES_DAILY_BUDGET = 100;
+const CITATION_BUDGET_BUCKET = "tools:citation-checker";
+
+/** Politeness delay before each directory fetch. Short because we make at
+ * most one request per host per scan and the per-IP cap bounds the rate. */
+const CITATION_POLITE_DELAY_MS = 200;
+
+/** Response cache. Re-running the same business (the common case — people
+ * fix a listing then re-check) must not spend budget or re-hit the
+ * directories. */
+const CITATION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CITATION_CACHE_MAX = 500;
+
+type CitationCheckStatus = "found" | "confirmed-absent" | "could-not-check";
+
+interface CitationCheckRow {
+  /** Registry directory id — the same id the paid product uses. */
+  id: string;
+  label: string;
+  url: string;
+  category: string;
+  markets: string[];
+  /** Why this directory is worth checking. Straight from the registry. */
+  rationale: string;
+  status: CitationCheckStatus;
+  /** Present only on `found`. */
+  listingUrl?: string;
+  /** Present only on `could-not-check` — plain-English cause. */
+  reason?: string;
+  /** Google Business Profile leads the list; it outweighs the rest. */
+  primary: boolean;
+}
+
+interface CitationCheckPayload {
+  ok: true;
+  businessName: string;
+  city: string;
+  market: "US" | "CA" | null;
+  results: CitationCheckRow[];
+  declined: Array<{ id: string; name: string; url: string; reason: string }>;
+  summary: {
+    checked: number;
+    found: number;
+    confirmedAbsent: number;
+    couldNotCheck: number;
+    declined: number;
+  };
+}
+
+const citationCache = new Map<string, { at: number; payload: CitationCheckPayload }>();
+
+function citationCacheKey(businessName: string, city: string, phone: string): string {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  return `${norm(businessName)}|${norm(city)}|${normPhoneDigits(phone)}`;
+}
+
+function citationCacheGet(key: string): CitationCheckPayload | null {
+  const hit = citationCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CITATION_CACHE_TTL_MS) {
+    citationCache.delete(key);
+    return null;
+  }
+  return hit.payload;
+}
+
+function citationCacheSet(key: string, payload: CitationCheckPayload): void {
+  // Bounded FIFO — Map preserves insertion order, so the oldest key is first.
+  if (citationCache.size >= CITATION_CACHE_MAX) {
+    const oldest = citationCache.keys().next();
+    if (!oldest.done) citationCache.delete(oldest.value);
+  }
+  citationCache.set(key, { at: Date.now(), payload });
+}
+
+/**
+ * Which market's directories apply. Derived from the typed city via the
+ * shared, deliberately-conservative resolver — it returns null on anything
+ * ambiguous rather than guessing.
+ *
+ * This matters for honesty, not just relevance: YellowPages.ca answering
+ * cleanly for an Austin plumber is a true "not in it" that would read to
+ * the customer as a gap they should fix. It is not one. So a directory is
+ * only run when its market matches, and when we cannot tell the market we
+ * run only the directories that serve both.
+ */
+export function citationMarketFor(city: string): "US" | "CA" | null {
+  const country = city ? deriveCountryFromLocation(city) : null;
+  if (country === "us") return "US";
+  if (country === "ca") return "CA";
+  return null;
+}
+
+/** Plain-English cause for a `could-not-check` row. The registry's failure
+ * reasons are internal tokens; these are what a business owner reads. */
+function citationFailureText(reason: string): string {
+  switch (reason) {
+    case "rate_limited":
+      return "The directory blocked our request (rate limit or bot challenge).";
+    case "timeout":
+      return "The directory did not respond in time.";
+    case "network":
+      return "We could not reach the directory.";
+    case "bad_status":
+      return "The directory returned an error.";
+    case "parse_error":
+      return "The directory's page format changed and we could not read it reliably.";
+    case "not_configured":
+      return "This check is not enabled on this deployment.";
+    case "daily_budget":
+      return "This tool's free daily allowance for Google lookups is used up. It resets at midnight UTC — or run the check again tomorrow.";
+    default:
+      return "The check did not complete, so we cannot say either way.";
+  }
+}
+
+/**
+ * THE honesty invariant of this tool, in one pure function so it can be
+ * tested directly rather than inferred from the handler.
+ *
+ * A scraper that errored tells us NOTHING about the listing. A Cloudflare
+ * challenge, an Imperva interstitial, a timeout, a 429 or an unparseable
+ * page must all surface as `could-not-check` — never as an absence. The
+ * error is checked FIRST and outranks `found`, so a scraper that sets both
+ * (a partial read) still degrades to "we don't know" rather than asserting
+ * either way.
+ *
+ * Exported for server/routes/freeToolsCitationHonesty.test.ts.
+ */
+export function citationRowStatus(
+  out: { found: boolean; listing_url?: string; error?: string },
+): { status: CitationCheckStatus; listingUrl?: string; reason?: string } {
+  if (out.error) return { status: "could-not-check", reason: citationFailureText(out.error) };
+  if (out.found) return { status: "found", listingUrl: out.listing_url };
+  return { status: "confirmed-absent" };
+}
+
 async function citationCheckerHandler(req: Request, res: Response) {
-  if (!rateOk("citation", req, res)) return;
+  if (!rateOk("citation", req, res, CITATION_HOURLY_MAX)) return;
   const businessName = strField(req.body?.businessName, 120);
   const city = strField(req.body?.city, 80);
-  // Phone is optional. When supplied it is used as a corroborating NAP
-  // signal in classifyCitationHit (it can lift a host-only hit to "found"),
-  // never to shrink the count — so it stays purely additive.
+  // Phone is optional and purely corroborating: the registry's
+  // candidateMatches() uses it to confirm a candidate really is this
+  // business. It can only ever make a match stricter, never invent one.
   const phone = strField(req.body?.phone, 40);
   if (!businessName) {
     return res.status(400).json({ ok: false, error: "Missing businessName." });
   }
 
-  const checks = CITATION_SOURCES.map(async (src) => {
-    // Robust directory lookup (2026-07 root-cause fix). The old query
-    // `site:<domain> "<name>" <city>` was over-constrained: the `site:`
-    // operator combined with an EXACT-QUOTED name returned ZERO organic
-    // results for genuinely-listed businesses (Google/Serper drops the
-    // listing whenever the indexed page title differs even slightly from the
-    // quoted string — "Roto-Rooter Plumbing & Water Cleanup" vs the typed
-    // "Roto Rooter"), so real listings were mis-reported as "missing" across
-    // ALL directories (hostHits.length === 0 before name-matching even ran).
-    //
-    // Instead we run a NORMAL search `<name> <city> <directory>` (no `site:`,
-    // no quotes) and host-filter the returned results down to the directory
-    // domain inside classifyCitationHit. Including the directory brand word
-    // strongly biases Google/Serper to surface that directory's page for the
-    // business when a listing exists (its own listing outranks category pages
-    // for the business's exact name), while dropping the exact-phrase and
-    // site: constraints removes the two filters that were nuking valid hits.
-    //
-    // False-positive safety is UNCHANGED and lives in classifyCitationHit:
-    // a result must (a) be hosted ON the directory domain AND (b) fuzzy-match
-    // the business name (+ city when supplied, or phone digits) to count as
-    // "found". Unrelated hosts are filtered out; a directory category/index
-    // page (no business name) stays "unverified". Cost parity: still one
-    // query per directory, and num<=10 keeps each a 1-credit Serper call.
-    //
-    // Phone is intentionally NOT ANDed into the query (snippets rarely carry
-    // the literal phone string); it only ever lifts a host hit to "found" in
-    // the classifier — never shrinks the count.
-    const dirName = src.label.replace(/\s*\(.*?\)\s*/g, " ").trim();
-    const queryParts = [businessName, city, dirName].filter(Boolean);
-    const q = queryParts.join(" ");
-    try {
-      const result = await searchSerp({ query: q, country: "us", language: "en", num: 10 });
-      const { status, url } = classifyCitationHit(
-        result.organic,
-        src,
-        businessName,
-        city,
-        phone,
-      );
-      return { source: src.source, label: src.label, status, url };
-    } catch {
-      return { source: src.source, label: src.label, status: "unable-to-check" as const, url: undefined };
-    }
+  const cacheKey = citationCacheKey(businessName, city, phone);
+  const cached = citationCacheGet(cacheKey);
+  if (cached) return res.json({ ...cached, cached: true });
+
+  const market = citationMarketFor(city);
+  const monitored = getMonitoredDirectories();
+  // When the market is unknown, run only the directories that serve both —
+  // never a market-specific one whose clean "not in it" would be a
+  // meaningless gap.
+  const run = monitored.filter((d) =>
+    market ? d.markets.includes(market) : d.markets.includes("US") && d.markets.includes("CA"),
+  );
+
+  // Reserve this scan's single Places call from the process-wide daily
+  // ledger BEFORE spending it. Nothing else in this handler can bill.
+  const wantsPlaces = run.some((d) => d.id === "google_business_profile");
+  const placesGranted = wantsPlaces
+    ? reserveDailyCalls(CITATION_BUDGET_BUCKET, CITATION_PLACES_DAILY_BUDGET, 1)
+    : 0;
+  if (wantsPlaces && placesGranted < 1) {
+    log.warn("[citation-checker] daily Places budget exhausted; GBP row reported unchecked");
+  }
+
+  const ctx: ScrapeContext = {
+    business_name: businessName,
+    phone: phone || undefined,
+    // The scrapers parse city + state out of a single free-form address
+    // string, which is exactly the shape of this tool's city field
+    // ("Austin, TX" → city "Austin", state "TX").
+    address: city || undefined,
+  };
+
+  const row = (
+    dir: DirectoryDef,
+    status: CitationCheckStatus,
+    extra: { listingUrl?: string; reason?: string } = {},
+  ): CitationCheckRow => ({
+    id: dir.id,
+    label: dir.name,
+    url: dir.url,
+    category: dir.category,
+    markets: [...dir.markets],
+    rationale: dir.rationale,
+    status,
+    listingUrl: extra.listingUrl,
+    reason: extra.reason,
+    primary: dir.id === "google_business_profile",
   });
 
-  const results = await Promise.all(checks);
-  const foundCount = results.filter((r) => r.status === "found").length;
-  const unverifiedCount = results.filter((r) => r.status === "unverified").length;
-  const missingCount = results.filter((r) => r.status === "missing").length;
-  return res.json({
+  const results = await Promise.all(
+    run.map(async (dir): Promise<CitationCheckRow> => {
+      if (dir.id === "google_business_profile" && placesGranted < 1) {
+        return row(dir, "could-not-check", { reason: citationFailureText("daily_budget") });
+      }
+      try {
+        // `scrape` is non-null for everything getMonitoredDirectories()
+        // returns — isDirectoryCheckable() already filtered nulls out.
+        const out = await dir.scrape!(ctx, { politeDelayMs: CITATION_POLITE_DELAY_MS });
+        const mapped = citationRowStatus(out);
+        return row(dir, mapped.status, {
+          listingUrl: mapped.status === "found" ? mapped.listingUrl || dir.url : undefined,
+          reason: mapped.reason,
+        });
+      } catch (err: any) {
+        log.warn("[citation-checker] scraper threw", {
+          directory: dir.id,
+          error: err?.message || String(err),
+        });
+        return row(dir, "could-not-check", { reason: citationFailureText("unknown") });
+      }
+    }),
+  );
+
+  // Google first — it carries more local-ranking weight than the rest
+  // combined, so it leads the result table rather than sorting
+  // alphabetically into the middle of it.
+  results.sort((a, b) => Number(b.primary) - Number(a.primary));
+
+  // Everything we evaluated and cannot honestly check, with the evidence.
+  // Straight from the registry, so it can never drift from what the paid
+  // product declines.
+  const declined = CITATION_TRACKER_DIRECTORIES.filter((d) => !isDirectoryCheckable(d)).map((d) => ({
+    id: d.id,
+    name: d.name,
+    url: d.url,
+    reason: d.unavailableReason || "Not checked.",
+  }));
+
+  const payload: CitationCheckPayload = {
     ok: true,
     businessName,
     city,
+    market,
     results,
+    declined,
     summary: {
       checked: results.length,
-      found: foundCount,
-      unverified: unverifiedCount,
-      // `missing` keeps its historical meaning (truly not listed); the UI
-      // derives its own 3-/4-way breakdown from the per-row statuses.
-      missing: missingCount,
+      found: results.filter((r) => r.status === "found").length,
+      confirmedAbsent: results.filter((r) => r.status === "confirmed-absent").length,
+      couldNotCheck: results.filter((r) => r.status === "could-not-check").length,
+      declined: declined.length,
     },
-  });
+  };
+
+  citationCacheSet(cacheKey, payload);
+  return res.json(payload);
 }
 
 /* ─── 4. Local Rankflux (Wave 17 — HTML-scrape fallback chain) ────────── */
@@ -1427,7 +1726,10 @@ async function toolLeadHandler(req: Request, res: Response) {
         "Your WeFixTrades report",
         `<p>Thanks for using our free local-SEO tools.</p>
          <p>You asked us to email you a copy of your report${businessName ? ` for <strong>${businessName}</strong>` : ""}. Keep an eye on this inbox — if you'd like a hand acting on what it showed, just reply and a real person will help.</p>
-         <p>Want the complete picture? Our <a href="https://wefixtrades.com/tools/free-audit">Full Audit</a> checks 50+ citation sources, 20 keyword rankings, your Google Business Profile, competitors, and website speed.</p>
+         <!-- No citation-source count: there is no 50+ citation check in the
+              product, and this email goes to Citation Checker leads who were
+              just told, correctly, that big coverage numbers are theatre. -->
+         <p>Want the complete picture? Our <a href="https://wefixtrades.com/tools/free-audit">Full Audit</a> covers 20 keyword rankings, your Google Business Profile, competitors, and website speed.</p>
          <p>— The WeFixTrades Team</p>`,
         undefined,
         { category: "marketing", source: `tool_lead:${sourceTool || "seo-tool"}` },
@@ -1673,9 +1975,10 @@ async function napCheckerHandler(req: Request, res: Response) {
       const result = await searchSerp({ query: q, country: "us", language: "en", num: 10 });
       const { status, url } = classifyCitationHit(result.organic, src, businessName, city, phone);
 
-      if (status === "missing") {
-        return { source: src.source, label: src.label, listing: "missing", url, name: "unknown", phone: "unknown" };
-      }
+      // There is no "missing" outcome any more: an index miss is not an
+      // absence (see the CitationStatus note above classifyCitationHit), and
+      // this tool never had the evidence to assert one. It now falls through
+      // to "unable-to-check" like any other directory we could not read.
       if (status === "unable-to-check") {
         return { source: src.source, label: src.label, listing: "unable-to-check", url, name: "unknown", phone: "unknown" };
       }

@@ -64,7 +64,10 @@ export default function ForFranchisesPage() {
         { label: "CiteFlow", href: "/citation-builder", tagline: "Cleanly list every new location across 100+ directories" },
       ]}
       recommendedFreeTools={[
-        { label: "NAP Consistency Audit", href: "/tools/citation-checker" },
+        /* Was labelled "NAP Consistency Audit" but pointed at the Citation
+           Checker, which reports listing PRESENCE, not NAP consistency.
+           The NAP audit is its own tool. */
+        { label: "NAP Consistency Audit", href: "/tools/nap-checker" },
         { label: "Local Search Checker", href: "/tools/local-serp-checker" },
       ]}
     />

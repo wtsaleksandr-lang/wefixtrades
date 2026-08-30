@@ -298,7 +298,10 @@ export const NOT_ASSESSED: NotAssessedItem[] = [
     id: "nap-consistency",
     label: "NAP consistency across directories",
     details:
-      "Not checked by this free scan — our free Citation Checker does check this against the directories we monitor.",
+      // The Citation Checker reports PRESENCE (listed / not listed / couldn't
+      // check) on the directories we can genuinely read. It does not compare
+      // NAP fields — that's the NAP Checker — so don't promise it here.
+      "Not checked by this free scan. Our free Citation Checker tells you which directories actually list you, and the free NAP Checker compares your name, address and phone across them.",
     ctaCardName: "nap-consistency",
   },
 ];
