@@ -44,7 +44,12 @@ const FAQ_ITEMS = [
   {
     question: "Which directories do you actually check?",
     answer:
-      "Google Business Profile first, because it carries more local-ranking weight than every other listing combined. Then Better Business Bureau and BuildZoom for US businesses, and YellowPages.ca and n49 for Canadian ones. OpenStreetMap is supported and enabled per deployment. We contact each one directly and read the answer — we never infer a listing's existence from a search engine.",
+      "Google Business Profile first, because it carries more local-ranking weight than every other listing combined. Then BuildZoom for US businesses, and YellowPages.ca and n49 for Canadian ones. OpenStreetMap is supported and enabled per deployment. We contact each one directly and read the answer — we never infer a listing's existence from a search engine.",
+  },
+  {
+    question: "You used to check the Better Business Bureau. What happened?",
+    answer:
+      "We stopped, on purpose. BBB's robots.txt asks automated clients not to request any URL with a query string, and finding a business on BBB meant searching — a query-string URL. The profile pages BBB does permit are behind a Cloudflare challenge we can't read. So there was no route that was both allowed and readable. We decline other directories for exactly that reason, and it would be incoherent to hold BBB to a softer standard because the workaround happened to function. Your BBB listing still matters; we just can't verify it for you, and we'd rather say so than report a status we didn't check.",
   },
   {
     question: "Why don't you check Yelp, Angi, Thumbtack, Houzz or HomeAdvisor?",
@@ -434,7 +439,7 @@ export default function CitationChecker() {
     <MarketingLayout>
       <PageMeta
         title="Free Citation Checker — is your business listed where it counts?"
-        description="Check your business against the citation directories that can actually be verified — Google Business Profile, Better Business Bureau, BuildZoom, YellowPages.ca and n49. Real checks, three honest results: listed, not listed, or couldn't check. We name what we can't check, and why."
+        description="Check your business against the citation directories that can actually be verified — Google Business Profile, BuildZoom, YellowPages.ca and n49. Real checks, three honest results: listed, not listed, or couldn't check. We name what we can't check, and why."
         canonical={TOOL_PATH}
         keywords={["citation checker", "local citations", "nap consistency", "google business profile checker", "trade business citations"]}
       />
@@ -460,7 +465,7 @@ export default function CitationChecker() {
            regenerated from scripts/generate-free-tool-previews.ts and shows
            the real three-state vocabulary, Yelp included as "Can't check". */
         heroImageSrc="/free-tools/previews/citation-checker.png"
-        heroImageAlt="Citation Checker result — Google Business Profile and Better Business Bureau listed, BuildZoom not listed, and Yelp marked can't check rather than reported as missing."
+        heroImageAlt="Citation Checker result — Google Business Profile and YellowPages.ca listed, BuildZoom not listed, and Yelp marked can't check rather than reported as missing."
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E", marginTop: 0 }}>What is a business citation?</h2>
         <p>
@@ -492,7 +497,6 @@ export default function CitationChecker() {
             here combined, which is why it's the first thing we check and the
             first thing you see.
           </li>
-          <li><strong>Better Business Bureau</strong> — the highest-trust general directory in North America, US and Canada.</li>
           <li><strong>BuildZoom</strong> (US) — contractor-specific, built on permit records. Lead relevance rather than ranking weight.</li>
           <li><strong>YellowPages.ca and n49</strong> (Canada) — the two Canadian general directories that still serve readable pages.</li>
         </ul>
@@ -519,7 +523,7 @@ export default function CitationChecker() {
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E" }}>What to do with a confirmed gap</h2>
         <ul style={{ paddingLeft: 20 }}>
           <li><strong>Google Business Profile first, always.</strong> If that one says "not listed", nothing else on this page matters until it's fixed.</li>
-          <li><strong>BBB, YellowPages.ca, n49, BuildZoom</strong>: free claim flows, roughly ten minutes each.</li>
+          <li><strong>YellowPages.ca, n49, BuildZoom</strong>: free claim flows, roughly ten minutes each.</li>
           <li><strong>NAP must match exactly</strong>: same phone format, same street name, no typos. Mismatched NAP is worse than no listing.</li>
         </ul>
 

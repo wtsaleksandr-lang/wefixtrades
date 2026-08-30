@@ -21,6 +21,7 @@
  *     directories cleanly without re-parsing bodies.
  */
 import { createLogger } from "../../../lib/logger";
+import { isUrlAllowed } from "../robots";
 
 const log = createLogger("citation-tracker:http");
 
@@ -46,7 +47,8 @@ export type ScrapeFailureReason =
   | "network" // fetch threw before a response was received
   | "bad_status" // 5xx
   | "parse_error" // 2xx but body wasn't parseable (HTML structure changed)
-  | "not_configured"; // API-backed check with no credential — never checked
+  | "not_configured" // API-backed check with no credential — never checked
+  | "robots_disallowed"; // the target's robots.txt forbids this path — never requested
 
 /**
  * Bot-wall interstitials that return **HTTP 200** with a body that contains
@@ -133,6 +135,29 @@ export async function fetchHtml(
   url: string,
   opts: { politeDelayMs?: number } = {},
 ): Promise<ScrapeFetchResult> {
+  // ROBOTS GATE — before the delay, before the socket.
+  //
+  // Build-time guards check the URL *templates* the scrapers construct, but
+  // the actual path depends on the subscriber: a business name is
+  // interpolated into it, and some directives (YellowPages.ca's facet
+  // suffixes, BuildZoom's one named contractor) could be tripped by a name
+  // or by a URL harvested from a results page. Checking here makes the
+  // whole class impossible rather than merely audited.
+  //
+  // Fails CLOSED for a host with no recorded directives: an unrecorded host
+  // is one nobody has checked, and requesting it is the thing we are trying
+  // to stop. `robotsCompliance.test.ts` asserts every implemented scraper's
+  // host IS recorded, so this can never surprise a shipped check — it
+  // surfaces at build time, which is the point.
+  //
+  // The failure is a CHECK FAILURE, never an absence. A path we may not
+  // request tells us nothing about whether the listing exists, so it must
+  // reach the customer as "couldn't check" exactly like a Cloudflare wall.
+  if (!isUrlAllowed(url)) {
+    log.debug("scraper refused a disallowed path", { url });
+    return { ok: false, reason: "robots_disallowed" };
+  }
+
   const delayMs =
     opts.politeDelayMs !== undefined
       ? opts.politeDelayMs
@@ -205,6 +230,14 @@ export type JsonFetchResult<T> = JsonFetchOk<T> | ScrapeFetchErr;
  * Nominatim, Foursquare, …). Same never-throw contract as `fetchHtml`:
  * every transport, status and parse failure resolves to a typed error so
  * an API outage is recorded as "we could not check", never as "absent".
+ *
+ * Deliberately NOT robots-gated, unlike `fetchHtml`. robots.txt governs
+ * crawlers of a web site; it does not govern a client of an API the vendor
+ * licenses for exactly this use, reached with a key they issued. Gating
+ * here would also fail closed on hosts that have no robots record and no
+ * reason to have one. The distinction is asserted rather than assumed:
+ * `robotsCompliance.test.ts` keeps an explicit API_EXEMPT set, so moving a
+ * check from HTML scraping to an API cannot quietly skip the gate.
  *
  * Note the deliberate asymmetry with fetchHtml: a 404 here is still
  * `bad_status`, not "no listing". Callers decide absence from a

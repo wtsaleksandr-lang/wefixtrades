@@ -74,13 +74,12 @@ function resetState() {
   responder = () => mockHtml("", 500);
 }
 
-const { scrapeBbb } = await import("./bbb");
 const { scrapeBuildzoom } = await import("./buildzoom");
 const { scrapeGoogleBusinessProfile, placeIdFromListingUrl } = await import("./googleBusinessProfile");
 const { scrapeYellowPagesCa } = await import("./yellowPagesCa");
 const { scrapeN49 } = await import("./n49");
 const { scrapeOpenStreetMap } = await import("./openStreetMap");
-const { detectBotWall } = await import("./httpClient");
+const { detectBotWall, fetchHtml } = await import("./httpClient");
 
 let passed = 0;
 let failed = 0;
@@ -98,16 +97,11 @@ async function test(name: string, fn: () => Promise<void>): Promise<void> {
 
 /* ─────────────────────── fixtures ──────────────────────────────────── */
 
-const BBB_HTML = pad(`
+/** A large, genuine results page. Kept for the detectBotWall test below. */
+const RESULTS_PAGE_HTML = pad(`
 <html><body>
-  <a href="/us/tx/dallas/profile/plumber/mr-rooter-plumbing-of-dallas-0875-21001938">Mr. Rooter Plumbing of Dallas</a>
-  <a href="/us/tx/waco/profile/plumber/mr-rooter-plumbing-of-waco-0825-1000209441">Mr. Rooter Plumbing of Waco</a>
-  <a href="/us/tx/austin/profile/plumber/some-other-plumber-12345">Some Other Plumber</a>
-</body></html>`);
-
-const BBB_CA_HTML = pad(`
-<html><body>
-  <a href="/ca/on/etobicoke/profile/plumber/mr-rooter-plumbing-of-etobicoke-on-0107-1301173">Mr. Rooter Plumbing of Etobicoke</a>
+  <a href="/bus/Ontario/Toronto/Mr-Rooter-Plumbing/1234567.html">Mr. Rooter Plumbing</a>
+  <a href="/bus/Ontario/Toronto/Some-Other-Plumber/7654321.html">Some Other Plumber</a>
 </body></html>`);
 
 const BZ_SEARCH_HTML = pad(`
@@ -159,16 +153,21 @@ async function run() {
   });
 
   await test("detectBotWall does NOT flag a real results page mentioning recaptcha", async () => {
-    // BBB ships NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY inside its 275KB
-    // results page. Treating that as a block would discard good data.
-    assert.equal(detectBotWall(BBB_HTML + `"NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY":"abc"`), null);
+    // Real directory pages ship recaptcha site keys in an embedded config
+    // blob — BBB's 275KB results page carried
+    // NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY. Treating that as a block would
+    // discard good data, so vendor strings are only matched on small bodies.
+    assert.equal(
+      detectBotWall(RESULTS_PAGE_HTML + `"NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY":"abc"`),
+      null,
+    );
   });
 
   await test("a challenge page is a CHECK FAILURE, never a clean miss", async () => {
     resetState();
     responder = () => mockHtml(CHALLENGE_HTML, 200);
-    const result = await scrapeBbb(
-      { business_name: "Mr. Rooter Plumbing", address: "100 Main, Waco, TX" },
+    const result = await scrapeYellowPagesCa(
+      { business_name: "Mr. Rooter Plumbing", address: "12 Queen St, Toronto, ON" },
       { politeDelayMs: 0 },
     );
     assert.equal(result.found, false);
@@ -179,44 +178,34 @@ async function run() {
     );
   });
 
-  /* ─────────────── BBB ─────────────────────────────────────────────── */
-
-  await test("BBB returns found:true with city-disambiguated profile URL", async () => {
+  await test("a path the target's robots.txt disallows is never requested", async () => {
+    // The defect that removed BBB: a scraper hitting a disallowed path
+    // succeeds, so nothing fails and nobody notices. fetchHtml now refuses
+    // before the socket, and — critically — reports a CHECK FAILURE rather
+    // than an absence, because a page we may not request tells us nothing.
     resetState();
-    responder = () => mockHtml(BBB_HTML);
-    const result = await scrapeBbb(
-      { business_name: "Mr. Rooter Plumbing", address: "100 Main, Waco, TX" },
-      { politeDelayMs: 0 },
-    );
-    assert.equal(result.found, true);
-    assert.ok(result.listing_url?.includes("/waco/"), "URL should include waco");
-    assert.ok(!result.listing_url?.includes("/dallas/"), "must not pick Dallas listing");
+    responder = () => mockHtml(BZ_SEARCH_HTML);
+    const result = await fetchHtml("https://www.buildzoom.com/contractor/rolleri-construction-inc", {
+      politeDelayMs: 0,
+    });
+    assert.equal(result.ok, false);
+    assert.equal((result as { reason: string }).reason, "robots_disallowed");
+    assert.equal(fetchCalls.length, 0, "a disallowed URL must not reach the network at all");
   });
 
-  await test("BBB scopes the search to Canada for a Canadian address", async () => {
+  await test("an unrecorded host fails closed rather than being crawled", async () => {
     resetState();
-    responder = () => mockHtml(BBB_CA_HTML);
-    const result = await scrapeBbb(
-      { business_name: "Mr. Rooter Plumbing", address: "12 Bloor St, Etobicoke, ON" },
-      { politeDelayMs: 0 },
+    responder = () => mockHtml("<html></html>");
+    const result = await fetchHtml("https://some-new-directory.example/search?q=x", {
+      politeDelayMs: 0,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(
+      (result as { reason: string }).reason,
+      "robots_disallowed",
+      "a host with no recorded robots.txt is one nobody has checked — requesting it is the thing we are stopping",
     );
-    assert.ok(
-      fetchCalls[0].url.includes("find_country=CAN"),
-      "a Canadian address must set find_country=CAN, or BBB answers with US results and the listing looks missing",
-    );
-    assert.equal(result.found, true);
-    assert.ok(result.listing_url?.includes("/ca/on/"));
-  });
-
-  await test("BBB returns error on rate-limit (403)", async () => {
-    resetState();
-    responder = () => mockHtml("blocked", 403);
-    const result = await scrapeBbb(
-      { business_name: "Mr. Rooter", address: "Waco, TX" },
-      { politeDelayMs: 0 },
-    );
-    assert.equal(result.found, false);
-    assert.equal(result.error, "rate_limited");
+    assert.equal(fetchCalls.length, 0);
   });
 
   /* ─────────────── BuildZoom ───────────────────────────────────────── */
@@ -523,7 +512,6 @@ async function run() {
     };
     const inputs = { business_name: "Foo Plumbing", address: "1 Bar St, Waco, TX" };
     const all = [
-      scrapeBbb,
       scrapeBuildzoom,
       scrapeGoogleBusinessProfile,
       scrapeYellowPagesCa,

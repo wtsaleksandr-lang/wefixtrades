@@ -475,7 +475,7 @@ export function classifyCitationHit(
  *   - No SERP. This handler never calls searchSerp(), so it cannot reach
  *     the pay-as-you-go providers even by accident (#2057 default-deny is
  *     a second line of defence, not the first).
- *   - BBB, BuildZoom, YellowPages.ca, n49, OpenStreetMap — plain HTTP.
+ *   - BuildZoom, YellowPages.ca, n49, OpenStreetMap — plain HTTP.
  *     $0.00 per run, always, at any volume.
  *   - Google Business Profile — one Places Text Search call, Pro tier,
  *     whose free allowance is 5,000/month. This is the only line item that
@@ -611,6 +611,8 @@ function citationFailureText(reason: string): string {
       return "The directory's page format changed and we could not read it reliably.";
     case "not_configured":
       return "This check is not enabled on this deployment.";
+    case "robots_disallowed":
+      return "This directory's robots.txt asks automated clients not to request that page, so we did not.";
     case "daily_budget":
       return "This tool's free daily allowance for Google lookups is used up. It resets at midnight UTC — or run the check again tomorrow.";
     default:

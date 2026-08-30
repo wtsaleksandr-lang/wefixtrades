@@ -70,12 +70,21 @@ function extractNapFromJsonLd(html: string): Partial<NapSnapshot> | null {
   };
 }
 
+/**
+ * The exact search URL this scraper requests. Exported so the
+ * robots-compliance guard evaluates the REAL builder rather than a
+ * transcription of it.
+ */
+export function buildzoomSearchUrl(ctx: ScrapeContext): string {
+  const q = searchQuery(ctx);
+  return "https://www.buildzoom.com/search/" + encodeURIComponent(q).replace(/%20/g, "+");
+}
+
 export async function scrapeBuildzoom(
   ctx: ScrapeContext,
   opts: { politeDelayMs?: number } = {},
 ): Promise<ScrapeResult> {
-  const q = searchQuery(ctx);
-  const searchUrl = "https://www.buildzoom.com/search/" + encodeURIComponent(q).replace(/%20/g, "+");
+  const searchUrl = buildzoomSearchUrl(ctx);
 
   const searchRes = await fetchHtml(searchUrl, opts);
   if (!searchRes.ok) {
@@ -99,7 +108,13 @@ export async function scrapeBuildzoom(
     if (!profileUrl) return { found: false };
 
     // Profile fetch is best-effort — if it fails we still report the
-    // listing as found with just the name we already have.
+    // listing as found with just the name we already have. Note this URL
+    // comes from BuildZoom's results page rather than from us, so it is
+    // also where fetchHtml's robots gate earns its keep: BuildZoom's
+    // robots.txt excludes one contractor page by name
+    // (`/contractor/rolleri-construction-inc`), and that fetch is refused
+    // as `robots_disallowed` here — degrading to "found, name only"
+    // instead of enriching NAP, which is the right trade either way.
     const profileRes = await fetchHtml(profileUrl, opts);
     if (!profileRes.ok) {
       return {
