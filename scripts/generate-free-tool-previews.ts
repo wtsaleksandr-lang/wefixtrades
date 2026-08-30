@@ -463,9 +463,21 @@ async function main() {
   });
   const page = await context.newPage();
 
+  // `--only=<slug>[,<slug>]` regenerates just those previews. Without it a
+  // one-line copy fix to a single card rewrites every PNG in the directory,
+  // and font rendering differs enough between machines that the unrelated
+  // ones land in the diff as noise.
+  const onlyArg = process.argv.find((a) => a.startsWith("--only="));
+  const only = onlyArg ? new Set(onlyArg.slice("--only=".length).split(",").map((s) => s.trim())) : null;
+  const selected = only ? TOOLS.filter((t) => only.has(t.slug)) : TOOLS;
+  if (only && selected.length === 0) {
+    console.error(`[free-tool-previews] --only matched no slugs. Known: ${TOOLS.map((t) => t.slug).join(", ")}`);
+    process.exit(1);
+  }
+
   let ok = 0;
   let failed = 0;
-  for (const tool of TOOLS) {
+  for (const tool of selected) {
     process.stdout.write(`[free-tool-previews] ${tool.slug} ... `);
     try {
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin: 0; background: #f1f5f9; min-height: ${VIEWPORT.height}px; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">${tool.renderHTML()}</body></html>`;

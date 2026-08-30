@@ -112,7 +112,7 @@ interface CheckResponse {
  * "couldn't check" is visually its OWN thing — neutral grey, not red —
  * because rendering it like an absence is exactly the lie we removed. */
 const STATUS_META: Record<CheckStatus, { label: string; color: string; bg: string }> = {
-  found: { label: "Listed", color: "rgb(21,128,61)", bg: "rgba(34,197,94,0.10)" },
+  found: { label: "Listed", color: "rgb(15,110,52)", bg: "rgba(34,197,94,0.10)" },
   "confirmed-absent": { label: "Not listed", color: "rgb(185,28,28)", bg: "rgba(185,28,28,0.08)" },
   "could-not-check": { label: "Couldn't check", color: "rgba(0,0,0,0.55)", bg: "rgba(0,0,0,0.05)" },
 };
@@ -268,7 +268,7 @@ export default function CitationChecker() {
         Citation snapshot
       </div>
       <div data-testid="citation-summary-line" style={{ fontSize: 13, color: "rgba(0,0,0,0.65)", marginBottom: 14, lineHeight: 1.5 }}>
-        <strong style={{ color: "rgb(21,128,61)" }}>{result.summary.found} listed</strong>
+        <strong style={{ color: "rgb(15,110,52)" }}>{result.summary.found} listed</strong>
         {" · "}
         <strong style={{ color: "rgb(185,28,28)" }}>{result.summary.confirmedAbsent} not listed</strong>
         {result.summary.couldNotCheck > 0 && (
@@ -321,7 +321,7 @@ export default function CitationChecker() {
       {secondary.length > 0 && (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "rgba(0,0,0,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <tr style={{ textAlign: "left", color: "rgba(0,0,0,0.62)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <th style={{ padding: "6px 4px" }}>Directory</th>
               <th style={{ padding: "6px 4px" }}>Result</th>
               <th style={{ padding: "6px 4px" }}>Link</th>
@@ -333,7 +333,7 @@ export default function CitationChecker() {
                 <td style={{ padding: "10px 4px", verticalAlign: "top" }}>
                   <div style={{ fontWeight: 600, color: "rgb(17,24,39)" }}>{row.label}</div>
                   {row.status === "could-not-check" && row.reason && (
-                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.5)", marginTop: 2, lineHeight: 1.45 }}>{row.reason}</div>
+                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.62)", marginTop: 2, lineHeight: 1.45 }}>{row.reason}</div>
                   )}
                 </td>
                 <td style={{ padding: "10px 4px", verticalAlign: "top" }}>
@@ -393,7 +393,7 @@ export default function CitationChecker() {
               report a status we didn't verify, we name them. Every reason below
               came from a live probe, not an assumption.
             </p>
-            <ul style={{ paddingLeft: 18, margin: 0 }}>
+            <ul style={{ paddingLeft: 18, margin: 0, listStyle: "disc" }}>
               {result.declined.map((d) => (
                 <li key={d.id} style={{ marginBottom: 8 }}>
                   <strong style={{ color: "rgb(17,24,39)" }}>{d.name}</strong> — {d.reason}
@@ -446,14 +446,21 @@ export default function CitationChecker() {
         breadcrumbLabel="Citation Checker"
         form={form}
         result={resultPanel}
-        /* heroMedia deliberately omitted until the demo video is re-recorded.
-           The existing /videos/citationchecker-tool.* clips were captured
-           against the old UI: they show a ten-row grid lighting up "Found" on
-           Yelp, Angi, Thumbtack, Houzz, MapQuest and Manta — results this tool
-           never verified and cannot verify. Honest alt text on a dishonest
-           video is still a dishonest video, and the page below it now tells
-           the visitor those directories can't be checked. Restore heroMedia
-           once a clip of the real result panel exists. */
+        /* heroMedia (the demo video) is deliberately NOT used. The existing
+           /videos/citationchecker-tool.* clips were captured against the old
+           UI: they show a ten-row grid lighting up "Found" on Yelp, Angi,
+           Thumbtack, Houzz, MapQuest and Manta — results this tool never
+           verified and cannot verify. Honest alt text on a dishonest video is
+           still a dishonest video. Restore heroMedia once a clip of the real
+           result panel exists.
+
+           The static preview below fills the hero slot meanwhile. Without a
+           visual FreeToolLayout collapses to a single narrow centred column,
+           which left ~420px of dead space either side at 1440. The image is
+           regenerated from scripts/generate-free-tool-previews.ts and shows
+           the real three-state vocabulary, Yelp included as "Can't check". */
+        heroImageSrc="/free-tools/previews/citation-checker.png"
+        heroImageAlt="Citation Checker result — Google Business Profile and Better Business Bureau listed, BuildZoom not listed, and Yelp marked can't check rather than reported as missing."
       >
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E1E1E", marginTop: 0 }}>What is a business citation?</h2>
         <p>
