@@ -271,29 +271,35 @@ const TOOLS: ToolPreview[] = [
       </div>`,
   },
   {
-    // Mirrors the citation-checker result list: directory rows + found/missing.
+    // Mirrors the citation-checker result panel. The rows below must stay a
+    // subset of the directories with real scrapers in
+    // server/services/citationTracker/directories.ts — this preview is the
+    // thumbnail on /free-tools, so a row for a directory we cannot check is
+    // a false claim in an indexed image. It previously showed "9 / 10 FOUND"
+    // over Yelp / Facebook / Angi rows, none of which are checkable.
     slug: "citation-checker",
     renderHTML: () => `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px 24px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 440px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
           <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Citation coverage</h2>
-          <span style="font-size: 11px; padding: 3px 9px; background: #ecfdf5; color: #047857; border-radius: 999px; font-weight: 700;">9 / 10 FOUND</span>
+          <span style="font-size: 11px; padding: 3px 9px; background: #ecfdf5; color: #047857; border-radius: 999px; font-weight: 700;">VERIFIED SOURCES</span>
         </div>
         ${[
-          ["Google Business Profile", true],
-          ["Yelp", true],
-          ["Better Business Bureau", true],
-          ["Facebook", true],
-          ["Angi", false],
+          ["Google Business Profile", "listed"],
+          ["Better Business Bureau", "listed"],
+          ["BuildZoom", "absent"],
+          ["Yelp", "declined"],
         ]
           .map(
-            ([name, found]) => `
+            ([name, state]) => `
           <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f1f5f9;">
             <span style="font-size: 13px; color: #0f172a; font-weight: 500;">${name}</span>
             ${
-              found
+              state === "listed"
                 ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#047857;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#ecfdf5;display:inline-flex;align-items:center;justify-content:center;">✓</span>Listed</span>'
-                : '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#b91c1c;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#fee2e2;display:inline-flex;align-items:center;justify-content:center;">✗</span>Missing</span>'
+                : state === "absent"
+                  ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#b91c1c;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#fee2e2;display:inline-flex;align-items:center;justify-content:center;">✗</span>Not listed</span>'
+                  : '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#64748b;font-weight:700;"><span style="width:16px;height:16px;border-radius:50%;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;">–</span>Can’t check</span>'
             }
           </div>`,
           )

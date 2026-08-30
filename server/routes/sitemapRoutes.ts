@@ -146,7 +146,9 @@ const STATIC_ROUTES: StaticRoute[] = [
   // Wave 6F — multi-engine single-business rank snapshot. Distinct from
   // /tools/local-rank-grid (5x5 geo heatmap).
   { loc: "/tools/local-rank-tracker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
-  { loc: "/tools/citation-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // lastmod bumped 2026-08-29: the page's description and directory claims
+  // were rewritten, so the old head tags need recrawling.
+  { loc: "/tools/citation-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-08-29" },
   { loc: "/tools/local-rankflux", priority: "0.7", changefreq: "daily", lastmod: "2026-05-25" },
   // Free Tools Wave 2 — Local Rank Grid (single-shot 5x5 geo-grid scan).
   // Free lead magnet that funnels to MapGuard for continuous monitoring.

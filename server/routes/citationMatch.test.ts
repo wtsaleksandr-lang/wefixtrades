@@ -1,9 +1,13 @@
 /**
- * Tests for the Citation Checker business-match logic (accuracy fix
- * 2026-06-13). Proves the matcher no longer counts a directory "found"
- * just because a page on that directory's domain appeared — a wrong-city
- * listing or a category/index page must be demoted to "unverified", not
- * "found".
+ * Tests for the SERP-index directory matcher (accuracy fix 2026-06-13).
+ * Proves the matcher no longer counts a directory "found" just because a
+ * page on that directory's domain appeared — a wrong-city listing or a
+ * category/index page must be demoted to "unverified", not "found".
+ *
+ * NOTE: as of 2026-08-29 this matcher powers only the NAP Checker. The
+ * Citation Checker no longer infers listings from search results at all —
+ * it queries the shared CiteTrack directory registry directly. See
+ * server/routes/freeToolsCitationHonesty.test.ts.
  *
  * Excluded from `tsc --noEmit` (tsconfig excludes **\/*.test.ts).
  * Runnable standalone via:
@@ -86,13 +90,22 @@ test("category/index page is NOT found (unverified)", () => {
   assert.equal(r.status, "unverified", "category index page must be unverified, not found");
 });
 
-// 4. No page on the directory domain at all → missing.
-test("no host hit at all → missing", () => {
+// 4. No page on the directory domain at all → unable-to-check, NOT missing.
+//    An index miss is not an absence: the classifier only ever sees ten
+//    organic results for one phrasing, so "nothing on that domain surfaced"
+//    is indistinguishable from "the listing exists but didn't rank here".
+//    Reporting it as an absence is the fabrication removed on 2026-08-29.
+test("no host hit at all → unable-to-check (never a reported absence)", () => {
   const organic = [
     { link: "https://example.com/x", title: "Roto-Rooter Austin", snippet: "" },
   ];
   const r = classifyCitationHit(organic, HOUZZ, "Roto-Rooter", "Austin", "");
-  assert.equal(r.status, "missing");
+  assert.equal(r.status, "unable-to-check");
+  assert.notEqual(
+    r.status as string,
+    "missing",
+    "an index miss must never be reported as a confirmed absence",
+  );
 });
 
 // 5. Phone digits present on the host page → strong corroboration → found,

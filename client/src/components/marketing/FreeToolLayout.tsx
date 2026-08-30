@@ -314,9 +314,15 @@ export default function FreeToolLayout({
               Full WeFixTrades Audit — $9.80
             </div>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.62)", marginBottom: 12, lineHeight: 1.55 }}>
-              Want the complete picture? The Full Audit checks 50+ citation
-              sources, 20 keyword rankings, your Google Business Profile,
-              competitors, website speed, and gives you a prioritised fix list.
+              {/* No citation-source count here. There is no 50+ citation check
+                  anywhere in the product — the registry holds a handful of
+                  directories that can genuinely be read, and this ribbon
+                  renders on the Citation Checker page itself, which now says
+                  so explicitly. Claiming both would contradict ourselves in
+                  one scroll. */}
+              Want the complete picture? The Full Audit covers 20 keyword
+              rankings, your Google Business Profile, your competitors and your
+              website speed, and gives you a prioritised fix list.
             </div>
             <Link
               href="/tools/free-audit"

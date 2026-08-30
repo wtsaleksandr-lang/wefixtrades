@@ -67,6 +67,8 @@
     "check:webcare-honest-kpis": "tsx server/routes/portal/webcare/dashboardKpis.test.ts",
     "check:citation-evidence": "tsx server/services/citationTracker/monitor.test.ts",
     "check:citation-scrapers": "tsx server/services/citationTracker/scrapers/scrapers.test.ts",
+    "check:citation-checker-honesty": "tsx server/routes/freeToolsCitationHonesty.test.ts",
+    "check:citation-match": "tsx server/routes/citationMatch.test.ts",
     "check:mapsnapshot-rank-honesty": "tsx server/routes/mapSnapshotRoutes.rankHonesty.test.ts",
     "check:rankflow-honesty": "tsx server/services/rankflow/rankflowHonesty.test.ts",
     "check:public-serp-spend": "tsx server/lib/serpOrchestrator.spendCap.test.ts",

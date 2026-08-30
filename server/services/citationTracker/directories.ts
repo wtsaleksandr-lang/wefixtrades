@@ -241,7 +241,7 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
     rationale: "Minor but real consumer map surface with a free business claim.",
     scrape: null,
     unavailableReason:
-      "Profile pages are server-rendered but search results are client-side only, so there is no way to DISCOVER a listing URL from a plain fetch. Needs a MAPQUEST_API_KEY (free tier available) to become checkable.",
+      "Profile pages are server-rendered but search results are client-side only, so there is no way to DISCOVER a listing URL from a plain fetch. robots.txt also disallows /search/*. This is the cleanest example in the registry of the trap httpClient's bot-wall detector exists for: the 2026-08-29 probe got HTTP 200 with 244KB of HTML and ZERO business anchors — the query echoed back inside a Next.js router payload and nothing else. A parser counting results reads that as 'not listed'. It is 'never checked'. Needs a MAPQUEST_API_KEY (free tier available) to become checkable.",
   },
   {
     id: "bing_places",
@@ -301,7 +301,7 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
     rationale: "Relevant to remodel and design trades.",
     scrape: null,
     unavailableReason:
-      "REMOVED — was previously counted as a working check but is not one. Houzz serves an Imperva 'Client Challenge' page: HTTP 200, ~3KB, zero anchors. The old scraper parsed that as a clean miss and reported CONFIRMED ABSENT on every scan for every subscriber. robots.txt also disallows the professionals directory outright. The bot-wall detector in httpClient.ts now catches this class of page.",
+      "REMOVED — was previously counted as a working check but is not one. Houzz served an Imperva 'Client Challenge' page: HTTP 200, ~3KB, zero anchors. The old scraper parsed that as a clean miss and reported CONFIRMED ABSENT on every scan for every subscriber. The bot-wall detector in httpClient.ts now catches this class of page. STILL EXCLUDED after a 2026-08-29 re-probe, and the re-probe is the reason to be careful rather than optimistic: from a residential IP Houzz served 1.1MB of genuine server-rendered HTML with 232 professional anchors and no challenge at all. That means the wall is IP-reputation-dependent, and our deploy host is a datacenter ASN — the population Imperva scores hardest. Reinstating this needs a clean probe FROM THE DEPLOY HOST, repeated, not a green result from a laptop.",
   },
   {
     id: "yellowbook",
@@ -345,7 +345,7 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
     rationale: "Home-services lead platform.",
     scrape: null,
     unavailableReason:
-      "Search returns HTTP 404 plus a captcha challenge to a plain client; robots.txt disallows the API and parts of the pro-profile tree.",
+      "Search returned HTTP 404 plus a captcha challenge to a plain client, and robots.txt disallows the API and parts of the pro-profile tree. A 2026-08-29 re-probe from a residential IP got 386KB of server-rendered HTML with 32 service anchors, so — like Houzz — the block is IP-reputation-dependent rather than absolute. Still excluded: our deploy host is a datacenter ASN, and a check that works from a laptop but not from production is worse than no check, because it fails silently in the direction of 'not listed'. Gate for reinstating: a repeated clean probe FROM THE DEPLOY HOST.",
   },
   {
     id: "expressupdate",
