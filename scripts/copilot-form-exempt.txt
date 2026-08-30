@@ -335,3 +335,9 @@ client/src/pages/portal/FreeTools/MarginCalculator.tsx
 # not a copilot-fillable lead form. No backend submission.
 client/src/pages/portal/FreeTools/InvoicePdf.tsx
 client/src/pages/admin/AffiliatesPage.tsx
+# Citation Builder fulfilment queue — an internal admin-only ops surface. Its
+# inputs are the operator's record of work they personally performed on each
+# directory (the listing URL they landed on, the reason a directory refused
+# the business). An AI copilot filling those in is precisely the failure this
+# whole feature exists to prevent, so the page must never be copilot-fillable.
+client/src/pages/admin/CitationBuilderQueuePage.tsx

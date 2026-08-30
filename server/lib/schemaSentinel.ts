@@ -85,6 +85,13 @@ export const SENTINELS: SentinelProbe[] = [
   // columns on EVERY capture, so a publish-trap drop would 500 lead submission.
   { ledgerFile: "0098_lead_quote_recompute.sql", table: "leads", column: "quote_amount_client" },
   { ledgerFile: "0098_lead_quote_recompute.sql", table: "leads", column: "quote_recompute_status" },
+  // 0099 — Citation Builder fulfilment. Deploy-critical: the directory-task
+  // table is the ONLY record of work performed on a paid order, and the two
+  // email stamps are what stop a progress/completion mail firing twice. A
+  // publish-trap drop would 500 the admin queue and un-stamp every order.
+  { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_directory_tasks", column: null },
+  { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_submissions", column: "progress_email_sent_at" },
+  { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_submissions", column: "completion_email_sent_at" },
 ];
 
 /** Minimal query surface — satisfied by a pg PoolClient and by test fakes. */

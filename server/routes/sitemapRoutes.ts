@@ -158,9 +158,11 @@ const STATIC_ROUTES: StaticRoute[] = [
   { loc: "/tools/nap-checker", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
   { loc: "/tools/gbp-post-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
   { loc: "/tools/review-response-generator", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-13" },
-  // Citation Builder — paid one-time service ($79/$179/$299). Marketing
-  // page only for now; Stripe checkout + submission backend ship in Wave 2.5.
-  { loc: "/citation-builder", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },
+  // Citation Builder — paid one-time service ($79/$179/$299). lastmod bumped
+  // 2026-08-29: the page's head tags, tier counts, named directory lists and
+  // FAQ JSON-LD were all rewritten against the real submission registry, so
+  // the old markup needs recrawling.
+  { loc: "/citation-builder", priority: "0.8", changefreq: "monthly", lastmod: "2026-08-29" },
   { loc: "/citation-tracker", priority: "0.8", changefreq: "monthly", lastmod: "2026-06-04" },
   // ContentFlow Phase 1 — public AI-prompt-library landings, one per seed trade.
   { loc: "/tools/plumbing-ai-content-prompts", priority: "0.8", changefreq: "monthly", lastmod: "2026-05-25" },

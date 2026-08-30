@@ -757,10 +757,41 @@ export const CONTENTFLOW: ProductDef = {
    checked against the live API). Durable lookup_keys:
    citation_builder_starter_one_time / _pro_one_time / _premium_one_time.
 */
+/* ─────────────────────────────────────────────────────────────────────
+ * HONESTY PASS 2026-08-29. Every bullet below was rewritten against
+ * server/services/citationBuilder/directories.ts — the registry that also
+ * generates the operator's checklist — so a claim here cannot outrun the
+ * work. What changed and why:
+ *
+ *   • Counts 25 / 50 / 100+ → 12 / 21 / 30, the real registry sizes.
+ *     The old numbers counted the same company up to five times (Angi +
+ *     HomeAdvisor + ServiceMagic; ExpressUpdate + DataAxle + Infofree +
+ *     ReferenceUSA + Infogroup) and a dozen entries with no findable
+ *     submission surface at all.
+ *   • "HomeAdvisor" removed — it is Angi Leads, the same company, and the
+ *     paid pay-per-lead product at that.
+ *   • "Acxiom" removed — its listing product shut at the end of 2019.
+ *   • "Localeze" removed — one product, now TransUnion's, at ~$99-120 per
+ *     YEAR through a reseller. A recurring cost cannot be delivered out of
+ *     a one-time $299.
+ *   • "Voice-search optimized directories" removed — not a thing. Alexa,
+ *     Siri and Assistant read Google, Apple and Bing, which are all in
+ *     Starter under their own names.
+ *   • "Quarterly NAP re-verification report" removed — there was no
+ *     mechanism, and building a four-quarter obligation into a one-time
+ *     fee is the same mistake as Localeze. Citation Tracker ($19/mo) is
+ *     the real product for that and is now what we point at.
+ *   • "Listed within 7 business days" → a promise about OUR work, not
+ *     about the directories' review queues, which we do not control.
+ *
+ * The tier counts are asserted against the registry by
+ * `npm run check:citation-builder-fulfilment`, so this copy cannot drift
+ * from the checklist without failing CI.
+ * ───────────────────────────────────────────────────────────────────── */
 export const CITATIONBUILDER: ProductDef = {
   id: "citationbuilder",
   name: "Citation Builder",
-  tagline: "Done-for-you submission to 100+ local business directories",
+  tagline: "Done-for-you submission to the local listings that actually carry weight",
   category: "visibility",
   tiers: [
     {
@@ -770,10 +801,10 @@ export const CITATIONBUILDER: ProductDef = {
       billingPeriod: "one-time",
       stripePriceId: "price_1Tb925FWY4wju6QiOb0m1rJO",
       features: [
-        "25 hand-picked general directories",
+        "12 core listings — Google, Apple, Bing, Yelp, Facebook, BBB and more",
         "NAP verification + cleanup before submission",
-        "Listed within 7 business days",
-        "Status dashboard + completion report",
+        "Every submission made by hand, within 7 business days",
+        "Live dashboard with a link to each listing",
         "Email support",
       ],
     },
@@ -786,10 +817,10 @@ export const CITATIONBUILDER: ProductDef = {
       badge: "Most Popular",
       stripePriceId: "price_1Tb926FWY4wju6Qi4oeSuwee",
       features: [
-        "Everything in Starter (25 general)",
-        "+25 trade-specific directories (Angi, Houzz, HomeAdvisor)",
-        "Photo + service-list upload where supported",
-        "Listed within 7 business days",
+        "Everything in Starter (12 core listings)",
+        "+9 trade and Canadian listings (Houzz, Thumbtack, BuildZoom, HomeStars)",
+        "Photo + service-list upload where the directory supports it",
+        "Every submission made by hand, within 7 business days",
         "Priority email support",
       ],
     },
@@ -800,11 +831,10 @@ export const CITATIONBUILDER: ProductDef = {
       billingPeriod: "one-time",
       stripePriceId: "price_1Tb927FWY4wju6QiH8JXaU0h",
       features: [
-        "Everything in Pro (50 trade + general)",
-        "+50 niche / regional / industry directories",
-        "Voice-search optimized directories",
-        "Aggregator submissions (Localeze, Acxiom, Foursquare)",
-        "Quarterly NAP re-verification report",
+        "Everything in Pro (21 listings)",
+        "+9 aggregator and long-tail listings",
+        "Data Axle + Foursquare aggregator push",
+        "Every submission made by hand, within 7 business days",
         "Phone support during business hours",
       ],
     },

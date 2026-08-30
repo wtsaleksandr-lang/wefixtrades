@@ -1,14 +1,16 @@
 /**
  * /citation-builder — paid one-time citation submission service.
  *
- * Three-tier service offering: Starter $79 (25 directories), Pro $179
- * (50 directories incl. trade-specific), Premium $299 (100+ full sweep).
- * Submission backend is Wave 2.5 — for now CTAs route to a mailto:
- * placeholder so we can validate intent + collect leads via support@.
+ * Three tiers: Starter $79, Pro $179, Premium $299. Every directory name,
+ * every count and every tier bullet on this page is generated from
+ * shared/citationBuilder/directories.ts, the registry that also produces the
+ * operator's checklist in the admin fulfilment queue. That is deliberate:
+ * this page previously named ~80 directories, several of which had been shut
+ * for years, while the fulfilment side had no way to submit to any of them.
  *
- * Tiered pricing lives in shared/pricing.ts (CITATION_BUILDER ProductDef).
- * This page is the marketing surface; the actual Stripe checkout +
- * submission workflow ship in Wave 2.5.
+ * Tiered pricing lives in shared/pricing.ts (CITATIONBUILDER ProductDef) and
+ * is asserted against the same registry by
+ * `npm run check:citation-builder-fulfilment`.
  *
  * Per-PR-#814 color guard: inline styles use rgb(255,255,255) — NOT #fff.
  */
@@ -31,6 +33,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { mkt } from "@/theme/tokens";
+import {
+  CITATION_BUILDER_TIER_DIRECTORIES,
+  directoryNamesForTier,
+} from "@shared/citationBuilder/directories";
 
 const PAGE_PATH = "/citation-builder";
 const SITE_URL = "https://wefixtrades.com";
@@ -48,145 +54,151 @@ interface TierDef {
   directories: string[];
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+ * HONESTY PASS 2026-08-29.
+ *
+ * Every directory name below now comes from
+ * shared/citationBuilder/directories.ts — the SAME registry that generates
+ * the operator's checklist, the Stripe line item and the customer's
+ * dashboard. The page can no longer name a directory the operator is not
+ * actually sent to, and the counts cannot drift from the work.
+ *
+ * The list this replaced named ~80 directories and guaranteed 25 / 50 /
+ * 100+. Most of it could not be delivered: Angi + HomeAdvisor +
+ * ServiceMagic were one company listed three times, ExpressUpdate +
+ * DataAxle + Infofree + ReferenceUSA were one company listed four times,
+ * Localeze appeared twice, Acxiom had been shut since 2019, Factual was
+ * absorbed into Foursquare, Citysearch is a parked page, and roughly a
+ * dozen names — "TradeFix Directory", "Trust.com", "PlumbingDirect",
+ * "ElectricianFinder" — had no findable submission surface at all. The
+ * per-directory reasons are recorded in `nonInclusionNotes` in the
+ * registry.
+ *
+ * Fewer names, all real.
+ * ───────────────────────────────────────────────────────────────────── */
+const STARTER_LISTINGS = directoryNamesForTier("starter");
+const PRO_ADDITIONS = directoryNamesForTier("pro").filter(n => !STARTER_LISTINGS.includes(n));
+const PREMIUM_ADDITIONS = directoryNamesForTier("premium").filter(
+  n => !STARTER_LISTINGS.includes(n) && !PRO_ADDITIONS.includes(n),
+);
+
+const N_STARTER = CITATION_BUILDER_TIER_DIRECTORIES.starter;
+const N_PRO = CITATION_BUILDER_TIER_DIRECTORIES.pro;
+const N_PREMIUM = CITATION_BUILDER_TIER_DIRECTORIES.premium;
+
 const TIERS: TierDef[] = [
   {
     id: "starter",
     name: "Starter",
     price: 79,
-    count: "25 directories",
-    blurb: "The top general directories every local business should be on.",
+    count: `${N_STARTER} listings`,
+    blurb: "The listings that carry real local ranking weight — starting with the maps.",
     features: [
-      "25 hand-picked general directories",
+      `${N_STARTER} core listings — Google, Apple, Bing, Yelp, Facebook, BBB and more`,
       "We verify + clean your NAP first",
-      "Listed within 7 business days",
-      "Status dashboard + completion report",
+      "Every submission made by hand, within 7 business days",
+      "Live dashboard with a link to each listing",
       "Email support",
     ],
-    directories: [
-      "Yelp", "Better Business Bureau", "YellowPages", "MapQuest",
-      "Foursquare", "Manta", "Superpages", "Yellowbook",
-      "MerchantCircle", "Insiderpages", "Citysearch", "Hotfrog",
-      "Brownbook", "Cybo", "Cylex", "Tupalo",
-      "ChamberOfCommerce.com", "n49", "EZlocal", "ShowMeLocal",
-      "LocalDatabase", "iBegin", "LocalStack", "ExpressUpdate",
-      "DataAxle (formerly Infogroup)",
-    ],
+    directories: STARTER_LISTINGS,
   },
   {
     id: "pro",
     name: "Pro",
     price: 179,
-    count: "50 directories",
-    blurb: "Top general + the trade-specific platforms that actually drive leads.",
+    count: `${N_PRO} listings`,
+    blurb: "The core set plus the trade platforms and the Canadian directories.",
     badge: "Most Popular",
     highlighted: true,
     features: [
-      "Everything in Starter (25 general directories)",
-      "+25 trade & home-services directories",
-      "Trade-specific platform optimization (Angi, Houzz, HomeAdvisor)",
-      "Photo + service-list upload where supported",
-      "Listed within 7 business days",
+      `Everything in Starter (${N_STARTER} core listings)`,
+      `+${N_PRO - N_STARTER} trade and Canadian listings`,
+      "Photo + service-list upload where the directory supports it",
+      "Every submission made by hand, within 7 business days",
       "Priority email support",
     ],
-    directories: [
-      "All 25 Starter directories",
-      "Angi (Angie's List)", "Thumbtack", "HomeAdvisor", "Houzz",
-      "Porch", "Networx", "BuildZoom", "Pro Referral",
-      "Trust.com", "ServiceMagic", "ImproveNet", "Findhome.com",
-      "HomeStars (CA)", "TaskRabbit", "Handy", "GAF Roofing Pro",
-      "PlumbingDirect", "HVAC.com", "ElectricianFinder", "RoofingContractor",
-      "LandscapingNetwork", "Locksmith Ledger", "PestWorld", "Cleaning4U",
-      "TradeFix Directory",
-    ],
+    directories: [`All ${N_STARTER} Starter listings`, ...PRO_ADDITIONS],
   },
   {
     id: "premium",
     name: "Premium",
     price: 299,
-    count: "100+ directories",
-    blurb: "Full sweep — every directory that matters, including niche industry sites.",
+    count: `${N_PREMIUM} listings`,
+    blurb: "Everything above plus the aggregator push and the long tail.",
     features: [
-      "Everything in Pro (50 trade + general)",
-      "+50 niche / regional / industry-specific directories",
-      "International citation sources (Bing Places, Apple Maps Connect)",
-      "Voice-search optimized directories (Alexa, Siri, Google Assistant)",
-      "Aggregator submissions (Foursquare, Localeze, Acxiom)",
-      "Quarterly NAP re-verification report",
+      `Everything in Pro (${N_PRO} listings)`,
+      `+${N_PREMIUM - N_PRO} aggregator and long-tail listings`,
+      "Data Axle + Foursquare aggregator push",
+      "Every submission made by hand, within 7 business days",
       "Phone support during business hours",
     ],
-    directories: [
-      "All 50 Pro directories",
-      "Bing Places", "Apple Maps Connect", "Google Business Profile claim",
-      "Facebook Pages", "Nextdoor Local Deals", "Alignable",
-      "Better Business Bureau Canada", "Foursquare for Business",
-      "Localeze", "Acxiom", "Neustar Localeze", "Factual",
-      "Mojo Pages", "MagicYellow", "GetFreeListing",
-      "Spoke", "ZoomInfo", "DataAxle", "Infofree", "ReferenceUSA",
-      "TheBlueBook", "ConstructionWire", "DozerList",
-      "Plumbing.com", "ElectricalBusinessNetwork", "HVACInformed",
-      "+25 industry-specific niche directories",
-    ],
+    directories: [`All ${N_PRO} Pro listings`, ...PREMIUM_ADDITIONS],
   },
 ];
 
 const PROCESS_STEPS = [
   {
     icon: Send,
-    title: "Submit your business info",
-    body: "5-minute intake form: business name, address, phone, hours, services, photos. We do not auto-submit anything until you've reviewed.",
+    title: "You give us your business details",
+    body: "Business name, address, phone, hours, services. Nothing is submitted anywhere until a person on our side has your details in hand.",
   },
   {
     icon: ShieldCheck,
-    title: "Our team verifies + cleans your NAP",
+    title: "We verify + clean your NAP",
     body: "We standardize phone format, fix address typos, and check that every detail matches your Google Business Profile. Mismatched NAP is worse than no listing.",
   },
   {
     icon: ListChecks,
-    title: "Mass submission within 7 days",
-    body: "Our team submits to every directory in your tier. Each submission is manual (not scraped) so it passes the directory's anti-spam checks.",
+    title: "A person submits each listing by hand",
+    body: "Every submission in your tier is filled in manually by a human — nothing is scraped or auto-posted — so it passes each directory's anti-spam checks.",
   },
   {
     icon: FileText,
-    title: "Status dashboard + completion report",
-    body: "Track each submission in your dashboard. When all directories are live, you get a completion report with direct links to every new citation.",
+    title: "You see each listing's real outcome",
+    body: "Your dashboard shows every listing with its own status and, once it's live, a direct link. Anything a directory turned down shows the reason instead of quietly disappearing.",
   },
 ];
 
 const FAQ_ITEMS = [
   {
-    question: "How long does the full process take?",
+    question: "How long does this take?",
     answer:
-      "5-7 business days from when you submit your intake form to when every directory is live. Some directories (BBB, Angi) take longer to fully publish — we'll flag those in your completion report.",
+      "We make every submission in your tier within 7 business days. How fast each one publishes after that is the directory's call, not ours — Google verification and BBB review routinely take longer, and your dashboard shows exactly which listings are still waiting.",
   },
   {
     question: "Will the listings stay up forever?",
     answer:
-      "Yes — these are real citations, not paid placements. Once we submit and the directory accepts, your business stays listed until you ask it to be removed. There's no monthly fee.",
+      "These are real citations, not paid placements — once a directory accepts your listing, it stays until you ask for it to be removed, and there's no monthly fee. Directories do sometimes change or drop data on their own, which is what CiteTrack ($19/mo) watches for.",
   },
   {
-    question: "What if a directory rejects my submission?",
+    question: "What if a directory won't accept my business?",
     answer:
-      "If a directory rejects you (rare but happens — usually duplicate listing issues), we'll swap in an equivalent directory of the same tier at no extra cost. Your tier number is a guarantee, not a target.",
+      "It happens, and we tell you. Some platforms route an already-listed contractor through a sales rep, some are region-specific, and some won't apply to your trade at all. Those show in your dashboard as not accepted or not applicable with the reason we hit — we don't quietly substitute a different site to keep a number intact.",
+  },
+  {
+    question: "Why is your list shorter than other citation services advertise?",
+    answer:
+      "Because most of a long list isn't real. When we checked every directory the industry recommends, a large share turned out to be the same company counted several times, shut down years ago, or with no working submission path left. We name exactly what we submit to on this page, and we'd rather hand you a shorter list that's true than a longer one that isn't.",
   },
   {
     question: "Do I need a Google Business Profile first?",
     answer:
-      "Strongly recommended. Citations work best when they reinforce a verified GBP. If you don't have one yet, our MapSetup service ($397) handles the GBP claim + optimization before we run citations — it's the standard combo.",
+      "No — claiming or creating it is the first item in every tier, including Starter. If you already have a verified profile we won't create a duplicate; we mark it as already handled and move on. If you want the full claim + optimization done properly, our MapSetup service ($397) covers that.",
   },
   {
     question: "How is this different from MapGuard?",
     answer:
-      "CiteFlow is a one-time submission service — we get you listed everywhere, then you're done. MapGuard is ongoing managed visibility (weekly grid scans, GBP posts, review monitoring) on top of an already-strong citation foundation. Many customers do CiteFlow once, then subscribe to MapGuard.",
+      "CiteFlow is a one-time submission service — we get you listed, then you're done. MapGuard is ongoing managed visibility (weekly grid scans, GBP posts, review monitoring) on top of an already-strong citation foundation. Many customers do CiteFlow once, then subscribe to MapGuard.",
   },
   {
-    question: "What's the catch on Starter vs Pro?",
+    question: "What's the difference between Starter and Pro?",
     answer:
-      "Starter (25 directories) is the right floor for any local business — it covers Yelp, BBB, YellowPages, and the other general directories Google leans on most. Pro (+25 trade-specific) is the sweet spot for service businesses (plumbers, HVAC, electricians, etc.) because Angi / Houzz / HomeAdvisor actually drive leads — not just rankings.",
+      `Starter (${N_STARTER} listings) is the floor for any local business — the maps and search platforms Google leans on hardest, plus Yelp, Facebook and BBB. Pro adds ${N_PRO - N_STARTER} more: the trade platforms like Houzz, Thumbtack and BuildZoom, and the Canadian directories. Pro is the right pick for a service business; Premium adds the aggregator push on top.`,
   },
   {
     question: "Is checkout secure?",
     answer:
-      "Yes — every order goes through Stripe Checkout. We never see or store your card. You'll receive an order confirmation email immediately and a portal login link to track every submission as it goes live.",
+      "Yes — every order goes through Stripe Checkout. We never see or store your card. You'll receive an order confirmation email immediately and a portal login to watch each listing as it goes live.",
   },
 ];
 
@@ -328,7 +340,7 @@ function TierCard({
         Start at ${tier.price} <ArrowRight size={14} />
       </button>
       <div style={{ fontSize: 11, color: "rgba(0,0,0,0.42)", textAlign: "center" }}>
-        Secure Stripe checkout · 7-day delivery
+        Secure Stripe checkout · submitted within 7 business days
       </div>
     </div>
   );
@@ -455,8 +467,8 @@ export default function CitationBuilderPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="CiteFlow — get listed on 100+ business directories in 7 days"
-        description="Done-for-you citation submission service. Starter $79 (25 directories), Pro $179 (50 trade+general), Premium $299 (100+ full sweep). Manual submissions, NAP-clean, completion report."
+        title={`CiteFlow — get listed on the ${N_PREMIUM} local listings that actually count`}
+        description={`Done-for-you citation submission, by hand. Starter $79 (${N_STARTER} core listings), Pro $179 (${N_PRO} incl. trade + Canada), Premium $299 (${N_PREMIUM} incl. aggregators). Every directory named on the page, every outcome reported.`}
         canonical={PAGE_PATH}
         keywords={["citation builder", "local citation service", "business directory submission", "yelp bbb angi listing service", "trade business citations"]}
       />
@@ -506,7 +518,7 @@ export default function CitationBuilderPage() {
               lineHeight: 1.05,
             }}
           >
-            Get listed on 100+ business directories — done for you in 7 days
+            Get listed where it counts — every submission made by hand
           </h1>
           <p
             style={{
@@ -562,7 +574,7 @@ export default function CitationBuilderPage() {
             </a>
           </div>
           <div style={{ marginTop: 14, fontSize: 12, color: "rgba(0,0,0,0.5)" }}>
-            One-time payment · No subscription · 7-day delivery
+            One-time payment · No subscription · Submitted within 7 business days
           </div>
         </div>
       </section>
@@ -613,10 +625,11 @@ export default function CitationBuilderPage() {
               marginBottom: 8,
             }}
           >
-            What directories we submit to
+            Exactly what we submit to
           </h2>
           <p style={{ textAlign: "center", fontSize: 15, color: "rgba(0,0,0,0.62)", maxWidth: 580, margin: "0 auto 36px" }}>
-            Every directory is hand-picked and manually submitted. Full lists below.
+            No padding and no placeholders — every listing in every tier is named below,
+            and a person fills in each form by hand.
           </p>
           <div
             style={{
@@ -674,7 +687,7 @@ export default function CitationBuilderPage() {
             How it works
           </h2>
           <p style={{ textAlign: "center", fontSize: 15, color: "rgba(0,0,0,0.62)", maxWidth: 580, margin: "0 auto 36px" }}>
-            From intake to completion report in 5-7 business days.
+            From your details to a dashboard of real outcomes.
           </p>
           <div
             style={{
@@ -782,11 +795,11 @@ export default function CitationBuilderPage() {
               marginBottom: 8,
             }}
           >
-            Ready to get listed everywhere?
+            Ready to get listed?
           </h2>
           <p style={{ fontSize: 15, color: "rgba(0,0,0,0.62)", maxWidth: 480, margin: "0 auto 20px", lineHeight: 1.55 }}>
-            Pick a tier above. Submit your intake form. We handle the rest.
-            7-day delivery — guaranteed.
+            Pick a tier above and send us your business details. We submit every listing in it
+            by hand within 7 business days, and you see the real outcome of each one.
           </p>
           <button
             type="button"

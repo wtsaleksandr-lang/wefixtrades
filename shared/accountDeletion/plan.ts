@@ -260,6 +260,7 @@ const DELETE_VIA_PARENT: Array<
   ["calculator_analytics_daily", ["calculator_id"], "calculators", "id"],
   ["calculator_analytics_events", ["calculator_id"], "calculators", "id"],
   ["calculator_analytics_summary", ["calculator_id"], "calculators", "id"],
+  ["citation_builder_directory_tasks", ["submission_id"], "citation_builder_submissions", "id"],
   ["citation_tracker_alerts", ["subscription_id"], "citation_tracker_subscriptions", "id"],
   ["citation_tracker_listings", ["subscription_id"], "citation_tracker_subscriptions", "id"],
   ["content_approvals", ["draft_id"], "content_drafts", "id"],

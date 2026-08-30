@@ -29,7 +29,7 @@ const SITE_URL = "https://wefixtrades.com";
 const FAQ_ITEMS = [
   {
     question: "How is CiteTrack different from CiteFlow?",
-    answer: "CiteFlow is a one-shot $79–$299 service: we list you on 25–100+ directories. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.",
+    answer: "CiteFlow is a one-shot $79–$299 service: a person submits your business by hand to the local listings that carry ranking weight. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.",
   },
   {
     question: "How often do you scan?",
@@ -736,7 +736,7 @@ function CitationTrackerBuilderCta() {
               maxWidth: 520,
             }}
           >
-            CiteTrack monitors your listings. CiteFlow creates them — 25–100+ directories, done for you in 7 days.
+            CiteTrack monitors your listings. CiteFlow creates them — submitted by hand, within 7 business days.
           </p>
           <Link
             href="/citation-builder"
@@ -774,7 +774,7 @@ function CitationTrackerFAQ() {
               {f.question === "How is CiteTrack different from CiteFlow?" ? (
                 <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>
                   <Link href="/citation-builder" style={{ color: "rgb(13,60,252)", fontWeight: 600, textDecoration: "underline" }}>CiteFlow</Link>
-                  {" "}is a one-shot $79–$299 service: we list you on 25–100+ directories. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.
+                  {" "}is a one-shot $79–$299 service: a person submits your business by hand to the local listings that carry ranking weight. CiteTrack is recurring $19/mo (or $5/mo as a MapGuard add-on): we continuously monitor those listings for NAP changes, new auto-spawn citations, and removals — and alert you the moment something drifts.
                 </p>
               ) : (
                 <p style={{ margin: "8px 0 0", fontSize: 14, color: "#374151", lineHeight: 1.55 }}>{f.answer}</p>

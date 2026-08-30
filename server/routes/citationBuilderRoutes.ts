@@ -20,13 +20,18 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { requireClient } from "../auth";
 import { db } from "../db";
 import {
+  citationBuilderDirectoryTasks,
   citationBuilderSubmissions,
-  CITATION_BUILDER_TIER_DIRECTORIES,
   CITATION_BUILDER_TIER_PRICE_CENTS,
 } from "@shared/schema";
 import { CITATIONBUILDER } from "@shared/pricing";
 import { createLogger } from "../lib/logger";
 import { publicCheckoutRateLimiter } from "../services/rateLimiter";
+import {
+  CITATION_BUILDER_TIER_DIRECTORIES,
+  getBuilderDirectory,
+  type CitationBuilderTier,
+} from "@shared/citationBuilder/directories";
 
 const log = createLogger("CitationBuilderRoutes");
 
@@ -59,8 +64,42 @@ function tierPriceCents(tier: typeof TIERS[number]): number {
   return CITATION_BUILDER_TIER_PRICE_CENTS[tier] ?? 7900;
 }
 
+/**
+ * The REAL number of listings in the tier, from the submission registry that
+ * also generates the operator's checklist. There is deliberately no `?? 25`
+ * fallback: an unknown tier is a bug, and quietly charging someone for a
+ * made-up count is exactly what this product used to do.
+ */
 function tierDirectoryCount(tier: typeof TIERS[number]): number {
-  return CITATION_BUILDER_TIER_DIRECTORIES[tier] ?? 25;
+  return CITATION_BUILDER_TIER_DIRECTORIES[tier as CitationBuilderTier];
+}
+
+/**
+ * The per-directory rows a CUSTOMER may see.
+ *
+ * These are the operator's own records — nothing is inferred, projected or
+ * filled in. A directory the operator has not touched reports `not_started`,
+ * and the only state rendered as a listing is `live`, which cannot be
+ * recorded without its URL (see validateTaskWrite). `submissionNote` is the
+ * operator's internal brief and is deliberately NOT exposed.
+ */
+async function customerVisibleTasks(submissionId: string) {
+  const rows = await db
+    .select()
+    .from(citationBuilderDirectoryTasks)
+    .where(eq(citationBuilderDirectoryTasks.submission_id, submissionId))
+    .orderBy(citationBuilderDirectoryTasks.directory_name);
+  return rows.map(t => ({
+    id: t.id,
+    directory_id: t.directory_id,
+    directory_name: t.directory_name,
+    status: t.status,
+    listing_url: t.status === "live" ? t.listing_url : null,
+    note: t.note,
+    submitted_at: t.submitted_at,
+    live_at: t.live_at,
+    category: getBuilderDirectory(t.directory_id)?.category ?? null,
+  }));
 }
 
 export function registerCitationBuilderRoutes(app: Express): void {
@@ -96,7 +135,7 @@ export function registerCitationBuilderRoutes(app: Express): void {
             currency: "usd",
             product_data: {
               name: `Citation Builder — ${tier.charAt(0).toUpperCase() + tier.slice(1)}`,
-              description: `${tierDirectoryCount(tier)} directories, manual submission`,
+              description: `${tierDirectoryCount(tier)} listings, submitted by hand`,
             },
             unit_amount: tierPriceCents(tier),
           },
@@ -140,7 +179,11 @@ export function registerCitationBuilderRoutes(app: Express): void {
         customer_id: customerId,
         tier: parsed.data.tier,
         business_info: parsed.data.business_info as any,
-        directories_total: tierDirectoryCount(parsed.data.tier),
+        // directories_total stays 0 until an operator starts the order and the
+        // checklist is cut. Pre-filling it with the tier size would render a
+        // "0 / 12" progress bar against work nobody has been assigned yet —
+        // the portal shows the tier's coverage separately instead.
+        directories_total: 0,
         status: "pending",
       }).returning();
       res.json({ submission: row });
@@ -166,7 +209,11 @@ export function registerCitationBuilderRoutes(app: Express): void {
         ))
         .limit(1);
       if (rows.length === 0) return res.status(404).json({ error: "Not found" });
-      res.json({ submission: rows[0] });
+      res.json({
+        submission: rows[0],
+        directories: await customerVisibleTasks(id),
+        tier_directory_count: tierDirectoryCount(rows[0].tier as typeof TIERS[number]),
+      });
     } catch (err: any) {
       log.error("get submission failed", { error: err?.message });
       res.status(500).json({ error: "Failed to load submission" });
@@ -194,7 +241,18 @@ export function registerCitationBuilderRoutes(app: Express): void {
         .from(citationBuilderSubmissions)
         .where(eq(citationBuilderSubmissions.customer_id, customerId));
 
-      res.json({ submissions: rows, total, page, limit });
+      // Each order carries its own operator-recorded directory rows so the
+      // dashboard can show what genuinely happened per listing rather than a
+      // bare percentage. Orders are page-limited, so this is bounded.
+      const submissions = await Promise.all(
+        rows.map(async row => ({
+          ...row,
+          directories: await customerVisibleTasks(row.id),
+          tier_directory_count: tierDirectoryCount(row.tier as typeof TIERS[number]),
+        })),
+      );
+
+      res.json({ submissions, total, page, limit });
     } catch (err: any) {
       log.error("list submissions failed", { error: err?.message });
       res.status(500).json({ error: "Failed to load submissions" });

@@ -1,9 +1,19 @@
 /**
- * Citation Builder progress email — fired when an ops admin transitions
- * a submission to status="in_progress" so the customer knows real
- * submissions have started.
+ * Citation Builder progress email.
  *
- * Wave 3.5 launch-wiring closeout (2026-05-25).
+ * THE ONLY CALLER IS `maybeSendProgressEmail()` in
+ * server/services/citationBuilder/fulfilment.ts, which fires it the first
+ * time an operator records a real submission against a directory — a
+ * citation_builder_directory_tasks row moving to `submitted` or `live`.
+ *
+ * It is deliberately NOT fired by the "start this order" action, and there
+ * is no scheduled or timed variant. An order with no recorded work generates
+ * no mail, however old it is. The guard
+ * `npm run check:citation-builder-fulfilment` fails CI if a second caller
+ * appears or if a timer is wired into this path.
+ *
+ * Written 2026-05-25 with zero callers; wired to real operator work
+ * 2026-08-29.
  */
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
@@ -37,7 +47,9 @@ export async function sendCitationBuilderProgressEmail(data: CitationBuilderProg
       directories in.
     </p>
     <p style="font-size:13px;color:#8B919A;line-height:1.6;margin:0;">
-      Most directories accept within 24-48 hours, the slower ones (BBB, Angi) take a few days. You'll get a final email when every listing is live.
+      How quickly each one publishes is the directory's call — Google verification and BBB review
+      routinely take longer than the rest. Your portal shows where every listing has got to, and
+      we'll email you a final report when the order is done.
     </p>
   `;
 
