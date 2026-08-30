@@ -56,12 +56,15 @@ const TASK_STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   not_applicable: { label: "Not applicable", tone: "gray" },
 };
 
+/* Both themes. The page this one mirrors (InstallQueuePage) is light-only, so
+   its badges render as a pale chip on a dark card; the `dark:` variants here
+   follow the AdminAiDashboard pattern instead and stay readable either way. */
 const TONE_STYLES: Record<string, string> = {
-  amber: "bg-amber-50 border-amber-200 text-amber-800",
-  blue: "bg-blue-50 border-blue-200 text-blue-800",
-  emerald: "bg-emerald-50 border-emerald-200 text-emerald-800",
-  rose: "bg-rose-50 border-rose-200 text-rose-800",
-  gray: "bg-gray-50 border-gray-200 text-gray-700",
+  amber: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200",
+  blue: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200",
+  emerald: "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200",
+  rose: "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-200",
+  gray: "bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300",
 };
 
 const TIER_LABELS: Record<string, string> = {
@@ -103,6 +106,15 @@ interface DirectoryTask {
   evidence: string | null;
   markets: string[];
   category: string | null;
+}
+
+/** The submission URL's host, for a link label that fits a narrow dialog. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 function fmt(s: string | null | undefined): string {
@@ -147,10 +159,17 @@ export default function CitationBuilderQueuePage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap" data-testid="select-status-filter">
+        {/* Five pills wrap 4+1 between ~360px and ~430px, which leaves
+            "Completed" orphaned on its own line. Below sm they scroll as one
+            row instead of wrapping, so the no-orphan rule can't be violated at
+            any width; from sm up they fit on one line and wrap normally. */}
+        <div
+          className="flex items-center gap-2 flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 pb-1"
+          data-testid="select-status-filter"
+        >
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === "all" ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
             data-testid="filter-all"
           >
             All
@@ -159,7 +178,7 @@ export default function CitationBuilderQueuePage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === s ? "bg-brand-blue-50 border-brand-blue-600 text-brand-blue-700" : "border-border text-foreground"}`}
               data-testid={`filter-${s}`}
             >
               {STATUS_LABELS[s]?.label ?? s}
@@ -392,16 +411,26 @@ function SubmissionDetailDialog({ id, onClose }: { id: string; onClose: () => vo
           </div>
         )}
 
+        {/* Why the Complete button is disabled. This sits ABOVE the footer,
+            not inside it: the server's reason runs to ~200 characters, and in
+            the footer it competed for width with the buttons and clipped the
+            Complete label at every viewport. Full width here, and the
+            operator can actually read what is still outstanding. */}
+        {detail.data && !detail.data.completable && detail.data.completable_reason && !isCompleted && (
+          <div
+            className="text-xs text-muted-foreground text-left flex items-start gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2"
+            data-testid="complete-blocked-reason"
+          >
+            <Info className="w-4 h-4 mt-px shrink-0" />
+            <span>{detail.data.completable_reason}</span>
+          </div>
+        )}
+
         <DialogFooter className="gap-2 flex-wrap items-center">
-          {detail.data && !detail.data.completable && detail.data.completable_reason && !isCompleted && (
-            <div className="text-xs text-muted-foreground mr-auto max-w-md text-left flex items-start gap-1.5">
-              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>{detail.data.completable_reason}</span>
-            </div>
-          )}
           <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
           <Button
             size="sm"
+            className="whitespace-normal"
             onClick={() => complete.mutate()}
             disabled={complete.isPending || isCompleted || !detail.data?.completable}
             data-testid="button-complete-order"
@@ -476,26 +505,33 @@ function TaskRow({
   return (
     <Card className="p-3 space-y-2" data-testid={`task-${task.directory_id}`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
             {task.directory_name}
             <Badge variant="outline" className={`text-[10px] ${TONE_STYLES[tone]}`}>
               {TASK_STATUS_LABELS[task.status]?.label ?? task.status}
             </Badge>
             {task.markets?.length === 1 && (
-              <Badge variant="outline" className="text-[10px] bg-gray-50 border-gray-200 text-gray-700">
+              <Badge variant="outline" className={`text-[10px] ${TONE_STYLES.gray}`}>
                 {task.markets[0]} only
               </Badge>
             )}
           </div>
           {task.submit_url && (
+            /* The link label is the host, not the full URL. A 60-character
+               submission URL in an inline-flex is an unbreakable box wider
+               than the dialog's interior at 375px, which pushed the status
+               select — the operator's primary control — off screen. The full
+               URL is still what's opened, and stays available on hover. */
             <a
               href={task.submit_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-brand-blue-600 inline-flex items-center gap-1 mt-0.5"
+              title={task.submit_url}
+              className="text-xs text-brand-blue-600 flex items-center gap-1 mt-0.5 max-w-full min-w-0"
             >
-              {task.submit_url} <ExternalLink className="w-3 h-3" />
+              <span className="truncate">{hostOf(task.submit_url)}</span>
+              <ExternalLink className="w-3 h-3 shrink-0" />
             </a>
           )}
         </div>
@@ -503,7 +539,7 @@ function TaskRow({
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           disabled={disabled}
-          className="h-9 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+          className="h-9 shrink-0 rounded-md border border-border bg-background px-2 text-xs text-foreground"
           data-testid={`select-status-${task.directory_id}`}
           aria-label={`Outcome for ${task.directory_name}`}
         >
@@ -568,12 +604,32 @@ function TaskRow({
   );
 }
 
+/**
+ * One line of the customer's business details.
+ *
+ * The value span uses `overflow-wrap: anywhere`, and the choice matters:
+ *
+ *   break-words (overflow-wrap: break-word) — what this had — does NOT reduce
+ *     a box's intrinsic min-content width. One unbreakable token (a long
+ *     customer email, or a website URL) held the row's min-content at ~445px
+ *     and stretched the whole dialog to 493px inside a 341px viewport at
+ *     375px, pushing every directory's status select off screen. `min-w-0`
+ *     cannot help — the constraint is min-content, not flex basis.
+ *   break-all fixes the width but breaks mid-word even when a space was
+ *     available, so a business name rendered as "Acme Plumbing & Heat/ing".
+ *   anywhere fixes the width AND only breaks mid-token when a word genuinely
+ *     does not fit — so Website and Customer email break, Name and Categories
+ *     wrap at spaces like prose.
+ *
+ * Written as an arbitrary property because Tailwind here is 3.4.17; the
+ * `wrap-anywhere` utility is v4.
+ */
 function Field({ label, value }: { label: string; value: any }) {
   if (value == null || value === "") return null;
   return (
     <div className="flex gap-2 text-sm">
       <span className="text-xs text-muted-foreground w-28 shrink-0 pt-0.5">{label}</span>
-      <span className="text-foreground break-words min-w-0">{String(value)}</span>
+      <span className="text-foreground [overflow-wrap:anywhere] min-w-0">{String(value)}</span>
     </div>
   );
 }
