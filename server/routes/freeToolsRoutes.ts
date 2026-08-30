@@ -475,7 +475,7 @@ export function classifyCitationHit(
  *   - No SERP. This handler never calls searchSerp(), so it cannot reach
  *     the pay-as-you-go providers even by accident (#2057 default-deny is
  *     a second line of defence, not the first).
- *   - BBB, BuildZoom, YellowPages.ca, n49, OpenStreetMap — plain HTTP.
+ *   - BuildZoom, YellowPages.ca, n49, OpenStreetMap — plain HTTP.
  *     $0.00 per run, always, at any volume.
  *   - Google Business Profile — one Places Text Search call, Pro tier,
  *     whose free allowance is 5,000/month. This is the only line item that
