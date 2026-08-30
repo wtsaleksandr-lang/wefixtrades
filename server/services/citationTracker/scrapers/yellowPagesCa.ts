@@ -44,19 +44,30 @@ function deslug(slug: string): string {
   return decodeURIComponent(slug).replace(/-+/g, " ").trim();
 }
 
+/**
+ * The exact URL this scraper requests. Exported so the robots-compliance
+ * guard can evaluate the REAL builder rather than a transcription of it —
+ * a copy in the test would keep passing after someone edited this function.
+ */
+export function yellowPagesCaSearchUrl(ctx: ScrapeContext): string {
+  const city = cityFromAddress(ctx.address);
+  const state = stateFromAddress(ctx.address);
+  const where = [city, state].filter(Boolean).join(" ") || "Canada";
+
+  return (
+    "https://www.yellowpages.ca/search/si/1/" +
+    encodeURIComponent(ctx.business_name) +
+    "/" +
+    encodeURIComponent(where)
+  );
+}
+
 export async function scrapeYellowPagesCa(
   ctx: ScrapeContext,
   opts: { politeDelayMs?: number } = {},
 ): Promise<ScrapeResult> {
   const city = cityFromAddress(ctx.address);
-  const state = stateFromAddress(ctx.address);
-  const where = [city, state].filter(Boolean).join(" ") || "Canada";
-
-  const url =
-    "https://www.yellowpages.ca/search/si/1/" +
-    encodeURIComponent(ctx.business_name) +
-    "/" +
-    encodeURIComponent(where);
+  const url = yellowPagesCaSearchUrl(ctx);
 
   const fetched = await fetchHtml(url, opts);
   if (!fetched.ok) return { found: false, error: fetched.reason };

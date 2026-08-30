@@ -37,7 +37,11 @@ const FAQ_ITEMS = [
   },
   {
     question: "Which directories do you cover?",
-    answer: "We name every one: Google Business Profile, Better Business Bureau, BuildZoom, and — for Canadian trades — YellowPages.ca and n49. OpenStreetMap is supported and switched on per account. You'll only ever be billed for, and alerted about, directories we genuinely check.",
+    answer: "We name every one: Google Business Profile, BuildZoom, and — for Canadian trades — YellowPages.ca and n49. OpenStreetMap is supported and switched on per account. You'll only ever be billed for, and alerted about, directories we genuinely check.",
+  },
+  {
+    question: "Why isn't the Better Business Bureau on that list?",
+    answer: "Not any more. BBB's robots.txt asks automated clients not to request query-string URLs, and locating a business on BBB required a search — which is one. The profile pages BBB does allow are behind a Cloudflare challenge we can't read, so no route exists that is both permitted and readable. We removed the check rather than keep a workaround running inside a product you pay for. It never appears in your monitored count and you are never alerted on it.",
   },
   {
     question: "Why do you check fewer directories than other tools advertise?",
@@ -127,7 +131,7 @@ export default function CitationTrackerPage() {
     <MarketingLayout>
       <PageMeta
         title="CiteTrack — continuous NAP drift monitoring for your business listings"
-        description="Catch NAP changes before they tank your local rankings. Daily checks on Google Business Profile, Better Business Bureau, BuildZoom, YellowPages.ca and n49 — we name every source and never report a status we didn't verify. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
+        description="Catch NAP changes before they tank your local rankings. Daily checks on Google Business Profile, BuildZoom, YellowPages.ca and n49 — we name every source and never report a status we didn't verify. $19/mo standalone or $5/mo as a MapGuard add-on. Two months free annual."
         canonical={PAGE_PATH}
         keywords={["citation tracker", "NAP monitoring", "local citation monitoring", "directory listing monitoring", "google business profile listing tracker"]}
       />
@@ -310,7 +314,7 @@ function CitationTrackerHeroPreview() {
         <div style={{ fontSize: 12, lineHeight: 1.45 }}>
           <div style={{ fontWeight: 700, color: "rgb(124,45,18)" }}>Suspected NAP error</div>
           <div style={{ color: "rgba(0,0,0,0.65)" }}>
-            BBB listing shows old phone (555-0144) — your canonical is (555-0188).
+            BuildZoom listing shows old phone (555-0144) — your canonical is (555-0188).
           </div>
         </div>
       </div>
@@ -530,7 +534,7 @@ function CitationTrackerFeatures() {
     {
       icon: Globe,
       title: "Named coverage, not a headline number",
-      body: "Google Business Profile, Better Business Bureau and BuildZoom in the US; YellowPages.ca and n49 for Canadian trades; OpenStreetMap on request. Anyone can advertise a big coverage number — we tell you exactly which sources, and why each one is on the list.",
+      body: "Google Business Profile and BuildZoom in the US; YellowPages.ca and n49 for Canadian trades; OpenStreetMap on request. Anyone can advertise a big coverage number — we tell you exactly which sources, and why each one is on the list.",
     },
   ];
   return (

@@ -286,7 +286,7 @@ const TOOLS: ToolPreview[] = [
         </div>
         ${[
           ["Google Business Profile", "listed"],
-          ["Better Business Bureau", "listed"],
+          ["YellowPages.ca", "listed"],
           ["BuildZoom", "absent"],
           ["Yelp", "declined"],
         ]

@@ -36,13 +36,28 @@
  * recorded in `unavailableReason` so the next person does not re-litigate
  * it from scratch.
  *
+ * "GENUINELY WORKS" INCLUDES "WE ARE ALLOWED TO ASK"
+ * --------------------------------------------------
+ * Several rejections above cite the directory's robots.txt. That reason is
+ * only usable if we hold ourselves to the same rule, so as of 2026-08-30
+ * every path an implemented scraper requests is checked against the target's
+ * robots.txt by a build-time guard — see `robots.ts` (the recorded
+ * directives plus an RFC 9309 matcher) and `robotsCompliance.test.ts` (the
+ * guard, wired into CI as `check:citation-robots`).
+ *
+ * That pass removed BBB, whose discovery call hit a disallowed path, and
+ * closed the OpenStreetMap opt-in that pointed at a host disallowing
+ * `/search`. Both are recorded in full on their entries below. The rule
+ * going forward: a scraper may only request a path its host permits, and
+ * a directory we cannot ask is treated exactly like a directory we cannot
+ * read — not checked, no row, no status, excluded from every count.
+ *
  * Customer-facing surfaces must report CITATION_TRACKER_MONITORED_COUNT
  * (what we check right now), never CITATION_TRACKER_DIRECTORY_COUNT
  * (everything we have evaluated).
  */
 
 import type { NapSnapshot } from "./monitor";
-import { scrapeBbb } from "./scrapers/bbb";
 import { scrapeBuildzoom } from "./scrapers/buildzoom";
 import { scrapeGoogleBusinessProfile, placesApiConfigured } from "./scrapers/googleBusinessProfile";
 import { scrapeOpenStreetMap, osmConfigured } from "./scrapers/openStreetMap";
@@ -136,44 +151,6 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
 
   /* ═══ CHECKED — general ════════════════════════════════════════════ */
   {
-    id: "bbb",
-    name: "Better Business Bureau",
-    url: "https://www.bbb.org",
-    category: "general",
-    markets: ["US", "CA"],
-    rationale:
-      "Highest-trust general directory in North America, and one of the very few whose robots.txt explicitly invites crawling of profile pages. Covers US and Canadian listings.",
-    scrape: scrapeBbb,
-    // OPEN COMPLIANCE ITEM — flagged 2026-08-29, deliberately NOT acted on
-    // here because it changes what both the free tool and the paid product
-    // check, which is a product decision rather than a bug fix.
-    //
-    // The rationale above is half right. bbb.org/robots.txt does explicitly
-    // Allow the per-business profile paths (the "/us/…/profile/…" and
-    // "/ca/…/profile/…" globs, query strings included). But the same
-    // User-agent:* block also contains a broad "Disallow:" covering every
-    // URL that carries a query string, and scrapeBbb's DISCOVERY call is
-    // "/search?find_text=…" — which matches that Disallow and none of the
-    // Allow exceptions.
-    //
-    // The data we get back is genuine, so this is NOT an honesty problem —
-    // the statuses BBB gives us are real. It is a politeness/compliance
-    // problem: we are fetching a path BBB asks crawlers not to fetch.
-    //
-    // Verified directly on 2026-08-29: robots.txt fetched and read in full,
-    // and the search URL returns a real 283KB results page with 45 profile
-    // anchors.
-    //
-    // Two ways out, neither free:
-    //   1. Discover the profile URL without hitting /search. robots.txt
-    //      advertises sitemap-business-profiles-index.xml and the profile
-    //      paths are explicitly allowed. But the same probe got HTTP 403
-    //      with "Cf-Mitigated: challenge" on profile pages, so this may
-    //      just trade a robots violation for a Cloudflare wall.
-    //   2. Drop BBB. That takes US coverage to Google + BuildZoom, and
-    //      Canadian coverage to Google + YellowPages.ca + n49.
-  },
-  {
     id: "yellowpages_ca",
     name: "YellowPages.ca",
     url: "https://www.yellowpages.ca",
@@ -218,7 +195,7 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
     scrape: scrapeOpenStreetMap,
     isAvailable: osmConfigured,
     unavailableReason:
-      "Implemented and verified, but OFF until pointed at a compliant endpoint. The public Nominatim instance's usage policy prohibits systematic queries, which is exactly what a nightly per-subscriber sweep is. Set CITETRACK_NOMINATIM_URL (self-hosted, or a Nominatim-compatible host such as LocationIQ whose free tier permits commercial use) plus CITETRACK_NOMINATIM_KEY, or accept the policy risk explicitly with CITETRACK_OSM_USE_PUBLIC_INSTANCE=true.",
+      "Implemented and verified, but OFF until pointed at a compliant endpoint. Two separate reasons, both settled 2026-08-30: the public Nominatim instance's usage policy prohibits systematic queries (which a nightly per-subscriber sweep is), and its robots.txt disallows `/search`, `/lookup`, `/reverse` and `/details` — every endpoint that could answer the question. There is therefore no rate slow enough to make the public instance acceptable, and the previous `CITETRACK_OSM_USE_PUBLIC_INSTANCE=true` opt-in has been REMOVED rather than documented; nominatimBaseUrl() now refuses that host even if named explicitly. To enable, set CITETRACK_NOMINATIM_URL to a self-hosted instance or a licensed Nominatim-compatible host (LocationIQ's free tier permits commercial use) plus CITETRACK_NOMINATIM_KEY.",
   },
 
   /* ═══ EVALUATED, NOT CHECKED — needs a credential ══════════════════
@@ -287,6 +264,71 @@ export const CITATION_TRACKER_DIRECTORIES: DirectoryDef[] = [
   /* ═══ EVALUATED, NOT CHECKED — actively blocked ════════════════════
    * Probed live on 2026-08-29; each returned the response noted. Do not
    * re-add a scraper for these without re-probing first. */
+  {
+    id: "bbb",
+    name: "Better Business Bureau",
+    url: "https://www.bbb.org",
+    category: "general",
+    markets: ["US", "CA"],
+    rationale:
+      "Highest-trust general directory in North America, covering both US and Canadian listings. Worth checking if it ever becomes possible to do so compliantly.",
+    scrape: null,
+    // ── Removed 2026-08-30. Every claim below re-verified by live probe on
+    // that date; robots.txt directives transcribed into robots.ts.
+    //
+    // BBB is a pincer, and it is worth being precise about which jaw is
+    // which, because the two have different remedies and neither works.
+    //
+    // JAW 1 — the path that WORKS is one we may not request.
+    //   scrapeBbb discovered profiles via `/search?find_text=…`. The
+    //   `User-agent: *` group contains `Disallow: /*?`, which excludes every
+    //   URL carrying a query string. The only exceptions are `Allow:
+    //   /scamtracker/*?`, `Allow: /us/*​/*​/profile/*​/*?` and `Allow:
+    //   /ca/*​/*​/profile/*​/*?` — a search URL matches none of them. The
+    //   probe confirms the path is live and useful (HTTP 200, 189KB, 19
+    //   distinct profile anchors), which is exactly why it needed removing
+    //   rather than fixing: it worked, so nothing would ever have failed
+    //   loudly enough to catch it.
+    //
+    // JAW 2 — the path we MAY request cannot be read.
+    //   Profile URLs are explicitly permitted, and the obvious redesign was
+    //   to resolve a subscriber's profile URL once and re-check that direct
+    //   URL forever after — the pattern the Google check already uses via
+    //   `known_listing_url`. It does not work. Four separate profile URLs
+    //   taken from BBB's own sitemap returned HTTP 403 with
+    //   `Cf-Mitigated: challenge` and a "Just a moment…" interstitial.
+    //   Notably this was from a RESIDENTIAL IP, so unlike Houzz and
+    //   Thumbtack below it is not a datacenter-ASN reputation effect that a
+    //   better-placed probe might clear — profile pages are simply walled.
+    //
+    // WHY THE SITEMAP DOESN'T RESCUE IT.
+    //   robots.txt advertises sitemap-business-profiles-index.xml, and it is
+    //   real: HTTP 200, 573 shards, 10,000 profile URLs each — roughly 5.7M
+    //   businesses, ~1.3GB of XML. As a discovery mechanism it is permitted
+    //   but useless: there is no query interface, so resolving one
+    //   subscriber means downloading the corpus. And it would only ever
+    //   yield a URL we then cannot fetch (Jaw 2), so even paying that cost
+    //   buys nothing.
+    //
+    // WHY NOT "ASK THE CUSTOMER FOR THEIR BBB URL".
+    //   Considered, and it solves the wrong jaw. A customer-supplied or
+    //   operator-confirmed profile URL removes the need for `/search`, but
+    //   Cloudflare still refuses the fetch, so every scan would return
+    //   `rate_limited` → `could-not-check` forever. That is a check that
+    //   cannot succeed, and shipping one contradicts this registry's own
+    //   rule that a scraper which mostly fails is worse than no scraper.
+    //
+    // CONSEQUENCE, stated plainly: US coverage is now Google + BuildZoom,
+    // Canadian coverage Google + YellowPages.ca + n49. That is a real
+    // reduction and the customer-facing copy says so.
+    //
+    // TO REINSTATE: a repeated clean, unchallenged HTTP 200 on a `/profile/`
+    // URL from the deploy host, plus a persisted profile URL per subscriber.
+    // Do NOT reinstate discovery via `/search` at any point — that is the
+    // robots violation, independent of whether it works.
+    unavailableReason:
+      "Removed 2026-08-30 for robots.txt compliance. BBB's robots.txt disallows every query-string URL (`Disallow: /*?`), and our discovery call was `/search?find_text=…`, which matches it and none of the three `Allow:` exceptions. The per-business profile pages BBB does permit are behind a Cloudflare challenge — four sitemap-sourced profile URLs each returned HTTP 403 with `Cf-Mitigated: challenge`, from a residential IP, so this is not datacenter-reputation. That leaves no route that is both permitted and readable: the path that works is disallowed, and the path that is allowed is blocked. We decline other directories on exactly this ground, so we hold BBB to it too.",
+  },
   {
     id: "facebook",
     name: "Facebook",
@@ -508,7 +550,7 @@ export const CITATION_TRACKER_IMPLEMENTED_COUNT =
  *     with an Essentials mask, free to 10,000 calls/month. One scan per
  *     subscriber per day stays inside the Essentials cap to roughly 330
  *     subscribers; past that it is ~$5 per additional 1,000 calls.
- *   BBB, YellowPages.ca, n49, BuildZoom — $0.00. Plain HTTP.
+ *   YellowPages.ca, n49, BuildZoom — $0.00. Plain HTTP.
  *   OpenStreetMap — $0.00 when enabled against LocationIQ's free tier or
  *     a self-hosted instance.
  *

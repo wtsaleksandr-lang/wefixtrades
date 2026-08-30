@@ -46,17 +46,29 @@ function deslug(slug: string): string {
   return decodeURIComponent(slug).replace(/-+/g, " ").trim();
 }
 
+/**
+ * The exact URL this scraper requests, or null when the business name
+ * slugifies to nothing. Exported so the robots-compliance guard evaluates
+ * the REAL builder rather than a transcription of it.
+ */
+export function n49SearchUrl(ctx: ScrapeContext): string | null {
+  const city = cityFromAddress(ctx.address);
+  const state = stateFromAddress(ctx.address);
+  const nameSlug = slugify(ctx.business_name);
+  if (!nameSlug) return null;
+
+  const where = slugify([city, state].filter(Boolean).join(" ")) || "canada";
+  return `https://www.n49.com/search/${nameSlug}/1/${where}/`;
+}
+
 export async function scrapeN49(
   ctx: ScrapeContext,
   opts: { politeDelayMs?: number } = {},
 ): Promise<ScrapeResult> {
   const city = cityFromAddress(ctx.address);
-  const state = stateFromAddress(ctx.address);
   const nameSlug = slugify(ctx.business_name);
-  if (!nameSlug) return { found: false, error: "parse_error" };
-
-  const where = slugify([city, state].filter(Boolean).join(" ")) || "canada";
-  const url = `https://www.n49.com/search/${nameSlug}/1/${where}/`;
+  const url = n49SearchUrl(ctx);
+  if (!url) return { found: false, error: "parse_error" };
 
   const fetched = await fetchHtml(url, opts);
   if (!fetched.ok) return { found: false, error: fetched.reason };
