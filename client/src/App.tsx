@@ -217,6 +217,7 @@ const SupportInboxPage = lazy(() => import("@/pages/admin/SupportInboxPage"));
 const SupportTicketDetailPage = lazy(() => import("@/pages/admin/SupportTicketDetailPage"));
 const AdminNoticesPage = lazy(() => import("@/pages/admin/AdminNoticesPage"));
 const InstallQueuePage = lazy(() => import("@/pages/admin/InstallQueuePage"));
+const CitationBuilderQueuePage = lazy(() => import("@/pages/admin/CitationBuilderQueuePage"));
 
 // ── Portal (auth-gated client area) ────────────────────────────────────────
 const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
@@ -408,6 +409,10 @@ function Router() {
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>
+      {/* Citation Builder fulfilment queue — the operator surface for the paid
+          one-time citation service. Must be registered ABOVE /admin/products/:id
+          so the nav's CiteFlow entry lands on the ops queue, not the catalog. */}
+      <Route path="/admin/crm/citation-builder">{() => <RequirePortal><CitationBuilderQueuePage /></RequirePortal>}</Route>
       <Route path="/admin/contentflow">{() => <Redirect to="/admin/crm/contentflow" />}</Route>
       <Route path="/admin/seo/review">{() => <RequirePortal><SeoReviewQueuePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>

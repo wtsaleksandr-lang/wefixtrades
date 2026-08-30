@@ -61,7 +61,7 @@ export default function ForFranchisesPage() {
       productCtas={[
         { label: "MapGuard", href: "/products/mapguard", tagline: "Monitor every franchisee's Google Business Profile in one inbox" },
         { label: "ReputationShield", href: "/products/reputationshield", tagline: "Network-wide review monitoring + AI response drafting" },
-        { label: "CiteFlow", href: "/citation-builder", tagline: "Cleanly list every new location across 100+ directories" },
+        { label: "CiteFlow", href: "/citation-builder", tagline: "Cleanly list every new location across the directories that carry local weight" },
       ]}
       recommendedFreeTools={[
         /* Was labelled "NAP Consistency Audit" but pointed at the Citation

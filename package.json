@@ -70,6 +70,7 @@
     "check:citation-robots": "tsx server/services/citationTracker/robotsCompliance.test.ts",
     "check:citation-checker-honesty": "tsx server/routes/freeToolsCitationHonesty.test.ts",
     "check:citation-match": "tsx server/routes/citationMatch.test.ts",
+    "check:citation-builder-fulfilment": "tsx server/services/citationBuilder/fulfilmentHonesty.test.ts",
     "check:mapsnapshot-rank-honesty": "tsx server/routes/mapSnapshotRoutes.rankHonesty.test.ts",
     "check:rankflow-honesty": "tsx server/services/rankflow/rankflowHonesty.test.ts",
     "check:public-serp-spend": "tsx server/lib/serpOrchestrator.spendCap.test.ts",

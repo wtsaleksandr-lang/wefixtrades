@@ -105,6 +105,8 @@ jobs:
         run: npm run check:citation-checker-honesty
       - name: Citation SERP-matcher guard (a directory absent from the top ten organic results is unable-to-check, never a reported absence; wrong-city and category pages stay unverified)
         run: npm run check:citation-match
+      - name: Citation Builder fulfilment-honesty guard (the paid one-time service can only tell a customer what an operator recorded — progress is DERIVED from citation_builder_directory_tasks rows and no route accepts a count; "live" needs its listing URL and a rejection needs a reason; the progress email fires on the first real submission not on purchase, "start" or any timer, and is idempotent; completion is refused unless every directory has an outcome and at least one is live; both emails have exactly one caller; and every tier number sold matches the registry the operator's checklist is cut from, so the copy cannot outrun the work. Deliberate-failure fixture)
+        run: npm run check:citation-builder-fulfilment
       - name: Citation robots-compliance guard (every scraper's real URL builder is evaluated against the target's recorded robots.txt with an RFC 9309 matcher; a disallowed path is refused before the socket and surfaces as could-not-check never as absence; unrecorded hosts fail closed; BBB stays declined and the public Nominatim instance stays refused)
         run: npm run check:citation-robots
       - name: MapSnapshot rank-honesty guard (public snapshot never publishes an unmeasured rank; RNG grid + invented audit cards stay deleted; legacy synthetic rows downgraded on read; anonymous visitors cannot reach a paid SERP provider)

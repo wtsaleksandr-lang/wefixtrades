@@ -61,7 +61,7 @@ export default function ForAgenciesPage() {
       }
       productCtas={[
         { label: "MapGuard", href: "/products/mapguard", tagline: "Manage every client's Google Maps visibility from one dashboard" },
-        { label: "CiteFlow", href: "/citation-builder", tagline: "Bulk-submit clients to 100+ directories — one order each" },
+        { label: "CiteFlow", href: "/citation-builder", tagline: "Get each client listed by hand across the local directories that count — one order each" },
         { label: "ContentFlow", href: "/products/contentflow", tagline: "Spin up monthly content for dozens of clients in batch" },
         { label: "ReputationShield", href: "/products/reputationshield", tagline: "Multi-client review monitoring + response queue" },
       ]}

@@ -30,6 +30,7 @@ import { registerFounderNotifyRoutes } from "./founderNotifyRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
 import { registerCitationTrackerRoutes } from "./citationTrackerRoutes";
 import { registerCitationBuilderRoutes } from "./citationBuilderRoutes";
+import { registerAdminCitationBuilderRoutes } from "./adminCitationBuilderRoutes";
 import { registerFullAuditRoutes } from "./fullAuditRoutes";
 import { registerWidgetDepositRoutes } from "./widgetDepositRoutes";
 import { registerBillingPortalRoute } from "./billingPortalRoute";
@@ -199,6 +200,7 @@ export async function registerRoutes(
   registerStripeBillingRoutes(app);
   registerCitationTrackerRoutes(app);
   registerCitationBuilderRoutes(app);
+  registerAdminCitationBuilderRoutes(app);
   registerFullAuditRoutes(app);
   registerWidgetDepositRoutes(app);
   registerBillingPortalRoute(app);

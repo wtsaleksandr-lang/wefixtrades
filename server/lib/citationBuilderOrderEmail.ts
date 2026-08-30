@@ -45,11 +45,12 @@ export async function sendCitationBuilderOrderEmail(data: CitationBuilderOrderDa
     <ol style="margin:0 0 16px 24px;padding:0;font-size:14px;color:#CDD1D6;line-height:1.65;">
       <li>Our team verifies + cleans your NAP within 1 business day.</li>
       <li>If we need anything else, we'll reach out via this email address.</li>
-      <li>Submissions start within 2 business days and complete within 7.</li>
-      <li>You'll get a completion report with links to every new citation.</li>
+      <li>A person submits every listing in your tier by hand within 7 business days.</li>
+      <li>You'll get a report with a link to every listing that went live.</li>
     </ol>
     <p style="font-size:13px;color:#8B919A;line-height:1.6;margin:0;">
-      Track progress in your portal at any time — the dashboard updates as each directory goes live.
+      Track it in your portal at any time — each listing shows its own real status, including
+      anything a directory turns down and why.
     </p>
   `;
 

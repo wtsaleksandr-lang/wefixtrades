@@ -14,12 +14,13 @@
 import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import {
-  citationBuilderSubmissions,
-  CITATION_BUILDER_TIER_DIRECTORIES,
-} from "@shared/schema";
+import { citationBuilderSubmissions } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { sendCitationBuilderOrderEmail } from "../lib/citationBuilderOrderEmail";
+import {
+  CITATION_BUILDER_TIER_DIRECTORIES,
+  type CitationBuilderTier,
+} from "@shared/citationBuilder/directories";
 
 const log = createLogger("citation-builder-webhook");
 
@@ -67,18 +68,25 @@ export async function handleCitationBuilderCheckoutCompleted(session: Stripe.Che
       status: "pending",
       stripe_payment_intent_id: paymentIntentId ?? undefined,
       stripe_session_id: session.id,
-      directories_total: CITATION_BUILDER_TIER_DIRECTORIES[tier] ?? 25,
+      // Stays 0 until an operator starts the order and the checklist is cut.
+      // It is a mirror of the recorded task rows, and at this instant no work
+      // has been assigned, let alone done.
+      directories_total: 0,
     });
     log.info("citation_builder submission created", { customer_id: customerId, tier });
 
-    // Order confirmation email (fire-and-forget, don't block webhook).
+    // Order confirmation email (fire-and-forget, don't block webhook). This
+    // is the ONE email that legitimately fires off the purchase, because
+    // "we received your order" is a fact about the purchase. Progress and
+    // completion are facts about work, and fire from recorded operator work
+    // in server/services/citationBuilder/fulfilment.ts instead.
     const toEmail = session.customer_details?.email || session.customer_email;
     if (toEmail) {
       sendCitationBuilderOrderEmail({
         recipientEmail: toEmail,
         businessName: (businessInfo.name as string) || "your business",
         tier,
-        directoriesTotal: CITATION_BUILDER_TIER_DIRECTORIES[tier] ?? 25,
+        directoriesTotal: CITATION_BUILDER_TIER_DIRECTORIES[tier as CitationBuilderTier],
       }).catch(err => log.warn("order email failed", { error: err?.message }));
     }
   } catch (err: any) {

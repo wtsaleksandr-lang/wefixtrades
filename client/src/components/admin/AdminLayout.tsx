@@ -205,8 +205,22 @@ const PRODUCTS_ITEMS: NavItem[] = [
    * were invisible in the admin dashboard (not even behind Advanced). Like
    * SiteLaunch/WebFix they have no dedicated CRM ops surface yet — point at
    * the catalog editor. They surface under "Products · inactive" until a tier
-   * is activated. */
-  { label: "CiteFlow", href: "/admin/products/citationbuilder", icon: ClipboardList, productId: "citationbuilder" },
+   * is activated.
+   *
+   * 2026-08-29: CiteFlow now HAS an ops surface — the fulfilment queue where
+   * the operator works each order's directory checklist. Repointed to it and
+   * demoted the catalog editor to a child, matching SiteLaunch above. Without
+   * this the queue is unreachable from the sidebar and a paid order sits at
+   * 'pending' forever, which is the bug this whole change exists to fix. */
+  {
+    label: "CiteFlow",
+    href: "/admin/crm/citation-builder",
+    icon: ClipboardList,
+    productId: "citationbuilder",
+    children: [
+      { label: "Settings", href: "/admin/products/citationbuilder", icon: Settings },
+    ],
+  },
   { label: "Full Audit Master", href: "/admin/products/full_audit_master", icon: FileText, productId: "full_audit_master" },
 ];
 
