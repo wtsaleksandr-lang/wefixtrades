@@ -40,12 +40,19 @@ const OUR_ACCOUNT = "AC00000000000000000000000000000001";
 const SOMEBODY_ELSES_ACCOUNT = "AC00000000000000000000000000000002";
 process.env.TWILIO_ACCOUNT_SID = OUR_ACCOUNT;
 
-const { previewStatements, retentionDisclosure, objectKeysFromRow } = await import(
-  "./deleteAccount"
-);
+const {
+  previewStatements,
+  previewRedactions,
+  redactJson,
+  retentionDisclosure,
+  objectKeysFromRow,
+} = await import("./deleteAccount");
 const {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
+  METADATA_REDACTIONS,
+  PII_METADATA_KEYS,
+  REDACTION_TOMBSTONE,
   STORED_OBJECTS,
   deletedTables,
   keptTables,
@@ -248,7 +255,7 @@ for (const entry of withObjects) {
   );
   for (const source of entry.objects!) {
     assert.ok(
-      ["objectStorage", "uploads", "r2", "twilio"].includes(source.store),
+      ["objectStorage", "uploads", "r2", "twilio", "twilioNumber"].includes(source.store),
       `${entry.table}.${source.column} names an unknown store "${source.store}", which has ` +
         `no deleter — the files would silently survive.`,
     );
@@ -475,18 +482,172 @@ for (const [label, value] of [
   );
 }
 
-// A number the customer ported in is NOT erased with their account: it is their
-// number, and the port order is the carrier-side authorisation record. Neither
-// is declared, so neither can be reached by the purge.
+// The port-in ORDER is never erased: it is the carrier-side record that this
+// subscriber authorised the transfer, and the evidence our own LOA purge leans
+// on. Not declared, so the purge cannot reach it.
 assert.equal(
-  STORED_OBJECTS.tradeline_phone_setups?.some(
-    (s) => s.column === "assigned_number_sid" || s.column === "port_twilio_order_sid",
-  ),
+  STORED_OBJECTS.tradeline_phone_setups?.some((s) => s.column === "port_twilio_order_sid"),
   false,
-  "the Twilio phone number and the port-in order must NOT be declared for deletion — " +
-    "releasing a number is not an erasure, and the port order is the authorisation " +
+  "the port-in order must NOT be declared for deletion — it is the authorisation " +
     "evidence our own LOA purge relies on",
 );
+
+/* ── 11c. The phone number: released when it is ours, never when it is theirs ─
+ *
+ * The one destructive operation in this mechanism that takes a THING away
+ * rather than erasing a copy of information. #2068 refused to do it at all,
+ * because in the port flow the number is the customer's own property. The
+ * declaration is now conditional instead, so the two cases are distinguished —
+ * and these fixtures are what prove the condition is real and not decorative. */
+
+const OUR_NUMBER_SID = "PN55555555555555555555555555555555";
+
+// Option A: we bought this number from Twilio for them. Ours to hand back.
+assert.deepEqual(
+  objectKeysFromRow("tradeline_phone_setups", {
+    mode: "new",
+    assigned_number_sid: OUR_NUMBER_SID,
+  }),
+  [{ store: "twilioNumber", table: "tradeline_phone_setups", key: OUR_NUMBER_SID }],
+  "a number we provisioned in the 'new' flow must be released — it keeps billing forever " +
+    "otherwise, and the deletion destroys the only copy of its SID",
+);
+
+// Option B: the hidden WeFixTrades number their carrier forwards to. Also ours.
+assert.deepEqual(
+  objectKeysFromRow("tradeline_phone_setups", {
+    mode: "forward",
+    assigned_number_sid: OUR_NUMBER_SID,
+  }).map((o) => o.store),
+  ["twilioNumber"],
+  "the hidden number bought for the 'forward' flow is ours too",
+);
+
+// THE ONE THAT MUST NEVER REGRESS. Option C: the customer's own number, ported
+// in from their previous carrier. Releasing it would not erase personal data,
+// it would take their phone number away — and they may still want to move it on.
+assert.deepEqual(
+  objectKeysFromRow("tradeline_phone_setups", {
+    mode: "port",
+    assigned_number_sid: OUR_NUMBER_SID,
+  }),
+  [],
+  "a PORTED-IN number must never be released on a data-deletion request — it is the " +
+    "customer's own property, not a copy of information we hold",
+);
+
+// A mode nobody has invented yet falls through to "release", which costs money
+// rather than costing somebody their phone number.
+assert.deepEqual(
+  objectKeysFromRow("tradeline_phone_setups", {
+    mode: null,
+    assigned_number_sid: OUR_NUMBER_SID,
+  }).length,
+  1,
+  "an unset mode must still release — the guard narrows in the direction that only costs us",
+);
+
+// provisionNumber() mints this in TRADELINE_SETUP_TEST_MODE. It addresses
+// nothing, so releasing it would fail and be reported as an outstanding erasure.
+assert.deepEqual(
+  objectKeysFromRow("tradeline_phone_setups", {
+    mode: "new",
+    assigned_number_sid: "PN" + "0".repeat(32),
+  }),
+  [],
+  "the test-mode placeholder SID addresses no real number and must not be collected",
+);
+
+// Nothing about a number may reach the ARTEFACT deleter, whose safety rests on
+// being unable to name one.
+for (const source of STORED_OBJECTS.tradeline_phone_setups ?? []) {
+  if (source.column !== "assigned_number_sid") continue;
+  assert.equal(
+    source.store,
+    "twilioNumber",
+    "the phone number must be declared against its own store — deleteTwilioArtefact " +
+      "cannot address an IncomingPhoneNumber, and that inability is what keeps it away " +
+      "from WeFixTrades' shared infrastructure",
+  );
+  assert.deepEqual(
+    source.when,
+    { column: "mode", unless: ["port"] },
+    "the number release must stay conditional on mode; unconditional, it would relinquish " +
+      "a customer's own ported-in number",
+  );
+}
+
+// Deliberate-failure fixture: prove the port exclusion is a real comparison and
+// not a blanket refusal that happens to look right.
+{
+  const released = objectKeysFromRow("tradeline_phone_setups", {
+    mode: "new",
+    assigned_number_sid: OUR_NUMBER_SID,
+  }).length;
+  const withheld = objectKeysFromRow("tradeline_phone_setups", {
+    mode: "port",
+    assigned_number_sid: OUR_NUMBER_SID,
+  }).length;
+  assert.ok(
+    released === 1 && withheld === 0,
+    "the mode condition does not discriminate: the same SID must be collected under 'new' " +
+      "and withheld under 'port'. Equal outcomes mean the guard is either always on or " +
+      "always off, and one of those silently destroys a customer's phone number.",
+  );
+}
+
+/* ── 11d. sms_messages is reachable by BOTH of its owner columns ─────────── */
+// It was scoped by `calculator_id` alone. `jobs/reviewFollowupWorker.ts` and
+// `services/reviewRequestService.ts` both write `calculator_id: payload?.calculator_id
+// || null` beside a lead_id they have already checked is present — so those
+// texts, holding the end customer's number and the message body, survived the
+// deletion outright while the table LOOKED covered.
+{
+  const smsPlan = planFor("sms_messages")!;
+  assert.equal(smsPlan.scope.by, "anyOf", "sms_messages must be reachable by more than one route");
+  const stmt = statements.find((s) => s.table === "sms_messages");
+  assert.ok(stmt, "sms_messages must generate a delete");
+  assert.ok(
+    /from "leads"/i.test(stmt!.sql),
+    `sms_messages must be reachable through its lead as well as its calculator — a row ` +
+      `written with a null calculator_id is otherwise never deleted:\n  ${stmt!.sql}`,
+  );
+  assert.ok(
+    /from "calculators"/i.test(stmt!.sql),
+    `…and still through its calculator, for the rows that have no lead:\n  ${stmt!.sql}`,
+  );
+  // Both branches OR'd, so neither narrows the other.
+  assert.ok(
+    / or /i.test(stmt!.sql),
+    `the two routes must be OR'd — AND would delete only rows carrying both:\n  ${stmt!.sql}`,
+  );
+}
+
+// The lead route only terminates in an owned calculator because leads.calculator_id
+// is NOT NULL. If that ever changes, the branch stops being a scope.
+{
+  const leadsPlan = planFor("leads")!;
+  assert.equal(
+    leadsPlan.scope.by,
+    "parent",
+    "sms_messages reaches its owner through leads; leads must itself be scoped to the account",
+  );
+}
+
+/* ── 11e. The raw lead-form submissions ──────────────────────────────────── */
+// `intake_events.raw_payload` is the verbatim request body of every public lead
+// form — name, email, phone, every answer — beside the submitter's IP and user
+// agent. `account_id` is a bare integer with no foreign key, so neither the
+// owner-column pattern nor the FK sweep in the coverage guard could see it, and
+// the raw copy outlived the `leads` row it duplicates.
+{
+  const stmt = statements.find((s) => s.table === "intake_events");
+  assert.ok(
+    stmt && /from "calculators"/i.test(stmt.sql),
+    "intake_events must be deleted through the calculator its account_id names — the raw " +
+      "body of every lead submission survives the account otherwise",
+  );
+}
 
 /* ── 12. Deliberate-failure fixture for the object rules ────────────────── */
 // Prove assertion set (10) bites. If the store list is ever loosened to accept
@@ -590,6 +751,216 @@ assert.equal(
   }
 }
 
+/* ── 14. Retained-and-scrubbed audit rows ────────────────────────────────── */
+// `audit_log` and `admin_activity_log` carried the recipient's phone number,
+// the account holder's own email address and the FULL TEXT of messages we sent
+// on their behalf — inside jsonb blobs, in tables no plan covered, because
+// neither has an owner column the coverage guard can see. They are kept (one is
+// where a failed purge records the keys that make an orphan recoverable; the
+// other is the record that staff opened this account) and scrubbed.
+
+const redactions = previewRedactions({ userId: USER_ID, clientIds: CLIENT_IDS, email: EMAIL });
+assert.ok(redactions.length > 0, "no table is scrubbed — the audit blobs keep their PII");
+
+// Same rule as the deletes: the predicate that selects rows to scrub also
+// selects the Twilio artefacts that are about to be DELETED at Twilio, so an
+// unscoped one would erase a different customer's message.
+for (const { table, sql: text } of redactions) {
+  assert.ok(/\bWHERE\b/i.test(text), `${table}: redaction select has no WHERE clause:\n  ${text}`);
+  const where = text.slice(text.toUpperCase().indexOf("WHERE") + 5).trim();
+  assert.ok(
+    !/^(true|1\s*=\s*1)\s*$/i.test(where),
+    `${table}: redaction WHERE matches every row on the platform:\n  ${text}`,
+  );
+  assert.ok(
+    /\$\d+/.test(text),
+    `${table}: redaction WHERE binds no parameter, so it cannot be constrained to this ` +
+      `account:\n  ${text}`,
+  );
+}
+
+// An account with no clients must not fall back to a client-less predicate that
+// matches every row — the same failure the delete path is guarded against.
+{
+  const none = previewRedactions({ userId: USER_ID, clientIds: [], email: EMAIL });
+  for (const { table, sql: text } of none) {
+    assert.ok(
+      /\$\d+/.test(text),
+      `${table}: with no clients the redaction predicate must still bind the user id, or ` +
+        `be dropped entirely:\n  ${text}`,
+    );
+  }
+  // admin_activity_log is reachable only through clients, so it must vanish.
+  assert.ok(
+    !none.some((r) => r.table === "admin_activity_log"),
+    "admin_activity_log is client-scoped only; with no clients it must be SKIPPED, never " +
+      "widened to every row",
+  );
+}
+
+// Every table declared for redaction states why it is kept, and is not also
+// deleted — a deleted row needs no scrubbing, and the contradiction would mean
+// one of the two declarations is wrong about what happens to the table.
+for (const entry of METADATA_REDACTIONS) {
+  assert.ok(
+    (entry.reason ?? "").trim().length >= 30,
+    `${entry.table} is kept and scrubbed without a stated reason`,
+  );
+  assert.notEqual(
+    planFor(entry.table)?.action,
+    "delete",
+    `${entry.table} is both deleted and scrubbed`,
+  );
+  assert.ok(
+    entry.twilioColumns.every((c) => entry.jsonColumns.includes(c)),
+    `${entry.table} mines a blob for Twilio SIDs that nothing scrubs`,
+  );
+}
+
+/* ── 14b. The scrub itself ───────────────────────────────────────────────── */
+// The real shape written by `services/adminAgentTools.ts`: the ticket context
+// stays, the body and the phone number go, and the Twilio SID stays because it
+// is the pointer that makes a failed purge retryable.
+{
+  const before = {
+    ticket_id: 91,
+    client_id: 77,
+    business_name: "Ridgeline Roofing",
+    resolved_phone: "+14165550123",
+    body: "Hi Dana — your quote for the north elevation is ready.",
+    segments: 1,
+    twilio_sid: "SM33333333333333333333333333333333",
+    session_id: "sess_abc",
+  };
+  const after = redactJson(before) as { value: Record<string, unknown>; changed: boolean };
+  assert.ok(after.changed, "a metadata blob holding an SMS body must be reported as changed");
+  assert.equal(after.value.body, REDACTION_TOMBSTONE, "the message body must be erased");
+  assert.equal(after.value.resolved_phone, REDACTION_TOMBSTONE, "the phone number must be erased");
+  assert.equal(after.value.business_name, REDACTION_TOMBSTONE, "the business name must be erased");
+  // Kept: the operational skeleton, and specifically the SID.
+  assert.equal(after.value.ticket_id, 91, "the ticket id is what makes the row useful; keep it");
+  assert.equal(after.value.segments, 1, "counts are not personal data");
+  assert.equal(
+    after.value.twilio_sid,
+    "SM33333333333333333333333333333333",
+    "the Twilio SID must SURVIVE the scrub: once the Message is deleted it identifies " +
+      "nobody, and if the purge failed it is the only thing that makes a retry possible",
+  );
+  // Erased, not dropped. A reader has to be able to tell an erased field from
+  // one that was never recorded.
+  assert.ok("body" in after.value, "a redacted key must remain present, marked as redacted");
+}
+
+// Nested — `services/adminTools.ts` puts the message body under `args`. A
+// fixed-path scrub would miss it; key-name matching at any depth does not.
+{
+  const after = redactJson({
+    tool_name: "send_support_sms",
+    args: { client_id: 77, message: "We have credited your account." },
+    twilio_sid: "SM33333333333333333333333333333333",
+  }) as { value: any; changed: boolean };
+  assert.equal(
+    after.value.args.message,
+    REDACTION_TOMBSTONE,
+    "a message body nested one level down must still be erased — this is the exact shape " +
+      "adminTools writes, and a path-based scrub would have walked past it",
+  );
+  assert.equal(after.value.args.client_id, 77, "the scoping id is not personal data");
+  assert.equal(after.value.tool_name, "send_support_sms", "the tool NAME is not its arguments");
+}
+
+// Arrays and deeper nesting.
+{
+  const after = redactJson({
+    thread: [{ body: "one" }, { body: "two", note: "internal" }],
+  }) as { value: any; changed: boolean };
+  assert.deepEqual(
+    after.value.thread.map((t: any) => t.body),
+    [REDACTION_TOMBSTONE, REDACTION_TOMBSTONE],
+    "every element of an array of messages must be scrubbed, not just the first",
+  );
+  assert.equal(after.value.thread[1].note, REDACTION_TOMBSTONE);
+}
+
+// A null PII field is left alone. Writing a tombstone over it would ADD
+// information — it would claim a phone number was recorded where none was.
+{
+  const after = redactJson({ caller_email: null, caller_phone: "+14165550123" }) as {
+    value: any;
+    changed: boolean;
+  };
+  assert.equal(after.value.caller_email, null, "an absent value must not be marked as erased");
+  assert.equal(after.value.caller_phone, REDACTION_TOMBSTONE);
+}
+
+// Idempotent: re-running over an already-scrubbed row must report no change, so
+// a retry does not rewrite every audit row in the table.
+{
+  const once = redactJson({ body: "secret" });
+  const twice = redactJson(once.value);
+  assert.equal(twice.changed, false, "scrubbing an already-scrubbed blob must be a no-op");
+}
+
+// A blob with nothing personal in it is left untouched — the scrub must not
+// rewrite rows it has no reason to touch.
+{
+  const clean = { ticket_id: 4, outcome: "sent", cost_cents: 12 };
+  const after = redactJson(clean);
+  assert.equal(after.changed, false, "a blob with no PII must not be reported as changed");
+  assert.equal(after.value, clean, "…and must be returned untouched, not rebuilt");
+}
+
+/* ── 14c. The keys the callers actually write are covered ────────────────── */
+// Named explicitly rather than left to the source scan alone: if somebody
+// "tidies" one of these out of PII_METADATA_KEYS, the corresponding real call
+// site starts leaking again and this is what says so.
+for (const key of [
+  "body", // adminAgentTools — the full SMS text
+  "message", // adminTools — args.message
+  "subject", // adminAgentTools — support email subject
+  "reply_text", // the three concierges
+  "resolved_phone", // adminAgentTools
+  "sender_phone", // inboundSmsConcierge
+  "caller_phone", // voiceFollowupConcierge
+  "caller_email", // voiceFollowupConcierge
+  "sender_email", // inboundEmailConcierge
+  "target_email", // adminImpersonateRoutes — the account holder's OWN address
+  "business_name",
+  "ip",
+  "user_agent",
+]) {
+  assert.ok(
+    PII_METADATA_KEYS.includes(key),
+    `"${key}" is written into an audit blob by real code and must be scrubbed on deletion`,
+  );
+}
+
+// The pointer that must NOT be scrubbed.
+assert.ok(
+  !PII_METADATA_KEYS.includes("twilio_sid"),
+  "twilio_sid must not be scrubbed — it is the only pointer at a Twilio Message for the " +
+    "admin-SMS paths, and erasing it would orphan the artefact exactly as PR #2067 " +
+    "described for bucket files",
+);
+
+/* ── 14d. Deliberate-failure fixture for the scrub ───────────────────────── */
+// Prove the assertions above bite: a scrub that returned its input unchanged
+// would pass a test that only checked "it did not throw".
+{
+  const identity = (v: unknown) => ({ value: v, changed: false });
+  let caught = false;
+  try {
+    const out = identity({ body: "still here" }) as { value: any };
+    assert.equal(out.value.body, REDACTION_TOMBSTONE, "no-op scrub");
+  } catch {
+    caught = true;
+  }
+  assert.ok(
+    caught,
+    "the scrub assertions do not reject a redactor that leaves the message body in place",
+  );
+}
+
 const objectSources = withObjects.reduce((n, p) => n + (p.objects?.length ?? 0), 0);
 const twilioSources = withObjects.reduce(
   (n, p) => n + (p.objects?.filter((s) => s.store === "twilio").length ?? 0),
@@ -600,5 +971,7 @@ console.log(
   `account-deletion guard: OK (${statements.length} scoped deletes, ${kept.length} kept with ` +
     `a stated basis, ${Object.keys(ANONYMISE_FIELDS).length} anchor tables anonymised, ` +
     `${objectSources} pointer column(s) across ${withObjects.length} table(s) purged, ` +
-    `${twilioSources} of them at Twilio and attributed by account SID)`,
+    `${twilioSources} of them at Twilio and attributed by account SID, ` +
+    `${redactions.length} table(s) retained-and-scrubbed across ${PII_METADATA_KEYS.length} ` +
+    `PII key names)`,
 );

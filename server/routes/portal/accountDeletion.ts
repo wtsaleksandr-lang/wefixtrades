@@ -35,6 +35,7 @@ import { authRateLimiter } from "../../services/rateLimiter";
 import {
   LegalHoldError,
   deleteAccountData,
+  redactionDisclosure,
   retentionDisclosure,
 } from "../../services/accountDeletion/deleteAccount";
 import { ACCOUNT_DELETION_PLAN } from "@shared/accountDeletion/plan";
@@ -144,6 +145,12 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
             "The recordings, text messages and call records held by our phone provider " +
               "(Twilio) — the voicemail audio itself is deleted from their servers, not " +
               "just unlinked from your account",
+            "Any WeFixTrades phone number we provided you is handed back to the phone " +
+              "provider, so it stops being associated with you (a number you transferred " +
+              "in from another carrier is yours and is never taken away)",
+            "The personal details inside our internal admin and activity logs — the text " +
+              "of messages we sent for you, phone numbers, email addresses and your " +
+              "business name",
           ],
           /* Every `keep` entry in the plan must be represented here. If you add
              one, add it to this list, to privacy.tsx §10 and to its prerender
@@ -175,7 +182,24 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
                 "text messages and call records are erased from them.",
             },
           ],
+          /* A different promise from `retains`, and worth saying separately:
+             those records are kept INTACT on a legal basis. These rows are kept
+             with the personal data taken OUT of them, which is why they are not
+             in the list above — telling somebody we keep an audit log would be
+             true but would not say the useful part. */
+          retains_stripped: [
+            {
+              what: "Our internal admin and activity logs, with your personal details removed",
+              why:
+                "These record what our staff and automated tools did — including which " +
+                "files or messages a deletion could not erase on the first attempt, which " +
+                "is the only way we can finish the job by hand. The entries stay; the " +
+                "message text, phone numbers, email addresses and business name inside " +
+                "them are overwritten and marked as erased.",
+            },
+          ],
           retained_tables: retentionDisclosure(),
+          redacted_tables: redactionDisclosure(),
           already_deleted: Boolean(identity.deleted_at),
         });
       } catch (err) {
@@ -358,18 +382,27 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
          * finish the job. */
         const incomplete = receipt.objects_failed.length > 0;
         const pendingAtTwilio = receipt.objects_failed.filter((o) => o.store === "twilio").length;
-        const pendingFiles = receipt.objects_failed.length - pendingAtTwilio;
+        const pendingNumbers = receipt.objects_failed.filter(
+          (o) => o.store === "twilioNumber",
+        ).length;
+        const pendingFiles = receipt.objects_failed.length - pendingAtTwilio - pendingNumbers;
         /* Named precisely rather than lumped together as "files": a recording
            still on our phone provider's servers is a different thing to tell
-           somebody about than an image left in a bucket. */
+           somebody about than an image left in a bucket, and a phone number we
+           failed to hand back is a third thing again — nothing of theirs is
+           still readable, but the number is still ours and still associated
+           with them, which they are entitled to know. */
         const outstanding = [
           pendingFiles > 0 ? `${pendingFiles} uploaded file(s) in our storage` : null,
           pendingAtTwilio > 0
             ? `${pendingAtTwilio} recording(s)/message(s) held by our phone provider`
             : null,
+          pendingNumbers > 0
+            ? `${pendingNumbers} phone number(s) we could not hand back to the phone provider`
+            : null,
         ]
           .filter(Boolean)
-          .join(" and ");
+          .join(", ");
         res.json({
           ok: true,
           deleted_tables: Object.keys(receipt.deleted).length,
@@ -377,11 +410,21 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
           sessions_revoked: receipt.sessions_revoked,
           files_purged: receipt.objects_purged,
           retained: receipt.retained,
+          /* Rows kept but stripped of personal data. Reported beside `retained`
+             rather than folded into it: they are a different promise, and a
+             count of zero here on an account that had admin activity would be
+             the visible symptom of a scrub that stopped finding rows. */
+          redacted: receipt.redacted,
+          audit_rows_redacted: Object.values(receipt.metadata_redacted).reduce(
+            (a, b) => a + b,
+            0,
+          ),
           completed_at: receipt.completed_at,
           ...(incomplete && {
             storage_purge_incomplete: true,
             files_pending: receipt.objects_failed.length,
             twilio_pending: pendingAtTwilio,
+            numbers_pending: pendingNumbers,
             warning:
               `Your account and records are deleted, but ${outstanding} could not be erased ` +
               `on this attempt. We have logged exactly what is outstanding and will erase it ` +

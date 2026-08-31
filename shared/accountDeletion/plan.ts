@@ -56,7 +56,23 @@ export type Scope =
    * Reached through a parent row that is itself in this plan:
    * `DELETE FROM t WHERE <column> IN (SELECT <parentKey> FROM <parent> WHERE <parent scope>)`.
    */
-  | { by: "parent"; columns: string[]; parent: string; parentKey: string };
+  | { by: "parent"; columns: string[]; parent: string; parentKey: string }
+  /**
+   * Reachable by more than one route, OR'd together. A row matched by ANY
+   * branch is in scope.
+   *
+   * `sms_messages` is why this exists. It was scoped by `calculator_id` alone,
+   * and two writers (`jobs/reviewFollowupWorker.ts`,
+   * `services/reviewRequestService.ts`) store `calculator_id: payload?.calculator_id || null`
+   * beside a non-null `lead_id` — so every review-request text sent through
+   * those paths, holding the end customer's phone number and the message body,
+   * survived the deletion outright. One nullable foreign key is not a scope;
+   * a table has to be reachable by every route that can attribute it.
+   *
+   * A branch whose own scope resolves to nothing is dropped rather than
+   * widened, exactly as elsewhere; if every branch drops, so does the table.
+   */
+  | { by: "anyOf"; scopes: Scope[] };
 
 export type Action =
   /** Hard-delete every row in scope. */
@@ -108,7 +124,69 @@ export type ObjectStore =
    * brands and Push Credentials are WeFixTrades' own infrastructure, shared
    * across customers, and are deliberately unreachable from here.
    */
-  | "twilio";
+  | "twilio"
+  /**
+   * A Twilio phone number WE bought and rent to this customer —
+   * `services/twilioNumberRelease.ts`, which already existed for the churn path.
+   *
+   * Deliberately a SEPARATE store from `twilio` rather than a fifth
+   * `TwilioResource`. The property that makes the `twilio` deleter safe is that
+   * it *structurally cannot* address an account-level resource: no key it
+   * accepts can name a phone number, a Messaging Service or an A2P brand. That
+   * guarantee is worth more than the code reuse, so releasing a number gets its
+   * own store, its own key shape (`PN` + 32 hex, nothing else) and its own
+   * deleter, and `deleteTwilioArtefact` stays unable to reach a number.
+   *
+   * ── Why release at all, when #2068 deliberately did not ──
+   *
+   * #2068 refused because in the PORT flow the number is the customer's OWN
+   * property, moved to us from their previous carrier; relinquishing it on a
+   * data-deletion request would destroy a phone number rather than erase
+   * personal data. That reasoning is untouched, and the `when` condition on the
+   * declaration below is what enforces it: `mode: "port"` is never released.
+   *
+   * The other two modes are a different thing entirely. In `new` and `forward`
+   * we bought the number from Twilio ourselves (`incomingPhoneNumbers.create`
+   * in `services/tradelineSetup/provisionNumber.ts`); it is our inventory,
+   * rented to them, and was never theirs to keep. Leaving it is not
+   * conservatism, it leaks in two directions:
+   *   • It bills monthly, forever. The churn path that would release it runs
+   *     off subscription state and is never triggered by a deletion — and the
+   *     deletion DELETES `tradeline_phone_setups`, which holds the only copy of
+   *     `assigned_number_sid`. The SID is therefore not merely un-actioned, it
+   *     is destroyed: a recurring charge with nothing left pointing at it.
+   *     Exactly the orphan #2067 exists to prevent.
+   *   • It stays wired to the erased account. The number keeps the voice_url
+   *     and messaging-service binding aimed at this customer's routing, so
+   *     calls and texts meant for a business that asked to be erased keep
+   *     arriving at our infrastructure.
+   */
+  | "twilioNumber";
+
+/**
+ * A row-level condition on an object declaration.
+ *
+ * Most pointers are unconditional — a bucket key is a bucket key. One is not:
+ * whether `tradeline_phone_setups.assigned_number_sid` may be released depends
+ * on `mode`, because the column holds a number we rented out in two of the three
+ * wizard flows and is bound up with the customer's own number in the third.
+ * Declared beside the pointer so the condition is reviewable in the same place
+ * and provable by a fixture, rather than buried in the executor.
+ *
+ * Deliberately only ever NARROWS: a condition can stop an artefact being
+ * collected, never cause one to be collected that the column did not name.
+ */
+export interface SourceCondition {
+  /** Another column on the same row. */
+  column: string;
+  /**
+   * Collect only when the row's value is NOT one of these. A NULL value equals
+   * none of them, so it collects — which is the safe direction here: an
+   * unforeseen mode falls through to "release a number we pay for", while the
+   * one value that must never be released is named explicitly.
+   */
+  unless: string[];
+}
 
 /**
  * How to read object pointers out of one column.
@@ -129,11 +207,11 @@ export type ObjectStore =
  */
 export type ObjectSource =
   /** The column's value IS the pointer. */
-  | { store: ObjectStore; column: string; read: "text" }
+  | { store: ObjectStore; column: string; read: "text"; when?: SourceCondition }
   /** JSONB array of objects; `field` names the property holding the pointer. */
-  | { store: ObjectStore; column: string; read: "jsonField"; field: string }
+  | { store: ObjectStore; column: string; read: "jsonField"; field: string; when?: SourceCondition }
   /** Arbitrary JSONB; collect every string value that belongs to `store`. */
-  | { store: ObjectStore; column: string; read: "jsonScan" };
+  | { store: ObjectStore; column: string; read: "jsonScan"; when?: SourceCondition };
 
 export interface TablePlan {
   /** SQL table name, exactly as it appears in `pgTable("…")`. */
@@ -344,6 +422,23 @@ const DELETE_VIA_PARENT: Array<
   ["content_approvals", ["draft_id"], "content_drafts", "id"],
   ["deployment_status", ["calculator_id"], "calculators", "id"],
   ["followup_jobs", ["calculator_id"], "calculators", "id"],
+  /**
+   * The verbatim request body of every public lead-form submission — the end
+   * customer's name, email, phone and every answer they typed — plus their IP
+   * address and user agent in typed columns beside it.
+   *
+   * It was in no plan. `account_id` is a bare integer with no foreign key, so
+   * neither the owner-column pattern nor the foreign-key sweep in
+   * check-account-deletion-coverage could see it, and the `leads` row this
+   * duplicates was deleted while the raw copy of the same submission stayed.
+   *
+   * `account_id` is unambiguous: `routes/leadRoutes.ts` is the only caller that
+   * sets it and it passes `calculator_id`. The other two writers
+   * (`demoLeadRoutes`, `missedCallLeadRoutes`) leave it null — those are
+   * WeFixTrades' own marketing-funnel leads, owned by no customer account, and
+   * the null keeps them correctly out of scope.
+   */
+  ["intake_events", ["account_id"], "calculators", "id"],
   ["leads", ["calculator_id"], "calculators", "id"],
   ["mapguard_task_activity", ["task_id"], "mapguard_tasks", "id"],
   ["notification_queue", ["calculator_id"], "calculators", "id"],
@@ -351,7 +446,6 @@ const DELETE_VIA_PARENT: Array<
   ["rankflow_qa_checks", ["task_id"], "rankflow_tasks", "id"],
   ["rankflow_rankings", ["keyword_id"], "rankflow_keywords", "id"],
   ["scheduled_appointments", ["calculator_id"], "calculators", "id"],
-  ["sms_messages", ["calculator_id"], "calculators", "id"],
   ["ticket_events", ["ticket_id"], "support_tickets", "id"],
   ["ticket_messages", ["ticket_id"], "support_tickets", "id"],
   ["tradeline_call_log", ["client_service_id"], "client_services", "id"],
@@ -359,6 +453,49 @@ const DELETE_VIA_PARENT: Array<
   ["tradeline_usage", ["client_service_id"], "client_services", "id"],
   ["video_scenes", ["project_id"], "video_projects", "id"],
   ["widget_deposits", ["calculator_id"], "calculators", "id"],
+];
+
+/**
+ * Deleted, but reachable by more than one route. Kept out of the lists above
+ * because a single (table, column, parent) tuple cannot express them.
+ */
+const DELETE_ANY_OF: TablePlan[] = [
+  {
+    /**
+     * The SMS conversation: both parties' phone numbers and the message bodies.
+     *
+     * Scoped by `calculator_id` alone until now, which quietly lost a whole
+     * class of rows. `jobs/reviewFollowupWorker.ts` and
+     * `services/reviewRequestService.ts` both write
+     * `calculator_id: (payload?.calculator_id) || null` next to a `lead_id` they
+     * have already checked is present — so a review-request text whose job
+     * payload carried no calculator id was stored with the end customer's phone
+     * number and the message body, and then survived the account deletion
+     * outright. Nothing reported it, because a table the plan covers looks
+     * covered.
+     *
+     * `leads.calculator_id` is NOT NULL, so the lead route always terminates in
+     * a calculator this user owns; the two branches agree on who a row belongs
+     * to and only differ in how they get there.
+     *
+     * Still not reachable, and not this mechanism's to reach: the inbound
+     * HELP/STOP handler (`routes/twilioRoutes.ts`) stores `lead_id: null,
+     * calculator_id: null` for a keyword text arriving on the shared
+     * WeFixTrades brand line. Those rows are attributable to no account at all
+     * — the number on them belongs to whoever texted us, not to any customer —
+     * so no customer's deletion request has a claim on them. They are the
+     * platform's own inbound log and are governed by the retention sweep.
+     */
+    table: "sms_messages",
+    action: "delete",
+    scope: {
+      by: "anyOf",
+      scopes: [
+        { by: "parent", columns: ["calculator_id"], parent: "calculators", parentKey: "id" },
+        { by: "parent", columns: ["lead_id"], parent: "leads", parentKey: "id" },
+      ],
+    },
+  },
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -522,11 +659,44 @@ export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
      * phone number, which this row is erased for holding, so it goes for the
      * same reason. Our own outbound call to them: no third party's data in it.
      *
-     * Two Twilio identifiers on this table are deliberately NOT here — the
-     * provisioned number and the port-in order. See NO_TWILIO_ARTEFACTS in
-     * scripts/check-account-deletion-coverage.ts for why, and the retention
-     * note above for what the deletion copy has to say about it. */
+     * The port-in ORDER on this table is deliberately not here — see
+     * NO_TWILIO_ARTEFACTS in scripts/check-account-deletion-coverage.ts for
+     * why, and the retention note above for what the deletion copy says about
+     * it. The provisioned number is now handled, conditionally, below. */
     { store: "twilio", column: "forwarding_test_call_sid", read: "text" },
+
+    /* The phone number we bought and rent to this customer — released back to
+     * Twilio, but ONLY when it is ours to release.
+     *
+     * `mode` is the discriminator, and it is exact rather than a guess:
+     *   • "new"     — `provisionNumber()` bought it (routes/tradelineSetupRoutes.ts
+     *                 `/provision-new`). Ours.
+     *   • "forward" — `provisionNumber()` bought a hidden WeFixTrades number for
+     *                 the customer's own carrier to forward TO. Also ours; the
+     *                 number that is theirs in this flow is `customer_number`,
+     *                 which sits at their carrier and which we could not touch
+     *                 if we wanted to.
+     *   • "port"    — the customer's OWN number, moved to us from their previous
+     *                 carrier. Never released. Relinquishing it would destroy a
+     *                 phone number they may still want to move on to somebody
+     *                 else, which is not an erasure of personal data, it is
+     *                 taking something away.
+     *
+     * The port branch never populates this column in the first place — on
+     * completion `jobs/portStatusPollWorker.ts` writes `assigned_number` and
+     * pointedly not `assigned_number_sid` — so `mode` and the column already
+     * agree. The condition is belt-and-braces for the one drift that is
+     * plausible: a customer who starts in "new", is sold a number, then switches
+     * to "port". That leaves a number we bought behind an un-releasable mode,
+     * which costs us a monthly fee. The opposite error costs the customer their
+     * phone number, so the condition errs in the direction that only costs
+     * money. */
+    {
+      store: "twilioNumber",
+      column: "assigned_number_sid",
+      read: "text",
+      when: { column: "mode", unless: ["port"] },
+    },
   ],
 
   /**
@@ -643,7 +813,273 @@ export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
 };
 
 /* ──────────────────────────────────────────────────────────────────────────
- * 5. The assembled plan.
+ * 5. Redacted metadata — the rows we keep, and the personal data taken out of
+ *    them.
+ *
+ * ── The hole this closes ──
+ *
+ * `audit_log` and `admin_activity_log` were in no plan at all, and neither is
+ * reachable by the coverage guard: `audit_log` has no owner column (`actor_id`
+ * and `entity_id` are free text) and `admin_activity_log`'s are plain
+ * `integer`s named `actor_id` / `entity_id`, so neither matches OWNER_COLUMNS
+ * and neither holds a foreign key. Two tables sat outside a mechanism built to
+ * make it impossible for a table to sit outside it.
+ *
+ * What they hold is not incidental. `services/adminAgentTools.ts` writes the
+ * recipient's phone number, the business name and the FULL SMS BODY into
+ * `audit_log.metadata`; `services/adminTools.ts` writes the message body into
+ * `admin_activity_log.metadata.args`. The inbound-SMS, voice-followup and
+ * inbound-email concierges each write the third party's phone number or email
+ * plus the reply text. `routes/adminImpersonateRoutes.ts` writes the account
+ * holder's own email address — the very field `ANONYMISE_FIELDS` overwrites on
+ * the `users` row, preserved verbatim in a row nothing touched.
+ *
+ * ── Redaction, not deletion, and why that is the honest answer ──
+ *
+ * Deleting these rows outright is the wrong instrument twice over:
+ *
+ *   1. It would destroy the record this deletion itself depends on. #2067
+ *      writes the keys of any file it could not purge into `audit_log`,
+ *      because none of our stores can be listed by prefix and we deliberately
+ *      never list Twilio — without that row an orphan is unrecoverable
+ *      forever. A deletion whose last act is to erase its own recovery trail
+ *      would leave the customer's phone bill in a bucket AND remove the only
+ *      evidence of where it is.
+ *   2. It is a security audit trail. `impersonate.start` is the record that a
+ *      member of staff opened this account. Erasing it on the account holder's
+ *      own request removes the accountability that exists for their benefit,
+ *      and an audit log that can be emptied by the party it audits is not one.
+ *
+ * So the row survives and the personal data inside it does not. What is kept is
+ * the skeleton: who acted, what they did, to which entity, when, and the
+ * opaque identifiers a support engineer needs to finish an interrupted purge.
+ * What goes is the content: bodies, phone numbers, email addresses, names and
+ * the actor's IP.
+ *
+ * Redacted fields are OVERWRITTEN with a tombstone, never dropped. A missing
+ * key and an erased key look identical to a reader, and the difference matters:
+ * an auditor has to be able to tell "this was erased on a deletion request"
+ * from "this was never recorded". `REDACTION_TOMBSTONE` is what says so.
+ *
+ * ── The ordering trap, which is the whole reason this is subtle ──
+ *
+ * `audit_log.metadata.twilio_sid` is, for the admin-SMS paths, the ONLY pointer
+ * in this database at a Twilio Message — neither `adminAgentTools` nor
+ * `adminTools` writes an `sms_messages` row, they call `sendSMS` directly. That
+ * Message holds the recipient's number and the body at Twilio. #2068's TWILIO
+ * COVERAGE check scans column NAMES, so a SID buried inside a jsonb blob was
+ * invisible to it and the Message was never erased.
+ *
+ * Which means the naive fix — scrub the metadata — is the #2067 defect all over
+ * again: it would destroy the only pointer to data still sitting at Twilio, and
+ * report a clean erasure. So `twilioColumns` is collected FIRST, inside the
+ * transaction, and the artefacts go through the same purge as every other
+ * Twilio artefact; only then is the blob scrubbed. `twilio_sid` itself is then
+ * deliberately KEPT in the redacted row: once the Message is gone the SID is a
+ * dead opaque token that identifies nobody, and if the purge FAILED it is the
+ * one thing that makes a retry possible — the same argument, and the same
+ * trade, that `objects_failed` rests on.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** Written over a redacted value, so an erased field is legible as erased. */
+export const REDACTION_TOMBSTONE = "[redacted — account deleted]";
+
+/**
+ * How a retained row is attributed to the account being erased.
+ *
+ * OR'd together: a row matched by any branch is redacted. Every branch is a
+ * PRECISE attribution — the row names this user or one of their clients — not a
+ * heuristic, because the same predicate also selects the Twilio artefacts that
+ * are about to be deleted, and a loose match there would erase somebody else's
+ * message.
+ */
+export type RedactionMatch =
+  /** `column` holds `users.id`, as text or as an integer. */
+  | { by: "user"; column: string; as: "text" | "int" }
+  /** `column` -> JSON path holds a `clients.id` this user owns. */
+  | { by: "clientJson"; column: string; path: string[] }
+  /** `typeColumn` = `entityType` AND `idColumn` is one of this account's ids. */
+  | {
+      by: "entity";
+      typeColumn: string;
+      idColumn: string;
+      entityType: string;
+      ids: "user" | "client";
+      as: "text" | "int";
+    };
+
+export interface MetadataRedaction {
+  table: string;
+  /** Why the ROW is retained rather than deleted. Held to the same standard as `keep`. */
+  reason: string;
+  /** Attribution. OR'd; a table with none would redact nothing. */
+  match: RedactionMatch[];
+  /**
+   * JSON columns scrubbed key-by-key at any depth: every key named in
+   * `PII_METADATA_KEYS` is replaced by the tombstone, everything else is left
+   * alone. Key-name matching rather than fixed paths, because the same field
+   * appears at different depths across callers (`metadata.body` in one,
+   * `metadata.args.message` in another) and a path list would silently stop
+   * covering a caller that nested one level deeper.
+   */
+  jsonColumns: string[];
+  /**
+   * Plain columns overwritten wholesale. Free text cannot be scrubbed
+   * selectively, so a column that interpolates personal data goes entirely.
+   */
+  textColumns: string[];
+  /**
+   * JSON columns scanned for Twilio identifiers BEFORE the scrub, so an
+   * artefact whose only pointer lives in a blob is erased rather than orphaned.
+   * Must be a subset of `jsonColumns` — a blob nothing scrubs cannot be hiding
+   * a SID the scrub is about to destroy.
+   */
+  twilioColumns: string[];
+}
+
+/**
+ * Key names treated as personal data wherever they appear inside a scrubbed
+ * blob, at any depth.
+ *
+ * Derived from the actual call sites, not invented: every name here is one this
+ * codebase really writes into an audit blob. `scripts/check-account-deletion-coverage.ts`
+ * re-derives the set from source at CI time and fails when a new PII-shaped key
+ * appears that is neither listed here nor exempted with a reason, so this list
+ * cannot quietly fall behind the callers.
+ */
+export const PII_METADATA_KEYS: string[] = [
+  // Message content — the most serious of these. The full text of an SMS, an
+  // email or an AI-drafted reply, verbatim.
+  "body",
+  "sms_body",
+  "message",
+  "text",
+  "content",
+  "subject",
+  "reply_text",
+  "executor_message",
+  "transcript",
+  "summary",
+  // Phone numbers — the recipient's, the caller's, the sender's.
+  "phone",
+  "phone_number",
+  "resolved_phone",
+  "sender_phone",
+  "caller_phone",
+  "recipient_phone",
+  "to_number",
+  "from_number",
+  "number",
+  // Email addresses, including the account holder's own (impersonation rows).
+  "email",
+  "target_email",
+  "sender_email",
+  "caller_email",
+  "recipient_email",
+  "contact_email",
+  "to_email",
+  "from_email",
+  // Names and addresses. `business_name` is here because anonymising
+  // `clients.business_name` is pointless if an audit row keeps the original.
+  "business_name",
+  "contact_name",
+  "customer_name",
+  "full_name",
+  "reviewer",
+  "address",
+  "street_address",
+  "service_address",
+  // Free-text the customer or their end customer typed.
+  "note",
+  "notes",
+  "revision_notes",
+  "answers",
+  // The actor's own network identity when the actor is the account holder.
+  "ip",
+  "ip_address",
+  "user_agent",
+];
+
+export const METADATA_REDACTIONS: MetadataRedaction[] = [
+  {
+    table: "audit_log",
+    reason:
+      "Append-only security and operations trail. It is also where a deletion " +
+      "records the files and Twilio artefacts it could NOT purge — without those " +
+      "keys an orphan is unrecoverable, because no store here can be listed by " +
+      "prefix. The row is kept for that; everything in it that identifies a " +
+      "person is overwritten.",
+    match: [
+      // The account holder's own actions. `actor_id` is text holding the
+      // stringified users.id.
+      { by: "user", column: "actor_id", as: "text" },
+      // Rows about one of this user's businesses — the shape every admin/AI
+      // tool and every concierge writes.
+      { by: "clientJson", column: "metadata", path: ["client_id"] },
+      // `impersonate.start` records the target user, not the client, and
+      // carries their email address.
+      {
+        by: "entity",
+        typeColumn: "entity_type",
+        idColumn: "entity_id",
+        entityType: "user",
+        ids: "user",
+        as: "text",
+      },
+    ],
+    jsonColumns: ["metadata", "before", "after", "diff"],
+    // `ip` and `user_agent` are the ACTOR's. On a row matched by `actor_id`
+    // that actor is the account holder, and their IP is personal data in its
+    // own right (GDPR Art. 4(1)); on a row matched any other way the actor is
+    // staff and this erases a little of our own trail, which is the acceptable
+    // side of the trade.
+    textColumns: ["ip", "user_agent"],
+    twilioColumns: ["metadata"],
+  },
+  {
+    table: "admin_activity_log",
+    reason:
+      "Record of what staff and the AI copilot did to this account. Retained for " +
+      "the same accountability reason as the impersonation log: an audit trail " +
+      "the audited party can empty is not an audit trail. Personal data inside " +
+      "it is overwritten.",
+    match: [
+      // entity_id is an integer here, and the client rows are what carry the
+      // customer's data.
+      {
+        by: "entity",
+        typeColumn: "entity_type",
+        idColumn: "entity_id",
+        entityType: "client",
+        ids: "client",
+        as: "int",
+      },
+      // `services/adminTools.ts` nests the tool arguments, and the client id
+      // with them.
+      { by: "clientJson", column: "metadata", path: ["args", "client_id"] },
+      { by: "clientJson", column: "metadata", path: ["client_id"] },
+    ],
+    jsonColumns: ["metadata"],
+    // `summary` is free text that interpolates the business name
+    // (`AI sent a support SMS to ${client.business_name}`), so it cannot be
+    // scrubbed selectively. `actor_name` is deliberately NOT here — that is the
+    // staff member or agent who acted, which is the part being retained.
+    textColumns: ["summary"],
+    twilioColumns: ["metadata"],
+  },
+];
+
+export function redactionFor(table: string): MetadataRedaction | undefined {
+  return METADATA_REDACTIONS.find((r) => r.table === table);
+}
+
+/** The redaction disclosure, for the confirmation screen and the receipt. */
+export function redactedTables(): { table: string; reason: string }[] {
+  return METADATA_REDACTIONS.map((r) => ({ table: r.table, reason: r.reason }));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * 6. The assembled plan.
  * ──────────────────────────────────────────────────────────────────────── */
 
 const ASSEMBLED: TablePlan[] = [
@@ -669,6 +1105,7 @@ const ASSEMBLED: TablePlan[] = [
       scope: { by: "parent", columns, parent, parentKey },
     }),
   ),
+  ...DELETE_ANY_OF,
   ...KEEP,
 ];
 
@@ -695,6 +1132,25 @@ export const SESSION_DELETE_NOTE =
 
 export function planFor(table: string): TablePlan | undefined {
   return ACCOUNT_DELETION_PLAN.find((p) => p.table === table);
+}
+
+/**
+ * Every column a scope names, flattened through `anyOf`. The guard checks these
+ * exist on the table and that a scope names at least one — an `anyOf` whose
+ * branches were all empty would otherwise read as "scoped" while constraining
+ * nothing.
+ */
+export function scopeColumns(scope: Scope): string[] {
+  return scope.by === "anyOf" ? scope.scopes.flatMap(scopeColumns) : scope.columns;
+}
+
+/** Every `parent` branch a scope reaches, flattened through `anyOf`. */
+export function scopeParents(
+  scope: Scope,
+): Array<{ parent: string; parentKey: string; columns: string[] }> {
+  if (scope.by === "anyOf") return scope.scopes.flatMap(scopeParents);
+  if (scope.by !== "parent") return [];
+  return [{ parent: scope.parent, parentKey: scope.parentKey, columns: scope.columns }];
 }
 
 /** Tables whose rows are hard-deleted. */

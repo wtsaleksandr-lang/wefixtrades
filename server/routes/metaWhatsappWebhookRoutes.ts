@@ -198,13 +198,15 @@ export function registerMetaWhatsappWebhookRoutes(app: Express): void {
         const phoneNumberId = value.metadata?.phone_number_id
           ? String(value.metadata.phone_number_id)
           : null;
-        const displayPhoneNumber = value.metadata?.display_phone_number
-          ? String(value.metadata.display_phone_number)
-          : null;
+        // `value.metadata.display_phone_number` is the customer's own WhatsApp
+        // Business number and is deliberately not bound — `phone_number_id`,
+        // Meta's opaque handle for the same line, is what the audit row records.
 
         // Inbound messages.
         for (const m of value.messages || []) {
-          const senderWaId = m.from ? String(m.from) : null;
+          // `m.from` — the sender's phone number in E.164 — is deliberately not
+          // bound: nothing below may record it, and a bound variable is an
+          // invitation for the next edit to put it back into the audit row.
           const messageId = m.id ? String(m.id) : null;
           const messageType = m.type ? String(m.type) : null;
           const messageText = m.text?.body ?? null;
@@ -218,17 +220,26 @@ export function registerMetaWhatsappWebhookRoutes(app: Express): void {
               after: {
                 waba_id: wabaId,
                 phone_number_id: phoneNumberId,
-                display_phone_number: displayPhoneNumber,
-                sender_wa_id: senderWaId,
                 message_id: messageId,
                 message_type: messageType,
-                // Truncate body in the audit row so a flood of long
-                // messages doesn't bloat audit_log. Full text is still
-                // retrievable from Meta if needed.
-                message_text:
-                  messageText && messageType === "text"
-                    ? messageText.slice(0, 500)
-                    : null,
+                /* The sender's WhatsApp id and the message body are deliberately
+                 * NOT here, and `sender_wa_id` was the worse of the two: on
+                 * WhatsApp it IS the sender's phone number in E.164, stored raw.
+                 *
+                 * This row is keyed by a Meta phone-number id and audit_log has
+                 * no owner column, so no account-deletion scope can reach it —
+                 * a member of the public's phone number and the text they sent
+                 * would sit here permanently, past their correspondent's erasure
+                 * request and past any of ours. Redaction cannot scrub a row
+                 * nothing can find, so the fix is not to write it. Meta is the
+                 * system of record and `message_id` points back at it.
+                 *
+                 * `display_phone_number` goes too: it is the WhatsApp Business
+                 * number of the customer whose account this is, i.e. exactly the
+                 * kind of contact detail the deletion anonymises everywhere
+                 * else. `phone_number_id` is Meta's opaque handle and stays,
+                 * because it is what makes the row attributable at all. */
+                message_length: messageText ? messageText.length : null,
                 meta_timestamp: m.timestamp ?? null,
               },
               metadata: {

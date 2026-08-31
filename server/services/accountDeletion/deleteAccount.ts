@@ -41,6 +41,21 @@
  *     incomplete, and the keys are written to `audit_log` so support can
  *     finish it by hand.
  *
+ * Rows we keep are not rows we leave alone:
+ *   • `audit_log` and `admin_activity_log` carried the recipient's phone
+ *     number, the account holder's own email address and the FULL TEXT of the
+ *     messages we sent on their behalf, inside jsonb blobs — and were in no
+ *     plan at all, because neither has an owner column the coverage guard could
+ *     see. Deleting them outright is not the answer: one is where a failed
+ *     purge records the keys that make an orphan recoverable, and the other is
+ *     the record that staff opened this account, which the account holder
+ *     should not be able to erase. So the rows survive and the personal data
+ *     inside them is overwritten — see `redactRetainedMetadata` below and the
+ *     note above `METADATA_REDACTIONS` in the plan.
+ *   • Order matters: a Twilio SID buried in one of those blobs is sometimes the
+ *     only pointer at a message still held by Twilio, so the artefacts are
+ *     collected before the scrub, not after.
+ *
  * Irreversible. There is no undo and no grace window — see the design note at
  * the top of `shared/accountDeletion/plan.ts`.
  */
@@ -53,14 +68,21 @@ import { deleteObject } from "../../lib/objectStorage";
 import { deleteUploadedFile } from "../fileStorage";
 import { deleteFromR2, r2KeyFromUrl } from "../../lib/r2Upload";
 import { deleteTwilioArtefact, twilioArtefactKey } from "../../lib/twilioArtefacts";
+import { releaseNumberArtefact } from "../twilioNumberRelease";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
+  METADATA_REDACTIONS,
+  PII_METADATA_KEYS,
+  REDACTION_TOMBSTONE,
   deletionOrder,
   keptTables,
   planFor,
+  redactedTables,
   tablesWithObjects,
+  type MetadataRedaction,
   type ObjectStore,
+  type RedactionMatch,
   type Scope,
   type TablePlan,
 } from "@shared/accountDeletion/plan";
@@ -100,6 +122,14 @@ export interface DeletionReceipt {
   anonymized: string[];
   /** Kept on a legal basis — exactly what the UI and the policy must say. */
   retained: { table: string; reason: string }[];
+  /**
+   * Rows KEPT but scrubbed of personal data: table → rows changed. The audit
+   * trail survives; the message bodies, phone numbers, emails and names inside
+   * it do not. Only tables that actually had rows appear.
+   */
+  metadata_redacted: Record<string, number>;
+  /** The redaction disclosure — what the UI and the policy must say about it. */
+  redacted: { table: string; reason: string }[];
   sessions_revoked: number;
   total_rows_deleted: number;
   /**
@@ -173,6 +203,19 @@ function predicateFor(scope: Scope, ctx: ScopeContext): SQL | null {
       if (!parentPredicate) return null;
       const sub = sql`SELECT ${sql.identifier(scope.parentKey)} FROM ${sql.identifier(scope.parent)} WHERE ${parentPredicate}`;
       const parts = scope.columns.map((c) => sql`${sql.identifier(c)} IN (${sub})`);
+      return sql.join(parts, sql` OR `);
+    }
+    case "anyOf": {
+      /* Branches that resolve to nothing are DROPPED, not treated as "match
+       * everything" — the same rule the single-scope cases follow. If every
+       * branch drops there is nothing in scope and the table is skipped, which
+       * is why this returns null rather than an empty (and therefore
+       * everything-matching) disjunction. */
+      const parts = scope.scopes
+        .map((s) => predicateFor(s, ctx))
+        .filter((p): p is SQL => p !== null)
+        .map((p) => sql`(${p})`);
+      if (parts.length === 0) return null;
       return sql.join(parts, sql` OR `);
     }
   }
@@ -282,6 +325,15 @@ function ownedKey(store: ObjectStore, value: unknown): string | null {
       return !value.startsWith("/") && !value.includes("://") ? value : null;
     case "twilio":
       return twilioArtefactKey(value);
+    case "twilioNumber":
+      /* An IncomingPhoneNumber SID and nothing else. Kept deliberately narrow
+       * and separate from `twilio` above: this is the only key shape whose
+       * deleter relinquishes a phone number, and the `twilio` deleter must stay
+       * structurally unable to reach one. `PN0…0` is the placeholder
+       * provisionNumber() mints in TRADELINE_SETUP_TEST_MODE — a bogus SID that
+       * addresses nothing, so it is not ours to release and must not be
+       * reported as an outstanding one either. */
+      return /^PN[0-9a-f]{32}$/i.test(value) && !/^PN0{32}$/.test(value) ? value : null;
   }
 }
 
@@ -306,11 +358,35 @@ function asJson(value: unknown): unknown {
   }
 }
 
+/**
+ * Does a declaration's `when` condition hold for this row?
+ *
+ * Only ever narrows. A row whose guard column matches one of the `unless`
+ * values yields nothing from that source — which for
+ * `tradeline_phone_setups.assigned_number_sid` is what stops a customer's own
+ * ported-in number being relinquished on a data-deletion request.
+ *
+ * Compared as trimmed strings so a `varchar` mode reads the same whether the
+ * driver hands it back padded or not. NULL matches nothing in `unless` and
+ * therefore collects, which is the safe direction: the failure is a number we
+ * keep paying for, not a number the customer loses.
+ */
+function conditionHolds(
+  when: NonNullable<NonNullable<TablePlan["objects"]>[number]["when"]>,
+  row: Record<string, unknown>,
+): boolean {
+  const raw = row[when.column];
+  if (raw === null || raw === undefined) return true;
+  const value = String(raw).trim();
+  return !when.unless.includes(value);
+}
+
 /** The pointers one declared source yields from one row. */
 function readSource(
   source: NonNullable<TablePlan["objects"]>[number],
   row: Record<string, unknown>,
 ): string[] {
+  if (source.when && !conditionHolds(source.when, row)) return [];
   const raw = row[source.column];
   const isKey = (v: string | null): v is string => v !== null;
   switch (source.read) {
@@ -400,7 +476,16 @@ async function collectStoredObjects(
     const predicate = predicateFor(entry.scope, ctx);
     if (!predicate) continue; // nothing in scope — never widen to every tenant
 
-    const columns = [...new Set(entry.objects!.map((s) => s.column))];
+    /* The guard columns too — a `when` condition cannot be evaluated on a row
+     * that was never selected, and a missing value would read as NULL, which
+     * collects. Silently releasing a customer's ported number because a column
+     * was left out of a SELECT is exactly the failure the condition exists to
+     * prevent. */
+    const columns = [
+      ...new Set(
+        entry.objects!.flatMap((s) => (s.when ? [s.column, s.when.column] : [s.column])),
+      ),
+    ];
     const selection = sql.join(
       columns.map((c) => sql.identifier(c)),
       sql`, `,
@@ -428,6 +513,7 @@ const STORE_DELETERS: Record<ObjectStore, (key: string) => Promise<boolean>> = {
   uploads: deleteUploadedFile,
   r2: deleteFromR2,
   twilio: deleteTwilioArtefact,
+  twilioNumber: releaseNumberArtefact,
 };
 
 /**
@@ -466,6 +552,231 @@ async function purgeStoredObjects(
   return { purged, failed };
 }
 
+/* ── Metadata redaction ──────────────────────────────────────────────────────
+ *
+ * `audit_log` and `admin_activity_log` are kept — one because it is where a
+ * failed purge records the keys that make an orphan recoverable at all, both
+ * because an audit trail the audited party can empty is not an audit trail. See
+ * the long note above `METADATA_REDACTIONS` in the plan for the full argument.
+ *
+ * Kept is not untouched. What survives is the skeleton — who did what, to which
+ * entity, when, and the opaque identifiers support needs. What goes is the
+ * message bodies, the phone numbers, the email addresses, the names, and the
+ * account holder's own IP.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** The WHERE clause selecting one account's rows, or null when nothing matches. */
+function redactionPredicate(entry: MetadataRedaction, ctx: ScopeContext): SQL | null {
+  const parts: SQL[] = [];
+  for (const match of entry.match) {
+    const part = redactionMatchPredicate(match, ctx);
+    if (part) parts.push(sql`(${part})`);
+  }
+  // No branch resolved — nothing of this account's is in this table. Returning
+  // null skips it; an empty disjunction would match every row on the platform.
+  return parts.length === 0 ? null : sql.join(parts, sql` OR `);
+}
+
+function redactionMatchPredicate(match: RedactionMatch, ctx: ScopeContext): SQL | null {
+  switch (match.by) {
+    case "user": {
+      const col = sql.identifier(match.column);
+      return match.as === "text"
+        ? sql`${col} = ${String(ctx.userId)}`
+        : sql`${col} = ${ctx.userId}`;
+    }
+    case "clientJson": {
+      if (ctx.clientIds.length === 0) return null;
+      /* `#>>` walks the whole path in one operator and yields text, so a client
+       * id stored as a JSON number and one stored as a JSON string compare
+       * alike. Both shapes are in the data — the callers are hand-written
+       * object literals, not a schema. */
+      const path = sql`${sql.raw(`ARRAY[${match.path.map((p) => `'${p.replace(/'/g, "''")}'`).join(", ")}]`)}`;
+      return sql`${sql.identifier(match.column)} #>> ${path} IN (${sql.join(
+        ctx.clientIds.map((id) => sql`${String(id)}`),
+        sql`, `,
+      )})`;
+    }
+    case "entity": {
+      const ids = match.ids === "user" ? [ctx.userId] : ctx.clientIds;
+      if (ids.length === 0) return null;
+      const idCol = sql.identifier(match.idColumn);
+      const list = sql.join(
+        ids.map((id) => (match.as === "text" ? sql`${String(id)}` : sql`${id}`)),
+        sql`, `,
+      );
+      return sql`${sql.identifier(match.typeColumn)} = ${match.entityType} AND ${idCol} IN (${list})`;
+    }
+  }
+}
+
+const PII_KEY_SET = new Set(PII_METADATA_KEYS.map((k) => k.toLowerCase()));
+
+/**
+ * Replace every PII-named key anywhere inside a JSON value with the tombstone.
+ *
+ * Key NAMES, at any depth, rather than fixed paths: the same field appears at
+ * different depths across callers (`metadata.body` in `adminAgentTools`,
+ * `metadata.args.message` in `adminTools`), and a path list would silently stop
+ * covering a caller that nested one level deeper — the failure mode being a
+ * message body that quietly survives.
+ *
+ * A null or absent value is left alone. Writing a tombstone over a field that
+ * held nothing would ADD information — it would say a phone number was recorded
+ * where none was — and the point of the tombstone is to be accurate about what
+ * was erased.
+ */
+export function redactJson(value: unknown): { value: unknown; changed: boolean } {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const out = value.map((item) => {
+      const r = redactJson(item);
+      if (r.changed) changed = true;
+      return r.value;
+    });
+    return { value: changed ? out : value, changed };
+  }
+  if (value && typeof value === "object") {
+    let changed = false;
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (PII_KEY_SET.has(key.toLowerCase())) {
+        if (item === null || item === undefined || item === REDACTION_TOMBSTONE) {
+          out[key] = item;
+        } else {
+          out[key] = REDACTION_TOMBSTONE;
+          changed = true;
+        }
+        continue;
+      }
+      const r = redactJson(item);
+      if (r.changed) changed = true;
+      out[key] = r.value;
+    }
+    return { value: changed ? out : value, changed };
+  }
+  return { value, changed: false };
+}
+
+/**
+ * Scrub one table's retained rows, and hand back the Twilio artefacts found in
+ * the blobs on the way through.
+ *
+ * ── Order matters here, and it is the whole point ──
+ *
+ * `audit_log.metadata.twilio_sid` is the ONLY pointer this database holds at
+ * the Twilio Message behind an admin-sent SMS — `services/adminAgentTools.ts`
+ * and `services/adminTools.ts` call `sendSMS` directly and write no
+ * `sms_messages` row. #2068's TWILIO COVERAGE check reads column NAMES, so a
+ * SID inside a jsonb blob was invisible to it. Scrubbing the blob first would
+ * therefore destroy the only route to a message that still holds the
+ * customer's number and the body at Twilio, and report a clean erasure — the
+ * #2067 defect, rebuilt. So the SIDs are collected BEFORE the scrub and purged
+ * by the same mechanism as every other artefact.
+ *
+ * `twilio_sid` is deliberately NOT in PII_METADATA_KEYS, so it survives the
+ * scrub: once the Message is gone the SID identifies nobody, and if the purge
+ * failed it is the one thing that makes a retry possible. Same trade as
+ * `objects_failed`.
+ *
+ * Batched by primary key. A cap would be a silent partial erasure, which is the
+ * defect class this whole line of work exists to remove, so there isn't one.
+ */
+async function redactTable(
+  tx: Executor,
+  entry: MetadataRedaction,
+  ctx: ScopeContext,
+): Promise<{ rows: number; twilio: StoredObject[] }> {
+  const predicate = redactionPredicate(entry, ctx);
+  if (!predicate) return { rows: 0, twilio: [] };
+
+  const columns = [...new Set([...entry.jsonColumns, ...entry.textColumns])];
+  const selection = sql.join(
+    ["id", ...columns].map((c) => sql.identifier(c)),
+    sql`, `,
+  );
+
+  const twilio: StoredObject[] = [];
+  const seen = new Set<string>();
+  let rows = 0;
+  let after: string | null = null;
+
+  for (;;) {
+    const page: SQL = after === null ? sql`` : sql` AND id > ${after}::bigint`;
+    const result = await tx.execute(
+      sql`SELECT ${selection} FROM ${sql.identifier(entry.table)} WHERE (${predicate})${page} ORDER BY id LIMIT 500`,
+    );
+    const batch = result.rows as Record<string, unknown>[];
+    if (batch.length === 0) break;
+
+    for (const row of batch) {
+      after = String(row.id);
+      const assignments: SQL[] = [];
+
+      for (const column of entry.jsonColumns) {
+        const parsed = asJson(row[column]);
+        if (parsed === null || parsed === undefined) continue;
+
+        /* Collect first — see the ordering note above. Only declared columns
+         * are scanned, so a blob nobody scrubs can never be silently mined for
+         * SIDs, and the guard proves twilioColumns ⊆ jsonColumns. */
+        if (entry.twilioColumns.includes(column)) {
+          for (const value of walkStrings(parsed)) {
+            const key = ownedKey("twilio", value);
+            if (!key) continue;
+            const dedupe = `twilio ${key}`;
+            if (seen.has(dedupe)) continue;
+            seen.add(dedupe);
+            twilio.push({ store: "twilio", table: entry.table, key });
+          }
+        }
+
+        const redacted = redactJson(parsed);
+        if (!redacted.changed) continue;
+        assignments.push(
+          sql`${sql.identifier(column)} = ${JSON.stringify(redacted.value)}::jsonb`,
+        );
+      }
+
+      for (const column of entry.textColumns) {
+        const current = row[column];
+        if (current === null || current === undefined || current === REDACTION_TOMBSTONE) continue;
+        assignments.push(sql`${sql.identifier(column)} = ${REDACTION_TOMBSTONE}`);
+      }
+
+      if (assignments.length === 0) continue;
+      await tx.execute(
+        sql`UPDATE ${sql.identifier(entry.table)} SET ${sql.join(assignments, sql`, `)} WHERE id = ${row.id}`,
+      );
+      rows += 1;
+    }
+
+    if (batch.length < 500) break;
+  }
+
+  return { rows, twilio };
+}
+
+/**
+ * Scrub every declared table. Runs INSIDE the deletion transaction: a throw
+ * here rolls everything back, because reporting an erasure while an SMS body
+ * sits in a retained audit row is the same lie as reporting one while the file
+ * sits in a bucket.
+ */
+async function redactRetainedMetadata(
+  tx: Executor,
+  ctx: ScopeContext,
+): Promise<{ redacted: Record<string, number>; twilio: StoredObject[] }> {
+  const redacted: Record<string, number> = {};
+  const twilio: StoredObject[] = [];
+  for (const entry of METADATA_REDACTIONS) {
+    const result = await redactTable(tx, entry, ctx);
+    if (result.rows > 0) redacted[entry.table] = result.rows;
+    twilio.push(...result.twilio);
+  }
+  return { redacted, twilio };
+}
+
 /* ── Legal holds ─────────────────────────────────────────────────────────── */
 
 /**
@@ -502,17 +813,30 @@ async function assertNoLegalHold(tx: Executor, ctx: ScopeContext): Promise<void>
 export async function summariseAccount(userId: number): Promise<{
   client_ids: number[];
   retained: { table: string; reason: string }[];
+  redacted: { table: string; reason: string }[];
 }> {
   const rows = await db.execute(sql`SELECT id FROM clients WHERE user_id = ${userId}`);
   return {
     client_ids: (rows.rows as { id: number }[]).map((r) => r.id),
     retained: retentionDisclosure(),
+    redacted: redactionDisclosure(),
   };
 }
 
 /** The kept-data disclosure, deduplicated by reason for display. */
 export function retentionDisclosure(): { table: string; reason: string }[] {
   return keptTables().map((p) => ({ table: p.table, reason: p.reason ?? "" }));
+}
+
+/**
+ * The rows kept but scrubbed, and why. Separate from `retentionDisclosure`
+ * because it is a different promise: those rows are kept INTACT on a legal
+ * basis, these are kept with the personal data taken out of them, and telling a
+ * customer the second while meaning the first would be the same kind of
+ * imprecision this mechanism exists to remove.
+ */
+export function redactionDisclosure(): { table: string; reason: string }[] {
+  return redactedTables();
 }
 
 /**
@@ -595,6 +919,20 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
       if (n > 0) anonymized.push(entry.table);
     }
 
+    /* 3b. Rows we KEEP, scrubbed of what identifies a person.
+     *
+     *     After the deletes on purpose: the SIDs this returns are collected out
+     *     of blobs, and the artefacts they name are appended to the same purge
+     *     list as everything else, which does not run until after the commit.
+     *     Before the audit row below, so the row this deletion writes about
+     *     itself is not itself a candidate for scrubbing. */
+    const redaction = await redactRetainedMetadata(t, ctx);
+    for (const object of redaction.twilio) {
+      // The blobs can name a Message a deleted `sms_messages` row named too.
+      if (storedObjects.some((o) => o.store === object.store && o.key === object.key)) continue;
+      storedObjects.push(object);
+    }
+
     /* 4. Audit row. Counts only — recording what was erased must not
      *    re-introduce the personal data we just erased. */
     await t.execute(sql`
@@ -607,6 +945,7 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
           clients_anonymized: clientIds.length,
           sessions_revoked: sessionsRevoked,
           files_found: storedObjects.length,
+          audit_rows_redacted: Object.values(redaction.redacted).reduce((a, b) => a + b, 0),
         })}::jsonb,
         ${JSON.stringify({ source: "portal_self_service_deletion" })}::jsonb
       )
@@ -618,6 +957,8 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
       deleted,
       anonymized,
       retained: retentionDisclosure(),
+      metadata_redacted: redaction.redacted,
+      redacted: redactionDisclosure(),
       sessions_revoked: sessionsRevoked,
       total_rows_deleted: totalRows,
       // Filled in after the commit; the transaction cannot know them yet.
@@ -709,6 +1050,32 @@ export function previewStatements(ctx: {
       sql`DELETE FROM ${sql.identifier(table)} WHERE ${predicate}`,
     );
     out.push({ table, sql: query.sql });
+  }
+  return out;
+}
+
+/**
+ * The predicate each retained-and-scrubbed table would be selected by, as SQL
+ * text. The twin of `previewStatements`, and for the same reason: this
+ * predicate also selects the Twilio artefacts that are about to be DELETED at
+ * Twilio, so an unscoped one would erase another customer's message. The
+ * regression test asserts on it without needing a database.
+ */
+export function previewRedactions(ctx: {
+  userId: number;
+  clientIds: number[];
+  email: string | null;
+}): { table: string; sql: string }[] {
+  const out: { table: string; sql: string }[] = [];
+  for (const entry of METADATA_REDACTIONS) {
+    const predicate = redactionPredicate(entry, ctx);
+    if (!predicate) continue;
+    out.push({
+      table: entry.table,
+      sql: new PgDialect().sqlToQuery(
+        sql`SELECT id FROM ${sql.identifier(entry.table)} WHERE ${predicate}`,
+      ).sql,
+    });
   }
   return out;
 }

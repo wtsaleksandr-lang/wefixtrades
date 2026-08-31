@@ -290,7 +290,16 @@ export default function PrivacyPage() {
           <li><strong>Referral credit earned by whoever referred you</strong> — that record belongs to the referring account, not yours; deleting it would revoke a credit somebody else earned. It holds no personal data of yours.</li>
           <li><strong>The security audit log of staff access to your account</strong> — it stores account ID numbers only, which identify nobody once the account is anonymized.</li>
           <li><strong>The number-transfer order held by our phone provider</strong>, if you moved an existing number to us — it is the carrier's record that you authorized the transfer. Deleting it would leave a completed transfer with no authorization behind it, and would break one still in progress. It is the only thing we leave with our phone provider; your voicemail recordings, text messages and call records are erased from them.</li>
+          <li><strong>Our internal admin and activity logs, with your personal details removed from them.</strong> These record what our staff and automated tools did — including exactly which files or messages a deletion could not erase on the first attempt, which is the only way we can find them and finish the job by hand. The entries themselves stay. Everything in them that identifies you does not: the text of messages we sent on your behalf, phone numbers, email addresses, your business name and the IP address you acted from are overwritten and marked as erased, so the record shows that something was there and removed rather than quietly appearing never to have existed.</li>
         </ul>
+        <p style={{ marginTop: 12 }}>
+          <strong>A phone number we provided is handed back.</strong> If we supplied you with a
+          WeFixTrades number, we release it to the phone provider when your account is deleted, so
+          it stops being ours and stops being associated with you. A number you transferred in from
+          another carrier is a different thing entirely — that number is yours, not a copy of
+          information we hold, and we never relinquish it; you keep it and can move it wherever you
+          like.
+        </p>
         <p style={{ marginTop: 12 }}>
           Nothing else is kept. If any of your records are under a legal hold (for example an active
           dispute), the in-app deletion will tell you so rather than partially completing, and we'll
