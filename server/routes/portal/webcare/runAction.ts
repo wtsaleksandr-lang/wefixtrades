@@ -19,11 +19,15 @@ import { dispatchAction } from "../../../services/aiActions/dispatcher";
 
 const log = createLogger("PortalWebcareRunAction");
 
+/**
+ * Whitelist. `clean-malware`, `harden-security` and `optimize-performance`
+ * were removed — see server/services/aiActions/handlers/webcare.ts for why
+ * (they reported work the product cannot perform). A stale client posting
+ * one now gets a 400 rather than a reassuring lie.
+ */
 const ACTION_IDS = [
   "apply-all-pending-updates",
-  "clean-malware",
-  "harden-security",
-  "optimize-performance",
+  "scan-malware",
   "run-backup-now",
   "acknowledge",
 ] as const;

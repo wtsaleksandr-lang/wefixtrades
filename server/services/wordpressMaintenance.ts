@@ -129,6 +129,81 @@ async function wpFetch(
   }
 }
 
+/* ─── Generic REST helpers (used by the WebCare backup service) ─────── */
+
+/** Single authenticated GET against a wp-json path. */
+export async function wpGetOne(
+  creds: WpCredentials,
+  path: string,
+): Promise<{ ok: boolean; data: any; error?: string }> {
+  const res = await wpFetch(creds, path);
+  return { ok: res.ok, data: res.data, error: res.error };
+}
+
+/** Single authenticated POST (WP uses POST for updates too). */
+export async function wpPostJson(
+  creds: WpCredentials,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: boolean; data: any; error?: string }> {
+  const res = await wpFetch(creds, path, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, data: res.data, error: res.error };
+}
+
+/**
+ * Page through a WordPress REST collection until it is exhausted or `max`
+ * items have been collected.
+ *
+ * Stops on the first failed page rather than returning a partial set that
+ * looks complete — a backup that silently dropped page 3 of 9 is worse than
+ * a backup that reports the collection as omitted. `truncated` is true when
+ * we hit `max` with more still available, and the caller records that IN the
+ * archive so a restore never believes it has everything.
+ */
+export async function wpGetCollection(
+  creds: WpCredentials,
+  path: string,
+  max: number,
+): Promise<{ ok: boolean; items: unknown[]; truncated: boolean; error?: string }> {
+  const perPage = 100;
+  const sep = path.includes("?") ? "&" : "?";
+  const items: unknown[] = [];
+  let exhausted = false;
+
+  for (let page = 1; items.length < max; page += 1) {
+    const res = await wpFetch(creds, `${path}${sep}per_page=${perPage}&page=${page}`);
+    if (!res.ok) {
+      // A 400 on page N>1 is how WP signals "past the last page" for some
+      // endpoints; treat that as a clean end rather than a failure.
+      if (page > 1 && res.status === 400) {
+        exhausted = true;
+        break;
+      }
+      return { ok: false, items: [], truncated: false, error: res.error };
+    }
+    const batch = Array.isArray(res.data) ? res.data : [];
+    items.push(...batch);
+    // A short page is the last page — we have genuinely seen everything.
+    if (batch.length < perPage) {
+      exhausted = true;
+      break;
+    }
+  }
+
+  // We only KNOW the set is complete if a short page ended it. Stopping
+  // because the cap was reached means more may remain, so the archive must
+  // be marked truncated — a backup that silently dropped items while
+  // reporting itself complete is the failure mode this flag exists for.
+  return {
+    ok: true,
+    items: items.length > max ? items.slice(0, max) : items,
+    truncated: !exhausted,
+  };
+}
+
 /**
  * Compare two semver-ish version strings.
  * Returns true if the new version is a major version bump.

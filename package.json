@@ -125,6 +125,7 @@
     "check:pricing-cta-deeplink": "tsx client/src/config/pricing-cta-deeplink.test.ts",
     "check:cookie-parser": "tsx server/middleware/cookieParser.test.ts",
     "check:apple-referral": "tsx server/routes/authRoutes.appleReferral.test.ts",
+    "check:webcare-delivery": "tsx server/services/webcare/webcareDelivery.test.ts",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
     "test:crm": "npx playwright test tests/e2e/admin-crm/",

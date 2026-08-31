@@ -86,10 +86,15 @@ export default function WebCareHeroAnimation() {
           {/* Security checklist — fills the lower half so the card reads as a
               full monitor dashboard instead of a mostly-empty frame. */}
           <div style={{ ...cardStyle, padding: "10px 12px" }}>
+            {/* Cadences must match the jobs that actually run: uptime every
+                15 min (webcareHealthWorker), backups + malware scan weekly
+                on Sunday (webcareBackupWorker). This said "Daily backups"
+                while no backup job existed at all. */}
             {[
               { label: "SSL certificate", value: "Valid" },
               { label: "Plugin updates", value: "Current" },
-              { label: "Daily backups", value: "On" },
+              { label: "Weekly backups", value: "On" },
+              { label: "Malware scan", value: "Clear" },
             ].map((row) => (
               <div
                 key={row.label}

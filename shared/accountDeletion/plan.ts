@@ -241,6 +241,8 @@ const DELETE_BY_CLIENT: Array<[table: string, column: string]> = [
   ["tradeline_widget_sites", "client_id"],
   ["video_projects", "client_id"],
   ["webcare_action_log", "client_id"],
+  ["webcare_backups", "client_id"],
+  ["webcare_malware_scans", "client_id"],
 ];
 
 /**

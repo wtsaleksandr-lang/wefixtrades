@@ -25,33 +25,48 @@
  *                             ssl_valid, security_headers, outdated_plugins,
  *                             total_plugins, wordpress_version, checked_at
  *   - last_plugin_update    ← webcareMaintenanceWorker: updates_available
+ *   - webcare_backups       ← webcareBackupWorker (weekly) + the 1-click
+ *                             action. A row is only 'success' when a
+ *                             restorable artifact exists (DB CHECK, 0100).
+ *   - webcare_malware_scans ← the same worker: wordpress.org core-checksum
+ *                             integrity + public-page signature scan.
  *
- * What we do NOT measure (reported as null, never scored):
- *   - malware scanning, admin 2FA, weak-password auditing
+ * What we still do NOT measure (reported as null, never scored):
+ *   - admin 2FA, weak-password auditing (no API access to either)
  *   - WordPress-core currency (we store the site's version but have no
  *     "latest release" reference to compare it against)
- *   - Lighthouse / performance scores
- *   - backup runs
+ *   - Lighthouse / performance scores — no measurement exists, so the
+ *     "Monthly performance checks" claim was removed from the Pro tier
+ *     rather than backed by an invented number.
  *
  * Response:
  *   securityGrade      { score, letter } | null   — null until measured
  *   securityFactors    only MEASURED factors; an unmeasured check is
- *                      omitted entirely rather than rendered as failing
+ *                      omitted entirely rather than rendered as failing.
+ *                      The malware factor appears only once a scan has
+ *                      genuinely completed.
  *   uptimePct          number | null              — null with no checks
  *   daysWithoutIncident number | null
  *   performanceScore   null                       — not measured
  *   pendingUpdates     number | null              — real plugin updates
- *   backupTimeline30d  []                         — see backupsTracked
- *   backupsTracked     false                      — we run no backup job
+ *   backupTimeline30d  real rows from webcare_backups
+ *   backupsTracked     true once a backup has been ATTEMPTED — so a site
+ *                      with only failures shows red, not "not tracked"
  *
  * Auth: requireClient. adminPreviewSafe-wrapped.
  */
 
 import type { Express, Request, Response } from "express";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { requireClient } from "../../../auth";
 import { db } from "../../../db";
-import { clients, clientServices, serviceCatalog } from "@shared/schema";
+import {
+  clients,
+  clientServices,
+  serviceCatalog,
+  webcareBackups,
+  webcareMalwareScans,
+} from "@shared/schema";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
 
@@ -284,23 +299,31 @@ function computeUptime(history: UptimeEntry[]): { pct: number | null; incident: 
  * Build the backup strip from RECORDED backup runs only.
  *
  * The old version padded every un-recorded day with a "pending" dot so the
- * strip always showed 30 entries. Nothing in this codebase runs or records
- * a backup, so that rendered 30 dots implying 30 scheduled-but-unfinished
- * jobs. We now emit only days we have a real record for — which today is
- * none — and the caller sets `backupsTracked: false` so the UI can say
- * "not tracked" instead of "0 backups taken".
+ * strip always showed 30 entries, implying 30 scheduled-but-unfinished jobs
+ * for a backup system that did not exist. It also read
+ * `client_service.metadata.webcare_backups` — a key nothing ever wrote.
+ *
+ * It now reads the real `webcare_backups` table. A row can only carry
+ * status='success' when a verifiable artifact exists (DB CHECK constraint,
+ * migration 0100), so a green dot on this strip means a restorable archive
+ * is genuinely in object storage.
  */
-function buildBackupTimeline(backups: Array<Record<string, unknown>>): BackupEntry[] {
+function buildBackupTimeline(
+  backups: Array<{
+    status: string;
+    size_bytes: number | null;
+    retention_days: number | null;
+    started_at: Date | string;
+  }>,
+): BackupEntry[] {
   const out: BackupEntry[] = [];
   const cutoff = Date.now() - 30 * 86_400_000;
   for (const b of backups) {
-    const ts = typeof b.recorded_at === "string" ? b.recorded_at : null;
-    if (!ts) continue;
-    const d = new Date(ts);
+    const d = b.started_at instanceof Date ? b.started_at : new Date(b.started_at);
     if (Number.isNaN(d.getTime()) || d.getTime() < cutoff) continue;
-    const status = (b.status === "success" || b.status === "failed" || b.status === "pending")
-      ? (b.status as BackupEntry["status"])
-      : "pending";
+    // 'running' is genuinely pending — the only legitimate pending dot.
+    const status: BackupEntry["status"] =
+      b.status === "success" ? "success" : b.status === "failed" ? "failed" : "pending";
     out.push({
       date: d.toISOString().slice(0, 10),
       status,
@@ -386,25 +409,87 @@ export async function computeWebcareDashboardKpis(
       ? num(lastPluginUpdate.updates_available)
       : null;
 
-  const backupTimeline30d = buildBackupTimeline(
-    Array.isArray(csMeta.webcare_backups)
-      ? (csMeta.webcare_backups as Array<Record<string, unknown>>)
-      : [],
-  );
+  // Real backup runs from the real table (weekly worker + 1-click action).
+  const backupRows = await db
+    .select({
+      status: webcareBackups.status,
+      size_bytes: webcareBackups.size_bytes,
+      retention_days: webcareBackups.retention_days,
+      started_at: webcareBackups.started_at,
+    })
+    .from(webcareBackups)
+    .where(eq(webcareBackups.client_id, clientId))
+    .orderBy(desc(webcareBackups.started_at))
+    .limit(120);
+
+  const backupTimeline30d = buildBackupTimeline(backupRows);
+
+  // "Tracked" means a backup has genuinely been ATTEMPTED for this client —
+  // not that one succeeded. A site with only failed runs must show red dots
+  // and a real failure count, not fall back to a soothing "not tracked".
+  const backupsTracked = backupRows.length > 0;
+
+  // Real malware scans. A completed scan is a measured security signal, so
+  // it joins the grade; an absent or failed scan is omitted entirely rather
+  // than rendered as a failed check the customer never had run.
+  const [lastScan] = await db
+    .select({
+      status: webcareMalwareScans.status,
+      findings: webcareMalwareScans.findings,
+      urls_scanned: webcareMalwareScans.urls_scanned,
+      core_files_checked: webcareMalwareScans.core_files_checked,
+      completed_at: webcareMalwareScans.completed_at,
+    })
+    .from(webcareMalwareScans)
+    .where(
+      and(
+        eq(webcareMalwareScans.client_id, clientId),
+        eq(webcareMalwareScans.status, "success"),
+      ),
+    )
+    .orderBy(desc(webcareMalwareScans.started_at))
+    .limit(1);
+
+  let factors = secFactors;
+  let grade = securityGrade;
+  if (lastScan) {
+    const findings = Array.isArray(lastScan.findings)
+      ? (lastScan.findings as Array<{ severity?: string }>)
+      : [];
+    const critical = findings.filter((f) => f.severity === "critical").length;
+    factors = [
+      ...secFactors,
+      {
+        key: "malware_scan",
+        label: "No known malware signatures",
+        weight: 40,
+        ok: critical === 0,
+        detail:
+          `${lastScan.urls_scanned} URL(s)` +
+          (lastScan.core_files_checked > 0
+            ? ` + ${lastScan.core_files_checked} WordPress core files`
+            : "") +
+          ` scanned · ${findings.length} finding(s)`,
+      },
+    ];
+    // Re-normalise over the full factor set now that the scan is included.
+    const totalWeight = factors.reduce((s, f) => s + f.weight, 0);
+    const earned = factors.reduce((s, f) => (f.ok ? s + f.weight : s), 0);
+    const score = Math.round((earned / totalWeight) * 100);
+    grade = { score, letter: letterFor(score) };
+  }
 
   return {
     kpis: {
-      securityGrade,
+      securityGrade: grade,
       uptimePct,
       daysWithoutIncident,
       performanceScore,
       pendingUpdates,
     },
-    securityFactors: secFactors,
+    securityFactors: factors,
     backupTimeline30d,
-    // We run no backup job at all, so an empty strip means "not tracked",
-    // never "zero backups succeeded".
-    backupsTracked: backupTimeline30d.length > 0,
+    backupsTracked,
     incidentHistoryTracked,
     lastIncident: incident,
     bestStreakDays,

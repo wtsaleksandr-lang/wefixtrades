@@ -474,7 +474,13 @@ export const COMPARISON_DATA: ComparisonData[] = [
       { feature: "Security & SSL health checks", values: [true, true, true, true] },
       { feature: "Content changes included", values: [true, "Add-on", false, "1/mo"] },
       { feature: "AI-powered monitoring", values: [true, false, false, false] },
-      { feature: "Performance checks", values: ["Pro", true, false, true] },
+      { feature: "Weekly content backups", values: [true, true, true, true] },
+      { feature: "Malware scanning", values: [true, true, true, true] },
+      // WebCare runs no Lighthouse/performance benchmark — this row said
+      // "Pro", selling a check the product does not perform. It is `false`
+      // until something genuinely measures it. Losing a tick to a
+      // competitor beats claiming one we have not earned.
+      { feature: "Performance checks", values: [false, true, false, true] },
       { feature: "Trades-specific focus", values: [true, false, false, false] },
       { feature: "Business info updates (hours, phone, etc.)", values: [true, "Add-on", false, "Add-on"] },
       { feature: "Priority support", values: ["Pro", true, false, true] },
@@ -492,8 +498,13 @@ export const COMPARISON_DATA: ComparisonData[] = [
         body: "We understand trades websites — seasonal promotions, service area updates, pricing changes, team photos. We know what matters to your customers.",
       },
       {
-        title: "AI-powered monitoring",
-        body: "Our monitoring catches issues before they affect your customers. Broken forms, slow pages, and security vulnerabilities are detected and fixed proactively.",
+        // Scoped to the checks that genuinely run: webcareHealthWorker
+        // (15-min uptime), runSiteHealthCheck (TLS + security headers +
+        // plugin currency) and the weekly malwareScanner. It previously
+        // claimed broken-form and slow-page detection, neither of which
+        // WebCare performs.
+        title: "Monitoring that actually runs",
+        body: "We check your site is up every 15 minutes, and every week we verify your WordPress core files against the official checksums, scan your pages for known injections, and take a restorable backup. If something breaks, we know before your customers do.",
       },
       {
         title: "Simple, transparent pricing",

@@ -470,15 +470,18 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
   {
     id: "webcare.performance-ring",
     product: "webcare",
+    // Nothing measures a Lighthouse score, so the ring renders its
+    // not-measured state. Kept registered only so an existing user
+    // preference row does not dangle; it displays no invented number.
     label: "Performance ring",
-    description: "Lighthouse performance score (mobile + desktop) with target threshold.",
+    description: "Not measured — WebCare runs no Lighthouse/performance benchmark.",
     category: "kpi",
   },
   {
     id: "webcare.backup-timeline",
     product: "webcare",
     label: "Backup timeline",
-    description: "30-day backup history with 1-click 'run backup now' action.",
+    description: "30-day history of real content backups, with a 1-click 'back up now'.",
     category: "chart",
   },
   {

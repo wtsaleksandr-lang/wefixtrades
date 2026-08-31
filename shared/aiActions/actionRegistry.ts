@@ -318,51 +318,45 @@ export const AI_ACTIONS: AIAction[] = [
     confirmationLevel: "none",
   },
 
-  /* ─── WebCare (portal) ──────────────────────────────────────────── */
+  /* ─── WebCare (portal) ──────────────────────────────────────────────
+     Only actions that genuinely do the thing they name.
+
+     `harden-security` (2FA / login throttling / file-edit lockdown) and
+     `optimize-performance` (image compression / CSS minify / Lighthouse)
+     were removed: the WordPress REST API cannot install plugins or edit
+     wp-config.php, and no image pipeline or Lighthouse measurement exists.
+     They wrote a "done" log row and changed nothing. `clean-malware`
+     became `scan-malware` — we can genuinely detect, we could not
+     genuinely honour its "our team cleans it within 4 hours" promise.
+     ──────────────────────────────────────────────────────────────────── */
   {
     key: "apply-all-pending-updates",
     product: "webcare",
     context: "portal",
     label: "Apply pending updates",
-    description: "Queue all plugin/theme/core updates. A fresh backup runs first.",
+    description: "Queue all safe plugin/theme updates for the next maintenance sweep.",
     icon: "Download",
     confirmationLevel: "hard",
     estimatedSeconds: 300,
   },
   {
-    key: "clean-malware",
+    key: "scan-malware",
     product: "webcare",
     context: "portal",
-    label: "Clean malware",
-    description: "Request a malware sweep + remediation. Our team confirms within 4 hours.",
+    label: "Scan for malware",
+    description:
+      "Check WordPress core files against wordpress.org's official checksums and scan your public pages for known injection signatures.",
     icon: "ShieldAlert",
-    confirmationLevel: "hard",
-  },
-  {
-    key: "harden-security",
-    product: "webcare",
-    context: "portal",
-    label: "Harden security",
-    description: "Enable 2FA, login throttling, and file-edit lockdown.",
-    icon: "ShieldCheck",
-    confirmationLevel: "hard",
-  },
-  {
-    key: "optimize-performance",
-    product: "webcare",
-    context: "portal",
-    label: "Optimize performance",
-    description: "Run image compression + CSS minify pass.",
-    icon: "Zap",
     confirmationLevel: "soft",
-    estimatedSeconds: 60,
+    estimatedSeconds: 45,
   },
   {
     key: "run-backup-now",
     product: "webcare",
     context: "portal",
-    label: "Backup now",
-    description: "Take an on-demand backup. Logs to the maintenance feed.",
+    label: "Back up now",
+    description:
+      "Capture a restorable content backup — every post, page, category, tag and menu — stored encrypted.",
     icon: "HardDrive",
     confirmationLevel: "soft",
     estimatedSeconds: 90,

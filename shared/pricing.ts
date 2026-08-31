@@ -284,10 +284,23 @@ export const WEBCARE: ProductDef = {
       name: "Basic",
       price: 79,
       billingPeriod: "monthly",
+      /* Every bullet maps to machinery that genuinely runs:
+       *   updates      → webcareMaintenanceWorker (checkPluginUpdates +
+       *                  applyPluginUpdates, safe minor/patch only)
+       *   uptime       → webcareHealthWorker, HTTP check every 15 min
+       *   SSL/security → runSiteHealthCheck (TLS + 6 response headers)
+       *   backups      → webcareBackupWorker, weekly content capture to
+       *                  encrypted object storage, restorable + downloadable
+       *   malware scan → malwareScanner: wordpress.org core-file checksum
+       *                  integrity + public-page injection signatures
+       * "Content backup" is precise on purpose: our WP REST access can
+       * capture and restore all content, not a full server image. */
       features: [
         "Monthly software & security updates",
         "24/7 uptime monitoring",
         "Monthly security & SSL health checks",
+        "Weekly content backups — restorable, and yours to download",
+        "Weekly malware scan (core-file integrity + page injection check)",
         "1 content change per month",
         "Email support",
       ],
@@ -299,10 +312,15 @@ export const WEBCARE: ProductDef = {
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
+      /* "Monthly performance checks" was removed. Nothing in the product
+       * measures performance — there is no Lighthouse run and no perf
+       * score is ever written, so the dashboard's performanceScore is a
+       * hardcoded null. Selling a check we do not perform is the same
+       * defect as scoring a metric we do not measure. */
       features: [
         "Everything in Basic",
         "4 content changes per month",
-        "Monthly performance checks",
+        "On-demand backups & malware scans, any time",
         "Priority support (24 hr response)",
       ],
     },

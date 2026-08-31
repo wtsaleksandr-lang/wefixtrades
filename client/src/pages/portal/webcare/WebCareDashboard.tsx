@@ -36,9 +36,9 @@ import {
   Bell,
   BugOff,
   Gauge as GaugeIcon,
+  HardDrive,
   Settings as SettingsIcon,
   ShieldCheck,
-  Sparkles,
   Wrench,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -129,30 +129,38 @@ interface SiteInventoryResponse {
 
 /* ─── Quick actions ──────────────────────────────────────────────────── */
 
+/**
+ * Only actions that genuinely perform the work they name.
+ *
+ * "Harden security" (2FA / login throttling / file-edit lockdown) and
+ * "Optimize performance" (image + CSS minify for a Lighthouse score) were
+ * removed: neither is possible over the WordPress REST API and no
+ * Lighthouse measurement exists, so both buttons wrote a "done" line to the
+ * maintenance log and changed nothing on the customer's site. "Clean
+ * malware" became "Scan for malware" — we can genuinely detect, we could
+ * not genuinely honour its "our team cleans it within 4 hours" promise.
+ *
+ * Three actions, all real. Kept even so at 2-per-row on mobile so no card
+ * ever wraps alone.
+ */
 const QUICK_ACTIONS = [
   {
     id: "apply-all-pending-updates",
     label: "Apply all pending updates",
-    description: "Run plugin / theme / core updates with a safety backup first.",
+    description: "Applies safe plugin updates, after taking a backup first. Major versions are held for review.",
     icon: Wrench,
   },
   {
-    id: "clean-malware",
-    label: "Clean malware",
-    description: "Request a fresh malware sweep + remediation.",
+    id: "scan-malware",
+    label: "Scan for malware",
+    description: "Checks core files against WordPress's official checksums and scans your pages for injections.",
     icon: BugOff,
   },
   {
-    id: "harden-security",
-    label: "Harden security",
-    description: "Turn on 2FA, login throttling, file-edit lockdown.",
-    icon: ShieldCheck,
-  },
-  {
-    id: "optimize-performance",
-    label: "Optimize performance",
-    description: "Run image + CSS minify pass for higher Lighthouse score.",
-    icon: Sparkles,
+    id: "run-backup-now",
+    label: "Back up now",
+    description: "Captures a restorable content backup — posts, pages, categories, tags and menus.",
+    icon: HardDrive,
   },
 ] as const;
 
@@ -506,7 +514,10 @@ export default function WebCareDashboard() {
               1-click recommendations — your approval required
             </span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {/* 3 actions: 1-up on mobile, 3-up from md. Deliberately NOT
+              sm:grid-cols-2 — that would wrap the third card alone on its
+              own row, which the no-orphan rule forbids. */}
+          <div className="grid gap-2 md:grid-cols-3">
             {QUICK_ACTIONS.map((a) => {
               const Icon = a.icon;
               return (
@@ -552,8 +563,10 @@ export default function WebCareDashboard() {
 
         {/* Backup timeline — power-user (Wave 36). */}
         <AdvancedOnly product="webcare" elementId="webcare.backup-timeline">
-          {/* `tracked` false = we run no backup job for this site, so the strip
-              must read "not tracked" rather than "0 backups taken". */}
+          {/* `tracked` false = no backup has been attempted yet for this
+              site, so the strip reads "no backups yet" rather than
+              "0 backups taken". Once the weekly worker or the 1-click
+              action has run, every dot here is a real recorded run. */}
           <BackupTimeline
             entries={kpis?.backupTimeline30d ?? []}
             tracked={kpis?.backupsTracked ?? false}

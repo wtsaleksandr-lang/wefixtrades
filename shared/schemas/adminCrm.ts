@@ -1254,6 +1254,95 @@ export type InsertWebcareActionLog = z.infer<typeof insertWebcareActionLogSchema
 export type WebcareActionLog = typeof webcareActionLog.$inferSelect;
 
 
+/* ─── WebCare Backups ──────────────────────────────────────────────
+   One row per ATTEMPTED capture of a client's site content.
+
+   `status = 'success'` is only legal when `object_name`, `sha256` and
+   `size_bytes` are all set — i.e. a restorable artifact genuinely
+   exists in object storage. A CHECK constraint in migration 0100
+   enforces that at the database level so no future code path can mark
+   a site "backed up" with nothing behind it. Before this table the
+   product shipped a "Backup now" button that wrote a reassuring log
+   line and captured nothing at all.
+
+   The archive itself is a gzipped JSON export of the site's content
+   (posts, pages, terms, menus, settings) pulled over the WordPress
+   REST API, AES-256-GCM encrypted by server/lib/objectStorage.ts.
+   `sha256` is over the PLAINTEXT so a restore can verify the bytes it
+   decrypted are the bytes we captured.
+   ────────────────────────────────────────────────────────────────── */
+export const webcareBackups = pgTable("webcare_backups", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  client_service_id: integer("client_service_id"),
+  // running | success | failed
+  status: varchar("status", { length: 16 }).notNull().default("running"),
+  // manual | scheduled
+  trigger: varchar("trigger", { length: 16 }).notNull().default("scheduled"),
+  object_name: text("object_name"),
+  sha256: varchar("sha256", { length: 64 }),
+  size_bytes: integer("size_bytes"),
+  item_counts: jsonb("item_counts"),
+  source_url: text("source_url"),
+  retention_days: integer("retention_days").notNull().default(90),
+  error: text("error"),
+  started_at: timestamp("started_at").defaultNow().notNull(),
+  completed_at: timestamp("completed_at"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_webcare_backups_client_started")
+    .on(table.client_id, table.started_at),
+  index("idx_webcare_backups_cs").on(table.client_service_id),
+]);
+export const insertWebcareBackupSchema = createInsertSchema(webcareBackups).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertWebcareBackup = z.infer<typeof insertWebcareBackupSchema>;
+export type WebcareBackup = typeof webcareBackups.$inferSelect;
+
+
+/* ─── WebCare Malware Scans ────────────────────────────────────────
+   One row per scan run. `findings` holds the REAL matches — an empty
+   array means the scan completed and matched none of the signatures
+   it checks, which is not the same claim as "your site is clean".
+   A scan that could not run is `status = 'failed'` with an `error`,
+   never a silent empty-findings pass.
+
+   `urls_scanned` / `core_files_checked` record the scan's actual
+   coverage so the UI can state its scope honestly rather than imply
+   a full-server antivirus sweep.
+   ────────────────────────────────────────────────────────────────── */
+export const webcareMalwareScans = pgTable("webcare_malware_scans", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  client_service_id: integer("client_service_id"),
+  // running | success | failed
+  status: varchar("status", { length: 16 }).notNull().default("running"),
+  trigger: varchar("trigger", { length: 16 }).notNull().default("scheduled"),
+  source_url: text("source_url"),
+  findings: jsonb("findings").notNull().default([]),
+  urls_scanned: integer("urls_scanned").notNull().default(0),
+  core_version: varchar("core_version", { length: 32 }),
+  core_files_checked: integer("core_files_checked").notNull().default(0),
+  core_files_modified: integer("core_files_modified").notNull().default(0),
+  error: text("error"),
+  started_at: timestamp("started_at").defaultNow().notNull(),
+  completed_at: timestamp("completed_at"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_webcare_malware_scans_client_started")
+    .on(table.client_id, table.started_at),
+  index("idx_webcare_malware_scans_cs").on(table.client_service_id),
+]);
+export const insertWebcareMalwareScanSchema = createInsertSchema(webcareMalwareScans).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertWebcareMalwareScan = z.infer<typeof insertWebcareMalwareScanSchema>;
+export type WebcareMalwareScan = typeof webcareMalwareScans.$inferSelect;
+
+
 /* ─── Brand-availability + escalation singleton ────────────────────
    Single-row table holding the operating brand's "are we available"
    state. When `is_available = false` the AI assistant uses

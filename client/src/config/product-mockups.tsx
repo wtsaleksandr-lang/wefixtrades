@@ -584,13 +584,18 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     },
     {
       number: "03",
-      title: "Performance, Maintained",
-      description: "Lighthouse scores monitored monthly. We fix regressions, compress new images, and keep page speed where it should be.",
-      mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-        <GaugeTile value={94} label="Performance" color="cyanSoft" />
-        <GaugeTile value={100} label="Best practices" color="mint" />
-        <GaugeTile value={96} label="SEO" color="lavender" />
-      </div>,
+      // Replaced "Performance, Maintained", which rendered hardcoded
+      // Lighthouse gauges of 94/100/96 for a benchmark WebCare has never
+      // run — dashboardKpis returns a hardcoded null performanceScore.
+      // These three tiles describe capabilities that genuinely execute
+      // (webcareBackupWorker, weekly), and state no measured number.
+      title: "Backed Up And Scanned",
+      description: "Every week we capture a restorable copy of your content and check your WordPress core files against the official checksums WordPress publishes. Find something? You get the exact file and the exact signature.",
+      mockup: <Wide><StatTrio
+        a={{ value: "Weekly", label: "Content backups", color: "cyanSoft", icon: <ShieldCheck size={16} /> }}
+        b={{ value: "1-click", label: "Restore any page", color: "mint", icon: <Zap size={16} /> }}
+        c={{ value: "Core + pages", label: "Malware scan scope", color: "lavender", icon: <ShieldCheck size={16} /> }}
+      /></Wide>,
     },
     {
       number: "04",

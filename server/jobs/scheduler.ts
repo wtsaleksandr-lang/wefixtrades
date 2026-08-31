@@ -49,6 +49,7 @@ import { pollInboundImap, imapPollingEnabled } from "../services/inboundEmailIma
 import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
+import { processWebcareBackups } from "./webcareBackupWorker";
 import { processWebcareMonthlyDigest } from "./webcareMonthlyDigest";
 import { processContentflowMonthlyDigest } from "./contentflowMonthlyDigest";
 import { processTradelineMonthlyDigest } from "./tradelineMonthlyDigest";
@@ -879,6 +880,7 @@ export function initScheduler() {
       "Auto-activation worker: every 5 minutes",
       "Upsell emails: 10:00 UTC daily",
       "WebCare monthly maintenance: 03:00 UTC on the 1st of each month",
+      "WebCare backups + malware scans: 02:00 UTC every Sunday",
       "Routing engine: every 5 minutes",
     ],
   });
@@ -1064,6 +1066,29 @@ export function initScheduler() {
       log.error("webcare_monthly_maintenance cron handler error", { error: err.message });
     } finally {
       webcareMaintenanceRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // WebCare backups + malware scans — 02:00 UTC every Sunday.
+  // Captures a restorable content backup per active WebCare site, runs the
+  // malware scan, and prunes archives past their retention window.
+  // WEEKLY, not nightly — the product copy says weekly because that is
+  // what actually runs. Idempotent per ISO week via
+  // client_service.metadata.last_backup_week.
+  let webcareBackupsRunning = false;
+  cron.schedule("0 2 * * 0", async () => {
+    if (webcareBackupsRunning) {
+      log.debug("webcare_backups skipped — previous run still active");
+      return;
+    }
+    webcareBackupsRunning = true;
+    log.info("Running WebCare backups + malware scans...");
+    try {
+      await runJob("webcare_backups", processWebcareBackups);
+    } catch (err: any) {
+      log.error("webcare_backups cron handler error", { error: err.message });
+    } finally {
+      webcareBackupsRunning = false;
     }
   }, { timezone: "UTC" });
 

@@ -39,9 +39,10 @@ export interface BackupEntry {
 export interface BackupTimelineProps {
   entries: BackupEntry[];
   /**
-   * False when no backup job runs for this site. An empty `entries` array
-   * then means "we don't track this", NOT "zero backups succeeded" — the
-   * latter is an accusation we have no evidence for.
+   * True once a backup has genuinely been ATTEMPTED for this site (a real
+   * row exists in `webcare_backups`) — not merely that one succeeded. A
+   * site whose runs all failed shows red dots and a real failure count
+   * rather than the softer "nothing yet" state.
    */
   tracked?: boolean;
   onRunBackupNow?: () => void | Promise<void>;
@@ -86,7 +87,16 @@ export function BackupTimeline({
   const latestSuccess = [...entries]
     .reverse()
     .find((e) => e.status === "success");
-  const notTracked = !tracked || entries.length === 0;
+  /**
+   * Only `tracked` decides this — deliberately NOT `|| entries.length === 0`.
+   *
+   * A site whose backups all fell outside the 30-day window (the worker
+   * stopped running) has entries=[] but tracked=true. Folding that into
+   * "no backups yet" would show a reassuring first-run message for a site
+   * whose backups have actually stopped. It now falls through to the real
+   * "no successful backups in the last 30 days" line instead.
+   */
+  const notTracked = !tracked;
 
   return (
     <Card className="flex flex-col gap-3 p-4" data-testid="webcare-backup-timeline">
@@ -156,8 +166,8 @@ export function BackupTimeline({
                 className="mr-1 inline h-3 w-3 align-middle text-muted-foreground"
                 aria-hidden="true"
               />
-              Backups aren&rsquo;t part of your plan yet, so there&rsquo;s nothing to
-              show here. Ask us to add them and this fills in.
+              No backups yet. Your first weekly backup runs on the next Sunday
+              sweep &mdash; or take one right now from Quick actions.
             </>
           ) : (
             <>
@@ -169,9 +179,11 @@ export function BackupTimeline({
             </>
           )}
         </p>
-        {/* Hidden while untracked — a "Backup now" button that starts nothing
-            is a false affordance. */}
-        {onRunBackupNow && !notTracked && (
+        {/* Shown whenever a handler is wired: the button now genuinely
+            captures a backup, so it is a real affordance even before the
+            first run. (It used to start nothing at all, which is why it was
+            hidden here.) */}
+        {onRunBackupNow && (
           <Button
             size="sm"
             variant="outline"
