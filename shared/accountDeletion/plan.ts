@@ -66,6 +66,53 @@ export type Action =
   /** Keep the row untouched. Requires `reason`. */
   | "keep";
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Stored objects — the bytes a row points at.
+ *
+ * A row and the file it references are two different pieces of data in two
+ * different systems. `DELETE FROM tradeline_phone_setups` removes the row and
+ * with it the only pointer to an encrypted phone-bill PDF — a document holding
+ * the customer's name, service address, carrier and account number — which then
+ * sits in the bucket forever, unreachable by the 90-day retention sweep because
+ * the sweep looks for rows. Deleting the pointer is not deleting the data; it
+ * is deleting our ability to find the data.
+ *
+ * So every column that addresses a store outside Postgres is declared here, and
+ * `scripts/check-account-deletion-coverage.ts` fails CI when a new one appears
+ * without a declaration.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** Which store a pointer addresses. Each has its own deleter in the executor. */
+export type ObjectStore =
+  /** Replit Object Storage — `server/lib/objectStorage.ts`. */
+  | "objectStorage"
+  /** The container-local upload directory served at `/uploads`. */
+  | "uploads"
+  /** Cloudflare R2 — `server/lib/r2Upload.ts`. Publicly readable bucket. */
+  | "r2";
+
+/**
+ * How to read object pointers out of one column.
+ *
+ * Several of these columns are polymorphic: `clients.logo_url` holds our
+ * `/uploads/…` path when the customer uploaded a file and an arbitrary external
+ * URL when they pasted one; `content_assets.url` holds an R2 URL or a stock
+ * photo link. The executor therefore filters every extracted value through a
+ * per-store membership test (`belongsToStore`) and ignores anything that does
+ * not address the named store — so a pasted URL is never mistaken for a file we
+ * own, and never counted as a failed purge.
+ *
+ * `jsonScan` exists for free-form JSONB (`leads.answers`) where the pointer is
+ * one value among arbitrary customer answers under keys we do not control.
+ */
+export type ObjectSource =
+  /** The column's value IS the pointer. */
+  | { store: ObjectStore; column: string; read: "text" }
+  /** JSONB array of objects; `field` names the property holding the pointer. */
+  | { store: ObjectStore; column: string; read: "jsonField"; field: string }
+  /** Arbitrary JSONB; collect every string value that belongs to `store`. */
+  | { store: ObjectStore; column: string; read: "jsonScan" };
+
 export interface TablePlan {
   /** SQL table name, exactly as it appears in `pgTable("…")`. */
   table: string;
@@ -73,6 +120,13 @@ export interface TablePlan {
   scope: Scope;
   /** REQUIRED for `keep` — the legal basis for retaining this data. */
   reason?: string;
+  /**
+   * Columns pointing at bytes held outside Postgres. Collected before the
+   * transaction (the rows that name them are about to go) and purged after it
+   * commits. Only meaningful on `delete` / `anonymize` entries — a kept row
+   * keeps its files too, which the guard enforces.
+   */
+  objects?: ObjectSource[];
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -378,10 +432,125 @@ const KEEP: TablePlan[] = [
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────
- * 4. The assembled plan.
+ * 4. Stored objects — table → the columns that address bytes outside Postgres.
+ *
+ * Kept as one block rather than sprinkled through the lists above so the whole
+ * out-of-database surface is reviewable on one screen, and so the coverage
+ * guard has a single place to check against the live schema.
+ *
+ * ── Retention exceptions: none apply to files ──
+ *
+ * Everything the plan retains on a legal basis (invoices, orders, order items,
+ * subscription rows, dunning history, suppression lists) is row data. None of
+ * those tables holds a pointer into any store — invoices are rendered from the
+ * row on demand, never saved as a document — so the 7-year tax obligation and
+ * the suppression-list obligation are both satisfied without keeping a single
+ * file. Every file below is therefore purged outright.
+ *
+ * The one case that looks like an exception is the signed Letter of
+ * Authorization: porting rules require the authorisation to be evidenced. It is
+ * still purged here, because our copy is not that evidence — the LOA is
+ * submitted to Twilio (`services/tradelineSetup/portSubmission.ts`), which
+ * holds the carrier-side record, and `jobs/tradelineBillRetentionWorker.ts`
+ * already destroys our copy 90 days after the port resolves. Keeping it past an
+ * explicit deletion request would retain the customer's phone bill and home
+ * address to duplicate a record somebody else is already required to hold.
+ *
+ * If an individual account genuinely must be preserved, that is what the
+ * `retention_overrides` legal-hold registry is for: a live hold makes
+ * `assertNoLegalHold` refuse the whole deletion and route it to a human, rather
+ * than quietly keeping files the customer was told were gone.
  * ──────────────────────────────────────────────────────────────────────── */
 
-export const ACCOUNT_DELETION_PLAN: TablePlan[] = [
+export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
+  /**
+   * Number-porting paperwork: the customer's phone bill (name, service
+   * address, carrier, account number), the signature they drew, and the
+   * generated Letter of Authorization carrying all of it. The most sensitive
+   * documents the product holds, and the reason this whole mechanism exists.
+   *
+   * `port_loa_object_key` is a backward-compatible alias that points at the
+   * signature PNG (see the sign-loa route); listed so the older rows written
+   * before Wave 86 are purged too.
+   */
+  tradeline_phone_setups: [
+    { store: "objectStorage", column: "port_bill_object_key", read: "text" },
+    { store: "objectStorage", column: "port_loa_object_key", read: "text" },
+    { store: "objectStorage", column: "port_loa_pdf_object_key", read: "text" },
+    { store: "objectStorage", column: "port_signature_object_key", read: "text" },
+  ],
+
+  /**
+   * Mirrored Vapi call recordings. The customer's and their callers' actual
+   * voices — biometric-adjacent personal data, and the privacy policy's
+   * deletion clause names call recordings explicitly.
+   */
+  tradeline_call_log: [
+    { store: "objectStorage", column: "mirrored_object_key", read: "text" },
+  ],
+
+  /**
+   * Encrypted WebCare site backups: the customer's site content and settings.
+   */
+  webcare_backups: [{ store: "objectStorage", column: "object_name", read: "text" }],
+
+  /**
+   * Images the customer sent the AI assistant from the mobile Ask tab. Shape
+   * is `Array<{ assetId, mimeType, sizeBytes }>`; `assetId` is the object key.
+   */
+  assistant_messages: [
+    { store: "objectStorage", column: "attachments", read: "jsonField", field: "assetId" },
+  ],
+
+  /**
+   * Photos an end customer attached to a quote request — pictures of their own
+   * home. Third-party personal data the account holder collected, stored as a
+   * `/uploads/lead-photos/…` URL among arbitrary answers under field ids we do
+   * not control, so the whole blob is scanned.
+   */
+  leads: [{ store: "uploads", column: "answers", read: "jsonScan" }],
+
+  /**
+   * Files our staff delivered to this customer: `{ kind, url, label, … }`.
+   * `kind: "link"` entries carry an external URL, which the uploads membership
+   * test skips.
+   */
+  fulfillment_tasks: [
+    { store: "uploads", column: "deliverables", read: "jsonField", field: "url" },
+  ],
+
+  /**
+   * The uploaded business logo. `clients` is anonymised rather than deleted, and
+   * ANONYMISE_FIELDS nulls `logo_url` — without this the file outlives the
+   * pointer. A pasted external URL is not in this store and is skipped.
+   */
+  clients: [{ store: "uploads", column: "logo_url", read: "text" }],
+
+  /**
+   * ContentFlow renders. R2 is a PUBLIC bucket: anyone holding the URL can read
+   * these until the object is gone, so the pointer disappearing is worth
+   * nothing on its own.
+   */
+  video_projects: [{ store: "r2", column: "video_url", read: "text" }],
+  video_scenes: [{ store: "r2", column: "video_url", read: "text" }],
+  content_assets: [
+    { store: "r2", column: "url", read: "text" },
+    { store: "r2", column: "public_url", read: "text" },
+  ],
+  /**
+   * Generated post imagery lives under `metadata.media_plan` at keys that have
+   * moved between waves, so the blob is scanned rather than path-walked. When
+   * R2 is unconfigured the same field holds an inline base64 data URI, which is
+   * not in any store and is skipped.
+   */
+  content_drafts: [{ store: "r2", column: "metadata", read: "jsonScan" }],
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * 5. The assembled plan.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const ASSEMBLED: TablePlan[] = [
   ...ANCHORS,
   ...DELETE_BY_USER.map(
     ([table, column]): TablePlan => ({
@@ -406,6 +575,19 @@ export const ACCOUNT_DELETION_PLAN: TablePlan[] = [
   ),
   ...KEEP,
 ];
+
+/**
+ * Object declarations are merged in here rather than written inline above, so a
+ * table can never carry a declaration the assembled plan drops on the floor.
+ */
+export const ACCOUNT_DELETION_PLAN: TablePlan[] = ASSEMBLED.map((entry) =>
+  STORED_OBJECTS[entry.table] ? { ...entry, objects: STORED_OBJECTS[entry.table] } : entry,
+);
+
+/** Plan entries that address bytes outside Postgres. */
+export function tablesWithObjects(): TablePlan[] {
+  return ACCOUNT_DELETION_PLAN.filter((p) => (p.objects?.length ?? 0) > 0);
+}
 
 /**
  * `session` is handled outside the plan: connect-pg-simple owns the table, it

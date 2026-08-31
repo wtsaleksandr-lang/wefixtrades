@@ -569,8 +569,28 @@ function DeleteAccountSection() {
       if (!res.ok) throw new Error(body.error || "Failed to delete account");
       return body;
     },
-    onSuccess: () => {
+    onSuccess: (body: { storage_purge_incomplete?: boolean; warning?: string }) => {
       setOpen(false);
+      // The server tells us when it deleted the records but could not erase
+      // every uploaded file. Saying "deleted" over the top of that would be
+      // the one thing this whole flow promises not to do.
+      if (body?.storage_purge_incomplete) {
+        toast({
+          variant: "destructive",
+          title: "Account deleted — some files still being removed",
+          description:
+            body.warning ||
+            "Your records are deleted. A few uploaded files could not be removed from " +
+              "storage and are being erased manually.",
+          duration: 15000,
+        });
+        // A full reload destroys the toast, so hold the page long enough for
+        // the warning to actually be read before signing out.
+        window.setTimeout(() => {
+          window.location.href = "/";
+        }, 12000);
+        return;
+      }
       toast({
         title: "Your account has been deleted",
         description: "You have been signed out. Thank you for using WeFixTrades.",

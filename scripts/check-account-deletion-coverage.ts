@@ -24,6 +24,15 @@
  *                     table it points at, so no statement trips an FK.
  *   6. SCOPING      — no `delete` entry is unscoped. A missing predicate would
  *                     delete another tenant's data.
+ *   7. OBJECTS      — every column declared in STORED_OBJECTS exists, sits on a
+ *                     table the plan actually erases, and is readable.
+ *   8. OBJECT COVERAGE
+ *                   — every column in the schema that looks like a pointer into
+ *                     a store outside Postgres is either declared in
+ *                     STORED_OBJECTS or exempted here with a written reason.
+ *                     Deleting the row does not delete the file; this check is
+ *                     what stops a new file-bearing column from shipping with
+ *                     the bytes left behind.
  *
  * Run: npm run check:account-deletion
  */
@@ -33,10 +42,12 @@ import * as schema from "@shared/schema";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
+  STORED_OBJECTS,
   deletedTables,
   deletionOrder,
   keptTables,
   planFor,
+  tablesWithObjects,
 } from "@shared/accountDeletion/plan";
 
 /**
@@ -69,6 +80,32 @@ const NOT_CUSTOMER_DATA: Record<string, string> = {
   outbound_blocked_phones: "global suppression list keyed by phone",
   outbound_blocked_domains: "global suppression list keyed by domain",
   email_unsubscribes: "global suppression list keyed by email",
+};
+
+/**
+ * Column names that address bytes held outside Postgres.
+ *
+ * Anchored to the suffixes this codebase actually mints for storage pointers,
+ * so a new `*_object_key` / `*_storage_key` / `*_file_path` column cannot ship
+ * without a disposition. Irregularly-named pointers (`attachments`,
+ * `deliverables`, `logo_url`, `video_url`, `answers`) cannot be recognised by
+ * name without swamping this in false positives — those are declared in
+ * STORED_OBJECTS and verified by check 7 instead.
+ */
+const OBJECT_POINTER_COLUMN =
+  /(^|_)(object_key|object_name|storage_key|storage_path|blob_key|file_key|asset_key|attachment_key|upload_key|file_path|cache_path)$/;
+
+/**
+ * Pointer-shaped columns that hold nothing we must erase on request. Keyed
+ * `table.column`, each with the reason — the same standard the `keep` entries
+ * are held to, because "we looked and it was fine" has to be written down to be
+ * reviewable.
+ */
+const NO_STORED_OBJECTS: Record<string, string> = {
+  "service_area_map_configs.cache_path":
+    "Regenerable render cache, not customer-supplied content. The row (and the " +
+    "business address it derives from) is deleted; the cached PNG is rebuilt " +
+    "from config on demand and is not reachable from any retained pointer.",
 };
 
 interface Meta {
@@ -244,16 +281,93 @@ for (const m of meta.values()) {
   }
 }
 
+/* ── 7. OBJECTS ─────────────────────────────────────────────────────────── */
+// A declaration that names a column which does not exist, or sits on a table we
+// keep, is a purge that silently does nothing.
+for (const table of Object.keys(STORED_OBJECTS)) {
+  if (!planFor(table)) {
+    fail(
+      "OBJECTS",
+      `STORED_OBJECTS declares files on ${table}, which has no entry in ` +
+        `ACCOUNT_DELETION_PLAN. The declaration is never read.`,
+    );
+  }
+}
+
+for (const entry of tablesWithObjects()) {
+  const m = meta.get(entry.table);
+  if (!m) continue; // already reported by REALITY
+
+  if (entry.action === "keep") {
+    fail(
+      "OBJECTS",
+      `${entry.table} is kept, but declares stored objects. A kept row keeps its ` +
+        `files — either delete the row or drop the declaration, rather than ` +
+        `implying an erasure that never happens.`,
+    );
+  }
+
+  for (const source of entry.objects!) {
+    if (!m.columns.has(source.column)) {
+      fail(
+        "OBJECTS",
+        `${entry.table}.${source.column} is declared as a file pointer but does not ` +
+          `exist on that table.`,
+      );
+    }
+    if (source.read === "jsonField" && !source.field?.trim()) {
+      fail(
+        "OBJECTS",
+        `${entry.table}.${source.column} is read as jsonField but names no field, so ` +
+          `it would yield no keys.`,
+      );
+    }
+  }
+}
+
+/* ── 8. OBJECT COVERAGE ─────────────────────────────────────────────────── */
+// The regression guard: a new pointer column must be classified, not defaulted
+// into "the row goes, the bytes stay".
+for (const m of meta.values()) {
+  for (const column of [...m.columns].sort()) {
+    if (!OBJECT_POINTER_COLUMN.test(column)) continue;
+    if (NO_STORED_OBJECTS[`${m.table}.${column}`]) continue;
+
+    const entry = planFor(m.table);
+    if (!entry) {
+      fail(
+        "OBJECT COVERAGE",
+        `${m.table}.${column} points at a file store, but ${m.table} has no entry in ` +
+          `ACCOUNT_DELETION_PLAN at all.`,
+      );
+      continue;
+    }
+    if (entry.objects?.some((s) => s.column === column)) continue;
+
+    fail(
+      "OBJECT COVERAGE",
+      `${m.table}.${column} points at bytes stored outside Postgres, but nothing ` +
+        `erases them when the account is deleted. Deleting the row only deletes the ` +
+        `pointer — and none of our stores can be listed by prefix, so the file then ` +
+        `becomes unreachable forever. Add it to STORED_OBJECTS in ` +
+        `shared/accountDeletion/plan.ts, or to NO_STORED_OBJECTS in this file with a ` +
+        `written reason.`,
+    );
+  }
+}
+
 /* ── Report ─────────────────────────────────────────────────────────────── */
 const covered = planned.size;
 const exempt = Object.keys(NOT_CUSTOMER_DATA).length;
+const objectSources = tablesWithObjects().reduce((n, p) => n + (p.objects?.length ?? 0), 0);
 
 if (failures.length === 0) {
   console.log(
     `check:account-deletion — OK (${meta.size} tables scanned; ${covered} classified ` +
       `[${deleted.size} delete, ${keptTables().length} keep, ` +
       `${ACCOUNT_DELETION_PLAN.filter((p) => p.action === "anonymize").length} anonymize]; ` +
-      `${exempt} exempt; delete order FK-safe)`,
+      `${exempt} exempt; delete order FK-safe; ${objectSources} file-pointer ` +
+      `column(s) across ${tablesWithObjects().length} table(s) purged on deletion)`,
   );
   process.exit(0);
 }
