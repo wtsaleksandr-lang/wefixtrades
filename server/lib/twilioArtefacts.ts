@@ -171,10 +171,18 @@ export function twilioArtefactKey(value: unknown): string | null {
   if (!match) return null;
   const [, accountSid, collection, sid] = match;
 
-  // Layer 2: the resource must live in OUR account. A URL naming another
-  // account is another Twilio customer's data.
+  /* Layer 2: the resource must live in OUR account. A URL naming another
+   * account is a different Twilio customer's data, so it is dropped.
+   *
+   * When we cannot check — `TWILIO_ACCOUNT_SID` unset or malformed — the value
+   * is KEPT rather than quietly dropped. The row it came from already attributes
+   * it to this customer (layer 1); dropping it would mean a deployment with a
+   * broken Twilio config reports a clean erasure while the recordings remain,
+   * which is the exact failure this whole mechanism exists to stop. Kept, it
+   * reaches a deleter that has no working credentials either, and is therefore
+   * reported as outstanding instead of silently forgotten. */
   const ours = ourAccountSid();
-  if (!ours || accountSid.toLowerCase() !== ours.toLowerCase()) return null;
+  if (ours && accountSid.toLowerCase() !== ours.toLowerCase()) return null;
 
   // The collection in the path and the SID prefix must agree, so a URL cannot
   // ask us to DELETE a message SID through the Recordings collection.
@@ -189,7 +197,10 @@ export function parseTwilioKey(key: string): { resource: TwilioResource; sid: st
   if (slash < 0) return null;
   const resource = key.slice(0, slash) as TwilioResource;
   const sid = key.slice(slash + 1);
-  if (!SID_SHAPE[resource]) return null;
+  // `hasOwnProperty`, not a truthiness check: the key arrives as a plain string
+  // from a receipt, and `SID_SHAPE["constructor"]` would otherwise resolve to
+  // an inherited Object property and pass a truthiness test.
+  if (!Object.prototype.hasOwnProperty.call(SID_SHAPE, resource)) return null;
   if (!SID_SHAPE[resource].test(sid)) return null;
   return { resource, sid };
 }

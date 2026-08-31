@@ -542,6 +542,10 @@ assert.equal(
     "Recordings/",
     RECORDING,
     "",
+    // Inherited Object properties must not read as a known resource.
+    `constructor/${RECORDING}`,
+    `toString/${RECORDING}`,
+    `__proto__/${RECORDING}`,
   ]) {
     assert.equal(
       parseTwilioKey(bogus),
@@ -567,6 +571,23 @@ assert.equal(
     `Recordings/${RECORDING}`,
     "…while still accepting our own, so the check is a real comparison and not a blanket no",
   );
+
+  // Cannot verify ≠ nothing to erase. With no account SID configured the
+  // recording is still collected, so it is REPORTED as outstanding by a deleter
+  // that has no credentials either — rather than dropped, which would let a
+  // deployment with a broken Twilio config claim a clean erasure.
+  const saved = process.env.TWILIO_ACCOUNT_SID;
+  try {
+    delete process.env.TWILIO_ACCOUNT_SID;
+    assert.equal(
+      twilioArtefactKey(OUR_RECORDING_URL),
+      `Recordings/${RECORDING}`,
+      "an unverifiable account must not silently drop the recording — a deletion that " +
+        "cannot check ownership must report, not assume there was nothing to erase",
+    );
+  } finally {
+    process.env.TWILIO_ACCOUNT_SID = saved;
+  }
 }
 
 const objectSources = withObjects.reduce((n, p) => n + (p.objects?.length ?? 0), 0);
