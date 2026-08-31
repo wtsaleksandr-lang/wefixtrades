@@ -87,7 +87,16 @@ export function BackupTimeline({
   const latestSuccess = [...entries]
     .reverse()
     .find((e) => e.status === "success");
-  const notTracked = !tracked || entries.length === 0;
+  /**
+   * Only `tracked` decides this — deliberately NOT `|| entries.length === 0`.
+   *
+   * A site whose backups all fell outside the 30-day window (the worker
+   * stopped running) has entries=[] but tracked=true. Folding that into
+   * "no backups yet" would show a reassuring first-run message for a site
+   * whose backups have actually stopped. It now falls through to the real
+   * "no successful backups in the last 30 days" line instead.
+   */
+  const notTracked = !tracked;
 
   return (
     <Card className="flex flex-col gap-3 p-4" data-testid="webcare-backup-timeline">
