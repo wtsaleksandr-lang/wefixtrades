@@ -267,14 +267,29 @@ export default function PrivacyPage() {
           for written confirmation.
         </p>
         <p style={{ marginTop: 12 }}>
+          <strong>
+            Recordings held by our phone provider are deleted from them, not just from us.
+          </strong>{" "}
+          Voicemails left on your business line, the text-message history sent and received on it,
+          and the records of who called whom live with Twilio, the provider that carries your
+          calls and texts. We hold the credentials to erase them and we do: the voicemail audio
+          itself — somebody's actual recorded voice — is deleted from Twilio's servers in the same
+          operation, not merely unlinked on our side. Twilio keeps a recording's technical
+          metadata (its reference number and duration, never the audio) for up to 40 days
+          afterwards; that is their floor, not our choice. As with files, anything that cannot be
+          erased on the first attempt is reported to you on the spot with a count, not hidden
+          behind a clean-looking confirmation.
+        </p>
+        <p style={{ marginTop: 12 }}>
           <strong>What we keep, and why.</strong> We will not tell you data is gone when it is not.
-          Three things survive deletion:
+          These are the only things that survive deletion:
         </p>
         <ul style={ul}>
           <li><strong>Paid invoices, orders, subscription records and payment history</strong> — retained for 7 years to meet tax and accounting obligations (see section 8). They stay attached to the anonymized account record, which no longer identifies you.</li>
           <li><strong>Do-not-contact and unsubscribe records</strong> — if we deleted the record of your opt-out, we could lawfully be re-added to a mailing or texting list. Keeping it is what makes your opt-out permanent.</li>
           <li><strong>Referral credit earned by whoever referred you</strong> — that record belongs to the referring account, not yours; deleting it would revoke a credit somebody else earned. It holds no personal data of yours.</li>
           <li><strong>The security audit log of staff access to your account</strong> — it stores account ID numbers only, which identify nobody once the account is anonymized.</li>
+          <li><strong>The number-transfer order held by our phone provider</strong>, if you moved an existing number to us — it is the carrier's record that you authorized the transfer. Deleting it would leave a completed transfer with no authorization behind it, and would break one still in progress. It is the only thing we leave with our phone provider; your voicemail recordings, text messages and call records are erased from them.</li>
         </ul>
         <p style={{ marginTop: 12 }}>
           Nothing else is kept. If any of your records are under a legal hold (for example an active

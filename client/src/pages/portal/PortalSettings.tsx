@@ -572,16 +572,17 @@ function DeleteAccountSection() {
     onSuccess: (body: { storage_purge_incomplete?: boolean; warning?: string }) => {
       setOpen(false);
       // The server tells us when it deleted the records but could not erase
-      // every uploaded file. Saying "deleted" over the top of that would be
-      // the one thing this whole flow promises not to do.
+      // every uploaded file, or every recording our phone provider holds.
+      // Saying "deleted" over the top of that would be the one thing this
+      // whole flow promises not to do.
       if (body?.storage_purge_incomplete) {
         toast({
           variant: "destructive",
-          title: "Account deleted — some files still being removed",
+          title: "Account deleted — some data is still being erased",
           description:
             body.warning ||
-            "Your records are deleted. A few uploaded files could not be removed from " +
-              "storage and are being erased manually.",
+            "Your records are deleted. Some uploaded files, or recordings held by our " +
+              "phone provider, could not be erased and are being removed manually.",
           duration: 15000,
         });
         // A full reload destroys the toast, so hold the page long enough for

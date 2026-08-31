@@ -16,6 +16,7 @@ import {
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
 import { formatWhatsAppBookingConfirmation } from "./twilioBookingHelper";
+import { captureVoicemail, enrichVoicemailInBackground } from "./voicemailRoutes";
 import { createLogger } from "../lib/logger";
 import {
   agentLoopEnabledBA6,
@@ -492,7 +493,7 @@ export function registerTwilioRoutes(app: Express): void {
    * so every hit here is a real Vapi outage — we surface it to Sentry as
    * a warning so on-call can see when this path fires.
    */
-  app.post("/api/twilio/voice-fallback", (req, res) => {
+  app.post("/api/twilio/voice-fallback", async (req, res) => {
     // Twilio fallback POSTs are signed with the same auth token as every
     // other webhook. Reject anything unsigned/forged before emitting TwiML —
     // this is the only Twilio route that was missing the guard its siblings
@@ -505,6 +506,54 @@ export function registerTwilioRoutes(app: Express): void {
     const callSid = typeof req.body?.CallSid === "string" ? req.body.CallSid : "(unknown)";
     const errorCode = typeof req.body?.ErrorCode === "string" ? req.body.ErrorCode : null;
     const errorUrl = typeof req.body?.ErrorUrl === "string" ? req.body.ErrorUrl : null;
+
+    /* Second visit: the `<Record>` below carries no `action`, so Twilio posts
+     * the finished recording back to THIS url. Everything after the caller
+     * hangs up arrives here.
+     *
+     * Until now that payload was dropped. Two consequences, both real:
+     *   • the message the caller was promised a callback on was never stored,
+     *     and the handler re-served the same "technical issue" prompt; and
+     *   • the Recording stayed on Twilio's servers with nothing in our database
+     *     naming it, so account deletion could never reach it. Deletion erases
+     *     what a scoped row points at; an artefact with no row is invisible to
+     *     it, and we deliberately never list Twilio to find one.
+     *
+     * Storing it makes the recording attributable, which is what makes it
+     * erasable — `voicemails.recording_url` is declared in STORED_OBJECTS and
+     * purged with the account. Guarded on `RecordingUrl` being present, so the
+     * first visit is untouched. */
+    const recordingUrl =
+      typeof req.body?.RecordingUrl === "string" ? req.body.RecordingUrl : "";
+    // Read CallSid directly rather than reusing the "(unknown)" log sentinel
+    // above: coupling the capture guard to a logging placeholder would break it
+    // silently if that placeholder ever changed.
+    const recordingCallSid =
+      typeof req.body?.CallSid === "string" ? req.body.CallSid.trim() : "";
+    if (recordingUrl && recordingCallSid) {
+      const fromRaw = typeof req.body?.From === "string" ? req.body.From : "";
+      try {
+        const vmId = await captureVoicemail({
+          callSid: recordingCallSid,
+          recordingUrl,
+          from: fromRaw,
+          to: typeof req.body?.To === "string" ? req.body.To : "",
+          durationRaw: req.body?.RecordingDuration,
+        });
+        log.info("[Twilio] voice-fallback voicemail captured", { callSid, vmId });
+        if (vmId !== null) enrichVoicemailInBackground(vmId, recordingUrl);
+      } catch (err: any) {
+        // Loud, never silent: an uncaptured recording is one nothing can ever
+        // delete, so the SID has to survive in the logs.
+        log.error(
+          "[Twilio] voice-fallback recording could NOT be stored — it will sit on Twilio " +
+            "unattributed and out of reach of account deletion",
+          { callSid, recordingUrl, err: err?.message },
+        );
+      }
+      res.set("Content-Type", "text/xml");
+      return res.send("<Response><Hangup/></Response>");
+    }
 
     log.warn("[Twilio] voice-fallback invoked — primary VoiceUrl failed", {
       callSid,

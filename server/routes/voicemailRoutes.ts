@@ -217,6 +217,90 @@ async function resolveOwnerFromDialedNumber(toRaw: string): Promise<number | nul
   }
 }
 
+/* ─── Capture ─────────────────────────────────────────────────────────────
+ *
+ * Shared by the recording-status webhook below and by the voice-fallback
+ * TwiML handler in twilioRoutes.ts, which emits a `<Record>` of its own.
+ *
+ * That second caller is the reason this is a function rather than route body.
+ * The fallback's `<Record>` carries no `action`, so Twilio posts the finished
+ * recording back to the fallback URL — which read `CallSid` and threw the rest
+ * away. Every fallback voicemail therefore became a Twilio Recording with NO
+ * row anywhere in our database: the caller's voice, held indefinitely,
+ * unreachable by the retention sweep and unreachable by account deletion, which
+ * can only erase artefacts a scoped row names. Un-attributable data is the one
+ * kind this purge cannot touch, so the fix is to stop creating it — capture the
+ * row, and the existing mechanism erases the recording with the account.
+ *
+ * Returns the voicemail id when a row now exists for this call.
+ */
+export interface VoicemailCapture {
+  callSid: string;
+  recordingUrl: string;
+  from: string;
+  to: string;
+  durationRaw: unknown;
+}
+
+export async function captureVoicemail(input: VoicemailCapture): Promise<number | null> {
+  const { callSid, recordingUrl, from, to, durationRaw } = input;
+  const duration = Number(durationRaw);
+
+  // SECURITY (P1): derive the owning user SERVER-SIDE from the dialed
+  // WeFixTrades number (`To` on the HMAC-verified webhook body) → tradeline →
+  // owner. The prior code trusted an unsigned `?MobileUserId=` query param,
+  // letting anyone with the webhook path file voicemails under any user's id.
+  // That param is now ignored.
+  const userId = await resolveOwnerFromDialedNumber(to);
+
+  // Match a lead by normalized phone, best-effort.
+  let leadId: number | null = null;
+  try {
+    const matched = await matchLeadByPhone(from);
+    if (matched) leadId = matched.id;
+  } catch (err) {
+    log.warn("Lead match failed", { err: (err as Error).message });
+  }
+
+  // NOT NULL, and the fallback caller does not pre-check `From`: storing the
+  // row with a placeholder beats dropping a recording nothing could then erase.
+  const fromNumber = normalizePhone(from) || from.slice(0, 32) || "unknown";
+
+  const [row] = await db
+    .insert(voicemails)
+    .values({
+      call_sid: callSid,
+      user_id: userId ?? undefined,
+      lead_id: leadId ?? undefined,
+      from_number: fromNumber,
+      recording_url: recordingUrl,
+      recording_duration: Number.isFinite(duration) ? duration : undefined,
+    })
+    .onConflictDoNothing({ target: voicemails.call_sid })
+    .returning({ id: voicemails.id });
+  if (row?.id) return row.id;
+
+  // Duplicate webhook delivery — find the existing row so we can still kick
+  // off enrichment if it failed last time.
+  const [existing] = await db
+    .select({ id: voicemails.id, transcript: voicemails.transcript })
+    .from(voicemails)
+    .where(eq(voicemails.call_sid, callSid))
+    .limit(1);
+  return existing && !existing.transcript ? existing.id : null;
+}
+
+/** Fire-and-forget transcription + summarization. Never throws at the caller. */
+export function enrichVoicemailInBackground(vmId: number, recordingUrl: string): void {
+  void (async () => {
+    try {
+      await runAsyncEnrichment(vmId, recordingUrl);
+    } catch (err) {
+      log.error("Async enrichment crashed", { vmId, err: (err as Error).message });
+    }
+  })();
+}
+
 /* ─── Route registration ──────────────────────────────────────────── */
 
 export function registerVoicemailRoutes(app: Express): void {
@@ -237,55 +321,15 @@ export function registerVoicemailRoutes(app: Express): void {
         return res.status(400).send();
       }
 
-      const durationRaw = req.body?.RecordingDuration;
-      const duration = Number(durationRaw);
-
-      // SECURITY (P1): derive the owning user SERVER-SIDE from the dialed
-      // WeFixTrades number (`To` on this HMAC-verified webhook body) →
-      // tradeline → owner. The prior code trusted an unsigned
-      // `?MobileUserId=` query param, letting anyone with the webhook path
-      // file voicemails under any user's id. That param is now ignored.
-      const toRaw = typeof req.body?.To === "string" ? req.body.To : "";
-      const userId = await resolveOwnerFromDialedNumber(toRaw);
-
-      // Match a lead by normalized phone, best-effort.
-      let leadId: number | null = null;
-      try {
-        const matched = await matchLeadByPhone(fromRaw);
-        if (matched) leadId = matched.id;
-      } catch (err) {
-        log.warn("Lead match failed", { err: (err as Error).message });
-      }
-
-      const fromNumber = normalizePhone(fromRaw) || fromRaw.slice(0, 32);
-
       let vmId: number | null = null;
       try {
-        const [row] = await db
-          .insert(voicemails)
-          .values({
-            call_sid: callSid,
-            user_id: userId ?? undefined,
-            lead_id: leadId ?? undefined,
-            from_number: fromNumber,
-            recording_url: recordingUrl,
-            recording_duration: Number.isFinite(duration) ? duration : undefined,
-          })
-          .onConflictDoNothing({ target: voicemails.call_sid })
-          .returning({ id: voicemails.id });
-        vmId = row?.id ?? null;
-        if (!vmId) {
-          // Duplicate webhook delivery — find the existing row so we can
-          // still kick off enrichment if it failed last time.
-          const [existing] = await db
-            .select({ id: voicemails.id, transcript: voicemails.transcript })
-            .from(voicemails)
-            .where(eq(voicemails.call_sid, callSid))
-            .limit(1);
-          if (existing && !existing.transcript) {
-            vmId = existing.id;
-          }
-        }
+        vmId = await captureVoicemail({
+          callSid,
+          recordingUrl,
+          from: fromRaw,
+          to: typeof req.body?.To === "string" ? req.body.To : "",
+          durationRaw: req.body?.RecordingDuration,
+        });
       } catch (err) {
         log.error("Voicemail insert failed", {
           callSid,
@@ -298,19 +342,7 @@ export function registerVoicemailRoutes(app: Express): void {
       res.status(204).send();
 
       // Fire-and-forget enrichment. Express has already flushed the response.
-      if (vmId !== null) {
-        const id = vmId;
-        void (async () => {
-          try {
-            await runAsyncEnrichment(id, recordingUrl);
-          } catch (err) {
-            log.error("Async enrichment crashed", {
-              vmId: id,
-              err: (err as Error).message,
-            });
-          }
-        })();
-      }
+      if (vmId !== null) enrichVoicemailInBackground(vmId, recordingUrl);
     },
   );
 

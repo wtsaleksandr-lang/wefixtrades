@@ -89,7 +89,26 @@ export type ObjectStore =
   /** The container-local upload directory served at `/uploads`. */
   | "uploads"
   /** Cloudflare R2 — `server/lib/r2Upload.ts`. Publicly readable bucket. */
-  | "r2";
+  | "r2"
+  /**
+   * Twilio — `server/lib/twilioArtefacts.ts`. Not a byte store we run, but the
+   * same shape of problem: a column holds a pointer, the data sits outside
+   * Postgres, and deleting the row deletes only the pointer.
+   *
+   * `voicemails.recording_url` is the case that made this necessary. It holds
+   * `https://api.twilio.com/…/Recordings/RE…` — the caller's *actual recorded
+   * voice*, on Twilio's servers. It was left alone as "a third-party API, out
+   * of scope"; that was wrong. We hold the account credentials, Twilio's REST
+   * API deletes Recordings, and this codebase already calls it to release
+   * numbers. A deletion that erases a voicemail row while the voice recording
+   * plays on is exactly the defect the rest of this file removes.
+   *
+   * The deleter can only address per-customer resources (Recordings,
+   * Transcriptions, Messages, Calls). Phone numbers, Messaging Services, A2P
+   * brands and Push Credentials are WeFixTrades' own infrastructure, shared
+   * across customers, and are deliberately unreachable from here.
+   */
+  | "twilio";
 
 /**
  * How to read object pointers out of one column.
@@ -97,10 +116,13 @@ export type ObjectStore =
  * Several of these columns are polymorphic: `clients.logo_url` holds our
  * `/uploads/…` path when the customer uploaded a file and an arbitrary external
  * URL when they pasted one; `content_assets.url` holds an R2 URL or a stock
- * photo link. The executor therefore filters every extracted value through a
- * per-store membership test (`belongsToStore`) and ignores anything that does
- * not address the named store — so a pasted URL is never mistaken for a file we
- * own, and never counted as a failed purge.
+ * photo link; `voicemails.recording_url` names a recording in OUR Twilio account
+ * and a URL naming any other account is a different Twilio customer's. The
+ * executor therefore filters every extracted value through a per-store
+ * ownership test (`ownedKey`) and ignores anything that does not address the
+ * named store — so a pasted URL is never mistaken for a file we own, another
+ * account's recording is never deleted, and neither is counted as a failed
+ * purge.
  *
  * `jsonScan` exists for free-form JSONB (`leads.answers`) where the pointer is
  * one value among arbitrary customer answers under keys we do not control.
@@ -456,6 +478,23 @@ const KEEP: TablePlan[] = [
  * explicit deletion request would retain the customer's phone bill and home
  * address to duplicate a record somebody else is already required to hold.
  *
+ * ── Retention exceptions at Twilio: exactly one, and it is narrow ──
+ *
+ * The Twilio-side port-in order (`tradeline_phone_setups.port_twilio_order_sid`)
+ * is deliberately NOT deleted, and it is the record the paragraph above leans
+ * on: it is the carrier-side evidence that this subscriber authorised the
+ * transfer of their number. Destroying it would leave a completed port with no
+ * authorisation behind it, and cancelling one still in flight would strand the
+ * customer's number mid-transfer. It is retained narrowly — the order, not the
+ * call recordings, not the messages — and the deletion copy says so rather than
+ * claiming everything at Twilio is gone.
+ *
+ * Nothing else at Twilio is retained on our say-so. The Recordings, Calls and
+ * Messages above are erased outright: no Twilio-documented obligation, and no
+ * carrier one either, attaches to message bodies or call audio. The
+ * carrier-audit obligation that does exist attaches to consent and opt-out
+ * evidence, which lives in the `sms_opt_outs` row this plan already keeps.
+ *
  * If an individual account genuinely must be preserved, that is what the
  * `retention_overrides` legal-hold registry is for: a live hold makes
  * `assertNoLegalHold` refuse the whole deletion and route it to a human, rather
@@ -478,6 +517,16 @@ export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
     { store: "objectStorage", column: "port_loa_object_key", read: "text" },
     { store: "objectStorage", column: "port_loa_pdf_object_key", read: "text" },
     { store: "objectStorage", column: "port_signature_object_key", read: "text" },
+    /* The Call record for the one-second outbound test call we placed to the
+     * customer's own number to confirm forwarding. It names their personal
+     * phone number, which this row is erased for holding, so it goes for the
+     * same reason. Our own outbound call to them: no third party's data in it.
+     *
+     * Two Twilio identifiers on this table are deliberately NOT here — the
+     * provisioned number and the port-in order. See NO_TWILIO_ARTEFACTS in
+     * scripts/check-account-deletion-coverage.ts for why, and the retention
+     * note above for what the deletion copy has to say about it. */
+    { store: "twilio", column: "forwarding_test_call_sid", read: "text" },
   ],
 
   /**
@@ -544,6 +593,53 @@ export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
    * not in any store and is skipped.
    */
   content_drafts: [{ store: "r2", column: "metadata", read: "jsonScan" }],
+
+  /* ── Held by Twilio ──────────────────────────────────────────────────────
+   *
+   * Attribution: these SIDs are only ever read out of rows already scoped to
+   * the account being erased, and a value naming a Twilio account other than
+   * ours is discarded rather than deleted. We never list Twilio and never
+   * infer ownership from anything but our own scoped rows — see the header of
+   * `server/lib/twilioArtefacts.ts`. That is what stops this from reaching
+   * another customer's recording, which would be far worse than the bug it
+   * fixes. */
+
+  /**
+   * The voicemail somebody left on the customer's business line: their actual
+   * recorded voice, held by Twilio, plus the Call record naming both parties'
+   * phone numbers. Our own Whisper transcript and Claude summary live in
+   * `transcript` / `summary` on this row and go with it.
+   *
+   * `recording_url` is listed first so the audio is erased before the Call
+   * record that indexes it. Twilio does not cascade either way — each is
+   * deleted on its own key — but a failure part-way through should leave the
+   * more sensitive artefact already gone.
+   */
+  voicemails: [
+    { store: "twilio", column: "recording_url", read: "text" },
+    { store: "twilio", column: "call_sid", read: "text" },
+  ],
+
+  /**
+   * Softphone call records. The Twilio Call resource holds who called whom and
+   * when — the same personal data as the row's own `from_number`/`to_number`,
+   * which we delete. Not recorded: no TwiML in this product sets `record`, so
+   * these calls have no Recording to chase.
+   */
+  mobile_call_records: [{ store: "twilio", column: "call_sid", read: "text" }],
+
+  /**
+   * The SMS conversation between the customer's business and their leads —
+   * both parties' numbers and the message bodies, held by Twilio for 13 months
+   * by default. Deleting the Message removes the media stored with it too.
+   *
+   * Safe against the opt-out obligation: Twilio keeps opt-out state on the
+   * Messaging Service's block list, not on the Message resource, and it has no
+   * REST delete at all — so erasing message history cannot resurrect a number
+   * somebody STOPped. Our own evidence of the opt-out is the `sms_opt_outs`
+   * row, which this plan retains on exactly that basis.
+   */
+  sms_messages: [{ store: "twilio", column: "twilio_sid", read: "text" }],
 };
 
 /* ──────────────────────────────────────────────────────────────────────────
