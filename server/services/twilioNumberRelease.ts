@@ -105,3 +105,52 @@ export async function releaseTwilioNumber(sid: string): Promise<ReleaseResult> {
     return { released: false, error: message };
   }
 }
+
+/**
+ * The account-deletion entry point — the `twilioNumber` store's deleter in
+ * `services/accountDeletion/deleteAccount.ts`.
+ *
+ * A thin, deliberately narrow wrapper. It exists rather than wiring
+ * `releaseTwilioNumber` straight into the store table so that the ONE
+ * destructive capability reachable from a deletion receipt is bounded by a
+ * shape check performed here, at the point of use, after the SID has round-
+ * tripped through the receipt as a plain string. `deleteTwilioArtefact` cannot
+ * address a phone number by construction and this cannot address anything BUT
+ * one, so neither can be steered into the other's territory.
+ *
+ * Returns true only when the number is no longer ours — released now, or
+ * already gone. Never throws: a caller mid-erasure records the failure and
+ * carries on, and the SID reaches `audit_log` so the charge can be reconciled.
+ */
+export async function releaseNumberArtefact(key: string): Promise<boolean> {
+  // `PN` + 32 hex, anchored. The value is interpolated into a Twilio REST path,
+  // and the plan reaches this deleter only for `assigned_number_sid` — so
+  // anything that is not an IncomingPhoneNumber SID is a bug upstream, not a
+  // resource to try deleting.
+  if (!/^PN[0-9a-f]{32}$/i.test(key)) {
+    log.error("refusing to release a value that is not an IncomingPhoneNumber SID", { key });
+    return false;
+  }
+
+  /* Dev, staging and production share one Twilio account and a release is
+   * irreversible — the number goes back to Twilio's pool and somebody else can
+   * buy it. Anywhere we would not send a live message, we do not relinquish a
+   * live number either. Reported as NOT released, never as done, which is what
+   * puts it on the receipt and into `audit_log` instead of silently passing.
+   *
+   * Imported lazily: this module is loaded by the plan's executor, and a
+   * top-level import of the Twilio client would drag the SDK into the graph of
+   * anything that merely reads the release helper. */
+  const { isTwilioDryRun } = await import("../twilioClient");
+  if (isTwilioDryRun()) {
+    log.error(
+      "Twilio number NOT released — dry-run posture. Recorded for manual release; " +
+        "a release from a non-production boot would relinquish a live customer's number.",
+      { sid: key },
+    );
+    return false;
+  }
+
+  const result = await releaseTwilioNumber(key);
+  return result.released;
+}

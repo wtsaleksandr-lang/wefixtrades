@@ -162,7 +162,9 @@ export function registerMetaMessagingWebhookRoutes(app: Express): void {
           continue;
         }
 
-        const senderPsid = m.sender?.id ? String(m.sender.id) : null;
+        // The sender's PSID is deliberately not read out of the payload at all:
+        // nothing below may record it (see the audit row), and a bound variable
+        // is an invitation for the next edit to put it back.
         const messageText = m.message?.text ?? null;
         const messageId = m.message?.mid ?? null;
         const postbackPayload = m.postback?.payload ?? null;
@@ -176,12 +178,28 @@ export function registerMetaMessagingWebhookRoutes(app: Express): void {
             entityId: pageId ?? "unknown",
             after: {
               page_id: pageId,
-              sender_psid: senderPsid,
               message_id: messageId,
-              // Truncate message text in the audit row so a flood of long
-              // DMs doesn't bloat audit_log. Full text is still in Meta's
-              // inbox if needed for support.
-              message_text: messageText ? messageText.slice(0, 500) : null,
+              /* The sender's PSID and the DM text are deliberately NOT here.
+               *
+               * This row is keyed by a Facebook page id, and audit_log has no
+               * owner column — so no account-deletion scope can find it. A
+               * member of the public's message to one of our customers, and the
+               * id identifying them, would sit here permanently, unreachable by
+               * the customer's erasure request and by ours.
+               *
+               * Redaction cannot save a row nothing can find, so the fix is to
+               * stop creating it: as the previous version of this comment said
+               * itself, the full text is in Meta's inbox, which is the system of
+               * record. `message_id` is the pointer back to it, which is all an
+               * audit row needs; the length is kept because "a DM arrived and it
+               * was 400 characters" is the operational fact, and the content is
+               * not.
+               *
+               * `postback_title` / `postback_payload` stay: those are OUR menu
+               * button's label and our own payload string, authored by the
+               * customer's page configuration, not typed by a member of the
+               * public. */
+              message_length: messageText ? messageText.length : null,
               has_postback: !!m.postback,
               postback_title: postbackTitle,
               postback_payload: postbackPayload,

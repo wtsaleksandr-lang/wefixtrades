@@ -50,11 +50,16 @@ import * as schema from "@shared/schema";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
+  METADATA_REDACTIONS,
+  PII_METADATA_KEYS,
   STORED_OBJECTS,
   deletedTables,
   deletionOrder,
   keptTables,
   planFor,
+  redactionFor,
+  scopeColumns,
+  scopeParents,
   tablesWithObjects,
 } from "@shared/accountDeletion/plan";
 
@@ -154,16 +159,15 @@ const NO_TWILIO_ARTEFACTS: Record<string, string> = {
     "the pattern has to catch a future MMS `media_url` column; this one is not " +
     "one and holds no Twilio resource.",
 
-  "tradeline_phone_setups.assigned_number_sid":
-    "NOT THIS CUSTOMER'S TO DELETE — and releasing it is not an erasure. This is " +
-    "an IncomingPhoneNumber in the WeFixTrades account. In the PORT flow it is " +
-    "the customer's own number, which they may still want to move to another " +
-    "carrier; relinquishing it on a data-deletion request would destroy a phone " +
-    "number rather than erase personal data. Release is driven by subscription " +
-    "state through services/twilioNumberRelease.ts (churn / cancel / admin), " +
-    "which is the correct trigger. Deleting the row does leave the number owned " +
-    "and billing until that path runs — an operational leak, tracked separately, " +
-    "not something a privacy purge should decide.",
+  /* `tradeline_phone_setups.assigned_number_sid` used to be exempted here, on
+   * the grounds that in the PORT flow the number is the customer's own and
+   * releasing it would destroy a phone number rather than erase personal data.
+   * That reasoning was right about the port flow and wrong about the other two:
+   * in `new` and `forward` we bought the number ourselves and it kept billing
+   * after the deletion had destroyed the only copy of its SID. It is now
+   * declared against the `twilioNumber` store with a `when` condition that
+   * excludes `mode: "port"` — the distinction the exemption could not express.
+   * See the store's own note in shared/accountDeletion/plan.ts. */
 
   "tradeline_phone_setups.port_twilio_order_sid":
     "RETAINED DELIBERATELY. The Twilio port-in order is the carrier-side record " +
@@ -232,22 +236,25 @@ for (const entry of ACCOUNT_DELETION_PLAN) {
     fail("REALITY", `${entry.table} is in the plan but no such table exists in the schema`);
     continue;
   }
-  for (const col of entry.scope.columns) {
+  // Flattened through `anyOf`, so a table reachable by two routes is checked on
+  // both — a branch nobody validates is a branch that can name a dead column
+  // and silently match nothing.
+  for (const col of scopeColumns(entry.scope)) {
     if (!m.columns.has(col)) {
       fail("REALITY", `${entry.table}.${col} is named by the plan's scope but does not exist`);
     }
   }
-  if (entry.scope.by === "parent") {
-    const parent = meta.get(entry.scope.parent);
+  for (const { parent: parentTable, parentKey } of scopeParents(entry.scope)) {
+    const parent = meta.get(parentTable);
     if (!parent) {
-      fail("REALITY", `${entry.table} is scoped through unknown parent ${entry.scope.parent}`);
-    } else if (!parent.columns.has(entry.scope.parentKey)) {
+      fail("REALITY", `${entry.table} is scoped through unknown parent ${parentTable}`);
+    } else if (!parent.columns.has(parentKey)) {
       fail(
         "REALITY",
-        `${entry.table} is scoped through ${entry.scope.parent}.${entry.scope.parentKey}, which does not exist`,
+        `${entry.table} is scoped through ${parentTable}.${parentKey}, which does not exist`,
       );
-    } else if (!planned.has(entry.scope.parent)) {
-      fail("REALITY", `${entry.table} is scoped through ${entry.scope.parent}, which is not in the plan`);
+    } else if (!planned.has(parentTable)) {
+      fail("REALITY", `${entry.table} is scoped through ${parentTable}, which is not in the plan`);
     }
   }
   if (entry.action === "anonymize") {
@@ -277,8 +284,17 @@ for (const entry of keptTables()) {
 
 /* ── 6. SCOPING ─────────────────────────────────────────────────────────── */
 for (const entry of ACCOUNT_DELETION_PLAN) {
-  if (entry.scope.columns.length === 0) {
+  if (scopeColumns(entry.scope).length === 0) {
     fail("SCOPING", `${entry.table} has no scope column — it would match every tenant's rows`);
+  }
+  // An `anyOf` with one branch is a single scope wearing a disguise; with none
+  // it reads as "scoped" while constraining nothing.
+  if (entry.scope.by === "anyOf" && entry.scope.scopes.length < 2) {
+    fail(
+      "SCOPING",
+      `${entry.table} declares an anyOf scope with ${entry.scope.scopes.length} branch(es). ` +
+        `Use the single scope directly, or add the route that is missing.`,
+    );
   }
 }
 
@@ -397,6 +413,26 @@ for (const entry of tablesWithObjects()) {
           `it would yield no keys.`,
       );
     }
+    if (source.when) {
+      // A condition on a column that does not exist reads as NULL, which
+      // COLLECTS — so a typo here silently turns a guarded declaration into an
+      // unguarded one, in the direction that deletes more.
+      if (!m.columns.has(source.when.column)) {
+        fail(
+          "OBJECTS",
+          `${entry.table}.${source.column} is guarded on ${entry.table}.${source.when.column}, ` +
+            `which does not exist. A missing guard column reads as NULL and the artefact is ` +
+            `collected anyway — the condition would protect nothing.`,
+        );
+      }
+      if (source.when.unless.length === 0) {
+        fail(
+          "OBJECTS",
+          `${entry.table}.${source.column} declares a \`when\` that excludes nothing, so it ` +
+            `is an unconditional declaration wearing a condition.`,
+        );
+      }
+    }
   }
 }
 
@@ -451,12 +487,34 @@ for (const m of meta.values()) {
     }
     const declared = entry.objects?.find((s) => s.column === column);
     if (declared) {
-      if (declared.store !== "twilio") {
+      /* Which of the two Twilio stores a column belongs to is decided by what it
+       * holds, not by preference. `deleteTwilioArtefact` cannot address a phone
+       * number (that is the property that keeps it from reaching WeFixTrades'
+       * own infrastructure) and `releaseNumberArtefact` cannot address anything
+       * else. Getting the pairing wrong means a purge that fails on every row. */
+      const wantsNumberStore = /(^|_)number_sid$/.test(column);
+      const expected = wantsNumberStore ? "twilioNumber" : "twilio";
+      if (declared.store !== expected) {
         fail(
           "TWILIO COVERAGE",
-          `${m.table}.${column} holds a Twilio identifier but is declared against ` +
-            `store "${declared.store}", whose deleter cannot address a Twilio resource. ` +
-            `The purge would report a failure for every row.`,
+          `${m.table}.${column} is declared against store "${declared.store}", but it ` +
+            `holds ${wantsNumberStore ? "an IncomingPhoneNumber SID" : "a per-customer Twilio resource"} ` +
+            `and must be declared against "${expected}". The other store's deleter cannot ` +
+            `address it, so the purge would report a failure for every row.`,
+        );
+      }
+      /* A number release is irreversible and takes a phone number away from
+       * whoever it belongs to. In the port flow that is the customer, which is
+       * why an unconditional declaration is refused outright rather than left to
+       * a reviewer to notice. */
+      if (declared.store === "twilioNumber" && !declared.when) {
+        fail(
+          "TWILIO COVERAGE",
+          `${m.table}.${column} releases a phone number unconditionally. The same column ` +
+            `holds a number WE bought in the "new"/"forward" flows and is bound up with the ` +
+            `customer's OWN ported-in number in the "port" flow — releasing that one would ` +
+            `destroy a phone number rather than erase personal data. Declare a \`when\` ` +
+            `condition that excludes it.`,
         );
       }
       continue;
@@ -496,6 +554,257 @@ for (const key of Object.keys(NO_TWILIO_ARTEFACTS)) {
   }
 }
 
+/* ── 10. REDACTION ──────────────────────────────────────────────────────── */
+// The rows we keep and scrub. Structural checks only — check 11 is the one that
+// proves the scrub still covers what the callers actually write.
+for (const entry of METADATA_REDACTIONS) {
+  const m = meta.get(entry.table);
+  if (!m) {
+    fail("REDACTION", `${entry.table} is declared in METADATA_REDACTIONS but no such table exists`);
+    continue;
+  }
+  if (!entry.reason || entry.reason.trim().length < 30) {
+    fail(
+      "REDACTION",
+      `${entry.table} is retained-and-scrubbed without a stated reason. Keeping a row the ` +
+        `customer asked us to delete needs the same written justification a \`keep\` does.`,
+    );
+  }
+  if (entry.match.length === 0) {
+    fail(
+      "REDACTION",
+      `${entry.table} declares no match, so no row would ever be found and the scrub is a no-op.`,
+    );
+  }
+  if (entry.jsonColumns.length === 0 && entry.textColumns.length === 0) {
+    fail("REDACTION", `${entry.table} names no column to scrub.`);
+  }
+  const planEntry = planFor(entry.table);
+  if (planEntry?.action === "delete") {
+    fail(
+      "REDACTION",
+      `${entry.table} is DELETED by the plan and also declared for redaction. A deleted row ` +
+        `needs no scrubbing; one of the two is wrong about what happens to this table.`,
+    );
+  }
+  for (const column of [...entry.jsonColumns, ...entry.textColumns]) {
+    if (!m.columns.has(column)) {
+      fail("REDACTION", `${entry.table}.${column} is declared for redaction but does not exist.`);
+    }
+  }
+  for (const column of entry.twilioColumns) {
+    if (!entry.jsonColumns.includes(column)) {
+      fail(
+        "REDACTION",
+        `${entry.table}.${column} is mined for Twilio SIDs but is not one of the scrubbed ` +
+          `jsonColumns. Collecting from a blob nothing scrubs is pointless; scrubbing a blob ` +
+          `nothing collects from destroys the only pointer to data still held at Twilio.`,
+      );
+    }
+  }
+  for (const match of entry.match) {
+    const cols =
+      match.by === "entity" ? [match.typeColumn, match.idColumn] : [match.column];
+    for (const col of cols) {
+      if (!m.columns.has(col)) {
+        fail(
+          "REDACTION",
+          `${entry.table}.${col} is named by a redaction match but does not exist — that ` +
+            `branch would match nothing and the rows it was meant to find keep their PII.`,
+        );
+      }
+    }
+  }
+}
+
+/* ── 11. METADATA PII COVERAGE ──────────────────────────────────────────── */
+/**
+ * The regression guard for the hole this whole check exists to close: personal
+ * data written into a jsonb blob rather than a typed column.
+ *
+ * Checks 8 and 9 read the live schema, because a file pointer and a Twilio SID
+ * each live in a column with a name. What lands INSIDE a `jsonb metadata` column
+ * has no schema at all — it is whatever an object literal at a call site says it
+ * is — so the only ground truth is the source, and this is the one check that
+ * reads it. (`OBJECT_POINTER_COLUMN` already establishes that a name pattern
+ * plus a written exemption list is an acceptable shape here.)
+ *
+ * Every PII-shaped key written into an audited blob must either be in
+ * `PII_METADATA_KEYS`, so the scrub replaces it, or be exempted below with a
+ * reason. "It is only in a log" is what left the recipient's phone number and
+ * the full text of an SMS in a row nothing ever touched.
+ */
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * Key names that look like personal data. Deliberately broader than
+ * `PII_METADATA_KEYS`: this is the net, that is the disposition. A key caught
+ * here is not an accusation, it is a demand that somebody classify it.
+ */
+const PII_SHAPED_KEY =
+  /(^|_)(body|message|msg|text|content|transcript|subject|reply|reply_text|phone|phone_number|number|recipient|email|address|street|name|note|notes|answers|summary|reviewer|ip|ip_address|user_agent)$/i;
+
+/**
+ * PII-shaped keys that hold nothing personal, keyed `key` or `file:key`, each
+ * with the reason — the same standard `NO_STORED_OBJECTS` is held to.
+ */
+const NOT_METADATA_PII: Record<string, string> = {
+  tool_name: "The NAME of an AI tool ('send_support_sms'), not its arguments.",
+  template_name: "Template identifier, not content.",
+  action_name: "Action identifier.",
+  event_name: "Event identifier.",
+  field_name: "Schema field identifier.",
+  provider_name: "Third-party provider identifier (Stripe, Twilio, Vapi).",
+  supplier_name:
+    "A fulfilment SUPPLIER's trading name — our vendor, not the customer, and not " +
+    "erased by a customer's deletion request.",
+  file_name: "Uploaded file's own name; the file itself is purged via STORED_OBJECTS.",
+  step_name: "Wizard step identifier.",
+  plan_name: "Subscription plan identifier.",
+  status_text: "Status string from a provider API.",
+  error_text: "Error message from a provider API.",
+  legacy_alias: "Internal template alias.",
+  brand_name: "WeFixTrades' own brand, not the customer's.",
+  from_status: "Workflow status transition, not a sender.",
+  to_status: "Workflow status transition, not a recipient.",
+  from: "Workflow/value transition pair (`from`/`to`), not a phone number or address.",
+  to: "Workflow/value transition pair (`from`/`to`), not a phone number or address.",
+};
+
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) sourceFiles(p, out);
+    else if (p.endsWith(".ts") && !p.endsWith(".test.ts")) out.push(p);
+  }
+  return out;
+}
+
+/** The index just past the balanced `open`…`close` pair starting at `from`. */
+function balancedEnd(src: string, from: number, open: string, close: string): number {
+  let depth = 0;
+  for (let i = from; i < src.length; i++) {
+    if (src[i] === open) depth++;
+    else if (src[i] === close && --depth === 0) return i + 1;
+  }
+  return src.length;
+}
+
+/**
+ * Which redaction entry receives a given writer's blob. Hard-wired because the
+ * mapping is a fact about two helpers, not a pattern to infer: `writeAudit`
+ * writes `audit_log`, `logAdminActivity` writes `admin_activity_log`.
+ */
+const AUDIT_WRITERS: Record<string, string> = {
+  writeAudit: "audit_log",
+  logAdminActivity: "admin_activity_log",
+};
+
+const redactedKeys = new Set(PII_METADATA_KEYS.map((k) => k.toLowerCase()));
+const WRITER_CALL = new RegExp(`\\b(${Object.keys(AUDIT_WRITERS).join("|")})\\s*\\(`, "g");
+const OBJECT_KEY = /(^|[\s{,])([A-Za-z_][A-Za-z0-9_]*)\s*:/g;
+/** A key whose VALUE is a Twilio SID — the pointer that must survive the scrub. */
+const SID_KEY = /(^|_)(sid|twilio_sid|call_sid|message_sid|recording_sid)$/i;
+
+let blobKeysScanned = 0;
+for (const file of sourceFiles("server")) {
+  const src = readFileSync(file, "utf8");
+  let call: RegExpExecArray | null;
+  WRITER_CALL.lastIndex = 0;
+  while ((call = WRITER_CALL.exec(src))) {
+    const table = AUDIT_WRITERS[call[1]];
+    const arg = src.slice(call.index, balancedEnd(src, call.index + call[0].length - 1, "(", ")"));
+
+    // Only the blob-valued properties. A `summary:` or `action:` sitting beside
+    // `metadata:` is a typed column and is dispositioned by the plan's
+    // `textColumns`, not by the key scrub.
+    for (const prop of ["metadata", "before", "after"]) {
+      // `\b` so `after:` does not also match `sent_after:`. Only an inline
+      // object literal is readable; `metadata: buildMeta(x)` is opaque to a
+      // source scan and is reported by the caller-side rule below instead.
+      const propAt = new RegExp(`(^|[\\s{,(])${prop}\\s*:\\s*\\{`).exec(arg);
+      if (!propAt) continue;
+      const brace = propAt.index + propAt[0].length - 1;
+      const blob = arg.slice(brace, balancedEnd(arg, brace, "{", "}"));
+
+      const entry = redactionFor(table);
+      let key: RegExpExecArray | null;
+      OBJECT_KEY.lastIndex = 0;
+      while ((key = OBJECT_KEY.exec(blob))) {
+        const name = key[2];
+        blobKeysScanned++;
+        const line = src.slice(0, call.index).split("\n").length;
+
+        if (SID_KEY.test(name)) {
+          // A SID in a blob is often the ONLY pointer at data still held by
+          // Twilio (nothing writes an sms_messages row for an admin-sent SMS).
+          // The blob must therefore be mined before it is scrubbed.
+          if (!entry) {
+            fail(
+              "METADATA PII COVERAGE",
+              `${file}:${line} writes a Twilio SID into ${table}.${prop}, but ${table} has no ` +
+                `METADATA_REDACTIONS entry — nothing erases the resource it points at.`,
+            );
+          } else if (!entry.twilioColumns.includes(prop)) {
+            fail(
+              "METADATA PII COVERAGE",
+              `${file}:${line} writes a Twilio SID (\`${name}\`) into ${table}.${prop}, which is ` +
+                `not in that entry's twilioColumns. The SID is often the only pointer at a ` +
+                `message or recording still held by Twilio; without it the artefact is ` +
+                `unreachable forever. Add "${prop}" to twilioColumns in ` +
+                `shared/accountDeletion/plan.ts.`,
+            );
+          }
+          continue;
+        }
+
+        if (!PII_SHAPED_KEY.test(name)) continue;
+        if (redactedKeys.has(name.toLowerCase())) continue;
+        if (NOT_METADATA_PII[name] || NOT_METADATA_PII[`${file}:${name}`]) continue;
+
+        if (!entry) {
+          fail(
+            "METADATA PII COVERAGE",
+            `${file}:${line} writes \`${name}\` into ${table}.${prop}, but ${table} has no ` +
+              `METADATA_REDACTIONS entry at all — the blob survives the account deletion intact.`,
+          );
+          continue;
+        }
+        if (!entry.jsonColumns.includes(prop)) {
+          fail(
+            "METADATA PII COVERAGE",
+            `${file}:${line} writes \`${name}\` into ${table}.${prop}, which nothing scrubs. ` +
+              `Add "${prop}" to that entry's jsonColumns in shared/accountDeletion/plan.ts.`,
+          );
+          continue;
+        }
+        fail(
+          "METADATA PII COVERAGE",
+          `${file}:${line} writes \`${name}\` into ${table}.${prop} — a key name that looks ` +
+            `like personal data and that nothing removes when the account is deleted. Add it ` +
+            `to PII_METADATA_KEYS in shared/accountDeletion/plan.ts so the scrub replaces it, ` +
+            `or to NOT_METADATA_PII in this file with a written reason. Message bodies and ` +
+            `phone numbers sat in audit_log for exactly this long because a jsonb column has ` +
+            `no schema for a guard to read.`,
+        );
+      }
+    }
+  }
+}
+
+// An entry in PII_METADATA_KEYS that the net would never catch is dead weight —
+// it protects nothing and reads as though it does.
+for (const key of PII_METADATA_KEYS) {
+  if (!PII_SHAPED_KEY.test(key)) {
+    fail(
+      "METADATA PII COVERAGE",
+      `PII_METADATA_KEYS lists "${key}", which PII_SHAPED_KEY would never flag. Either widen ` +
+        `the pattern so a new caller writing that key is caught, or drop the entry.`,
+    );
+  }
+}
+
 /* ── Report ─────────────────────────────────────────────────────────────── */
 const covered = planned.size;
 const exempt = Object.keys(NOT_CUSTOMER_DATA).length;
@@ -513,7 +822,10 @@ if (failures.length === 0) {
       `${exempt} exempt; delete order FK-safe; ${objectSources} pointer ` +
       `column(s) across ${tablesWithObjects().length} table(s) purged on deletion, ` +
       `of which ${twilioSources} address Twilio; ` +
-      `${Object.keys(NO_TWILIO_ARTEFACTS).length} Twilio-shaped column(s) exempted with a reason)`,
+      `${Object.keys(NO_TWILIO_ARTEFACTS).length} Twilio-shaped column(s) exempted with a reason; ` +
+      `${METADATA_REDACTIONS.length} table(s) retained-and-scrubbed across ` +
+      `${PII_METADATA_KEYS.length} PII key names, ${blobKeysScanned} blob key(s) scanned at ` +
+      `audit call sites)`,
   );
   process.exit(0);
 }

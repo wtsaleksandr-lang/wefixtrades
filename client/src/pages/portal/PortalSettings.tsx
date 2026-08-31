@@ -538,6 +538,12 @@ interface DeletionPreview {
   businesses: string[];
   deletes: string[];
   retains: { what: string; why: string }[];
+  /* Rows kept with the personal data taken OUT of them — a different promise
+     from `retains`, which is kept intact on a legal basis. Rendered under the
+     same heading but visibly distinguished, because "we keep an audit log" and
+     "we keep an audit log with your details removed" are not the same
+     disclosure. Optional so an older server response still renders. */
+  retains_stripped?: { what: string; why: string }[];
   already_deleted: boolean;
 }
 
@@ -572,17 +578,18 @@ function DeleteAccountSection() {
     onSuccess: (body: { storage_purge_incomplete?: boolean; warning?: string }) => {
       setOpen(false);
       // The server tells us when it deleted the records but could not erase
-      // every uploaded file, or every recording our phone provider holds.
-      // Saying "deleted" over the top of that would be the one thing this
-      // whole flow promises not to do.
+      // every uploaded file, every recording our phone provider holds, or hand
+      // back a phone number it provided. Saying "deleted" over the top of that
+      // would be the one thing this whole flow promises not to do.
       if (body?.storage_purge_incomplete) {
         toast({
           variant: "destructive",
           title: "Account deleted — some data is still being erased",
           description:
             body.warning ||
-            "Your records are deleted. Some uploaded files, or recordings held by our " +
-              "phone provider, could not be erased and are being removed manually.",
+            "Your records are deleted. Some uploaded files, recordings held by our " +
+              "phone provider, or a phone number we provided could not be released and " +
+              "are being handled manually.",
           duration: 15000,
         });
         // A full reload destroys the toast, so hold the page long enough for
@@ -665,6 +672,18 @@ function DeleteAccountSection() {
               {preview.retains.map((r) => (
                 <li key={r.what}>
                   <span className="font-medium text-gray-800">{r.what}</span>
+                  <span className="block text-gray-500">{r.why}</span>
+                </li>
+              ))}
+              {/* Kept, but stripped. Same list so the customer sees everything
+                  that survives in one place; marked so they can tell which
+                  records still hold their details and which no longer do. */}
+              {(preview.retains_stripped ?? []).map((r) => (
+                <li key={r.what}>
+                  <span className="font-medium text-gray-800">{r.what}</span>
+                  <span className="ml-1 text-[10px] uppercase tracking-wide text-gray-500">
+                    details removed
+                  </span>
                   <span className="block text-gray-500">{r.why}</span>
                 </li>
               ))}
