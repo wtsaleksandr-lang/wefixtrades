@@ -171,22 +171,37 @@ export async function wpGetCollection(
   const perPage = 100;
   const sep = path.includes("?") ? "&" : "?";
   const items: unknown[] = [];
+  let exhausted = false;
 
   for (let page = 1; items.length < max; page += 1) {
     const res = await wpFetch(creds, `${path}${sep}per_page=${perPage}&page=${page}`);
     if (!res.ok) {
       // A 400 on page N>1 is how WP signals "past the last page" for some
       // endpoints; treat that as a clean end rather than a failure.
-      if (page > 1 && res.status === 400) break;
+      if (page > 1 && res.status === 400) {
+        exhausted = true;
+        break;
+      }
       return { ok: false, items: [], truncated: false, error: res.error };
     }
     const batch = Array.isArray(res.data) ? res.data : [];
     items.push(...batch);
-    if (batch.length < perPage) break;
+    // A short page is the last page — we have genuinely seen everything.
+    if (batch.length < perPage) {
+      exhausted = true;
+      break;
+    }
   }
 
-  const truncated = items.length > max;
-  return { ok: true, items: truncated ? items.slice(0, max) : items, truncated };
+  // We only KNOW the set is complete if a short page ended it. Stopping
+  // because the cap was reached means more may remain, so the archive must
+  // be marked truncated — a backup that silently dropped items while
+  // reporting itself complete is the failure mode this flag exists for.
+  return {
+    ok: true,
+    items: items.length > max ? items.slice(0, max) : items,
+    truncated: !exhausted,
+  };
 }
 
 /**

@@ -22,10 +22,9 @@ import { storage } from "../storage";
 import { clients, clientServices } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
-import {
-  decryptToken,
-  isEncryptionConfigured,
-} from "../services/socialSync/tokenEncryption";
+// Single shared resolver — the backup worker, the malware scanner and the
+// portal's 1-click actions all resolve credentials the same way.
+import { resolveWpCredentials } from "../services/webcare/credentials";
 import {
   checkPluginUpdates,
   applyPluginUpdates,
@@ -51,74 +50,10 @@ interface MaintenanceResult {
   errors: number;
 }
 
-interface StoredWpCreds {
-  cms_url: string;
-  cms_username: string;
-  cms_app_password: string; // encrypted
-}
-
 /* ─── Month prefix (matches recurringTaskWorker convention) ──────── */
 
 function getMonthPrefix(date: Date = new Date()): string {
   return date.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-}
-
-/* ─── Credential Resolver ──────────────────────────────────────────── */
-
-/**
- * Attempt to find WordPress credentials from multiple locations:
- * 1. client_service.metadata.wordpress_credentials (set by onboarding)
- * 2. rankflow_profiles.credentials.wordpress (shared with RankFlow)
- *
- * Returns decrypted credentials or null.
- */
-async function resolveWpCredentials(
-  clientId: number,
-  csMetadata: Record<string, any>,
-): Promise<WpCredentials | null> {
-  if (!isEncryptionConfigured()) {
-    log.warn("TOKEN_ENCRYPTION_KEY not set — cannot decrypt WordPress credentials");
-    return null;
-  }
-
-  // Check 1: client_service.metadata.wordpress_credentials
-  const csMeta = csMetadata?.wordpress_credentials as StoredWpCreds | undefined;
-  if (csMeta?.cms_url && csMeta?.cms_username && csMeta?.cms_app_password) {
-    try {
-      return {
-        cms_url: csMeta.cms_url,
-        cms_username: csMeta.cms_username,
-        cms_app_password: decryptToken(csMeta.cms_app_password),
-      };
-    } catch (err: any) {
-      log.warn("Failed to decrypt credentials from client_service metadata", {
-        clientId: String(clientId),
-        error: err.message,
-      });
-    }
-  }
-
-  // Check 2: rankflow_profiles.credentials.wordpress
-  try {
-    const profile = await storage.getRankFlowProfile(clientId) as any;
-    if (profile?.credentials?.wordpress) {
-      const wp = profile.credentials.wordpress as StoredWpCreds;
-      if (wp.cms_url && wp.cms_username && wp.cms_app_password) {
-        return {
-          cms_url: wp.cms_url,
-          cms_username: wp.cms_username,
-          cms_app_password: decryptToken(wp.cms_app_password),
-        };
-      }
-    }
-  } catch (err: any) {
-    log.warn("Failed to load RankFlow profile credentials", {
-      clientId: String(clientId),
-      error: err.message,
-    });
-  }
-
-  return null;
 }
 
 /* ─── Report Generator ─────────────────────────────────────────────── */
