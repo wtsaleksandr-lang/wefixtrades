@@ -95,6 +95,8 @@ jobs:
         run: npm run check:client-chat-access
       - name: Portal overview guard (dashboard leads-series scopes calculators by user_id — there is no calculators.client_id; c.client_id 500'd the whole client dashboard for every client)
         run: npm run check:portal-overview
+      - name: MapGuard competitor-alerts guard (the sold competitor panel returned {events:[]} on 100% of calls because the consumer read metric_data.keyword while the producer writes metric_data.rank_drops[i].keyword with from/to ranks; the projection now fans one alert row out to N keyword events, never fabricates a grid pin or a competitor name, degrades cleanly on malformed metadata, and the empty state can no longer claim "first scan runs within 24h" for an already-scanned client. Deliberate-failure fixture — the old flat lookup projects the producer's own payload to zero events → red)
+        run: npm run check:mapguard-competitor-alerts
       - name: WebCare honest-KPI guard (no KPI scored from never-written metadata; unmeasured security/performance/backups report null not 0/F; empty uptime history is unknown not 100%; monthly digest omits an unmeasured grade)
         run: npm run check:webcare-honest-kpis
       - name: Citation-evidence guard (unimplemented or credential-gated directories are skipped not reported "not found"; a failed scrape or bot-wall interstitial is never a removal; removed_listing needs 2 consecutive confirmed negatives; every excluded directory records why; the Google field mask stays on the free SKU tier; marketing names the directories it checks)
@@ -227,6 +229,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
       - run: npm run check:database-url
+      - name: No-home-address privacy guard (this repo is PUBLIC — the founder's home address, its postal code and its exact lat/lng were hardcoded as the default test fixture across the roof-quote spikes, including a visible <input value> and a SITE constant in the production roof3d asset. Matches the distinctive parts only — street name, postal code, coordinate prefix — so "Hamilton, ON" as a customer location, a service-area placeholder or a testimonial stays legal)
+        run: npm run check:no-home-address
       # Wave 96 — CI runs on ubuntu-latest without the Playwright browser
       # bundle, so headless Chromium can't launch. SKIP_PRERENDER=1 skips the
       # per-route prerender step + the build-smoke check (the smoke check

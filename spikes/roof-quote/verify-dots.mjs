@@ -8,8 +8,8 @@ const PORT = process.env.PORT || 5335;
 const OUT = "C:/Users/Owner/claude-orchestrator/audits/dots";
 const GPU_FLAGS = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-accelerated-2d-canvas"];
 
-const ADDR = process.argv[2] || "30 Angus Rd, Hamilton ON";
-const TAG  = process.argv[3] || "angus";
+const ADDR = process.argv[2] || "1842 Glencoe St, Denver CO";
+const TAG  = process.argv[3] || "denver";
 const MOBILE = process.argv.includes("--mobile");
 
 function log(...a){ console.log(...a); }

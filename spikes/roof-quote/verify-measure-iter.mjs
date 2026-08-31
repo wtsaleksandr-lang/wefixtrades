@@ -11,7 +11,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const PORT = process.env.PORT || 5332;
 const ROUND = process.env.ROUND || "r";
 const ADDRS = (process.env.ADDRS ? process.env.ADDRS.split("|") : [
-  "30 Angus Rd, Hamilton ON",        // owner's house (duplex unit)
+  "12 Maple Ave, Barrington RI",     // detached single-family
   "11823 Groveland Ave, Whittier CA",  // simple residential (7 Painter Ave has no Places autocomplete in this env)
   "1842 Glencoe St, Denver CO",      // complex hip
 ]);

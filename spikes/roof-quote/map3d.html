@@ -124,7 +124,7 @@
 </head>
 <body>
 <div id="bar">
-  <input id="addr" value="30 Angus Rd, Hamilton, ON" placeholder="Enter your address" autocomplete="off"/>
+  <input id="addr" value="1842 Glencoe St, Denver, CO" placeholder="Enter your address" autocomplete="off"/>
   <button id="go">Analyze roof</button>
 </div>
 
@@ -181,7 +181,7 @@
 });
 
 const M2_TO_SQFT=10.7639;
-const ADDR_DEFAULT={addr:"30 Angus Rd, Hamilton, ON", lat:43.218978, lng:-79.7824607};
+const ADDR_DEFAULT={addr:"1842 Glencoe St, Denver, CO", lat:39.7447, lng:-104.9322};   // public test address; block-level coords
 const fmt=n=>Math.round(n).toLocaleString();
 const errors=[];
 window.addEventListener("error",e=>{ errors.push("window.error: "+(e.message||e)); });

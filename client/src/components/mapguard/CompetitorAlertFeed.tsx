@@ -27,9 +27,11 @@ export interface CompetitorAlertEvent {
   id: string;
   competitor_name: string;
   keyword: string;
-  /** 0-indexed row/col of the affected pin. */
-  pin_row: number;
-  pin_col: number;
+  /** 0-indexed row/col of the affected pin, or null when the producing alert
+   *  has no pin (rank-drop alerts are keyword-level, not per-pin). Null means
+   *  the pin chip is omitted — we never invent a grid cell. */
+  pin_row: number | null;
+  pin_col: number | null;
   /** Customer's prior + current rank at this pin. */
   previous_rank: number | null;
   current_rank: number | null;
@@ -163,10 +165,12 @@ export function CompetitorAlertFeed({
                     </span>
                   </p>
                   <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-0.5">
-                      <MapPin className="h-3 w-3" aria-hidden />
-                      pin ({evt.pin_row + 1},{evt.pin_col + 1})
-                    </span>
+                    {evt.pin_row != null && evt.pin_col != null && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <MapPin className="h-3 w-3" aria-hidden />
+                        pin ({evt.pin_row + 1},{evt.pin_col + 1})
+                      </span>
+                    )}
                     {evt.previous_rank != null && evt.current_rank != null && (
                       <span>
                         rank #{evt.previous_rank} → #{evt.current_rank}

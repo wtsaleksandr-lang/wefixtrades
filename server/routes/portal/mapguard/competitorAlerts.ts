@@ -18,70 +18,18 @@ import type { Express, Request, Response } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireClient } from "../../../auth";
 import { db } from "../../../db";
-import { mapguardAlerts } from "@shared/schema";
+import { mapguardAlerts, mapguardSnapshots } from "@shared/schema";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
+import { projectAlerts, type AlertEvent } from "./competitorAlertProjection";
 
 const log = createLogger("PortalMapguardCompetitorAlerts");
 
-interface AlertEvent {
-  id: string;
-  competitor_name: string;
-  keyword: string;
-  pin_row: number;
-  pin_col: number;
-  previous_rank: number | null;
-  current_rank: number | null;
-  severity: "info" | "warning" | "critical";
-  occurred_at: string;
-}
-
 const EMPTY_RESPONSE = {
   previewMode: true,
+  monitored: false,
   events: [] as AlertEvent[],
 };
-
-/**
- * Pull the structured competitor metadata out of the alert row. The
- * scanner writes a `metric_data` jsonb blob; we surface only the fields
- * needed to render a feed row.
- */
-function projectAlert(row: typeof mapguardAlerts.$inferSelect): AlertEvent | null {
-  const meta = (row.metric_data ?? {}) as Record<string, unknown>;
-  const competitor =
-    typeof meta.competitor_name === "string"
-      ? meta.competitor_name
-      : typeof meta.top_competitor === "string"
-        ? meta.top_competitor
-        : "A competitor";
-  const keyword =
-    typeof meta.keyword === "string"
-      ? meta.keyword
-      : Array.isArray(meta.keywords) && typeof meta.keywords[0] === "string"
-        ? (meta.keywords[0] as string)
-        : null;
-  if (!keyword) return null;
-
-  const pinRow = typeof meta.pin_row === "number" ? meta.pin_row : 2;
-  const pinCol = typeof meta.pin_col === "number" ? meta.pin_col : 2;
-  const previous = typeof meta.previous_rank === "number" ? meta.previous_rank : null;
-  const current = typeof meta.current_rank === "number" ? meta.current_rank : null;
-
-  const sev = (row.severity ?? "warning") as AlertEvent["severity"];
-  const occurred = (row.created_at ?? new Date()).toISOString();
-
-  return {
-    id: String(row.id),
-    competitor_name: competitor,
-    keyword,
-    pin_row: pinRow,
-    pin_col: pinCol,
-    previous_rank: previous,
-    current_rank: current,
-    severity: sev,
-    occurred_at: occurred,
-  };
-}
 
 export function registerPortalMapguardCompetitorAlertsRoutes(app: Express) {
   app.get(
@@ -112,11 +60,19 @@ export function registerPortalMapguardCompetitorAlertsRoutes(app: Express) {
           .orderBy(desc(mapguardAlerts.created_at))
           .limit(limit);
 
-        const events = rows
-          .map(projectAlert)
-          .filter((e): e is AlertEvent => e != null);
+        const events = rows.flatMap(projectAlerts).slice(0, limit);
 
-        res.json({ events });
+        // Has a rank-grid scan ever run for this client? Without this the
+        // client cannot tell "activated, scan pending" from "scanned, and
+        // nobody overtook you" — and the feed defaulted to claiming the
+        // first scan was still pending, permanently.
+        const snap = await db
+          .select({ id: mapguardSnapshots.id })
+          .from(mapguardSnapshots)
+          .where(eq(mapguardSnapshots.client_id, clientId))
+          .limit(1);
+
+        res.json({ events, monitored: snap.length > 0, previewMode: false });
       } catch (err: any) {
         log.error(
           "[portal/mapguard/competitor-alerts]",

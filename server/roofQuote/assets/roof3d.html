@@ -2504,7 +2504,7 @@ function clearMeas3D(){ if(measGroup3D){ try{ scene.remove(measGroup3D); measGro
 function updateMeasLineRes(){ const w=(canvas&&canvas.clientWidth)||innerWidth, h=(canvas&&canvas.clientHeight)||innerHeight; for(const m of measLineMats){ try{ m.resolution.set(w,h); }catch(_){} } }
 function setMeas3DVisible(on){ if(measGroup3D) measGroup3D.visible=!!on; if(on) updateMeasLineRes(); }
 /* site + scene scale, driven by the sun-path UI */
-let SITE={lat:43.219,lng:-79.782}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-4, siteAlt=115, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
+let SITE={lat:39.7447,lng:-104.9322}, SCENE_R=60, sunHourLocal=14, sunMonth=6, tzOffset=-6, siteAlt=1600, LASTB=null, LASTFLUX=null, LASTMASK=null, LASTDSM=null, LASTRGB=null;
 // ── Google REAL hourly-shade (hourlyShadeUrls) state ───────────────────────────
 // HOURLY_SHADE_URLS = the 12 monthly GeoTIFF URLs from dataLayers (each = 24 hourly
 // bands of 32-bit-per-pixel day bitmasks; bit N set ⇒ sun visible on day N+1 of the
@@ -3225,7 +3225,7 @@ function getRoofTotals(){
 // whole block. To keep ONE honest number everywhere we scale Google's trusted absolute area
 // by the slab ratio keptAreaM2 / wholeAreaM2 (the 2D footprint share the split kept; pitch
 // is shared across the party wall so the 2D share ≈ the slope-area share). Detached homes
-// never split → ratio 1 → exactly the prior behaviour. (30 Angus: ~1340 whole → ~680 unit.)
+// never split → ratio 1 → exactly the prior behaviour. (semi-detached test case: ~1340 whole → ~680 unit.)
 function roofSplitRatio(){
   try{
     const d=window.__splitDiag;
@@ -6614,8 +6614,8 @@ function ringSelfIntersects(ring){
    Google Solar returns ONE building for an attached row (semi-detached duplex,
    townhouse block). The mask's largest connected component is the WHOLE block,
    and the roof segments often span every unit (a continuous gable whose two
-   slopes each run the full length of the row — confirmed on 30 Angus Rd, a
-   semi-detached: 2 segments, one N-facing + one S-facing, both spanning both
+   slopes each run the full length of the row — confirmed on a semi-detached test
+   address: 2 segments, one N-facing + one S-facing, both spanning both
    halves; the geocoded address point lands on the OWNER's half). Downstream
    area / measurements / panels must cover ONLY the owner's unit.
 
@@ -7122,7 +7122,7 @@ function extractFacetPolysAnalytic(margin){
     if(maxD>MAX_FP_RADIUS_M || (medD>0.5 && maxD>medD*6)) throw new Error("footprint spike (maxD="+maxD.toFixed(0)+"m medD="+medD.toFixed(1)+"m)");
   }
   // ── SHARED-BUILDING SPLIT — isolate the queried unit of a semi-detached / townhouse.
-  //    Applies to BOTH the vector and mask footprints: for a duplex (e.g. 30 Angus Rd), the OSM/mask
+  //    Applies to BOTH the vector and mask footprints: for a duplex, the OSM/mask
   //    ring is the WHOLE structure; the geocoded address point (window.__ll) lands on the owner's unit;
   //    clip the footprint to that unit's slab BEFORE facets are reconstructed, so every downstream facet
   //    inherits the unit-only outline (a neighbour-unit Solar segment whose centre falls outside the
@@ -7244,9 +7244,9 @@ function extractFacetPolysAnalytic(margin){
     for(const nb of [right,down]){ if(nb>=0&&nb!==o&&viableSet.has(nb)){ const k=Math.min(o,nb),m=Math.max(o,nb); adj.set(k+","+m,(adj.get(k+","+m)||0)+1); } }
   }
   const ADJ_MIN=6;
-  // ── STRAIGHTEN NEAR-PARALLEL CREASES (slot-loss root cause, 30 Angus Rd) ─────────────────────────
+  // ── STRAIGHTEN NEAR-PARALLEL CREASES (slot-loss root cause, semi-detached gable case) ─────────────────────────
   // A gable ridge is parallel to its eave BY CONSTRUCTION, but the analytic plane-intersection line
-  // carries a small angular error from DSM noise (Angus: 0.21 m skew over 13.6 m ≈ 0.9°). That skew
+  // carries a small angular error from DSM noise (measured: 0.21 m skew over 13.6 m ≈ 0.9°). That skew
   // tilts the facet's ridge edge, and downstream the whole ridge-side panel row misses the setback
   // test by 1-2 cm → ~20% of roof capacity silently lost. Fix: if a crease line is within 3° of
   // parallel to the footprint's dominant (longest) edge — the eave — SNAP it exactly parallel,
@@ -7475,7 +7475,7 @@ function _ringCentroidPCA(ring){
 }
 /* Google roof reference (centroid + principal axis) for the QUERIED building.
    CRITICAL: the dataLayers mask covers EVERY roof in the ~40 m window — a whole street of
-   semi-detached units at 30 Angus, 4-5 neighbours at 4521 T St (confirmed on the overlay
+   semi-detached units in the duplex test case, 4-5 neighbours at 4521 T St (confirmed on the overlay
    diagnostic). A raw mask centroid is therefore the centroid of the NEIGHBOURHOOD, not this
    building — it produced a false 12.8 m / 53° "offset". So we ISOLATE the queried building's
    mask blob by flood-filling the mask ONLY from this building's Solar segment centres (the
@@ -7924,7 +7924,7 @@ function snapRingEdgesToMask(ringEN, maskGrid, opts){
             // drop from one end to the other is |slopeCand| metres over the full length; require half that
             // (the worst end displacement vs the midpoint) to exceed MINTILT. An already-aligned edge (drop
             // < MINTILT) stays translation-only, so the fit never perturbs a roof that's already tight
-            // (30 Angus regressed from 0.13→0.28 m when every near-perfect edge was rotated a hair).
+            // (the semi-detached case regressed from 0.13→0.28 m when every near-perfect edge was rotated a hair).
             const MINTILT=0.45, endDisp=Math.abs(slopeCand)/2;
             // (align-iter3 guard B — FIT MUST HELP) compare the residual spread of the hits about the TILTED
             // line vs about a pure horizontal (translation-only) line. Only keep the rotation if it cuts the
@@ -13143,10 +13143,10 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
     if(nU*nV>1500) continue;   // pathological huge facet → skip (commercial; quote handles it)
     const kStartU=Math.round((uMin-u0)/cw)-1, kEndU=Math.round((uMax-u0)/cw)+1;
     const kStartV=Math.round((vMin-v0)/ch)-1, kEndV=Math.round((vMax-v0)/ch)+1;
-    // ── LATTICE PHASE RESCUE (slot-loss fix, 30 Angus Rd) ─────────────────────────────────────────
+    // ── LATTICE PHASE RESCUE (slot-loss fix, semi-detached gable case) ─────────────────────────────────────────
     // The acceptance test below is hard-binary (every corner ≥ sb from every edge), so when residual
     // crease noise skews one facet edge by a few cm, an entire OUTER row can miss the setback by
-    // 1-2 cm (30 Angus: ridge row 7→2 slots, deficit 0.01-0.02 m) — ~20% of capacity silently lost.
+    // 1-2 cm (measured: ridge row 7→2 slots, deficit 0.01-0.02 m) — ~20% of capacity silently lost.
     // Rescue: run a cheap poly+setback pre-pass; if an OUTER row (or row-END column) lost more than
     // 1/3 of its candidate cells to NEAR-MISS failures (all 4 corners inside the facet, deficit
     // sb−minCornerEdgeDist < 0.10 m), slide the whole lattice phase by the max deficit toward the
@@ -13191,7 +13191,7 @@ function engineeredFacetPanels(sp, segs, zone, pw, ph, seedPanels){
           if(cand>0 && miss.length>cand/3 && (!pick||miss.length>pick.miss.length)) pick={k:kv,sign,miss};
         }
         if(pick){
-          // The misses ramp when the offending edge is linearly skewed (Angus: 0.02→0.12 m across the
+          // The misses ramp when the offending edge is linearly skewed (measured: 0.02→0.12 m across the
           // row), so the MAX deficit can overshoot the opposite row's centering slack and lose more than
           // it wins. Try each observed deficit as a candidate shift (bounded: ≤ cells-per-row cheap
           // passes, deterministic order) and keep the one with the best strict net gain; ties → the
@@ -15925,8 +15925,8 @@ $("viewToggle").querySelectorAll("button").forEach(btn=>{
     renderQuoteCard();
   };
 });
-/* (BUG 4) SILHOUETTE material preview — used when there is NO RGB ortho layer (e.g. 30 Angus Rd:
-   DSM+mask only). The old code early-returned on !LASTRGB → a BLANK preview. Instead, paint the
+/* (BUG 4) SILHOUETTE material preview — used when there is NO RGB ortho layer (e.g. addresses outside
+   Google's RGB ortho coverage: DSM+mask only). The old code early-returned on !LASTRGB → a BLANK preview. Instead, paint the
    shingle texture INSIDE the precise footprint/mask silhouette over a neutral base, so the buyer
    always sees an approximate "new roof in <colour>" tile. Coordinate frame = the MASK bbox (UTM).
    Returns true if it painted, false if no mask either (caller keeps whatever was on screen). */
@@ -16673,7 +16673,7 @@ $("aiBtn").onclick=async()=>{
 $("aiBack").onclick=()=>{ hideAI(); $("aiBtn").style.display="block";
   // (BUG 4) "Top-down" must land on the painted 2D preview, not a blank/photoreal base. showAnalysis
   // ("material") repaints #matCanvas — the shingle tint on RGB roofs, or the footprint silhouette when
-  // there's no RGB ortho (30 Angus Rd) — so the preview is NEVER blank.
+  // there's no RGB ortho (addresses outside Google's RGB coverage) — so the preview is NEVER blank.
   if(matMode){ showAnalysis("material"); } };
 // Which rotatable 3D surface (if any) is ACTUALLY mounted + interactive right now? Read the live DOM
 // visibility of the two 3D canvases rather than trusting `mode` alone — the audited dead-button bug was

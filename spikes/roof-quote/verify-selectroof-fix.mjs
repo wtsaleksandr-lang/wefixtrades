@@ -1,6 +1,6 @@
 // Real-GPU headed verification for the Select-Your-Roof cold-flash fixes (FIX A + FIX B).
 // Drives the deployed spike at PORT=5086. Two tests:
-//   COLD  — fresh server, FIRST visit to 30 Angus Rd Hamilton: home must paint immediately; neighbours pop
+//   COLD  — fresh server, FIRST visit to 1842 Glencoe St, Denver CO: home must paint immediately; neighbours pop
 //           in within a few seconds (decoupled background load). Clicking a neighbour → "2 buildings selected".
 //   SLOW  — Playwright-intercepts /buildings and DELAYS it ~5s to deterministically PROVE the first paint is
 //           NOT gated on neighbours: home visible while /buildings is still pending; neighbours pop in after.
@@ -13,7 +13,7 @@ const OUT = process.env.OUT_DIR || "./out-selectroof";
 mkdirSync(OUT, { recursive: true });
 const PORT = process.env.PORT || 5086;
 const BASE = `http://localhost:${PORT}/roof3d?noauto=1`;
-const ADDR = "30 Angus Rd, Hamilton, ON L8K 6L1, Canada";
+const ADDR = "1842 Glencoe St, Denver, CO 80220, USA";
 const GPU_ARGS = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-unsafe-swiftshader"];
 const shot = (page,name)=>page.screenshot({ path: path.join(OUT,name), animations:"disabled" }).then(()=>console.log("  shot:",name));
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));

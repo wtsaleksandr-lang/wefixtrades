@@ -107,6 +107,9 @@ interface DashboardKpisResponse {
 
 interface CompetitorAlertsResponse {
   previewMode?: boolean;
+  /** Has a rank-grid scan ever run for this client? Distinguishes "activated,
+   *  first scan pending" from "scanned, and nobody overtook you". */
+  monitored?: boolean;
   events: CompetitorAlertEvent[];
 }
 
@@ -263,7 +266,13 @@ export default function MapGuardDashboard() {
   // scans are currently city-wide, so we have no per-location rank to plot.
   const locationSetButNoGridData = !gridHasGeo && kpisQuery.data?.geo != null;
   const events = alertsQuery.data?.events ?? [];
-  const emptyAlerts = events.length === 0 && (alertsQuery.data?.previewMode || !alertsQuery.isLoading);
+  // "No competitor data yet" may only be shown when a scan genuinely has not
+  // run. The old `|| !alertsQuery.isLoading` made this true for EVERY settled
+  // query, so a monitored client with no rank drops was told the first scan
+  // was still pending — forever.
+  const emptyAlerts =
+    events.length === 0 &&
+    (alertsQuery.data?.previewMode === true || alertsQuery.data?.monitored === false);
 
   const stackCards: StackCard[] = (insightsQuery.data?.actions ?? []).slice(0, 5).map(
     (a) => ({
@@ -680,9 +689,10 @@ export default function MapGuardDashboard() {
               <CompetitorAlertFeed
                 events={events}
                 emptyState={emptyAlerts}
-                onSelect={(evt) =>
-                  setSelectedCell({ row: evt.pin_row, col: evt.pin_col })
-                }
+                onSelect={(evt) => {
+                  if (evt.pin_row == null || evt.pin_col == null) return;
+                  setSelectedCell({ row: evt.pin_row, col: evt.pin_col });
+                }}
               />
             </AdvancedOnly>
           </div>

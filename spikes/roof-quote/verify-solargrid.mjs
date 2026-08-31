@@ -1,5 +1,5 @@
 // Real-GPU Playwright verification of the INTERACTIVE SOLAR PANEL GRID.
-// Drives the live widget on :5341 for 30 Angus Rd, Hamilton ON. Asserts real Intel/D3D11 GPU,
+// Drives the live widget on :5341 for 1842 Glencoe St, Denver CO. Asserts real Intel/D3D11 GPU,
 // reaches the Solar view, opens the grid, captures default metrics, taps to remove + add panels
 // (before/after numbers), enters a monthly bill (before/after), and screenshots desktop + mobile 390px.
 import { chromium } from "playwright";
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 5341;
 const OUT = "C:/Users/Owner/claude-orchestrator/audits/solargrid";
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ADDR = "30 Angus Rd, Hamilton, ON";
+const ADDR = "1842 Glencoe St, Denver, CO";
 
 const gpuArgs = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-accelerated-2d-canvas"];
 

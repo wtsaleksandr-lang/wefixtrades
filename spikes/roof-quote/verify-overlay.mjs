@@ -8,7 +8,7 @@ import { chromium } from "playwright";
 const OUT = "C:/Users/Owner/claude-orchestrator/audits/align";
 const PORT = process.env.PORT || 5318;
 const ADDRS = [
-  ["30 Angus Rd, Hamilton ON", "angus"],
+  ["1842 Glencoe St, Denver CO", "denver"],
   ["4521 T St, Sacramento CA", "sac"],
   ["12 Maple Ave, Barrington RI", "maple"],
 ];

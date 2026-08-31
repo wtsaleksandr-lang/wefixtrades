@@ -7,7 +7,7 @@ import path from "path";
 const PORT = process.env.PORT || 5100;
 const OUT = process.argv[2] || "C:/Users/Owner/AppData/Local/Temp/claude/c--Users-Owner-claude-orchestrator/f34f9730-5f88-4a6b-982d-55bc9b30a918/scratchpad/roof-split";
 mkdirSync(OUT, { recursive: true });
-const ADDR = "30 Angus Rd, Hamilton, ON";
+const ADDR = "1842 Glencoe St, Denver, CO";
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, name + ".png") });
 const log = (...a) => console.log("[verify]", ...a);
 

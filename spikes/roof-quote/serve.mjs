@@ -1355,7 +1355,7 @@ http.createServer(async (req,res)=>{
   //      backstop: z9 quadkey → per-tile gzipped GeoJSONL → building at the point. First hit per
   //      tile ~3–5 s (40 MB fetch+scan), cached .gz makes later same-tile addresses ~1.5 s.
   //   3. On-disk pre-cached footprints (spikes/roof-quote/cache/footprints.geojson) — legacy
-  //      neighborhood cache (e.g. 30 Angus Rd, Hamilton); now largely subsumed by (2).
+  //      neighborhood cache; now largely subsumed by (2).
   //   4. {source:"none"} → the widget keeps its mask-trace fallback (flagged low-confidence).
   // Disk-cached by rounded lat/lng like the other endpoints.
   if(u.pathname==="/footprint"){

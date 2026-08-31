@@ -10,7 +10,7 @@ mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ADDRS = [
-  { key:"hamilton", addr:"30 Angus Rd, Hamilton, ON" },
+  { key:"sacramento", addr:"4521 T St, Sacramento, CA" },
   { key:"denver",   addr:"1842 Glencoe St, Denver, CO" },
 ];
 const gpuArgs = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-accelerated-2d-canvas"];
