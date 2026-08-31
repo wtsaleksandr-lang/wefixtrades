@@ -46,7 +46,6 @@ const PATTERNS = [
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo',
   'playwright-report', 'test-results', '.vite', 'drizzle-meta', 'audits',
-  'attached_assets',
 ]);
 
 /** Text-ish files worth scanning. Binary/media are skipped. */
