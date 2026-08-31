@@ -61,10 +61,10 @@ const setStat = () => { $("stat").innerHTML = ST.error
   ? '<span id="err">ERROR: '+ST.error+'</span>'
   : 'phase <b>'+ST.phase+'</b> · tiles loaded <b>'+ST.tilesLoaded+'</b> · meshes <b>'+ST.meshes+'</b><br>sun elev <b>'+ST.sunEl.toFixed(0)+'°</b> · frames <b>'+ST.rendered+'</b>'; };
 
-// query / default to Angus Rd, Hamilton ON (Alex's test address)
+// query / default to 1842 Glencoe St, Denver CO (public test address)
 const q = new URLSearchParams(location.search);
 let LAT = parseFloat(q.get("lat")), LNG = parseFloat(q.get("lng"));
-if (!isFinite(LAT) || !isFinite(LNG)) { LAT = 43.2193; LNG = -79.7820; }
+if (!isFinite(LAT) || !isFinite(LNG)) { LAT = 39.7447; LNG = -104.9322; }
 ST.lat = LAT; ST.lng = LNG;
 
 const canvas = $("c");

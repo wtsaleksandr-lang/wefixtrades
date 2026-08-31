@@ -2,7 +2,7 @@
 import { chromium } from "playwright";
 const PORT = process.env.PORT || 5434;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ADDRS = [["hamilton","30 Angus Rd, Hamilton, ON"],["denver","1842 Glencoe St, Denver, CO"]];
+const ADDRS = [["sacramento","4521 T St, Sacramento, CA"],["denver","1842 Glencoe St, Denver, CO"]];
 const gpuArgs = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11"];
 const browser = await chromium.launch({ headless:false, args:gpuArgs });
 const page = await browser.newPage({ viewport:{ width:1280, height:900 } });

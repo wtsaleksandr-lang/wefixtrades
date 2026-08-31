@@ -8,7 +8,7 @@ import path from "path";
 const PORT = process.env.PORT || 5110;
 const OUT = process.argv[2] || "C:/Users/Owner/AppData/Local/Temp/claude/c--Users-Owner-claude-orchestrator/f34f9730-5f88-4a6b-982d-55bc9b30a918/scratchpad/roof-zoom";
 mkdirSync(OUT, { recursive: true });
-const ADDR = "30 Angus Rd, Hamilton, ON";
+const ADDR = "1842 Glencoe St, Denver, CO";
 const GPU = ["--ignore-gpu-blocklist", "--enable-gpu", "--enable-webgl", "--use-angle=d3d11", "--enable-unsafe-swiftshader"];
 const log = (...a) => console.log("[zoom]", ...a);
 

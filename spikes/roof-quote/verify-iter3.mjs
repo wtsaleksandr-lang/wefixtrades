@@ -13,7 +13,7 @@ const ROUND = process.env.ROUND || "r";
 const ADDRS = (process.env.ADDRS ? process.env.ADDRS.split("|") : [
   "1842 Glencoe St, Denver CO",       // complex hip — historically over-segmented
   "4521 T St, Sacramento CA",         // complex — over-segmented
-  "30 Angus Rd, Hamilton ON",         // SIMPLE duplex gable — must keep its ONE real ridge (regression)
+  "12 Maple Ave, Barrington RI",      // SIMPLE detached roof — must keep its ONE real ridge (regression)
   "11823 Groveland Ave, Whittier CA", // simple residential hip — keep real hips
 ]);
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32);

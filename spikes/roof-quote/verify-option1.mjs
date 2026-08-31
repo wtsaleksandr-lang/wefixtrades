@@ -154,7 +154,7 @@ async function run() {
   const ADDRS = (process.argv[5])
     ? [[process.argv[5], slugify(process.argv[5])]]
     : [
-        ["30 Angus Rd, Hamilton ON", "angus"],
+        ["1842 Glencoe St, Denver CO", "denver"],
         ["4521 T St, Sacramento CA", "sacramento"],
       ];
   for (const [addr, slug] of ADDRS) {

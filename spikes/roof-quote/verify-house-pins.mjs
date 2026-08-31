@@ -11,7 +11,7 @@ const OUT = process.env.OUT_DIR || "./out-house-pins";
 mkdirSync(OUT, { recursive: true });
 const PORT = process.env.PORT || 5093;
 const BASE = `http://localhost:${PORT}/roof3d?noauto=1`;
-const ADDR = "30 Angus Rd, Hamilton, ON, Canada";
+const ADDR = "1842 Glencoe St, Denver, CO, USA";
 const GPU_ARGS = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-unsafe-swiftshader"];
 const shot = (page,name)=>page.screenshot({ path: path.join(OUT,name), animations:"disabled" }).then(()=>console.log("  shot:",name));
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));

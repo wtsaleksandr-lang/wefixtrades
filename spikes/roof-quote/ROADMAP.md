@@ -162,7 +162,7 @@ Report+lead agent (af747104) findings fixed in roof3d.html:
 
 ## Deep Playwright audit — 6 parallel agents (solar/addons/roofing/report/map/mobile) — fixes shipped
 ALL verified live unless noted. roof3d.html:
-- [P0] Squares unification: reconcileTotals() anchors facet-model area/squares to Google wholeRoofStats (was 2.9sq vs 11sq); edge lengths scaled by sqrt(ratio). Card stat=report stat=takeoff=waste=price now ONE number. VERIFIED Angus 14.4/15.9.
+- [P0] Squares unification: reconcileTotals() anchors facet-model area/squares to Google wholeRoofStats (was 2.9sq vs 11sq); edge lengths scaled by sqrt(ratio). Card stat=report stat=takeoff=waste=price now ONE number. VERIFIED on the semi-detached test home 14.4/15.9.
 - [P0] Report waste table used flat footprint not measured squares — now t.squares. VERIFIED.
 - [P0] Lead-loss: sendLead() localStorage retry-queue + flushLeads() on load + res.ok check.
 - [P1] EV-added panels now reach the system summary (Panels/kW/kWh + SREC + CO2) — was price-only. VERIFIED 18->26 (+8 EV).
@@ -205,7 +205,7 @@ Widget stays on three@0.160; integration plan TBD after Alex confirms the look (
 [INTEGRATION ANSWER] Widget IS integrated in QuoteQuick: template 'roof_solar_visualizer' (Roof & Solar Visualizer) -> roof_visualizer step iframes /api/roofquote/widget. Known TODO: bridge widget CTA->wizard lead_capture via postMessage + suppress widget's own lead form in embed (single lead surface).
 
 ## HEATMAP FIXED (T1) — smooth Sunroof/Aurora-style
-Root: Sun lens used 3D buildPhotoHeatmap (chunky 0.55m Polygon3D cells). FIX: Sun lens now calls showAnalysis('sun') -> renderSunPreview() which was ALREADY coded but never invoked: per-pixel fluxColorSmooth ramp composited on the top-down aerial photo, clipped to roof mask = smooth gradient, no chunky corners. 2D top-down (matches Aurora/Sunroof which ARE 2D). VERIFIED headlessly (2D canvas) on NJ/CA/Angus — smooth gradient renders. Tradeoff: loses 3D building context in Sun lens (acceptable; Aurora/Sunroof are 2D).
+Root: Sun lens used 3D buildPhotoHeatmap (chunky 0.55m Polygon3D cells). FIX: Sun lens now calls showAnalysis('sun') -> renderSunPreview() which was ALREADY coded but never invoked: per-pixel fluxColorSmooth ramp composited on the top-down aerial photo, clipped to roof mask = smooth gradient, no chunky corners. 2D top-down (matches Aurora/Sunroof which ARE 2D). VERIFIED headlessly (2D canvas) on NJ/CA/ON test homes — smooth gradient renders. Tradeoff: loses 3D building context in Sun lens (acceptable; Aurora/Sunroof are 2D).
 
 ## ALEX TO-DOS 2026-06-22 (batch 2)
 [T4] SCANIFLY grey-massing model: Alex likes Scanifly's CLEAN grey 'minecraft-style' house model done PROPERLY (genuinely follows house structure) — our schematic was crude/crooked, theirs is clean. OK to use grey massing for SOLAR view ONLY (roofing needs photoreal facade match). Also likes their UI: offset KPI ring + unfolding tabs (Utility Bill/System/Details) + minimalistic icon nav. Review demo https://scanifly.com/product/pv-design/. TEARDOWN AGENT DISPATCHED.
@@ -213,7 +213,7 @@ Root: Sun lens used 3D buildPhotoHeatmap (chunky 0.55m Polygon3D cells). FIX: Su
 [T6] TSRF SCORE (reaffirmed) — Solar Access % + TSRF per roof face (>=75% good) from Google flux we already pull. The installer-trust metric.
 
 ## TSRF + Solar Access % (T6) — DONE, verified
-roofSolarAccess(): per-face Access=median/segMax (shade), TOF=segMax/siteBest (tilt+orientation), TSRF=Access*TOF, all from Google sunshineQuantiles (no invented physics). Area-weighted overall + rating + >=75% incentive-grade badge + 'confirm on site'. Surfaced in sunCardBody + DATA_INFO.tsrf help cue. VERIFIED: Riverside best face S 5/12 @97% TSRF, overall 83% good; Angus S 4/12 @93%, 84%. Best face correctly = south.
+roofSolarAccess(): per-face Access=median/segMax (shade), TOF=segMax/siteBest (tilt+orientation), TSRF=Access*TOF, all from Google sunshineQuantiles (no invented physics). Area-weighted overall + rating + >=75% incentive-grade badge + 'confirm on site'. Surfaced in sunCardBody + DATA_INFO.tsrf help cue. VERIFIED: Riverside best face S 5/12 @97% TSRF, overall 83% good; second test home S 4/12 @93%, 84%. Best face correctly = south.
 Feeds Trades Mode (the installer-trust metric).
 
 ## Trades Mode slice 1 (T5) — report enhancements, verified

@@ -10,7 +10,7 @@ import fs from "node:fs";
 const OUT = "C:/Users/Owner/claude-orchestrator/audits/align";
 const PORT = process.env.PORT || 5318;
 const ADDRS = [
-  "30 Angus Rd, Hamilton ON",
+  "1842 Glencoe St, Denver CO",
   "4521 T St, Sacramento CA",
   "12 Maple Ave, Barrington RI",   // 3rd residential of my choice (detached single-family, OSM/MS footprint coverage)
 ];

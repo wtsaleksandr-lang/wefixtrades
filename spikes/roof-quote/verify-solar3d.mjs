@@ -1,5 +1,5 @@
 // Real-GPU Playwright verification of the SOLAR STEP 2D⇄3D toggle.
-// Drives the live widget on :5351 for 30 Angus Rd, Hamilton ON. Asserts real Intel/D3D11 GPU,
+// Drives the live widget on :5351 for 1842 Glencoe St, Denver CO. Asserts real Intel/D3D11 GPU,
 // reaches the Solar grid (2D default), taps panels, switches to 3D (Google photoreal real-house
 // tiles + the selected panels draped on the real roof), back to 2D (selection preserved), then
 // the same on mobile 390px. Screenshots desktop + mobile.
@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5351;
 const OUT = "C:/Users/Owner/claude-orchestrator/audits/solar3d";
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ADDR = "30 Angus Rd, Hamilton, ON";
+const ADDR = "1842 Glencoe St, Denver, CO";
 const gpuArgs = ["--ignore-gpu-blocklist","--enable-gpu","--enable-webgl","--use-angle=d3d11","--enable-accelerated-2d-canvas"];
 
 async function readMetrics(page){
