@@ -141,6 +141,9 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
             "Every file in our storage: uploaded phone bills and number-transfer " +
               "authorization forms, your logo, customer-submitted quote photos, saved call " +
               "recordings, assistant images, generated videos and website backups",
+            "The recordings, text messages and call records held by our phone provider " +
+              "(Twilio) — the voicemail audio itself is deleted from their servers, not " +
+              "just unlinked from your account",
           ],
           /* Every `keep` entry in the plan must be represented here. If you add
              one, add it to this list, to privacy.tsx §10 and to its prerender
@@ -161,6 +164,15 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
             {
               what: "Security audit log of staff access to your account",
               why: "Records that our staff viewed your account. It stores account IDs only, which identify nobody once the account is anonymised.",
+            },
+            {
+              what: "The number-transfer order held by our phone provider, if you moved a number to us",
+              why:
+                "That order is the carrier's record that you authorised the transfer of your " +
+                "phone number. Deleting it would leave a completed transfer with no " +
+                "authorisation behind it, and would break one still in progress. It is the " +
+                "only thing we leave with our phone provider — your voicemail recordings, " +
+                "text messages and call records are erased from them.",
             },
           ],
           retained_tables: retentionDisclosure(),
@@ -334,14 +346,30 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
         if (answered) return;
         answered = true;
         res.clearCookie("connect.sid");
-        /* Files live in stores that are not transactional, so the row deletion
-         * can commit while a bucket delete fails. When that happens the
-         * erasure is genuinely incomplete, and saying so is the whole point —
-         * "deleted" while the customer's phone bill is still in a bucket is
-         * the same lie as a backup that reports success without backing
-         * anything up. The keys are recorded in `audit_log` under
-         * `account_deletion_orphaned_objects` so support can finish the job. */
+        /* Files live in stores that are not transactional — and neither does
+         * Twilio, which holds the voicemail audio, the SMS history and the call
+         * records. So the row deletion can commit while a bucket delete or a
+         * Twilio delete fails. When that happens the erasure is genuinely
+         * incomplete, and saying so is the whole point — "deleted" while the
+         * customer's phone bill is still in a bucket, or their recorded voice
+         * is still on Twilio, is the same lie as a backup that reports success
+         * without backing anything up. The keys and SIDs are recorded in
+         * `audit_log` under `account_deletion_orphaned_objects` so support can
+         * finish the job. */
         const incomplete = receipt.objects_failed.length > 0;
+        const pendingAtTwilio = receipt.objects_failed.filter((o) => o.store === "twilio").length;
+        const pendingFiles = receipt.objects_failed.length - pendingAtTwilio;
+        /* Named precisely rather than lumped together as "files": a recording
+           still on our phone provider's servers is a different thing to tell
+           somebody about than an image left in a bucket. */
+        const outstanding = [
+          pendingFiles > 0 ? `${pendingFiles} uploaded file(s) in our storage` : null,
+          pendingAtTwilio > 0
+            ? `${pendingAtTwilio} recording(s)/message(s) held by our phone provider`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" and ");
         res.json({
           ok: true,
           deleted_tables: Object.keys(receipt.deleted).length,
@@ -353,11 +381,12 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
           ...(incomplete && {
             storage_purge_incomplete: true,
             files_pending: receipt.objects_failed.length,
+            twilio_pending: pendingAtTwilio,
             warning:
-              `Your account and records are deleted, but ${receipt.objects_failed.length} ` +
-              `uploaded file(s) could not be removed from storage on this attempt. We have ` +
-              `logged them and will erase them manually. Email support@wefixtrades.com if ` +
-              `you want written confirmation once they are gone.`,
+              `Your account and records are deleted, but ${outstanding} could not be erased ` +
+              `on this attempt. We have logged exactly what is outstanding and will erase it ` +
+              `manually. Email support@wefixtrades.com if you want written confirmation once ` +
+              `it is gone.`,
           }),
         });
       };

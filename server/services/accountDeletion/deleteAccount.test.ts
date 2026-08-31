@@ -32,6 +32,14 @@ process.env.DATABASE_URL ??= "postgresql://stub:stub@localhost:5432/stub";
 // URLs are objects we host and can delete.
 process.env.R2_PUBLIC_URL ??= "https://cdn.example-r2.test";
 
+// Set before the import too: the Twilio ownership test compares the account SID
+// inside a recording URL against this. It is the check that stops us deleting
+// another Twilio customer's recording, so the fixtures below exercise both
+// sides of it.
+const OUR_ACCOUNT = "AC00000000000000000000000000000001";
+const SOMEBODY_ELSES_ACCOUNT = "AC00000000000000000000000000000002";
+process.env.TWILIO_ACCOUNT_SID = OUR_ACCOUNT;
+
 const { previewStatements, retentionDisclosure, objectKeysFromRow } = await import(
   "./deleteAccount"
 );
@@ -240,7 +248,7 @@ for (const entry of withObjects) {
   );
   for (const source of entry.objects!) {
     assert.ok(
-      ["objectStorage", "uploads", "r2"].includes(source.store),
+      ["objectStorage", "uploads", "r2", "twilio"].includes(source.store),
       `${entry.table}.${source.column} names an unknown store "${source.store}", which has ` +
         `no deleter — the files would silently survive.`,
     );
@@ -256,11 +264,32 @@ for (const [table, column] of [
   ["tradeline_call_log", "mirrored_object_key"],
   ["webcare_backups", "object_name"],
   ["assistant_messages", "attachments"],
+  // Held by Twilio, not by us. Left behind until PR #2067's mechanism was
+  // extended to reach it; dropping the declaration silently restores a deletion
+  // that erases the voicemail row and leaves the caller's voice on Twilio.
+  ["voicemails", "recording_url"],
+  ["sms_messages", "twilio_sid"],
 ] as const) {
   assert.ok(
     STORED_OBJECTS[table]?.some((s) => s.column === column),
     `${table}.${column} holds customer PII in a store outside Postgres and must be purged ` +
       `on account deletion. Deleting the row only deletes the pointer.`,
+  );
+}
+
+// …and specifically against the Twilio store, since a declaration pointing at a
+// byte-store deleter would fail on every row rather than erase anything.
+for (const [table, column] of [
+  ["voicemails", "recording_url"],
+  ["voicemails", "call_sid"],
+  ["mobile_call_records", "call_sid"],
+  ["sms_messages", "twilio_sid"],
+] as const) {
+  assert.equal(
+    STORED_OBJECTS[table]?.find((s) => s.column === column)?.store,
+    "twilio",
+    `${table}.${column} addresses a Twilio resource and must be declared against the ` +
+      `twilio store — no other deleter can erase it.`,
   );
 }
 
@@ -363,6 +392,102 @@ assert.deepEqual(
   "a third-party video URL is not an object we host",
 );
 
+/* ── 11b. Twilio: ours is erased, another account's is never touched ─────── */
+// This is the block that matters most. Twilio artefacts belong to the ACCOUNT,
+// which is ours and holds every customer's data; deleting the wrong one would
+// be far worse than the bug this mechanism fixes. Attribution is (1) the SID
+// came out of a row already scoped to this account, (2) the account SID in the
+// URL is ours, (3) the SID shape is exact. (2) and (3) are what these assert.
+
+const RECORDING = "RE11111111111111111111111111111111";
+const OUR_RECORDING_URL = `https://api.twilio.com/2010-04-01/Accounts/${OUR_ACCOUNT}/Recordings/${RECORDING}`;
+
+// A voicemail: the recording AND the call record that names both parties.
+assert.deepEqual(
+  objectKeysFromRow("voicemails", {
+    recording_url: OUR_RECORDING_URL,
+    call_sid: "CA22222222222222222222222222222222",
+  }),
+  [
+    { store: "twilio", table: "voicemails", key: `Recordings/${RECORDING}` },
+    { store: "twilio", table: "voicemails", key: "Calls/CA22222222222222222222222222222222" },
+  ],
+  "a voicemail's Twilio recording and call record must both be collected, recording first",
+);
+
+// THE ONE THAT MUST NEVER REGRESS. Same shape, same host, different account —
+// somebody else's recording. Collecting it would delete another customer's data;
+// counting it as a failure would report a bogus outstanding erasure.
+assert.deepEqual(
+  objectKeysFromRow("voicemails", {
+    recording_url: `https://api.twilio.com/2010-04-01/Accounts/${SOMEBODY_ELSES_ACCOUNT}/Recordings/${RECORDING}`,
+  }),
+  [],
+  "a recording URL naming a DIFFERENT Twilio account is not ours — deleting it would " +
+    "erase another customer's recording",
+);
+
+// Twilio's format suffixes address the same resource. Two rows naming it as
+// `.mp3` and as `.json` must dedupe to one delete, not two.
+assert.deepEqual(
+  objectKeysFromRow("voicemails", { recording_url: `${OUR_RECORDING_URL}.mp3` }).map((o) => o.key),
+  [`Recordings/${RECORDING}`],
+  "a .mp3 format suffix must normalise to the same resource key",
+);
+
+// A bare SID is what sms_messages stores; attribution there comes from the row.
+assert.deepEqual(
+  objectKeysFromRow("sms_messages", { twilio_sid: "SM33333333333333333333333333333333" }),
+  [{ store: "twilio", table: "sms_messages", key: "Messages/SM33333333333333333333333333333333" }],
+  "an SMS message SID must be collected so the body and any media go with the account",
+);
+assert.deepEqual(
+  objectKeysFromRow("sms_messages", { twilio_sid: "MM44444444444444444444444444444444" }).length,
+  1,
+  "an MM… SID is a Message too — that is where MMS media lives",
+);
+
+// The dry-run send path mints a synthetic SID. Sending it to Twilio would be a
+// guaranteed failure reported to the customer as an outstanding erasure.
+assert.deepEqual(
+  objectKeysFromRow("sms_messages", { twilio_sid: "DRYRUN-6f1c2b4e-0000-0000-0000-000000000000" }),
+  [],
+  "a synthetic dry-run SID addresses nothing at Twilio and must not be collected",
+);
+
+// Values that are not Twilio identifiers at all, and one that tries to steer
+// the REST path somewhere else.
+for (const [label, value] of [
+  ["null", null],
+  ["empty", ""],
+  ["a Vapi recording URL", "https://storage.vapi.ai/abc-123.mp3"],
+  ["a lookalike host", `https://api.twilio.com.evil.example/2010-04-01/Accounts/${OUR_ACCOUNT}/Recordings/${RECORDING}`],
+  ["plain http", OUR_RECORDING_URL.replace("https://", "http://")],
+  ["an account-level resource", `https://api.twilio.com/2010-04-01/Accounts/${OUR_ACCOUNT}/IncomingPhoneNumbers/PN11111111111111111111111111111111`],
+  ["a traversal in the SID", `https://api.twilio.com/2010-04-01/Accounts/${OUR_ACCOUNT}/Recordings/${RECORDING}/../../Accounts/${SOMEBODY_ELSES_ACCOUNT}/Recordings/${RECORDING}`],
+  ["a truncated SID", "RE1111"],
+  ["a phone number", "+14165550123"],
+] as const) {
+  assert.deepEqual(
+    objectKeysFromRow("voicemails", { recording_url: value }),
+    [],
+    `${label} must not be collected as a Twilio artefact to delete`,
+  );
+}
+
+// A number the customer ported in is NOT erased with their account: it is their
+// number, and the port order is the carrier-side authorisation record. Neither
+// is declared, so neither can be reached by the purge.
+assert.equal(
+  STORED_OBJECTS.tradeline_phone_setups?.some(
+    (s) => s.column === "assigned_number_sid" || s.column === "port_twilio_order_sid",
+  ),
+  false,
+  "the Twilio phone number and the port-in order must NOT be declared for deletion — " +
+    "releasing a number is not an erasure, and the port order is the authorisation " +
+    "evidence our own LOA purge relies on",
+);
+
 /* ── 12. Deliberate-failure fixture for the object rules ────────────────── */
 // Prove assertion set (10) bites. If the store list is ever loosened to accept
 // anything, this goes red.
@@ -394,10 +519,65 @@ assert.deepEqual(
   assert.ok(caught, "the kept-table assertion does not actually reject a kept table with files");
 }
 
+/* ── 13. The Twilio key is re-validated at the point of deletion ─────────── */
+// The last line of defence: whatever `objectKeysFromRow` produced has been
+// through a receipt and an audit row by the time the deleter sees it, and the
+// SID is about to be interpolated into a REST path. `parseTwilioKey` is what
+// makes that safe, so it is asserted directly rather than trusted.
+{
+  const { parseTwilioKey } = await import("../../lib/twilioArtefacts");
+
+  assert.deepEqual(
+    parseTwilioKey(`Recordings/${RECORDING}`),
+    { resource: "Recordings", sid: RECORDING },
+    "a well-formed key must parse back to the resource and SID it names",
+  );
+
+  for (const bogus of [
+    `Recordings/${RECORDING}/../../Accounts/${SOMEBODY_ELSES_ACCOUNT}/Recordings/${RECORDING}`,
+    "IncomingPhoneNumbers/PN11111111111111111111111111111111",
+    "Accounts/" + SOMEBODY_ELSES_ACCOUNT,
+    `Recordings/SM33333333333333333333333333333333`, // right collection, wrong SID type
+    `Messages/${RECORDING}`,
+    "Recordings/",
+    RECORDING,
+    "",
+  ]) {
+    assert.equal(
+      parseTwilioKey(bogus),
+      null,
+      `parseTwilioKey accepted "${bogus}" — a key that reaches a resource we must never ` +
+        `delete, or an account that is not ours, would be sent to Twilio as a DELETE`,
+    );
+  }
+
+  // Prove the account check bites: if `twilioArtefactKey` is ever "simplified"
+  // into something that ignores the account SID, this goes red.
+  const { twilioArtefactKey } = await import("../../lib/twilioArtefacts");
+  assert.equal(
+    twilioArtefactKey(
+      `https://api.twilio.com/2010-04-01/Accounts/${SOMEBODY_ELSES_ACCOUNT}/Recordings/${RECORDING}`,
+    ),
+    null,
+    "the Twilio ownership test does not reject another account's recording — the deletion " +
+      "would erase a different customer's data",
+  );
+  assert.equal(
+    twilioArtefactKey(OUR_RECORDING_URL),
+    `Recordings/${RECORDING}`,
+    "…while still accepting our own, so the check is a real comparison and not a blanket no",
+  );
+}
+
 const objectSources = withObjects.reduce((n, p) => n + (p.objects?.length ?? 0), 0);
+const twilioSources = withObjects.reduce(
+  (n, p) => n + (p.objects?.filter((s) => s.store === "twilio").length ?? 0),
+  0,
+);
 
 console.log(
   `account-deletion guard: OK (${statements.length} scoped deletes, ${kept.length} kept with ` +
     `a stated basis, ${Object.keys(ANONYMISE_FIELDS).length} anchor tables anonymised, ` +
-    `${objectSources} file-pointer column(s) across ${withObjects.length} table(s) purged)`,
+    `${objectSources} pointer column(s) across ${withObjects.length} table(s) purged, ` +
+    `${twilioSources} of them at Twilio and attributed by account SID)`,
 );

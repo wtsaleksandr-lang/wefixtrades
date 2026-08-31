@@ -26,6 +26,13 @@
  *     R2 and the upload directory. `DELETE FROM …` removes the pointer, not the
  *     bytes, and none of those stores can be listed by prefix — so a pointer
  *     deleted without its file leaves a document nothing can ever find again.
+ *   • Nor is "outside Postgres" the same as "outside our reach". Voicemail
+ *     audio, the SMS conversation and the call records live at TWILIO, and
+ *     deleting the row that names them used to be where erasure stopped. We
+ *     hold the account credentials and Twilio's REST API deletes all three, so
+ *     they are declared and purged by this same mechanism — see
+ *     `server/lib/twilioArtefacts.ts` for how an artefact is attributed to one
+ *     customer, which is the part that has to be right.
  *   • Which columns point at which store is declared in the plan
  *     (`STORED_OBJECTS`), enumerated inside the transaction, and purged after
  *     it commits.
@@ -45,6 +52,7 @@ import { createLogger } from "../../lib/logger";
 import { deleteObject } from "../../lib/objectStorage";
 import { deleteUploadedFile } from "../fileStorage";
 import { deleteFromR2, r2KeyFromUrl } from "../../lib/r2Upload";
+import { deleteTwilioArtefact, twilioArtefactKey } from "../../lib/twilioArtefacts";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
@@ -94,13 +102,16 @@ export interface DeletionReceipt {
   retained: { table: string; reason: string }[];
   sessions_revoked: number;
   total_rows_deleted: number;
-  /** Files erased from object storage / R2 / the upload directory. */
+  /**
+   * Erased from object storage / R2 / the upload directory, and from Twilio
+   * (voicemail recordings, SMS history, call records).
+   */
   objects_purged: number;
   /**
-   * Files we could NOT erase. Non-empty means the deletion is INCOMPLETE:
-   * database rows are gone but some bytes remain. Callers must not report
-   * this as a finished erasure — see the route in
-   * `server/routes/portal/accountDeletion.ts`.
+   * What we could NOT erase. Non-empty means the deletion is INCOMPLETE:
+   * database rows are gone but some files, or some of the customer's data at
+   * Twilio, remain. Callers must not report this as a finished erasure — see
+   * the route in `server/routes/portal/accountDeletion.ts`.
    */
   objects_failed: StoredObject[];
   completed_at: string;
@@ -226,35 +237,51 @@ async function anonymiseRows(
 
 /* ── Stored objects ──────────────────────────────────────────────────────── */
 
-/** One file this account owns, and where it lives. */
+/** One piece of this account's data held outside Postgres, and where it lives. */
 export interface StoredObject {
   store: ObjectStore;
   /** The plan entry that pointed at it — the breadcrumb for a manual reclaim. */
   table: string;
-  /** Object-storage key, R2 public URL, or `/uploads/…` path. */
+  /**
+   * Object-storage key, R2 public URL, `/uploads/…` path, or — for `twilio` —
+   * the canonical `Recordings/RE…` / `Messages/SM…` / `Calls/CA…` resource key.
+   */
   key: string;
 }
 
 /**
- * Does this value address `store`?
+ * Does this value address `store`, and if so, under what key?
+ *
+ * Returns the key to hand that store's deleter, or null for "not ours".
  *
  * Several declared columns are polymorphic — `clients.logo_url` holds our
  * `/uploads/…` path or an arbitrary URL the customer pasted;
- * `content_assets.url` holds an R2 URL or a stock-photo link. Anything that is
- * not ours is not our file to delete, and (just as important) must never be
+ * `content_assets.url` holds an R2 URL or a stock-photo link;
+ * `voicemails.recording_url` names a recording in OUR Twilio account, and a
+ * value naming a different account is a different Twilio customer's. Anything
+ * that is not ours is not ours to delete, and (just as important) must never be
  * counted as a purge that failed.
+ *
+ * The three byte stores return the value unchanged — the stored pointer IS the
+ * key. Twilio is addressed by REST resource rather than by path, so the same
+ * recording can be named as a bare SID, as a URL, or as a URL with a `.mp3`
+ * format suffix; `twilioArtefactKey` folds all three into one canonical
+ * `Recordings/RE…`, which is what lets the caller's dedupe see them as one
+ * artefact instead of three.
  */
-function belongsToStore(store: ObjectStore, value: unknown): value is string {
-  if (typeof value !== "string" || value.length === 0) return false;
+function ownedKey(store: ObjectStore, value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
   switch (store) {
     case "uploads":
-      return value.startsWith("/uploads/");
+      return value.startsWith("/uploads/") ? value : null;
     case "r2":
-      return r2KeyFromUrl(value) !== null;
+      return r2KeyFromUrl(value) !== null ? value : null;
     case "objectStorage":
       // Bucket keys are relative paths we mint ourselves (`tradeline-ports/…`).
       // A leading slash or a scheme means the value came from somewhere else.
-      return !value.startsWith("/") && !value.includes("://");
+      return !value.startsWith("/") && !value.includes("://") ? value : null;
+    case "twilio":
+      return twilioArtefactKey(value);
   }
 }
 
@@ -285,9 +312,12 @@ function readSource(
   row: Record<string, unknown>,
 ): string[] {
   const raw = row[source.column];
+  const isKey = (v: string | null): v is string => v !== null;
   switch (source.read) {
-    case "text":
-      return belongsToStore(source.store, raw) ? [raw] : [];
+    case "text": {
+      const key = ownedKey(source.store, raw);
+      return isKey(key) ? [key] : [];
+    }
     case "jsonField": {
       const parsed = asJson(raw);
       if (!Array.isArray(parsed)) return [];
@@ -297,10 +327,13 @@ function readSource(
             ? (item as Record<string, unknown>)[source.field]
             : undefined,
         )
-        .filter((v): v is string => belongsToStore(source.store, v));
+        .map((v) => ownedKey(source.store, v))
+        .filter(isKey);
     }
     case "jsonScan":
-      return [...walkStrings(asJson(raw))].filter((v) => belongsToStore(source.store, v));
+      return [...walkStrings(asJson(raw))]
+        .map((v) => ownedKey(source.store, v))
+        .filter(isKey);
   }
 }
 
@@ -334,8 +367,13 @@ export function objectKeysFromRow(
 }
 
 /**
- * Every file this account owns, read from the rows that are about to be
- * deleted or scrubbed.
+ * Everything this account owns outside Postgres — files, and the artefacts held
+ * at Twilio — read from the rows that are about to be deleted or scrubbed.
+ *
+ * This is also where Twilio attribution is established: a SID only ever reaches
+ * the purge because it was selected by the same tenant-scoped predicate that
+ * deletes the row naming it. There is no path here that asks Twilio what it
+ * holds, so no artefact can be attributed to this customer by inference.
  *
  * Runs INSIDE the deletion transaction, before any statement destroys a
  * pointer: it sees the same snapshot the deletes will, and — the reason it
@@ -384,20 +422,27 @@ async function collectStoredObjects(
   return out;
 }
 
-/** One deleter per store. Each returns true only when the bytes are gone. */
+/** One deleter per store. Each returns true only when the data is gone. */
 const STORE_DELETERS: Record<ObjectStore, (key: string) => Promise<boolean>> = {
   objectStorage: deleteObject,
   uploads: deleteUploadedFile,
   r2: deleteFromR2,
+  twilio: deleteTwilioArtefact,
 };
 
 /**
- * Erase the collected files. Runs after the commit, because none of these
- * stores is transactional: deleting inside the transaction would destroy a
- * customer's files even if the deletion later rolled back. The cost of that
- * ordering is this function's failure mode — rows already gone, bytes still
- * present — which is why the caller records and reports every failure instead
- * of logging it and returning success.
+ * Erase the collected data. Runs after the commit, because none of these stores
+ * is transactional — least of all Twilio, where a delete is irreversible and a
+ * rolled-back transaction could not put a recording back. Deleting inside the
+ * transaction would destroy a customer's data even if the deletion later failed.
+ * The cost of that ordering is this function's failure mode — rows already gone,
+ * data still present — which is why the caller records and reports every failure
+ * instead of logging it and returning success.
+ *
+ * Sequential on purpose. Twilio rate-limits, has no bulk delete, and every
+ * artefact here needs its own outcome recorded; a parallel fan-out would trade
+ * a precise failure list for speed on the one operation that must not lose
+ * track of what it could not erase.
  */
 async function purgeStoredObjects(
   objects: StoredObject[],
@@ -599,15 +644,19 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
   receipt.objects_failed = failed;
 
   if (failed.length > 0) {
-    /* The rows are gone, so these keys are now the ONLY record that these
-     * files exist — none of the three stores offers list-by-prefix, so an
-     * unrecorded orphan can never be found again. Persisting them is what
-     * makes the failure recoverable instead of merely noisy.
+    /* The rows are gone, so these keys are now the ONLY record that this data
+     * exists — none of the byte stores offers list-by-prefix, and we
+     * deliberately never list Twilio to re-derive ownership, so an unrecorded
+     * orphan can never be found again. Persisting them is what makes the
+     * failure recoverable instead of merely noisy. It matters most for the
+     * Twilio entries: a `20009` means the artefact was simply not finalised
+     * yet and will delete cleanly on a retry, which is only possible if the
+     * SID survived.
      *
-     * Storage coordinates only: a bucket key, an integer id, a random file
-     * name. Nothing here re-introduces the personal data just erased, which is
-     * the rule the audit row above follows too. */
-    log.error("account deletion could not erase every file", {
+     * Coordinates only: a bucket key, an integer id, a random file name, an
+     * opaque Twilio SID. Nothing here re-introduces the personal data just
+     * erased, which is the rule the audit row above follows too. */
+    log.error("account deletion could not erase everything it holds", {
       userId,
       failed: failed.length,
       purged,
