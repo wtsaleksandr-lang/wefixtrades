@@ -20,6 +20,20 @@
  *     emitted through `sql.identifier`, so no identifier is ever interpolated
  *     from user input.
  *
+ * Files, not just rows — the part that is easy to get wrong:
+ *   • Rows are only half the account. Phone-bill PDFs, LOAs, call recordings,
+ *     assistant uploads, lead photos and site backups live in object storage,
+ *     R2 and the upload directory. `DELETE FROM …` removes the pointer, not the
+ *     bytes, and none of those stores can be listed by prefix — so a pointer
+ *     deleted without its file leaves a document nothing can ever find again.
+ *   • Which columns point at which store is declared in the plan
+ *     (`STORED_OBJECTS`), enumerated inside the transaction, and purged after
+ *     it commits.
+ *   • A purge that fails is reported, never swallowed: the receipt carries
+ *     `objects_failed`, the route tells the customer the erasure is
+ *     incomplete, and the keys are written to `audit_log` so support can
+ *     finish it by hand.
+ *
  * Irreversible. There is no undo and no grace window — see the design note at
  * the top of `shared/accountDeletion/plan.ts`.
  */
@@ -29,12 +43,16 @@ import * as schemaTables from "@shared/schema";
 import { db } from "../../db";
 import { createLogger } from "../../lib/logger";
 import { deleteObject } from "../../lib/objectStorage";
+import { deleteUploadedFile } from "../fileStorage";
+import { deleteFromR2, r2KeyFromUrl } from "../../lib/r2Upload";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
   deletionOrder,
   keptTables,
   planFor,
+  tablesWithObjects,
+  type ObjectStore,
   type Scope,
   type TablePlan,
 } from "@shared/accountDeletion/plan";
@@ -76,6 +94,15 @@ export interface DeletionReceipt {
   retained: { table: string; reason: string }[];
   sessions_revoked: number;
   total_rows_deleted: number;
+  /** Files erased from object storage / R2 / the upload directory. */
+  objects_purged: number;
+  /**
+   * Files we could NOT erase. Non-empty means the deletion is INCOMPLETE:
+   * database rows are gone but some bytes remain. Callers must not report
+   * this as a finished erasure — see the route in
+   * `server/routes/portal/accountDeletion.ts`.
+   */
+  objects_failed: StoredObject[];
   completed_at: string;
 }
 
@@ -197,6 +224,203 @@ async function anonymiseRows(
   return ids.length;
 }
 
+/* ── Stored objects ──────────────────────────────────────────────────────── */
+
+/** One file this account owns, and where it lives. */
+export interface StoredObject {
+  store: ObjectStore;
+  /** The plan entry that pointed at it — the breadcrumb for a manual reclaim. */
+  table: string;
+  /** Object-storage key, R2 public URL, or `/uploads/…` path. */
+  key: string;
+}
+
+/**
+ * Does this value address `store`?
+ *
+ * Several declared columns are polymorphic — `clients.logo_url` holds our
+ * `/uploads/…` path or an arbitrary URL the customer pasted;
+ * `content_assets.url` holds an R2 URL or a stock-photo link. Anything that is
+ * not ours is not our file to delete, and (just as important) must never be
+ * counted as a purge that failed.
+ */
+function belongsToStore(store: ObjectStore, value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) return false;
+  switch (store) {
+    case "uploads":
+      return value.startsWith("/uploads/");
+    case "r2":
+      return r2KeyFromUrl(value) !== null;
+    case "objectStorage":
+      // Bucket keys are relative paths we mint ourselves (`tradeline-ports/…`).
+      // A leading slash or a scheme means the value came from somewhere else.
+      return !value.startsWith("/") && !value.includes("://");
+  }
+}
+
+/** Every string anywhere inside a JSON value. */
+function* walkStrings(value: unknown): Generator<string> {
+  if (typeof value === "string") {
+    yield value;
+  } else if (Array.isArray(value)) {
+    for (const item of value) yield* walkStrings(item);
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) yield* walkStrings(item);
+  }
+}
+
+/** Postgres may hand a jsonb column back as a string or as parsed JSON. */
+function asJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+/** The pointers one declared source yields from one row. */
+function readSource(
+  source: NonNullable<TablePlan["objects"]>[number],
+  row: Record<string, unknown>,
+): string[] {
+  const raw = row[source.column];
+  switch (source.read) {
+    case "text":
+      return belongsToStore(source.store, raw) ? [raw] : [];
+    case "jsonField": {
+      const parsed = asJson(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((item) =>
+          item && typeof item === "object"
+            ? (item as Record<string, unknown>)[source.field]
+            : undefined,
+        )
+        .filter((v): v is string => belongsToStore(source.store, v));
+    }
+    case "jsonScan":
+      return [...walkStrings(asJson(raw))].filter((v) => belongsToStore(source.store, v));
+  }
+}
+
+/**
+ * The files one row points at, per that table's declaration.
+ *
+ * Exported because this is where the interesting decisions live — which values
+ * are ours and which are pasted foreign URLs — and the regression test drives
+ * it with fixture rows to prove that filtering without needing a database, a
+ * bucket, or a network.
+ */
+export function objectKeysFromRow(
+  table: string,
+  row: Record<string, unknown>,
+): StoredObject[] {
+  const entry = planFor(table);
+  if (!entry?.objects) return [];
+  const out: StoredObject[] = [];
+  const seen = new Set<string>();
+  for (const source of entry.objects) {
+    for (const key of readSource(source, row)) {
+      // One object can be named twice: `port_loa_object_key` and
+      // `port_signature_object_key` both hold the signature PNG's key.
+      const dedupe = `${source.store} ${key}`;
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      out.push({ store: source.store, table, key });
+    }
+  }
+  return out;
+}
+
+/**
+ * Every file this account owns, read from the rows that are about to be
+ * deleted or scrubbed.
+ *
+ * Runs INSIDE the deletion transaction, before any statement destroys a
+ * pointer: it sees the same snapshot the deletes will, and — the reason it
+ * moved in here — if enumeration fails, the transaction rolls back and the
+ * customer is told nothing was changed. Enumerating outside the transaction and
+ * swallowing the error (as this did while it handled only WebCare backups)
+ * means a deletion that reports success while the files it never managed to
+ * list stay in the bucket forever. There is no list-by-prefix on any of these
+ * stores, so a pointer lost with its row is a file nothing can ever find again.
+ *
+ * A missing table or column here is not a runtime condition to tolerate:
+ * `npm run check:account-deletion` proves at CI time that every table and
+ * column named by `STORED_OBJECTS` exists in the schema, so a failure means the
+ * database is behind the code and the deletion genuinely must not proceed.
+ */
+async function collectStoredObjects(
+  tx: Executor,
+  ctx: ScopeContext,
+): Promise<StoredObject[]> {
+  const out: StoredObject[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of tablesWithObjects()) {
+    const predicate = predicateFor(entry.scope, ctx);
+    if (!predicate) continue; // nothing in scope — never widen to every tenant
+
+    const columns = [...new Set(entry.objects!.map((s) => s.column))];
+    const selection = sql.join(
+      columns.map((c) => sql.identifier(c)),
+      sql`, `,
+    );
+    const result = await tx.execute(
+      sql`SELECT ${selection} FROM ${sql.identifier(entry.table)} WHERE ${predicate}`,
+    );
+
+    for (const row of result.rows as Record<string, unknown>[]) {
+      for (const object of objectKeysFromRow(entry.table, row)) {
+        // Deduplicated across the whole account, not just within one row.
+        const dedupe = `${object.store} ${object.key}`;
+        if (seen.has(dedupe)) continue;
+        seen.add(dedupe);
+        out.push(object);
+      }
+    }
+  }
+  return out;
+}
+
+/** One deleter per store. Each returns true only when the bytes are gone. */
+const STORE_DELETERS: Record<ObjectStore, (key: string) => Promise<boolean>> = {
+  objectStorage: deleteObject,
+  uploads: deleteUploadedFile,
+  r2: deleteFromR2,
+};
+
+/**
+ * Erase the collected files. Runs after the commit, because none of these
+ * stores is transactional: deleting inside the transaction would destroy a
+ * customer's files even if the deletion later rolled back. The cost of that
+ * ordering is this function's failure mode — rows already gone, bytes still
+ * present — which is why the caller records and reports every failure instead
+ * of logging it and returning success.
+ */
+async function purgeStoredObjects(
+  objects: StoredObject[],
+): Promise<{ purged: number; failed: StoredObject[] }> {
+  let purged = 0;
+  const failed: StoredObject[] = [];
+  for (const object of objects) {
+    let ok = false;
+    try {
+      ok = await STORE_DELETERS[object.store](object.key);
+    } catch (err) {
+      log.error("stored-object delete threw", {
+        store: object.store,
+        key: object.key,
+        error: (err as Error).message,
+      });
+    }
+    if (ok) purged += 1;
+    else failed.push(object);
+  }
+  return { purged, failed };
+}
+
 /* ── Legal holds ─────────────────────────────────────────────────────────── */
 
 /**
@@ -259,38 +483,10 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
     throw new Error(`deleteAccountData called with a non-id: ${String(userId)}`);
   }
 
-  /* Object-storage keys owned by this account, collected BEFORE the
-   * transaction erases the rows that point at them.
-   *
-   * Deleting the `webcare_backups` rows without deleting the encrypted
-   * archives they reference would leave the customer's site content sitting
-   * in a bucket with nothing left pointing at it — undeletable, because the
-   * pointer is what we just erased. The privacy policy promises erasure, so
-   * the bytes have to go too.
-   *
-   * Collected here, deleted AFTER the commit: object storage is not
-   * transactional, so deleting inside the transaction would destroy the
-   * archives even if the deletion later rolled back. Doing it after means
-   * the worst case is an orphan we can still find in the logs, never a
-   * customer whose backups vanished from an aborted deletion. */
-  let backupObjectNames: string[] = [];
-  try {
-    const rows = await db.execute(sql`
-      SELECT object_name FROM webcare_backups
-      WHERE object_name IS NOT NULL
-        AND client_id IN (SELECT id FROM clients WHERE user_id = ${userId})
-    `);
-    backupObjectNames = (rows.rows as { object_name: string }[])
-      .map((r) => r.object_name)
-      .filter(Boolean);
-  } catch (err: any) {
-    // Pre-migration environments have no such table. The deletion itself
-    // must not fail for that, but we log loudly rather than swallow it.
-    log.warn("could not enumerate webcare backup objects before deletion", {
-      userId,
-      error: err?.message,
-    });
-  }
+  /* Files this account owns, listed inside the transaction (below) and erased
+   * after it commits. Declared in `STORED_OBJECTS`, not hard-coded here, so a
+   * store added to the plan tomorrow is purged by the same mechanism. */
+  let storedObjects: StoredObject[] = [];
 
   const receipt = await db.transaction(async (tx) => {
     const t = tx as unknown as Executor;
@@ -304,6 +500,11 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
 
     const ctx: ScopeContext = { userId, clientIds, email: user.email ?? null };
     await assertNoLegalHold(t, ctx);
+
+    /* 0. List the files BEFORE anything erases the rows that name them. A
+     *    throw here rolls the whole thing back, which is the honest outcome:
+     *    we cannot promise erasure of files we could not even enumerate. */
+    storedObjects = await collectStoredObjects(t, ctx);
 
     /* 1. Sessions. connect-pg-simple's table has no user column — the id sits
      *    inside the `sess` JSON blob — so a foreign key could never reach it.
@@ -360,6 +561,7 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
           rows_deleted: totalRows,
           clients_anonymized: clientIds.length,
           sessions_revoked: sessionsRevoked,
+          files_found: storedObjects.length,
         })}::jsonb,
         ${JSON.stringify({ source: "portal_self_service_deletion" })}::jsonb
       )
@@ -373,36 +575,66 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
       retained: retentionDisclosure(),
       sessions_revoked: sessionsRevoked,
       total_rows_deleted: totalRows,
+      // Filled in after the commit; the transaction cannot know them yet.
+      objects_purged: 0,
+      objects_failed: [],
       completed_at: new Date().toISOString(),
     };
 
-    log.info("account deleted", {
+    log.info("account rows deleted", {
       userId,
       clients: clientIds.length,
       tables: Object.keys(deleted).length,
       rows: totalRows,
       sessions: sessionsRevoked,
+      files: storedObjects.length,
     });
 
     return receipt;
   });
 
-  /* Post-commit: erase the encrypted archives the deleted rows referenced.
-   * Best-effort per object — one storage failure must not fail a deletion
-   * that has already committed, but every failure is logged by name so an
-   * orphan can be reclaimed manually. */
-  if (backupObjectNames.length > 0) {
-    let removed = 0;
-    for (const name of backupObjectNames) {
-      const ok = await deleteObject(name);
-      if (ok) removed += 1;
-      else log.error("orphaned backup archive — delete manually", { userId, objectName: name });
-    }
-    log.info("webcare backup archives erased", {
+  /* Post-commit: erase the bytes the deleted rows referenced. */
+  const { purged, failed } = await purgeStoredObjects(storedObjects);
+  receipt.objects_purged = purged;
+  receipt.objects_failed = failed;
+
+  if (failed.length > 0) {
+    /* The rows are gone, so these keys are now the ONLY record that these
+     * files exist — none of the three stores offers list-by-prefix, so an
+     * unrecorded orphan can never be found again. Persisting them is what
+     * makes the failure recoverable instead of merely noisy.
+     *
+     * Storage coordinates only: a bucket key, an integer id, a random file
+     * name. Nothing here re-introduces the personal data just erased, which is
+     * the rule the audit row above follows too. */
+    log.error("account deletion could not erase every file", {
       userId,
-      removed,
-      total: backupObjectNames.length,
+      failed: failed.length,
+      purged,
     });
+    try {
+      await db.execute(sql`
+        INSERT INTO audit_log (actor_id, actor_type, action, entity_type, entity_id, after, metadata)
+        VALUES (
+          ${String(userId)}, 'system', 'account_deletion_orphaned_objects', 'account',
+          ${String(userId)},
+          ${JSON.stringify({ purged, failed_count: failed.length })}::jsonb,
+          ${JSON.stringify({
+            source: "portal_self_service_deletion",
+            orphans: failed.map((o) => ({ store: o.store, table: o.table, key: o.key })),
+          })}::jsonb
+        )
+      `);
+    } catch (err) {
+      // Last resort: the log line above is the only remaining record.
+      log.error("could not record orphaned files for manual reclaim", {
+        userId,
+        error: (err as Error).message,
+        orphans: failed.map((o) => `${o.store}:${o.key}`),
+      });
+    }
+  } else {
+    log.info("account deleted", { userId, files_purged: purged });
   }
 
   return receipt;

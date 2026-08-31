@@ -253,6 +253,20 @@ export default function PrivacyPage() {
           irreversibly anonymized — every field that could identify you or your business is erased.
         </p>
         <p style={{ marginTop: 12 }}>
+          <strong>Uploaded files are deleted too, not just the records pointing at them.</strong>{" "}
+          The phone bill and signed authorization form you uploaded to move a number to us, your
+          uploaded logo, photos your customers attached to a quote request, saved copies of call
+          recordings, images you sent the AI assistant, generated videos, and your website backups
+          are all erased from our file storage in the same operation — not merely unlinked. If any
+          file cannot be removed on the first attempt, the app tells you so on the spot and names
+          how many are outstanding, rather than reporting a clean deletion; we then erase them
+          manually and you can email{" "}
+          <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>
+            support@wefixtrades.com
+          </a>{" "}
+          for written confirmation.
+        </p>
+        <p style={{ marginTop: 12 }}>
           <strong>What we keep, and why.</strong> We will not tell you data is gone when it is not.
           Three things survive deletion:
         </p>

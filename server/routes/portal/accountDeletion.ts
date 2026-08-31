@@ -138,6 +138,9 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
             "Connected social and Google Business accounts, including their access tokens",
             "Call recordings, voicemails, SMS history and mobile devices",
             "Support tickets, chat history and AI assistant conversations",
+            "Every file in our storage: uploaded phone bills and number-transfer " +
+              "authorization forms, your logo, customer-submitted quote photos, saved call " +
+              "recordings, assistant images, generated videos and website backups",
           ],
           /* Every `keep` entry in the plan must be represented here. If you add
              one, add it to this list, to privacy.tsx §10 and to its prerender
@@ -331,13 +334,31 @@ export function registerPortalAccountDeletionRoutes(app: Express) {
         if (answered) return;
         answered = true;
         res.clearCookie("connect.sid");
+        /* Files live in stores that are not transactional, so the row deletion
+         * can commit while a bucket delete fails. When that happens the
+         * erasure is genuinely incomplete, and saying so is the whole point —
+         * "deleted" while the customer's phone bill is still in a bucket is
+         * the same lie as a backup that reports success without backing
+         * anything up. The keys are recorded in `audit_log` under
+         * `account_deletion_orphaned_objects` so support can finish the job. */
+        const incomplete = receipt.objects_failed.length > 0;
         res.json({
           ok: true,
           deleted_tables: Object.keys(receipt.deleted).length,
           deleted_rows: receipt.total_rows_deleted,
           sessions_revoked: receipt.sessions_revoked,
+          files_purged: receipt.objects_purged,
           retained: receipt.retained,
           completed_at: receipt.completed_at,
+          ...(incomplete && {
+            storage_purge_incomplete: true,
+            files_pending: receipt.objects_failed.length,
+            warning:
+              `Your account and records are deleted, but ${receipt.objects_failed.length} ` +
+              `uploaded file(s) could not be removed from storage on this attempt. We have ` +
+              `logged them and will erase them manually. Email support@wefixtrades.com if ` +
+              `you want written confirmation once they are gone.`,
+          }),
         });
       };
 

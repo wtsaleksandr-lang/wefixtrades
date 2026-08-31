@@ -22,10 +22,12 @@
  * run multiple times per day.
  */
 
-import crypto from "crypto";
 import { sql } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
+// Shared signer — this worker used to carry its own byte-identical copy, so a
+// fix to one never reached the other.
+import { deleteFromR2 } from "../lib/r2Upload";
 
 const UNPUBLISHED_RETENTION_DAYS = 180;
 const PUBLISHED_RETENTION_DAYS = 2 * 365;
@@ -38,67 +40,6 @@ export interface RetentionSummary {
   errors: string[];
 }
 
-function isR2Configured(): boolean {
-  return !!(
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_BUCKET_NAME &&
-    process.env.R2_ENDPOINT
-  );
-}
-
-async function deleteFromR2(imageUrl: string): Promise<boolean> {
-  if (!isR2Configured()) return false;
-  try {
-    const publicBase = (process.env.R2_PUBLIC_URL || "").replace(/\/+$/, "");
-    if (!publicBase || !imageUrl.startsWith(publicBase)) {
-      /* Not an R2-hosted URL — likely an OpenAI fallback URL.
-       * Nothing to delete. */
-      return false;
-    }
-    const key = imageUrl.slice(publicBase.length + 1);
-    const accessKey = process.env.R2_ACCESS_KEY_ID!;
-    const secretKey = process.env.R2_SECRET_ACCESS_KEY!;
-    const bucket = process.env.R2_BUCKET_NAME!;
-    const endpoint = process.env.R2_ENDPOINT!.replace(/\/+$/, "");
-    const region = "auto";
-    const host = new URL(endpoint).host;
-    const date = new Date();
-    const amzDate = date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-    const dateStamp = amzDate.slice(0, 8);
-
-    const payloadHash = crypto.createHash("sha256").update("").digest("hex");
-    const canonicalUri = `/${bucket}/${key}`;
-    const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
-    const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-    const canonicalRequest = `DELETE\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
-    const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
-    const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${crypto.createHash("sha256").update(canonicalRequest).digest("hex")}`;
-
-    const kDate = crypto.createHmac("sha256", `AWS4${secretKey}`).update(dateStamp).digest();
-    const kRegion = crypto.createHmac("sha256", kDate).update(region).digest();
-    const kService = crypto.createHmac("sha256", kRegion).update("s3").digest();
-    const kSigning = crypto.createHmac("sha256", kService).update("aws4_request").digest();
-    const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
-
-    const authorization =
-      `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, ` +
-      `SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-    const res = await fetch(`${endpoint}/${bucket}/${key}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: authorization,
-        "x-amz-date": amzDate,
-        "x-amz-content-sha256": payloadHash,
-      },
-    });
-    /* R2 returns 204 No Content on success, 404 on already-deleted. */
-    return res.ok || res.status === 404;
-  } catch {
-    return false;
-  }
-}
 
 export async function processImageRetention(): Promise<RetentionSummary> {
   const summary: RetentionSummary = {
