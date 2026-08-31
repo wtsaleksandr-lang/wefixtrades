@@ -174,16 +174,6 @@ const NO_TWILIO_ARTEFACTS: Record<string, string> = {
     "strand the number mid-transfer. Narrow: the order only — the recordings, " +
     "calls and messages on the same account are erased. The deletion copy says so.",
 
-  "tradeline_phone_setups.forwarding_test_call_sid":
-    "Declared as a Twilio Call would be, except that this column is not reachable " +
-    "by the purge: `tradeline_phone_setups` is deleted by client_id and the SID " +
-    "names a one-second outbound test call we placed to the customer's own number " +
-    "to confirm forwarding. It carries the same phone number the row itself holds " +
-    "and no content. Erasing it is covered by the Calls declared on `voicemails` " +
-    "and `mobile_call_records` being the artefacts that actually hold conversation " +
-    "data; this one is left to Twilio's own 13-month log retention rather than " +
-    "widening the purge to a resource with nothing in it.",
-
   "mobile_devices.twilio_binding_sid":
     "NOT THIS CUSTOMER'S TO DELETE, and never written. The Binding create path is " +
     "an unimplemented TODO (server/routes/mobileVoiceRoutes.ts) — /push/register " +

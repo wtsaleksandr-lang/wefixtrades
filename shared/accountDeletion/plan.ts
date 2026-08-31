@@ -517,6 +517,16 @@ export const STORED_OBJECTS: Record<string, ObjectSource[]> = {
     { store: "objectStorage", column: "port_loa_object_key", read: "text" },
     { store: "objectStorage", column: "port_loa_pdf_object_key", read: "text" },
     { store: "objectStorage", column: "port_signature_object_key", read: "text" },
+    /* The Call record for the one-second outbound test call we placed to the
+     * customer's own number to confirm forwarding. It names their personal
+     * phone number, which this row is erased for holding, so it goes for the
+     * same reason. Our own outbound call to them: no third party's data in it.
+     *
+     * Two Twilio identifiers on this table are deliberately NOT here — the
+     * provisioned number and the port-in order. See NO_TWILIO_ARTEFACTS in
+     * scripts/check-account-deletion-coverage.ts for why, and the retention
+     * note above for what the deletion copy has to say about it. */
+    { store: "twilio", column: "forwarding_test_call_sid", read: "text" },
   ],
 
   /**
