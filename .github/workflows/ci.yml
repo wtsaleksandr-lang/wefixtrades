@@ -215,6 +215,8 @@ jobs:
         run: npm run check:cookie-parser
       - name: Apple referral-hook guard (the Apple signup branch mints a referral code + links attribution like the password/Google paths)
         run: npm run check:apple-referral
+      - name: WebCare delivery-honesty guard (WebCare's paid backup + malware claims are backed by real machinery — a webcare_backups row cannot reach status='success' without object_name+sha256+size_bytes, the capture path fails the row on a failed upload and verifies the sha256 before any restore, the KPI strip reads the real table not a phantom metadata key, a scan that could not run is stored as failed rather than a zero-finding pass, the removed facade's canned strings ("Backup queued", "queue_backup(", "our team will confirm and clean") cannot return to live code, the undeliverable harden-security/optimize-performance actions stay deleted, and the copy never re-sells the unmeasured "Monthly performance checks"; 7 deliberate-failure fixtures)
+        run: npm run check:webcare-delivery
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations

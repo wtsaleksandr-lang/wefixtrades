@@ -129,6 +129,66 @@ async function wpFetch(
   }
 }
 
+/* ─── Generic REST helpers (used by the WebCare backup service) ─────── */
+
+/** Single authenticated GET against a wp-json path. */
+export async function wpGetOne(
+  creds: WpCredentials,
+  path: string,
+): Promise<{ ok: boolean; data: any; error?: string }> {
+  const res = await wpFetch(creds, path);
+  return { ok: res.ok, data: res.data, error: res.error };
+}
+
+/** Single authenticated POST (WP uses POST for updates too). */
+export async function wpPostJson(
+  creds: WpCredentials,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: boolean; data: any; error?: string }> {
+  const res = await wpFetch(creds, path, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, data: res.data, error: res.error };
+}
+
+/**
+ * Page through a WordPress REST collection until it is exhausted or `max`
+ * items have been collected.
+ *
+ * Stops on the first failed page rather than returning a partial set that
+ * looks complete — a backup that silently dropped page 3 of 9 is worse than
+ * a backup that reports the collection as omitted. `truncated` is true when
+ * we hit `max` with more still available, and the caller records that IN the
+ * archive so a restore never believes it has everything.
+ */
+export async function wpGetCollection(
+  creds: WpCredentials,
+  path: string,
+  max: number,
+): Promise<{ ok: boolean; items: unknown[]; truncated: boolean; error?: string }> {
+  const perPage = 100;
+  const sep = path.includes("?") ? "&" : "?";
+  const items: unknown[] = [];
+
+  for (let page = 1; items.length < max; page += 1) {
+    const res = await wpFetch(creds, `${path}${sep}per_page=${perPage}&page=${page}`);
+    if (!res.ok) {
+      // A 400 on page N>1 is how WP signals "past the last page" for some
+      // endpoints; treat that as a clean end rather than a failure.
+      if (page > 1 && res.status === 400) break;
+      return { ok: false, items: [], truncated: false, error: res.error };
+    }
+    const batch = Array.isArray(res.data) ? res.data : [];
+    items.push(...batch);
+    if (batch.length < perPage) break;
+  }
+
+  const truncated = items.length > max;
+  return { ok: true, items: truncated ? items.slice(0, max) : items, truncated };
+}
+
 /**
  * Compare two semver-ish version strings.
  * Returns true if the new version is a major version bump.

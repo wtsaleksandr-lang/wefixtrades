@@ -355,7 +355,9 @@ export const NOTIFICATION_EVENTS: NotificationEvent[] = [
     key: "security_incident",
     product: "webcare",
     label: "Security incident",
-    description: "Malware, brute-force spikes, or any other event that drops your security grade.",
+    // Scoped to what the scanner genuinely detects. It has no brute-force
+    // telemetry — that claim was removed rather than left unbacked.
+    description: "The weekly malware scan found something: a modified WordPress core file or a known injection signature on your pages.",
     defaultChannels: ["email", "web_push"],
     severity: "critical",
   },
@@ -363,7 +365,9 @@ export const NOTIFICATION_EVENTS: NotificationEvent[] = [
     key: "backup_failed",
     product: "webcare",
     label: "Backup failed",
-    description: "Nightly backup couldn't complete — usually a host or storage issue.",
+    // "Nightly" was wrong twice over: no backup job existed at all, and the
+    // one that exists now runs weekly (Sunday 02:00 UTC).
+    description: "Your weekly content backup couldn't complete — usually missing site access or a host issue.",
     defaultChannels: ["email", "web_push"],
     severity: "warning",
   },

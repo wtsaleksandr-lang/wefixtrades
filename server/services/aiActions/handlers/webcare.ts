@@ -1,21 +1,48 @@
 /**
- * Wave 34 — WebCare action handler (extracted from
- * server/routes/portal/webcare/runAction.ts).
+ * WebCare action handler.
  *
- * Identical behavior to Wave 31: each non-acknowledge action writes one
- * row to `webcare_action_log` so the customer sees it appear in the
- * Maintenance Log Inbox immediately.
+ * WHAT CHANGED AND WHY
+ * --------------------
+ * Every action here used to be a facade. `run-backup-now` wrote a log row
+ * reading "Backup queued. The backup timeline will show a new green dot
+ * when it completes" and started nothing — no backup job existed anywhere
+ * in the codebase, so the green dot never came. `clean-malware` promised
+ * "our team will confirm and clean any findings within 4 hours" with no
+ * scan and no team process behind it. `harden-security` claimed it had
+ * "Enabled recommended hardening: 2FA, login throttling, file-edit
+ * lockdown". `optimize-performance` promised "your next Lighthouse score
+ * updates within an hour" for a Lighthouse score the product does not
+ * measure at all. Each wrote a fabricated `technical_summary` naming a
+ * function that does not exist (`queue_backup(on_demand=true)`).
+ *
+ * Now:
+ *   - run-backup-now  → really captures + stores a verifiable archive.
+ *   - scan-malware    → really scans and stores real findings.
+ *     (replaces `clean-malware`: we can genuinely detect, we cannot
+ *      genuinely promise remediation on a 4-hour SLA.)
+ *   - harden-security and optimize-performance are GONE. Enabling 2FA,
+ *     login throttling or file-edit lockdown requires installing plugins
+ *     or editing wp-config.php, neither of which the WordPress REST API
+ *     permits; and there is no image/CSS optimisation pipeline and no
+ *     Lighthouse measurement. Undeliverable buttons are worse than absent
+ *     ones, so they were removed rather than left to keep lying.
+ *
+ * The runners in services/webcare/runners.ts own the log-writing, and they
+ * write it AFTER the work, in the past tense, describing what happened.
  */
 
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../db";
-import {
-  clientServices,
-  serviceCatalog,
-  webcareActionLog,
-} from "@shared/schema";
+import { clientServices, serviceCatalog } from "@shared/schema";
 import { dismissAction } from "../../aiInsights/cache";
 import { createLogger } from "../../../lib/logger";
+import {
+  loadWebcareContext,
+  runApplyUpdatesNow,
+  runBackupNow,
+  runMalwareScanNow,
+} from "../../webcare/runners";
+import type { RunnerOutcome } from "../../webcare/runners";
 import type { AIAction } from "@shared/aiActions";
 import type { DispatchInput, DispatchResult } from "../dispatcher";
 
@@ -37,82 +64,6 @@ async function activeWebcareCs(clientId: number): Promise<number | null> {
   return row?.id ?? null;
 }
 
-interface ActionMeta {
-  eventType: "updates" | "security" | "performance" | "backups" | "other";
-  severity: "info" | "success" | "warning";
-  plain: string;
-  technical: string;
-  dismissAfter: boolean;
-  message: string;
-}
-
-function resolve(actionKey: string): ActionMeta | null {
-  switch (actionKey) {
-    case "apply-all-pending-updates":
-      return {
-        eventType: "updates",
-        severity: "info",
-        plain: "Queued: apply all pending plugin, theme and core updates",
-        technical: "queue_wp_cli_update_all(backup=true)",
-        dismissAfter: true,
-        message:
-          "Updates queued. A fresh backup is taken first — you'll see results in the log within a few minutes.",
-      };
-    case "clean-malware":
-      return {
-        eventType: "security",
-        severity: "warning",
-        plain: "Requested malware sweep and clean-up",
-        technical: "queue_malware_scan_and_clean()",
-        dismissAfter: true,
-        message:
-          "Malware sweep requested — our team will confirm and clean any findings within 4 hours.",
-      };
-    case "harden-security":
-      return {
-        eventType: "security",
-        severity: "success",
-        plain:
-          "Enabled recommended hardening: 2FA, login throttling, file-edit lockdown",
-        technical: "apply_hardening_profile(default)",
-        dismissAfter: true,
-        message:
-          "Recommended security defaults turned on. Security grade re-checked within 15 minutes.",
-      };
-    case "optimize-performance":
-      return {
-        eventType: "performance",
-        severity: "info",
-        plain: "Queued: image compression and CSS minify pass",
-        technical: "queue_perf_optimize(images=true, css=true, js=true)",
-        dismissAfter: true,
-        message:
-          "Optimization queued — your next Lighthouse score updates within an hour.",
-      };
-    case "run-backup-now":
-      return {
-        eventType: "backups",
-        severity: "info",
-        plain: "On-demand backup running",
-        technical: "queue_backup(on_demand=true)",
-        dismissAfter: false,
-        message:
-          "Backup queued. The backup timeline will show a new green dot when it completes.",
-      };
-    case "acknowledge":
-      return {
-        eventType: "other",
-        severity: "info",
-        plain: "Recommendation acknowledged",
-        technical: "ack",
-        dismissAfter: true,
-        message: "Recommendation acknowledged.",
-      };
-    default:
-      return null;
-  }
-}
-
 export async function handleWebcareAction(
   action: AIAction,
   input: DispatchInput,
@@ -124,19 +75,38 @@ export async function handleWebcareAction(
       errorCode: "invalid_params",
     };
   }
+
   const csId = await activeWebcareCs(input.clientId);
   if (!csId) {
     return {
       success: false,
-      message:
-        "WebCare 1-click actions require an active WebCare subscription.",
+      message: "WebCare 1-click actions require an active WebCare subscription.",
       resultPayload: { upgradeUrl: "/products/webcare" },
       errorCode: "subscription_required",
     };
   }
 
-  const meta = resolve(action.key);
-  if (!meta) {
+  // `acknowledge` is the one action that legitimately does nothing but
+  // dismiss a recommendation — there is no work to misreport.
+  if (action.key === "acknowledge") {
+    let dismissed = false;
+    if (input.recommendationId) {
+      try {
+        await dismissAction(input.clientId, input.recommendationId);
+        dismissed = true;
+      } catch (err: any) {
+        log.warn("dismissAction failed", {
+          clientId: String(input.clientId),
+          error: err?.message,
+        });
+      }
+    }
+    return { success: true, message: "Recommendation acknowledged.", dismissed };
+  }
+
+  const REAL_ACTIONS = ["run-backup-now", "scan-malware", "apply-all-pending-updates"] as const;
+  type RealAction = (typeof REAL_ACTIONS)[number];
+  if (!(REAL_ACTIONS as readonly string[]).includes(action.key)) {
     return {
       success: false,
       message: `Unhandled WebCare action "${action.key}".`,
@@ -144,44 +114,55 @@ export async function handleWebcareAction(
     };
   }
 
-  // Live maintenance feed: log everything except acknowledge.
-  if (action.key !== "acknowledge") {
-    try {
-      await db.insert(webcareActionLog).values({
-        client_id: input.clientId,
-        client_service_id: csId,
-        event_type: meta.eventType,
-        severity: meta.severity,
-        technical_summary: meta.technical,
-        plain_language_summary: meta.plain,
-        expanded_detail: input.params
-          ? ({
-              source: "customer_initiated",
-              params: input.params,
-            } as Record<string, unknown>)
-          : ({ source: "customer_initiated" } as Record<string, unknown>),
-      });
-    } catch (insertErr: any) {
-      log.warn("webcare action-log insert failed", {
-        clientId: input.clientId,
-        error: insertErr?.message,
-      });
-    }
+  const ctx = await loadWebcareContext(input.clientId);
+  if (!ctx) {
+    return {
+      success: false,
+      message: "WebCare 1-click actions require an active WebCare subscription.",
+      resultPayload: { upgradeUrl: "/products/webcare" },
+      errorCode: "subscription_required",
+    };
+  }
+
+  // Real work. The outcome reported to the customer is the outcome that
+  // occurred — including failure, which is reported as failure.
+  const runner: Record<RealAction, () => Promise<RunnerOutcome>> = {
+    "run-backup-now": () => runBackupNow(ctx, "manual"),
+    "scan-malware": () => runMalwareScanNow(ctx, "manual"),
+    "apply-all-pending-updates": () => runApplyUpdatesNow(ctx, "manual"),
+  };
+  const outcome = await runner[action.key as RealAction]();
+
+  if (!outcome.ok) {
+    // DispatchResult.errorCode is a closed union, so the runner's specific
+    // reason (credentials_missing, backup_failed, …) is logged rather than
+    // returned. The customer-facing `message` carries the real explanation
+    // in plain language — "we don't have WordPress access for your site
+    // yet, so there's nothing we can back up" — not a generic failure.
+    log.warn("webcare action failed", {
+      clientId: String(input.clientId),
+      action: action.key,
+      reason: outcome.errorCode ?? "unknown",
+    });
+    return {
+      success: false,
+      message: outcome.message,
+      errorCode: "handler_error",
+    };
   }
 
   let dismissed = false;
-  if (meta.dismissAfter && input.recommendationId) {
+  if (input.recommendationId) {
     try {
       await dismissAction(input.clientId, input.recommendationId);
       dismissed = true;
-    } catch {
-      /* best-effort */
+    } catch (err: any) {
+      log.warn("dismissAction failed", {
+        clientId: String(input.clientId),
+        error: err?.message,
+      });
     }
   }
 
-  return {
-    success: true,
-    message: meta.message,
-    dismissed,
-  };
+  return { success: true, message: outcome.message, dismissed };
 }

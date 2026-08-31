@@ -28,6 +28,7 @@ import { PgDialect, PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import * as schemaTables from "@shared/schema";
 import { db } from "../../db";
 import { createLogger } from "../../lib/logger";
+import { deleteObject } from "../../lib/objectStorage";
 import {
   ACCOUNT_DELETION_PLAN,
   ANONYMISE_FIELDS,
@@ -258,7 +259,40 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
     throw new Error(`deleteAccountData called with a non-id: ${String(userId)}`);
   }
 
-  return db.transaction(async (tx) => {
+  /* Object-storage keys owned by this account, collected BEFORE the
+   * transaction erases the rows that point at them.
+   *
+   * Deleting the `webcare_backups` rows without deleting the encrypted
+   * archives they reference would leave the customer's site content sitting
+   * in a bucket with nothing left pointing at it — undeletable, because the
+   * pointer is what we just erased. The privacy policy promises erasure, so
+   * the bytes have to go too.
+   *
+   * Collected here, deleted AFTER the commit: object storage is not
+   * transactional, so deleting inside the transaction would destroy the
+   * archives even if the deletion later rolled back. Doing it after means
+   * the worst case is an orphan we can still find in the logs, never a
+   * customer whose backups vanished from an aborted deletion. */
+  let backupObjectNames: string[] = [];
+  try {
+    const rows = await db.execute(sql`
+      SELECT object_name FROM webcare_backups
+      WHERE object_name IS NOT NULL
+        AND client_id IN (SELECT id FROM clients WHERE user_id = ${userId})
+    `);
+    backupObjectNames = (rows.rows as { object_name: string }[])
+      .map((r) => r.object_name)
+      .filter(Boolean);
+  } catch (err: any) {
+    // Pre-migration environments have no such table. The deletion itself
+    // must not fail for that, but we log loudly rather than swallow it.
+    log.warn("could not enumerate webcare backup objects before deletion", {
+      userId,
+      error: err?.message,
+    });
+  }
+
+  const receipt = await db.transaction(async (tx) => {
     const t = tx as unknown as Executor;
 
     const userRows = await t.execute(sql`SELECT id, email FROM users WHERE id = ${userId}`);
@@ -352,6 +386,26 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
 
     return receipt;
   });
+
+  /* Post-commit: erase the encrypted archives the deleted rows referenced.
+   * Best-effort per object — one storage failure must not fail a deletion
+   * that has already committed, but every failure is logged by name so an
+   * orphan can be reclaimed manually. */
+  if (backupObjectNames.length > 0) {
+    let removed = 0;
+    for (const name of backupObjectNames) {
+      const ok = await deleteObject(name);
+      if (ok) removed += 1;
+      else log.error("orphaned backup archive — delete manually", { userId, objectName: name });
+    }
+    log.info("webcare backup archives erased", {
+      userId,
+      removed,
+      total: backupObjectNames.length,
+    });
+  }
+
+  return receipt;
 }
 
 /**
