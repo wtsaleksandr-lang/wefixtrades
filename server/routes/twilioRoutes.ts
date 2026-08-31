@@ -525,11 +525,16 @@ export function registerTwilioRoutes(app: Express): void {
      * first visit is untouched. */
     const recordingUrl =
       typeof req.body?.RecordingUrl === "string" ? req.body.RecordingUrl : "";
-    if (recordingUrl && callSid !== "(unknown)") {
+    // Read CallSid directly rather than reusing the "(unknown)" log sentinel
+    // above: coupling the capture guard to a logging placeholder would break it
+    // silently if that placeholder ever changed.
+    const recordingCallSid =
+      typeof req.body?.CallSid === "string" ? req.body.CallSid.trim() : "";
+    if (recordingUrl && recordingCallSid) {
       const fromRaw = typeof req.body?.From === "string" ? req.body.From : "";
       try {
         const vmId = await captureVoicemail({
-          callSid,
+          callSid: recordingCallSid,
           recordingUrl,
           from: fromRaw,
           to: typeof req.body?.To === "string" ? req.body.To : "",

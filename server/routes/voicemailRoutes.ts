@@ -262,7 +262,9 @@ export async function captureVoicemail(input: VoicemailCapture): Promise<number 
     log.warn("Lead match failed", { err: (err as Error).message });
   }
 
-  const fromNumber = normalizePhone(from) || from.slice(0, 32);
+  // NOT NULL, and the fallback caller does not pre-check `From`: storing the
+  // row with a placeholder beats dropping a recording nothing could then erase.
+  const fromNumber = normalizePhone(from) || from.slice(0, 32) || "unknown";
 
   const [row] = await db
     .insert(voicemails)
