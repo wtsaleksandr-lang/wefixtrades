@@ -10,11 +10,16 @@
  *   POST /api/portal/adflow/run-action
  *   GET  /api/portal/adflow/notification-settings
  *   POST /api/portal/adflow/notification-settings
- *   GET  /api/portal/adflow/heatmaps/profitable-trade
- *   GET  /api/portal/adflow/heatmaps/day-parting
  *
  * Mounted BEFORE the legacy `GET /api/portal/adflow/:csId/reports` in
  * `portalRoutes.ts` so the specific paths above resolve first.
+ *
+ * REMOVED: /heatmaps/profitable-trade and /heatmaps/day-parting. Neither could
+ * be served without inventing its own input. The day-parting grid spread each
+ * day's total across 24 hours using a hardcoded HOUR_WEIGHTS curve — nothing in
+ * this system has ever held hour-level ad data — and the trade grid valued each
+ * booking at a flat $250 and guessed the platform from the campaign name. See
+ * the guard in server/services/aiActions/handlers/adflow.test.ts.
  */
 
 import type { Express } from "express";
@@ -24,7 +29,6 @@ import { registerPortalAdflowCopyRoutes } from "./copy";
 import { registerPortalAdflowAnomaliesRoutes } from "./anomalies";
 import { registerPortalAdflowRunActionRoutes } from "./runAction";
 import { registerPortalAdflowNotificationSettingsRoutes } from "./notificationSettings";
-import { registerPortalAdflowHeatmapsRoutes } from "./heatmaps";
 import { registerPortalAdflowWave73KpiStatsRoutes } from "./wave73KpiStats";
 
 export function registerPortalAdflowDashboardRoutes(app: Express) {
@@ -34,6 +38,5 @@ export function registerPortalAdflowDashboardRoutes(app: Express) {
   registerPortalAdflowAnomaliesRoutes(app);
   registerPortalAdflowRunActionRoutes(app);
   registerPortalAdflowNotificationSettingsRoutes(app);
-  registerPortalAdflowHeatmapsRoutes(app);
   registerPortalAdflowWave73KpiStatsRoutes(app);
 }

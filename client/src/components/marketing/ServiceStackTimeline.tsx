@@ -71,12 +71,12 @@ const SERVICES: Service[] = [
   {
     number: "03",
     product: "AdFlow",
-    title: "Real ads. A vetted agency tuning bids. Real ROI in your inbox.",
-    hook: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning, swap creative, pause losers. Reports you can read — no agency-speak.",
+    title: "Real ads. A vetted agency tuning bids on your behalf.",
+    hook: "Google + Meta campaigns run by a vetted ad-agency partner inside ad accounts you own. They tune bids, swap creative and pause losers. Reports you can read — no agency-speak.",
     href: "/products/adflow",
     icon: Megaphone,
-    bullets: ["Cost-per-lead drops weekly", "Trade-buyer creative", "Plain-English reports"],
-    tile: <KpiTile a={{ value: "$42→$19", label: "CPL, week 1 to 4", color: "green" }} b={{ value: "3.2×", label: "ROAS", color: "amber" }} c={{ value: "+340%", label: "vs DIY ads", color: "green" }} />,
+    bullets: ["A person tunes your bids", "Trade-buyer creative", "Plain-English reports"],
+    tile: <KpiTile a={{ value: "$42→$19", label: "CPL example", color: "green" }} b={{ value: "3.2×", label: "ROAS example", color: "amber" }} c={{ value: "+340%", label: "vs DIY, example", color: "green" }} />,
   },
   {
     number: "04",

@@ -77,6 +77,19 @@ export interface AdFlowReportMetrics {
   prior_period?: AdFlowPriorPeriod;
   creatives?: AdFlowCreative[];
   recommendations?: string[];
+  /** Revenue the client reported back. Absent unless a person entered it. */
+  revenue_earned_cents?: number;
+  /** Per-platform split, only when the agency supplies one. */
+  by_platform?: Record<string, { spend_cents?: number }>;
+  /**
+   * Provenance — who typed these figures in and when. Stamped by
+   * POST /api/admin/crm/client-services/:id/adflow-metrics. Absent on rows
+   * saved before provenance existed; the dashboard renders that honestly
+   * rather than guessing a name or a date.
+   */
+  entered_at?: string;
+  entered_by_id?: number | null;
+  entered_by_name?: string | null;
 }
 
 export interface CompileResult {
@@ -325,34 +338,18 @@ function formatPeriod(start?: string, end?: string): string {
   return new Date(start).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-/* ─── Synthetic daily breakdown (when admin doesn't provide CSV) ─── */
-
-function generateSyntheticBreakdown(metrics: AdFlowReportMetrics): AdFlowDailyPoint[] {
-  const totalLeads = metrics.leads_generated ?? 0;
-  if (totalLeads <= 0) return [];
-
-  const start = metrics.period_start ? new Date(metrics.period_start) : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
-  const end = metrics.period_end ? new Date(metrics.period_end) : new Date(new Date().getFullYear(), new Date().getMonth(), 0);
-
-  const days: string[] = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    days.push(cursor.toISOString().slice(0, 10));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  if (days.length === 0) return [];
-
-  const basePerDay = Math.floor(totalLeads / days.length);
-  let remainder = totalLeads - basePerDay * days.length;
-
-  return days.map((date) => {
-    const extra = remainder > 0 ? 1 : 0;
-    if (extra) remainder--;
-    return { date, leads: basePerDay + extra };
-  });
-}
-
 /* ─── Chart spec from daily_breakdown ─── */
+/*
+ * REMOVED: generateSyntheticBreakdown(). When the ads team reported a period
+ * total with no day-by-day detail, it spread the total evenly across every day
+ * of the month and stamped the result into `metrics.daily_breakdown` — a real
+ * field, indistinguishable downstream from data a person actually supplied.
+ * The customer's monthly email then carried a day-by-day leads chart that was
+ * a flat line we drew ourselves, and the dashboard's weekly sparkline read the
+ * same invented rows back out as if they were measured. The chart below now
+ * renders only when a genuine breakdown was supplied, and is omitted otherwise.
+ * Guarded in server/services/aiActions/handlers/adflow.test.ts.
+ */
 
 async function tryGenerateChart(
   cacheKey: string,
@@ -411,12 +408,6 @@ export async function compileAndSendAdFlowReport(
 
   if (csMeta.last_report_period === period) {
     return { sent: false, reason: "already_sent_this_period", period };
-  }
-
-  // Synthesize daily breakdown if missing — distributes total_leads evenly across the month
-  if ((!metrics.daily_breakdown || metrics.daily_breakdown.length === 0) && metrics.leads_generated != null && metrics.leads_generated > 0) {
-    metrics.daily_breakdown = generateSyntheticBreakdown(metrics);
-    log.info(`[adflow-report] Generated synthetic daily breakdown for service #${cs.id}`);
   }
 
   const periodKey = metrics.period_start

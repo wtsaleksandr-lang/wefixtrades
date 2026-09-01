@@ -383,61 +383,74 @@ const QUOTEQUICK: Record<string, MetricMeta> = {
  * Booked, Customers Reached) hide the Google Ads / Meta Ads jargon by
  * default. Power-user toggle in settings unlocks PMAX / CPA / ROAS / CTR
  * labels in a follow-up wave. */
+/**
+ * AdFlow is an agency-brokered managed service with NO ad-platform integration.
+ * Every `*Reported` metric below is a figure the ads team reported and an ops
+ * admin typed in; only `quoteRequestsFromAds` is measured by this platform.
+ * The help text says which is which, because the Copilot quotes it back to the
+ * customer verbatim.
+ *
+ * Removed with the rest of AdFlow's invented numbers:
+ *   - "Trades industry average = $150" — an unsourced benchmark stated as fact.
+ *   - "Revenue earned / Estimated revenue tied to ad-driven bookings" — the
+ *     value behind it was bookings × a flat $250.
+ *   - "Jobs booked / Bookings attributable to your ads" — the value behind it
+ *     was the reported LEAD count. Leads are not booked jobs.
+ *   - tips referring to campaign "grades", which no longer exist.
+ */
 const ADFLOW: Record<string, MetricMeta> = {
-  moneySpent: {
-    label: "Money spent",
+  adSpendReported: {
+    label: "Ad spend (reported)",
     helpText:
-      "Total ad spend across every platform in the last 30 days. Spending less while bookings stay flat is GOOD.",
+      "Ad spend your ads team reported for the period, entered by hand — WeFixTrades does not connect to your ad accounts.",
     improvementTips: [
-      "Pause the lowest-grade campaign first — most spend goes there",
-      "Shift budget to your top-grade campaign (1-click action)",
-      "Set a daily spend cap in notification settings",
+      "Ask your ads team to shift budget toward the campaigns bringing leads",
+      "Agree a monthly spend cap with your ads team",
+      "Check the spend against your ad platform billing — that is the source of truth",
     ],
     format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
   },
-  jobsBooked: {
-    label: "Jobs booked",
+  leadsReported: {
+    label: "Leads (reported)",
     helpText:
-      "Bookings attributable to your ads in the last 30 days. The number that actually matters.",
+      "Leads your ads team reported for the period, entered by hand. These are leads, not booked jobs.",
     improvementTips: [
-      "Boost the campaign with the best cost-per-booking score",
-      "Refresh ad copy on campaigns that haven't booked in 14 days",
-      "Expand winning Google campaigns to Meta for new audience reach",
+      "Ask your ads team to refresh copy on campaigns that stopped producing leads",
+      "Tighten the service area if leads are arriving from outside it",
+      "Compare against the quote requests your WeFixTrades widget captured",
     ],
-    unit: "bookings",
+    unit: "leads",
   },
-  revenueEarned: {
-    label: "Revenue earned",
+  impressionsReported: {
+    label: "Impressions (reported)",
     helpText:
-      "Estimated revenue tied to ad-driven bookings in the last 30 days.",
+      "Ad impressions your ads team reported for the period, entered by hand.",
     improvementTips: [
-      "Raise ticket size on high-grade campaigns with package upsells",
-      "Pause campaigns with high spend but low revenue",
-      "Tie new ad tests to your highest-margin services",
+      "High impressions with few leads usually means the audience or the offer is off",
+      "Ask your ads team which keywords or audiences the impressions came from",
+    ],
+    unit: "impressions",
+  },
+  costPerLeadReported: {
+    label: "Cost per lead (reported)",
+    helpText:
+      "Reported ad spend divided by reported leads for the period. Both figures are entered by hand.",
+    improvementTips: [
+      "Ask your ads team which campaign carries the highest cost per lead",
+      "Agree a cost-per-lead target with your ads team and review it monthly",
     ],
     format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
   },
-  customersReached: {
-    label: "Customers reached",
+  quoteRequestsFromAds: {
+    label: "Quote requests from ads",
     helpText:
-      "Total people who saw your ads in the last 30 days. Reach without bookings = wrong audience or wrong ad.",
+      "Quote requests your WeFixTrades widget captured in the last 30 days whose link tagging marks them as paid-ad traffic. Measured by us, not reported.",
     improvementTips: [
-      "Tighten the service-area radius if reach is high but bookings are low",
-      "Try the AI ad-copy composer if reach is fine but click-through lags",
-      "Add Meta to your platform mix if Google reach has plateaued",
+      "Ask your ads team to tag every ad link with utm_medium=cpc so these are counted",
+      "Untagged ad clicks still reach your widget — they just cannot be attributed here",
+      "Put your quote widget on the landing page the ads point at",
     ],
-    unit: "people",
-  },
-  costPerBooking: {
-    label: "Cost per booking",
-    helpText:
-      "What each new booking costs you in ad spend. Lower is better. Trades industry average = $150.",
-    improvementTips: [
-      "Pause campaigns above $200 per booking",
-      "Swap ad copy on campaigns above $150 per booking",
-      "Boost campaigns below $80 per booking — they're already winning",
-    ],
-    format: (v) => `$${(Number(v) / 100).toFixed(2)}`,
+    unit: "requests",
   },
 };
 

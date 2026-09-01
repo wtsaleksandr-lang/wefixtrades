@@ -1,44 +1,50 @@
 /**
- * /portal/adflow/dashboard — Wave 30 AdFlow UI upgrade.
+ * /portal/adflow/dashboard
  *
- * Trade-first AdFlow customer dashboard. Hides PMAX/CPA/ROAS/CTR jargon
- * by default; uses Money Spent / Customers Reached / Jobs Booked / Revenue
- * Earned / Score / Cost per Booking.
+ * HONESTY CONTRACT (guarded by server/services/aiActions/handlers/adflow.test.ts)
+ * ──────────────────────────────────────────────────────────────────────────────
+ * AdFlow is an agency-brokered managed service. A human runs the customer's
+ * campaigns in the customer's own ad accounts; WeFixTrades has no Google Ads or
+ * Meta Ads integration, no ad-account OAuth, and no read or write path to any
+ * campaign. This page therefore separates, visibly and by name:
  *
- * Built on Wave 22A shared visual primitives + Wave 26.7 polish-mix +
- * the 7 new AdFlow-specific surfaces:
+ *   "Reported by your ads team"  — figures a person typed into the CRM, shown
+ *                                  with the period, the entry date and the name
+ *                                  of whoever entered them. A figure that was
+ *                                  not entered reads "Not reported", never 0.
  *
- *   - AnomalyBanner          (top of page; plain-language alerts)
- *   - Animated ad-spend hero counter with daily/weekly delta
- *   - ROIFunnel              (4-stage hero card)
- *   - LetterGradeBadge per   CampaignCard with "Why?" expander +
- *                            1-click "Pause campaign" + confirmation
- *   - AdCopyComposer         (3-variant generator with KpiGauge scoring)
- *   - ProfitableTradeHeatmap (rows = trades, cols = platforms)
- *   - DayPartingHeatmap      (24h × 7d; empty state <14d)
+ *   "Measured by WeFixTrades"    — quote requests this platform's own widget
+ *                                  captured, filtered to paid-ad UTM tagging.
  *
- * Plus the universal action row + links to NotificationSettings and the
- * 3-question AdFlowSetup wizard.
+ * DELETED from this page, and must not come back (see the guard):
  *
- * Backend (Wave 30):
- *   GET   /api/portal/adflow/dashboard-kpis
- *   GET   /api/portal/adflow/campaigns
- *   POST  /api/portal/adflow/copy/generate
- *   GET   /api/portal/adflow/anomalies
- *   POST  /api/portal/adflow/run-action
- *   GET   /api/portal/adflow/notification-settings
- *   GET   /api/portal/adflow/heatmaps/profitable-trade
- *   GET   /api/portal/adflow/heatmaps/day-parting
+ *   - the ROI funnel, whose "Revenue Earned" hero was leads × a flat $250 and
+ *     whose stage pass-through percentages were the constants 100 / … / 100.
+ *   - "Spent today: $X", computed as the 12-week sparkline's last bucket ÷ 7.
+ *   - "Spent this week", which read a MONTH's reported total out of that bucket.
+ *   - the leads-per-month fallback bars: `jobsBooked × 2` for the two known
+ *     months and `anchor × (0.5 + idx × 0.09)` for the four invented ones.
+ *   - the ad-spend donut fallback `Google 1800 / Meta 1100 / Bing 400`.
+ *   - the trade × platform and day-parting heatmaps (deleted server-side too).
  *
- * Polling: 60s for KPIs/anomalies/campaigns. No WebSockets.
+ * There is no "example data" mode here. A chart with no data is absent, and the
+ * section says what is missing and who supplies it.
+ *
+ * Backend:
+ *   GET  /api/portal/adflow/dashboard-kpis
+ *   GET  /api/portal/adflow/campaigns
+ *   GET  /api/portal/adflow/anomalies
+ *   GET  /api/portal/adflow/stats/monthly | /peak | /segments
+ *   POST /api/portal/adflow/copy/generate
+ *   POST /api/portal/adflow/run-action
  */
 
-import { useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Bell,
+  Info,
   Megaphone,
   Settings as SettingsIcon,
   Sparkles,
@@ -53,17 +59,12 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  AnimatedCounter,
   DonutChart,
-  KpiGauge,
   MonthlyBarSeries,
-  Sparkline,
   SparklineWithPeak,
   type DonutSegment,
   type MonthlyBar,
 } from "@/components/ui/visual-primitives";
-import { getMetricMeta } from "@shared/copilot/metricRegistry";
-import { ROIFunnel } from "@/components/adflow/ROIFunnel";
 import {
   CampaignCard,
   type CampaignPlatform,
@@ -75,43 +76,39 @@ import {
   type Anomaly,
   type AnomalyAction,
 } from "@/components/adflow/AnomalyBanner";
-import { ProfitableTradeHeatmap } from "@/components/adflow/ProfitableTradeHeatmap";
-import { DayPartingHeatmap } from "@/components/adflow/DayPartingHeatmap";
 import { AdvancedOnly } from "@/components/ui/AdvancedOnly";
-import { IllustrativeDataBadge } from "@/components/portal/IllustrativeDataBadge";
-
-const META = {
-  moneySpent: getMetricMeta("adflow", "moneySpent")!,
-  jobsBooked: getMetricMeta("adflow", "jobsBooked")!,
-  revenueEarned: getMetricMeta("adflow", "revenueEarned")!,
-  customersReached: getMetricMeta("adflow", "customersReached")!,
-  costPerBooking: getMetricMeta("adflow", "costPerBooking")!,
-};
 
 /* ─── API shapes ─────────────────────────────────────────────────────── */
 
+interface ReportedFigures {
+  hasData: boolean;
+  periodLabel: string | null;
+  enteredAt: string | null;
+  enteredBy: string | null;
+  adSpendCents: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  leads: number | null;
+  costPerLeadCents: number | null;
+  revenueCents: number | null;
+  priorPeriodLabel: string | null;
+  priorAdSpendCents: number | null;
+  priorLeads: number | null;
+  spendTrend12w: number[] | null;
+}
+
+interface MeasuredFigures {
+  supported: boolean;
+  windowDays: number;
+  quoteRequestsFromAds: number | null;
+  quoteRequestsTotal: number | null;
+}
+
 interface DashboardKpisResponse {
   previewMode?: boolean;
-  kpis: {
-    moneySpent: { thisMonth: number; lastMonth: number; deltaPct: number };
-    jobsBooked: { thisMonth: number; lastMonth: number; deltaPct: number };
-    revenueEarned: number;
-    customersReached: number;
-    costPerBooking: number;
-  };
-  funnel: {
-    moneySpent: number;
-    customersReached: number;
-    jobsBooked: number;
-    revenueEarned: number;
-    conversionRates: {
-      spendToReach: number;
-      reachToBook: number;
-      bookToRevenue: number;
-    };
-  };
-  spendTrend12w: number[];
   hasAdflowService: boolean;
+  reported: ReportedFigures;
+  measured: MeasuredFigures;
 }
 
 interface CampaignsResponse {
@@ -121,19 +118,12 @@ interface CampaignsResponse {
     name: string;
     platform: CampaignPlatform;
     status: CampaignStatus;
-    score: number;
-    grade: string;
-    summary: string;
-    factors: {
-      costPerBookingScore: number;
-      volumeScore: number;
-      ltvTrendScore: number;
-    };
+    periodLabel: string | null;
     stats: {
-      moneySpent: number;
-      jobsBooked: number;
-      customersReached: number;
-      costPerBooking: number;
+      adSpendCents: number | null;
+      leads: number | null;
+      impressions: number | null;
+      costPerLeadCents: number | null;
     };
   }>;
 }
@@ -143,34 +133,35 @@ interface AnomaliesResponse {
   anomalies: Anomaly[];
 }
 
-interface TradeHeatmapResponse {
-  previewMode?: boolean;
-  rows: string[];
-  columns: Array<"google" | "meta" | "bing">;
-  cells: Array<{
-    trade: string;
-    platform: "google" | "meta" | "bing";
-    spendCents: number;
-    jobsBooked: number;
-    revenueCents: number;
-    ratio: number;
-    tone: "emerald" | "amber" | "crimson" | "neutral";
-  }>;
-  hasData: boolean;
+/* ─── Formatting ─────────────────────────────────────────────────────── */
+
+/** A figure nobody reported is never rendered as a number. */
+const NOT_REPORTED = "Not reported";
+
+function money(cents: number | null): string {
+  if (cents === null) return NOT_REPORTED;
+  return `$${Math.round(cents / 100).toLocaleString()}`;
 }
 
-interface DayPartingResponse {
-  previewMode?: boolean;
-  cells: Array<{
-    day: number;
-    hour: number;
-    spendCents: number;
-    jobsBooked: number;
-    score: number;
-    tone: "emerald" | "amber" | "crimson" | "neutral";
-  }>;
-  hasEnoughData: boolean;
-  daysOfData: number;
+function count(n: number | null): string {
+  if (n === null) return NOT_REPORTED;
+  return n.toLocaleString();
+}
+
+function deltaPct(curr: number | null, prev: number | null): number | null {
+  if (curr === null || prev === null || prev <= 0) return null;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function formatEntryDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 /* ─── Quick actions ──────────────────────────────────────────────────── */
@@ -181,25 +172,25 @@ const QUICK_ACTIONS = [
   {
     id: "pause-underperforming-campaign",
     label: "Request: pause worst campaign",
-    description: "Ask your ads team to stop the lowest-grade campaign of the last 7 days.",
+    description: "Ask your ads team to stop the campaign with the highest cost per lead.",
     icon: TrendingDown,
   },
   {
     id: "boost-winning-campaign",
     label: "Request: boost top campaign",
-    description: "Ask your ads team to shift budget to your highest-grade campaign.",
+    description: "Ask your ads team to shift budget to your cheapest-per-lead campaign.",
     icon: TrendingUp,
   },
   {
     id: "swap-ad-copy",
     label: "Refresh worst ad copy",
-    description: "Open the composer to pick a fresh AI-suggested creative.",
+    description: "Open the composer to draft a fresh creative for your ads team.",
     icon: Sparkles,
   },
   {
     id: "expand-to-new-platform",
     label: "Request: expand to new platform",
-    description: "Ask your ads team to scope duplicating your winning campaign to Meta.",
+    description: "Ask your ads team to scope duplicating a campaign to another platform.",
     icon: Zap,
   },
 ] as const;
@@ -214,7 +205,7 @@ export default function AdFlowDashboard() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  const { data: kpis, isLoading: kpisLoading } = useQuery<DashboardKpisResponse>({
+  const { data: kpis } = useQuery<DashboardKpisResponse>({
     queryKey: ["/api/portal/adflow/dashboard-kpis"],
     queryFn: async () => {
       const res = await fetch("/api/portal/adflow/dashboard-kpis", {
@@ -250,30 +241,7 @@ export default function AdFlowDashboard() {
     refetchInterval: 60_000,
   });
 
-  const { data: tradeHeatmap } = useQuery<TradeHeatmapResponse>({
-    queryKey: ["/api/portal/adflow/heatmaps/profitable-trade"],
-    queryFn: async () => {
-      const res = await fetch(
-        "/api/portal/adflow/heatmaps/profitable-trade",
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error("Failed to load trade heatmap");
-      return res.json();
-    },
-  });
-
-  const { data: dayParting } = useQuery<DayPartingResponse>({
-    queryKey: ["/api/portal/adflow/heatmaps/day-parting"],
-    queryFn: async () => {
-      const res = await fetch("/api/portal/adflow/heatmaps/day-parting", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load day-parting heatmap");
-      return res.json();
-    },
-  });
-
-  /* ─── Wave 73a — real KPI stat endpoints ──────────────────────────── */
+  /* Charts render only when the server says the series is real. */
   type MonthlyResponse = {
     data: MonthlyBar[];
     data_status: "real" | "illustrative";
@@ -366,111 +334,46 @@ export default function AdFlowDashboard() {
     });
   };
 
-  const k = kpis?.kpis;
-  const trend = kpis?.spendTrend12w ?? [];
+  const reported = kpis?.reported;
+  const measured = kpis?.measured;
   const hasService = kpis?.hasAdflowService ?? false;
   const campaigns = campaignsData?.campaigns ?? [];
   const anomalies = anomaliesData?.anomalies ?? [];
 
-  /* ─── Wave 72 — derived series for new KPI primitives ───────────────── */
-
-  // Leads per month — Wave 73a: backed by /stats/monthly. Local mock kept
-  // for first-render fallback while the query is loading.
-  const leadsMonthlyFallback: MonthlyBar[] = useMemo(() => {
-    const now = new Date();
-    const labels: string[] = [];
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      labels.push(d.toLocaleString(undefined, { month: "short" }));
-    }
-    const thisMonth = (k?.jobsBooked.thisMonth ?? 0) * 2;
-    const lastMonth = (k?.jobsBooked.lastMonth ?? 0) * 2;
-    const anchor = Math.max(thisMonth, lastMonth, 1);
-    return labels.map((label, idx) => {
-      const isCurrent = idx === labels.length - 1;
-      if (isCurrent) return { label, value: thisMonth, highlighted: true };
-      if (idx === labels.length - 2) return { label, value: lastMonth };
-      const ratio = 0.5 + idx * 0.09;
-      return { label, value: Math.round(anchor * ratio) };
-    });
-  }, [k?.jobsBooked.thisMonth, k?.jobsBooked.lastMonth]);
-  const leadsMonthlyUsingFallback = !(
-    monthlyStats?.data && monthlyStats.data.length > 0
+  const spendDelta = deltaPct(
+    reported?.adSpendCents ?? null,
+    reported?.priorAdSpendCents ?? null,
   );
-  const leadsMonthlyBars: MonthlyBar[] = leadsMonthlyUsingFallback
-    ? leadsMonthlyFallback
-    : monthlyStats!.data;
-  // Wave K2: badge whenever synthetic fallback is shown, not just when the
-  // server flags illustrative — empty/errored stats also render fallback.
-  const leadsMonthlyIllustrative =
-    monthlyStats?.data_status === "illustrative" || leadsMonthlyUsingFallback;
-
-  // Peak ROAS day — Wave 73a: backed by /stats/peak. Note the fallback here is
-  // the customer's *real* 12-week spend trend (spendTrend12w), not synthetic
-  // numbers, so no illustrative badge when falling back to it.
-  const peakRoasSeries = peakStats?.data ?? trend.slice(-12);
-  const peakRoasIllustrative = peakStats?.data_status === "illustrative";
-
-  // Ad spend by platform — Wave 73a: backed by /stats/segments.
-  const adSpendByPlatformFallback: DonutSegment[] = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of campaigns) {
-      const platform = c.platform ?? "other";
-      map.set(platform, (map.get(platform) ?? 0) + (c.stats?.moneySpent ?? 0));
-    }
-    if (map.size === 0) {
-      return [
-        { label: "Google", value: 1800 },
-        { label: "Meta", value: 1100 },
-        { label: "Bing", value: 400 },
-      ];
-    }
-    return Array.from(map.entries()).map(([platform, value]) => ({
-      label: platform.charAt(0).toUpperCase() + platform.slice(1),
-      value: Math.max(1, Math.round(value / 100)),
-    }));
-  }, [campaigns]);
-  const segmentStatsHasData = !!(
-    segmentStats?.data && segmentStats.data.length > 0
+  const leadsDelta = deltaPct(
+    reported?.leads ?? null,
+    reported?.priorLeads ?? null,
   );
-  const adSpendByPlatform: DonutSegment[] = segmentStatsHasData
-    ? segmentStats!.data
-    : adSpendByPlatformFallback;
-  // Wave K2: the donut shows truly synthetic numbers only when BOTH the stat
-  // endpoint is empty AND there are no campaigns to derive from (the hardcoded
-  // Google/Meta/Bing branch). With campaigns present the fallback is real.
-  const adSpendByPlatformUsingSynthetic =
-    !segmentStatsHasData && campaigns.length === 0;
-  const adSpendByPlatformIllustrative =
-    segmentStats?.data_status === "illustrative" ||
-    adSpendByPlatformUsingSynthetic;
+  const entryDate = formatEntryDate(reported?.enteredAt ?? null);
 
-  // Weekly delta from sparkline (sum last 7d vs prior 7d). Sparkline is
-  // 12-weekly buckets so we just compare the last two cells.
-  const weeklyDeltaCents =
-    trend.length >= 2 ? (trend[trend.length - 1]! - trend[trend.length - 2]!) : 0;
-  const todayDeltaCents = 0; // Reserved for daily granularity once wired.
-  const spentTodayCents = trend.length > 0 ? Math.round(trend[trend.length - 1]! / 7) : 0;
+  const monthlyIsReal =
+    monthlyStats?.data_status === "real" && monthlyStats.data.length > 0;
+  const peakIsReal =
+    peakStats?.data_status === "real" && peakStats.data.length > 0;
+  const segmentsAreReal =
+    segmentStats?.data_status === "real" && segmentStats.data.length > 0;
 
   return (
     <PortalLayout>
-      <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-        {/* Header */}
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="flex flex-col">
+      <div className="flex flex-col gap-4 p-4 md:gap-5 md:p-6">
+        {/* Header — left-aligned */}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-col text-left">
             <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground md:text-2xl">
-              <Megaphone className="h-5 w-5" aria-hidden="true" />
+              <Megaphone className="h-5 w-5 shrink-0" aria-hidden="true" />
               AdFlow dashboard
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Trade-first ad performance — money spent, jobs booked, revenue
-              earned. Jargon hidden by default.
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Your campaigns are built and run by our agency partner in your own
+              ad accounts.
             </p>
           </div>
-          {/* Wave 36 — header buttons demoted; per cross-cutting cleanup #2
-              the Notifications button routes to the global prefs page. */}
           <AdvancedOnly product="adflow" elementId="adflow.header-actions">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -497,191 +400,297 @@ export default function AdFlowDashboard() {
           </AdvancedOnly>
         </div>
 
-        {/* Anomaly banner */}
+        {/* Where the numbers come from. Stated once, up front. */}
+        <Card
+          className="flex flex-col gap-1.5 p-4 text-left"
+          data-testid="adflow-data-provenance"
+        >
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Where these numbers come from
+          </h3>
+          <p className="max-w-3xl text-xs text-muted-foreground">
+            WeFixTrades does not connect to Google Ads or Meta. Spend, impressions
+            and lead counts are reported to us by the team running your campaigns
+            and entered here by a person — your ad platform billing remains the
+            source of truth. Quote requests are the exception: those are captured
+            by your own WeFixTrades quote widget, and we measure them directly.
+          </p>
+        </Card>
+
+        {/* Anomaly banner — computed from reported figures period over period */}
         <AnomalyBanner
           anomalies={anomalies}
           onAction={onAnomalyAction}
           isMutating={runAction.isPending}
         />
 
-        {/* Animated ad-spend hero counter */}
-        <Card className="flex flex-col gap-2 p-4" data-testid="kpi-spend-hero">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Spent this week
-            </p>
-            <span
-              className={
-                weeklyDeltaCents <= 0
-                  ? "text-xs font-medium text-[hsl(var(--chart-2))]"
-                  : "text-xs font-medium text-[hsl(var(--destructive))]"
-              }
-              data-testid="kpi-spend-week-delta"
+        {/* ─── Reported by your ads team ─────────────────────────────── */}
+        <section className="flex flex-col gap-2" aria-labelledby="adflow-reported-heading">
+          <div className="flex flex-col text-left">
+            <h3
+              id="adflow-reported-heading"
+              className="text-sm font-semibold text-foreground"
             >
-              {weeklyDeltaCents <= 0 ? "↓" : "↑"} $
-              {Math.abs(Math.round(weeklyDeltaCents / 100)).toLocaleString()} vs
-              last week
-            </span>
+              Reported by your ads team
+            </h3>
+            {reported?.hasData ? (
+              <p className="text-xs text-muted-foreground">
+                {reported.periodLabel ?? "Latest period"}
+                {" · entered "}
+                {reported.enteredBy ? `by ${reported.enteredBy}` : "by our ops team"}
+                {entryDate ? ` on ${entryDate}` : " (entry date not recorded)"}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Figures typed in by our ops team once your ads team reports them.
+              </p>
+            )}
           </div>
-          <AnimatedCounter
-            value={trend.length > 0 ? Math.round(trend[trend.length - 1]! / 100) : 0}
-            prefix="$"
-            decimals={0}
-            className="text-3xl font-bold text-foreground md:text-4xl"
-          />
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] text-muted-foreground">
-              Spent today: ${spentTodayCents.toLocaleString()}
-              {todayDeltaCents !== 0 && (
-                <span className="ml-2">
-                  ({todayDeltaCents > 0 ? "↑" : "↓"} $
-                  {Math.abs(todayDeltaCents).toLocaleString()} vs yesterday)
-                </span>
-              )}
-            </p>
-            <Sparkline values={trend} className="h-8 w-48" />
-          </div>
-        </Card>
 
-        {/* ROI funnel + KPI tiles row */}
-        <div className="grid auto-rows-fr gap-3 lg:grid-cols-3">
-          <div className="h-full lg:col-span-2">
-            <ROIFunnel
-              moneySpentCents={kpis?.funnel.moneySpent ?? 0}
-              customersReached={kpis?.funnel.customersReached ?? 0}
-              jobsBooked={kpis?.funnel.jobsBooked ?? 0}
-              revenueEarnedCents={kpis?.funnel.revenueEarned ?? 0}
-              conversionRates={kpis?.funnel.conversionRates}
-            />
-          </div>
-          {/* Wave 36 — cost-per-booking + jobs-booked sidebars hidden in Simple
-              mode. Audit verdict: "already implied by funnel". */}
-          <AdvancedOnly product="adflow" elementId="adflow.cost-per-booking-sidebar">
-            <div className="flex h-full flex-col gap-3">
-              <Card
-                className="flex h-full flex-col items-center justify-center gap-2 p-4"
-                data-testid="kpi-cost-per-booking"
-              >
-                <KpiGauge
-                  value={Math.round((k?.costPerBooking ?? 0) / 100)}
-                  max={300}
-                  label={META.costPerBooking.label}
-                  unit="$"
-                  size="md"
-                  color="auto"
-                  helpText={META.costPerBooking.helpText}
-                  improvementTips={META.costPerBooking.improvementTips}
-                  emptyState={kpisLoading || (k?.costPerBooking ?? 0) === 0}
+          {!reported?.hasData ? (
+            <Card
+              className="flex flex-col items-start gap-1.5 p-5 text-left"
+              data-testid="adflow-reported-empty"
+            >
+              <p className="text-sm font-medium text-foreground">
+                No ad data entered for this period
+              </p>
+              <p className="max-w-xl text-xs text-muted-foreground">
+                {hasService
+                  ? "Your ads team reports each period's spend and leads to us, and we enter them here. Nothing has been entered yet for the current period."
+                  : "AdFlow isn't set up yet. Once your campaigns are live, each period's reported figures appear here."}
+              </p>
+            </Card>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+                <ReportedTile
+                  testId="adflow-reported-spend"
+                  label="Ad spend"
+                  value={money(reported.adSpendCents)}
+                  delta={spendDelta}
+                  priorLabel={reported.priorPeriodLabel}
                 />
-              </Card>
-              <Card className="flex h-full flex-col gap-1 p-3" data-testid="kpi-jobs-booked">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {META.jobsBooked.label}
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <AnimatedCounter
-                    value={k?.jobsBooked.thisMonth ?? 0}
-                    className="text-2xl font-semibold text-foreground"
+                <ReportedTile
+                  testId="adflow-reported-leads"
+                  label="Leads"
+                  value={count(reported.leads)}
+                  delta={leadsDelta}
+                  priorLabel={reported.priorPeriodLabel}
+                />
+                <ReportedTile
+                  testId="adflow-reported-cost-per-lead"
+                  label="Cost per lead"
+                  value={money(reported.costPerLeadCents)}
+                />
+                <ReportedTile
+                  testId="adflow-reported-impressions"
+                  label="Impressions"
+                  value={count(reported.impressions)}
+                />
+                <ReportedTile
+                  testId="adflow-reported-clicks"
+                  label="Clicks"
+                  value={count(reported.clicks)}
+                  // 5 tiles in a 2-col mobile grid would strand this one alone
+                  // on the last row; span both columns there instead.
+                  className="col-span-2 md:col-span-1"
+                />
+              </div>
+
+              {reported.revenueCents !== null && (
+                <Card
+                  className="flex flex-col gap-0.5 p-4 text-left"
+                  data-testid="adflow-reported-revenue"
+                >
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Revenue reported against these ads
+                  </span>
+                  <span className="text-2xl font-semibold text-foreground">
+                    {money(reported.revenueCents)}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Reported by you or your ads team — not calculated by us.
+                  </span>
+                </Card>
+              )}
+
+              {reported.spendTrend12w && (
+                <Card
+                  className="flex flex-col gap-2 p-4 text-left"
+                  data-testid="adflow-spend-trend"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Weekly ad spend
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Last 12 weeks, from the day-by-day breakdown your ads team
+                      supplied.
+                    </span>
+                  </div>
+                  {/* MonthlyBarSeries measures its container; Sparkline is a
+                      fixed-viewBox SVG whose hover wrapper hard-codes a pixel
+                      width, which overflowed this card at 375px. */}
+                  <MonthlyBarSeries
+                    bars={reported.spendTrend12w.map((cents, i) => ({
+                      label: `W${i + 1}`,
+                      value: Math.round(cents / 100),
+                      highlighted: i === reported.spendTrend12w!.length - 1,
+                    }))}
+                    fillWidth
+                    color="emerald"
+                    ariaLabel="Reported weekly ad spend over the last 12 weeks"
                   />
-                  <span
-                    className={
-                      (k?.jobsBooked.deltaPct ?? 0) >= 0
-                        ? "text-[11px] font-medium text-[hsl(var(--chart-2))]"
-                        : "text-[11px] font-medium text-[hsl(var(--destructive))]"
-                    }
-                  >
-                    {(k?.jobsBooked.deltaPct ?? 0) >= 0 ? "+" : ""}
-                    {k?.jobsBooked.deltaPct ?? 0}%
+                </Card>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* ─── Measured by WeFixTrades ───────────────────────────────── */}
+        <section className="flex flex-col gap-2" aria-labelledby="adflow-measured-heading">
+          <div className="flex flex-col text-left">
+            <h3
+              id="adflow-measured-heading"
+              className="text-sm font-semibold text-foreground"
+            >
+              Measured by WeFixTrades
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Counted by us, not reported to us.
+            </p>
+          </div>
+
+          {!measured?.supported ? (
+            <Card
+              className="flex flex-col items-start gap-1.5 p-5 text-left"
+              data-testid="adflow-measured-unavailable"
+            >
+              <p className="text-sm font-medium text-foreground">
+                Nothing measurable on your account yet
+              </p>
+              <p className="max-w-xl text-xs text-muted-foreground">
+                Put a WeFixTrades quote widget on the page your ads point at and
+                we can count the quote requests your ads bring in. Until then the
+                only figures we have are the ones your ads team reports.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Card
+                className="flex flex-col gap-0.5 p-4 text-left"
+                data-testid="adflow-measured-from-ads"
+              >
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Quote requests from ads
+                </span>
+                <span className="text-2xl font-semibold text-foreground">
+                  {count(measured.quoteRequestsFromAds)}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Last {measured.windowDays} days. Counted only when the ad link
+                  is tagged as paid traffic (utm_medium=cpc and similar), so
+                  untagged ad clicks are missing from this figure.
+                </span>
+              </Card>
+              <Card
+                className="flex flex-col gap-0.5 p-4 text-left"
+                data-testid="adflow-measured-total"
+              >
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  All quote requests
+                </span>
+                <span className="text-2xl font-semibold text-foreground">
+                  {count(measured.quoteRequestsTotal)}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Last {measured.windowDays} days, from every source — ads,
+                  search, direct and referral.
+                </span>
+              </Card>
+            </div>
+          )}
+        </section>
+
+        {/* ─── Charts, only when the series is real ──────────────────── */}
+        {(monthlyIsReal || peakIsReal || segmentsAreReal) && (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {monthlyIsReal && (
+              <Card className="h-full p-4 text-left" data-testid="af-leads-monthly">
+                <div className="mb-3 flex flex-col">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Leads reported per month
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  vs last 30 days
-                </p>
-              </Card>
-            </div>
-          </AdvancedOnly>
-        </div>
-
-        {/* Wave 72 — new KPI primitives row */}
-        <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {/* Headline (Simple-mode visible) — leads per month */}
-          <Card className="p-4 h-full" data-testid="af-leads-monthly">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                Leads per month
-              </div>
-              <IllustrativeDataBadge show={leadsMonthlyIllustrative} />
-            </div>
-            <MonthlyBarSeries
-              bars={leadsMonthlyBars}
-              fillWidth
-              lede={`${leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0}`}
-              caption={(() => {
-                const cur = leadsMonthlyBars[leadsMonthlyBars.length - 1]?.value ?? 0;
-                const prev = leadsMonthlyBars[leadsMonthlyBars.length - 2]?.value ?? 0;
-                if (prev === 0) return "Fresh start this month";
-                const delta = ((cur - prev) / prev) * 100;
-                const sign = delta >= 0 ? "+" : "";
-                return `${sign}${delta.toFixed(0)}% vs prior month`;
-              })()}
-              color="emerald"
-              ariaLabel="AdFlow leads per month"
-            />
-          </Card>
-
-          {/* Advanced — peak ROAS day sparkline */}
-          <AdvancedOnly product="adflow" elementId="adflow.peak-roas-sparkline">
-            <Card className="p-4 h-full" data-testid="af-peak-roas-sparkline">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Peak ROAS day
-                </div>
-                <IllustrativeDataBadge show={peakRoasIllustrative} />
-              </div>
-              {peakRoasSeries.length > 0 ? (
-                <SparklineWithPeak
-                  data={peakRoasSeries}
-                  color="violet"
+                <MonthlyBarSeries
+                  bars={monthlyStats!.data}
                   fillWidth
-                  height={140}
-                  ariaLabel="Peak ROAS day in the last 12 weeks"
+                  lede={`${monthlyStats!.data[monthlyStats!.data.length - 1]?.value ?? 0}`}
+                  caption={(() => {
+                    const bars = monthlyStats!.data;
+                    const cur = bars[bars.length - 1]?.value ?? 0;
+                    const prev = bars[bars.length - 2]?.value ?? 0;
+                    if (prev === 0) return "No prior month to compare against";
+                    const delta = ((cur - prev) / prev) * 100;
+                    return `${delta >= 0 ? "+" : ""}${delta.toFixed(0)}% vs prior month`;
+                  })()}
+                  color="emerald"
+                  ariaLabel="AdFlow leads reported per month"
                 />
-              ) : (
-                <div className="text-sm text-muted-foreground py-6 text-center">
-                  No spend data yet.
-                </div>
-              )}
-            </Card>
-          </AdvancedOnly>
+              </Card>
+            )}
 
-          {/* Advanced — ad spend by platform donut */}
-          <AdvancedOnly product="adflow" elementId="adflow.spend-by-platform-donut">
-            <Card className="p-4 h-full" data-testid="af-spend-by-platform-donut">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Ad spend by platform
-                </div>
-                <IllustrativeDataBadge show={adSpendByPlatformIllustrative} />
-              </div>
-              <DonutChart
-                segments={adSpendByPlatform}
-                size={160}
-                fillWidth
-                formatValue={(n) => `$${n.toLocaleString()}`}
-                ariaLabel="Ad spend by platform"
-              />
-            </Card>
-          </AdvancedOnly>
-        </div>
+            {peakIsReal && (
+              <AdvancedOnly product="adflow" elementId="adflow.peak-roas-sparkline">
+                <Card className="h-full p-4 text-left" data-testid="af-peak-roas-sparkline">
+                  <div className="mb-3 flex flex-col">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Weekly reported revenue minus spend
+                    </span>
+                  </div>
+                  <SparklineWithPeak
+                    data={peakStats!.data}
+                    color="violet"
+                    fillWidth
+                    height={140}
+                    ariaLabel="Reported weekly revenue minus spend over the last 12 weeks"
+                  />
+                </Card>
+              </AdvancedOnly>
+            )}
+
+            {segmentsAreReal && (
+              <AdvancedOnly product="adflow" elementId="adflow.spend-by-platform-donut">
+                <Card className="h-full p-4 text-left" data-testid="af-spend-by-platform-donut">
+                  <div className="mb-3 flex flex-col">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Reported ad spend by platform
+                    </span>
+                  </div>
+                  <DonutChart
+                    segments={segmentStats!.data}
+                    size={160}
+                    fillWidth
+                    formatValue={(n) => `$${n.toLocaleString()}`}
+                    ariaLabel="Reported ad spend by platform"
+                  />
+                </Card>
+              </AdvancedOnly>
+            )}
+          </div>
+        )}
 
         {/* Quick-action row */}
-        <Card className="flex flex-col gap-2 p-4">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-foreground">
-              Quick AI actions
-            </h2>
+        <Card className="flex flex-col gap-2 p-4 text-left">
+          <div className="flex flex-col">
+            <h3 className="text-sm font-semibold text-foreground">
+              Ask your ads team
+            </h3>
             <span className="text-[11px] text-muted-foreground">
-              Sends a request to your ads team — campaigns aren&rsquo;t changed automatically
+              Each button files a request. Nothing changes on a live campaign
+              until a person actions it.
             </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -700,10 +709,10 @@ export default function AdFlowDashboard() {
                   data-testid={`quick-action-${a.id}`}
                 >
                   <span className="flex items-center gap-1 text-xs font-semibold">
-                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     {a.label}
                   </span>
-                  <span className="text-[11px] font-normal text-muted-foreground">
+                  <span className="whitespace-normal text-[11px] font-normal text-muted-foreground">
                     {a.description}
                   </span>
                 </Button>
@@ -714,20 +723,25 @@ export default function AdFlowDashboard() {
 
         {/* Campaign cards */}
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-foreground">
-            Your campaigns
-          </h2>
+          <div className="flex flex-col text-left">
+            <h3 className="text-sm font-semibold text-foreground">
+              Your campaigns
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              As reported by your ads team for the latest period.
+            </p>
+          </div>
           {campaigns.length === 0 ? (
-            <Card className="flex flex-col items-center gap-2 p-6 text-center">
+            <Card className="flex flex-col items-start gap-2 p-5 text-left">
               <p className="text-sm font-medium text-foreground">
                 {hasService
-                  ? "No campaigns to show yet"
+                  ? "No campaigns reported yet"
                   : "AdFlow isn't set up yet"}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="max-w-xl text-xs text-muted-foreground">
                 {hasService
-                  ? "Once your first campaign runs for a full reporting period, you'll see grade cards here."
-                  : "Take the 3-question setup wizard — under 5 minutes — to launch your first campaign."}
+                  ? "Once your ads team reports a period's campaign breakdown, each campaign appears here with its reported spend and leads."
+                  : "Take the 3-question setup wizard — under 5 minutes — so we can brief the agency."}
               </p>
               <Button asChild size="sm" data-testid="empty-state-setup">
                 <Link href="/portal/adflow/setup">
@@ -737,7 +751,7 @@ export default function AdFlowDashboard() {
               </Button>
             </Card>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-2 lg:grid-cols-2">
               {campaigns.map((c) => (
                 <CampaignCard
                   key={c.id}
@@ -745,10 +759,7 @@ export default function AdFlowDashboard() {
                   name={c.name}
                   platform={c.platform}
                   status={c.status}
-                  score={c.score}
-                  grade={c.grade}
-                  summary={c.summary}
-                  factors={c.factors}
+                  periodLabel={c.periodLabel}
                   stats={c.stats}
                   isMutating={runAction.isPending}
                   onPause={() =>
@@ -771,8 +782,7 @@ export default function AdFlowDashboard() {
           )}
         </div>
 
-        {/* AI ad-copy composer — Wave 36: demoted to Advanced. The Copilot is
-            the canonical surface for generating ad copy now. */}
+        {/* AI ad-copy composer — drafts copy for the ads team to run. */}
         <AdvancedOnly product="adflow" elementId="adflow.ad-copy-composer">
           <AdCopyComposer
             defaultTrade="plumbing"
@@ -785,23 +795,60 @@ export default function AdFlowDashboard() {
             }}
           />
         </AdvancedOnly>
-
-        {/* Power-analyst heatmaps — Wave 36: hidden by default. */}
-        <AdvancedOnly product="adflow" elementId="adflow.power-analyst-heatmaps">
-        <ProfitableTradeHeatmap
-          rows={tradeHeatmap?.rows ?? []}
-          columns={tradeHeatmap?.columns ?? ["google", "meta", "bing"]}
-          cells={tradeHeatmap?.cells ?? []}
-          hasData={tradeHeatmap?.hasData ?? false}
-        />
-
-        <DayPartingHeatmap
-          cells={dayParting?.cells ?? []}
-          hasEnoughData={dayParting?.hasEnoughData ?? false}
-          daysOfData={dayParting?.daysOfData ?? 0}
-        />
-        </AdvancedOnly>
       </div>
     </PortalLayout>
+  );
+}
+
+/* ─── Reported tile ──────────────────────────────────────────────────── */
+
+function ReportedTile({
+  label,
+  value,
+  delta,
+  priorLabel,
+  testId,
+  className,
+}: {
+  label: string;
+  value: string;
+  delta?: number | null;
+  priorLabel?: string | null;
+  testId: string;
+  className?: string;
+}) {
+  const showDelta = typeof delta === "number";
+  const positive = showDelta && delta! >= 0;
+  return (
+    <Card
+      className={`flex flex-col gap-0.5 p-3 text-left ${className ?? ""}`}
+      data-testid={testId}
+    >
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={
+          value === NOT_REPORTED
+            ? "text-sm font-medium text-muted-foreground"
+            : "text-xl font-semibold text-foreground"
+        }
+      >
+        {value}
+      </span>
+      {showDelta && (
+        // Direction is carried by the arrow and the sign, not by colour: the
+        // chart-2 / destructive tints fell to 3.9:1 and 2.9:1 on the card
+        // background in light mode, under the 4.5:1 AA floor for 11px text.
+        <span className="text-[11px] font-medium text-foreground">
+          <span aria-hidden="true">{positive ? "↑" : "↓"}</span>{" "}
+          {positive ? "+" : ""}
+          {delta}%{" "}
+          <span className="font-normal text-muted-foreground">
+            vs {priorLabel ?? "prior period"}
+          </span>
+        </span>
+      )}
+    </Card>
   );
 }

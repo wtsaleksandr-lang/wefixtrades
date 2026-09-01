@@ -52,7 +52,7 @@ const GROWTH_TOOLS: ProductItem[] = [
 const DONE_FOR_YOU: ProductItem[] = [
   { slug: "sitelaunch",      name: "SiteLaunch™",       tagline: "A site that converts. Done in a week.",     icon: Globe,      statValue: "7 days",      statLabel: "to launch" },
   { slug: "webcare",         name: "WebCare™",          tagline: "We watch your site so you don't have to.",  icon: Shield,     statValue: "24/7",        statLabel: "monitoring" },
-  { slug: "adflow",          name: "AdFlow™",           tagline: "Real ads. Real ROI in your inbox.",         icon: Megaphone,  statValue: "4×",          statLabel: "return on ad spend" },
+  { slug: "adflow",          name: "AdFlow™",           tagline: "A vetted agency runs your ads.",            icon: Megaphone,  statValue: "Agency-run",  statLabel: "in your own ad accounts" },
   { slug: "bookflow",        name: "BookFlow™",         tagline: "Customers book themselves. You show up.",   icon: Calendar,   statValue: "Self-serve",  statLabel: "booking" },
 ];
 

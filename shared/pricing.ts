@@ -592,10 +592,17 @@ export const RANKFLOW: ProductDef = {
 /* ═══════════════════════════════════════════
    J. ADFLOW (Ads)
    ═══════════════════════════════════════════ */
+/*
+ * AdFlow is an agency-brokered managed service. Every feature below is work a
+ * person does in the customer's own ad accounts — WeFixTrades has no Google Ads
+ * or Meta Ads integration, so no feature here may imply software that connects
+ * to an ad platform, and "reports" means figures the ads team reports to us.
+ * See the honesty contract in server/routes/portal/adflow/dashboardKpis.ts.
+ */
 export const ADFLOW: ProductDef = {
   id: "adflow",
   name: "AdFlow™",
-  tagline: "Done-for-you ads that bring leads fast",
+  tagline: "An ad agency runs your campaigns for you",
   category: "leads",
   tiers: [
     {
@@ -607,8 +614,8 @@ export const ADFLOW: ProductDef = {
         "Google Ads campaign setup",
         "Ad copy & creative",
         "Keyword targeting",
-        "Monthly performance reports",
-        "Budget optimization",
+        "Monthly report of your ads team's figures",
+        "Budget managed by your ads team",
       ],
     },
     {
