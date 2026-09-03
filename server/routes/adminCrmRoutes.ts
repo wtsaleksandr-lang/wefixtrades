@@ -1434,10 +1434,20 @@ export function registerAdminCrmRoutes(app: Express): void {
         };
       }
 
+      // Provenance. These figures are reported to us by the agency running the
+      // campaigns and typed in here by a person — there is no ad-platform
+      // integration to pull them from. The customer's dashboard says so, and
+      // names who entered them and when, so the numbers are never presented as
+      // platform telemetry. Stamped into the metrics blob itself so it survives
+      // the copy into adflow_reports.metrics when the monthly report compiles.
+      const actor = req.user as { id?: number; name?: string; email?: string } | undefined;
       const latestReport = {
         impressions, clicks, leads_generated, cost_spent_cents, ctr_pct, cpc_cents,
         top_creative, notes, period_start, period_end, daily_breakdown, creatives,
         recommendations,
+        entered_at: new Date().toISOString(),
+        entered_by_id: actor?.id ?? null,
+        entered_by_name: actor?.name || actor?.email || null,
         ...(prior_period ? { prior_period } : {}),
       };
 

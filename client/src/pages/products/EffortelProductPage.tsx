@@ -112,9 +112,9 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
     sub: "AI drafts trade-specific articles every month — tuned to your service area, your voice, and what's actually ranking.",
   },
   adflow: {
-    eyebrow: "Most trade businesses pay $80+ per Google Ads lead. There's a way down to $20.",
-    headline: <>Real ads. <span style={{ display: "block", color: mkt.accentOnDark }}>Real ROI.</span></>,
-    sub: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning. Plain-English reports — no agency-speak.",
+    eyebrow: "Running your own Google Ads is a second job. Hand it to someone who does it all day.",
+    headline: <>Real ads. <span style={{ display: "block", color: mkt.accentOnDark }}>Run by real people.</span></>,
+    sub: "Google + Meta campaigns built and tuned by a vetted ad-agency partner, inside ad accounts you own. Plain-English reports of what they spent and what it brought back.",
   },
   bookflow: {
     // Wave 11D D2 — reframed as a QuoteQuick-bundled feature, not a standalone SKU.

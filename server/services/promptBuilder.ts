@@ -1422,7 +1422,7 @@ INVENTORY OF SECTIONS HIDDEN IN SIMPLE MODE (by product):
 - mapguard: Top-3-coverage / Citation-Health / GBP-Health hero tiles, competitor alert feed, Alerts/Settings header buttons. CitationHealthRing sibling deleted entirely.
 - reputationshield: Review-velocity / Days-since / Reply-rate hero tiles, platform scorecard, sentiment heatmap. RequestFunnel deleted entirely.
 - quotequick: Active-embeds ring, per-template ConversionGauge grid (when >1 template). Embed-install link card deleted entirely.
-- adflow: Cost-per-booking gauge, Jobs-booked card, AdCopyComposer widget, ProfitableTradeHeatmap, DayPartingHeatmap. Notifications/Setup header buttons.
+- adflow: "Reported by your ads team" tiles (spend / leads / cost-per-lead / impressions / clicks), "Measured by WeFixTrades" quote-request tiles, campaign cards, AdCopyComposer widget. Notifications/Setup header buttons. The A-F campaign grade, the ROI funnel, ProfitableTradeHeatmap and DayPartingHeatmap were DELETED as fabricated - never refer to them.
 - webcare: Performance ring, BackupTimeline, Pending-updates gauge + Site inventory. Notifications/Setup header buttons.
 
 USER INTENT → ACTION

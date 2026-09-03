@@ -753,23 +753,36 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
   ],
 
   /* ─── 11. AdFlow ─── */
+  /*
+   * AdFlow is an agency-brokered managed service: a human runs the customer's
+   * campaigns in the customer's own ad accounts. WeFixTrades has NO Google Ads
+   * or Meta Ads integration. Every figure in these panels is therefore an
+   * illustration and is labelled "(example)" — none of it is a measured result,
+   * and none of it comes from an ad platform.
+   *
+   * REMOVED: panel 04 "Connected To Your Funnel" — "Google Ads, Meta Ads, your
+   * CRM, your dashboards. One signal flowing end-to-end", drawn with orbiting
+   * Google / Meta / Google Analytics logos around a live-looking spend ticker.
+   * None of those connections exist. It was not an exaggeration to soften, so
+   * it was deleted rather than reworded.
+   */
   adflow: [
     {
       number: "01",
       title: "Google Ads, Run For You",
-      description: "Real campaigns, run by a vetted ad-agency partner. They tune bids, swap creative, and pause losers — every week.",
+      description: "Real campaigns, run by a vetted ad-agency partner in your own ad accounts. They tune bids, swap creative, and pause losers.",
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
-            <StatTile value="$42→$19" label="Cost per lead, 4 wks" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
-            <StatTile value="3.2×" label="ROAS" color="mint" size="sm" icon={<Zap size={14} />} />
+            <StatTile value="$42→$19" label="Cost per lead, 4 wks (example)" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="3.2×" label="Return on ad spend (example)" color="mint" size="sm" icon={<Zap size={14} />} />
             <StatTile value="+340%" label="vs DIY ads (example)" color="lavender" size="sm" icon={<Sparkles size={14} />} />
           </div>
           <DemoVideo
             src="/videos/adflow-demo.mp4"
             webm="/videos/adflow-demo.webm"
             poster="/videos/adflow-demo-poster.jpg"
-            label="Product demo: managed Google + Meta ad campaigns drive cost-per-lead down from $42 to $19 over four weeks — a 55% drop — while leads rise to 38 per week at $722 spend and 3.2× ROAS."
+            label="Illustrative product demo, not a customer result: an example campaign's cost-per-lead falling from $42 to $19 over four weeks."
             fallback={<AdFlowDemo />}
           />
         </div>
@@ -780,39 +793,22 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Creative That Speaks Trades",
       description: "Headlines, images, and copy written for trade buyers — emergency calls, quote requests, service calls.",
       mockup: <Wide><StatTrio
-        a={{ value: "12", label: "Active ads", color: "cyanSoft", icon: <Sparkles size={16} /> }}
-        b={{ value: "8.4%", label: "CTR", color: "mint", icon: <TrendingUp size={16} /> }}
+        a={{ value: "12", label: "Active ads (example)", color: "cyanSoft", icon: <Sparkles size={16} /> }}
+        b={{ value: "8.4%", label: "Click-through rate (example)", color: "mint", icon: <TrendingUp size={16} /> }}
         c={{ value: "+340%", label: "Vs DIY ads (example)", color: "lavender", icon: <Zap size={16} /> }}
       /></Wide>,
     },
     {
       number: "03",
       title: "Reports You Can Read",
-      description: "What you spent, what came back, and what we changed last week. No agency-speak.",
+      description: "A monthly report of what your ads team spent and what it brought back, in plain English. Figures come from your ads team — we do not connect to your ad accounts.",
       mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
-        <MiniChartTile value="$8 240" label="Revenue from ads" trend="+212%" color="cyanSoft" />
+        <MiniChartTile value="$8 240" label="Revenue from ads (example)" trend="+212%" color="cyanSoft" />
         <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="3.2×" label="ROAS" color="mint" size="sm" />
-          <StatTile value="47" label="Leads delivered" color="lavender" size="sm" />
+          <StatTile value="3.2×" label="Return on ad spend (example)" color="mint" size="sm" />
+          <StatTile value="47" label="Leads delivered (example)" color="lavender" size="sm" />
         </div>
       </div></Wide>,
-    },
-    {
-      number: "04",
-      title: "Connected To Your Funnel",
-      description: "Google Ads, Meta Ads, your CRM, your dashboards. One signal flowing end-to-end.",
-      mockup: <OrbitingLogos
-        center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
-          <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Last 7 days</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: TILE.white.ink, letterSpacing: "-0.02em" }}>$1 247</div>
-          <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>↑ 18% vs prev week</div>
-        </div>}
-        logos={[
-          { label: "G", color: "#4285F4", angle: 200, ring: 2 },
-          { label: "M", color: "#1877F2", angle: 280, ring: 2 },
-          { label: "GA", color: "#F9AB00", angle: 0, ring: 2, size: 44 },
-        ]}
-      />,
     },
   ],
 

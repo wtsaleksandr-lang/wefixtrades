@@ -1,21 +1,38 @@
 /**
- * Portal AdFlow — Wave 73 KPI stat endpoints.
- *
- * Wires the new KPI cards added in Wave 72 to real data, replacing the
- * client-side mock derivations. One file per product, one route per card.
+ * Portal AdFlow — KPI stat endpoints.
  *
  *   GET /api/portal/adflow/stats/monthly?months=6        — MonthlyBarSeries
  *   GET /api/portal/adflow/stats/peak?metric=roas        — SparklineWithPeak
  *   GET /api/portal/adflow/stats/segments?dimension=platform — DonutChart
  *
- * Auth: requireClient. adminPreviewSafe-wrapped.
+ * HONESTY CONTRACT (guarded by server/services/aiActions/handlers/adflow.test.ts)
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Every series here is either the ads team's reported figures or nothing.
+ * `data_status: 'empty'` means the customer's dashboard shows an empty state.
+ * There is no third state where we draw a shape we made up.
  *
- * Data status flag on every response:
- *   data_status: 'real' | 'illustrative'
- *   - 'real'         : query backed by source rows
- *   - 'illustrative' : no rows yet; UI should show "Example data" badge
+ * DELETED, and must not come back (see the guard):
  *
- * Cache: each handler maintains an in-memory 5-min TTL keyed by clientId.
+ *   - `[3, 4, 6, 5, 8, 9, 11, 14, 12, 10, 11, 13]`, returned from BOTH the
+ *     no-service branch and the no-data branch of the peak series, labelled
+ *     "+11x ROAS". Every AdFlow customer without revenue data — which is all of
+ *     them, since revenue was never captured — saw the same rising curve and
+ *     the same 11x return. It was permanent, not a placeholder.
+ *
+ *   - `Google 1800 / Meta 1100 / Bing 400`, likewise returned from both the
+ *     no-service and no-data branches of the spend-by-platform donut. A fixed
+ *     $3,300 split across three platforms, shown to customers who may not be
+ *     running on any of them.
+ *
+ *   - `Math.round(4 + i * 1.2)` monthly bars — a straight synthetic ramp.
+ *
+ *   - `value: leads * 2` on the REAL monthly series. Reported leads were
+ *     doubled before display to "match Wave 72 derived leads ≈ jobs × 2". The
+ *     number on the chart was twice the number the ads team reported.
+ *
+ * `data_status` keeps its 'real' | 'illustrative' union for wire compatibility
+ * with the shared KPI components, but 'illustrative' is now only ever returned
+ * alongside an EMPTY data array.
  */
 
 import type { Express, Request, Response } from "express";
@@ -51,6 +68,7 @@ interface SegmentResponse {
   data_status: "real" | "illustrative";
 }
 
+/** The only non-'real' payload any handler may return: nothing to draw. */
 const EMPTY_MONTHLY: MonthlySeriesResponse = { data: [], data_status: "illustrative" };
 const EMPTY_PEAK: PeakSeriesResponse = {
   data: [],
@@ -60,13 +78,14 @@ const EMPTY_PEAK: PeakSeriesResponse = {
 };
 const EMPTY_SEGMENTS: SegmentResponse = { data: [], data_status: "illustrative" };
 
-function num(v: unknown): number {
+/** Null, not 0, when a reported field is absent — see dashboardKpis.ts. */
+function reportedNum(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
+  if (typeof v === "string" && v.trim() !== "") {
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
   }
-  return 0;
+  return null;
 }
 
 function monthLabels(months: number): { label: string; start: Date; end: Date }[] {
@@ -100,29 +119,18 @@ async function findAdflowClientServiceId(clientId: number): Promise<number | nul
   return svc?.cs_id ?? null;
 }
 
-/* ◀◀◀ Monthly leads (jobs booked × 2 derived from adflow_reports) ◀◀◀◀ */
+/* ◀◀◀ Leads reported per month — verbatim, no multiplier ◀◀◀◀◀◀◀◀◀◀◀◀◀◀ */
 export async function computeAdflowMonthlySeries(
   clientId: number,
   months: number,
 ): Promise<MonthlySeriesResponse> {
   const csId = await findAdflowClientServiceId(clientId);
+  if (csId === null) return EMPTY_MONTHLY;
+
   const labels = monthLabels(months);
-
-  if (csId === null) {
-    return {
-      data: labels.map((m, i) => ({
-        label: m.label,
-        value: Math.round(4 + i * 1.2),
-        highlighted: i === labels.length - 1,
-      })),
-      data_status: "illustrative",
-    };
-  }
-
   const periodStart = labels[0]!.start;
   const rows = await db
     .select({
-      period_start: adflowReports.period_start,
       period_end: adflowReports.period_end,
       metrics: adflowReports.metrics,
     })
@@ -136,45 +144,40 @@ export async function computeAdflowMonthlySeries(
     .orderBy(desc(adflowReports.period_end))
     .limit(months + 2);
 
-  let anyRows = false;
+  if (rows.length === 0) return EMPTY_MONTHLY;
+
+  let anyReported = false;
   const data = labels.map((m, idx) => {
     const inBucket = rows.filter(
       (r) => r.period_end >= m.start && r.period_end < m.end,
     );
-    if (inBucket.length > 0) anyRows = true;
-    const leads = inBucket.reduce(
-      (sum, r) => sum + num((r.metrics as Record<string, unknown>)?.leads_generated),
-      0,
-    );
+    let leads = 0;
+    for (const r of inBucket) {
+      const v = reportedNum((r.metrics as Record<string, unknown>)?.leads_generated);
+      if (v !== null) {
+        leads += v;
+        anyReported = true;
+      }
+    }
     return {
       label: m.label,
-      value: leads * 2, // matches Wave 72 derived leads ≈ jobs × 2
+      value: leads,
       highlighted: idx === labels.length - 1,
     };
   });
 
-  return {
-    data,
-    data_status: anyRows ? "real" : "illustrative",
-  };
+  // Months with no report stay at 0 within a series that has real months —
+  // that reads correctly as "nothing reported". A series where NOTHING was
+  // reported is empty, not a flat line of zeroes presented as performance.
+  return anyReported ? { data, data_status: "real" } : EMPTY_MONTHLY;
 }
 
-/* ◀◀◀ Peak ROAS day — sparkline from last 12 weekly spend deltas ◀◀◀◀◀◀ */
+/* ◀◀◀ Weekly reported revenue − spend, 12 weeks ◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀ */
 export async function computeAdflowPeakSeries(
   clientId: number,
 ): Promise<PeakSeriesResponse> {
   const csId = await findAdflowClientServiceId(clientId);
-
-  if (csId === null) {
-    const synthetic = [3, 4, 6, 5, 8, 9, 11, 14, 12, 10, 11, 13];
-    const peakIndex = synthetic.indexOf(Math.max(...synthetic));
-    return {
-      data: synthetic,
-      peakLabel: `+${Math.max(...synthetic) - synthetic[0]!}x ROAS`,
-      peakIndex,
-      data_status: "illustrative",
-    };
-  }
+  if (csId === null) return EMPTY_PEAK;
 
   const now = new Date();
   const ninetyAgo = new Date(now.getTime() - 90 * 86_400_000);
@@ -194,48 +197,35 @@ export async function computeAdflowPeakSeries(
     .orderBy(desc(adflowReports.period_end))
     .limit(12);
 
-  // Build 12 weekly buckets of (revenue - spend) as a coarse ROAS proxy.
+  // Only a day-by-day breakdown carrying BOTH revenue and cost can be bucketed
+  // into weeks. A month total has no weekly shape; the old code dropped it into
+  // whichever bucket held its period_end, drawing a month as a one-week spike.
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const weeks = new Array<number>(12).fill(0);
+  let sawDailyRow = false;
+
   for (const r of rows) {
-    const spend = num((r.metrics as Record<string, unknown>)?.cost_spent_cents) / 100;
-    const revenue =
-      num((r.metrics as Record<string, unknown>)?.revenue_earned_cents) / 100;
     const breakdown = ((r.metrics as Record<string, unknown>)?.daily_breakdown ??
       []) as Array<{ date?: string; cost_cents?: number; revenue_cents?: number }>;
-    if (Array.isArray(breakdown) && breakdown.length > 0) {
-      for (const d of breakdown) {
-        if (!d?.date) continue;
-        const date = new Date(d.date + "T00:00:00Z");
-        if (Number.isNaN(date.getTime())) continue;
-        const diff = Math.floor((today.getTime() - date.getTime()) / 86_400_000);
-        if (diff < 0 || diff >= 12 * 7) continue;
-        const idx = 11 - Math.floor(diff / 7);
-        if (idx >= 0 && idx < 12) {
-          weeks[idx]! += (num(d.revenue_cents) - num(d.cost_cents)) / 100;
-        }
-      }
-    } else {
-      const diff = Math.floor((today.getTime() - r.period_end.getTime()) / 86_400_000);
+    if (!Array.isArray(breakdown)) continue;
+    for (const d of breakdown) {
+      if (!d?.date) continue;
+      const revenue = reportedNum(d.revenue_cents);
+      const cost = reportedNum(d.cost_cents);
+      if (revenue === null && cost === null) continue;
+      const date = new Date(d.date + "T00:00:00Z");
+      if (Number.isNaN(date.getTime())) continue;
+      const diff = Math.floor((today.getTime() - date.getTime()) / 86_400_000);
+      if (diff < 0 || diff >= 12 * 7) continue;
       const idx = 11 - Math.floor(diff / 7);
-      if (idx >= 0 && idx < 12) {
-        weeks[idx]! += revenue - spend;
-      }
+      if (idx < 0 || idx >= 12) continue;
+      weeks[idx]! += ((revenue ?? 0) - (cost ?? 0)) / 100;
+      sawDailyRow = true;
     }
   }
 
-  const anyData = weeks.some((v) => v !== 0);
-  if (!anyData) {
-    const synthetic = [3, 4, 6, 5, 8, 9, 11, 14, 12, 10, 11, 13];
-    const peakIndex = synthetic.indexOf(Math.max(...synthetic));
-    return {
-      data: synthetic,
-      peakLabel: `+${Math.max(...synthetic) - synthetic[0]!}x ROAS`,
-      peakIndex,
-      data_status: "illustrative",
-    };
-  }
+  if (!sawDailyRow) return EMPTY_PEAK;
 
   const integerWeeks = weeks.map((v) => Math.round(v));
   const peakValue = Math.max(...integerWeeks);
@@ -248,30 +238,18 @@ export async function computeAdflowPeakSeries(
   };
 }
 
-/* ◀◀◀ Spend by platform — GROUP BY platform on metrics.daily_breakdown ◀◀ */
+/* ◀◀◀ Reported spend by platform ◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀ */
 export async function computeAdflowSpendByPlatform(
   clientId: number,
 ): Promise<SegmentResponse> {
   const csId = await findAdflowClientServiceId(clientId);
-
-  if (csId === null) {
-    return {
-      data: [
-        { label: "Google", value: 1800 },
-        { label: "Meta", value: 1100 },
-        { label: "Bing", value: 400 },
-      ],
-      data_status: "illustrative",
-    };
-  }
+  if (csId === null) return EMPTY_SEGMENTS;
 
   const now = new Date();
   const thirtyAgo = new Date(now.getTime() - 30 * 86_400_000);
 
   const rows = await db
-    .select({
-      metrics: adflowReports.metrics,
-    })
+    .select({ metrics: adflowReports.metrics })
     .from(adflowReports)
     .where(
       and(
@@ -281,6 +259,8 @@ export async function computeAdflowSpendByPlatform(
     )
     .limit(4);
 
+  // `by_platform` is populated only when the ads team reports a per-platform
+  // split. Absent it, the split is unknown — and unknown renders as empty.
   const totals = new Map<string, number>();
   for (const r of rows) {
     const platforms = ((r.metrics as Record<string, unknown>)?.by_platform ?? {}) as Record<
@@ -288,23 +268,14 @@ export async function computeAdflowSpendByPlatform(
       { spend_cents?: number }
     >;
     for (const [platform, v] of Object.entries(platforms)) {
-      const cents = num((v as { spend_cents?: number })?.spend_cents);
-      if (cents > 0) {
+      const cents = reportedNum((v as { spend_cents?: number })?.spend_cents);
+      if (cents !== null && cents > 0) {
         totals.set(platform, (totals.get(platform) ?? 0) + Math.round(cents / 100));
       }
     }
   }
 
-  if (totals.size === 0) {
-    return {
-      data: [
-        { label: "Google", value: 1800 },
-        { label: "Meta", value: 1100 },
-        { label: "Bing", value: 400 },
-      ],
-      data_status: "illustrative",
-    };
-  }
+  if (totals.size === 0) return EMPTY_SEGMENTS;
 
   const data = Array.from(totals.entries()).map(([platform, value]) => ({
     label: platform.charAt(0).toUpperCase() + platform.slice(1),

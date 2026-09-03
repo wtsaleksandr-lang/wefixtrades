@@ -134,13 +134,26 @@ async function buildTradelineMetrics(clientId: number): Promise<DashboardMetric[
 }
 
 async function buildAdflowMetrics(clientId: number): Promise<DashboardMetric[]> {
-  const { kpis } = await computeAdflowDashboardKpis(clientId);
+  const { reported, measured } = await computeAdflowDashboardKpis(clientId);
+  // Unreported figures arrive as null and are dropped entirely. The Copilot
+  // must never be told "spend $0 / 0 leads" for a period nobody entered — it
+  // would relay that to the customer as fact about their campaigns.
   return [
-    buildMetric("adflow", "moneySpent", kpis.moneySpent.thisMonth),
-    buildMetric("adflow", "jobsBooked", kpis.jobsBooked.thisMonth),
-    buildMetric("adflow", "revenueEarned", kpis.revenueEarned),
-    buildMetric("adflow", "customersReached", kpis.customersReached),
-    buildMetric("adflow", "costPerBooking", kpis.costPerBooking),
+    reported.adSpendCents !== null
+      ? buildMetric("adflow", "adSpendReported", reported.adSpendCents)
+      : null,
+    reported.leads !== null
+      ? buildMetric("adflow", "leadsReported", reported.leads)
+      : null,
+    reported.impressions !== null
+      ? buildMetric("adflow", "impressionsReported", reported.impressions)
+      : null,
+    reported.costPerLeadCents !== null
+      ? buildMetric("adflow", "costPerLeadReported", reported.costPerLeadCents)
+      : null,
+    measured.supported && measured.quoteRequestsFromAds !== null
+      ? buildMetric("adflow", "quoteRequestsFromAds", measured.quoteRequestsFromAds)
+      : null,
   ].filter((m): m is DashboardMetric => m !== null);
 }
 

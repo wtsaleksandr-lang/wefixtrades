@@ -423,39 +423,25 @@ export const DISPLAY_ELEMENTS: readonly DisplayElement[] = [
     category: "action",
   },
   {
-    id: "adflow.cost-per-booking-sidebar",
-    product: "adflow",
-    label: "Cost-per-booking + jobs-booked sidebar",
-    description: "Two analyst tiles next to the ROI funnel. Already implied by the funnel itself.",
-    category: "kpi",
-  },
-  {
     id: "adflow.ad-copy-composer",
     product: "adflow",
     label: "AI ad-copy composer",
     description: "Inline composer for generating ad variants — Copilot is the canonical surface now.",
     category: "composer",
   },
-  {
-    id: "adflow.power-analyst-heatmaps",
-    product: "adflow",
-    label: "Trade + day-parting heatmaps",
-    description: "Profitable-trade and day-of-week heatmaps for power-user analysis.",
-    category: "chart",
-  },
   // Wave 72 — new KPI primitives
   {
     id: "adflow.peak-roas-sparkline",
     product: "adflow",
     label: "Peak ROAS day sparkline",
-    description: "Sparkline with peak callout for the best return-on-ad-spend day.",
+    description: "Sparkline with peak callout for reported weekly revenue minus spend.",
     category: "chart",
   },
   {
     id: "adflow.spend-by-platform-donut",
     product: "adflow",
     label: "Ad spend by platform donut",
-    description: "Donut chart of ad spend split by Google / Meta / Bing.",
+    description: "Donut chart of the per-platform ad-spend split, when the ads team reports one.",
     category: "chart",
   },
 

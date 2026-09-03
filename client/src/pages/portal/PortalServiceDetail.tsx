@@ -1083,7 +1083,9 @@ export default function PortalServiceDetail() {
                     <h2 className="text-sm font-semibold text-foreground">Campaign Performance</h2>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Your campaigns are managed by our agency partner.
+                    Your campaigns are run by our agency partner in your own ad
+                    accounts. These figures are reported by them and entered by
+                    hand — WeFixTrades does not connect to Google Ads or Meta.
                   </p>
                 </div>
 

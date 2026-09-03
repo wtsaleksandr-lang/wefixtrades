@@ -1,79 +1,135 @@
 /**
- * Portal AdFlow Dashboard KPIs — Wave 30.
+ * Portal AdFlow Dashboard KPIs.
  *
  * GET /api/portal/adflow/dashboard-kpis
  *
- * Returns the hero KPIs for the new /portal/adflow/dashboard surface:
+ * HONESTY CONTRACT (guarded by server/services/aiActions/handlers/adflow.test.ts)
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WeFixTrades has NO ad-platform integration. No Google Ads client, no Meta Ads
+ * client, no ad-account OAuth, no read or write path to any campaign. AdFlow is
+ * an agency-brokered managed service: a human runs the campaigns in the
+ * customer's own ad accounts and reports the numbers back to us, and an ops
+ * admin types them into the CRM.
  *
- *   1. moneySpent       — total ad-spend cents in last 30 days (+ delta vs
- *                         prior 30, + sparkline) — trade-first noun for
- *                         "cost" / "ad-spend"
- *   2. jobsBooked       — confirmed bookings attributable to ad campaigns
- *                         in last 30 days (= conversions, but renamed)
- *   3. revenueEarned    — $ revenue tied to ad-attributable jobs (cents)
- *   4. customersReached — total impressions / reach across all platforms
- *   5. costPerBooking   — money spent / jobs booked (= CPA, renamed)
+ * So this endpoint returns exactly two kinds of figure, and says which is which:
  *
- *  Plus auxiliary funnel data:
- *   - funnel: { moneySpent, customersReached, jobsBooked, revenueEarned }
- *     in cents/units to feed the ROIFunnel hero card.
- *   - spendTrend12w: 12-week int array of weekly spend cents for sparkline.
+ *   reported — what a person typed in, carried through verbatim, with the
+ *              period, the entry date and the name of whoever entered it. If
+ *              nothing was entered for the period, every field is null and the
+ *              dashboard renders "no ad data entered for this period". We never
+ *              fill a gap with an estimate.
  *
- * Source: aggregated from `adflow_reports.metrics` (latest periods) +
- * `client_payments` (revenue earned). When no AdFlow service is provisioned
- * yet, returns an empty-state shape so the page renders gracefully.
+ *   measured — what THIS platform genuinely observed: quote requests captured
+ *              by the customer's own WeFixTrades quote widget whose UTM tagging
+ *              marks them as paid-ad traffic. Ownership follows the same chain
+ *              as portal/leadAnalytics.ts:
+ *                clients.id → clients.user_id → calculators.user_id
+ *                            → leads.calculator_id
+ *              which is the tenant-security boundary. A client with no quote
+ *              widget has nothing to attribute against, so `supported` is false
+ *              rather than a zero that could read as "your ads produced none".
  *
- * Auth: requireClient. adminPreviewSafe-wrapped.
+ * DELETED, and must not come back (see the guard):
+ *   - revenue estimated as `bookings × $250`. Revenue is reported or absent.
+ *   - `conversionRates.spendToReach = 100` / `bookToRevenue = 100`, two
+ *     constants rendered as measured funnel pass-through rates.
+ *   - a spend sparkline built by dumping a whole month's total into the single
+ *     week bucket containing its period_end, which drew a monthly figure as a
+ *     one-week spike. The trend now exists only when a real day-by-day
+ *     breakdown was supplied.
  */
 
 import type { Express, Request, Response } from "express";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { requireClient } from "../../../auth";
 import { db } from "../../../db";
-import { clientServices, serviceCatalog, adflowReports } from "@shared/schema";
+import {
+  calculators,
+  clients,
+  clientServices,
+  leads,
+  serviceCatalog,
+  adflowReports,
+} from "@shared/schema";
 import { createLogger } from "../../../lib/logger";
 import { withClientIdOrPreview } from "../../../middleware/adminPreviewSafe";
 
 const log = createLogger("PortalAdflowDashboardKpis");
 
-interface DashboardResponse {
-  previewMode?: boolean;
-  kpis: {
-    moneySpent: { thisMonth: number; lastMonth: number; deltaPct: number };
-    jobsBooked: { thisMonth: number; lastMonth: number; deltaPct: number };
-    revenueEarned: number;
-    customersReached: number;
-    costPerBooking: number;
-  };
-  funnel: {
-    moneySpent: number;
-    customersReached: number;
-    jobsBooked: number;
-    revenueEarned: number;
-    conversionRates: { spendToReach: number; reachToBook: number; bookToRevenue: number };
-  };
-  spendTrend12w: number[];
-  hasAdflowService: boolean;
+/** Figures a person typed in. Null means "not entered", never "zero". */
+export interface ReportedFigures {
+  hasData: boolean;
+  periodLabel: string | null;
+  /** ISO date the ops admin saved these numbers. Null on pre-provenance rows. */
+  enteredAt: string | null;
+  /** Name/email of the ops admin who saved them. Null on pre-provenance rows. */
+  enteredBy: string | null;
+  adSpendCents: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  leads: number | null;
+  /** adSpendCents / leads. Arithmetic on two reported figures, nothing more. */
+  costPerLeadCents: number | null;
+  revenueCents: number | null;
+  priorPeriodLabel: string | null;
+  priorAdSpendCents: number | null;
+  priorLeads: number | null;
+  /**
+   * Weekly spend, oldest → newest, ONLY when the ads team supplied a
+   * day-by-day breakdown. Null when they reported period totals only.
+   */
+  spendTrend12w: number[] | null;
 }
+
+/** Figures WeFixTrades observed itself. */
+export interface MeasuredFigures {
+  /** False when the client has no WeFixTrades quote widget to attribute with. */
+  supported: boolean;
+  windowDays: number;
+  /** Quote requests whose utm_medium marks them as paid-ad traffic. */
+  quoteRequestsFromAds: number | null;
+  /** All quote requests in the window, for context. */
+  quoteRequestsTotal: number | null;
+}
+
+export interface DashboardResponse {
+  previewMode?: boolean;
+  hasAdflowService: boolean;
+  reported: ReportedFigures;
+  measured: MeasuredFigures;
+}
+
+const MEASURED_WINDOW_DAYS = 30;
+
+const EMPTY_REPORTED: ReportedFigures = {
+  hasData: false,
+  periodLabel: null,
+  enteredAt: null,
+  enteredBy: null,
+  adSpendCents: null,
+  impressions: null,
+  clicks: null,
+  leads: null,
+  costPerLeadCents: null,
+  revenueCents: null,
+  priorPeriodLabel: null,
+  priorAdSpendCents: null,
+  priorLeads: null,
+  spendTrend12w: null,
+};
+
+const EMPTY_MEASURED: MeasuredFigures = {
+  supported: false,
+  windowDays: MEASURED_WINDOW_DAYS,
+  quoteRequestsFromAds: null,
+  quoteRequestsTotal: null,
+};
 
 const EMPTY_RESPONSE = {
   previewMode: true,
-  kpis: {
-    moneySpent: { thisMonth: 0, lastMonth: 0, deltaPct: 0 },
-    jobsBooked: { thisMonth: 0, lastMonth: 0, deltaPct: 0 },
-    revenueEarned: 0,
-    customersReached: 0,
-    costPerBooking: 0,
-  },
-  funnel: {
-    moneySpent: 0,
-    customersReached: 0,
-    jobsBooked: 0,
-    revenueEarned: 0,
-    conversionRates: { spendToReach: 0, reachToBook: 0, bookToRevenue: 0 },
-  },
-  spendTrend12w: new Array(12).fill(0) as number[],
   hasAdflowService: false,
+  reported: EMPTY_REPORTED,
+  measured: EMPTY_MEASURED,
 } satisfies Record<string, unknown>;
 
 function startOfDay(d: Date): Date {
@@ -82,66 +138,135 @@ function startOfDay(d: Date): Date {
   return out;
 }
 
-function safeDeltaPct(curr: number, prev: number): number {
-  if (prev > 0) return Math.round(((curr - prev) / prev) * 100);
-  return curr > 0 ? 100 : 0;
-}
-
-interface RawReport {
-  period_start: Date;
-  period_end: Date;
-  metrics: Record<string, unknown>;
-}
-
-function num(v: unknown): number {
+/**
+ * Reported fields arrive from a JSON blob typed by a human, so a value may be
+ * absent, empty, or a numeric string. Absent stays absent — this returns null,
+ * never 0, so "not entered" can never be rendered as a measured zero.
+ */
+function reportedNum(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
+  if (typeof v === "string" && v.trim() !== "") {
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
   }
-  return 0;
+  return null;
 }
 
-function buildSpendTrend(reports: RawReport[]): number[] {
+function reportedStr(v: unknown): string | null {
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+}
+
+/**
+ * utm_medium values that unambiguously mark paid advertising traffic. Only
+ * utm_medium is consulted: `utm_source=google` alone is just as likely organic,
+ * and counting it would inflate what we claim the ads produced.
+ */
+const PAID_MEDIUMS = new Set([
+  "cpc",
+  "ppc",
+  "cpm",
+  "cpv",
+  "paid",
+  "paidsearch",
+  "paid_search",
+  "paid-search",
+  "paidsocial",
+  "paid_social",
+  "paid-social",
+  "display",
+  "banner",
+  "retargeting",
+]);
+
+export function isPaidAdMedium(medium: string | null | undefined): boolean {
+  if (typeof medium !== "string") return false;
+  return PAID_MEDIUMS.has(medium.trim().toLowerCase());
+}
+
+/**
+ * Weekly spend buckets from an ops-supplied day-by-day breakdown. Returns null
+ * unless at least one dated row with a cost carried through — a month total
+ * with no daily detail has no weekly shape and must not be drawn as one.
+ */
+function buildSpendTrend(
+  reports: Array<{ metrics: Record<string, unknown> }>,
+): number[] | null {
   const weeks = new Array<number>(12).fill(0);
   const today = startOfDay(new Date());
+  let sawDailyRow = false;
+
   for (const r of reports) {
-    const cost = num((r.metrics as any)?.cost_spent_cents);
-    if (cost <= 0) continue;
-    const breakdown = ((r.metrics as any)?.daily_breakdown ?? []) as Array<{
+    const breakdown = (r.metrics?.daily_breakdown ?? []) as Array<{
       date?: string;
       cost_cents?: number;
     }>;
-    if (Array.isArray(breakdown) && breakdown.length > 0) {
-      for (const d of breakdown) {
-        if (!d?.date) continue;
-        const date = new Date(d.date + "T00:00:00Z");
-        if (Number.isNaN(date.getTime())) continue;
-        const diffDays = Math.floor((today.getTime() - date.getTime()) / 86_400_000);
-        if (diffDays < 0 || diffDays >= 12 * 7) continue;
-        const weekIdx = 11 - Math.floor(diffDays / 7);
-        if (weekIdx >= 0 && weekIdx < 12) {
-          weeks[weekIdx]! += num(d.cost_cents);
-        }
-      }
-    } else {
-      // Distribute the report's total across the week bucket containing
-      // its period_end so we still get a sparkline shape.
-      const date = r.period_end;
+    if (!Array.isArray(breakdown)) continue;
+    for (const d of breakdown) {
+      if (!d?.date) continue;
+      const cost = reportedNum(d.cost_cents);
+      if (cost === null) continue;
+      const date = new Date(d.date + "T00:00:00Z");
+      if (Number.isNaN(date.getTime())) continue;
       const diffDays = Math.floor((today.getTime() - date.getTime()) / 86_400_000);
+      if (diffDays < 0 || diffDays >= 12 * 7) continue;
       const weekIdx = 11 - Math.floor(diffDays / 7);
-      if (weekIdx >= 0 && weekIdx < 12) {
-        weeks[weekIdx]! += cost;
-      }
+      if (weekIdx < 0 || weekIdx >= 12) continue;
+      weeks[weekIdx]! += cost;
+      sawDailyRow = true;
     }
   }
-  return weeks;
+
+  return sawDailyRow ? weeks : null;
+}
+
+/**
+ * Quote requests this platform actually captured, restricted to the calculators
+ * the authenticated client owns. The owned-id set IS the tenant boundary: an
+ * empty set short-circuits, it never widens into an unscoped query.
+ */
+async function measureAdAttributedLeads(
+  clientId: number,
+): Promise<MeasuredFigures> {
+  const [client] = await db
+    .select({ user_id: clients.user_id })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  if (!client?.user_id) return EMPTY_MEASURED;
+
+  const calcs = await db
+    .select({ id: calculators.id })
+    .from(calculators)
+    .where(eq(calculators.user_id, client.user_id));
+
+  const calcIds = calcs.map((c) => c.id);
+  if (calcIds.length === 0) return EMPTY_MEASURED;
+
+  const since = new Date(Date.now() - MEASURED_WINDOW_DAYS * 86_400_000);
+  const rows = await db
+    .select({ utm_medium: leads.utm_medium })
+    .from(leads)
+    .where(
+      and(inArray(leads.calculator_id, calcIds), gte(leads.created_date, since)),
+    );
+
+  let fromAds = 0;
+  for (const row of rows) {
+    if (isPaidAdMedium(row.utm_medium)) fromAds += 1;
+  }
+
+  return {
+    supported: true,
+    windowDays: MEASURED_WINDOW_DAYS,
+    quoteRequestsFromAds: fromAds,
+    quoteRequestsTotal: rows.length,
+  };
 }
 
 export async function computeAdflowDashboardKpis(
   clientId: number,
 ): Promise<Omit<DashboardResponse, "previewMode">> {
-  // Find an active AdFlow service for this client.
   const [svc] = await db
     .select({ cs_id: clientServices.id })
     .from(clientServices)
@@ -157,22 +282,20 @@ export async function computeAdflowDashboardKpis(
 
   if (!svc?.cs_id) {
     return {
-      kpis: EMPTY_RESPONSE.kpis,
-      funnel: EMPTY_RESPONSE.funnel,
-      spendTrend12w: EMPTY_RESPONSE.spendTrend12w,
       hasAdflowService: false,
+      reported: EMPTY_REPORTED,
+      measured: EMPTY_MEASURED,
     };
   }
+
+  const measured = await measureAdAttributedLeads(clientId);
 
   const now = new Date();
   const ninetyAgo = new Date(now.getTime() - 90 * 86_400_000);
 
-  // Pull all AdFlow reports within the last 90 days for the matched
-  // client_service. The cron writes one report per period (typically
-  // monthly), so two periods give us this-month vs last-month deltas.
   const rows = await db
     .select({
-      period_start: adflowReports.period_start,
+      period_label: adflowReports.period_label,
       period_end: adflowReports.period_end,
       metrics: adflowReports.metrics,
     })
@@ -186,83 +309,51 @@ export async function computeAdflowDashboardKpis(
     .orderBy(desc(adflowReports.period_end))
     .limit(12);
 
-  const thirtyAgo = new Date(now.getTime() - 30 * 86_400_000);
-  const sixtyAgo = new Date(now.getTime() - 60 * 86_400_000);
-
-  const reportsTyped: RawReport[] = rows.map((r) => ({
-    period_start: r.period_start,
+  const typed = rows.map((r) => ({
+    period_label: r.period_label,
     period_end: r.period_end,
     metrics: (r.metrics ?? {}) as Record<string, unknown>,
   }));
 
-  const inWindow = (start: Date, end: Date) =>
-    reportsTyped.filter((r) => r.period_end >= start && r.period_end < end);
+  if (typed.length === 0) {
+    return {
+      hasAdflowService: true,
+      reported: EMPTY_REPORTED,
+      measured,
+    };
+  }
 
-  const thisMo = inWindow(thirtyAgo, new Date(now.getTime() + 86_400_000));
-  const lastMo = inWindow(sixtyAgo, thirtyAgo);
+  // The latest report IS the current period. No blending across periods, no
+  // filling a missing month from its neighbours.
+  const latest = typed[0]!;
+  const prior = typed[1] ?? null;
+  const m = latest.metrics;
 
-  const sumKey = (rs: RawReport[], key: string) =>
-    rs.reduce((sum, r) => sum + num((r.metrics as any)?.[key]), 0);
+  const adSpendCents = reportedNum(m.cost_spent_cents);
+  const leadsReported = reportedNum(m.leads_generated);
+  const costPerLeadCents =
+    adSpendCents !== null && leadsReported !== null && leadsReported > 0
+      ? Math.round(adSpendCents / leadsReported)
+      : null;
 
-  const spendThisMo = sumKey(thisMo, "cost_spent_cents");
-  const spendLastMo = sumKey(lastMo, "cost_spent_cents");
-  const bookedThisMo = sumKey(thisMo, "leads_generated");
-  const bookedLastMo = sumKey(lastMo, "leads_generated");
-  const reachThisMo = sumKey(thisMo, "impressions");
-
-  // Revenue earned: estimate as bookings × industry avg ticket if not
-  // stored. Reports can carry `revenue_earned_cents` directly when wired.
-  const revenueEarned = thisMo.reduce(
-    (sum, r) => sum + num((r.metrics as any)?.revenue_earned_cents),
-    0,
-  );
-  // Estimated revenue floor if reports don't carry it yet — bookings × $250.
-  const revenueWithFallback =
-    revenueEarned > 0 ? revenueEarned : bookedThisMo * 25_000;
-
-  const costPerBooking =
-    bookedThisMo > 0 ? Math.round(spendThisMo / bookedThisMo) : 0;
-
-  const funnel = {
-    moneySpent: spendThisMo,
-    customersReached: reachThisMo,
-    jobsBooked: bookedThisMo,
-    revenueEarned: revenueWithFallback,
-    conversionRates: {
-      // % of money that turned into reach impressions (informational only,
-      // capped at 100 for sane display).
-      spendToReach: 100,
-      // % of reach that became bookings.
-      reachToBook:
-        reachThisMo > 0
-          ? Math.min(100, Math.round((bookedThisMo / reachThisMo) * 10_000) / 100)
-          : 0,
-      // % of bookings that converted to closed revenue (assumed 100% when
-      // revenue_earned_cents is populated; estimated 100% with fallback).
-      bookToRevenue: bookedThisMo > 0 ? 100 : 0,
-    },
+  const reported: ReportedFigures = {
+    hasData: true,
+    periodLabel: latest.period_label ?? null,
+    enteredAt: reportedStr(m.entered_at),
+    enteredBy: reportedStr(m.entered_by_name),
+    adSpendCents,
+    impressions: reportedNum(m.impressions),
+    clicks: reportedNum(m.clicks),
+    leads: leadsReported,
+    costPerLeadCents,
+    revenueCents: reportedNum(m.revenue_earned_cents),
+    priorPeriodLabel: prior?.period_label ?? null,
+    priorAdSpendCents: prior ? reportedNum(prior.metrics.cost_spent_cents) : null,
+    priorLeads: prior ? reportedNum(prior.metrics.leads_generated) : null,
+    spendTrend12w: buildSpendTrend(typed),
   };
 
-  return {
-    kpis: {
-      moneySpent: {
-        thisMonth: spendThisMo,
-        lastMonth: spendLastMo,
-        deltaPct: safeDeltaPct(spendThisMo, spendLastMo),
-      },
-      jobsBooked: {
-        thisMonth: bookedThisMo,
-        lastMonth: bookedLastMo,
-        deltaPct: safeDeltaPct(bookedThisMo, bookedLastMo),
-      },
-      revenueEarned: revenueWithFallback,
-      customersReached: reachThisMo,
-      costPerBooking,
-    },
-    funnel,
-    spendTrend12w: buildSpendTrend(reportsTyped),
-    hasAdflowService: true,
-  };
+  return { hasAdflowService: true, reported, measured };
 }
 
 export function registerPortalAdflowDashboardKpisRoutes(app: Express) {
