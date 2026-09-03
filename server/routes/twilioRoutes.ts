@@ -146,11 +146,25 @@ export function registerTwilioRoutes(app: Express): void {
           let brand = "WeFixTrades";
           let supportEmail = "support@wefixtrades.com";
           let supportPhone: string | null = null;
+          /* Resolved once, used twice: it decides whose brand answers HELP AND
+           * it is the only thing that says which tenant the row we are about to
+           * write belongs to. Hoisted out of the branding block below, and
+           * resolved in a try of its own, because a failure of the BRANDING
+           * query must not silently cost us the ATTRIBUTION — an unattributed
+           * row holds the sender's phone number and body where the owning
+           * account's deletion can never find it. */
+          let scopeClientId: number | null = null;
           try {
-            const scopeClientId = to
+            scopeClientId = to
               ? await getClientIdByAssignedNumber(to.replace(/^whatsapp:/i, ""))
               : null;
-            if (scopeClientId != null) {
+          } catch (err: any) {
+            log.warn("[Twilio] HELP keyword — tenant number lookup failed", {
+              error: err?.message,
+            });
+          }
+          if (scopeClientId != null) {
+            try {
               const { db } = await import("../db");
               const { clients } = await import("@shared/schema");
               const { eq } = await import("drizzle-orm");
@@ -166,20 +180,25 @@ export function registerTwilioRoutes(app: Express): void {
               if (c?.business_name) brand = c.business_name;
               if (c?.contact_email) supportEmail = c.contact_email;
               if (c?.contact_phone) supportPhone = c.contact_phone;
+            } catch (err: any) {
+              log.warn("[Twilio] HELP keyword — per-tenant branding lookup failed", {
+                error: err?.message,
+              });
             }
-          } catch (err: any) {
-            log.warn("[Twilio] HELP keyword — per-tenant branding lookup failed", {
-              error: err?.message,
-            });
           }
           // Log the inbound for the audit trail (best-effort; never block
           // the 200 OK to Twilio on a write failure). lead_id /
-          // calculator_id may be null when the HELP message arrives on the
-          // shared brand line with no matching lead.
+          // calculator_id are null on a keyword text — there is no lead and no
+          // calculator involved — so `scope_client_id` is the ONLY thing that
+          // makes this row reachable by the owning account's deletion. It is
+          // null only when the message really did arrive on the shared
+          // WeFixTrades brand line, where the sender is a member of the public
+          // and no tenant owns the row; RETENTION_SWEEPS bounds those.
           try {
             await storeSmsMessage({
               lead_id: null,
               calculator_id: null,
+              scope_client_id: scopeClientId,
               direction: "inbound",
               channel,
               body,

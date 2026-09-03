@@ -92,6 +92,12 @@ export const SENTINELS: SentinelProbe[] = [
   { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_directory_tasks", column: null },
   { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_submissions", column: "progress_email_sent_at" },
   { ledgerFile: "0099_citation_builder_fulfilment.sql", table: "citation_builder_submissions", column: "completion_email_sent_at" },
+  // 0101 — the column that makes an inbound HELP text attributable to the
+  // tenant it arrived for. Deploy-critical in the quiet direction: the inbound
+  // webhook writes it on every keyword text, and a publish-trap drop would both
+  // 500 the handler and silently return the table to holding phone numbers no
+  // account deletion can reach.
+  { ledgerFile: "0101_sms_messages_client_attribution.sql", table: "sms_messages", column: "scope_client_id" },
 ];
 
 /** Minimal query surface — satisfied by a pg PoolClient and by test fakes. */

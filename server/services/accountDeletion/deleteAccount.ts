@@ -577,6 +577,17 @@ function redactionPredicate(entry: MetadataRedaction, ctx: ScopeContext): SQL | 
   return parts.length === 0 ? null : sql.join(parts, sql` OR `);
 }
 
+/**
+ * A JSON path as a SQL text array, for `#>>`.
+ *
+ * Built with `sql.raw` because a path is a CODE CONSTANT out of the plan, never
+ * anything a request supplies — the same rule the identifiers follow. Quotes are
+ * doubled anyway so a key containing one cannot terminate the literal.
+ */
+function jsonPathArray(path: string[]): SQL {
+  return sql`${sql.raw(`ARRAY[${path.map((p) => `'${p.replace(/'/g, "''")}'`).join(", ")}]`)}`;
+}
+
 function redactionMatchPredicate(match: RedactionMatch, ctx: ScopeContext): SQL | null {
   switch (match.by) {
     case "user": {
@@ -591,11 +602,32 @@ function redactionMatchPredicate(match: RedactionMatch, ctx: ScopeContext): SQL 
        * id stored as a JSON number and one stored as a JSON string compare
        * alike. Both shapes are in the data — the callers are hand-written
        * object literals, not a schema. */
-      const path = sql`${sql.raw(`ARRAY[${match.path.map((p) => `'${p.replace(/'/g, "''")}'`).join(", ")}]`)}`;
-      return sql`${sql.identifier(match.column)} #>> ${path} IN (${sql.join(
+      return sql`${sql.identifier(match.column)} #>> ${jsonPathArray(match.path)} IN (${sql.join(
         ctx.clientIds.map((id) => sql`${String(id)}`),
         sql`, `,
       )})`;
+    }
+    case "userJson": {
+      // Same text comparison as `clientJson`, and for the same reason: the id
+      // is written by a hand-written object literal that may make it a JSON
+      // number or a JSON string.
+      return sql`${sql.identifier(match.column)} #>> ${jsonPathArray(match.path)} = ${String(ctx.userId)}`;
+    }
+    case "parentJson": {
+      const parent = planFor(match.parent);
+      // The coverage guard proves the parent is in the plan, so a miss here is
+      // a programming error rather than a runtime condition.
+      if (!parent) throw new Error(`redaction references unknown parent table ${match.parent}`);
+      const parentPredicate = predicateFor(parent.scope, ctx);
+      // Nothing of this account's in the parent — so nothing here belongs to
+      // them either. Skipped, never widened.
+      if (!parentPredicate) return null;
+      /* `::text` on the parent key because `#>>` yields text on the left. An
+       * `IN` across the two types would raise rather than silently mismatch,
+       * but raising inside the deletion transaction rolls back the whole
+       * erasure, so the cast is the safe form. */
+      const sub = sql`SELECT ${sql.identifier(match.parentKey)}::text FROM ${sql.identifier(match.parent)} WHERE ${parentPredicate}`;
+      return sql`${sql.identifier(match.column)} #>> ${jsonPathArray(match.path)} IN (${sub})`;
     }
     case "entity": {
       const ids = match.ids === "user" ? [ctx.userId] : ctx.clientIds;
@@ -610,7 +642,24 @@ function redactionMatchPredicate(match: RedactionMatch, ctx: ScopeContext): SQL 
   }
 }
 
-const PII_KEY_SET = new Set(PII_METADATA_KEYS.map((k) => k.toLowerCase()));
+/**
+ * Fold a key name to the form the PII list is compared on: lower-case, with
+ * word separators removed.
+ *
+ * The separator strip is what makes `businessName` and `business_name` the same
+ * key. It matters because the blobs are hand-written object literals with no
+ * schema to keep them consistent, and the callers genuinely disagree:
+ * `services/reputation/reputationAlerts.ts` writes `clientId` where
+ * `services/sitelaunchPaidOrderNotify.ts` writes `client_id`, and the same split
+ * runs through the PII-bearing keys beside them. Matching only the snake_case
+ * spelling left every camelCase caller's business name and phone number in
+ * place — a scrub that reads as complete and is not.
+ */
+function foldKey(key: string): string {
+  return key.toLowerCase().replace(/[_-]/g, "");
+}
+
+const PII_KEY_SET = new Set(PII_METADATA_KEYS.map(foldKey));
 
 /**
  * Replace every PII-named key anywhere inside a JSON value with the tombstone.
@@ -640,7 +689,7 @@ export function redactJson(value: unknown): { value: unknown; changed: boolean }
     let changed = false;
     const out: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-      if (PII_KEY_SET.has(key.toLowerCase())) {
+      if (PII_KEY_SET.has(foldKey(key))) {
         if (item === null || item === undefined || item === REDACTION_TOMBSTONE) {
           out[key] = item;
         } else {
@@ -702,7 +751,22 @@ async function redactTable(
   let after: string | null = null;
 
   for (;;) {
-    const page: SQL = after === null ? sql`` : sql` AND id > ${after}::bigint`;
+    /* Keyset pagination, deliberately WITHOUT a type cast on the cursor.
+     *
+     * This used to read `id > ${after}::bigint`, which was safe only while
+     * every scrubbed table had an integer primary key. `admin_ai_actions.id` is
+     * `text` holding a `crypto.randomUUID()`, so the cast would raise
+     * `invalid input syntax for type bigint` on the SECOND page — and because
+     * this runs inside the deletion transaction, that aborts the customer's
+     * entire erasure. Latent rather than obvious: it needs more than 500
+     * matching rows on one account to fire at all.
+     *
+     * Untyped, Postgres resolves the parameter against the column it is
+     * compared to, so the same statement works for an integer id and for a text
+     * one. `ORDER BY id` then agrees with `>` in both cases — numerically for
+     * integers, lexicographically for text — which is all keyset pagination
+     * needs to be stable. */
+    const page: SQL = after === null ? sql`` : sql` AND id > ${after}`;
     const result = await tx.execute(
       sql`SELECT ${selection} FROM ${sql.identifier(entry.table)} WHERE (${predicate})${page} ORDER BY id LIMIT 500`,
     );
@@ -883,10 +947,51 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
      *    Compared as TEXT, not `::int`. `->>` already yields text, so this is
      *    exactly as precise — and a single malformed session blob would make
      *    the cast raise and roll back the entire deletion, which is a far worse
-     *    failure than skipping one stale row. */
-    const sessionResult = await t.execute(sql`
-      DELETE FROM session WHERE sess->'passport'->>'user' = ${String(userId)}
-    `);
+     *    failure than skipping one stale row.
+     *
+     *    A SWEEP, DELIBERATELY, NOT A SCHEMA CHANGE. `session` is
+     *    express-session's own table; connect-pg-simple creates it, writes it
+     *    and reads it back, and the schema declaration says in as many words not
+     *    to touch its columns. Adding an owner column would mean either teaching
+     *    the store to populate it (it has no hook that could) or backfilling one
+     *    it would never maintain — and getting the blob's shape wrong logs every
+     *    user on the platform out. Widening the predicate reaches the same rows
+     *    and cannot break decoding.
+     *
+     *    ── The three shapes, and why one predicate was not enough ──
+     *
+     *    `sess.passport.user` only exists once a login has FULLY completed.
+     *    Two half-finished sessions carry personal data without it, and both
+     *    survived a deletion that reported every session revoked:
+     *      • `pending2faUserId` — password accepted, TOTP not yet entered
+     *        (`routes/authRoutes.ts`). It names this user, and a session row is
+     *        a live credential: leaving it means the account's own 2FA step is
+     *        still resumable after the account is gone.
+     *      • `pendingGoogleSignup` — `{ email, name, ts }`, stashed while the
+     *        visitor finishes the business-name step of an OAuth signup. No user
+     *        id exists yet, so it is reachable only by the address itself. That
+     *        address is the one `ANONYMISE_FIELDS` overwrites on the `users`
+     *        row, kept verbatim in a row nothing touched.
+     *    `userSettings` (business name, contact email) needs no branch of its
+     *    own — it is only ever written on an authenticated session, which the
+     *    first branch already matches.
+     *
+     *    OR'd rather than run as three statements so the whole revocation is
+     *    one round trip and one row count. The email branch is DROPPED when the
+     *    account has no address rather than compared against NULL, which would
+     *    match nothing anyway but reads as though it might. */
+    const sessionMatches: SQL[] = [
+      sql`sess->'passport'->>'user' = ${String(userId)}`,
+      sql`sess->>'pending2faUserId' = ${String(userId)}`,
+    ];
+    if (user.email) {
+      sessionMatches.push(
+        sql`lower(sess->'pendingGoogleSignup'->>'email') = ${user.email.toLowerCase()}`,
+      );
+    }
+    const sessionResult = await t.execute(
+      sql`DELETE FROM session WHERE ${sql.join(sessionMatches, sql` OR `)}`,
+    );
     const sessionsRevoked = sessionResult.rowCount ?? 0;
 
     /* 2. Owned rows, children before parents. The order comes from the live
@@ -1031,16 +1136,29 @@ export async function deleteAccountData(userId: number): Promise<DeletionReceipt
 }
 
 /**
- * The exact DELETE statements this plan would run, as SQL text. Used by the
- * regression test to prove every statement is tenant-scoped without needing a
- * live database.
+ * One previewed statement: the SQL text, and the values it binds.
+ *
+ * `params` is what makes the scoping provable rather than merely plausible. The
+ * text can be inspected for a missing WHERE, but only the bound values can show
+ * that the predicate contains THIS account's ids and no others — which is the
+ * property that stops a deletion reaching another tenant's rows.
+ */
+export interface PreviewedStatement {
+  table: string;
+  sql: string;
+  params: unknown[];
+}
+
+/**
+ * The exact DELETE statements this plan would run. Used by the regression test
+ * to prove every statement is tenant-scoped without needing a live database.
  */
 export function previewStatements(ctx: {
   userId: number;
   clientIds: number[];
   email: string | null;
-}): { table: string; sql: string }[] {
-  const out: { table: string; sql: string }[] = [];
+}): PreviewedStatement[] {
+  const out: PreviewedStatement[] = [];
   for (const table of deletionOrder(FK_EDGES)) {
     const entry = planFor(table);
     if (!entry || entry.action !== "delete") continue;
@@ -1049,9 +1167,35 @@ export function previewStatements(ctx: {
     const query = new PgDialect().sqlToQuery(
       sql`DELETE FROM ${sql.identifier(table)} WHERE ${predicate}`,
     );
-    out.push({ table, sql: query.sql });
+    out.push({ table, sql: query.sql, params: query.params });
   }
   return out;
+}
+
+/**
+ * The session-revocation statement, which is the one predicate the plan does
+ * not generate — `session` is express-session's table and is handled inline.
+ *
+ * Exported for the same reason as the two previews around it: the sweep reaches
+ * rows by digging into a JSON blob, and "does it find the half-finished logins,
+ * and only this account's" is exactly the question a test has to be able to ask
+ * without a database.
+ */
+export function previewSessionRevocation(ctx: {
+  userId: number;
+  email: string | null;
+}): PreviewedStatement {
+  const matches: SQL[] = [
+    sql`sess->'passport'->>'user' = ${String(ctx.userId)}`,
+    sql`sess->>'pending2faUserId' = ${String(ctx.userId)}`,
+  ];
+  if (ctx.email) {
+    matches.push(sql`lower(sess->'pendingGoogleSignup'->>'email') = ${ctx.email.toLowerCase()}`);
+  }
+  const query = new PgDialect().sqlToQuery(
+    sql`DELETE FROM session WHERE ${sql.join(matches, sql` OR `)}`,
+  );
+  return { table: "session", sql: query.sql, params: query.params };
 }
 
 /**
@@ -1065,17 +1209,15 @@ export function previewRedactions(ctx: {
   userId: number;
   clientIds: number[];
   email: string | null;
-}): { table: string; sql: string }[] {
-  const out: { table: string; sql: string }[] = [];
+}): PreviewedStatement[] {
+  const out: PreviewedStatement[] = [];
   for (const entry of METADATA_REDACTIONS) {
     const predicate = redactionPredicate(entry, ctx);
     if (!predicate) continue;
-    out.push({
-      table: entry.table,
-      sql: new PgDialect().sqlToQuery(
-        sql`SELECT id FROM ${sql.identifier(entry.table)} WHERE ${predicate}`,
-      ).sql,
-    });
+    const query = new PgDialect().sqlToQuery(
+      sql`SELECT id FROM ${sql.identifier(entry.table)} WHERE ${predicate}`,
+    );
+    out.push({ table: entry.table, sql: query.sql, params: query.params });
   }
   return out;
 }
