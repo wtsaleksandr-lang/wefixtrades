@@ -52,6 +52,7 @@ import {
   ANONYMISE_FIELDS,
   METADATA_REDACTIONS,
   PII_METADATA_KEYS,
+  RETENTION_SWEEPS,
   STORED_OBJECTS,
   deletedTables,
   deletionOrder,
@@ -83,7 +84,15 @@ const NOT_CUSTOMER_DATA: Record<string, string> = {
   alert_actions_log: "admin actor id, not customer-owned",
   ai_budget_audit_log: "admin actor id, not customer-owned",
   ai_budget_config: "admin actor id, not customer-owned",
-  admin_ai_actions: "admin reviewer id, not customer-owned",
+  /* `reviewed_by` is the STAFF member who approved or rejected a proposal, so
+   * this table is correctly outside the owner-column sweep. That is not the
+   * same as holding no customer data: `detail` carries the account holder's own
+   * login address, a lead's email address and an IP, which is why the table has
+   * a METADATA_REDACTIONS entry. The exemption is about the COLUMN, not the
+   * blob — check 10 and check 11 cover the blob. */
+  admin_ai_actions:
+    "admin reviewer id, not customer-owned; the customer data in `detail` is " +
+    "reached by METADATA_REDACTIONS instead",
   brand_availability: "admin actor id, not customer-owned",
   product_drafts: "admin authoring workflow, not customer-owned",
   review_response_edits: "admin editor id on a review we already delete",
@@ -614,6 +623,109 @@ for (const entry of METADATA_REDACTIONS) {
         );
       }
     }
+    /* A `parentJson` branch resolves its scope by looking the parent up in the
+     * plan, so a parent that is not there throws at deletion time — inside the
+     * transaction, aborting the customer's erasure. Caught here instead. */
+    if (match.by === "parentJson") {
+      const parent = meta.get(match.parent);
+      if (!parent) {
+        fail(
+          "REDACTION",
+          `${entry.table}.${match.column} is attributed through unknown parent table ` +
+            `${match.parent}.`,
+        );
+      } else if (!parent.columns.has(match.parentKey)) {
+        fail(
+          "REDACTION",
+          `${entry.table}.${match.column} is attributed through ${match.parent}.` +
+            `${match.parentKey}, which does not exist.`,
+        );
+      }
+      if (!planned.has(match.parent)) {
+        fail(
+          "REDACTION",
+          `${entry.table}.${match.column} is attributed through ${match.parent}, which has no ` +
+            `entry in ACCOUNT_DELETION_PLAN — there is no scope to resolve, so the branch ` +
+            `would throw inside the deletion transaction and abort the erasure.`,
+        );
+      }
+    }
+    /* A path that names no key reads as the whole column, which for a jsonb
+     * blob is never an id and so matches nothing — a branch that looks like
+     * attribution and provides none. */
+    if ((match.by === "clientJson" || match.by === "userJson" || match.by === "parentJson") &&
+        match.path.length === 0) {
+      fail(
+        "REDACTION",
+        `${entry.table}.${match.column} declares a JSON match with an empty path, so it would ` +
+          `never resolve an id and the branch attributes nothing.`,
+      );
+    }
+  }
+}
+
+/* ── 10b. RETENTION ─────────────────────────────────────────────────────── */
+/**
+ * The sweeps that bound the personal data no deletion can reach.
+ *
+ * Two failure directions, and the second is the dangerous one:
+ *   • A sweep that names a table or column that does not exist runs forever
+ *     without deleting anything, and the data it was declared to bound goes on
+ *     accumulating behind a policy that reads as though it is enforced.
+ *   • A sweep with no `unattributedWhen` on a table the deletion path CAN reach
+ *     would age out a customer's rows on a timer rather than on their request —
+ *     erasing data early and silently, which is worse than the leak it fixes.
+ */
+for (const entry of RETENTION_SWEEPS) {
+  const m = meta.get(entry.table);
+  if (!m) {
+    fail("RETENTION", `${entry.table} is declared in RETENTION_SWEEPS but no such table exists`);
+    continue;
+  }
+  if (!m.columns.has(entry.ageColumn)) {
+    fail(
+      "RETENTION",
+      `${entry.table}.${entry.ageColumn} is the sweep's age column but does not exist, so the ` +
+        `sweep would throw and the data would stay forever.`,
+    );
+  }
+  if (!entry.reason || entry.reason.trim().length < 30) {
+    fail(
+      "RETENTION",
+      `${entry.table} is swept on a timer without a stated reason. Keeping — and then ` +
+        `destroying — personal data no customer can ask about needs the same written ` +
+        `justification a \`keep\` does.`,
+    );
+  }
+  if (!Number.isInteger(entry.days) || entry.days <= 0) {
+    fail("RETENTION", `${entry.table} declares a non-positive retention window (${entry.days}).`);
+  }
+  for (const probe of entry.unattributedWhen ?? []) {
+    if (!m.columns.has(probe.column)) {
+      fail(
+        "RETENTION",
+        `${entry.table}.${probe.column} is an attribution probe but does not exist. A missing ` +
+          `probe column would make the sweep raise, or — worse, if it were ever relaxed — ` +
+          `widen it onto rows a deletion could have reached.`,
+      );
+    }
+  }
+  const reachable = planFor(entry.table) !== undefined || redactionFor(entry.table) !== undefined;
+  if (reachable && (entry.unattributedWhen ?? []).length === 0) {
+    fail(
+      "RETENTION",
+      `${entry.table} is swept unconditionally, but an account deletion can reach rows in it. ` +
+        `The sweep would destroy a customer's data on a timer instead of on their request. ` +
+        `Narrow it with \`unattributedWhen\` so it only takes rows that name nobody.`,
+    );
+  }
+  if (!reachable && (entry.unattributedWhen ?? []).length > 0) {
+    fail(
+      "RETENTION",
+      `${entry.table} narrows its sweep with \`unattributedWhen\`, but no plan entry and no ` +
+        `redaction entry claims the table, so every row in it is already unattributable. ` +
+        `Either the narrowing is dead weight or the table is missing its plan entry.`,
+    );
   }
 }
 
@@ -654,6 +766,15 @@ const NOT_METADATA_PII: Record<string, string> = {
   template_name: "Template identifier, not content.",
   action_name: "Action identifier.",
   event_name: "Event identifier.",
+  job_name:
+    "Cron/worker identifier ('review_monitor'), written by the worker_failed " +
+    "alert in server/jobs/scheduler.ts. Our own scheduler's name for a job, not " +
+    "a person's name.",
+  hasText:
+    "A BOOLEAN — `!!normalized.reviewText` in server/jobs/reviewMonitorWorker.ts, " +
+    "recording only WHETHER the review had a body. The body itself is never " +
+    "written to the blob, and the reviewer's name beside it (`reviewer`) IS in " +
+    "PII_METADATA_KEYS and is scrubbed.",
   field_name: "Schema field identifier.",
   provider_name: "Third-party provider identifier (Stripe, Twilio, Vapi).",
   supplier_name:
@@ -693,15 +814,51 @@ function balancedEnd(src: string, from: number, open: string, close: string): nu
 
 /**
  * Which redaction entry receives a given writer's blob. Hard-wired because the
- * mapping is a fact about two helpers, not a pattern to infer: `writeAudit`
- * writes `audit_log`, `logAdminActivity` writes `admin_activity_log`.
+ * mapping is a fact about a few named helpers, not a pattern to infer:
+ * `writeAudit` writes `audit_log`, `logAdminActivity` writes
+ * `admin_activity_log`, `fireAlert` writes `system_alerts`.
+ *
+ * `fireAlert` is here because it is the same shape of hole: 30-odd call sites
+ * across crons, workers and routes each hand it a hand-written `metadata`
+ * object literal with no schema, and several put the customer's business name
+ * and contact details in it. Until the redaction entry existed there was
+ * nothing to scrub them out of; now that there is, this is what stops the next
+ * caller quietly adding a key it does not cover.
  */
 const AUDIT_WRITERS: Record<string, string> = {
   writeAudit: "audit_log",
   logAdminActivity: "admin_activity_log",
+  fireAlert: "system_alerts",
 };
 
-const redactedKeys = new Set(PII_METADATA_KEYS.map((k) => k.toLowerCase()));
+/**
+ * Fold a key to the form the scrub compares on — lower-case, separators
+ * stripped. Must stay in step with `foldKey` in
+ * `server/services/accountDeletion/deleteAccount.ts`: if this guard decided a
+ * key was covered on a different rule than the scrub actually uses, it would
+ * pass a key the scrub then walks straight past.
+ */
+function foldKey(key: string): string {
+  return key.toLowerCase().replace(/[_-]/g, "");
+}
+
+/**
+ * Does this key LOOK like personal data?
+ *
+ * `PII_SHAPED_KEY` is anchored on `_` separators, so it sees `business_name`
+ * and walks past `businessName` — and the callers write both spellings of the
+ * same field (`services/reputation/reputationAlerts.ts` vs
+ * `services/sitelaunchPaidOrderNotify.ts`). Testing the camelCase name with its
+ * word boundaries restored as underscores makes the net spelling-agnostic,
+ * which is what the scrub itself now is.
+ */
+function looksLikePii(name: string): boolean {
+  const snake = name.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+  return PII_SHAPED_KEY.test(name) || PII_SHAPED_KEY.test(snake);
+}
+
+const redactedKeys = new Set(PII_METADATA_KEYS.map(foldKey));
+const notPiiKeys = new Set(Object.keys(NOT_METADATA_PII).map(foldKey));
 const WRITER_CALL = new RegExp(`\\b(${Object.keys(AUDIT_WRITERS).join("|")})\\s*\\(`, "g");
 const OBJECT_KEY = /(^|[\s{,])([A-Za-z_][A-Za-z0-9_]*)\s*:/g;
 /** A key whose VALUE is a Twilio SID — the pointer that must survive the scrub. */
@@ -759,9 +916,10 @@ for (const file of sourceFiles("server")) {
           continue;
         }
 
-        if (!PII_SHAPED_KEY.test(name)) continue;
-        if (redactedKeys.has(name.toLowerCase())) continue;
+        if (!looksLikePii(name)) continue;
+        if (redactedKeys.has(foldKey(name))) continue;
         if (NOT_METADATA_PII[name] || NOT_METADATA_PII[`${file}:${name}`]) continue;
+        if (notPiiKeys.has(foldKey(name))) continue;
 
         if (!entry) {
           fail(
@@ -796,7 +954,7 @@ for (const file of sourceFiles("server")) {
 // An entry in PII_METADATA_KEYS that the net would never catch is dead weight —
 // it protects nothing and reads as though it does.
 for (const key of PII_METADATA_KEYS) {
-  if (!PII_SHAPED_KEY.test(key)) {
+  if (!looksLikePii(key)) {
     fail(
       "METADATA PII COVERAGE",
       `PII_METADATA_KEYS lists "${key}", which PII_SHAPED_KEY would never flag. Either widen ` +
@@ -825,7 +983,7 @@ if (failures.length === 0) {
       `${Object.keys(NO_TWILIO_ARTEFACTS).length} Twilio-shaped column(s) exempted with a reason; ` +
       `${METADATA_REDACTIONS.length} table(s) retained-and-scrubbed across ` +
       `${PII_METADATA_KEYS.length} PII key names, ${blobKeysScanned} blob key(s) scanned at ` +
-      `audit call sites)`,
+      `audit call sites; ${RETENTION_SWEEPS.length} table(s) bounded by a retention sweep)`,
   );
   process.exit(0);
 }

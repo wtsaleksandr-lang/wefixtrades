@@ -455,6 +455,56 @@ const DELETE_VIA_PARENT: Array<
   ["widget_deposits", ["calculator_id"], "calculators", "id"],
 ];
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Owned by the account's EMAIL ADDRESS, not by a foreign key.
+ *
+ * These are the pre-account funnels: somebody typed their email into the free
+ * SEO audit or the marketing chat widget, and only later (sometimes) signed up.
+ * The row was written before a `users.id` existed, so it never got one — which
+ * is exactly why the coverage guard could not see any of these tables. They
+ * carry an email address, a phone number, a name and, in two cases, the full
+ * text of the marketing emails we sent to that address.
+ *
+ * Matched case-insensitively against `users.email`, which is the address the
+ * account is keyed on. An account whose email was never used on a funnel form
+ * matches nothing here, and a scope that resolves to no email is SKIPPED
+ * rather than widened — the same rule everywhere else follows.
+ *
+ * `by: "email"` is a weaker attribution than a foreign key and it is worth
+ * saying why it is strong enough HERE: `users.email` is UNIQUE, so at most one
+ * live account can claim any address, and the funnel rows are the record of
+ * somebody handing us that same address. There is no third party whose data
+ * could be caught by it.
+ * ──────────────────────────────────────────────────────────────────────── */
+const DELETE_BY_EMAIL: Array<[table: string, column: string]> = [
+  /**
+   * The free SEO audit lead capture: email (NOT NULL), phone, name, business
+   * name, and `report_json` — a full copy of the audit we generated for them.
+   * The top of the funnel that feeds the two tables below.
+   */
+  ["audit_submissions", "email"],
+  /**
+   * The scheduled follow-up sequence. `payload` holds `{ subject, body }` — the
+   * VERBATIM TEXT of every marketing email queued to this person, addressed by
+   * name — beside their email address and business name in typed columns.
+   * Rows survive long after the send (`status`, `processed_at`), so this is not
+   * a queue that empties itself.
+   */
+  ["audit_followup_emails", "email"],
+  /**
+   * The "Chat with us" widget transcript. `messages_json` is the whole
+   * conversation, both sides, verbatim; `lead_email` / `lead_name` /
+   * `lead_phone` are captured opportunistically when the assistant asks and the
+   * visitor answers, and `user_agent` sits beside them.
+   *
+   * Only the sessions where the visitor DID give an address are reachable — a
+   * transcript with `lead_email IS NULL` is attributable to nobody (the
+   * `session_id` is a uuid the browser minted, and we deliberately never tie it
+   * to an auth session). Those are bounded by RETENTION_SWEEPS instead.
+   */
+  ["marketing_chat_sessions", "lead_email"],
+];
+
 /**
  * Deleted, but reachable by more than one route. Kept out of the lists above
  * because a single (table, column, parent) tuple cannot express them.
@@ -478,13 +528,31 @@ const DELETE_ANY_OF: TablePlan[] = [
      * a calculator this user owns; the two branches agree on who a row belongs
      * to and only differ in how they get there.
      *
-     * Still not reachable, and not this mechanism's to reach: the inbound
-     * HELP/STOP handler (`routes/twilioRoutes.ts`) stores `lead_id: null,
-     * calculator_id: null` for a keyword text arriving on the shared
-     * WeFixTrades brand line. Those rows are attributable to no account at all
-     * — the number on them belongs to whoever texted us, not to any customer —
-     * so no customer's deletion request has a claim on them. They are the
-     * platform's own inbound log and are governed by the retention sweep.
+     * ── The third branch, and the claim that was not true ──
+     *
+     * The inbound HELP handler (`routes/twilioRoutes.ts`) stored
+     * `lead_id: null, calculator_id: null` on every keyword text, and this entry
+     * used to explain that away: the rows were "attributable to no account at
+     * all" and "governed by the retention sweep". Both halves were wrong.
+     *
+     * They were not all unattributable. The handler ALREADY resolves
+     * `getClientIdByAssignedNumber(To)` a few lines earlier — it needs it to
+     * answer HELP in the tenant's own brand — and then dropped it on the floor.
+     * A homeowner texting HELP to a plumber's TradeLine number produced a row
+     * holding that homeowner's phone number and the message body, attributable
+     * to the plumber the whole time, and the plumber's deletion missed it. The
+     * handler now persists what it already knew, as `scope_client_id` — the same
+     * column name and the same meaning `sms_opt_outs` has carried since Wave 77.
+     *
+     * And nothing governed the rest: `jobs/retentionWorker.ts` covered exactly
+     * `integration_error_logs` and `processed_stripe_events`. `sms_messages` was
+     * in no sweep, so the "governed by" was a justification for a mechanism that
+     * did not exist. The genuinely unattributable case — HELP on the SHARED
+     * brand line, where the sender is a member of the public and no tenant is
+     * involved — is now bounded by RETENTION_SWEEPS, which does exist.
+     *
+     * (The STOP branch above writes no `sms_messages` row at all; it records the
+     * opt-out and replies. There is nothing there to reach.)
      */
     table: "sms_messages",
     action: "delete",
@@ -493,6 +561,7 @@ const DELETE_ANY_OF: TablePlan[] = [
       scopes: [
         { by: "parent", columns: ["calculator_id"], parent: "calculators", parentKey: "id" },
         { by: "parent", columns: ["lead_id"], parent: "leads", parentKey: "id" },
+        { by: "client", columns: ["scope_client_id"] },
       ],
     },
   },
@@ -898,6 +967,25 @@ export type RedactionMatch =
   | { by: "user"; column: string; as: "text" | "int" }
   /** `column` -> JSON path holds a `clients.id` this user owns. */
   | { by: "clientJson"; column: string; path: string[] }
+  /** `column` -> JSON path holds this account's `users.id`. */
+  | { by: "userJson"; column: string; path: string[] }
+  /**
+   * `column` -> JSON path holds the primary key of a row in `parent`, and
+   * `parent` is itself in the plan — so the account's own scope on that table
+   * decides whether this row belongs to them:
+   *   `<column> #>> <path> IN (SELECT <parentKey> FROM <parent> WHERE <parent scope>)`
+   *
+   * The JSON twin of `Scope`'s `parent` branch, and it exists for the same
+   * reason: a blob can name a row by id without naming its owner.
+   * `admin_ai_actions.detail.calculator_id` is the case — the bot detector
+   * records a LEAD's email address beside the calculator it was submitted to,
+   * and the calculator is the only thing on the row that says whose it is.
+   *
+   * Reads through `#>>`, so an id stored as a JSON number and one stored as a
+   * JSON string both compare alike; the detectors are hand-written object
+   * literals, not a schema, and both shapes occur.
+   */
+  | { by: "parentJson"; column: string; path: string[]; parent: string; parentKey: string }
   /** `typeColumn` = `entityType` AND `idColumn` is one of this account's ids. */
   | {
       by: "entity";
@@ -972,6 +1060,10 @@ export const PII_METADATA_KEYS: string[] = [
   "number",
   // Email addresses, including the account holder's own (impersonation rows).
   "email",
+  // `services/businessOperator/detectors/draftCalculators.ts` records the
+  // account holder's OWN login address beside the calculator it is nagging
+  // about — the very field ANONYMISE_FIELDS overwrites on the `users` row.
+  "owner_email",
   "target_email",
   "sender_email",
   "caller_email",
@@ -1067,7 +1159,247 @@ export const METADATA_REDACTIONS: MetadataRedaction[] = [
     textColumns: ["summary"],
     twilioColumns: ["metadata"],
   },
+  {
+    table: "system_alerts",
+    reason:
+      "Operational alerting trail, and the record of which operator acknowledged " +
+      "an incident and when (`acknowledged_by` / `acknowledged_at`). Deleting the " +
+      "row would erase an incident from our own reliability history on the say-so " +
+      "of the customer it happened to; the incident is kept and everything in it " +
+      "that identifies a person is overwritten.",
+    match: [
+      /* Both spellings, because there is no schema inside a jsonb column and the
+       * callers disagree: `services/reputation/reputationAlerts.ts` writes
+       * `clientId`, `services/sitelaunchPaidOrderNotify.ts` and
+       * `services/socialSync/connectionLifecycle.ts` write `client_id`. Matching
+       * only one of them would leave the other caller's alerts — which carry the
+       * business name in `title` AND in `details` — untouched. */
+      { by: "clientJson", column: "metadata", path: ["client_id"] },
+      { by: "clientJson", column: "metadata", path: ["clientId"] },
+      // `routes/stripeBillingRoutes.ts` forwards the CRM client id off the
+      // Stripe Checkout session under its own name.
+      { by: "clientJson", column: "metadata", path: ["crm_client_id"] },
+    ],
+    jsonColumns: ["metadata"],
+    /* Both are free text that interpolates personal data, so neither can be
+     * scrubbed selectively:
+     *   • `title` — `Payment at risk: ${client.business_name}` (dunningService),
+     *     `Ticket #12 — ${ticket.subject}` (adminAgentTools; the subject is what
+     *     the customer typed).
+     *   • `details` — `Client: ${businessName} (#${id})`, and
+     *     `Contact: ${contact}` on a SiteLaunch order.
+     * `title` is NOT NULL and the tombstone is a non-null string, so the
+     * overwrite is legal. It costs the 1-hour `category::title` dedupe window
+     * nothing: that window only ever compares alerts from the last hour, and a
+     * scrubbed row belongs to an account that can raise no further alerts. */
+    textColumns: ["title", "details"],
+    /* No caller writes a Twilio SID into an alert today. Declared anyway so that
+     * the first one to do so is PURGED rather than orphaned — the blob is
+     * scrubbed, and a SID scrubbed out of the only row naming it is the #2067
+     * defect rebuilt. Costs nothing on rows that hold none. */
+    twilioColumns: ["metadata"],
+  },
+  {
+    table: "admin_ai_actions",
+    reason:
+      "Record of what the autonomous Business Operator AI proposed about this " +
+      "account, whether a human approved it, and which operator did. It is the " +
+      "accountability trail for an agent that can act on customer data — the same " +
+      "argument as the impersonation log, and an audit trail the audited party " +
+      "can empty is not an audit trail. The reasoning survives; the personal data " +
+      "it reasoned about does not.",
+    match: [
+      // `detectors/draftCalculators.ts` — the only detector that names the user
+      // directly, and the one that records their own login address.
+      { by: "userJson", column: "detail", path: ["user_id"] },
+      // `detectors/stuckSubmissions.ts`, `pastDueSubscriptions.ts`,
+      // `unassignedWebFix.ts` — all keyed on the business.
+      { by: "clientJson", column: "detail", path: ["client_id"] },
+      /* `detectors/botSubmissions.ts` (kind: "email_pattern") records a LEAD's
+       * email address — a third party whose data the account holder collected —
+       * and names no user or client. The calculator it was submitted to is the
+       * only thing on the row that says whose lead it was, so the attribution
+       * runs through `calculators`, whose own scope decides. */
+      {
+        by: "parentJson",
+        column: "detail",
+        path: ["calculator_id"],
+        parent: "calculators",
+        parentKey: "id",
+      },
+    ],
+    /* `proposed_action` is Claude's own JSON (`{ type, ...args }`) built FROM
+     * `detail`, so it restates whatever `detail` held. Scrubbing one and not the
+     * other would leave the copy. */
+    jsonColumns: ["detail", "proposed_action"],
+    /* `summary` interpolates the address or the business name verbatim
+     * (`Lead #9 flagged as bot — email pattern (dana@example.test).`) and
+     * `ai_reasoning` is free text written ABOUT that summary, so it restates it.
+     * `playbook`, `signal_id`, `status` and `severity` are opaque identifiers and
+     * stay — they are the skeleton of what the agent did.
+     *
+     * `signal_id` is deliberately NOT scrubbed. On an attributable row it is an
+     * opaque key (`submission_42`); the one shape that embeds personal data is
+     * the bot detector's `ip_<address>_24h`, and those rows name no account at
+     * all, so no redaction predicate reaches them. They are bounded by
+     * RETENTION_SWEEPS instead — see the note there. */
+    textColumns: ["summary", "ai_reasoning"],
+    twilioColumns: ["detail"],
+  },
 ];
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * 5b. Bounded retention — the personal data no account deletion can reach.
+ *
+ * ── Why this section exists, and why it is not more plan entries ──
+ *
+ * The two sections above can only act on rows that name an account. Some of the
+ * personal data this product holds genuinely names none, and the honest answer
+ * is to say so and put a clock on it rather than invent an owner:
+ *
+ *   • A member of the public leaves a Google review on WEFIXTRADES' OWN
+ *     listing. Their display name and the text they wrote land in
+ *     `gbp_automation_log.payload`. They are not our customer, they have no
+ *     account, and no customer's deletion request has any claim on their words.
+ *   • Somebody texts HELP to the shared WeFixTrades brand line. Their phone
+ *     number is theirs, not any tenant's.
+ *   • The bot detector records the IP address behind a burst of lead
+ *     submissions. It spans whatever calculators the burst hit; there is no
+ *     single owner, and inventing one would be a guess written into a table.
+ *
+ * Attaching an owner column to any of these would be a lie, and deleting them
+ * on an unrelated customer's request would destroy somebody else's data. What
+ * was actually wrong was that they were kept FOREVER: unbounded retention of
+ * personal data with no stated basis is its own defect, and it is the one this
+ * fixes.
+ *
+ * A sweep is not a substitute for reachability. Anything that CAN be attributed
+ * is attributed — that is why every entry below is either a table no account
+ * can own, or is narrowed by `unattributedWhen` to exactly the rows the
+ * deletion path provably cannot reach.
+ *
+ * Run weekly by `server/jobs/retentionWorker.ts`, which is where the two
+ * pre-existing policies (integration_error_logs, processed_stripe_events)
+ * already live.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * One probe for "this row names nobody". A row is swept only when EVERY probe
+ * on its entry reads NULL — so a row that names an account by ANY route is left
+ * for the deletion path, never aged out from under it.
+ */
+export type AttributionProbe =
+  /** A plain column that would hold an owner id. */
+  | { column: string }
+  /** A JSON path inside a blob that would hold an owner id. */
+  | { column: string; path: string[] };
+
+export interface RetentionSweep {
+  table: string;
+  /** Timestamp column the row's age is measured from. */
+  ageColumn: string;
+  /** Rows older than this are removed. */
+  days: number;
+  /** Why this table cannot be reached by a deletion, and why this bound. */
+  reason: string;
+  /**
+   * Narrows the sweep to rows that name no account. Omitted = no row in this
+   * table can name one, so every aged row is swept.
+   */
+  unattributedWhen?: AttributionProbe[];
+}
+
+export const RETENTION_SWEEPS: RetentionSweep[] = [
+  {
+    table: "gbp_automation_log",
+    ageColumn: "created_at",
+    days: 90,
+    reason:
+      "Operational log for the crons that manage WEFIXTRADES' OWN Google " +
+      "Business Profile — not a customer's. `payload` carries the display name " +
+      "and up to 280 characters of the review text of members of the public who " +
+      "reviewed us, and `message` interpolates the same name. They hold no " +
+      "account, so no deletion request reaches them and attaching an owner " +
+      "column would be false. The log's operational value is the last few " +
+      "weeks of cron behaviour; 90 days is well past the point anyone reads it, " +
+      "and the durable copy of a review is Google's, not ours.",
+  },
+  {
+    table: "audit_reports",
+    ageColumn: "created_at",
+    days: 365,
+    reason:
+      "A snapshot of PUBLIC Google Places data about whichever business a " +
+      "visitor typed into the free audit — competitors, keywords, opening " +
+      "hours, and up to ~40 verbatim third-party review texts under " +
+      "`audit_data.reviewIntel.reviewTexts`. It holds no contact details of the " +
+      "person who requested it (those are in `audit_submissions`, which the plan " +
+      "DELETES by email) and no column that names an account: reports are " +
+      "generated for prospects and competitors as readily as for customers, so " +
+      "attributing one to the requester's account would be a guess that " +
+      "destroys reports about other businesses. It is also a shareable artefact " +
+      "at a stable public URL that our own follow-up emails link to, which is " +
+      "what sets the bound: one year outlives the longest follow-up sequence " +
+      "and every reasonable revisit.",
+  },
+  {
+    table: "marketing_chat_sessions",
+    ageColumn: "last_active_at",
+    days: 90,
+    reason:
+      "Anonymous transcripts from the website chat widget. A session where the " +
+      "visitor DID give an address is deleted by email through the plan; this " +
+      "sweep covers only the ones where they never did. Those name nobody — the " +
+      "`session_id` is a uuid the browser minted and is deliberately never tied " +
+      "to an auth session — so there is no request that could reach them, yet " +
+      "`messages_json` is a verbatim conversation and `user_agent` sits beside " +
+      "it. 90 days is past any sales follow-up window.",
+    unattributedWhen: [{ column: "lead_email" }],
+  },
+  {
+    table: "admin_ai_actions",
+    ageColumn: "created_at",
+    days: 180,
+    reason:
+      "The Business Operator AI's bot detector records `ip_address` — personal " +
+      "data in its own right (GDPR Art. 4(1)) — for a burst of lead submissions " +
+      "spanning whatever calculators it hit, and embeds it in `signal_id` too. " +
+      "No single account owns it. Rows that DO name a user, a client or a " +
+      "calculator are excluded here and scrubbed by METADATA_REDACTIONS " +
+      "instead, so this never ages out a row the deletion path can reach. 180 " +
+      "days keeps two quarters of agent-accountability history.",
+    unattributedWhen: [
+      { column: "detail", path: ["user_id"] },
+      { column: "detail", path: ["client_id"] },
+      { column: "detail", path: ["calculator_id"] },
+    ],
+  },
+  {
+    table: "sms_messages",
+    ageColumn: "created_at",
+    days: 365,
+    reason:
+      "Inbound HELP/INFO keywords that arrived on the SHARED WeFixTrades brand " +
+      "line rather than a tenant's own number (`routes/twilioRoutes.ts`). The " +
+      "sender is a member of the public and the number is theirs, not any " +
+      "customer's, so no tenant deletion has a claim — a HELP that arrived on a " +
+      "tenant's number now carries `scope_client_id` and IS deleted with that " +
+      "account. What keeps these at all is the carrier obligation to evidence " +
+      "that an A2P campaign answers HELP; a year covers any campaign audit, and " +
+      "the opt-out evidence carriers actually ask for lives in `sms_opt_outs`, " +
+      "which the plan retains outright on that basis.",
+    unattributedWhen: [
+      { column: "scope_client_id" },
+      { column: "lead_id" },
+      { column: "calculator_id" },
+    ],
+  },
+];
+
+/** The retention disclosure, for the privacy page and the coverage guard. */
+export function retentionSweepFor(table: string): RetentionSweep | undefined {
+  return RETENTION_SWEEPS.find((r) => r.table === table);
+}
 
 export function redactionFor(table: string): MetadataRedaction | undefined {
   return METADATA_REDACTIONS.find((r) => r.table === table);
@@ -1103,6 +1435,13 @@ const ASSEMBLED: TablePlan[] = [
       table,
       action: "delete",
       scope: { by: "parent", columns, parent, parentKey },
+    }),
+  ),
+  ...DELETE_BY_EMAIL.map(
+    ([table, column]): TablePlan => ({
+      table,
+      action: "delete",
+      scope: { by: "email", columns: [column] },
     }),
   ),
   ...DELETE_ANY_OF,

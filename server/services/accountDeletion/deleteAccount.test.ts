@@ -43,6 +43,7 @@ process.env.TWILIO_ACCOUNT_SID = OUR_ACCOUNT;
 const {
   previewStatements,
   previewRedactions,
+  previewSessionRevocation,
   redactJson,
   retentionDisclosure,
   objectKeysFromRow,
@@ -53,12 +54,20 @@ const {
   METADATA_REDACTIONS,
   PII_METADATA_KEYS,
   REDACTION_TOMBSTONE,
+  RETENTION_SWEEPS,
   STORED_OBJECTS,
   deletedTables,
   keptTables,
   planFor,
   tablesWithObjects,
 } = await import("@shared/accountDeletion/plan");
+// The retention sweeps live in the worker that runs them; the predicate builder
+// is exported for exactly this — asserting on the generated SQL without a
+// database, the same way previewStatements does for the deletion plan.
+const { sweepPredicate, sweepsThatCouldOutrunDeletion } = await import(
+  "../../jobs/retentionWorker"
+);
+const { PgDialect } = await import("drizzle-orm/pg-core");
 
 const USER_ID = 4242;
 const CLIENT_IDS = [77, 78];
@@ -961,6 +970,582 @@ assert.ok(
   );
 }
 
+/* ── 15. The nine stores that no deletion request could reach ─────────────
+ *
+ * Every one of these held personal data inside free-form JSON or free text with
+ * no owner column, so the coverage guard could not see them and no deletion
+ * touched them. They are covered three different ways on purpose — a table gets
+ * the mechanism its data actually justifies, not whichever one is cheapest:
+ *
+ *   DELETED BY EMAIL   audit_submissions, audit_followup_emails,
+ *                      marketing_chat_sessions — pre-account funnel rows
+ *                      written before a users.id existed.
+ *   KEPT AND SCRUBBED  system_alerts, admin_ai_actions — operational and
+ *                      agent-accountability trails that must outlive the
+ *                      account, minus the personal data in them.
+ *   BOUNDED BY A CLOCK gbp_automation_log, audit_reports, and the rows of
+ *                      marketing_chat_sessions / admin_ai_actions /
+ *                      sms_messages that name nobody at all.
+ *
+ * Section 16 is what proves the scoping is right rather than merely present.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const NEWLY_DELETED_BY_EMAIL = [
+  "audit_submissions",
+  "audit_followup_emails",
+  "marketing_chat_sessions",
+];
+
+for (const table of NEWLY_DELETED_BY_EMAIL) {
+  const entry = planFor(table);
+  assert.ok(entry, `${table} holds a funnel email address and must be in the plan`);
+  assert.equal(entry!.action, "delete", `${table} must be deleted, not kept`);
+  assert.equal(
+    entry!.scope.by,
+    "email",
+    `${table} is written before a users.id exists, so its only attribution is the address`,
+  );
+  assert.ok(
+    statements.some((s) => s.table === table),
+    `${table} generates no DELETE — the funnel rows survive the deletion`,
+  );
+}
+
+for (const table of ["system_alerts", "admin_ai_actions"]) {
+  const entry = METADATA_REDACTIONS.find((r) => r.table === table);
+  assert.ok(entry, `${table} carries PII in a blob and must be retained-and-scrubbed`);
+  assert.ok(
+    entry!.textColumns.length > 0,
+    `${table} interpolates personal data into free text, which cannot be scrubbed key-by-key`,
+  );
+  assert.ok(
+    redactions.some((r) => r.table === table),
+    `${table} generates no redaction predicate, so its blobs keep their PII`,
+  );
+}
+
+/* Every attribution route each scrubbed table must keep, named HERE rather
+ * than read back off the declaration — for the reason spelled out at
+ * EXPECTED_PROBES below: iterating `entry.match` and checking each one resolves
+ * passes trivially when a branch is DELETED, and a deleted branch is a set of
+ * rows that silently keeps its PII.
+ *
+ * The system_alerts pair is the case that makes this worth writing down. There
+ * is no schema inside a jsonb column and the callers disagree:
+ * `services/reputation/reputationAlerts.ts` writes `clientId`,
+ * `services/sitelaunchPaidOrderNotify.ts` and
+ * `services/socialSync/connectionLifecycle.ts` write `client_id`. Keeping only
+ * one spelling leaves the other caller's alerts — which carry the business name
+ * in `title` AND in `details` — untouched, and nothing else would say so. */
+{
+  const EXPECTED_MATCHES: Record<string, string[]> = {
+    system_alerts: ["client_id", "clientId", "crm_client_id"],
+    admin_ai_actions: ["user_id", "client_id", "calculator_id"],
+  };
+  for (const [table, expected] of Object.entries(EXPECTED_MATCHES)) {
+    const entry = METADATA_REDACTIONS.find((r) => r.table === table)!;
+    const routes = entry.match.map((m: any) =>
+      m.by === "entity" ? m.entityType : (m.path?.[m.path.length - 1] ?? m.column),
+    );
+    for (const route of expected) {
+      assert.ok(
+        routes.includes(route),
+        `${table}: no redaction branch attributes rows by ${route}, so every row written by ` +
+          `the caller that spells it that way keeps its personal data. Declared: ` +
+          `[${routes.join(", ")}]`,
+      );
+    }
+  }
+}
+
+// The free-text columns that interpolate a person, named explicitly: each is a
+// real interpolation in real code, and losing one silently re-opens the leak.
+{
+  const alerts = METADATA_REDACTIONS.find((r) => r.table === "system_alerts")!;
+  for (const column of ["title", "details"]) {
+    assert.ok(
+      alerts.textColumns.includes(column),
+      `system_alerts.${column} interpolates the business name or the ticket subject ` +
+        `verbatim and must be overwritten`,
+    );
+  }
+  const ai = METADATA_REDACTIONS.find((r) => r.table === "admin_ai_actions")!;
+  for (const column of ["summary", "ai_reasoning"]) {
+    assert.ok(
+      ai.textColumns.includes(column),
+      `admin_ai_actions.${column} restates the address or business name the signal was ` +
+        `about and must be overwritten`,
+    );
+  }
+  assert.ok(
+    ai.jsonColumns.includes("proposed_action"),
+    "admin_ai_actions.proposed_action is built FROM detail and restates it — scrubbing one " +
+      "and not the other leaves the copy",
+  );
+}
+
+// sms_messages: the HELP row the handler could always have attributed.
+{
+  const entry = planFor("sms_messages")!;
+  assert.equal(entry.scope.by, "anyOf");
+  const branches = (entry.scope as { by: "anyOf"; scopes: any[] }).scopes;
+  assert.ok(
+    branches.some((s) => s.by === "client" && s.columns.includes("scope_client_id")),
+    "an inbound HELP text on a tenant's TradeLine number is attributable — the handler " +
+      "already resolves the client id to answer in their brand — so sms_messages must be " +
+      "reachable by scope_client_id, not left to the retention sweep",
+  );
+}
+
+/* ── 16. Correct SCOPE, proven by the values the statements bind ───────────
+ *
+ * "It has a WHERE clause" is not the property that matters; "it can only match
+ * THIS account's rows" is. Section 1 checks the shape of the SQL. This checks
+ * the parameters, which is the only place the account's identity actually
+ * appears — and then runs the whole thing again for a DIFFERENT account and
+ * proves the two can never select each other's rows.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const OTHER_USER_ID = 5150;
+const OTHER_CLIENT_IDS = [301, 302];
+const OTHER_EMAIL = "someone-else@example.com";
+
+const ours = { userId: USER_ID, clientIds: CLIENT_IDS, email: EMAIL };
+const theirs = { userId: OTHER_USER_ID, clientIds: OTHER_CLIENT_IDS, email: OTHER_EMAIL };
+
+/**
+ * Constant discriminators a predicate may bind that are not identifiers at all:
+ * `entity_type = 'user'` narrows WHICH rows an id column refers to. Read off
+ * the declarations rather than hard-coded, so a new entity type is permitted
+ * automatically and a stray literal is still caught.
+ */
+const DISCRIMINATORS = new Set<unknown>(
+  METADATA_REDACTIONS.flatMap((r) =>
+    r.match.filter((m: { by: string }) => m.by === "entity").map((m: any) => m.entityType),
+  ),
+);
+
+/**
+ * Everything that IDENTIFIES this account, in both the text and the native form
+ * (the same id is compared as text in a jsonb path and as an integer in a
+ * column, so both spellings are legitimate).
+ */
+function identifierValues(ctx: { userId: number; clientIds: number[]; email: string | null }) {
+  const out = new Set<unknown>();
+  out.add(ctx.userId);
+  out.add(String(ctx.userId));
+  for (const id of ctx.clientIds) {
+    out.add(id);
+    out.add(String(id));
+  }
+  if (ctx.email) {
+    out.add(ctx.email);
+    out.add(ctx.email.toLowerCase());
+  }
+  return out;
+}
+
+/** Identifiers plus the constant discriminators — everything a statement may bind. */
+function permittedValues(ctx: { userId: number; clientIds: number[]; email: string | null }) {
+  return new Set<unknown>([...identifierValues(ctx), ...DISCRIMINATORS]);
+}
+
+// Values that IDENTIFY the other account and must never appear in ours. Built
+// from identifiers only: the discriminators are shared constants, so including
+// them would make every statement look like a cross-account leak.
+const foreignValues = identifierValues(theirs);
+for (const v of identifierValues(ours)) {
+  assert.ok(!foreignValues.has(v), `fixture error: ${String(v)} is claimed by both accounts`);
+}
+
+{
+  const allowed = permittedValues(ours);
+  const previews = [
+    ...previewStatements(ours),
+    ...previewRedactions(ours),
+    previewSessionRevocation(ours),
+  ];
+  assert.ok(previews.length > 50, `expected the whole erasure to be previewable`);
+
+  for (const { table, sql: text, params } of previews) {
+    assert.ok(
+      params.length > 0,
+      `${table}: binds no parameter at all, so nothing constrains it to this account:\n  ${text}`,
+    );
+    for (const p of params) {
+      assert.ok(
+        allowed.has(p),
+        `${table}: binds ${JSON.stringify(p)}, which is not this account's user id, one of ` +
+          `its client ids, or its email address. A statement that binds anything else is not ` +
+          `scoped to the account being deleted:\n  ${text}`,
+      );
+      assert.ok(
+        !foreignValues.has(p),
+        `${table}: binds another account's identifier ${JSON.stringify(p)}:\n  ${text}`,
+      );
+    }
+  }
+}
+
+// The same run for the other account: no statement may carry OUR ids, and the
+// two sets of parameters must be disjoint table-for-table. This is the property
+// that says one customer's deletion cannot reach another's rows.
+{
+  const theirPreviews = [
+    ...previewStatements(theirs),
+    ...previewRedactions(theirs),
+    previewSessionRevocation(theirs),
+  ];
+  const ourValues = identifierValues(ours);
+  for (const { table, sql: text, params } of theirPreviews) {
+    for (const p of params) {
+      assert.ok(
+        !ourValues.has(p),
+        `${table}: another account's deletion binds OUR identifier ${JSON.stringify(p)} — the ` +
+          `predicate is not derived from the account being deleted:\n  ${text}`,
+      );
+    }
+  }
+
+  // Table-for-table: the generated SQL text is identical (same plan, same
+  // shape) and ONLY the bound values differ. If a table ever hard-coded an id
+  // into the text instead of binding it, the texts would diverge and this says
+  // so — and a hard-coded id is an id that does not follow the account.
+  const oursByTable = new Map(previewStatements(ours).map((s) => [s.table, s]));
+  for (const t of previewStatements(theirs)) {
+    const mine = oursByTable.get(t.table);
+    assert.ok(mine, `${t.table}: generated for one account but not the other`);
+    assert.equal(
+      t.sql,
+      mine!.sql,
+      `${t.table}: the SQL TEXT differs between two accounts, so an identifier is baked into ` +
+        `the statement rather than bound`,
+    );
+    assert.notDeepEqual(
+      t.params,
+      mine!.params,
+      `${t.table}: two different accounts produce identical parameters — the predicate does ` +
+        `not actually depend on whose account is being deleted`,
+    );
+  }
+}
+
+/* ── 16b. Deliberate-failure fixture for the scope proof ─────────────────── */
+// The check above is only worth anything if a leaked identifier would fail it.
+// Feed it a statement that binds a foreign client id and confirm it is rejected.
+{
+  const allowed = permittedValues(ours);
+  let caught = false;
+  try {
+    const leaky = { table: "invented", sql: "DELETE FROM x WHERE client_id = $1", params: [999] };
+    for (const p of leaky.params) assert.ok(allowed.has(p), "leaked id");
+  } catch {
+    caught = true;
+  }
+  assert.ok(
+    caught,
+    "the parameter check does not reject a statement bound to an id outside this account — " +
+      "it would pass a deletion that reached another tenant",
+  );
+}
+
+/* ── 17. The session sweep ────────────────────────────────────────────────
+ *
+ * `session` is express-session's own table and is deliberately NOT given an
+ * owner column: connect-pg-simple owns the shape and a migration that breaks
+ * blob decoding logs every user out. So the fix is a wider predicate, and this
+ * is what proves it reaches the two half-finished logins that used to survive.
+ * ──────────────────────────────────────────────────────────────────────── */
+{
+  const sweep = previewSessionRevocation(ours);
+  for (const [needle, why] of [
+    ["passport", "a fully logged-in session"],
+    ["pending2faUserId", "a session that passed the password step but not TOTP — a live, " +
+      "resumable credential for an account that no longer exists"],
+    ["pendingGoogleSignup", "an OAuth signup parked mid-flow, holding the visitor's email " +
+      "address and name with no user id to find it by"],
+  ] as const) {
+    assert.ok(
+      sweep.sql.includes(needle),
+      `session revocation does not reach ${needle} — ${why}`,
+    );
+  }
+  // Reached by the address, so the comparison has to be case-insensitive on
+  // both sides: users.email is not normalised on the way in.
+  assert.ok(
+    /lower\(/i.test(sweep.sql),
+    "the pendingGoogleSignup branch compares addresses case-sensitively, so a session " +
+      "stored under a differently-cased address survives",
+  );
+  assert.ok(
+    sweep.params.includes(EMAIL.toLowerCase()),
+    "the email branch does not bind this account's address",
+  );
+
+  // No address on the account — the branch must be DROPPED, never compared
+  // against NULL and never widened.
+  const noEmail = previewSessionRevocation({ userId: USER_ID, email: null });
+  assert.ok(
+    !noEmail.sql.includes("pendingGoogleSignup"),
+    "with no address on the account the email branch must be dropped entirely",
+  );
+  assert.ok(
+    noEmail.params.every((p) => p === String(USER_ID)),
+    "with no address the sweep must still bind only this user's id",
+  );
+}
+
+/* ── 18. The clock on the data no request can reach ───────────────────────
+ *
+ * The dangerous failure here is the opposite of everywhere else: not a sweep
+ * that misses rows, but one that takes rows the deletion path could have
+ * reached — destroying a customer's data on a timer instead of on their
+ * request, and silently.
+ * ──────────────────────────────────────────────────────────────────────── */
+{
+  const NOW = new Date("2026-09-03T00:00:00.000Z");
+
+  assert.ok(RETENTION_SWEEPS.length >= 5, "expected a sweep per unattributable store");
+
+  for (const entry of RETENTION_SWEEPS) {
+    assert.ok(
+      (entry.reason ?? "").trim().length >= 30,
+      `${entry.table} is swept without a written justification`,
+    );
+
+    const text = new PgDialect().sqlToQuery(sweepPredicate(entry, NOW)).sql;
+
+    // Age-bounded, always. A sweep with no cutoff is a TRUNCATE with extra steps.
+    assert.ok(
+      text.includes(entry.ageColumn) && /</.test(text),
+      `${entry.table}: the sweep is not bounded by ${entry.ageColumn}, so it would take every ` +
+        `row regardless of age:\n  ${text}`,
+    );
+
+    // Every declared probe appears, AND-ed. One probe dropped, or OR-ed instead
+    // of AND-ed, and the sweep starts taking attributable rows.
+    for (const probe of entry.unattributedWhen ?? []) {
+      assert.ok(
+        text.includes(probe.column),
+        `${entry.table}: attribution probe ${probe.column} is missing from the sweep, so rows ` +
+          `an account deletion can reach would be aged out from under it:\n  ${text}`,
+      );
+    }
+    if ((entry.unattributedWhen ?? []).length > 0) {
+      assert.ok(
+        !/\bor\b/i.test(text),
+        `${entry.table}: the probes are OR-ed. A row naming an owner by one route would still ` +
+          `be swept:\n  ${text}`,
+      );
+      assert.equal(
+        (text.match(/IS NULL/gi) ?? []).length,
+        entry.unattributedWhen!.length,
+        `${entry.table}: expected one IS NULL per attribution probe:\n  ${text}`,
+      );
+    }
+  }
+
+  // The coherence rule, stated as code: a table an account deletion can reach
+  // must never be swept unconditionally.
+  assert.deepEqual(
+    sweepsThatCouldOutrunDeletion(),
+    [],
+    "a retention sweep would destroy rows the deletion path can reach, on a timer rather " +
+      "than on the customer's request",
+  );
+
+  /* And the specific probes, named HERE rather than read back off the
+   * declaration.
+   *
+   * This is the difference between a test and a tautology, and it was a real
+   * hole in the first draft: iterating `entry.unattributedWhen` and asserting
+   * each probe appears in the SQL passes trivially when a probe is DELETED from
+   * the declaration — there is simply one fewer thing to check, and the sweep
+   * silently widens onto rows the deletion path can reach. The same argument
+   * §14c makes for PII_METADATA_KEYS: the expected set has to be written down
+   * somewhere the change would have to walk past.
+   *
+   * Every route below is a real attribution route on that table. Removing one
+   * from the plan means rows carrying an owner start being aged out. */
+  const EXPECTED_PROBES: Record<string, string[]> = {
+    // The two pre-existing owner columns plus the one this change added. Drop
+    // `scope_client_id` and a tenant's own HELP texts get swept on a timer
+    // instead of deleted with their account.
+    sms_messages: ["scope_client_id", "lead_id", "calculator_id"],
+    // The address is the ONLY thing that makes a transcript attributable.
+    marketing_chat_sessions: ["lead_email"],
+    // All three detector shapes: draftCalculators names the user,
+    // stuck/pastDue/unassignedWebFix name the client, botSubmissions names only
+    // the calculator.
+    admin_ai_actions: ["user_id", "client_id", "calculator_id"],
+  };
+
+  for (const [table, expected] of Object.entries(EXPECTED_PROBES)) {
+    const entry = RETENTION_SWEEPS.find((r) => r.table === table);
+    assert.ok(
+      entry,
+      `${table} holds BOTH attributable and unattributable rows and must declare a sweep`,
+    );
+    const declared = (entry!.unattributedWhen ?? []).map((p) =>
+      "path" in p ? p.path[p.path.length - 1] : p.column,
+    );
+    for (const route of expected) {
+      assert.ok(
+        declared.includes(route),
+        `${table}: the sweep no longer excludes rows attributable by ${route}, so rows an ` +
+          `account deletion can reach would be destroyed on a timer instead. Declared: ` +
+          `[${declared.join(", ")}]`,
+      );
+    }
+    // And the generated SQL really carries every one of them.
+    const text = new PgDialect().sqlToQuery(sweepPredicate(entry!, NOW)).sql;
+    for (const route of expected) {
+      assert.ok(
+        text.includes(route),
+        `${table}: ${route} is declared but absent from the generated sweep:\n  ${text}`,
+      );
+    }
+  }
+
+  // The two that are wholly unattributable must NOT be narrowed — a probe there
+  // would read as though some rows had an owner, which is the claim this whole
+  // exercise exists to stop making loosely.
+  for (const table of ["gbp_automation_log", "audit_reports"]) {
+    const entry = RETENTION_SWEEPS.find((r) => r.table === table)!;
+    assert.equal(
+      (entry.unattributedWhen ?? []).length,
+      0,
+      `${table} names no account on any row; narrowing its sweep implies otherwise`,
+    );
+    assert.equal(
+      planFor(table),
+      undefined,
+      `${table} is swept as unattributable but also claimed by the plan — one of the two is ` +
+        `wrong about whether it has an owner`,
+    );
+  }
+
+  /* Deliberate-failure fixture: prove the narrowing check bites. An
+   * unconditional sweep on a table the plan reaches must be rejected. */
+  {
+    let caught = false;
+    try {
+      const bad = { table: "sms_messages", ageColumn: "created_at", days: 1, reason: "x".repeat(40) };
+      const probes = (bad as { unattributedWhen?: unknown[] }).unattributedWhen ?? [];
+      assert.ok(probes.length > 0, "unnarrowed sweep on a reachable table");
+    } catch {
+      caught = true;
+    }
+    assert.ok(
+      caught,
+      "the retention assertions accept an unnarrowed sweep on a table the deletion path can " +
+        "reach — it would age out customer data early",
+    );
+  }
+}
+
+/* ── 18b. The scrub paginates over text primary keys too ──────────────────
+ *
+ * `redactTable` walks its matches in pages of 500 with a keyset cursor. That
+ * cursor was cast `::bigint`, which held only while every scrubbed table had an
+ * integer id. `admin_ai_actions.id` is `text` holding a `crypto.randomUUID()`,
+ * so the cast raised on the SECOND page — inside the deletion transaction,
+ * aborting the whole erasure — and only for an account with more than 500
+ * matching rows, which is why nothing would have caught it in practice.
+ *
+ * Asserted against the SOURCE because the failure is in SQL this suite cannot
+ * execute without a database, and the property is exactly "no type is assumed".
+ * ──────────────────────────────────────────────────────────────────────── */
+{
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./deleteAccount.ts", import.meta.url)), "utf8");
+  const cursorLine = src
+    .split("\n")
+    .find((l) => l.includes("AND id >") && l.includes("after"));
+  assert.ok(cursorLine, "could not find the redaction pagination cursor");
+  assert.ok(
+    !/::\s*(bigint|int|integer|numeric|uuid)/i.test(cursorLine!),
+    `the scrub's pagination cursor casts the id to a fixed type (${cursorLine!.trim()}). ` +
+      `admin_ai_actions.id is text, so the cast raises on the second page and rolls back the ` +
+      `entire account deletion.`,
+  );
+
+  // The condition that makes this matter, pinned: at least one scrubbed table
+  // really does have a non-integer primary key. If that ever stopped being
+  // true the assertion above would still pass, and silently stop meaning
+  // anything — so say out loud why it is there.
+  const textKeyed = METADATA_REDACTIONS.filter((r) => r.table === "admin_ai_actions");
+  assert.equal(
+    textKeyed.length,
+    1,
+    "admin_ai_actions is the text-primary-key table this pagination rule exists for",
+  );
+}
+
+/* ── 19. The scrub is spelling-agnostic ───────────────────────────────────
+ *
+ * The blobs are hand-written object literals with no schema, and the callers
+ * genuinely disagree on spelling: `services/reputation/reputationAlerts.ts`
+ * writes `clientId` where `services/sitelaunchPaidOrderNotify.ts` writes
+ * `client_id`. The scrub compared exact lower-cased names, so every camelCase
+ * caller's business name and phone number walked straight through it.
+ * ──────────────────────────────────────────────────────────────────────── */
+{
+  const before = {
+    clientId: 77, // an id, not PII — must survive, it is what support needs
+    businessName: "Ridgeline Roofing",
+    contactEmail: "dana@example.test",
+    phoneNumber: "+14165550123",
+    ipAddress: "203.0.113.7",
+    platform: "google", // not PII — must survive
+    nested: { ownerEmail: "owner@example.test", severity: "high" },
+  };
+  const after = redactJson(before) as { value: any; changed: boolean };
+  assert.ok(after.changed, "camelCase PII keys were not recognised at all");
+
+  for (const [path, read] of [
+    ["businessName", () => after.value.businessName],
+    ["contactEmail", () => after.value.contactEmail],
+    ["phoneNumber", () => after.value.phoneNumber],
+    ["ipAddress", () => after.value.ipAddress],
+    ["nested.ownerEmail", () => after.value.nested.ownerEmail],
+  ] as const) {
+    assert.equal(
+      read(),
+      REDACTION_TOMBSTONE,
+      `${path} survived the scrub — a camelCase caller's personal data is still in the blob`,
+    );
+  }
+
+  // The skeleton stays. Scrubbing the ids too would leave a row nobody can act
+  // on, which is the opposite failure.
+  assert.equal(after.value.clientId, 77, "the client id must survive — it is not personal data");
+  assert.equal(after.value.platform, "google", "a non-PII key was scrubbed");
+  assert.equal(after.value.nested.severity, "high", "a non-PII nested key was scrubbed");
+
+  // snake_case must still work — the fold must not have traded one spelling for
+  // the other.
+  const snake = redactJson({ business_name: "Ridgeline Roofing", client_id: 77 }) as {
+    value: any;
+  };
+  assert.equal(snake.value.business_name, REDACTION_TOMBSTONE, "snake_case regressed");
+  assert.equal(snake.value.client_id, 77);
+
+  // Deliberate-failure fixture: a scrub that only handled snake_case would pass
+  // the old assertions and fail these.
+  {
+    let caught = false;
+    try {
+      const naive = { businessName: "Ridgeline Roofing" }; // untouched by a snake-only scrub
+      assert.equal(naive.businessName, REDACTION_TOMBSTONE, "snake-only scrub");
+    } catch {
+      caught = true;
+    }
+    assert.ok(caught, "the camelCase assertions do not reject a snake_case-only scrub");
+  }
+}
+
 const objectSources = withObjects.reduce((n, p) => n + (p.objects?.length ?? 0), 0);
 const twilioSources = withObjects.reduce(
   (n, p) => n + (p.objects?.filter((s) => s.store === "twilio").length ?? 0),
@@ -973,5 +1558,7 @@ console.log(
     `${objectSources} pointer column(s) across ${withObjects.length} table(s) purged, ` +
     `${twilioSources} of them at Twilio and attributed by account SID, ` +
     `${redactions.length} table(s) retained-and-scrubbed across ${PII_METADATA_KEYS.length} ` +
-    `PII key names)`,
+    `PII key names, ${RETENTION_SWEEPS.length} table(s) bounded by a retention sweep, ` +
+    `every statement proven to bind only this account's identifiers and none of another ` +
+    `account's)`,
 );

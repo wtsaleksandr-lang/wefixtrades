@@ -675,6 +675,24 @@ export const smsMessages = pgTable("sms_messages", {
   error_message: text("error_message"),
   delivered_at: timestamp("delivered_at", { withTimezone: true }),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  /**
+   * The tenant an inbound message arrived FOR, when no lead or calculator
+   * identifies it (migration 0101). Same name and same meaning as
+   * `sms_opt_outs.scope_client_id`: the client who owns the TradeLine number
+   * the sender texted, resolved by `getClientIdByAssignedNumber(To)`.
+   *
+   * Written by the inbound HELP/INFO handler in `routes/twilioRoutes.ts`, which
+   * already had to resolve it in order to answer in the tenant's own brand and
+   * then discarded it — leaving a row holding a member of the public's phone
+   * number and message body that the owning account's deletion could not find.
+   * NULL means the message arrived on the SHARED WeFixTrades brand line and
+   * belongs to no tenant; those rows are bounded by RETENTION_SWEEPS.
+   *
+   * Plain integer with no foreign key, exactly like `sms_opt_outs`: `clients`
+   * is anonymised rather than deleted, so an FK would buy nothing and a
+   * constraint on a hot inbound-webhook write path is a needless failure mode.
+   */
+  scope_client_id: integer("scope_client_id"),
   created_at: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // migrations/0050_perf_indexes.sql: two separate (col, created_at DESC)
@@ -689,6 +707,12 @@ export const smsMessages = pgTable("sms_messages", {
   ),
   // Wave 78 — status-callback lookups by Twilio MessageSid.
   twilioSidIdx: index("idx_sms_messages_twilio_sid").on(table.twilio_sid),
+  // migrations/0101 — the account-deletion scan and the retention sweep both
+  // filter on this column; partial so it stays small (only inbound keyword
+  // texts on a tenant number populate it).
+  scopeClientIdx: index("idx_sms_messages_scope_client")
+    .on(table.scope_client_id)
+    .where(sql`scope_client_id IS NOT NULL`),
 }));
 
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
